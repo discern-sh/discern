@@ -108,9 +108,6 @@ function futureVersionFixture(key: OnDiskFormatKey): string {
   if (format.versionField === "header") {
     return `discern crash report format ${future}\n`;
   }
-  if (format.versionField === "format") {
-    return JSON.stringify({ format: `${format.id}-v${future}` });
-  }
   if (format.versionField === "payloadType") {
     return JSON.stringify({
       payloadType:
@@ -243,7 +240,7 @@ Deno.test("emergency resolution keeps its durable version independently of compl
   );
   const { completionId } = await import("./completion_fixtures.ts");
   const existing = {
-    version: 2,
+    version: ON_DISK_FORMATS.emergencyResolution.version,
     landing_id: completionId(1),
     proof: { candidate_id: completionId(2), proof_id: completionId(3) },
     head: "a".repeat(40),
@@ -254,8 +251,11 @@ Deno.test("emergency resolution keeps its durable version independently of compl
     existing,
   );
   assert(
-    ON_DISK_FORMATS.emergencyResolution.version !==
-      Number(ON_DISK_FORMATS.completionRecord.version),
+    String(ON_DISK_FORMATS.emergencyResolution.id) !==
+        String(ON_DISK_FORMATS.completionRecord.id) &&
+      String(ON_DISK_FORMATS.emergencyResolution.schemaContract.module) !==
+        String(ON_DISK_FORMATS.completionRecord.schemaContract.module),
+    "the resolution document versions independently of the record envelope",
   );
   assertEquals(
     EmergencyResolutionSchema.safeParse({ ...existing, version: 999 }).success,

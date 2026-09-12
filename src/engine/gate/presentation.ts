@@ -238,7 +238,7 @@ export const GATE_PROOF_RECORD_PRESENTATION = {
   pending: {
     checkState: "skip",
     stateLabel: "pending",
-    summary: "Completion evidence or queue admission is pending.",
+    summary: "Completion evidence is pending.",
   },
   skipped_dirty: {
     checkState: "skip",

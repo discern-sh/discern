@@ -1,5 +1,3 @@
-import { EXECUTION_RECOVERY_DESCRIPTION } from "../shared/execution_recovery.ts";
-import { acceptanceArguments } from "./landing_queue/arguments.ts";
 /**
  * The engine-verb dispatcher: attaches the project task-runner verbs to the
  * `discern` CLI, including the `scripts` namespace for project-owned executables
@@ -248,10 +246,6 @@ export function attachEngineCommands(
   const trunkName = mainBranch === undefined ? "" : ` (\`${mainBranch}\`)`;
   root
     .command("done")
-    .option(
-      "--recover <environment-id:string>",
-      EXECUTION_RECOVERY_DESCRIPTION,
-    )
     .description(
       "Require a clean, committed tree. Run finishing steps that may change files, then verify the gate — the project's " +
         "full quality check: format, lint, type-check, and tests.",
@@ -262,23 +256,11 @@ export function attachEngineCommands(
     )
     .option(
       "--policy-base <ref:string>",
-      "Use the fetched immutable policy base for a standalone CI report. Strict completion selects its own queue predecessor.",
-    )
-    .option(
-      "--retain-checkout",
-      "Keep authoring control after completion; do not release this checkout for later validation or retirement.",
-    )
-    .option(
-      "--release-checkout",
-      "Release this exact proven source for validation and eligible cleanup without running a gate or landing, including after trunk moves.",
+      "Use the fetched immutable policy base for a standalone CI report. Strict completion checks against the trunk's current tip.",
     )
     .option(
       "--standalone",
-      "Run complete diagnostic feedback, including on a dirty tree. Results are transient, without queue admission or Proof.",
-    )
-    .option(
-      "--context <name:string>",
-      "Supply evidence only for this declared execution context (default: local).",
+      "Run complete diagnostic feedback, including on a dirty tree. Results are transient and issue no Proof.",
     )
     .option(
       "--rerun",
@@ -353,16 +335,8 @@ export function attachEngineCommands(
           import("./gate/finish.ts")
         );
         return await runFinish(await requireRoot("done", json), {
-          ...(o.recover === undefined ? {} : { recover: o.recover }),
-          ...(o.releaseCheckout === undefined
-            ? {}
-            : { releaseCheckout: o.releaseCheckout }),
           ...(o.policyBase === undefined ? {} : { policyBase: o.policyBase }),
-          ...(o.retainCheckout === undefined
-            ? {}
-            : { retainCheckout: o.retainCheckout }),
           ...(o.standalone === undefined ? {} : { standalone: o.standalone }),
-          ...(o.context === undefined ? {} : { context: o.context }),
           json,
           cliModel,
           dryRun: o.dryRun ?? false,
@@ -966,34 +940,18 @@ export function attachEngineCommands(
   root
     .command("accept [action:string]")
     .description(
-      `Accept and land this worktree's finished branch on the trunk${trunkName}, ` +
-        "the shared landing branch. Tracked refresh artifacts must already be " +
-        "current. Eligible cleanup removes released checkouts after landing. " +
-        "Use `hold`, `resume`, `withdraw`, `revoke`, or `reprioritize` with --dry-run to review a queue decision; apply with --confirmed and its --expected token. Use accept emergency --reason <text> " +
-        "to review an explicit exception against actual trunk. Emergency integration requires " +
-        "fresh exact owner confirmation and issues no passing Proof.",
+      `Submit this worktree's proven commit and land it on the trunk${trunkName}, ` +
+        "the shared landing branch. Landing needs the owner's consent in this " +
+        "conversation or a recorded grant; without one, the submission waits in " +
+        "the landing queue. Landing removes the worktree and its branch when the " +
+        "branch holds nothing beyond the landed commit. Use accept emergency " +
+        "--reason <text> to review an explicit exception against actual trunk. " +
+        "Emergency integration requires fresh exact owner confirmation and issues no passing Proof.",
     )
-    .option("--dry-run", "Show the acceptance plan; touch nothing.")
-    .option(
-      "--reconcile",
-      "Reconcile an externally integrated exact proven source and eligible retirement. Requires --target and the --expected token from its preview; never advances refs or records historical landing consent.",
-    )
-    .option(
-      "--expected <stamp:string>",
-      "For queue controls or --reconcile: the `expected_state` token returned by its preview.",
-    )
-    .option(
-      "--order <effort:string>",
-      "For `reprioritize`: every eligible effort in the desired order (repeatable).",
-      { collect: true },
-    )
+    .option("--dry-run", "Show the landing plan and the queue; touch nothing.")
     .option(
       "--target <effort:string>",
-      "Select the effort by id, path, branch, or full local ref. Confirmation covers only this source; required predecessors need separate authority.",
-    )
-    .option(
-      "--reclaim <retirement-id:string>",
-      "Retry bounded artifact cleanup for one settled retirement from the main checkout, without validation or landing.",
+      "Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with --confirmed.",
     )
     .option(
       "--prepare",
@@ -1046,20 +1004,40 @@ export function attachEngineCommands(
       { collect: true },
     )
     .action(recordedExit("accept", async (o, action: string | undefined) => {
-      const parsed = acceptanceArguments(action, o);
+      const { emergencyArguments } = await loadModule(() =>
+        import("./emergency/arguments.ts")
+      );
+      const parsed = emergencyArguments(action, o);
       if (parsed.kind === "refusal") throw new CliRefusal(parsed.result);
       const json = jsonFrom(o);
       return await runWorktreeOp(
-        (ctx, lc) =>
-          lc.accept(ctx, {
-            ...parsed.value,
+        async (ctx) => {
+          if (parsed.value.emergency !== undefined) {
+            const { emergencyResult } = await loadModule(() =>
+              import("./emergency/action.ts")
+            );
+            const { emitOrRenderWorktreeResult } = await loadModule(() =>
+              import("./worktree/lifecycle.ts")
+            );
+            emitOrRenderWorktreeResult(
+              ctx,
+              await emergencyResult(ctx, parsed.value.emergency),
+              json,
+            );
+            return;
+          }
+          const { acceptLanding } = await loadModule(() =>
+            import("./worktree/accept.ts")
+          );
+          await acceptLanding(ctx, {
+            ...(o.target === undefined ? {} : { target: o.target }),
             json,
             dryRun: o.dryRun ?? false,
             confirmed: o.confirmed ?? false,
             variance: o.variance ?? [],
             approveStandard: o.approveStandard ?? [],
-            cliModel,
-          }),
+          });
+        },
         { json, verb: "accept" },
       );
     }));

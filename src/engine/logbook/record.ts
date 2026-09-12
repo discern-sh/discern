@@ -1,4 +1,3 @@
-import { AcceptancePrefixSchema } from "../../shared/result_schemas.ts";
 /**
  * The logbook **recorder** — the layer between an interceptor (the CLI action
  * wrapper in `cli.ts`, the MCP `runTool` completion chokepoint) and the store,
@@ -421,10 +420,7 @@ interface LiftedData {
 }
 
 /** Reduce an envelope's `data` to the liftable facts it carries, by shape. */
-function liftData(
-  data: unknown,
-  source: Pick<RecordingContext, "branch" | "head" | "trunk">,
-): LiftedData {
+function liftData(data: unknown): LiftedData {
   if (typeof data !== "object" || data === null) {
     return {};
   }
@@ -497,42 +493,6 @@ function liftData(
         ? { scopes: consent.data.consent.scopes }
         : {}),
     };
-  }
-  const prefixes = z.looseObject({ queue: z.array(AcceptancePrefixSchema) })
-    .safeParse(data);
-  if (prefixes.success) {
-    const ownSource = prefixes.data.queue.filter((row) =>
-      row.branch.replace(/^refs\/heads\//u, "") === source.branch &&
-      source.head !== null && row.source_head.startsWith(source.head)
-    );
-    const landed =
-      (source.branch === source.trunk ? prefixes.data.queue : ownSource)
-        .filter((row) => row.state === "landed");
-    const single = landed.length === 1 ? landed[0] : undefined;
-    if (single?.consent !== undefined) {
-      lifted.consent = {
-        source: single.consent.source,
-        ...(single.consent.scopes === undefined
-          ? {}
-          : { scopes: single.consent.scopes }),
-      };
-    }
-    const scopes = [
-      ...new Set(landed.flatMap((row) => row.scopes_changed ?? [])),
-    ];
-    if (scopes.length > 0) lifted.scopes = scopes;
-    if (landed.length > 0) {
-      lifted.landing = {
-        recovery_performed: false,
-        trunk_landed: true,
-        worktree_removed: landed.every((row) =>
-          row.retirement_effects?.worktree_removed === true
-        ),
-        branch_deleted: landed.every((row) =>
-          row.retirement_effects?.branch_deleted === true
-        ),
-      };
-    }
   }
   const landing = liftedLandingShape.safeParse(data);
   if (landing.success) {
@@ -714,7 +674,7 @@ export function beginRecording(
           ? diagnosticClasses(report.result)
           : undefined;
         const validation = validationEvidence(report.result);
-        const lifted = liftData(report.result?.data, ctx);
+        const lifted = liftData(report.result?.data);
         // A successful payload names the object actually served. Surface input
         // remains the fallback for human-only reads and refused lookups.
         const target = lifted.target ?? report.target;

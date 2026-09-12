@@ -1,914 +1,767 @@
-import { gitOperationMarkerPath } from "../src/shared/git_admin_paths.ts";
-import { PROOF_NOTES_REF } from "../src/shared/git_conventions.ts";
-import { recordExceptionNote } from "../src/engine/emergency/note.ts";
+/**
+ * The emergency exchange: an owner-approved exception lands one exact repair
+ * through the acceptance transaction with no passing Proof. The plan serves a
+ * short-lived confirmation over the exact subject; recorded grants never cover
+ * it; the landing settles an `exception` record whose note and cleanup are
+ * reported separately; recovery reconciles only the recorded transition.
+ */
+
 import { decodeBase64 } from "@std/encoding/base64";
-import { decodeJson } from "../src/shared/runtime_decode.ts";
-import {
-  EmergencyNoteEnvelopeSchema,
-  EmergencyNotePayloadSchema,
-} from "../src/shared/emergency_note.ts";
-import { ProofNotePayloadSchema } from "../src/shared/result_schemas.ts";
-import { readProofNoteAt } from "../src/engine/gate/proof_notes.ts";
-import {
-  EmergencyResolutionSchema,
-  resolveEmergencyValidation,
-} from "../src/engine/emergency/obligations.ts";
-import { artifactPath } from "../src/engine/execution/artifact_read.ts";
-/** Emergency integration uses exact fresh consent and the shared durable transition. */
+import { join } from "@std/path";
 import {
   assert,
   assertEquals,
-  assertRejects,
   assertStringIncludes,
+  assertThrows,
 } from "@std/assert";
-import { project } from "./completion_public_fixture.ts";
-import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
-import { git, gitOut, runAgent } from "./engine_helpers.ts";
-import { emergencyResult } from "../src/engine/emergency/action.ts";
-import { lifecycleContext } from "../src/engine/worktree/lifecycle.ts";
-import { Logger } from "../src/lib/log.ts";
-import {
-  emergencyValidationInventory,
-  emergencyValidationStatus,
-} from "../src/engine/emergency/obligations.ts";
-import {
-  observedRecords,
-  observeQueue,
-} from "../src/engine/landing_queue/repository.ts";
-import { LANDING_BOUNDARIES } from "../src/engine/landing_queue/publication.ts";
-import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
-import { readEffortGrant } from "../src/engine/worktree/effort_grant.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../src/shared/clock.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { EmergencyNotePayloadSchema } from "../src/shared/emergency_note.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { sha256Hex } from "../src/shared/sha256.ts";
+import { readEffortGrant } from "../src/engine/worktree/effort_grant.ts";
+import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
+import {
+  readCompletionRecord,
+  writeCompletionRecord,
+} from "../src/engine/completion/store.ts";
+import type { CompletionRecord } from "../src/engine/completion/records.ts";
+import type { ExceptionRecord } from "../src/engine/completion/exception.ts";
+import { emergencyId } from "../src/engine/emergency/plan.ts";
+import {
+  canonicalExceptionNote,
+  recordExceptionNote,
+} from "../src/engine/emergency/note.ts";
+import {
+  addWorktree,
+  git,
+  gitInit,
+  gitOut,
+  runAgent,
+  scaffoldEngine,
+  writeConfig,
+  writeExecutable,
+} from "./engine_helpers.ts";
+import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
+import { BOUNDARY, emergencyData } from "./completion_emergency_helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { z } from "@zod/zod";
 
-Deno.test("emergency preview rejects ordinary grants, changed reason and source; later validation retains the exception", async () => {
-  await withTempDir(async (root) => {
-    const path = await project(root, ["local"]);
-    const ctx = await lifecycleContext(
-      path,
-      new Logger({ json: true, noColor: true }),
+/** A gate whose one check fails while `taboo.txt` exists in the tree. */
+const CONFIG_CHECK = [
+  "[project]",
+  'slug = "engine-test"',
+  "",
+  "[repository]",
+  'trunk = "main"',
+  "",
+  "[jobs]",
+  'lint = "sh check.sh"',
+  "",
+].join("\n");
+
+const CHECK_NO_TABOO = ["#!/usr/bin/env sh", "test ! -e taboo.txt", ""].join(
+  "\n",
+);
+
+const DSSE_ENVELOPE_SCHEMA = z.object({ payload: z.string() }).passthrough();
+
+/** A repair worktree whose committed fix trips the gate deliberately. */
+async function failingRepair(dir: string): Promise<string> {
+  await scaffoldEngine(dir);
+  await writeConfig(dir, CONFIG_CHECK);
+  await writeExecutable(join(dir, "check.sh"), CHECK_NO_TABOO);
+  await gitInit(dir);
+  const wt = await addWorktree(dir, "repair");
+  await Deno.writeTextFile(join(wt, "hotfix.txt"), "restore service\n");
+  await Deno.writeTextFile(join(wt, "taboo.txt"), "known breakage\n");
+  await git(wt, "add", "-A");
+  await git(wt, "commit", "-q", "-m", "fix: emergency repair", "--no-gpg-sign");
+  const failed = await runAgent(wt, ["done", "--json"]);
+  assertEquals(failed.code, 1, failed.output);
+  return wt;
+}
+
+Deno.test("emergency serves an exact confirmation, excludes recorded grants, and lands an exception record with note and cleanup reported", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await failingRepair(dir);
+    const branch = await gitOut(wt, "branch", "--show-current");
+    const repairHead = await gitOut(wt, "rev-parse", "HEAD");
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
+
+    // A recorded effort grant covers ordinary green landings only: the failing
+    // gate has nothing proven, and the emergency route still demands its own
+    // fresh exact confirmation.
+    await grantEffort(wt, branch, wallTimeIso(SYSTEM_CLOCK.wallNow()));
+    const ordinary = await runAgent(wt, ["accept", "--json"]);
+    assertEquals(ordinary.code, 1, ordinary.output);
+    assertEquals(
+      decodeCliResult(ordinary.stdout, "accept").error,
+      "precondition_failed",
+      ordinary.output,
     );
-    const before = await gitOut(root, "rev-parse", "main");
-    await grantEffort(
-      path,
-      "agent/public-done",
-      wallTimeIso(SYSTEM_CLOCK.wallNow()),
-    );
-    const grant = await readEffortGrant(path);
-    const beforePreview = observedRecords(await observeQueue(root, "main"));
-    const cliPreview = await runAgent(path, [
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+
+    const reason = "Restore the broken deploy path";
+    const preview = await runAgent(wt, [
       "accept",
       "emergency",
+      "--reason",
+      reason,
+      "--json",
+    ]);
+    assertEquals(preview.code, 1, preview.output);
+    const previewEnvelope = decodeCliResult(preview.stdout, "accept");
+    assertEquals(previewEnvelope.error, "awaiting_consent");
+    const previewEmergency = emergencyData(preview.stdout);
+    assertEquals(previewEmergency.outcome, "preview");
+    assert(previewEmergency.confirmation !== undefined, preview.output);
+    assert((previewEmergency.exceptions?.length ?? 0) > 0, preview.output);
+    assertStringIncludes(previewEnvelope.message ?? "", BOUNDARY);
+    assertStringIncludes(
+      previewEnvelope.message ?? "",
+      "The confirmation expires in 15 minutes; changed subjects require another review.",
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+    assert(await targetExists(wt), "a preview lands nothing");
+
+    // The grant survives the preview untouched, and the --confirmed flag alone
+    // (without the exact confirmation token) is still only a preview refusal.
+    assertEquals((await readEffortGrant(wt)).status, "granted");
+    const flagOnly = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--confirmed",
+      "--json",
+    ]);
+    assertEquals(flagOnly.code, 1, flagOnly.output);
+    assertEquals(
+      decodeCliResult(flagOnly.stdout, "accept").error,
+      "awaiting_consent",
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+
+    // The owner-approved exact exchange lands the repair with no passing Proof.
+    const token = previewEmergency.confirmation;
+    assert(token !== undefined);
+    const landed = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--confirmed",
+      "--confirmation",
+      token,
+      "--json",
+    ]);
+    assertEquals(landed.code, 0, landed.output);
+    const landedEnvelope = decodeCliResult(landed.stdout, "accept");
+    assertEquals(landedEnvelope.ok, true);
+    const landedEmergency = emergencyData(landed.stdout);
+    assertEquals(landedEmergency.outcome, "landed");
+    assertEquals(landedEmergency.note, "published");
+    assertEquals(landedEmergency.cleanup, "removed");
+    assert(landedEmergency.landing_id !== undefined);
+    assertStringIncludes(landedEnvelope.message ?? "", BOUNDARY);
+    assertStringIncludes(
+      landedEnvelope.message ?? "",
+      `\`${branch}\` landed on main as an emergency, with no passing Proof.`,
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), repairHead);
+    assertEquals(await targetExists(wt), false, landed.output);
+
+    // The durable exception record settled: landed, note published.
+    const record = await readCompletionRecord(dir, {
+      kind: "exception",
+      id: landedEmergency.landing_id,
+    });
+    assert(record.kind === "recorded" && record.record.kind === "exception");
+    assertEquals(record.record.data.outcome.kind, "landed");
+    assertEquals(record.record.data.note, "published");
+    assertEquals(record.record.data.target, repairHead);
+    assertEquals(record.record.data.claim.reason, reason);
+
+    // The exception note reached the landed commit under the shared notes ref.
+    const note = await gitOut(
+      dir,
+      "notes",
+      "--ref=discern",
+      "show",
+      repairHead,
+    );
+    const envelope = decodeWith(DSSE_ENVELOPE_SCHEMA, note);
+    const payload = decodeWith(
+      EmergencyNotePayloadSchema,
+      new TextDecoder().decode(decodeBase64(envelope.payload)),
+    );
+    assertEquals(payload.kind, "emergency-exception");
+    assertEquals(payload.landing_id, landedEmergency.landing_id);
+    assertEquals(payload.claim.reason, reason);
+
+    // The landing reports the validation still owed on the landed trunk.
+    assertStringIncludes(
+      landedEnvelope.message ?? "",
+      "Run discern done --rerun on the current committed trunk or a repair containing it to resolve outstanding validation.",
+    );
+
+    // Recovery reconciles only the recorded transition, read-only first.
+    const recoverPreview = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      landedEmergency.landing_id,
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(recoverPreview.code, 0, recoverPreview.output);
+    assertTerminalTextIncludes(
+      decodeCliResult(recoverPreview.stdout, "accept").message ?? "",
+      "Recover only this recorded emergency transition and its cleanup. No new integration or authorization is created.",
+    );
+    const recovered = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      landedEmergency.landing_id,
+      "--json",
+    ]);
+    assertEquals(recovered.code, 0, recovered.output);
+    const recoveredEmergency = emergencyData(recovered.stdout);
+    assertEquals(recoveredEmergency.outcome, "landed");
+    assertEquals(recoveredEmergency.note, "published");
+    assertEquals(await gitOut(dir, "rev-parse", "main"), repairHead);
+  });
+});
+
+Deno.test("emergency refuses a changed subject and a replayed confirmation without landing", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await failingRepair(dir);
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
+    const reason = "Restore service";
+    const preview = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--json",
+    ]);
+    assertEquals(preview.code, 1, preview.output);
+    const token = emergencyData(preview.stdout).confirmation;
+    assert(token !== undefined);
+
+    // The approved subject changes: the old confirmation covers nothing, and
+    // the exchange serves a fresh preview instead of landing.
+    await Deno.writeTextFile(join(wt, "hotfix.txt"), "second attempt\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "revise the repair", "--no-gpg-sign");
+    const replay = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--confirmed",
+      "--confirmation",
+      token,
+      "--json",
+    ]);
+    assertEquals(replay.code, 1, replay.output);
+    const replayEnvelope = decodeCliResult(replay.stdout, "accept");
+    assertEquals(replayEnvelope.error, "awaiting_consent");
+    const replayEmergency = emergencyData(replay.stdout);
+    assertEquals(replayEmergency.outcome, "preview");
+    assert(
+      replayEmergency.confirmation !== undefined &&
+        replayEmergency.confirmation !== token,
+      "a changed subject serves a fresh confirmation",
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+    assert(await targetExists(wt));
+
+    // A changed reason is a different subject too.
+    const changedReason = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      "A different justification",
+      "--confirmed",
+      "--confirmation",
+      replayEmergency.confirmation,
+      "--json",
+    ]);
+    assertEquals(changedReason.code, 1, changedReason.output);
+    assertEquals(
+      decodeCliResult(changedReason.stdout, "accept").error,
+      "awaiting_consent",
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+  });
+});
+
+/**
+ * The exception record the exchange writes before its transition, rebuilt from
+ * a served preview — the durable shape an interruption between record
+ * publication and the trunk transition leaves behind for --recover.
+ */
+function plannedExceptionRecord(
+  preview: ReturnType<typeof emergencyData>,
+  id: string,
+  reason: string,
+): CompletionRecord {
+  const candidate = preview.candidate;
+  const exceptions = preview.exceptions;
+  assert(candidate !== undefined && exceptions !== undefined);
+  const now = SYSTEM_CLOCK.wallNow();
+  return {
+    version: ON_DISK_FORMATS.completionRecord.version,
+    kind: "exception",
+    id,
+    revision: 1,
+    data: {
+      claim: {
+        kind: "exception",
+        authorization_id: id,
+        authorized_at: now,
+        actual_trunk: candidate.predecessor,
+        source: candidate.source,
+        candidate_id: preview.candidate_id ?? candidate.attempt_id,
+        candidate_head: candidate.head,
+        policy: candidate.policy,
+        reason,
+        exceptions,
+      },
+      executor: {
+        operation_id: crypto.randomUUID(),
+        originating_effort: candidate.source.effort_id,
+        started_at: now,
+      },
+      expected_trunk: candidate.predecessor,
+      target: candidate.head,
+      outcome: { kind: "planned" },
+      note: "pending",
+    },
+  };
+}
+
+Deno.test("a recorded authorization refuses confirmation replay, and recovery settles a never-advanced transition as not landed", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await failingRepair(dir);
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
+    const reason = "Restore service";
+    const preview = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--json",
+    ]);
+    assertEquals(preview.code, 1, preview.output);
+    const served = emergencyData(preview.stdout);
+    const token = served.confirmation;
+    assert(token !== undefined);
+
+    // A dry-run preview serves the same plan shape and consumes nothing.
+    const dry = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(dry.code, 0, dry.output);
+    const dryEnvelope = decodeCliResult(dry.stdout, "accept");
+    assertEquals(dryEnvelope.dry_run, true);
+    assertEquals(emergencyData(dry.stdout).outcome, "preview");
+    assertStringIncludes(dryEnvelope.message ?? "", BOUNDARY);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+
+    // The crash shape: the authorization record exists, planned, and the
+    // transition never ran. Replaying the owner's confirmation refuses.
+    const id = emergencyId(await sha256Hex(token));
+    const written = await writeCompletionRecord(
+      dir,
+      plannedExceptionRecord(served, id, reason),
+      null,
+    );
+    assertEquals(written.kind, "written", JSON.stringify(written));
+    const replay = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--confirmed",
+      "--confirmation",
+      token,
+      "--json",
+    ]);
+    assertEquals(replay.code, 1, replay.output);
+    const replayEnvelope = decodeCliResult(replay.stdout, "accept");
+    assertEquals(replayEnvelope.error, "precondition_failed");
+    assertStringIncludes(
+      replayEnvelope.message ?? "",
+      `This emergency authorization already has a record. Use discern accept emergency --recover ${id}; do not replay confirmation.`,
+    );
+    assert(
+      (replayEnvelope.hints ?? []).some((hint) =>
+        hint.includes(
+          "Resolve the reported precondition, then prepare a new emergency plan.",
+        )
+      ),
+      replay.output,
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+
+    // Recovery settles the recorded transition: the trunk never advanced.
+    const recovered = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      id,
+      "--json",
+    ]);
+    assertEquals(recovered.code, 1, recovered.output);
+    const recoveredEnvelope = decodeCliResult(recovered.stdout, "accept");
+    assertEquals(recoveredEnvelope.error, "precondition_failed");
+    assertStringIncludes(
+      recoveredEnvelope.message ?? "",
+      "did not land; the emergency was not applied and no Proof was issued.",
+    );
+    assertStringIncludes(
+      recoveredEnvelope.message ?? "",
+      "The unlanded outcome is settled. Return to the repair worktree and prepare a new emergency plan for fresh owner review.",
+    );
+    assertEquals(emergencyData(recovered.stdout).outcome, "not-landed");
+    assert(
+      (recoveredEnvelope.hints ?? []).some((hint) =>
+        hint.includes(
+          "No integration occurred. Return to the repair worktree and prepare a new emergency plan for fresh owner review.",
+        )
+      ),
+      recovered.output,
+    );
+    const settled = await readCompletionRecord(dir, {
+      kind: "exception",
+      id,
+    });
+    assert(settled.kind === "recorded" && settled.record.kind === "exception");
+    assert(settled.record.data.outcome.kind === "not-landed");
+    assertEquals(
+      settled.record.data.outcome.reason,
+      "the recorded transition never advanced the trunk",
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+    assert(await targetExists(wt), "a not-landed recovery keeps the repair");
+
+    // The settled outcome reads the same on a repeated recovery.
+    const again = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      id,
+      "--json",
+    ]);
+    assertEquals(again.code, 1, again.output);
+    assertEquals(emergencyData(again.stdout).outcome, "not-landed");
+
+    // An unknown landing id names no record.
+    const unknown = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      crypto.randomUUID(),
+      "--json",
+    ]);
+    assertEquals(unknown.code, 1, unknown.output);
+    assertTerminalTextIncludes(
+      decodeCliResult(unknown.stdout, "accept").message ?? "",
+      "No readable emergency landing exists at that id. Preserve the records and inspect status.",
+    );
+  });
+});
+
+Deno.test("recovery completes an advanced-but-unsettled transition: note collision reported, then published, checkout kept then removed", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await failingRepair(dir);
+    const repairHead = await gitOut(wt, "rev-parse", "HEAD");
+    const reason = "Restore the broken deploy path";
+    const preview = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--json",
+    ]);
+    assertEquals(preview.code, 1, preview.output);
+    const id = crypto.randomUUID();
+    const written = await writeCompletionRecord(
+      dir,
+      plannedExceptionRecord(emergencyData(preview.stdout), id, reason),
+      null,
+    );
+    assertEquals(written.kind, "written", JSON.stringify(written));
+
+    // The crash happened after the trunk advanced: reproduce that exact state
+    // by hand, with a foreign note already on the landed commit and work
+    // still sitting uncommitted in the repair's checkout.
+    await git(dir, "merge", "--ff-only", repairHead);
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      "prior claim",
+      repairHead,
+    );
+    await Deno.writeTextFile(join(wt, "follow-up.txt"), "unfinished\n");
+
+    const first = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      id,
+      "--json",
+    ]);
+    assertEquals(first.code, 1, first.output);
+    const firstEnvelope = decodeCliResult(first.stdout, "accept");
+    assertEquals(firstEnvelope.error, "partial_acceptance");
+    const firstEmergency = emergencyData(first.stdout);
+    assertEquals(firstEmergency.outcome, "landed");
+    assertEquals(firstEmergency.note, "failed");
+    assertEquals(firstEmergency.cleanup, "kept");
+    assertStringIncludes(
+      firstEnvelope.message ?? "",
+      `The exception note was not recorded. Run discern accept emergency --recover ${id} after repairing Git notes access.`,
+    );
+    // The foreign claim survives untouched.
+    assertEquals(
+      await gitOut(dir, "notes", "--ref=discern", "show", repairHead),
+      "prior claim",
+    );
+    assert(
+      (firstEnvelope.hints ?? []).some((hint) =>
+        hint.includes(
+          `Run discern accept emergency --recover ${id} to inspect and reconcile this recorded transition.`,
+        )
+      ),
+      first.output,
+    );
+
+    // With the collision cleared and the checkout clean, the same recovery
+    // publishes the note and finishes cleanup.
+    await git(dir, "notes", "--ref=discern", "remove", repairHead);
+    await Deno.remove(join(wt, "follow-up.txt"));
+    const second = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      id,
+      "--json",
+    ]);
+    assertEquals(second.code, 0, second.output);
+    const secondEmergency = emergencyData(second.stdout);
+    assertEquals(secondEmergency.note, "published");
+    assertEquals(secondEmergency.cleanup, "removed");
+    assertTerminalTextIncludes(
+      decodeCliResult(second.stdout, "accept").message ?? "",
+      "Run discern done --rerun on the current committed trunk or a repair containing it to resolve outstanding validation.",
+    );
+    assertEquals(await targetExists(wt), false, second.output);
+    const payload = decodeWith(
+      EmergencyNotePayloadSchema,
+      new TextDecoder().decode(
+        decodeBase64(
+          decodeWith(
+            DSSE_ENVELOPE_SCHEMA,
+            await gitOut(dir, "notes", "--ref=discern", "show", repairHead),
+          ).payload,
+        ),
+      ),
+    );
+    assertEquals(payload.landing_id, id);
+    const settled = await readCompletionRecord(dir, {
+      kind: "exception",
+      id,
+    });
+    assert(settled.kind === "recorded" && settled.record.kind === "exception");
+    assertEquals(settled.record.data.outcome.kind, "landed");
+    assertEquals(settled.record.data.note, "published");
+  });
+});
+
+Deno.test("emergency argument combinations refuse before any plan is read", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await failingRepair(dir);
+    // Emergency fields without the explicit action.
+    const withoutAction = await runAgent(wt, [
+      "accept",
       "--reason",
       "Restore service",
       "--json",
     ]);
-    const decodedPreview = decodeCliResult(cliPreview.stdout, "accept");
-    assertEquals(decodedPreview.error, "awaiting_consent", cliPreview.output);
-    assert(
-      decodedPreview.data !== undefined && "emergency" in decodedPreview.data &&
-        decodedPreview.data.emergency?.confirmation,
+    assertEquals(withoutAction.code, 1, withoutAction.output);
+    const refusal = decodeCliResult(withoutAction.stdout, "accept");
+    assertEquals(refusal.error, "invalid_arguments");
+    assertStringIncludes(
+      refusal.message ?? "",
+      "Emergency fields require the explicit accept emergency action",
     );
-    assertEquals(await gitOut(root, "rev-parse", "main"), before);
-    assertEquals(await readEffortGrant(path), grant);
-    assertEquals(
-      observedRecords(await observeQueue(root, "main")),
-      beforePreview,
-      "native preview cannot publish completion records",
+    // Preparation cannot carry confirmation or recovery.
+    const mixed = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--prepare",
+      "--reason",
+      "Restore service",
+      "--confirmed",
+      "--json",
+    ]);
+    assertEquals(mixed.code, 1, mixed.output);
+    assertTerminalTextIncludes(
+      decodeCliResult(mixed.stdout, "accept").message ?? "",
+      "Emergency preparation cannot be combined with a receipt, confirmation, or transition recovery.",
     );
-    const preview = decodedPreview.data.emergency;
-    const token = preview.confirmation;
-    assert(token);
-    assertEquals(
-      preview.exceptions?.map((entry) => entry.state),
-      ["unrun", "unrun"],
-    );
-    const { planEmergency, emergencyToken } = await import(
-      "../src/engine/emergency/plan.ts"
-    );
-    const expired = await emergencyToken(
-      await planEmergency(ctx, "Restore service"),
-      SYSTEM_CLOCK.wallNow() - 1,
-    );
-    assertEquals(
-      (await emergencyResult(ctx, {
-        reason: "Restore service",
-        confirmed: true,
-        confirmation: expired,
-      })).error,
-      "awaiting_consent",
-    );
-    assertEquals(await readEffortGrant(path), grant);
-    assertEquals(await gitOut(root, "rev-parse", "main"), before);
-    const wrongReason = await emergencyResult(ctx, {
-      reason: "Another reason",
-      confirmed: true,
-      confirmation: token,
-    });
-    assertEquals(wrongReason.error, "awaiting_consent");
-    await Deno.writeTextFile(`${path}/source`, "revised\n");
-    await git(path, "add", "source");
-    await git(path, "commit", "-m", "Revise repair");
-    const stale = await emergencyResult(ctx, {
+  });
+});
+
+/** A schema-valid landed exception whose note targets `head`. */
+function landedException(head: string): ExceptionRecord {
+  const now = SYSTEM_CLOCK.wallNow();
+  const trunk = "a".repeat(40);
+  return {
+    claim: {
+      kind: "exception",
+      authorization_id: crypto.randomUUID(),
+      authorized_at: now,
+      actual_trunk: trunk,
+      source: {
+        effort_id: "repair",
+        branch: "refs/heads/agent/repair",
+        head,
+        tree: "b".repeat(40),
+      },
+      candidate_id: crypto.randomUUID(),
+      candidate_head: head,
+      policy: "c".repeat(64),
       reason: "Restore service",
-      confirmed: true,
-      confirmation: token,
-    });
-    assertEquals(stale.error, "awaiting_consent");
-    const fresh = stale.data?.emergency?.confirmation;
-    assert(fresh);
-    const landed = await emergencyResult(ctx, {
-      reason: "Restore service",
-      confirmed: true,
-      confirmation: fresh,
-    });
-    assert(landed.ok, JSON.stringify(landed));
-    assertEquals(landed.data?.emergency?.outcome, "landed");
-    assert(
-      (landed.message ?? "").startsWith(
-        "`agent/public-done` landed on main as an emergency, with no passing Proof.",
-      ),
-      landed.message,
-    );
-    assertEquals(landed.data?.proof, undefined);
+      exceptions: [{
+        requirement: { id: "lint", kind: "job", definition: "d".repeat(64) },
+        state: "failed",
+        evidence_id: null,
+      }],
+    },
+    executor: {
+      operation_id: crypto.randomUUID(),
+      originating_effort: "repair",
+      started_at: now,
+    },
+    expected_trunk: trunk,
+    target: head,
+    outcome: { kind: "landed", at: now },
+    note: "pending",
+  };
+}
+
+Deno.test("an exception note exists only for a landed integration", () => {
+  const record = landedException("e".repeat(40));
+  assertThrows(
+    () =>
+      canonicalExceptionNote(crypto.randomUUID(), {
+        ...record,
+        outcome: { kind: "planned" },
+      }),
+    Error,
+    "An exception note requires its landed integration.",
+  );
+});
+
+Deno.test("exception note publication is create-only: recorded once, idempotent after, and never replaces another claim", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const head = await gitOut(dir, "rev-parse", "HEAD");
+    const record = landedException(head);
+    const id = record.claim.authorization_id;
+
+    const first = await recordExceptionNote(dir, id, record);
+    assertEquals(first.status, "recorded", JSON.stringify(first));
     assertEquals(
-      await readEffortGrant(path),
-      grant,
-      "Emergency cannot consume an ordinary grant",
+      await gitOut(dir, "notes", "--ref=discern", "show", head),
+      canonicalExceptionNote(id, record).trimEnd(),
     );
-    const records = observedRecords(await observeQueue(root, "main"));
-    const exception = records.find((record) => record.kind === "landing");
-    assert(exception?.kind === "landing");
-    assertEquals(exception.data.claim.kind, "exception");
-    assertEquals(records.filter((record) => record.kind === "proof").length, 0);
-    const note = await gitOut(
-      root,
+
+    // The same bytes already on the commit are a settled publication.
+    const second = await recordExceptionNote(dir, id, record);
+    assertEquals(second.status, "already_present", JSON.stringify(second));
+
+    // A different claim on the commit is preserved, never replaced.
+    await git(
+      dir,
       "notes",
       "--ref=discern",
-      "show",
-      await gitOut(root, "rev-parse", "main"),
+      "add",
+      "-f",
+      "-m",
+      "prior claim",
+      head,
     );
-    assertStringIncludes(note, '"signatures":[]');
-    const envelope = decodeJson(
-      EmergencyNoteEnvelopeSchema,
-      note,
-      "exception note",
-    );
-    const payload = decodeJson(
-      EmergencyNotePayloadSchema,
-      new TextDecoder().decode(decodeBase64(envelope.payload)),
-      "exception payload",
-    );
-    assertEquals(payload.claim, exception.data.claim);
-    await withTempDir(async (outside) => {
-      const unavailable = await recordExceptionNote(outside, exception);
-      assertEquals(unavailable.status, "record_failed");
-      assert(unavailable.reason);
-    });
-    await git(root, "notes", "--ref=discern", "remove", exception.data.target);
-    const notesLock = await gitOperationMarkerPath(
-      root,
-      `${PROOF_NOTES_REF}.lock`,
-      async (cwd, args) => ({
-        success: true,
-        stdout: await gitOut(cwd, ...args),
-      }),
-    );
-    assert(notesLock);
-    await Deno.writeTextFile(notesLock, "another notes writer");
-    const locked = await recordExceptionNote(root, exception);
-    assertEquals(locked.status, "record_failed");
-    assert(locked.reason);
-    assertEquals(await Deno.readTextFile(notesLock), "another notes writer");
-    await Deno.remove(notesLock);
+    const third = await recordExceptionNote(dir, id, record);
+    assertEquals(third.status, "record_failed");
     assertEquals(
-      (await recordExceptionNote(root, exception)).status,
-      "recorded",
+      third.reason,
+      "The integrated commit already has a different note. Preserve it and the durable exception record; no existing claim was replaced.",
     );
     assertEquals(
-      (await recordExceptionNote(root, exception)).status,
-      "already_present",
+      await gitOut(dir, "notes", "--ref=discern", "show", head),
+      "prior claim",
     );
-    assertEquals(ProofNotePayloadSchema.safeParse(payload).success, false);
-    // The exception note is a distinct record kind: never passing Proof, and
-    // never mistaken for a format this build cannot read.
-    const reading = await readProofNoteAt(root, exception.data.target);
-    assertEquals(reading.status, "exception");
-    assert(reading.status === "exception");
-    assertEquals(reading.landing_id, exception.id);
-    assert(exception.data.claim.kind === "exception");
-    assertEquals(reading.reason, exception.data.claim.reason);
-    assertEquals(
-      (await emergencyValidationStatus(root))[0]?.state,
-      "outstanding",
+
+    // A target this repository cannot inspect (a SHA-256 object id against a
+    // SHA-1 object store) reports the inspection failure instead of writing.
+    const missing = await recordExceptionNote(
+      dir,
+      id,
+      { ...record, target: "f".repeat(64), claim: record.claim },
     );
-    const pending = await runAgent(root, ["status", "--json"]);
-    assertEquals(pending.code, 0, pending.output);
-    const pendingStatus = decodeCliResult(pending.stdout, "status");
-    assert(pendingStatus.data !== undefined, pending.output);
-    assert(!("landed_proof_unsupported" in pendingStatus.data), pending.output);
-    assertEquals(
-      "landed_exception" in pendingStatus.data
-        ? pendingStatus.data.landed_exception?.validation
-        : undefined,
-      "outstanding",
-      pending.output,
-    );
-    const validation = await runAgent(root, ["done", "--rerun", "--json"]);
-    assertEquals(validation.code, 0, validation.output);
-    // A resolved exception leaves every projection; the durable inventory
-    // retains the resolution for provenance readers.
-    assertEquals(
-      await emergencyValidationStatus(root),
-      [],
-      validation.output,
-    );
-    assertEquals(
-      (await emergencyValidationInventory(root))[0]?.state,
-      "resolved",
-      validation.output,
-    );
-    for (const flags of [[], ["--verbose"]]) {
-      const settled = await runAgent(root, ["status", ...flags, "--json"]);
-      assertEquals(settled.code, 0, settled.output);
-      assert(
-        !settled.stdout.includes('"emergency_validation"'),
-        `resolved exception must leave status ${flags.join(" ")}: ` +
-          settled.stdout,
-      );
-      const settledStatus = decodeCliResult(settled.stdout, "status");
-      assert(settledStatus.data !== undefined, settled.output);
-      assertEquals(
-        "landed_exception" in settledStatus.data
-          ? settledStatus.data.landed_exception?.validation
-          : undefined,
-        "resolved",
-        settled.output,
-      );
-    }
-    const resolved = (await emergencyValidationInventory(root))[0];
-    assert(resolved?.resolved_by);
-    const receiptPath = await artifactPath(
-      root,
-      exception.data.attempt_id,
-      `environment/emergency-validation-${exception.id}.json`,
-    );
-    const receiptBytes = await Deno.readTextFile(receiptPath);
-    await Deno.remove(receiptPath);
-    await Promise.all([
-      resolveEmergencyValidation(root, resolved.resolved_by),
-      resolveEmergencyValidation(root, resolved.resolved_by),
-    ]);
-    for (
-      const corrupt of ["missing-proof", "wrong-head", "malformed"] as const
-    ) {
-      const value = decodeJson(
-        EmergencyResolutionSchema,
-        await Deno.readTextFile(receiptPath),
-        receiptPath,
-      );
-      assert(typeof value === "object" && value !== null);
-      if (corrupt === "wrong-head") Reflect.set(value, "head", before);
-      else if (corrupt === "missing-proof") {
-        Reflect.set(value, "proof", {
-          ...resolved.resolved_by,
-          proof_id: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
-        });
-      }
-      await Deno.writeTextFile(
-        receiptPath,
-        corrupt === "malformed" ? "{" : JSON.stringify(value),
-      );
-      await assertRejects(() => emergencyValidationStatus(root));
-      await Deno.writeTextFile(receiptPath, receiptBytes);
-    }
-    const historical = observedRecords(await observeQueue(root, "main")).find((
-      record,
-    ) => record.id === exception.id);
-    assertEquals(historical, exception);
-    assertEquals(
-      await gitOut(
-        root,
-        "notes",
-        "--ref=discern",
-        "show",
-        exception.data.target,
-      ),
-      note,
+    assertEquals(missing.status, "record_failed");
+    assert(
+      missing.status === "record_failed" && missing.reason !== undefined &&
+        missing.reason.length > 0 &&
+        !missing.reason.startsWith("The integrated commit"),
+      JSON.stringify(missing),
     );
   });
 });
 
-for (const boundary of LANDING_BOUNDARIES) {
-  Deno.test(`emergency interruption after ${boundary} preserves the exact transition and recovers without Proof`, async () => {
-    await withTempDir(async (root) => {
-      const path = await project(root, ["local"]);
-      const ctx = await lifecycleContext(
-        path,
-        new Logger({ json: true, noColor: true }),
-      );
-      const before = await gitOut(root, "rev-parse", "main");
-      const preview = await emergencyResult(ctx, { reason: "Restore service" });
-      const confirmation = preview.data?.emergency?.confirmation;
-      assert(confirmation, JSON.stringify(preview));
-      const result = await emergencyResult(ctx, {
-        reason: "Restore service",
-        confirmation,
-        confirmed: true,
-        converge: () =>
-          Promise.resolve({
-            ok: true,
-            steps: [],
-            diagnostics: [],
-            hints: [],
-          }),
-        afterBoundary: (at) => {
-          if (at === boundary) throw new Error(`interrupted at ${at}`);
-          return Promise.resolve();
-        },
-      });
-      assert(!result.ok, JSON.stringify(result));
-      const landing = observedRecords(await observeQueue(root, "main")).find((
+Deno.test("a failed note write reports the publication failure instead of claiming the note", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const head = await gitOut(dir, "rev-parse", "HEAD");
+    const record = landedException(head);
+    const objects = join(dir, ".git", "objects");
+    try {
+      await Deno.chmod(objects, 0o555);
+      const written = await recordExceptionNote(
+        dir,
+        record.claim.authorization_id,
         record,
-      ) => record.kind === "landing");
-      assert(landing?.kind === "landing", JSON.stringify(result));
-      assertEquals(landing.data.claim.kind, "exception");
-      const recovered = await emergencyResult(
-        await lifecycleContext(root, ctx.log),
-        { recover: landing.id },
       );
-      if (boundary === "planned" || boundary === "grant") {
-        assertEquals(
-          recovered.data?.emergency?.outcome,
-          "not-landed",
-          JSON.stringify(recovered),
-        );
-        assertEquals(await gitOut(root, "rev-parse", "main"), before);
-        assertStringIncludes(
-          recovered.hints?.join(" ") ?? "",
-          "new emergency plan",
-        );
-      } else {
-        assert(recovered.ok, JSON.stringify(recovered));
-        assertEquals(
-          await gitOut(root, "rev-parse", "main"),
-          landing.data.target,
-        );
-      }
-      assertEquals(
-        observedRecords(await observeQueue(root, "main")).filter((record) =>
-          record.kind === "proof"
-        ).length,
-        0,
+      assertEquals(written.status, "record_failed");
+      assert(
+        written.status === "record_failed" && written.reason !== undefined &&
+          written.reason.length > 0,
+        JSON.stringify(written),
       );
-    });
-  });
-}
-
-Deno.test("emergency inventory distinguishes failed, unrun contexts, and stale evidence", async () => {
-  await withTempDir(async (root) => {
-    const path = await project(
-      root,
-      ["local", "ci"],
+    } finally {
+      await Deno.chmod(objects, 0o755);
+    }
+    assertEquals(
+      (await gitOut(dir, "notes", "--ref=discern", "list")).trim(),
       "",
-      "printf 'DISCERN_METRIC coverage 80\\n'",
-    );
-    const failed = await runAgent(path, [
-      "done",
-      "--retain-checkout",
-      "--json",
-    ]);
-    assertEquals(failed.code, 1, failed.output);
-    const ctx = await lifecycleContext(
-      path,
-      new Logger({ json: true, noColor: true }),
-    );
-    const preview = await emergencyResult(ctx, { reason: "Restore service" });
-    assertEquals(preview.error, "awaiting_consent", JSON.stringify(preview));
-    const exceptions = preview.data?.emergency?.exceptions ?? [];
-    assertEquals(
-      exceptions.filter((entry) => entry.requirement.context === "ci").map((
-        entry,
-      ) => entry.state),
-      ["unrun", "unrun"],
-    );
-    assertEquals(
-      exceptions.filter((entry) => entry.requirement.context === "local").map((
-        entry,
-      ) => entry.state),
-      ["failed"],
-    );
-    await Deno.writeTextFile(`${path}/source`, "changed inputs\n");
-    await git(path, "add", "source");
-    await git(path, "commit", "-m", "Change validation inputs");
-    const stale = await emergencyResult(ctx, { reason: "Restore service" });
-    assertEquals(stale.error, "awaiting_consent", JSON.stringify(stale));
-    assertEquals(
-      stale.data?.emergency?.exceptions?.filter((entry) =>
-        entry.requirement.context === "local"
-      ).map((entry) => entry.state),
-      ["stale", "stale"],
-    );
-  });
-});
-
-Deno.test("emergency retains checkout collisions, failed convergence, and unrelated queue predictions", async () => {
-  await withTempDir(async (root) => {
-    const peer = await project(root, ["local"]);
-    const completed = await runAgent(peer, [
-      "done",
-      "--retain-checkout",
-      "--json",
-    ]);
-    assertEquals(completed.code, 0, completed.output);
-    const { addWorktree } = await import("./engine_helpers.ts");
-    const path = await addWorktree(root, "repair");
-    await Deno.writeTextFile(`${path}/repair`, "urgent fix\n");
-    await git(path, "add", "repair");
-    await git(path, "commit", "-m", "Repair service");
-    const ctx = await lifecycleContext(
-      path,
-      new Logger({ json: true, noColor: true }),
-    );
-    const preview = await emergencyResult(ctx, { reason: "Restore service" });
-    const token = preview.data?.emergency?.confirmation;
-    assert(token, JSON.stringify(preview));
-    const before = await gitOut(root, "rev-parse", "main");
-    await Deno.writeTextFile(`${root}/repair`, "unrelated user data\n");
-    const collision = await emergencyResult(ctx, {
-      reason: "Restore service",
-      confirmed: true,
-      confirmation: token,
-    });
-    assert(!collision.ok, JSON.stringify(collision));
-    assertEquals(await gitOut(root, "rev-parse", "main"), before);
-    assertEquals(
-      await Deno.readTextFile(`${root}/repair`),
-      "unrelated user data\n",
-    );
-    await Deno.remove(`${root}/repair`);
-    const retry = await emergencyResult(ctx, { reason: "Restore service" });
-    const confirmation = retry.data?.emergency?.confirmation;
-    assert(confirmation, JSON.stringify(retry));
-    const landed = await emergencyResult(ctx, {
-      reason: "Restore service",
-      confirmed: true,
-      confirmation,
-      converge: () =>
-        Promise.resolve({ ok: false, steps: [], diagnostics: [], hints: [] }),
-    });
-    assertEquals(landed.error, "partial_acceptance", JSON.stringify(landed));
-    assertEquals(landed.data?.emergency?.outcome, "landed");
-    assertStringIncludes(landed.message ?? "", "--recover");
-    const records = observedRecords(await observeQueue(root, "main"));
-    const queue = records.find((record) => record.kind === "queue");
-    assert(queue?.kind === "queue");
-    assert(
-      queue.data.entries.every((entry) => entry.state !== "landed"),
-      "Emergency must not batch unrelated work",
-    );
-    assertEquals(queue.data.entries[0]?.invalidation, "external-trunk");
-    const id = landed.data?.emergency?.landing_id;
-    assert(id);
-    const next = await addWorktree(root, "next-repair");
-    await Deno.writeTextFile(`${next}/next-repair`, "another repair\n");
-    await git(next, "add", "next-repair");
-    await git(next, "commit", "-m", "Repair another component");
-    const nextContext = await lifecycleContext(next, ctx.log);
-    const blocked = await emergencyResult(nextContext, {
-      reason: "Restore another component",
-    });
-    assert(!blocked.ok, JSON.stringify(blocked));
-    assertStringIncludes(blocked.message ?? "", `--recover ${id}`);
-    const recovered = await emergencyResult(
-      await lifecycleContext(root, ctx.log),
-      {
-        recover: id,
-        converge: () =>
-          Promise.resolve({ ok: true, steps: [], diagnostics: [], hints: [] }),
-      },
-    );
-    assert(recovered.ok, JSON.stringify(recovered));
-    const available = await emergencyResult(nextContext, {
-      reason: "Restore another component",
-    });
-    assert(available.data?.emergency?.confirmation, JSON.stringify(available));
-    assertEquals(
-      await gitOut(root, "rev-parse", "main"),
-      await gitOut(path, "rev-parse", "HEAD"),
-    );
-    const status = await runAgent(root, ["status", "--json"]);
-    assertEquals(status.code, 0, status.output);
-    assertStringIncludes(status.stdout, '"emergency_validation"');
-    assertStringIncludes(status.stdout, '"outstanding"');
-  });
-});
-
-for (const changed of ["source", "candidate", "trunk"] as const) {
-  Deno.test(`emergency refuses a changed ${changed} ref at the shared transition boundary`, async () => {
-    await withTempDir(async (root) => {
-      const path = await project(root, ["local"]);
-      const ctx = await lifecycleContext(
-        path,
-        new Logger({ json: true, noColor: true }),
-      );
-      const before = await gitOut(root, "rev-parse", "main");
-      const preview = await emergencyResult(ctx, { reason: "Restore service" });
-      const confirmation = preview.data?.emergency?.confirmation;
-      assert(confirmation);
-      const result = await emergencyResult(ctx, {
-        reason: "Restore service",
-        confirmation,
-        confirmed: true,
-        afterBoundary: async (boundary, record) => {
-          if (boundary !== "planned") return;
-          if (changed === "source") {
-            await git(
-              root,
-              "update-ref",
-              record.data.source.branch,
-              before,
-              record.data.source.head,
-            );
-          } else if (changed === "candidate") {
-            const records = observedRecords(await observeQueue(root, "main"));
-            const candidate = records.find((entry) =>
-              entry.kind === "candidate" &&
-              entry.id === record.data.candidate_id
-            );
-            assert(candidate?.kind === "candidate");
-            const { candidateRef } = await import(
-              "../src/engine/completion/identity.ts"
-            );
-            await git(
-              root,
-              "update-ref",
-              candidateRef(candidate.id, candidate.data.attempt_id),
-              before,
-              candidate.data.head,
-            );
-          } else {
-            await Deno.writeTextFile(`${root}/owner`, "owner change\n");
-            await git(root, "add", "owner");
-            await git(root, "commit", "-m", "Owner trunk change");
-          }
-        },
-      });
-      assert(!result.ok, JSON.stringify(result));
-      assertEquals(
-        result.data?.emergency?.outcome,
-        "not-landed",
-        JSON.stringify(result),
-      );
-      if (changed !== "trunk") {
-        assertEquals(await gitOut(root, "rev-parse", "main"), before);
-      } else {assertEquals(
-          await Deno.readTextFile(`${root}/owner`),
-          "owner change\n",
-        );}
-    });
-  });
-}
-
-Deno.test("emergency review preserves actual-trunk, checkpoint, and protected-standard preconditions", async () => {
-  await withTempDir(async (root) => {
-    const path = await project(
-      root,
-      ["local"],
-      `
-[checkpoints.review]
-paths = ['source']
-question = 'Does the repair preserve the published contract?'
-mode = 'stop'
-`,
-    );
-    const ctx = await lifecycleContext(
-      path,
-      new Logger({ json: true, noColor: true }),
-    );
-    const blocked = await emergencyResult(ctx, { reason: "Restore service" });
-    assertEquals(blocked.error, "precondition_failed", JSON.stringify(blocked));
-    assertStringIncludes(blocked.message ?? "", "Checkpoint");
-    const question = await runAgent(path, ["done", "--json"]);
-    assertEquals(question.code, 1, question.output);
-    const cfg = await Deno.readTextFile(`${path}/discern.toml`);
-    await Deno.writeTextFile(
-      `${path}/discern.toml`,
-      cfg.replace("limit = 90", "limit = 80"),
-    );
-    await git(path, "add", "discern.toml");
-    await git(path, "commit", "-m", "Propose weaker limit without approval");
-    const weaker = await emergencyResult(
-      await lifecycleContext(path, ctx.log),
-      { reason: "Restore service" },
-    );
-    assertStringIncludes(weaker.message ?? "", "protected policy");
-    await Deno.writeTextFile(`${root}/owner`, "new trunk\n");
-    await git(root, "add", "owner");
-    await git(root, "commit", "-m", "Advance actual trunk");
-    const behind = await emergencyResult(ctx, { reason: "Restore service" });
-    assertStringIncludes(behind.message ?? "", "discern update");
-    assertEquals(
-      (await emergencyResult(await lifecycleContext(root, ctx.log), {
-        reason: "Restore service",
-      })).error,
-      "precondition_failed",
-    );
-    assertEquals(
-      (await emergencyResult(ctx, { reason: "" })).error,
-      "precondition_failed",
-    );
-  });
-});
-
-Deno.test("emergency preparation settles runtime checkpoints without validation and rejects stale review receipts", async () => {
-  await withTempDir(async (root) => {
-    const path = await project(
-      root,
-      ["local"],
-      `
-[checkpoints.review]
-paths = ['source']
-question = 'Does this repair preserve the contract?'
-when = 'case "$(cat source)" in invalid) exit 7;; mutate) printf dirty > unexpected;; esac; printf c >> executions'
-mode = 'stop'
-`,
-    );
-    const ctx = await lifecycleContext(
-      path,
-      new Logger({ json: true, noColor: true }),
-    );
-    const before = await gitOut(root, "rev-parse", "main");
-    const options = { reason: "Restore service" };
-    const dry = await runAgent(path, [
-      "accept",
-      "emergency",
-      "--prepare",
-      "--dry-run",
-      "--reason",
-      options.reason,
-      "--json",
-    ]);
-    assertEquals(dry.code, 0, dry.output);
-    const { targetExists } = await import("../src/shared/fs_presence.ts");
-    assertEquals(await targetExists(`${path}/executions`), false);
-    for (
-      const forbidden of [
-        { prepare: true, confirmed: true },
-        { prepare: true, confirmation: "old" },
-        { prepare: true, preparation: "old" },
-        { prepare: true, recover: "old" },
-        { met: ["review"] },
-      ]
-    ) {
-      assertEquals(
-        (await emergencyResult(ctx, { ...options, ...forbidden })).error,
-        "invalid_arguments",
-      );
-    }
-    const served = await runAgent(path, [
-      "accept",
-      "emergency",
-      "--prepare",
-      "--reason",
-      options.reason,
-      "--json",
-    ]);
-    assertEquals(served.code, 1, served.output);
-    assertStringIncludes(served.output, "awaiting_declaration");
-    assertTerminalTextIncludes(
-      served.output,
-      "Does this repair preserve the contract?",
-    );
-    const prepared = await runAgent(path, [
-      "accept",
-      "emergency",
-      "--prepare",
-      "--reason",
-      options.reason,
-      "--met",
-      "review",
-      "--json",
-    ]);
-    assertEquals(prepared.code, 0, prepared.output);
-    const result = decodeCliResult(prepared.stdout, "accept");
-    assert(result.data !== undefined && "emergency" in result.data);
-    const preparation = result.data.emergency?.preparation;
-    assert(preparation);
-    assertEquals(await Deno.readTextFile(`${path}/executions`), "cc");
-    assertEquals(observedRecords(await observeQueue(root, "main")).length, 0);
-    const preview = await emergencyResult(ctx, { ...options, preparation });
-    assertEquals(preview.error, "awaiting_consent", JSON.stringify(preview));
-    const oldToken = preview.data?.emergency?.confirmation;
-    assert(oldToken);
-    assertEquals(
-      await Deno.readTextFile(`${path}/executions`),
-      "cc",
-      "read-only preview must not rerun the trigger",
-    );
-    const { readEmergencyPreparation, emergencyPreparationHandle } =
-      await import("../src/engine/emergency/review.ts");
-    const { planEmergency } = await import("../src/engine/emergency/plan.ts");
-    const plan = await planEmergency(ctx, options.reason, preparation);
-    const artifact = await readEmergencyPreparation(
-      path,
-      ctx.config,
-      plan.candidate_id,
-      plan.candidate,
-      preparation,
-    );
-    const corrupted = emergencyPreparationHandle({
-      ...artifact,
-      digest: "0".repeat(64),
-    });
-    assertEquals(
-      (await emergencyResult(ctx, { ...options, preparation: corrupted }))
-        .error,
-      "precondition_failed",
-    );
-    const { runCheckpointPreflight } = await import(
-      "../src/engine/checkpoints/preflight.ts"
-    );
-    await runCheckpointPreflight(path, ctx.config, {
-      met: [],
-      unmet: { id: "review", why: "Contract review remains incomplete." },
-    });
-    assertEquals(
-      (await emergencyResult(ctx, { ...options, preparation })).error,
-      "precondition_failed",
-    );
-    const unmet = await emergencyResult(ctx, { ...options, prepare: true });
-    assertEquals(unmet.error, "precondition_failed");
-    assertEquals(unmet.data?.emergency?.preparation, undefined);
-    for (const source of ["invalid", "mutate"]) {
-      await Deno.writeTextFile(`${path}/source`, source);
-      await git(path, "add", "source");
-      await git(path, "commit", "-m", `Exercise ${source} checkpoint`);
-      const refusal = await emergencyResult(ctx, { ...options, prepare: true });
-      assert(!refusal.ok, JSON.stringify(refusal));
-      assertEquals(refusal.data?.emergency?.preparation, undefined);
-      assertEquals(await gitOut(root, "rev-parse", "main"), before);
-      if (source === "invalid") {
-        assert((refusal.data?.checkpoint_preparation?.drops?.length ?? 0) > 0);
-      } else {
-        assertEquals(await Deno.readTextFile(`${path}/unexpected`), "dirty");
-        await Deno.remove(`${path}/unexpected`);
-      }
-    }
-    await Deno.writeTextFile(`${path}/source`, "repaired");
-    await git(path, "add", "source");
-    await git(path, "commit", "-m", "Complete repair");
-    assertEquals(
-      (await emergencyResult(ctx, { ...options, preparation })).error,
-      "precondition_failed",
-    );
-    await emergencyResult(ctx, { ...options, prepare: true });
-    const current = await emergencyResult(ctx, {
-      ...options,
-      prepare: true,
-      met: ["review"],
-    });
-    assert(current.ok, JSON.stringify(current));
-    const currentPreparation = current.data?.emergency?.preparation;
-    assert(currentPreparation);
-    const fresh = await emergencyResult(ctx, {
-      ...options,
-      preparation: currentPreparation,
-      confirmed: true,
-      confirmation: oldToken,
-    });
-    assertEquals(fresh.error, "awaiting_consent");
-    assertEquals(await gitOut(root, "rev-parse", "main"), before);
-    const confirmation = fresh.data?.emergency?.confirmation;
-    assert(confirmation);
-    const applied = await runAgent(path, [
-      "accept",
-      "emergency",
-      "--reason",
-      options.reason,
-      "--preparation",
-      currentPreparation,
-      "--confirmed",
-      "--confirmation",
-      confirmation,
-      "--json",
-    ]);
-    assertEquals(applied.code, 0, applied.output);
-    const landed = decodeCliResult(applied.stdout, "accept");
-    assert(
-      landed.ok && landed.data !== undefined && "emergency" in landed.data,
-      JSON.stringify(landed),
-    );
-    assertEquals(landed.data.emergency?.outcome, "landed");
-    assertEquals(landed.data.emergency?.retirement, "retained");
-    assertEquals(
-      await gitOut(root, "rev-parse", "main"),
-      await gitOut(path, "rev-parse", "HEAD"),
-    );
-    const recovered = await runAgent(path, [
-      "accept",
-      "emergency",
-      "--recover",
-      landed.data.emergency?.landing_id ?? "",
-      "--json",
-    ]);
-    assertEquals(recovered.code, 0, recovered.output);
-    assertEquals(decodeCliResult(recovered.stdout, "accept").ok, true);
-    const records = observedRecords(await observeQueue(root, "main"));
-    const landing = records.find((record) => record.kind === "landing");
-    assert(
-      landing?.kind === "landing" && landing.data.claim.kind === "exception",
-    );
-    assertEquals(
-      landing.data.claim.review?.path,
-      "environment/emergency-review.json",
-    );
-    const { ExceptionClaimSchema } = await import(
-      "../src/engine/completion/exception_claim.ts"
-    );
-    assert(landing.data.claim.review);
-    assertEquals(
-      ExceptionClaimSchema.safeParse({
-        ...landing.data.claim,
-        review: {
-          ...landing.data.claim.review,
-          candidate_id: "00000000-0000-4000-a000-000000000000",
-        },
-      }).success,
-      false,
-    );
-    assertEquals(records.filter((record) => record.kind === "proof").length, 0);
-    assertEquals(
-      records.filter((record) => record.kind === "evidence").length,
-      0,
-    );
-
-    // An ordinary acceptance actor may recover the retained exception, but
-    // cannot turn it into Proof or let it authorize the next source revision.
-    const recoveredOrdinary = await runAgent(root, ["accept", "--json"]);
-    assertEquals(recoveredOrdinary.code, 0, recoveredOrdinary.output);
-    const historicalResult = decodeCliResult(
-      recoveredOrdinary.stdout,
-      "accept",
-    );
-    assert(
-      historicalResult.data !== undefined && "queue" in historicalResult.data,
-    );
-    const historicalRow = historicalResult.data.queue?.[0];
-    assertEquals(
-      Reflect.get(historicalRow ?? {}, "exception"),
-      landing.data.claim,
-    );
-    assertEquals(historicalRow?.proof_line, undefined);
-    assertEquals(historicalRow?.proof_note, undefined);
-    assertEquals(historicalResult.data.proof_line, undefined);
-    assertTerminalTextIncludes(recoveredOrdinary.output, "no passing Proof");
-
-    await Deno.writeTextFile(`${path}/followup`, "validated repair\n");
-    await git(path, "add", "followup");
-    await git(path, "commit", "-m", "Validate a later repair");
-    const source = await gitOut(path, "rev-parse", "HEAD");
-    const pendingReview = await runAgent(path, [
-      "done",
-      "--retain-checkout",
-      "--json",
-    ]);
-    assertEquals(pendingReview.code, 1, pendingReview.output);
-    assertStringIncludes(pendingReview.output, "awaiting_declaration");
-    const completed = await runAgent(path, [
-      "done",
-      "--retain-checkout",
-      "--met",
-      "review",
-      "--json",
-    ]);
-    assertEquals(completed.code, 0, completed.output);
-    const unapproved = await runAgent(path, ["accept", "--json"]);
-    assertEquals(unapproved.code, 1, unapproved.output);
-    assertStringIncludes(unapproved.output, "missing-authority");
-    assertEquals(await gitOut(root, "rev-parse", "main"), landing.data.target);
-    const accepted = await runAgent(path, ["accept", "--confirmed", "--json"]);
-    assertEquals(accepted.code, 0, accepted.output);
-    assertEquals(await gitOut(root, "rev-parse", "main"), source);
-    const acceptedResult = decodeCliResult(accepted.stdout, "accept");
-    assert(acceptedResult.data !== undefined && "queue" in acceptedResult.data);
-    assertEquals(acceptedResult.data.queue?.length, 2);
-    assertEquals(acceptedResult.data.queue?.[0]?.proof_line, undefined);
-    assertStringIncludes(
-      acceptedResult.data.proof_line ?? "",
-      source.slice(0, 12),
-    );
-    const settled = observedRecords(await observeQueue(root, "main"));
-    assertEquals(settled.find((record) => record.id === landing.id), landing);
-    const repeated = await runAgent(path, ["accept", "--json"]);
-    assertEquals(repeated.code, 0, repeated.output);
-    assertEquals(
-      observedRecords(await observeQueue(root, "main")).filter((record) =>
-        record.kind === "landing" || record.kind === "authority"
-      ),
-      settled.filter((record) =>
-        record.kind === "landing" || record.kind === "authority"
-      ),
+      "no note was published",
     );
   });
 });

@@ -7,7 +7,6 @@ import { waitForPendingCondition } from "./waiting.ts";
 import { addWorktree, gitInit, repoSourceRunArgs } from "./engine_helpers.ts";
 import {
   OperationLockError,
-  retainCompletionCheckout,
   withCompletionCheckout,
   withCompletionPublication,
   withOperationLock,
@@ -165,22 +164,6 @@ Deno.test("setup probes require the exact parent transaction and keep both check
       await withSetupProbeCheckout(root, probe, async () => {
         await withCompletionCheckout(probe, () => Promise.resolve());
         await withCompletionCheckout(root, () => Promise.resolve());
-        // Two checkout leases are held here. Each completion scope binds the
-        // lease for its own directory, so a claim retained inside the probe
-        // compares against the probe's lease, not the parent's.
-        await withCompletionCheckout(probe, async () => {
-          const release = await retainCompletionCheckout(probe);
-          release();
-          await assertRejects(
-            () => retainCompletionCheckout(root),
-            Error,
-            "retained checkout ownership",
-          );
-        });
-        await withCompletionCheckout(root, async () => {
-          const release = await retainCompletionCheckout(root);
-          release();
-        });
       });
     });
   });

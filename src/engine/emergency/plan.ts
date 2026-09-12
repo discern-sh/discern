@@ -1,15 +1,15 @@
 import { readEmergencyPreparation } from "./review.ts";
-import type { EnvironmentArtifact } from "../execution/types.ts";
-import { landingNeedsRecovery } from "../landing_queue/convergence.ts";
 /** Read-only emergency subject and short-lived, exact owner-confirmation challenge. */
+import type { CompletionArtifact } from "../completion/artifacts.ts";
 import { type Candidate, CandidateSchema } from "../completion/candidate.ts";
-import type { CompletionObservation } from "../completion/protocol.ts";
+import type { CompletionRecord } from "../completion/records.ts";
 import type { LifecycleContext } from "../worktree/lifecycle.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
-import { DISCERN_VERSION } from "../../lib/version.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { pinValidatedTree } from "../gate/proof.ts";
+import { verifyTrunkLimits } from "../gate/standard_limits.ts";
+import { inspectActiveStandardLimitProposals } from "../gate/standard_proposal_state.ts";
 import { resolveIdentity } from "../worktree/identity.ts";
 import {
   inLinkedWorktree,
@@ -18,36 +18,34 @@ import {
   mainRepoPath,
 } from "../worktree/git.ts";
 import { inspectInterruptedAcceptance } from "../worktree/acceptance_transaction.ts";
+import { worktreePathForEffortBranch } from "../worktree/target_resolution.ts";
 import {
-  discoverSourceDependencies,
   gitValue,
   observeSource,
-} from "../landing_queue/composition.ts";
-import { registeredSourcePath } from "../landing_queue/public_authority.ts";
-import { observedRecords, observeQueue } from "../landing_queue/repository.ts";
-import {
-  evaluatePredecessorPolicy,
   predecessorPolicyIdentity,
-} from "../landing_queue/policy.ts";
-import { compositionRecipe } from "../landing_queue/generation.ts";
+  recordedCandidate,
+} from "../completion/source.ts";
 import { observeCandidateValidation } from "../validation/candidate_observation.ts";
 import { requirementSetIdentity } from "../validation/catalog.ts";
 import { inspectCheckpointObligations } from "../checkpoints/inspection.ts";
 import { configuredValidation } from "../validation/configuration.ts";
 import { classifyScopeImpact } from "../scopes/scopes.ts";
-import { sameSource } from "../landing_queue/model.ts";
+import { observeCompletionRecords } from "../validation/runtime.ts";
 import { type EmergencyExceptions, emergencyExceptions } from "./evidence.ts";
 
 export const EMERGENCY_CONFIRMATION_MS = 15 * 60_000;
 export interface EmergencyPlan {
+  /** The main checkout the repair lands in. */
   readonly root: string;
+  /** The repair's own registered worktree. */
+  readonly worktree: string;
+  readonly branch: string;
   readonly trunk: string;
   readonly candidate_id: string;
   readonly candidate: Candidate;
   readonly reason: string;
   readonly exceptions: EmergencyExceptions;
-  readonly observation: CompletionObservation;
-  readonly review?: EnvironmentArtifact;
+  readonly review?: CompletionArtifact;
 }
 
 /** Stable UUID-shaped coordinates are derived from the approved immutable subject, never a branch selector. */
@@ -96,14 +94,15 @@ export async function observeEmergencySubject(
     );
   }
   const identity = await resolveIdentity(ctx.cwd, ctx.cwd);
-  const source = await observeSource(
-    ctx.cwd,
-    identity.id,
-    await gitValue(ctx.cwd, ["symbolic-ref", "--quiet", "HEAD"]),
-  );
-  if (
-    await registeredSourcePath(root, source) !== await Deno.realPath(ctx.cwd)
-  ) {
+  const branchRef = await gitValue(ctx.cwd, [
+    "symbolic-ref",
+    "--quiet",
+    "HEAD",
+  ]);
+  const source = await observeSource(ctx.cwd, identity.id, branchRef);
+  const branch = branchRef.slice("refs/heads/".length);
+  const worktree = await Deno.realPath(ctx.cwd);
+  if (await worktreePathForEffortBranch(root, branch) !== worktree) {
     throw new Error(
       "The repair's registered checkout and effort identity disagree. Restore their ownership records before integration.",
     );
@@ -124,7 +123,7 @@ export async function observeEmergencySubject(
       "Restore the main checkout to its configured trunk with clean tracked files and no active Git operation before reviewing emergency integration. Preserve all local work.",
     );
   }
-  const observation = await observeQueue(root, trunk);
+  const observation = await observeCompletionRecords(root);
   if (
     observation.records.some(({ reading }) =>
       reading.kind !== "recorded" && reading.kind !== "missing"
@@ -134,23 +133,18 @@ export async function observeEmergencySubject(
       "Completion records are unreadable or unsupported. Preserve them and restore their reader before emergency integration.",
     );
   }
-  const records = observedRecords(observation);
-  for (const record of records) {
-    if (
-      record.kind === "landing" && await landingNeedsRecovery(root, record.data)
-    ) {
-      const action = record.data.claim.kind === "exception"
-        ? `discern accept emergency --recover ${record.id}`
-        : "discern accept";
-      throw new Error(
-        `Landing ${record.id} has unfinished settlement or checkout convergence. Run ${action} before preparing a new emergency plan.`,
-      );
-    }
-  }
+  const records: CompletionRecord[] = observation.records.flatMap((
+    { reading },
+  ) => reading.kind === "recorded" ? [reading.record] : []);
+  const trunkHead = await gitValue(root, [
+    "rev-parse",
+    "--verify",
+    `refs/heads/${trunk}^{commit}`,
+  ]);
   const contained = await runGit([
     "merge-base",
     "--is-ancestor",
-    observation.trunk,
+    trunkHead,
     source.head,
   ], { cwd: root });
   if (!contained.success) {
@@ -158,49 +152,20 @@ export async function observeEmergencySubject(
       "The repair must contain actual trunk. Run discern update in this worktree, review and commit its result, then prepare a new emergency plan.",
     );
   }
-  if (source.head === observation.trunk) {
+  if (source.head === trunkHead) {
     throw new Error(
       "This source is already on trunk. Use discern done to validate its current obligations.",
     );
   }
-  const dependencies = await discoverSourceDependencies(
-    root,
+  const policy = await predecessorPolicyIdentity(root, trunkHead);
+  const provisional: Candidate = {
     source,
-    observation.trunk,
-    records.filter((record) => record.kind === "queue").flatMap((record) =>
-      record.data.entries.map((entry) => entry.source)
+    attempt_id: emergencyId(
+      await sha256Hex(JSON.stringify([source, trunkHead, policy])),
     ),
-  );
-  if (dependencies.length) {
-    throw new Error(
-      "The repair contains unlanded work from another effort. Prepare a repair against actual trunk without those sources before requesting emergency authorization.",
-    );
-  }
-  const policy = await predecessorPolicyIdentity(root, observation.trunk);
-  const recipe = await compositionRecipe(
-    ctx.cwd,
-    ctx.config,
-    DISCERN_VERSION,
-    Math.max(1, ctx.config.gate.timeout),
-    {},
-  );
-  const retained = records.find((record) =>
-    record.kind === "candidate" && sameSource(record.data.source, source) &&
-    record.data.head === source.head &&
-    record.data.expected_predecessor.head === observation.trunk &&
-    record.data.expected_predecessor.candidate_id === null &&
-    record.data.dependencies.length === 0 && record.data.policy === policy
-  );
-  const id = retained?.kind === "candidate" ? retained.id : emergencyId(
-    await sha256Hex(JSON.stringify([source, observation.trunk, policy])),
-  );
-  let candidate: Candidate = retained?.kind === "candidate" ? retained.data : {
-    source,
-    attempt_id: id,
+    predecessor: trunkHead,
     head: source.head,
     tree: source.tree,
-    dependencies: [],
-    expected_predecessor: { head: observation.trunk, candidate_id: null },
     policy,
     requirement_set: await requirementSetIdentity(
       (await configuredValidation(
@@ -208,56 +173,75 @@ export async function observeEmergencySubject(
         (await classifyScopeImpact(ctx.cwd, ctx.config)).scopes,
       )).obligations.map((entry) => entry.requirement),
     ),
-    composition: {
-      ...recipe.identity,
-      merge_commit: null,
-      regeneration_commit: null,
-    },
   };
   const validation = await observeCandidateValidation({
     root: ctx.cwd,
-    candidate_id: id,
-    candidate,
+    candidate_id: provisional.attempt_id,
+    candidate: provisional,
     observation,
-    context: "local",
   });
-  candidate = {
-    ...candidate,
-    requirement_set: await requirementSetIdentity(
-      validation.snapshot.requirements,
-    ),
-  };
-  const policyBlockers = await evaluatePredecessorPolicy({
-    root: ctx.cwd,
-    config: validation.config,
-    candidate,
-    standards: validation.standards,
-    current: { judgments: [], variances: [], proposals: [] },
-    authorized: { judgments: [], variances: [], proposals: [] },
+  const requirementSet = await requirementSetIdentity(
+    validation.snapshot.requirements,
+  );
+  const retained = recordedCandidate(records, {
+    source,
+    predecessor: trunkHead,
+    policy,
+    requirement_set: requirementSet,
   });
-  if (policyBlockers.length) {
+  const id = retained?.id ?? provisional.attempt_id;
+  const candidate: Candidate = retained?.data ??
+    { ...provisional, attempt_id: id, requirement_set: requirementSet };
+  // Evidence binds to the durable candidate identity: when a prior run already
+  // recorded this candidate, its evidence selects only under that recorded id,
+  // so the exception inventory is read against the retained identity.
+  const settled = retained === undefined
+    ? validation
+    : await observeCandidateValidation({
+      root: ctx.cwd,
+      candidate_id: retained.id,
+      candidate,
+      observation,
+    });
+  // Emergency integration cannot weaken ordinary policy: the repair's config
+  // must hold every standard limit the trunk protects.
+  const standards = [...settled.standards];
+  const proposals = await inspectActiveStandardLimitProposals(
+    ctx.cwd,
+    trunk,
+    standards,
+  );
+  const limits = await verifyTrunkLimits(
+    ctx.cwd,
+    trunk,
+    standards,
+    proposals.active,
+    settled.config,
+  );
+  if (limits.blocking) {
     throw new Error(
       "The repair changes protected policy or standard limits without valid approval. Emergency integration cannot weaken ordinary policy; resolve those changes before preparing its plan.",
     );
   }
   const exceptions = await emergencyExceptions(
     root,
-    validation.snapshot,
+    settled.snapshot,
     records,
   );
   if (!exceptions.length) {
     throw new Error(
-      "Every configured machine obligation has current passing evidence. Use discern accept --dry-run to inspect ordinary acceptance. If this exact proven source was already integrated externally, use discern accept --reconcile --target <effort-id> --dry-run.",
+      "Every configured machine obligation has current passing evidence. Use discern done, then discern accept for ordinary landing.",
     );
   }
   return {
     root: await Deno.realPath(root),
+    worktree,
+    branch,
     trunk,
     candidate_id: id,
     candidate,
     reason: reason.trim(),
     exceptions,
-    observation,
   };
 }
 
@@ -284,7 +268,7 @@ export async function planEmergency(
     ctx.cwd,
     ctx.config,
     {
-      predecessor: plan.candidate.expected_predecessor.head,
+      predecessor: plan.candidate.predecessor,
       currentCommit: plan.candidate.head,
     },
   );
@@ -302,7 +286,7 @@ export async function planEmergency(
   return plan;
 }
 
-/** Hash every owner-relevant fact; observation counters and unrelated queue entries grant nothing. */
+/** Hash every owner-relevant fact; observation counters grant nothing. */
 export async function emergencyToken(
   plan: EmergencyPlan,
   expires: number,

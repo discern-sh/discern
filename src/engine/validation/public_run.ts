@@ -50,12 +50,13 @@ import {
   observeCompletionRecords,
   observeValidationInputs,
 } from "./runtime.ts";
-import { bindExecutionValidation } from "../execution/validation_binding.ts";
+import { bindAttemptDemand } from "../completion/attempt_lifecycle.ts";
 import {
   candidateConditions,
-  ContextFactsSchema,
+  CONDITION_FACTS_ARTIFACT,
+  ConditionFactsSchema,
   currentValidationConditions,
-} from "./context.ts";
+} from "./conditions.ts";
 import { retainArtifact } from "./artifacts.ts";
 import { buildStandardPlan, standardJobLabel } from "../gate/standard_plan.ts";
 import {
@@ -186,7 +187,7 @@ export function producerLabel(selector: string): string {
     : selector;
 }
 
-/** All process effects remain below the environment lease; diagnostic results stay transient. */
+/** All process effects remain within the attempt's lease; diagnostic results stay transient. */
 export async function executePublicValidation(input: {
   readonly root: string;
   readonly config: DiscernConfig;
@@ -194,7 +195,8 @@ export async function executePublicValidation(input: {
   readonly claimed: ValidationSubject;
   readonly demand: ValidationDemand;
   readonly stageDependencies?: boolean;
-  readonly bindComposition?: boolean;
+  /** Bind the reserved attempt to the planned demand before producers run. */
+  readonly bindAttempt?: boolean;
   readonly rerun_of?: string;
   readonly producerBoundary?: ProducerBoundary;
   readonly capacity?: PublicValidationCapacity;
@@ -219,15 +221,10 @@ export async function executePublicValidation(input: {
   const inherited = await observeCompletionRecords(root);
   const observation = diagnostic ? { ...inherited, records: [] } : inherited;
   const overrides = { [TEST_RUN_SLOT_ENV]: TEST_RUN_SLOT_VALUE };
-  const seed = "diagnostic" in input.claimed
-    ? input.claimed.seed
-    : input.claimed.environment.ownership.kind === "borrowed"
-    ? input.claimed.environment.ownership.identity.seed
-    : 0;
+  const seed = input.claimed.seed;
   const conditions = await currentValidationConditions(
     root,
     configured,
-    demand.context,
     seed,
     overrides,
     hostEnv,
@@ -267,7 +264,6 @@ export async function executePublicValidation(input: {
     inputs,
     conditions: await candidateConditions(
       input.claimed.candidate_id,
-      configured,
       conditions,
       observation,
       root,
@@ -314,6 +310,16 @@ export async function executePublicValidation(input: {
         input.capacity.runner.outputObserver,
       ) ?? progressObserver,
     };
+  // `[gate].fail_fast` cancels a gate run's in-flight siblings so a failed
+  // gate ends sooner. A measurement report (`standards`, `pin`, `proposal`,
+  // or the standalone form demanding only standards) instead exists to read
+  // every demanded standard: a failing measurement process fails its own
+  // consumers only, because aborting siblings would leave the set of
+  // completed readings dependent on process scheduling.
+  const measurementReport = demand.kind === "standards" ||
+    demand.kind === "pin" || demand.kind === "proposal" ||
+    demand.kind === "standalone" && demand.requirements.length > 0 &&
+      demand.requirements.every((entry) => entry.kind === "standard");
   const runtime =
     (diagnostic ? createDiagnosticValidationRuntime : createValidationRuntime)({
       root,
@@ -367,11 +373,13 @@ export async function executePublicValidation(input: {
               : { output_path: result.outputPath }),
           },
         });
-        if (config.gate.fail_fast && result.code !== 0) abort.abort();
+        if (config.gate.fail_fast && !measurementReport && result.code !== 0) {
+          abort.abort();
+        }
       },
     });
   let slotAcquisitions = 0;
-  let contextArtifact: ComponentEvidence["artifacts"][number] | undefined;
+  let conditionsArtifact: ComponentEvidence["artifacts"][number] | undefined;
   const withSlot = async <T>(
     needed: boolean,
     claimed: ValidationSubject,
@@ -445,9 +453,9 @@ export async function executePublicValidation(input: {
           return runtime.produce(producer, claimed);
         },
       );
-      return contextArtifact === undefined ? captured : {
+      return conditionsArtifact === undefined ? captured : {
         ...captured,
-        artifacts: [...captured.artifacts, contextArtifact],
+        artifacts: [...captured.artifacts, conditionsArtifact],
       };
     },
   };
@@ -460,14 +468,17 @@ export async function executePublicValidation(input: {
         : observeCompletionRecords(root),
     runtime: observedRuntime,
     ...(input.rerun_of === undefined ? {} : { rerun_of: input.rerun_of }),
+    ...("fence" in input.claimed
+      ? { live: input.claimed.fence.attempt_id }
+      : {}),
   });
   const observed = await evaluator.observe(snapshot.candidate_id);
   const plan = evaluator.plan(observed, demand, snapshot.candidate_id);
-  if (input.bindComposition && plan.blockers.length === 0) {
+  if (input.bindAttempt && plan.blockers.length === 0) {
     if (!("fence" in execution)) {
       throw new Error("Diagnostics cannot bind a completion attempt.");
     }
-    execution = await bindExecutionValidation(root, execution, plan);
+    execution = await bindAttemptDemand(root, execution, plan);
   }
   if ("diagnostic" in execution) {
     execution = {
@@ -483,22 +494,20 @@ export async function executePublicValidation(input: {
     };
   }
   if (!diagnostic && plan.blockers.length === 0) {
-    const facts = ContextFactsSchema.parse({
-      version: ContextFactsSchema.shape.version.value,
+    const facts = ConditionFactsSchema.parse({
+      version: ConditionFactsSchema.shape.version.value,
       candidate_id: snapshot.candidate_id,
-      context: conditions.context,
       seed: conditions.seed,
       identity: conditions.identity,
       environment_digests: conditions.environment_digests,
     });
-    contextArtifact = await retainArtifact(
+    conditionsArtifact = await retainArtifact(
       root,
       {
         attempt_id: execution.attempt.identity.id,
         candidate_id: snapshot.candidate_id,
-        context: demand.context,
       },
-      "context/facts.json",
+      CONDITION_FACTS_ARTIFACT,
       new TextEncoder().encode(JSON.stringify(facts)),
     );
   }
@@ -551,8 +560,7 @@ export async function executePublicValidation(input: {
   for (const standard of buildStandardPlan(config).standards) {
     const obligation = snapshot.obligations.find((entry) =>
       entry.requirement.kind === "standard" &&
-      entry.requirement.id === standard.name &&
-      entry.requirement.context === demand.context
+      entry.requirement.id === standard.name
     );
     if (obligation === undefined) continue;
     const failedIds = plan.blockers.flatMap((blocker) =>
@@ -565,8 +573,7 @@ export async function executePublicValidation(input: {
         : []
     ).find((entry) =>
       entry.applicability.protected_definitions ===
-        obligation.applicability.protected_definitions &&
-      entry.applicability.context === demand.context
+        obligation.applicability.protected_definitions
     );
     const component = outcome.evidence.find((entry) =>
       entry.applicability.protected_definitions ===
@@ -625,8 +632,7 @@ export async function executePublicValidation(input: {
       );
       const receipt = plan.reused.find((reuse) =>
         reuse.requirement.kind === "standard" &&
-        reuse.requirement.id === standard.name &&
-        reuse.requirement.context === demand.context
+        reuse.requirement.id === standard.name
       );
       const selected = records.find((record) =>
         record.kind === "evidence" && record.id === receipt?.evidence_id
@@ -777,7 +783,7 @@ export async function executePublicValidation(input: {
       {
         kind: "timing",
         interval_id: execution.attempt.identity.id,
-        category: "execution",
+        category: "validation",
         started_at: startedAt,
         finished_at: finishedAt,
       },

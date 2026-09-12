@@ -85,7 +85,6 @@ import {
   type UpgradeData,
 } from "../shared/result_schemas.ts";
 import { TomlFormatError, writeDiscernToml } from "../lib/tidy_format.ts";
-import { executionStatus } from "../engine/execution/public_recovery.ts";
 import { openCompletionRecordStore } from "../engine/completion/store.ts";
 import {
   observableCompletionCheckout,
@@ -135,11 +134,11 @@ function pendingUpgradeHint(): FiredHint {
 }
 
 /**
- * The refusal for a checkout whose completion records forbid changing it now:
- * a live or abandoned execution claim, an unfinished checkout return, or
- * records this build cannot read. Undefined when nothing stands in the way.
+ * The refusal for a checkout whose completion records this build cannot read:
+ * a newer discern wrote them, so upgrading here would misread them. Undefined
+ * when nothing stands in the way.
  */
-async function recordedExecutionRefusal(
+async function recordedCompletionRefusal(
   destDir: string,
 ): Promise<DiscernResult<UpgradeData> | undefined> {
   if (!await observableCompletionCheckout(destDir)) return undefined;
@@ -170,29 +169,7 @@ async function recordedExecutionRefusal(
       },
     };
   }
-  const status = await executionStatus(destDir);
-  const blocking = [
-    ...(status.execution_activity ?? []).map((entry) => ({
-      environment_id: entry.environment_id,
-      next_action: entry.next_action ??
-        "let the owning operation finish, or recover the checkout",
-    })),
-    ...(status.execution_recovery ?? []).map((entry) => ({
-      environment_id: entry.environment_id,
-      next_action: entry.next_action,
-    })),
-  ];
-  if (blocking.length === 0) return undefined;
-  return {
-    ok: false,
-    verb: "upgrade",
-    error: "precondition_failed",
-    message:
-      `this checkout has a recorded execution claim or an unfinished checkout return, so upgrading it now would change files that operation still owns. ${
-        blocking.map((entry) => entry.next_action).join(" ")
-      } Upgrading from another checkout of this repository leaves every record untouched.`,
-    data: { recorded_execution: blocking },
-  };
+  return undefined;
 }
 
 /** Fire the advisory that running agents still hold pre-upgrade instructions. */
@@ -452,17 +429,14 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 0;
   }
 
-  // Recorded completion state guards. An upgrade rewrites this checkout's
-  // install files and refreshes its generated outputs, so a checkout that a
-  // recorded execution still claims, or that owes an unfinished return, is
-  // not this command's to change: the owning operation or the supported
-  // recovery must finish first, and another checkout of the same repository
-  // can upgrade meanwhile with every record left intact. Records written by a
-  // newer discern are never reinterpreted by this build. Neither guard is
-  // relaxed by --allow-dirty, which speaks only to uncommitted tracked files.
+  // Recorded completion state guard. Records written by a newer discern are
+  // never reinterpreted by this build, and another checkout of the same
+  // repository can upgrade meanwhile with every record left intact. The guard
+  // is not relaxed by --allow-dirty, which speaks only to uncommitted tracked
+  // files.
   const state = await worktreeState(destDir);
   if (state.kind !== "not-a-repo") {
-    const recorded = await recordedExecutionRefusal(destDir);
+    const recorded = await recordedCompletionRefusal(destDir);
     if (recorded !== undefined) {
       if (options.json) {
         log.result(recorded);

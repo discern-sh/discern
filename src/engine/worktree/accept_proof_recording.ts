@@ -1,4 +1,3 @@
-import type { LandedAuthorityEvidence } from "../../shared/completion_proof.ts";
 /** Post-CAS Proof-note recording shared by acceptance and its recovery path. */
 
 import type { Logger } from "../../lib/log.ts";
@@ -43,7 +42,6 @@ export async function recordLandingProofNote(input: {
   readonly standardProposals: readonly StandardLimitProposalData[];
   readonly log: Logger;
   readonly env: Pick<typeof Deno.env, "get">;
-  readonly authority?: LandedAuthorityEvidence;
   readonly writeNote?: typeof writeProofNote;
 }): Promise<{
   readonly proofNote: AcceptProofNoteData;
@@ -86,7 +84,6 @@ export async function recordLandingProofNote(input: {
     }),
   };
   const acceptanceEvidence: AcceptanceEvidenceData = {
-    ...(input.authority === undefined ? {} : { authority: input.authority }),
     consent: cloneLandingConsent(input.consent),
     variances: input.variances.map((variance) => ({ ...variance })),
     standard_proposals: input.standardProposals.map(cloneStandardLimitProposal),

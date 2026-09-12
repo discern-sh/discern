@@ -15,6 +15,7 @@ import type {
   MachineAssembly,
   ValidationDemand,
 } from "../completion/protocol.ts";
+import type { PublicationFence } from "../completion/store.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import {
   requirementKey,
@@ -84,7 +85,7 @@ export function indexEvidence(
     : new EvidenceIndex(records);
 }
 
-/** Explicit retry records a finished validation predecessor in reservation order.
+/** Explicit retry records a finished validation predecessor in sequence order.
  * Its sequence bounds earlier failed subjects; it never authorizes live work or landing.
  */
 export function finishedValidationAttempts(
@@ -103,7 +104,6 @@ export function artifactKey(
   return JSON.stringify([
     artifact.attempt_id,
     artifact.candidate_id,
-    artifact.context,
     artifact.path,
     artifact.digest,
     artifact.bytes,
@@ -118,6 +118,10 @@ export function selectEvidence(
   mode: ValidationDemand["mode"],
   purpose: ComponentEvidence["purpose"],
   audited: ReadonlySet<string>,
+  /** The caller's own live attempt. Its freshly published receipts are
+   * selectable while its claim is still held — the publisher is never
+   * "another operation" to itself. Any other live claim still blocks. */
+  live?: string,
 ): EvidenceSelection {
   const receipts = (attempt: AttemptRecord): readonly EvidenceRecord[] =>
     index.receipts.get(attempt.id) ?? [];
@@ -153,7 +157,7 @@ export function selectEvidence(
         requirement: obligation.requirement,
         attempt_id: latest.id,
         reason:
-          `${obligation.requirement.kind} '${obligation.requirement.id}' in context '${obligation.requirement.context}' has no passing evidence from attempt ${latest.id} (${
+          `${obligation.requirement.kind} '${obligation.requirement.id}' has no passing evidence from attempt ${latest.id} (${
             attempt.state.kind === "finished"
               ? attempt.state.outcome
               : attempt.state.kind
@@ -161,22 +165,18 @@ export function selectEvidence(
       }
       : blocker,
   });
-  if (attempt.state.kind === "claimed") {
+  if (attempt.state.kind === "claimed" && latest.id !== live) {
     return blocked({
       kind: "waiting-for-operation",
       attempt_id: latest.id,
       expires_at: attempt.state.claim.expires_at,
     });
   }
-  if (attempt.state.kind === "recovery") {
-    return blocked({
-      kind: "recovery-incomplete",
-      record_id: latest.id,
-      recovery: attempt.state.recovery,
-    });
-  }
   // A finished attempt can have an unrelated failed producer. Its valid siblings survive.
-  if (attempt.state.kind !== "finished" || matching.length !== 1) {
+  if (
+    (attempt.state.kind !== "finished" && latest.id !== live) ||
+    matching.length !== 1
+  ) {
     return blocked({
       kind: "missing-evidence",
       requirements: [obligation.requirement],
@@ -227,6 +227,8 @@ export function selectEvidence(
 export function artifactAuditEvidence(
   snapshot: ValidationSnapshot,
   records: readonly CompletionRecord[] | EvidenceIndex,
+  /** The caller's own live attempt, whose fresh receipts still need auditing. */
+  live?: string,
 ): ComponentEvidence[] {
   const index = indexEvidence(records);
   const wanted = new Set<string>();
@@ -240,6 +242,7 @@ export function artifactAuditEvidence(
         "report",
         purpose,
         unaudited,
+        live,
       );
       if (selection.kind === "selected") wanted.add(selection.record.id);
       else if (
@@ -263,6 +266,7 @@ export function assembleCandidate(
   requirements: readonly Requirement[],
   records: readonly CompletionRecord[] | EvidenceIndex,
   mode: ValidationDemand["mode"],
+  assembler: PublicationFence,
   audited: ReadonlySet<string> = new Set(),
   clock: Clock = SYSTEM_CLOCK,
 ): MachineAssembly {
@@ -291,6 +295,7 @@ export function assembleCandidate(
       mode,
       "completion",
       audited,
+      assembler.attempt_id,
     );
     if (selection.kind === "missing") {
       blockers.push({
@@ -318,24 +323,21 @@ export function assembleCandidate(
     }
   }
   if (blockers.length > 0) return { kind: "incomplete", blockers };
-  // Publication must be attributed to a completion attempt for the consuming candidate.
-  const assembler =
-    index.attempts.filter((r) =>
-      r.kind === "attempt" && r.data.identity.candidate_id === candidateId &&
-      r.data.purpose === "completion" && r.data.mode === mode &&
-      r.data.subjects.length === 0
-    )
-      .sort((a, b) => b.data.identity.sequence - a.data.identity.sequence)[0];
+  // Publication is attributed to the live completion attempt that asked.
+  const owner = index.attempts.find((r) => r.id === assembler.attempt_id);
   if (
-    assembler === undefined || assembler.data.state.kind !== "claimed" ||
-    assembler.data.state.claim.expires_at <= clock.wallNow()
+    owner === undefined || owner.data.identity.candidate_id !== candidateId ||
+    owner.data.purpose !== "completion" || owner.data.mode !== mode ||
+    owner.data.state.kind !== "claimed" ||
+    owner.data.state.claim.token !== assembler.token ||
+    owner.data.state.claim.expires_at <= clock.wallNow()
   ) {
     return { kind: "incomplete", blockers: [missing] };
   }
   return {
     kind: "complete",
     proof: CandidateProofSchema.parse({
-      attempt_id: assembler.id,
+      attempt_id: owner.id,
       candidate_id: candidateId,
       head: candidate.head,
       policy: candidate.policy,

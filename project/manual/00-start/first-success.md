@@ -89,7 +89,7 @@ If the session ends, ask the next agent to resume the existing setup. discern re
 
 Before calling setup complete, your agent runs `discern setup done`. discern checks the setup, tries it in a temporary isolated workspace, and runs the full gate. That trial matters: future tasks need to work in their own workspaces, too.
 
-Setup also decides how finished tasks will be checked and landed. By default each task is checked on its own commit and tasks land in turn, which needs nothing more from you. If the agent proposes checking tasks early, against work that has not landed yet, it has to declare how a workspace is prepared for another version and put back exactly, and `discern setup done` rehearses that declaration in the temporary workspace before trusting it. The agent tells you in plain terms how many tasks can be checked at once and which setting limits that.
+Setup also settles what each future check will cost. Every quality number the project holds gets a producer the gate already runs, and a check whose inputs are declared is reused when those inputs are unchanged. The agent tells you in plain terms which evidence is produced again for every commit and which is reused.
 
 A successful result includes **Proof**, the evidence that the configured checks passed for one exact commit. A commit is a saved version of the project. This illustrative Proof line shows the format; your result will contain its own identifier and counts:
 

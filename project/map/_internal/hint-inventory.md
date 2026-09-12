@@ -74,7 +74,7 @@ Rendered example:
 
 > The owner can share this landing's Proof with other clones by running `git push origin refs/notes/discern`; discern records it locally and never publishes it.
 
-## `accept-reconcile-partial-effects`
+## `accept-recover-partial-effects`
 
 - Category: `next-step`
 - Audience: `all`
@@ -298,23 +298,12 @@ Rendered example:
 
 > A declared-unmet conclusion stands on: api-review. Landing requires the owner to authorize each variance in the current conversation — recorded standing and effort grants never cover one. Relay each question and rationale above to the owner; the decision is served at `discern accept`.
 
-## `completion-early-validation-inert`
-
-- Category: `notice`
-- Audience: `all`
-- Family: —
-- Emitting context: `[completion].lookahead` asks for early checking, but the declared environment is unproven, undeclared, or has no spare slot, so efforts are checked in order.
-
-Rendered example:
-
-> Early checking is off: `completion.lookahead = 1` asks to check efforts early, but the environment declared for `local` has not been proven since it was declared or changed. Efforts are checked and land in order. Run `discern setup done` from a clean committed tree to prove it, or set `completion.lookahead` to 0.
-
 ## `completion-pending`
 
 - Category: `next-step`
 - Audience: `all`
 - Family: —
-- Emitting context: Complete candidate validation or its execution environment has a pending obligation.
+- Emitting context: Complete candidate validation has a pending obligation.
 
 Rendered example:
 
@@ -549,7 +538,7 @@ Rendered example:
 
 Rendered example:
 
-> The emergency landing at 0123abcd4567 still has its skipped checks outstanding. Run discern done --rerun on the trunk, or on a change that contains it, in every required context; the emergency record stays in the history.
+> The emergency landing at 0123abcd4567 still has its skipped checks outstanding. Run discern done --rerun on the trunk, or on a change that contains it; the emergency record stays in the history.
 
 ## `ensure-main-worktree-first`
 
@@ -561,17 +550,6 @@ Rendered example:
 Rendered example:
 
 > Session opened in the main checkout, where every effort lands. Keep one worktree for an effort across review feedback and resumed sessions. If this effort already has one, continue at its recorded path; pass `path` to every discern tool. If unavailable, ask for its path instead of creating another. Do not call `discern start` again. For a new effort, run `discern start` before editing and work in the worktree it returns. Questions and investigation can read from anywhere.
-
-## `execution-recovery`
-
-- Category: `next-step`
-- Audience: `all`
-- Family: —
-- Emitting context: A recorded execution environment has not returned to its owner.
-
-Rendered example:
-
-> Preserve the retained paths and reconcile the recorded recovery reason. From the owning worktree, run discern done --recover 00000000-0000-4000-8000-000000000001. Recovery rechecks native ownership and stopped children; a future validation deadline does not require waiting. This returns the checkout without validation or landing.
 
 ## `failure-recovery`
 
@@ -2040,17 +2018,6 @@ Rendered example:
 Rendered example:
 
 > There are no active worktrees.
-
-## `status-queue-capacity-saturated`
-
-- Category: `notice`
-- Audience: `all`
-- Family: —
-- Emitting context: Every completion.concurrency validation slot is in use while queued efforts wait.
-
-Rendered example:
-
-> Every validation slot is in use, held by agent/first and agent/second (completion.concurrency = 2). Queued efforts wait until a running validation finishes or returns its slot.
 
 ## `status-ready-for-review`
 

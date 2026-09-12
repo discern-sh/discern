@@ -122,44 +122,20 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ["src/lib/agent_gitattributes.ts", "the .gitattributes block writer"],
   // runtime worktree state
   [
-    "src/engine/completion/publication_witness.ts",
-    "the registry-resolved common Git-admin publication witness, invalidated before record or artifact mutation",
-  ],
-  [
-    "src/engine/execution/payloads.ts",
-    "streamed immutable recovery bytes and private staging under the registry-resolved common Git-admin artifact directory",
-  ],
-  [
-    "src/engine/execution/reclamation.ts",
-    "unreferenced recovery artifacts under the registry-resolved common Git-admin directory, removed only after complete reference and publication checks",
-  ],
-  [
-    "src/engine/execution/storage_lifetime.ts",
-    "the recovery storage lifetime lock inside the registry-resolved common Git-admin artifact directory",
-  ],
-  [
     "src/engine/completion/store.ts",
     "completion records and revision history — registry-resolved common Git-admin state, published through the atomic writer",
+  ],
+  [
+    "src/engine/completion/artifacts.ts",
+    "attempt-owned completion documents — registry-resolved common Git-admin artifacts, published once under the publication lock",
   ],
   [
     "src/engine/validation/artifacts.ts",
     "attempt-owned producer captures — registry-resolved common Git-admin artifacts, created once and verified before extraction",
   ],
   [
-    "src/engine/execution/artifacts.ts",
-    "frozen environment intent and drift — registry-resolved common Git-admin attempt artifacts, immutable under the publication lock",
-  ],
-  [
-    "src/engine/execution/workspace.ts",
-    "explicitly released and exclusively claimed checkout return — only freshly verified captured leaves and the frozen Git-admin index, guarded by completion environment ownership",
-  ],
-  [
-    "src/engine/execution/probe.ts",
-    "one owned probe file inside setup's throwaway worktree while a differing candidate is installed — the executor's captured return removes it, under completion environment ownership",
-  ],
-  [
-    "src/engine/execution/probe_record.ts",
-    "the record of proved environment declarations — registry-resolved common Git-admin state, replaced through the atomic writer",
+    "src/engine/worktree/submission_writer.ts",
+    "the worktree-scoped submission record — registry-resolved Git-admin state, written and cleared through the atomic writer",
   ],
   [
     "src/engine/worktree/env_file.ts",

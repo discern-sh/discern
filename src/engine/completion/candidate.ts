@@ -1,4 +1,4 @@
-/** Immutable composition facts. Ref publication and composition belong to the queue. */
+/** The immutable subject one `done` proves: a source tip against the trunk it was checked on. */
 import { z } from "@zod/zod";
 import {
   DigestSchema,
@@ -7,39 +7,24 @@ import {
   SourceRevisionSchema,
 } from "./identity.ts";
 
-export const CompositionSchema = z.strictObject({
-  procedure: DigestSchema,
-  generated_ownership: DigestSchema,
-  generators: DigestSchema,
-  merge_commit: ObjectIdSchema.nullable(),
-  regeneration_commit: ObjectIdSchema.nullable(),
-}).refine(
-  (value) =>
-    value.regeneration_commit === null ||
-    (value.merge_commit !== null &&
-      value.merge_commit !== value.regeneration_commit),
-  "generated convergence requires a separate merge commit",
-);
-
 export const CandidateSchema = z.strictObject({
+  /** The attempt that recorded this candidate. */
   attempt_id: RecordIdSchema,
   source: SourceRevisionSchema,
-  dependencies: z.array(SourceRevisionSchema),
-  expected_predecessor: z.strictObject({
-    head: ObjectIdSchema,
-    candidate_id: RecordIdSchema.nullable(),
-  }),
+  /** The trunk commit the source was proven against. */
+  predecessor: ObjectIdSchema,
   head: ObjectIdSchema,
   tree: ObjectIdSchema,
+  /** The trunk's committed configuration identity at the predecessor. */
   policy: DigestSchema,
   requirement_set: DigestSchema,
-  composition: CompositionSchema,
 }).refine(
-  (value) =>
-    new Set([
-      value.source.effort_id,
-      ...value.dependencies.map((source) => source.effort_id),
-    ]).size === value.dependencies.length + 1,
-  "each authored effort has one source revision",
+  (value) => value.head === value.source.head,
+  "a candidate is its source tip",
 );
 export type Candidate = z.infer<typeof CandidateSchema>;
+
+/** The trunk commit the candidate was proven against. */
+export function candidatePredecessor(candidate: Candidate): string {
+  return candidate.predecessor;
+}

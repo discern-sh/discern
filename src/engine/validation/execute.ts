@@ -1,4 +1,4 @@
-/** Run the minimal dependency graph inside an already claimed candidate environment. */
+/** Run the minimal dependency graph inside the checkout that holds the claimed attempt. */
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import {
   type ComponentEvidence,
@@ -80,18 +80,12 @@ export function verifyValidationClaim(
     JSON.stringify(execution.candidate) !== JSON.stringify(plan.candidate) ||
     execution.fence.attempt_id !== attempt.identity.id ||
     attempt.identity.candidate_id !== plan.candidate_id ||
-    attempt.environment_id !== execution.environment_id ||
     attempt.mode !== plan.demand.mode ||
     attempt.purpose !==
       validationPurpose(plan.demand) ||
     attempt.state.kind !== "claimed" ||
     attempt.state.claim.token !== execution.fence.token ||
-    attempt.state.claim.expires_at <= clock.wallNow() ||
-    execution.environment.state.kind !== "executing" ||
-    execution.environment.state.phase !== "validate" ||
-    execution.environment.state.attempt_id !== attempt.identity.id ||
-    execution.environment.state.candidate_id !== plan.candidate_id ||
-    execution.environment.state.claim.token !== execution.fence.token
+    attempt.state.claim.expires_at <= clock.wallNow()
   ) throw new Error("validation plan does not match a live candidate claim");
   verifyValidationBinding(snapshot, plan, execution);
 }
@@ -152,7 +146,6 @@ function verifyValidationBinding(
       );
       if (
         obligation === undefined || obligation.producer !== producer.selector ||
-        obligation.requirement.context !== plan.demand.context ||
         JSON.stringify(obligation.input) !== JSON.stringify(consumer.input)
       ) {
         throw new Error(
@@ -188,11 +181,9 @@ function physicalKey(
   const node = snapshot.producers.get(selector);
   if (node === undefined) throw new Error(`missing producer '${selector}'`);
   return JSON.stringify([
-    execution.environment.path,
-    execution.environment_id,
+    execution.path,
     execution.candidate_id,
-    plan.demand.context,
-    snapshot.conditions.find((c) => c.context === plan.demand.context),
+    snapshot.conditions[0],
     [...(snapshot.ordering?.get(selector) ?? [])].sort(),
     {
       ...node.recipe,
@@ -324,10 +315,9 @@ async function executeProducerGraph(
       if (
         capture.artifacts.some((artifact) =>
           artifact.attempt_id !== execution.attempt.identity.id ||
-          artifact.candidate_id !== execution.candidate_id ||
-          artifact.context !== plan.demand.context
+          artifact.candidate_id !== execution.candidate_id
         )
-      ) throw new Error("artifact names another attempt, candidate or context");
+      ) throw new Error("artifact names another attempt or candidate");
       if (obligation.input.extraction !== null) {
         await runtime.verify(execution);
         capture = await runtime.extract(obligation, capture, execution);
@@ -372,8 +362,7 @@ async function executeProducerGraph(
         finished_at: clock.wallNow(),
         artifacts: capture.artifacts.filter((a) =>
           a.attempt_id === execution.attempt.identity.id &&
-          a.candidate_id === execution.candidate_id &&
-          a.context === plan.demand.context
+          a.candidate_id === execution.candidate_id
         ),
         outcome: {
           kind: capture.outcome === "cancelled" || capture.outcome === "unrun"

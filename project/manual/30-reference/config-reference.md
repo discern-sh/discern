@@ -41,7 +41,6 @@ aliases:
   - "jobs.<name>.artifacts"
   - "jobs.<name>.environment"
   - "jobs.<name>.toolchain"
-  - "jobs.<name>.contexts"
   - "jobs.<name>.provides"
   - "jobs.<name>.timeout"
   - "setup.not_applicable"
@@ -55,7 +54,6 @@ aliases:
   - "scopes.<name>.artifacts"
   - "scopes.<name>.environment"
   - "scopes.<name>.toolchain"
-  - "scopes.<name>.contexts"
   - "scopes.<name>.gate"
   - "scopes.<name>.timeout"
   - "generated"
@@ -95,27 +93,10 @@ aliases:
   - "standards.<name>.artifacts"
   - "standards.<name>.environment"
   - "standards.<name>.toolchain"
-  - "standards.<name>.contexts"
   - "standards.<name>.per"
   - "standards.<name>.scale"
   - "standards.<name>.margin"
   - "standards.<name>.timeout"
-  - "completion"
-  - "completion.required_contexts"
-  - "completion.concurrency"
-  - "completion.lookahead"
-  - "execution"
-  - "execution.<name>"
-  - "execution.<name>.kind"
-  - "execution.<name>.prepare"
-  - "execution.<name>.restore"
-  - "execution.<name>.reset"
-  - "execution.<name>.dispose"
-  - "execution.<name>.reusable"
-  - "execution.<name>.resources"
-  - "execution.<name>.ignored"
-  - "execution.<name>.inputs"
-  - "execution.<name>.capacity"
   - "checkpoints.<name>"
   - "checkpoints.<name>.scope"
   - "checkpoints.<name>.paths"
@@ -161,7 +142,7 @@ aliases:
 
 Start with [jobs](#jobs) for checks, [worktree](#worktree) for task workspaces, [standards](#standardsname) for measured limits, or [checkpoints](#checkpointsname) for review questions. The tables below cover every public setting and come from the schema discern uses to validate your file.
 
-The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[generated.<name>]`, `[worktree.resources.<name>]`, `[standards.<name>]`, `[execution.<name>]`, `[checkpoints.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
+The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[generated.<name>]`, `[worktree.resources.<name>]`, `[standards.<name>]`, `[checkpoints.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
 
 ## Read the tables
 
@@ -261,7 +242,6 @@ A custom job. Its name is open, but its stage and command are explicit.
 | `artifacts`   | string[]                              | —       | Project-relative outputs captured into immutable attempt storage after production.                                                                                                                                                      |
 | `environment` | string[]                              | —       | Environment variable names whose effective values enter evidence identity as digests.                                                                                                                                                   |
 | `toolchain`   | string[]                              | —       | Project-relative identity files for the applicable toolchain.                                                                                                                                                                           |
-| `contexts`    | string[]                              | —       | Required execution contexts for this obligation; omission uses completion.required_contexts.                                                                                                                                            |
 | `provides`    | string                                | —       | A free-text label for humans and audit.                                                                                                                                                                                                 |
 | `timeout`     | number                                | —       | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                            |
 
@@ -301,7 +281,6 @@ Named regions of the repository. A change inside a scope can skip the gate, run 
 | `artifacts`   | string[]           | —       | Project-relative outputs captured into immutable attempt storage after production.                                                                                                                                                                                                                                                                                                    |
 | `environment` | string[]           | —       | Environment variable names whose effective values enter evidence identity as digests.                                                                                                                                                                                                                                                                                                 |
 | `toolchain`   | string[]           | —       | Project-relative identity files for the applicable toolchain.                                                                                                                                                                                                                                                                                                                         |
-| `contexts`    | string[]           | —       | Required execution contexts for this obligation; omission uses completion.required_contexts.                                                                                                                                                                                                                                                                                          |
 | `gate`        | string \| string[] | —       | A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.                                                                    |
 | `timeout`     | number             | —       | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                                                                                                                                                                          |
 
@@ -404,7 +383,7 @@ Commands that ready a linked worktree. `steps` run once at creation. `ensure` ru
 
 ## `[standards.<name>]`
 
-Quality numbers that can never get worse. Every `discern done` requires current readings for each standard and refuses a limit looser than the trunk's. Producers run once for their consumers, and reusable evidence must match the declared inputs, policy, toolchain, environment, and execution context. Hold a raw count for an invariant, a rate through `per` for a quality that scales, and give a total that grows with the product a `margin`.
+Quality numbers that can never get worse. Every `discern done` requires current readings for each standard and refuses a limit looser than the trunk's. Producers run once for their consumers, and reusable evidence must match the declared inputs, policy, toolchain, and environment. Hold a raw count for an invariant, a rate through `per` for a quality that scales, and give a total that grows with the product a `margin`.
 
 ```text
 A producer or extractor reports a number: DISCERN_METRIC <name> <number>
@@ -428,7 +407,6 @@ tell a gain from a loosening.
 | `artifacts`   | string[]           | —       | Project-relative outputs captured into immutable attempt storage after production.                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `environment` | string[]           | —       | Environment variable names whose effective values enter evidence identity as digests.                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `toolchain`   | string[]           | —       | Project-relative identity files for the applicable toolchain.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `contexts`    | string[]           | —       | Required execution contexts for this obligation; omission uses completion.required_contexts.                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `per`         | string \| object   | —       | Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run emits, or a built-in extent discern measures itself, per = { words = "${map.dir}**" } (files, lines, words, or bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched. |
 | `scale`       | number             | `1`     | Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `margin`      | number             | `0`     | Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. Give a metric that drifts on unrelated changes, such as a size or a coverage percentage, a margin so a pinned limit is not tripped by ordinary fluctuation.                                                                                                                                                                                                                                             |
@@ -463,47 +441,6 @@ per       = { lines = "src/**" }   # discern counts the lines itself
 scale     = 1000                   # warnings per 1,000 lines
 limit     = 5
 run       = "your-linter --count"  # DISCERN_METRIC warnings <count>
-```
-
-## `[completion]`
-
-How many efforts validate at once, and whether any validate early. Every `discern done` proves one exact commit against every required check and standard. `concurrency` caps how many efforts hold a validation slot at the same time; `lookahead` lets an effort validate before its predecessor lands, which needs a declared environment. Efforts land in order by default.
-
-| Key                 | Type     | Default     | Description                                                                                                                                                     |
-| ------------------- | -------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `required_contexts` | string[] | `["local"]` | Execution contexts required for each obligation unless it declares its own contexts.                                                                            |
-| `concurrency`       | number   | `1`         | How many efforts may hold a validation slot at once. One slot stays reserved for the effort landing next, so early validation needs 2 or more.                  |
-| `lookahead`         | number   | `0`         | How many efforts past the next one to land may validate early. 0 lands in order; a positive value needs an [execution.<name>] declaration per required context. |
-
-## `[execution.<name>]`
-
-How a checkout is prepared for another commit and returned afterwards. Validating an effort early installs a different commit in a released checkout, which changes generated files, ignored output, and resources. A declaration names the prepare and restore procedures that make that safe; `discern setup done` proves them in a throwaway copy before early validation can use them.
-
-| Key         | Type                     | Default | Description                                                                                                                                  |
-| ----------- | ------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kind`      | `borrowed` \| `isolated` | —       | Borrow a released source checkout or execute in separately owned isolation.                                                                  |
-| `prepare`   | string \| string[]       | —       | Prepare the candidate state and declared resources before validation.                                                                        |
-| `restore`   | string \| string[]       | —       | Restore the source state and resources after borrowed execution; required for borrowing.                                                     |
-| `reset`     | string \| string[]       | —       | Reset reusable isolation before another execution.                                                                                           |
-| `dispose`   | string \| string[]       | —       | Dispose of owned isolated resources after execution; required for isolation.                                                                 |
-| `reusable`  | boolean                  | —       | Whether the environment supports reuse after its verified return procedure.                                                                  |
-| `resources` | string[]                 | —       | Declared worktree resource names affected by preparation and return.                                                                         |
-| `ignored`   | string[]                 | —       | Ignored artifact paths whose changes the return procedure restores.                                                                          |
-| `inputs`    | string[]                 | —       | Complete input closure of the environment procedures.                                                                                        |
-| `capacity`  | number                   | —       | How many checkouts this declaration can prepare for another commit at once. Validating an effort's own commit never uses one of these slots. |
-
-A borrowed checkout with project-owned preparation and restoration:
-
-```toml
-[execution.local]
-kind = "borrowed"
-prepare = "project-prepare-candidate"
-restore = "project-restore-source"
-reusable = true
-resources = []
-ignored = ["build/**"]
-inputs = ["**"]
-capacity = 1
 ```
 
 ## `[checkpoints.<name>]`
@@ -601,7 +538,7 @@ How `discern done` runs its parallel stages. Fail-fast, a per-command time budge
 | `stream`               | boolean | `false` | false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the gate frame's bounded tail; CI, pipes, and --plain are static.                       |
 | `fail_fast`            | boolean | `true`  | Cancel the in-flight sibling commands the moment one fails; an agent-driven gate wants a fast abort. false runs every job and shows all failures in one pass.                                                   |
 | `timeout`              | number  | `600`   | Time budget in seconds for every command the gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the gate. 0 removes the bound. |
-| `concurrent_test_runs` | number  | `1`     | How many test stages may run on this machine at once; the rest wait for a slot. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>` shares the cap. Separate from [completion].concurrency.       |
+| `concurrent_test_runs` | number  | `1`     | How many test stages may run on this machine at once; the rest wait for a slot. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>` shares the cap.                                               |
 
 ## `[coupling]`
 

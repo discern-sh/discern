@@ -53,6 +53,7 @@
     "lint-suppressions": "deno run --allow-read --allow-run=git scripts/lint_suppressions.ts",
     "silent-error-boundaries": "deno run --allow-read --allow-run=git scripts/silent_error_boundaries.ts",
     "subprocess-spawn-boundaries": "deno run --allow-read --allow-run=git scripts/subprocess_spawn_boundaries.ts",
+    "checkout-mutation-boundaries": "deno run --allow-read --allow-run=git scripts/checkout_mutation_boundaries.ts",
     "process-boundaries": "deno run --allow-read --allow-run=git scripts/process_boundaries.ts",
     "promise-effects": "deno run --allow-read --allow-run=deno,git scripts/promise_effects.ts",
     "test-real-delay-boundaries": "deno run --allow-read --allow-run=git scripts/test_real_delay_boundaries.ts",

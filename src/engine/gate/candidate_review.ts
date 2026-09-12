@@ -6,17 +6,19 @@ import { sha256Hex } from "../../shared/sha256.ts";
 import type { Candidate } from "../completion/candidate.ts";
 import type { CandidateProof } from "../completion/evidence.ts";
 import type { CompletionBlocker } from "../completion/protocol.ts";
-import type { CompletionSession } from "../landing_queue/public_completion.ts";
-import type { CandidateDecisions } from "../landing_queue/authority.ts";
-import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
-import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
-import type { EnvironmentArtifact } from "../execution/types.ts";
+import type { CompletionSession } from "../completion/source_tip.ts";
+import type { CandidateDecisions } from "../completion/authority.ts";
+import {
+  type CompletionArtifact,
+  readCompletionArtifact,
+  saveCompletionArtifact,
+} from "../completion/artifacts.ts";
 import { readOpenQuestions } from "../checkpoints/open_questions.ts";
 import { inspectCheckpointObligations } from "../checkpoints/inspection.ts";
 import { declarationMaterial } from "../checkpoints/evidence.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 
-import { CandidateReviewSchema } from "../execution/artifact_contracts.ts";
+import { CandidateReviewSchema } from "../completion/documents.ts";
 export type CandidateReview = z.infer<typeof CandidateReviewSchema>;
 
 /** Capture before returning the validation checkout; no owner approval is created here. */
@@ -25,14 +27,13 @@ export async function captureCandidateReview(
   session: CompletionSession,
   checkpoints: ProofCheckpointsData | undefined,
   proposals: CandidateDecisions["proposals"],
-): Promise<EnvironmentArtifact> {
+): Promise<CompletionArtifact> {
   return await recordCandidateReview(
     root,
     session.execution.candidate,
     {
       attempt_id: session.execution.fence.attempt_id,
       candidate_id: session.execution.candidate_id,
-      context: session.context,
     },
     session.mode,
     checkpoints,
@@ -44,22 +45,22 @@ export async function captureCandidateReview(
 export async function recordCandidateReview(
   root: string,
   candidate: Candidate,
-  subject: Pick<EnvironmentArtifact, "attempt_id" | "candidate_id" | "context">,
+  subject: Pick<CompletionArtifact, "attempt_id" | "candidate_id">,
   mode: "strict" | "report",
   checkpoints: ProofCheckpointsData | undefined,
   proposals: CandidateDecisions["proposals"] = [],
   name: "candidate-review" | "emergency-review" = "candidate-review",
-): Promise<EnvironmentArtifact> {
+): Promise<CompletionArtifact> {
   const review = CandidateReviewSchema.parse({
     version: ON_DISK_FORMATS.candidateReview.version,
     head: candidate.head,
-    predecessor: candidate.expected_predecessor.head,
+    predecessor: candidate.predecessor,
     mode,
     stored: await readOpenQuestions(root),
     checkpoints: checkpoints ?? null,
     proposals,
   });
-  return await saveEnvironmentArtifact(root, subject, name, review);
+  return await saveCompletionArtifact(root, subject, name, review);
 }
 
 /** A Proof cannot borrow another candidate's review or silently infer missing old evidence. */
@@ -74,7 +75,7 @@ export async function readCandidateReview(
     proof.review.path !== "environment/candidate-review.json"
   ) {
     throw new Error(
-      "Complete candidate review is missing; run done in an eligible environment.",
+      "Complete candidate review is missing; run discern done on the committed tree.",
     );
   }
   return await readCandidateReviewArtifact(
@@ -89,7 +90,7 @@ export async function readCandidateReview(
 export async function readCandidateReviewArtifact(
   root: string,
   candidate: Candidate,
-  artifact: EnvironmentArtifact,
+  artifact: CompletionArtifact,
   mode: "strict" | "report",
   name: "candidate-review" | "emergency-review" = "candidate-review",
 ): Promise<CandidateReview> {
@@ -97,11 +98,11 @@ export async function readCandidateReviewArtifact(
     throw new Error("The receipt does not name a candidate review.");
   }
   const review = CandidateReviewSchema.parse(
-    await readEnvironmentArtifact(root, artifact),
+    await readCompletionArtifact(root, artifact),
   );
   if (
     review.head !== candidate.head ||
-    review.predecessor !== candidate.expected_predecessor.head ||
+    review.predecessor !== candidate.predecessor ||
     review.mode !== mode
   ) {
     throw new Error(
@@ -121,7 +122,7 @@ export async function assessCandidateReview(
   { decisions: CandidateDecisions; blockers: readonly CompletionBlocker[] }
 > {
   const inspection = await inspectCheckpointObligations(root, config, {
-    predecessor: candidate.expected_predecessor.head,
+    predecessor: candidate.predecessor,
     currentCommit: candidate.head,
     stored: review.stored,
     whenSettled: true,

@@ -55,22 +55,15 @@ Deno.test("accept: unreadable checkpoint evidence refuses before landing — a r
         await Deno.writeTextFile(store, "not json\n");
 
         const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
-        assertEquals(preview.code, 0, preview.output);
+        assertEquals(preview.code, 1, preview.output);
         const previewResult = parseAcceptJson(preview.stdout);
-        assertResultDataKey(previewResult, "queue");
-        assert(
-          previewResult.data.queue?.some((row) =>
-            row.pending.some((item) => item.kind === "missing-evidence")
-          ),
-          preview.stdout,
-        );
-        assertEquals(previewResult.dry_run, true);
+        assertEquals(previewResult.error, "report_only_proof", preview.stdout);
 
         const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
         assertEquals(apply.code, 1, apply.output);
         assertEquals(
           parseAcceptJson(apply.stdout).error,
-          "checkpoint_evidence_unavailable",
+          "report_only_proof",
         );
         assert(await targetExists(wt), "report-mode Proof must land nothing");
       },
@@ -186,7 +179,7 @@ Deno.test("accept: an indeterminate stop serves full evidence and excludes recor
     assertEquals(apply.code, 0, apply.output);
     const applied = parseAppliedAcceptJson(apply.stdout);
     assertEquals(applied.data.root, await Deno.realPath(dir));
-    assertEquals(applied.prefix.consent, { source: "conversation" });
+    assertEquals(applied.data.consent, { source: "conversation" });
     assertEquals(
       applied.data.checkpoint_drops?.[0]?.reason,
       "when_invalid_exit",

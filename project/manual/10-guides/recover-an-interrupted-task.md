@@ -1,7 +1,7 @@
 ---
 id: guide-recover-an-interrupted-task
 title: "Recover an interrupted task"
-description: "Pick up an unfinished task, find out what happened during an interrupted check or landing, or restore retained committed work."
+description: "Pick up an unfinished task, find out what happened during an interrupted check or landing, or restore committed work from a dropped branch."
 order: 40
 publish: true
 kind: guide
@@ -16,11 +16,7 @@ aliases:
   - "recover dropped branch"
   - "recovery refs"
   - "refs discern recovery"
-  - "abandoned validation"
-  - "done --recover"
-  - "no executor"
   - "stale evidence"
-  - "reconcile landed work"
 ---
 
 # Recover an interrupted task
@@ -39,42 +35,15 @@ For example, the recipe-search interface might be committed while a test is stil
 
 The next step follows the observed state:
 
-| What remains                                   | How work continues                                                                                                                                                          |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Uncommitted changes                            | The agent reads the files and continues from the intended work.                                                                                                             |
-| Incomplete setup                               | It follows the named setup or environment recovery.                                                                                                                         |
-| New work on the shared branch                  | It follows discern's update instructions and reviews any overlapping changes.                                                                                               |
-| Current Proof                                  | It checks the task's landing and authoring state before deciding whether more work is needed.                                                                               |
-| Stale Proof                                    | Something changed since the checks ran: an edit, the shared branch, or a review answer. It commits the intended state and runs `discern done`; unchanged checks are reused. |
-| A released workspace or interrupted validation | It follows the recorded recovery route before editing.                                                                                                                      |
+| What remains                  | How work continues                                                                                                                                                          |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Uncommitted changes           | The agent reads the files and continues from the intended work.                                                                                                             |
+| Incomplete setup              | It follows the named setup or resource recovery.                                                                                                                            |
+| New work on the shared branch | It runs `discern update` and reviews any overlapping changes.                                                                                                               |
+| Current Proof                 | It checks whether the task was submitted and what permission it has before deciding whether more work is needed.                                                            |
+| Stale Proof                   | Something changed since the checks ran: an edit, the shared branch, or a review answer. It commits the intended state and runs `discern done`; unchanged checks are reused. |
 
 Keep the same worktree through the resumed task and its review. If the original cannot be recovered, establish that fact before starting a replacement. [Finish and land a change](finish-and-land-a-change.md) covers the normal path once work resumes.
-
-## Return a workspace after interrupted validation
-
-discern can temporarily use an eligible workspace to validate a candidate, the proposed version of a change. If the process running that validation dies, or the session that started it is gone, status names the environment and says that no executor is active. Passing evidence alone does not prove the workspace has been returned to its author.
-
-You can ask:
-
-> Recover this task's validation workspace. Explain any files or processes that prevent its return, and preserve the retained artifacts.
-
-Your agent previews the return from the owning worktree, using the environment ID supplied by the result:
-
-```sh
-discern done --recover <environment-id> --dry-run
-```
-
-It resolves the reported condition, then runs the same command without `--dry-run`. Recovery does not wait for the run's time limit to expire. That limit is a watchdog over how long a validation may take; it says nothing about whether anything is still running. Recovery takes ownership of the workspace, checks that the recorded child processes have stopped, accounts for retained files, and returns authoring control.
-
-Recovery stops, and keeps the workspace as it is, when:
-
-- **the run is still alive.** Another process owns the workspace. Let it finish or stop it first.
-- **a child process survived.** A test runner or server from the interrupted run is still going. Stop it, then recover again.
-- **child state is unknown.** discern cannot tell whether the run's processes stopped. Inspect the machine before recovering; nothing is deleted while that is uncertain.
-- **the return failed.** The restore step could not put the workspace back. Repair what the result names, then recover again; each earlier step stays done.
-- **the branch or files changed.** Someone worked in the workspace after it was borrowed. Preserve that work and investigate before returning it. When the branch merely gained commits after the run was recorded, the refusal names the recorded commit and the steps that set the branch back, recover, and bring the new commits forward again.
-
-This recovery action runs no validation and lands no change. After the workspace returns, ordinary `discern done` can reuse applicable passing evidence and obtain anything still missing. Use `--rerun` when the result calls for a deliberate new validation attempt.
 
 ## Stop a run you can no longer see
 
@@ -84,19 +53,19 @@ If you close a terminal, or your coding tool gives up on a long call, the checks
 discern progress R1-H596-N6BT-K5
 ```
 
-The reading says whether the run is still going, what it has counted and which checks have failed so far, and, once it finishes, its complete result. Without a handle, `discern progress` reads the most recent run started from that workspace. A run that is still alive finishes on its own. A run whose process has died reads as stopped without finishing, which is the case above.
+The reading says whether the run is still going, what it has counted and which checks have failed so far, and, once it finishes, its complete result. Without a handle, `discern progress` reads the most recent run started from that workspace. A run that is still alive finishes on its own. A run whose process has died reads as stopped without finishing.
 
 Never repeat the checks to recover their output. The reading keeps the result, and each check's full transcript stays in the file the result names.
 
 ## Recover an interrupted acceptance
 
-An acceptance can land a change and then stop while updating the main checkout, recording its Proof note, or cleaning up. The first useful question is whether the change reached the shared branch.
+An acceptance can land a change and then stop while updating the main checkout, recording its Proof note, or removing the worktree. The first useful question is whether the change reached the shared branch.
 
 Ask your agent:
 
-> Check the interrupted acceptance. Tell me which changes landed, which remain pending, and what cleanup or recovery is still needed. Continue the recorded recovery for the landing I already approved.
+> Check the interrupted acceptance. Tell me whether the change landed, and what cleanup or recovery is still needed. Continue the recorded recovery for the landing I already approved.
 
-The result accounts for each task separately. A later failure does not undo an earlier landing, and that completed landing does not need a second approval. Any task still awaiting evidence or permission remains pending on its own terms.
+discern writes a record of the landing before it moves the shared branch, and it moves the branch in one step that either happens or does not. A retry reads that record. If the branch moved, the retry finishes the remaining steps without landing the change again or asking for your permission a second time. If the branch did not move, the retry rolls the attempt back and reports what stood in the way.
 
 ### Read the surviving location and effects
 
@@ -104,9 +73,9 @@ The result's `data.root` gives the surviving checkout path. Your agent continues
 
 Ask for a summary in terms of the work you recognize. For example:
 
-> The search change landed. The documentation task is waiting for approval. Your old workspace remains because it contains files that need review.
+> The search change landed. Its Proof note still needs recording, and the worktree stayed because a preview server was writing in it.
 
-That tells you what is already shared, which decision remains, and what must be preserved. The [completion and landing result reference](../30-reference/mcp-and-results.md#completion-and-landing-results) gives your agent the exact fields behind that account.
+That tells you what is already shared and what must be preserved. The [completion and landing result reference](../30-reference/mcp-and-results.md#completion-and-landing-results) gives your agent the exact fields behind that account.
 
 ### Preview and follow the recorded recovery
 
@@ -116,27 +85,15 @@ From the surviving checkout, your agent previews acceptance:
 discern accept --dry-run
 ```
 
-From the main checkout with several tasks waiting, it adds `--target <task>` to name the task you approved. It follows the reported remedy and retries acceptance when instructed. discern reconciles the recorded landing and resumes unfinished effects without landing that same change again or spending its permission twice.
+From the main checkout, it adds `--target <task>` to name the task you approved. It follows the reported remedy and retries acceptance when instructed.
 
-Acceptance from the main checkout can also advance other ready tasks that have their own evidence and permission. The agent should inspect each row in the preview. A new exception or uncovered task comes back for the decision it needs.
+If another process is handling the operation, let it finish. If files, branches, or resources have changed unexpectedly, preserve them and investigate the named condition. Forcing branch positions or deleting files would discard the evidence needed to choose the next step.
 
-If another process is handling the operation, let it finish. If files, branches, or resources have changed unexpectedly, preserve them and investigate the named condition. Forcing branch positions or deleting retained files would discard the evidence needed to choose the next step.
+### When the worktree stays after landing
 
-### Distinguish landed from retired
+A landing whose worktree stays can be a valid outcome. The change is already part of the shared project; the worktree remains because its branch gained commits after the submission, or because cleanup could not complete. The result says which and names the command that finishes the work: `discern done` then `discern accept` for the new commits, or `discern worktree prune` from the main checkout once whatever blocked the removal has stopped.
 
-“Landed, workspace kept” can be a valid outcome. The change is already part of the shared project; the workspace remains because it is still held for editing, still in use, or cannot yet be removed under its cleanup rules. The result says which, and names the command that finishes cleanup.
-
-Recovery is accounted for when you know what landed, what remains pending, and why each retained workspace or resource remains. [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers cleanup and resource conditions.
-
-### Reconcile work that reached the trunk another way
-
-Sometimes a change is already on the shared branch without discern having landed it: a person moved the branch by hand during an incident, for example. The task's queue entry then keeps waiting for a landing that will never come, and its row in status says so:
-
-```text
-Queue 2: `agent/recipe-search-0a7563` — waiting: Its work is already on main; record the outside integration with discern accept --reconcile --target recipe-search-0a7563.
-```
-
-Ask your agent to reconcile it. From the main checkout it previews `discern accept --reconcile --target <task> --dry-run`, which checks that the exact proven version is on the shared branch, then applies the preview's token. Reconciliation records what it found, settles the queue entry, and offers eligible cleanup. It moves nothing and approves nothing, so it cannot turn a hand-moved branch into a governed landing after the fact.
+Recovery is accounted for when you know what landed and why any remaining worktree or resource remains. [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers cleanup and resource conditions.
 
 ## Recover a dropped branch
 

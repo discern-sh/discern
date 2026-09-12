@@ -43,7 +43,7 @@ export async function prepareEmergency(
       { met: options.met },
       undefined,
       options.signal,
-      before.candidate.expected_predecessor.head,
+      before.candidate.predecessor,
     );
     if (outcome.kind === "invalid") {
       return {
@@ -102,7 +102,6 @@ export async function prepareEmergency(
       {
         attempt_id: SYSTEM_SECURE_ENTROPY.uuid(),
         candidate_id: after.candidate_id,
-        context: "local",
       },
       "strict",
       proofCheckpointsData(preflight),

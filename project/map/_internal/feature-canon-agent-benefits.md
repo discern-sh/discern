@@ -4,7 +4,7 @@
 
 _discern's canonical account of what the product gives the coding agent operating it. Each entry leads with the agent outcome, explains the product mechanism, states the boundary, and cites the feature identities, agent-only hints, and public claims that make the account checkable. The [feature canon](feature-canon.md) owns product identity; the [Human Benefit Canon](feature-canon-human-benefits.md) owns value for people._
 
-9 workflow clusters · 24 agent benefits · 128 direct feature roles · 11 supporting feature roles · 19 agent-only hints · 17 agent or shared claims carried.
+9 workflow clusters · 24 agent benefits · 127 direct feature roles · 11 supporting feature roles · 19 agent-only hints · 17 agent or shared claims carried.
 
 ## How to use this canon
 
@@ -158,7 +158,7 @@ A coding agent can preview effects, distinguish Proof from permission, and stop 
 - **Agent value:** A coding agent can set up, verify, diagnose, upgrade, configure, and remove discern through explicit lifecycle operations whose retained and removed effects are visible.
 - **Why it follows:** One install surface owns setup and its observability, doctor, upgrade, uninstall, configuration editing, and license reporting; setup proves its worktree path before declaring readiness.
 - **Boundary:** Lifecycle verbs manage discern's declared footprint and provider integrations, not arbitrary project files or provider state outside their ownership contract.
-- **Direct product basis:** Install and lifecycle · Agent-driven setup · Observable incompleteness · Provider-aware activation recovery · The environment probe · Doctor · Upgrade and migrations · Uninstall · Config without a parser · Licenses and notices.
+- **Direct product basis:** Install and lifecycle · Agent-driven setup · Observable incompleteness · Provider-aware activation recovery · Doctor · Upgrade and migrations · Uninstall · Config without a parser · Licenses and notices.
 - **Agent hints:** `ensure-main-worktree-first` · `setup-improvement-after-activation`.
 - **Public claims:** `installs-a-practice` · `one-config-file` · `setup-proves-worktree`.
 

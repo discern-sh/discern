@@ -26,7 +26,6 @@ export const ArtifactPathSchema = z.string().min(1).refine(
 
 export const RequirementSchema = z.strictObject({
   id: NameSchema,
-  context: NameSchema,
   kind: z.enum(["job", "scope", "standard"]),
   definition: DigestSchema,
 });
@@ -38,7 +37,6 @@ export const EvidencePurposeSchema = z.enum(["completion", "diagnostic"]);
 /** All equality dimensions are explicit; unknown closure uses candidate binding. */
 export const ApplicabilitySchema = z.strictObject({
   producer: z.string().min(1),
-  context: NameSchema,
   policy: DigestSchema,
   protected_definitions: DigestSchema,
   command: DigestSchema,
@@ -64,7 +62,6 @@ export async function applicabilitySubject(
 export const ArtifactSchema = z.strictObject({
   attempt_id: RecordIdSchema,
   candidate_id: RecordIdSchema,
-  context: NameSchema,
   path: ArtifactPathSchema,
   digest: DigestSchema,
   bytes: z.number().int().nonnegative(),
@@ -94,8 +91,7 @@ export const EvidenceSchema = z.strictObject({
   (value) =>
     value.artifacts.every((artifact) =>
       artifact.attempt_id === value.attempt_id &&
-      artifact.candidate_id === value.candidate_id &&
-      artifact.context === value.applicability.context
+      artifact.candidate_id === value.candidate_id
     ),
   "artifact subject must match its producing evidence",
 );
@@ -124,7 +120,7 @@ export const CandidateProofSchema = z.strictObject({
   review: ArtifactSchema.optional(),
 }).refine((value) => {
   const obligations = value.requirements.map((requirement) =>
-    JSON.stringify([requirement.kind, requirement.id, requirement.context])
+    JSON.stringify([requirement.kind, requirement.id])
   );
   const keys = value.requirements.map((requirement) =>
     JSON.stringify(requirement)
@@ -142,5 +138,5 @@ export const CandidateProofSchema = z.strictObject({
       receipt.policy === value.policy &&
       (receipt.requirement.kind !== "standard" || receipt.reading !== null)
     );
-}, "Proof needs one matching receipt per required context and obligation");
+}, "Proof needs one matching receipt per obligation");
 export type CandidateProof = z.infer<typeof CandidateProofSchema>;

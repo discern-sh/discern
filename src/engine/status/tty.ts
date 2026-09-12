@@ -497,9 +497,6 @@ function attentionFor(
 ): string | undefined {
   const degraded = degradedFleetAttention(kind);
   if (degraded !== undefined) return degraded;
-  // Landed work whose checkout stayed outranks the ordinary row advice: the
-  // owner needs the reason it stayed and the command that finishes cleanup.
-  if (entry.landed_checkout !== undefined) return entry.landed_checkout.message;
   switch (kind) {
     case "failed": {
       const action = entry.last_action;

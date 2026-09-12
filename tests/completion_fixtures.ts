@@ -17,6 +17,7 @@ export function completionId(value: number): string {
 }
 export const COMPLETION_DIGEST = "a".repeat(64);
 export const COMPLETION_HEAD = "b".repeat(40);
+export const COMPLETION_TRUNK = "d".repeat(40);
 export const COMPLETION_CLOCK: Clock = {
   wallNow: () => 100,
   monotonicNow: () => 10,
@@ -40,22 +41,12 @@ export const COMPLETION_CLAIM = {
 };
 export const COMPLETION_REQUIREMENT = {
   id: "coverage",
-  context: "local",
   kind: "standard",
   definition: COMPLETION_DIGEST,
-} as const;
-export const COMPLETION_RECOVERY = {
-  phase: "restore",
-  reason: "restore command failed",
-  children_quiescent: true,
-  drift: { kind: "uncaptured", reason: "capture failed" },
-  retained_paths: ["/workspace/evidence"],
-  frozen_cleanup: ["cleanup owned resource"],
 } as const;
 
 const APPLICABILITY = ApplicabilitySchema.parse({
   producer: "jobs.test",
-  context: "local",
   policy: COMPLETION_DIGEST,
   protected_definitions: COMPLETION_DIGEST,
   command: COMPLETION_DIGEST,
@@ -93,19 +84,11 @@ export function completionFixtures(): Record<
     candidate: parse("candidate", 1, {
       attempt_id: completionId(2),
       source: COMPLETION_SOURCE,
-      dependencies: [],
-      expected_predecessor: { head: "d".repeat(40), candidate_id: null },
+      predecessor: COMPLETION_TRUNK,
       head: COMPLETION_HEAD,
       tree: COMPLETION_SOURCE.tree,
       policy: COMPLETION_DIGEST,
       requirement_set: COMPLETION_DIGEST,
-      composition: {
-        procedure: COMPLETION_DIGEST,
-        generated_ownership: COMPLETION_DIGEST,
-        generators: COMPLETION_DIGEST,
-        merge_commit: null,
-        regeneration_commit: null,
-      },
     }),
     attempt: parse("attempt", 2, {
       identity: {
@@ -116,7 +99,6 @@ export function completionFixtures(): Record<
         rerun_of: null,
         started_at: 10,
       },
-      environment_id: completionId(5),
       subjects: [SUBJECT],
       purpose: "completion",
       mode: "strict",
@@ -133,7 +115,6 @@ export function completionFixtures(): Record<
       artifacts: [{
         attempt_id: completionId(2),
         candidate_id: completionId(1),
-        context: "local",
         path: "coverage/report.json",
         digest: COMPLETION_DIGEST,
         bytes: 123,
@@ -166,96 +147,33 @@ export function completionFixtures(): Record<
       artifact: {
         attempt_id: completionId(2),
         candidate_id: completionId(1),
-        context: "local",
         path: `environment/gate-proof-${completionId(4)}.json`,
         digest: COMPLETION_DIGEST,
         bytes: 123,
       },
     }),
-    environment: parse("environment", 5, {
-      path: "/workspace/effort-a",
-      declaration: COMPLETION_DIGEST,
-      ownership: {
-        kind: "borrowed",
-        source: COMPLETION_SOURCE,
-        identity: {
-          worktree_id: "effort-a",
-          seed: 42,
-          resources: { db: "effort_a" },
-        },
-      },
-      release: {
-        kind: "released",
-        id: completionId(22),
-        at: 15,
-        owner: "effort-a",
-        subject: COMPLETION_DIGEST,
-        retirement: true,
-      },
-      state: { kind: "idle" },
-    }),
-    authority: parse("authority", 6, {
-      source: {
-        source: "effort-grant",
-        record_id: completionId(23),
-        scopes: [],
-      },
-      approved_at: 15,
-      sources: [COMPLETION_SOURCE],
-      composition_procedure: COMPLETION_DIGEST,
-      policy: COMPLETION_DIGEST,
-      predecessor_authorities: [],
-      state: { kind: "granted" },
-    }),
-    queue: parse("queue", 7, {
-      trunk: "d".repeat(40),
-      entries: [{
-        source: COMPLETION_SOURCE,
-        provisional_order: 0,
-        eligible_order: 0,
-        approval_batch: completionId(24),
-        candidate_id: completionId(1),
-        authority_id: completionId(6),
-        dependencies: [],
-        state: "eligible",
-        invalidation: null,
-      }],
-    }),
-    landing: parse("landing", 8, {
-      attempt_id: completionId(2),
-      candidate_id: completionId(1),
-      source: COMPLETION_SOURCE,
-      executor: COMPLETION_EXECUTOR,
-      expected_trunk: "d".repeat(40),
-      target: COMPLETION_HEAD,
-      policy: COMPLETION_DIGEST,
+    exception: parse("exception", 6, {
       claim: {
-        kind: "normal",
-        proof_id: completionId(4),
-        authority_id: completionId(6),
-        decisions: { judgments: [], variances: [], proposals: [] },
+        kind: "exception",
+        authorization_id: completionId(6),
+        authorized_at: 15,
+        actual_trunk: COMPLETION_TRUNK,
+        source: COMPLETION_SOURCE,
+        candidate_id: completionId(1),
+        candidate_head: COMPLETION_HEAD,
+        policy: COMPLETION_DIGEST,
+        reason: "broken trunk repair",
+        exceptions: [{
+          requirement: COMPLETION_REQUIREMENT,
+          state: "failed",
+          evidence_id: null,
+        }],
       },
-      outcome: { kind: "planned" },
-      authority_settlement: "pending",
-      note: "pending",
-    }),
-    integration: parse("integration", 30, {
-      source: COMPLETION_SOURCE,
-      candidate_id: completionId(1),
-      attempt_id: completionId(2),
-      proof_id: completionId(4),
+      executor: COMPLETION_EXECUTOR,
+      expected_trunk: COMPLETION_TRUNK,
       target: COMPLETION_HEAD,
-      observed_trunk: COMPLETION_HEAD,
-      observed_at: 100,
-    }),
-    retirement: parse("retirement", 9, {
-      landing_id: completionId(8),
-      source: COMPLETION_SOURCE,
-      environment_id: completionId(5),
-      release_id: completionId(22),
-      ownership: COMPLETION_DIGEST,
-      frozen_cleanup: ["cleanup owned resource"],
-      outcome: { kind: "pending" },
+      outcome: { kind: "planned" },
+      note: "pending",
     }),
   };
 }

@@ -1,6 +1,6 @@
 ---
 title: Start, update, and accept
-description: How discern creates efforts, validates candidates, lands approved work in order, and retires released checkouts.
+description: What discern creates at start, refreshes at update, and removes after a submitted change lands.
 order: 10
 aliases:
   - discern start
@@ -44,7 +44,7 @@ Setup runs in this order:
 
 In a source checkout of discern, the Refresh phase launches that checkout's engine. The child records the `start` invocation as its parent in the [logbook](../70-reference/the-logbook.md#possible-agent-identity-signals), so patterns counts this work as automation. Installed projects refresh in process.
 
-`start` refuses an unborn repository, a missing trunk, a nested `discern.toml`, an unknown or ambiguous `--from` source, an occupied branch or directory, or a call from another worktree. `accept` applies the repository-root boundary too, so a nested project cannot land sibling changes. Main-checkout edits stay there. A failed creation retires only the checkout and branch that call minted; an incomplete discard is part of the reported failure rather than a successful rollback.
+`start` refuses an unborn repository, a missing trunk, a nested `discern.toml`, an unknown or ambiguous `--from` source, an occupied branch or directory, or a call from another worktree. `accept` applies the repository-root boundary too, so a nested project cannot land sibling changes. Main-checkout edits stay there. A failed creation removes only the checkout and branch that call minted; an incomplete discard is part of the reported failure rather than a successful rollback.
 
 ## Bring the trunk into the branch
 
@@ -60,19 +60,23 @@ Use `[repository].ensure` for checkout-safe commands and `[worktree.setup].ensur
 
 ## Land the reviewed commit
 
-Commit the final source and run `discern done`. Complete strict evidence admits its immutable candidate to the green queue. [Landing authority](landing-authority.md) remains separate: each source needs its own conversation consent or recorded grant, and any checkpoint variance or standard proposal needs its exact owner decision.
+Commit the final tree and run `discern done`. It proves that `HEAD` against every configured check and standard and records complete Proof for it. Landing then needs [landing authority](landing-authority.md): conversation consent, a standing scope grant on the trunk, or an effort grant from the desk. `start`, `status`, and a green `done` report the current authority state. Uncovered work returns to Proof review with every checkout untouched ([ADR 0134](../_adr/0134-accept-attests-consent.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-An active `discern accept` advances the approved efforts in queue order. The result leads with the selected effort's own verdict — chosen by the invoking worktree or `--target` — before anything about other efforts, and after a landing it says in one sentence what happened to the checkout and the command that finishes any remaining cleanup. Each row identifies source, candidate, expected trunk, target, authority, preview actions, and pending reasons. A predecessor can land while a later entry waits for validation or a decision. With no active accept actor, no landing occurs.
+`discern accept` from the effort's worktree first records the effort's [submission](../00-orientation/glossary.md#submission): the effort, its branch, the exact `HEAD`, and the Proof that covers it, written beside the effort grant under the worktree's Git administration directory so no branch can forge it ([`submission.ts`](../../../src/engine/worktree/submission.ts)). A later `accept` from the same effort replaces it, a landing consumes it, and dropping the worktree removes it. The landing queue is the list of submissions with honored Proof that have not landed; a green run its agent never submitted is absent and lands only by the owner's explicit act, from its worktree with `--target` and conversational consent or from the desk ([ADR 0389](../_adr/0389-the-workspace-contract.md)).
 
-Validation and composition execute outside the short shared publication locks. Stale evidence can be refreshed only in an eligible, explicitly released environment. Without one, the effort follows the returned `update` and `done` remedy. Source edits, changed policy, changed judgment, and unavailable environments remain distinct from red validation. A generated composition retains the reviewed source identity and procedure while producing its own exact candidate commit.
+A proposal-bearing Proof adds a separate owner decision. `accept` serves one token per current standard/value/reason tuple. It refuses without the complete `--approve-standard` set plus `--confirmed`. Standing and effort grants govern landing coverage; they cannot approve a standard limit proposal. [Landing authority](landing-authority.md#approve-a-standard-limit-proposal) covers the decision and decline path ([ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 
-Publication rechecks the current plan, source authority, expected trunk, and receiving checkout before moving refs. The main checkout must be consistent with the expected tree; unfamiliar edits remain untouched. The accepted transition is expected-to-target. A superseded actor cannot publish an older target or substitute another commit.
+Acceptance requires honored complete Proof for `HEAD`, a branch that contains the trunk, a clean and unlocked worktree, a readable tracked-clean main checkout on the trunk with no in-progress merge, `rebase`, or cherry-pick, and an empty tracked-refresh plan. When the trunk moved after the Proof, `accept` refuses in one sentence and names the route: `discern update`, `discern done`, then `discern accept`. Before its first evidence read, applied acceptance acquires the common-repository boundary and then its checkout boundary and holds both through the compare-and-swap, cleanup, Proof-note handling, and reporting. A competing common mutation receives an immediate no-change refusal. Acceptance checks the current plan again, so an older Proof cannot bypass a newer invariant. An unreadable precondition refuses instead of becoming a clean fact. A failed check leaves the branch and worktree intact ([ADR 0063](../_adr/0063-doctor-execution-model.md), [ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md), [ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md), [ADR 0331](../_adr/0331-common-repository-locks-precede-checkout-locks.md), [ADR 0366](../_adr/0366-landing-is-one-exact-repository-transaction.md)).
 
-Landing and retirement have independent outcomes. The common Git administration retains indispensable Proof and recovery records before disposable state is removed. After landing, the same recorded operation settles authority and publishes the Proof note. Failure in either tail cannot repeat the ref transition or spend authority twice. [Interrupted landing recovery](acceptance-recovery.md) describes retries.
+On success, discern records `conversation`, `standing-grant` with scopes, or `effort-grant` in the result, Proof, and logbook, and records each approved standard limit proposal. Under the acceptance transaction it writes the journal first, then moves the trunk and creates the marker ref in one Git ref transaction, so an interrupted landing completes or rolls back on retry and never lands twice. The trunk fast-forwards to the exact submitted commit: acceptance never squashes, runs a `rebase`, merges again, or substitutes another commit, and it never edits a proposed limit or creates a post-Proof commit. It records tracked cleanliness, writes the structured Proof note, materializes local or ignored agent artifacts, runs `[repository].ensure` and `smoke` in the main checkout, then checks cleanliness again. No tracked refresh writer runs after the fast-forward. It then destroys the effort's resources, removes the checkout, and deletes the branch when the branch holds nothing beyond the landed submission. A strict filesystem check and Git registry check must pass before removal completes ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0110](../_adr/0110-the-landing-model.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md), [ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md), [ADR 0315](../_adr/0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 
-Retirement requires positive ownership, current cleanliness, an explicit release, matching resource records, and exclusion of active children or competing operations. `done --retain-checkout` retains authoring control. Changed branches and uncertain resources stay in place, even after their candidate landed. See [cleanup ownership](cleanup-ownership.md) for the separate drop and prune contracts.
+When the branch holds later commits, the checkout and branch stay, and the result's first sentence says so and names `discern done` then `discern accept` for them. When cleanup cannot complete for another reason, the landing stands and the first sentence names `discern worktree prune`. A Proof-note failure leaves the landing recorded and the note pending recovery; retrying does not land again.
 
-Fresh setup still uses its dedicated acceptance path. Setup completion requires current complete strict evidence; setup acceptance does not turn a CI report or an older incomplete marker into authority. It validates the exact setup candidate before advancing trunk.
+The Proof note preserves green landing evidence without adding a trunk commit. Its local write is on by default and fail-open. `[repository].proof_notes = "fetch"` adds fetch transport; publication remains explicit. [Proof notes](../20-quality-gate/proof-notes.md) covers the ref, command, and cross-clone recovery.
+
+Acceptance journals its transition in the worktree's Git administration and recovers without replaying one-shot authority or overwriting changed checkout data. Post-landing convergence cannot roll the trunk back, so later failures report the effects that already happened and cleanup continues. [Interrupted landing recovery](acceptance-recovery.md) covers the evidence, refusal paths, and `partial_acceptance` result ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md), [ADR 0366](../_adr/0366-landing-is-one-exact-repository-transaction.md)).
+
+Fresh setup uses the same boundary. `discern setup accept` requires current Proof for `discern-setup`; completion replays it read-only or validates the existing clean marker. Acceptance lands the proved commit, or first merges a moved trunk into the setup checkout and proves that result. It checks tracked refresh, materializes local agent artifacts, records the Proof note, and removes the local cache. Invalid evidence moves no ref ([ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).
 
 ## Park a checkout and keep its branch
 
@@ -94,7 +98,7 @@ discern start --from <parked-branch>
 
 When the branch still points at the parked commit, Start uses the retained title and brief as creation defaults and consumes the Park record after the new checkout is ready. The branch also remains usable through ordinary Git or `start --from` if its local Park record is unavailable.
 
-Park reads the plan again before resource cleanup and checks the task again after cleanup. A changed branch, checkout, or resource set stops removal. If resource cleanup completed before a later check refused, run the named `discern worktree setup` recovery in the retained checkout, review the refreshed state, and retry Park ([ADR 0358](../_adr/0358-recovery-observes-before-repair-and-park-preserves-the-branch.md)).
+Park reads the plan again before resource cleanup and checks the task again after cleanup. A changed branch, checkout, or resource set stops removal. If resource cleanup completed before a later check refused, run the named `discern worktree setup` recovery in the checkout that stayed, review the refreshed state, and retry Park ([ADR 0358](../_adr/0358-recovery-observes-before-repair-and-park-preserves-the-branch.md)).
 
 ## Remove abandoned work
 
@@ -115,6 +119,7 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 | Lifecycle plans and execution | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                           |
 | Worktree target resolution    | [`src/engine/worktree/target_resolution.ts`](../../../src/engine/worktree/target_resolution.ts)           |
 | Acceptance recovery journal   | [`src/engine/worktree/acceptance_transaction.ts`](../../../src/engine/worktree/acceptance_transaction.ts) |
+| Submission record             | [`src/engine/worktree/submission.ts`](../../../src/engine/worktree/submission.ts)                         |
 | Setup-step journal            | [`src/engine/worktree/setup_step_journal.ts`](../../../src/engine/worktree/setup_step_journal.ts)         |
 | Operation exclusion           | [`src/engine/operation_lock.ts`](../../../src/engine/operation_lock.ts)                                   |
 | Landing-authority resolution  | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)           |
@@ -126,12 +131,13 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 | Contained-worktree scan       | [`src/engine/worktree/containment.ts`](../../../src/engine/worktree/containment.ts)                       |
 | Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                                     |
 | Lifecycle tests               | [`tests/engine_worktree_test.ts`](../../../tests/engine_worktree_test.ts)                                 |
+| Submission tests              | [`tests/engine_submission_test.ts`](../../../tests/engine_submission_test.ts)                             |
 | Generated-update tests        | [`tests/engine_generated_update_test.ts`](../../../tests/engine_generated_update_test.ts)                 |
 
 ## Current state and gotchas
 
 - Every effectful lifecycle command supports `--dry-run`; inspect destructive plans before applying them ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)).
-- Source or index changes invalidate the released candidate. Retirement also verifies the current checkout and owned resource set.
+- `accept` removes the worktree, so any tracked, untracked, or staged change there blocks landing. The main checkout blocks only on tracked changes.
 - Acceptance reports top-level ignored paths that changed since setup. Those paths stay outside git cleanliness.
 - A Standard approval token becomes stale when its name, proposed value, reason, Proof, or live proposal record changes. Run `discern accept` again to retrieve the current decision.
 - Command-owned background children and Git hooks stop before teardown can succeed. A separate program that writes into a removed path later creates a [reappearance](reappeared-worktree-paths.md). Status reports it; confirmed prune is the cleanup path.

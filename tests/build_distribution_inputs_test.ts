@@ -23,7 +23,6 @@ import { observeValidationInputs } from "../src/engine/validation/runtime.ts";
 import { EDITOR_PATH_POLICIES } from "../scripts/repository_files.ts";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
-import { loadConfig } from "../src/shared/config_schema.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
 Deno.test("binary inputs include authored files and exclude ignored or host metadata", async () => {
@@ -184,7 +183,6 @@ Deno.test("live binary scratch stays outside source scans and inside the environ
       [".gitignore"],
     );
     assertEquals(await gitOut(root, "status", "--porcelain=v1"), "");
-    const config = await loadConfig(REPO_ROOT);
     const exclusions = z.object({ exclude: z.array(z.string()) });
     const deno = decodeWith(
       z.object({ fmt: exclusions, lint: exclusions, test: exclusions }),
@@ -223,14 +221,6 @@ Deno.test("live binary scratch stays outside source scans and inside the environ
       (await observeValidationInputs(root, [compilerScratch]))
         .files[compilerScratch]?.digest !==
         declared.files[compilerScratch]?.digest,
-    );
-    const ignored = config.execution.local?.ignored.map((pattern) =>
-      globToRegExp(pattern)
-    );
-    assert(ignored !== undefined);
-    assertEquals(
-      outputs.filter((path) => !ignored.some((pattern) => pattern.test(path))),
-      [],
     );
     for (const path of outputs) {
       assert((await Deno.stat(join(root, path))).isFile);

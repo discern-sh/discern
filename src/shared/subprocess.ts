@@ -20,10 +20,6 @@
  */
 
 import type { GitAdminPathRunner } from "./git_admin_paths.ts";
-import {
-  type ExecutionChildTicket,
-  planExecutionChild,
-} from "./execution_child_context.ts";
 import { operationLockChildEnv } from "./operation_lock_context.ts";
 import { spawnedByEnv } from "./invocation_context.ts";
 import {
@@ -520,7 +516,6 @@ async function boundedChildOutput(
     /** Stop descendants in the detached child group after its leader settles. */
     readonly quiesceDescendants?: boolean | undefined;
     readonly signal?: AbortSignal | undefined;
-    readonly ticket?: ExecutionChildTicket | undefined;
     readonly scheduler: Scheduler;
   },
 ): Promise<{
@@ -575,10 +570,6 @@ async function boundedChildOutput(
     captureAbort.signal,
   );
   try {
-    await opts.ticket?.started(
-      child.pid,
-      opts.quiesceDescendants === true && Deno.build.os !== "windows",
-    );
     const status = await child.status;
     if (opts.quiesceDescendants) {
       await quiesceProcessGroup(child.pid, opts.scheduler);
@@ -602,7 +593,6 @@ async function boundedChildOutput(
   } finally {
     if (timer !== undefined) opts.scheduler.cancelTimeout(timer);
     opts.signal?.removeEventListener("abort", terminate);
-    await opts.ticket?.settled();
   }
 }
 
@@ -749,14 +739,12 @@ export async function runGit(
         Deno.build.os !== "windows",
     });
     if (opts.quiesceDescendants ?? false) {
-      const ticket = await planExecutionChild();
       const bounded = await boundedChildOutput(command.spawn(), {
         ...(opts.stdin !== undefined ? { stdin: opts.stdin } : {}),
         ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
         maxOutputBytes: opts.maxOutputBytes ?? Number.MAX_SAFE_INTEGER,
         quiesceDescendants: true,
         signal: opts.signal,
-        ticket,
         scheduler,
       });
       output = bounded.output;

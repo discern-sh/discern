@@ -23,19 +23,6 @@ import {
 } from "./engine_helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 
-/** A released environment positively accounts for the resource it may retire. */
-const RETIREMENT_ENVIRONMENT = `
-[execution.local]
-kind = 'borrowed'
-capacity = 1
-reusable = true
-inputs = ['discern.toml']
-ignored = []
-resources = ['thing']
-prepare = 'true'
-restore = 'true'
-`;
-
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
   await scaffoldEngine(dir);
@@ -179,7 +166,6 @@ Deno.test("accept destroys the worktree's resources before removing it", async (
         [
           'create  = "mkdir -p @MARKERS@ && touch @MARKERS@/@resource@.live"',
           'destroy = "mkdir -p @MARKERS@ && rm -f @MARKERS@/@resource@.live && touch @MARKERS@/@resource@.gone"',
-          RETIREMENT_ENVIRONMENT,
         ].join("\n"),
       );
       assertEquals((await runAgent(wt, ["worktree", "setup"])).code, 0);
@@ -207,9 +193,7 @@ Deno.test("accept retains failed resource teardown separately from its completed
     await declareResource(
       wt,
       join(dir, "markers"),
-      ['create = "true"', 'destroy = "false"', RETIREMENT_ENVIRONMENT].join(
-        "\n",
-      ),
+      ['create = "true"', 'destroy = "false"'].join("\n"),
     );
     assertEquals((await runAgent(wt, ["worktree", "setup"])).code, 0);
     await commitCurrentWorktree(wt);
@@ -221,19 +205,32 @@ Deno.test("accept retains failed resource teardown separately from its completed
       "--confirmed",
       "--json",
     ]);
-    assertEquals(accepted.code, 1, accepted.output);
+    assertEquals(accepted.code, 0, accepted.output);
     const envelope = decodeCliResult(accepted.stdout, "accept");
-    assertEquals(envelope.ok, false);
-    assert(envelope.data !== undefined && "queue" in envelope.data);
-    const row = envelope.data.queue?.[0];
-    assertEquals(row?.state, "landed", accepted.output);
-    assertEquals(row?.retirement, "recovery", accepted.output);
-    assertEquals(row?.retirement_effects, {
-      worktree_removed: false,
-      branch_deleted: false,
+    assertEquals(envelope.ok, true);
+    // The landing completed and the checkout is gone; only the resource
+    // teardown failure is retained, as an advisory naming the recovery verb.
+    assert(envelope.data !== undefined && !("issues" in envelope.data));
+    assertEquals(envelope.data.landing, {
+      recovery_performed: false,
+      trunk_landed: true,
+      worktree_removed: true,
+      branch_deleted: true,
     });
-    assert(await targetExists(wt), "failed teardown retains its checkout");
-    assertStringIncludes(row?.retirement_reason ?? "", "thing");
+    assertEquals(await targetExists(wt), false, accepted.output);
+    const teardown = envelope.steps?.find((step) =>
+      step.kind === "resource-destroy"
+    );
+    assertEquals(teardown?.outcome, "failed", accepted.output);
+    assertEquals(teardown?.advisory?.kind, "acceptance-cleanup-incomplete");
+    assertStringIncludes(
+      teardown?.advisory?.next_action ?? "",
+      "discern worktree prune",
+    );
+    assertStringIncludes(
+      (teardown?.advisory?.evidence ?? []).join("\n"),
+      "thing",
+    );
   });
 });
 

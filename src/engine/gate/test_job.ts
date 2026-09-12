@@ -216,7 +216,7 @@ async function runTestGateBody(
       ...(validationRun.producer_evidence.length === 0
         ? {}
         : { producer_evidence: [...validationRun.producer_evidence] }),
-      completion: { kind: "diagnostic", context: "local", proof: "not-issued" },
+      completion: { kind: "diagnostic", proof: "not-issued" },
     },
     ...(slots?.waitedMs !== undefined ? { waitedMs: slots.waitedMs } : {}),
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,

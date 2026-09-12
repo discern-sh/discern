@@ -2,7 +2,7 @@
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { ArtifactSchema } from "../completion/evidence.ts";
 import type { Candidate } from "../completion/candidate.ts";
-import type { EnvironmentArtifact } from "../execution/types.ts";
+import type { CompletionArtifact } from "../completion/artifacts.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { decodeJson } from "../../shared/runtime_decode.ts";
 import { readOpenQuestions } from "../checkpoints/open_questions.ts";
@@ -15,7 +15,7 @@ const prefix = "emergency-review-v1.";
 
 /** A handle names immutable review bytes; it conveys no integration authority. */
 export function emergencyPreparationHandle(
-  artifact: EnvironmentArtifact,
+  artifact: CompletionArtifact,
 ): string {
   return prefix +
     encodeBase64(new TextEncoder().encode(JSON.stringify(artifact)));
@@ -28,7 +28,7 @@ export async function readEmergencyPreparation(
   candidateId: string,
   candidate: Candidate,
   handle: string,
-): Promise<EnvironmentArtifact> {
+): Promise<CompletionArtifact> {
   if (!handle.startsWith(prefix)) {
     throw new Error(
       "Use the preparation receipt returned by accept emergency --prepare.",
@@ -39,9 +39,9 @@ export async function readEmergencyPreparation(
     new TextDecoder().decode(decodeBase64(handle.slice(prefix.length))),
     "emergency preparation receipt",
   );
-  if (artifact.candidate_id !== candidateId || artifact.context !== "local") {
+  if (artifact.candidate_id !== candidateId) {
     throw new Error(
-      "Emergency preparation belongs to another candidate or context. Prepare the current repair again.",
+      "Emergency preparation belongs to another candidate. Prepare the current repair again.",
     );
   }
   const review = await readCandidateReviewArtifact(

@@ -583,14 +583,6 @@
     # gc       = true                          # optional: false = never orphan-prune it
   #                                          #   (teardown-only; for data-loss-sensitive ones)
 
-  # A harmless temp-dir probe so this repo dogfoods the full resource lifecycle
-  # without depending on an external service. It exercises token expansion, the
-  # resource ledger, ensure, teardown, and orphan-prune reclamation.
-  [worktree.resources.lifecycle-probe]
-    create = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
-    ensure = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
-    destroy = "rm -rf /tmp/discern-worktree-resources/@resource@"
-
   # Worktree setup commands, run after resources are provisioned:
   #   steps   one-shot scaffolding, run once at creation.
   #   ensure  linked-worktree convergence that may depend on identity, ports, or
@@ -970,7 +962,7 @@
 # so a shared wrapper cannot hide unlimited new discards behind one call.
 [standards.silent_error_boundaries]
   direction = "down"
-  limit = 184
+  limit = 187
   run = "deno task silent-error-boundaries"
   inputs = [
     "*.ts",
@@ -1012,6 +1004,23 @@
   direction = "down"
   limit = 28
   run = "deno task subprocess-spawn-boundaries"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "deno.json",
+    "deno.lock",
+  ]
+
+# Checkout-mutation boundary standard — the workspace contract's census. Every
+# authored argument list that hands Git a command able to install a revision or
+# replace a checkout's index or working tree is one exact registered row naming
+# its path, enclosing function, command, allowance, and reason. The census
+# refuses unknown and stale entries before emitting the population held by this
+# falling ceiling; a new site needs a conscious allowance, never a quiet add.
+[standards.checkout_mutation_boundaries]
+  direction = "down"
+  limit = 17
+  run = "deno task checkout-mutation-boundaries"
   inputs = [
     "*.ts",
     "*.tsx",

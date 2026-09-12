@@ -15,7 +15,7 @@ import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { gateProofHonored } from "../src/engine/gate/proof.ts";
+import { readCompletionRecord } from "../src/engine/completion/store.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -77,7 +77,7 @@ Deno.test("done --json: a fresh gate runs only its embedded format job", async (
   });
 });
 
-Deno.test("done --json: trunk advancing during validation prevents stale queue Proof", async () => {
+Deno.test("done --json: a trunk advancing during validation stays bound to the observed predecessor", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -103,26 +103,29 @@ Deno.test("done --json: trunk advancing during validation prevents stale queue P
     const mainBefore = await gitOut(dir, "rev-parse", "main");
 
     const r = await runAgent(wt, ["done", "--json"]);
-    assertEquals(r.code, 1, r.output);
+    // The run proves the committed tip against the trunk tip it observed at
+    // its start. A trunk that advances mid-run does not invalidate this run's
+    // Proof; acceptance re-checks the trunk and refuses with the update route.
+    assertEquals(r.code, 0, r.output);
     const obj = decodeGateResult(r.stdout);
-    assertEquals(obj.ok, false);
-    assertEquals(obj.data.failed_stage, null);
-    assertEquals(obj.data.gate_proof?.status, "pending");
-    assertEquals(obj.data.proof, undefined);
-    assert(
-      obj.data.completion?.pending?.some((item) =>
-        item.kind === "stale-evidence"
-      ),
-    );
-    assertEquals(await gateProofHonored(wt), false);
+    assertEquals(obj.ok, true);
+    assertEquals(obj.data.completion?.kind, "complete");
     assert(
       (await gitOut(dir, "rev-parse", "main")) !== mainBefore,
       "the gate job must advance the shared trunk ref",
     );
-    assertHasHint(obj, HINTS["completion-pending"], {
-      action:
-        "The candidate or its predecessor changed. Run discern update when the source is behind trunk, then run discern done to establish complete current evidence.",
+    const candidateId = obj.data.completion?.candidate_id;
+    assert(typeof candidateId === "string");
+    const reading = await readCompletionRecord(dir, {
+      kind: "candidate",
+      id: candidateId,
     });
+    assert(reading.kind === "recorded" && reading.record.kind === "candidate");
+    assertEquals(
+      reading.record.data.predecessor,
+      mainBefore,
+      "the candidate binds the predecessor observed before the run",
+    );
   });
 });
 

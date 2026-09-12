@@ -11,7 +11,7 @@ aliases:
 
 # Run the Gate in GitHub Actions
 
-CI and local completion use the same producer planner and evaluator. The invocation declares its execution context and policy base; its result states whether it is strict completion or a report. See [complete evidence](complete-evidence.md) for the assembly boundary.
+CI and local completion use the same producer planner and evaluator. The invocation declares its policy base; its result states whether it is strict completion or a report. See [complete evidence](complete-evidence.md) for the assembly boundary.
 
 ## Add the workflow
 
@@ -20,7 +20,7 @@ The repository's [gate workflow](../../../.github/workflows/gate.yml) is the exe
 Provision the pinned toolchain and locked dependencies before the gate. Run the source wrapper against the checked-out engine. A report-only invocation names both facts:
 
 ```sh
-discern done --ci --standalone --context local --policy-base refs/discern/ci-policy-base --json
+discern done --ci --standalone --policy-base refs/discern/ci-policy-base --json
 ```
 
 A missing policy ref is a refusal. A remote-tracking ref or the latest trunk does not replace the requested base.
@@ -37,9 +37,7 @@ Branch protection can require a CI report. That external check grants no discern
 
 Every required standard belongs to completion. There is no measurement-deferral setting or separate PR-only measurement job. The root binary-size standard builds its representative target locally, so local Proof needs no hosted size result.
 
-Contexts remain separate evidence subjects. A configured remote requirement needs evidence for that exact candidate, context, mode, inputs, producer, and policy. A skipped status, a local report, or another context's receipt cannot satisfy it. Projects that require strict remote evidence must arrange that declared execution and retain its component evidence for complete assembly.
-
-The root gate currently requires the local context. Its hosted Linux, macOS, and WSL lanes explicitly report the local obligation set in report mode. Platform and toolchain observations remain part of applicability; these reports do not supply a separately required remote context. Producer budgets cover the command through cleanup; enclosing action and job budgets also cover setup and reporting. Current hosted instrumented calibration remains outstanding.
+The hosted Linux, macOS, and WSL lanes report the same obligation set in report mode. Platform and toolchain observations remain part of applicability, so a hosted receipt never stands in for local Proof. Producer budgets cover the command through cleanup; enclosing action and job budgets also cover setup and reporting. Current hosted instrumented calibration remains outstanding.
 
 ## Cloud-agent changes
 
@@ -47,8 +45,8 @@ A task validates and commits its own source, then obtains complete strict Proof 
 
 ## Where it lives in code
 
-Use [context selection](../../../src/engine/validation/context.ts), the [public evaluator](../../../src/engine/validation/public_run.ts), and [CI integration tests](../../../tests/completion_public_ci_test.ts) for execution semantics. The workflow and shared actions own platform setup and outer budgets.
+Use the [public evaluator](../../../src/engine/validation/public_run.ts) for execution semantics. The workflow and shared actions own platform setup and outer budgets.
 
 ## Current state & gotchas
 
-A fixer or generator that changes tracked content leaves the checked-out commit unproved. Run `discern prepare`, commit its output, and validate the resulting candidate. Fetch the actual comparison base again when the event changes.
+A fixer or generator that changes tracked content leaves the checked-out commit unproved. Run `discern prepare`, commit its output, and validate the resulting commit. Fetch the actual comparison base again when the event changes.

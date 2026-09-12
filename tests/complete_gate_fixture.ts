@@ -5,7 +5,7 @@ import type { Proof } from "../src/shared/result_schemas.ts";
 import type { CompletionProofPointer } from "../src/shared/completion_proof.ts";
 import type { CompletionRecord } from "../src/engine/completion/records.ts";
 import { writeCompletionRecord } from "../src/engine/completion/store.ts";
-import { saveEnvironmentArtifact } from "../src/engine/execution/artifacts.ts";
+import { saveCompletionArtifact } from "../src/engine/completion/artifacts.ts";
 import { readOpenQuestions } from "../src/engine/checkpoints/open_questions.ts";
 import { readCompleteProof } from "../src/engine/gate/completion_proof.ts";
 import { COMPLETION_CLOCK, completionFixtures } from "./completion_fixtures.ts";
@@ -69,15 +69,14 @@ export async function completeGateFixture(root: string): Promise<{
       },
       head,
       tree,
-      expected_predecessor: { head, candidate_id: null },
+      predecessor: head,
     },
   };
-  const review = await saveEnvironmentArtifact(
+  const review = await saveCompletionArtifact(
     root,
     {
       attempt_id: attemptId,
       candidate_id: candidateId,
-      context: "local",
     },
     "candidate-review",
     {

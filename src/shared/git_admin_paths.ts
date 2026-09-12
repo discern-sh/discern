@@ -27,22 +27,10 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
-  completionPublication: {
-    path: "discern/completion/publication.json",
-    scope: "common",
-    kind: "file",
-    validation: false,
-  },
   completionArtifacts: {
     path: "discern/completion/artifacts",
     scope: "common",
     kind: "directory",
-    validation: false,
-  },
-  environmentProofs: {
-    path: "discern/completion/environment-proofs.json",
-    scope: "common",
-    kind: "file",
     validation: false,
   },
   resources: {
@@ -207,10 +195,10 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
-  completionGrantClaims: {
-    path: "discern/completion/grant-claims",
-    scope: "common",
-    kind: "directory",
+  submission: {
+    path: "discern/submission",
+    scope: "worktree",
+    kind: "file",
     validation: false,
   },
   acceptanceTransaction: {

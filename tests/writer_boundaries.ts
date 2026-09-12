@@ -44,20 +44,27 @@ export const RESTRICTED_WRITER_MODULES = [
     allowedImporters: [
       "src/engine/desk/desk.ts",
       "src/engine/worktree/acceptance_transaction.ts",
-      "src/engine/landing_queue/publication.ts",
-      "src/engine/landing_queue/public_controls.ts",
+      "src/engine/worktree/accept.ts",
     ],
     authority:
-      "the desk may revoke, reviewed queue controls may clear the exact revoked marker, acceptance may claim or settle, and lifecycle cleanup may clear a grant",
+      "the desk may revoke, the acceptance transaction may claim or settle, and a landing may consume the grant it spent",
   },
   {
     id: "acceptance-transaction",
     module: "src/engine/worktree/acceptance_transaction.ts",
     allowedImporters: [
-      "src/engine/worktree/lifecycle.ts",
+      "src/engine/worktree/accept.ts",
+      "src/engine/emergency/action.ts",
       "src/engine/emergency/plan.ts",
     ],
     authority:
-      "acceptance lifecycle owns transaction effects; emergency planning imports only the read-only interrupted-journal inspection",
+      "the landing and the emergency route own transaction effects; emergency planning imports only the read-only interrupted-journal inspection",
+  },
+  {
+    id: "submission-writer",
+    module: "src/engine/worktree/submission_writer.ts",
+    allowedImporters: ["src/engine/worktree/accept.ts"],
+    authority:
+      "only the landing records or consumes a submission; the queue is derived from these records",
   },
 ] as const satisfies readonly RestrictedWriterModule[];

@@ -392,19 +392,6 @@ Deno.test("checkpoints: a checkpoint-free effort reports an empty governing set 
         assertEquals(data.drops?.[0]?.scope, "policy");
         assertEquals(data.drops?.[0]?.reason, "open_question_store_corrupt");
         assert((data.drops?.[0]?.policy_commit?.length ?? 0) > 0);
-
-        const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
-        assertEquals(preview.code, 0, preview.output);
-        const previewEnvelope = decodeCliResult(preview.stdout, "accept");
-        assert(
-          previewEnvelope.data !== undefined &&
-            "checkpoint_drops" in previewEnvelope.data,
-        );
-        const previewData = previewEnvelope.data;
-        assertEquals(
-          previewData?.checkpoint_drops?.[0]?.reason,
-          "open_question_store_corrupt",
-        );
       },
     );
   });

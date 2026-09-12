@@ -1,16 +1,11 @@
 /**
- * A checkout's own live run is never presented as a return needing recovery
- * or as an environment whose activity cannot be verified.
- * Between its queue claim and its environment enrollment, and again between
- * return and admission, the environment record reads idle while the queue
- * entry is active; status must lead with the run, not with a phantom
- * recovery. A real recovery phase still leads while a run is live.
+ * A checkout's own live run leads status: a resumed session is told to read
+ * the run back, never to start another command, and routine next-step hints
+ * stand down while it runs. Outstanding emergency validation still surfaces.
  */
 import { assert, assertEquals } from "@std/assert";
-import {
-  completionStatusPresentation,
-  liveRecoveryRows,
-} from "../src/engine/status/completion_recovery.ts";
+import { completionStatusPresentation } from "../src/engine/status/completion_recovery.ts";
+import { fire, HINTS } from "../src/shared/hints.ts";
 
 const running = {
   verb: "done",
@@ -18,87 +13,42 @@ const running = {
   handle: "R1-live",
   latest: "Running the test stage.",
 };
-const reservation = {
-  environment_id: "env-1",
-  phase: "reservation",
-  reason: "The checkout is idle but its queue reservation remains recorded.",
-  retained_paths: ["/checkout"],
-  next_action: "discern recover env-1",
-};
-const capture = { ...reservation, attempt_id: "a1", phase: "capture" };
 
-Deno.test("a reservation row yields to the checkout's own running operation", () => {
-  assertEquals(liveRecoveryRows([reservation], running), []);
-  assertEquals(liveRecoveryRows([reservation], undefined), [reservation]);
-  assertEquals(liveRecoveryRows([capture], running), [capture]);
-  assertEquals(liveRecoveryRows(undefined, running), []);
-});
-
-Deno.test("status leads with the running operation, not a phantom recovery", () => {
-  const recovery = liveRecoveryRows([reservation], running);
+Deno.test("status leads with the running operation and reconnects through its handle", () => {
   const presented = completionStatusPresentation(
-    {
-      data: recovery.length ? { execution_recovery: recovery } : {},
-      hints: [],
-    },
+    { data: {}, hints: [] },
     [],
-    undefined,
     running,
   );
+  const message = presented.message;
+  assert(message !== undefined);
   assert(
-    presented.message?.startsWith(
+    message.startsWith(
       "`done` on agent/mine is still running: Running the test stage.",
     ),
-    presented.message,
+    message,
   );
-  assert(!presented.hints.some((hint) => hint.id === "execution-recovery"));
-  const real = completionStatusPresentation(
-    { data: { execution_recovery: [capture] }, hints: [] },
-    [],
+  assert(message.includes("discern progress R1-live"), message);
+  assertEquals(
+    completionStatusPresentation({ data: {}, hints: [] }, [], undefined)
+      .message,
     undefined,
-    running,
-  );
-  assert(
-    real.message?.startsWith("Checkout return requires recovery"),
-    real.message,
   );
 });
 
-const activity = {
-  environment_id: "env-1",
-  attempt_id: "a1",
-  candidate_id: "c1",
-  phase: "install",
-  lease_expires_at: 1,
-  reason:
-    "A native operation holds the checkout; its recorded claim does not identify the lock owner.",
-};
-
-Deno.test("an environment's activity reading yields to the checkout's own running operation", () => {
-  const presented = completionStatusPresentation(
-    { data: { execution_activity: [activity] }, hints: [] },
-    [],
-    undefined,
-    running,
-  );
-  assert(
-    presented.message?.startsWith(
-      "`done` on agent/mine is still running: Running the test stage.",
-    ),
-    presented.message,
-  );
-  assert(!presented.hints.some((hint) => hint.id === "completion-pending"));
-  const unowned = completionStatusPresentation(
-    { data: { execution_activity: [activity] }, hints: [] },
-    [],
-    undefined,
-    undefined,
-  );
-  assert(
-    unowned.message?.startsWith(
-      "Environment env-1 records attempt a1 in phase install.",
-    ),
-    unowned.message,
-  );
-  assert(unowned.hints.some((hint) => hint.id === "completion-pending"));
+Deno.test("next-step hints stand down while a run is live; emergency hints always surface", () => {
+  const nextStep = fire(HINTS["missing-trunk-branch"], { branch: "main" });
+  const emergency = {
+    data: {},
+    hints: [
+      fire(HINTS["emergency-outstanding"], { commit: "0123abcd4567" }),
+    ],
+  };
+  const live = completionStatusPresentation(emergency, [nextStep], running);
+  assert(!live.hints.some((hint) => hint.id === "missing-trunk-branch"));
+  assert(live.hints.some((hint) => hint.id === "emergency-outstanding"));
+  const idle = completionStatusPresentation(emergency, [nextStep], undefined);
+  assert(idle.hints.some((hint) => hint.id === "missing-trunk-branch"));
+  assert(idle.hints.some((hint) => hint.id === "emergency-outstanding"));
+  assertEquals(idle.message, undefined);
 });

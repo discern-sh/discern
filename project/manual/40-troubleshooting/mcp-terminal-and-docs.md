@@ -65,7 +65,7 @@ Provider limits determine how long a call can reliably wait. The [MCP reference]
 
 Interrupting a tool call, closing a terminal, or a host giving up on a long call stops only the waiting. The checks or landing that call started keep running on your machine until they finish or are cancelled through discern itself.
 
-Have the agent read the run back first with the handle it announced when it started (`discern progress R1-…`), or with no handle for the latest run from that workspace. The reading says whether the run is still going, what it has counted and which checks have failed so far, and its result once it finishes. A run that is still active finishes on its own; a run whose process died reads as stopped without finishing and needs [recovery](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation). Starting the same command again while the first is alive gets a refusal, not a second run.
+Have the agent read the run back first with the handle it announced when it started (`discern progress R1-…`), or with no handle for the latest run from that workspace. The reading says whether the run is still going, what it has counted and which checks have failed so far, and its result once it finishes. A run that is still active finishes on its own; a run whose process died reads as stopped without finishing, and a fresh `discern done` reuses the evidence it recorded before stopping and obtains the rest. Starting the same command again while the first is alive gets a refusal, not a second run.
 
 ## You need the output of a run that already happened
 

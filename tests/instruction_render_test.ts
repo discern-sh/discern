@@ -598,12 +598,8 @@ Deno.test("renderAgentFiles: the built-in instructions reflect config (interpola
             "Never adopt another effort's worktree",
           ],
           [
-            "retention is selected before releasing authoring control",
-            "use `retain_checkout: true`",
-          ],
-          [
             "completion is distinct from landing",
-            "Completion does not itself merge",
+            "It lands nothing",
           ],
           [
             "owner updates connect evidence to the task",

@@ -1,5 +1,3 @@
-import { observeExternalIntegration } from "../landing_queue/external_integration.ts";
-import { observeQueue } from "../landing_queue/repository.ts";
 /**
  * `await`: block until a fleet condition holds, then answer with the observed
  * state and the sensible next step — so a dependent agent spends one call
@@ -1015,21 +1013,6 @@ async function evaluateCondition(
     // The ref is gone (a landing removes it) — the last observed tip answers.
   }
   const reachable = await commitIsMerged(root, state.tip, trunk);
-  if (reachable && !state.everUnreachable) {
-    const integrated = await observeExternalIntegration(
-      root,
-      await observeQueue(root, trunk),
-      `refs/heads/${branch}`,
-      state.tip,
-    );
-    if (!("kind" in integrated)) {
-      return {
-        met: true,
-        observed: { landed: true, tip: integrated.candidate.data.head },
-        via: "landed",
-      };
-    }
-  }
   if (condition === "landed") {
     if (reachable && state.everUnreachable) {
       return {
@@ -1068,9 +1051,8 @@ async function evaluateCondition(
     "no-worktree";
   if (worktree !== undefined) {
     const proof = await inspectGateProof(worktree);
-    // A watcher must not collide with temporary candidate installation: an
-    // honored proof satisfies the watch only when it covers the effort's own
-    // branch tip, never a temporarily installed composition in the checkout.
+    // An honored proof satisfies the watch only when it covers the effort's
+    // own branch tip, never some other revision the checkout may sit on.
     if (
       proof.status === "honored" &&
       (proof.recorded === undefined || proof.recorded === state.tip)

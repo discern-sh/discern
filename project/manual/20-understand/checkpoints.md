@@ -100,7 +100,7 @@ Your agent can choose those details. [Place and answer checkpoints](../10-guides
 
 A change is assessed against the committed policy that precedes it. Editing a checkpoint in the same change does not rewrite its own review requirement. New questions and policy changes are work for you to review, too.
 
-In ordinary work, checkpoint inspection uses the branch's shared starting point with the trunk. Completion of a queued candidate uses its recorded predecessor, which may include earlier ready work. The result identifies the governing policy so the agent can explain which question applies.
+Checkpoint inspection uses the branch's shared starting point with the trunk. The result identifies the governing policy so the agent can explain which question applies.
 
 If discern cannot resolve a question or evaluate part of its trigger, it records that uncertainty as a **drop**, including the reason. An uncertain stop trigger serves the question over the full matching content; the uncertainty stays in Proof and cannot be hidden by reusing it or relying on a recorded landing grant. An uncertain advise trigger remains non-blocking. Your agent should explain the actual missing evidence and the next action.
 

@@ -4,8 +4,6 @@ import { assert, assertEquals } from "@std/assert";
 import { applyConfigDoc, configDocFillPaths } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import {
-  CompletionPolicySchema,
-  EnvironmentDeclarationSchema,
   planStandardInput,
   ProducerDeclarationSchema,
   StandardInputSchema,
@@ -55,62 +53,6 @@ Deno.test("E17 run remains a producer and extract is a separate operation", () =
   ) assertEquals(StandardInputSchema.safeParse(input).success, false);
 });
 
-Deno.test("completion declarations require distinct contexts and executable return procedures", () => {
-  assertEquals(CompletionPolicySchema.parse({}), {
-    required_contexts: ["local"],
-    concurrency: 1,
-    lookahead: 0,
-  });
-  for (
-    const policy of [
-      { required_contexts: [] },
-      { required_contexts: ["local", "local"] },
-      { concurrency: 0 },
-      { lookahead: -1 },
-    ]
-  ) {
-    assertEquals(CompletionPolicySchema.safeParse(policy).success, false);
-  }
-  const common = {
-    prepare: "prepare resources",
-    reusable: true,
-    resources: ["db"],
-    ignored: ["cache/**"],
-    inputs: ["scripts/**"],
-    capacity: 1,
-  };
-  assertEquals(
-    EnvironmentDeclarationSchema.safeParse({ ...common, kind: "borrowed" })
-      .success,
-    false,
-  );
-  assertEquals(
-    EnvironmentDeclarationSchema.safeParse({
-      ...common,
-      kind: "borrowed",
-      restore: "restore resources",
-    }).success,
-    true,
-  );
-  assertEquals(
-    EnvironmentDeclarationSchema.safeParse({
-      ...common,
-      kind: "isolated",
-      dispose: "dispose resources",
-    }).success,
-    false,
-  );
-  assertEquals(
-    EnvironmentDeclarationSchema.safeParse({
-      ...common,
-      kind: "isolated",
-      dispose: "dispose resources",
-      reset: "reset resources",
-    }).success,
-    true,
-  );
-});
-
 Deno.test("public completion refuses deferrals and preserves committed governing policy", () => {
   for (const measure of ["gate", "on-demand"]) {
     const text =
@@ -145,7 +87,7 @@ Deno.test("public completion refuses deferrals and preserves committed governing
   );
 });
 
-Deno.test("setup writes complete producer, consumer, policy and environment declarations", () => {
+Deno.test("setup writes complete producer and consumer declarations", () => {
   const job = {
     run: "instrument tests",
     timeout: 120,
@@ -154,17 +96,6 @@ Deno.test("setup writes complete producer, consumer, policy and environment decl
     artifacts: ["dist/readings"],
     environment: ["CI"],
     toolchain: ["lockfile"],
-    contexts: ["local", "remote"],
-  };
-  const declaration = {
-    kind: "borrowed" as const,
-    prepare: "prepare",
-    restore: "restore",
-    reusable: true,
-    resources: [],
-    ignored: ["dist/**"],
-    inputs: ["**"],
-    capacity: 1,
   };
   const doc = configDocSchema.parse({
     jobs: { test: job, build: "build" },
@@ -177,12 +108,6 @@ Deno.test("setup writes complete producer, consumer, policy and environment decl
         limit: 90,
       },
     },
-    completion: {
-      required_contexts: ["local", "remote"],
-      concurrency: 2,
-      lookahead: 1,
-    },
-    execution: { local: declaration },
   });
   const editor = new TomlEditor("");
   const report = applyConfigDoc(editor, doc);
@@ -190,8 +115,6 @@ Deno.test("setup writes complete producer, consumer, policy and environment decl
   const configured = parseConfig(editor.toString());
   assert(configured.config !== undefined, JSON.stringify(configured.issues));
   assertEquals(configured.config.jobs.test, job);
-  assertEquals(configured.config.execution.local, declaration);
-  assertEquals(configured.config.completion, doc.completion);
   assertEquals(configured.config.standards.coverage?.producer, "jobs.test");
 });
 

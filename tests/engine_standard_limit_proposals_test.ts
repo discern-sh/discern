@@ -21,6 +21,7 @@ import { readTextIfExists, statIfExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { readProposalStore } from "../src/engine/gate/standard_proposal_state.ts";
+import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import {
   addWorktree,
   git,
@@ -111,10 +112,10 @@ interface ApprovalChallenge {
 /** Read the exact structured approval challenge from an accept refusal. */
 function approvalChallenge(stdout: string): ApprovalChallenge {
   const result = decodeCliResult(stdout, "accept");
-  assert(result.data !== undefined && "queue" in result.data);
-  const challenge = result.data.queue?.flatMap((row) =>
-    row.approval_requests ?? []
-  )[0];
+  assert(
+    result.data !== undefined && "standard_approvals_required" in result.data,
+  );
+  const challenge = result.data.standard_approvals_required?.[0];
   assert(challenge !== undefined);
   return challenge;
 }
@@ -296,6 +297,13 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
 
     const done = await runAgent(worktree, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
+    // A recorded effort grant never covers a standard limit proposal: the
+    // flagless accept still stops for the exact owner approval.
+    await grantEffort(
+      worktree,
+      await gitOut(worktree, "branch", "--show-current"),
+      "2026-09-12T10:00:00.000Z",
+    );
     const firstStop = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(firstStop.code, 1, firstStop.output);
     const firstToken = approvalChallenge(firstStop.stdout).token;
@@ -328,7 +336,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
         assertEquals(approval.proposal.proposed_limit, 2);
         assertEquals(approval.proposal.reason, reasonB);
         assertStringIncludes(
-          (refusal.hints ?? []).join("\n"),
+          refusal.message ?? "",
           `--approve-standard ${approval.token}`,
         );
         assertEquals(
@@ -531,9 +539,9 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
         ]);
         assertEquals(accepted.code, 0, accepted.output);
         const result = decodeCliResult(accepted.stdout, "accept");
-        assert(result.data !== undefined && "queue" in result.data);
-        const data = result.data.queue?.find((row) => row.state === "landed");
-        assert(data !== undefined, accepted.stdout);
+        assert(result.data !== undefined && "consent" in result.data);
+        const data = result.data;
+        assertEquals(data.landing?.trunk_landed, true, accepted.stdout);
         // The landed line states the proposal in its resolved state — the
         // awaiting-decision segment never survives next to its own resolution.
         assertStringIncludes(

@@ -3,14 +3,19 @@ import { assert, assertEquals } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { git, gitOut, runAgent } from "./engine_helpers.ts";
-import {
-  observedRecords,
-  observeQueue,
-} from "../src/engine/landing_queue/repository.ts";
+import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
+import type { CompletionRecord } from "../src/engine/completion/records.ts";
+
+/** Project recorded readings onto validated envelopes. */
+async function observedRecords(root: string): Promise<CompletionRecord[]> {
+  return (await observeCompletionRecords(root)).records.flatMap((
+    { reading },
+  ) => reading.kind === "recorded" ? [reading.record] : []);
+}
 
 Deno.test("a standalone CI report uses the pre-push policy even when current main contains the change", async () => {
   await withTempDir(async (root) => {
-    const path = await project(root, ["local"]);
+    const path = await project(root);
     const base = await gitOut(root, "rev-parse", "main");
     const config = await Deno.readTextFile(`${path}/discern.toml`);
     await Deno.writeTextFile(
@@ -39,7 +44,7 @@ Deno.test("a standalone CI report uses the pre-push policy even when current mai
     assertEquals(report.code, 1, report.output);
     assert(report.output.includes("loosened"), report.output);
     assertEquals(
-      observedRecords(await observeQueue(root, "main")).filter((record) =>
+      (await observedRecords(root)).filter((record) =>
         record.kind === "proof" || record.kind === "evidence" ||
         record.kind === "candidate"
       ),
@@ -50,14 +55,12 @@ Deno.test("a standalone CI report uses the pre-push policy even when current mai
 
 Deno.test("a complete CI report runs each declared producer and measurement without queue Proof", async () => {
   await withTempDir(async (root) => {
-    const path = await project(root, ["local"]);
+    const path = await project(root);
     const base = await gitOut(root, "rev-parse", "main");
     const result = await runAgent(path, [
       "done",
       "--ci",
       "--standalone",
-      "--context",
-      "local",
       "--policy-base",
       base,
       "--json",
@@ -67,7 +70,7 @@ Deno.test("a complete CI report runs each declared producer and measurement with
     assert(result.output.includes('"name":"coverage"'), result.output);
     assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
     assertEquals(
-      observedRecords(await observeQueue(root, "main")).filter((record) =>
+      (await observedRecords(root)).filter((record) =>
         record.kind === "proof" || record.kind === "evidence" ||
         record.kind === "candidate"
       ),

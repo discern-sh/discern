@@ -281,7 +281,9 @@ Deno.test("shared Standard measurement: one standalone run keeps separate verdic
           metric: "first",
           direction: "up",
           limit: 1,
-          timeout: 1,
+          // Distinct budgets prove non-coalescing; both stay far above the
+          // trivial command's real runtime so a loaded machine cannot fire one.
+          timeout: 30,
           run: bounded,
         },
         {
@@ -289,15 +291,25 @@ Deno.test("shared Standard measurement: one standalone run keeps separate verdic
           metric: "second",
           direction: "down",
           limit: 30,
-          timeout: 2,
+          timeout: 45,
           run: bounded,
         },
-      ]),
+      ]) +
+        [
+          // The always-failing process is also this file's guard that a
+          // measurement report never fail-fast-cancels sibling readings:
+          // pin the abort-triggering config so the exact step outcomes and
+          // process counts below stay meaningful if the default ever moves.
+          "[gate]",
+          "fail_fast = true",
+          "",
+        ].join("\n"),
     );
     await gitInit(dir);
 
     const json = await runAgent(dir, ["standards", "--json"]);
     assertEquals(json.code, 1, json.output);
+    const boundedFirstRun = await invocationCount(dir, "bounded-runs");
     const result = decodeCliResult(json.stdout, "standards");
     assertResultDataKey(result, "standards");
     const steps = result.steps ?? [];
@@ -373,6 +385,11 @@ Deno.test("shared Standard measurement: one standalone run keeps separate verdic
           [outcomeOf("bounded_first"), outcomeOf("bounded_second")],
           ["ok", "ok"],
         );
+        // Within one run, distinct effective timeouts are distinct execution
+        // identities: the shared command ran once per timeout. The standalone
+        // verb never replays recorded evidence, so the second run added
+        // exactly one more process per timeout.
+        assertEquals(boundedFirstRun, 2);
         assertEquals(await invocationCount(dir, "bounded-runs"), 4);
       },
     );

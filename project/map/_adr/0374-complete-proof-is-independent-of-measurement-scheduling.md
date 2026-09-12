@@ -1,6 +1,6 @@
 # ADR 0374: Complete Proof is independent of measurement scheduling
 
-**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Amends [ADR 0003](0003-named-metric-standards.md), [ADR 0133](0133-standards-join-the-gate.md), and [ADR 0319](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md).
+**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Amends [ADR 0003](0003-named-metric-standards.md), [ADR 0133](0133-standards-join-the-gate.md), and [ADR 0319](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md). Amended by [ADR 0389](0389-the-workspace-contract.md) on 2026-09-12: complete Proof now attests the invoked checkout's own committed tip rather than a composed integration candidate; the clean-tree rule and the shared producer stay unchanged.
 
 ## Context
 

@@ -1,12 +1,8 @@
-import { QueueControlSchema } from "./queue_control.ts";
-import { ExceptionClaimSchema } from "../engine/completion/exception_claim.ts";
 import { EmergencyDataSchema, EmergencyValidationSchema } from "./emergency.ts";
 import { IgnoredFileChangeSummarySchema } from "./ignored_file_changes.ts";
-import { RetirementEffectsSchema } from "./accept_landing_state.ts";
 import {
   CompleteProofEvidenceSchema,
   CompletionProofPointerSchema,
-  LandedAuthorityEvidenceSchema,
 } from "./completion_proof.ts";
 /**
  * The **typed wire schemas** for every `discern` verb's result — the SSOT spine of
@@ -698,7 +694,6 @@ export type AuthorizedVarianceData = z.infer<typeof AuthorizedVarianceSchema>;
 /** The structured acceptance evidence a landing records beside its proof:
  * the consent source that landed it plus every owner-authorized variance. */
 export const AcceptanceEvidenceSchema = z.strictObject({
-  authority: LandedAuthorityEvidenceSchema.optional(),
   consent: LandingConsentDataSchema,
   variances: z.array(AuthorizedVarianceSchema),
   standard_proposals: z.array(StandardLimitProposalSchema),
@@ -809,9 +804,7 @@ export const ProofNotePayloadSchema = z.strictObject({
   presentation: ProofPresentationSchema,
   /** Present when acceptance recorded structured authorization evidence:
    * the consent source plus every owner-authorized variance. */
-  acceptance: AcceptanceEvidenceSchema.extend({
-    authority: LandedAuthorityEvidenceSchema,
-  }).optional(),
+  acceptance: AcceptanceEvidenceSchema.optional(),
   issuer: ProofIssuerSchema.optional(),
   brief: z.string().meta({
     description:
@@ -821,18 +814,10 @@ export const ProofNotePayloadSchema = z.strictObject({
 }).refine(
   (value) => {
     const complete = value.proof.completion;
-    const authority = value.acceptance?.authority.authority;
     return value.subject.commit === complete.candidate.head &&
-      (value.proof.mode ?? "strict") === complete.validation.mode &&
-      (authority === undefined || (complete.validation.mode === "strict" &&
-        authority.policy === complete.candidate.policy &&
-        authority.composition_procedure ===
-          complete.candidate.composition.procedure &&
-        authority.sources.some((source) =>
-          JSON.stringify(source) === JSON.stringify(complete.candidate.source)
-        )));
+      (value.proof.mode ?? "strict") === complete.validation.mode;
   },
-  "Proof subject, mode and accepted source authority must agree with the complete candidate",
+  "Proof subject and mode must agree with the complete candidate",
 ).meta({
   description:
     "The Proof claim carried as UTF-8 JSON in the DSSE payload: the landed " +
@@ -875,7 +860,6 @@ export const TolerantProofNotePayloadSchema = z.looseObject({
   }),
   presentation: z.looseObject(PROOF_PRESENTATION_FIELDS),
   acceptance: z.looseObject({
-    authority: LandedAuthorityEvidenceSchema,
     consent: z.looseObject({
       source: z.string(),
       scopes: z.array(z.string()).optional(),
@@ -1019,7 +1003,6 @@ export const StandaloneValidationDataSchema = z.strictObject({
   measurement: z.literal("none").optional(),
   completion: z.strictObject({
     kind: z.literal("diagnostic"),
-    context: z.string(),
     proof: z.literal("not-issued"),
   }).optional(),
 });
@@ -1263,7 +1246,6 @@ export const GateDataSchema = z.strictObject({
   producer_evidence: z.array(ProducerEvidenceSchema).optional(),
   completion: z.strictObject({
     kind: z.enum(["diagnostic", "complete", "pending"]),
-    context: z.string(),
     candidate_id: z.string().optional(),
     proof_id: z.string().optional(),
     pending_reasons: z.array(z.string()),
@@ -1603,101 +1585,37 @@ export type AcceptProofNoteData = z.infer<typeof AcceptProofNoteSchema>;
  * Codex's app-managed worktree) lands back on the live main checkout, not the grave of
  * the worktree it just landed, instead of the spawn root (which is the trunk only
  * when the server was launched from the trunk). */
-/** Per-prefix facts remain separate so later pending work cannot hide an earlier landing. */
-export const AcceptancePrefixSchema = z.strictObject({
-  exception: ExceptionClaimSchema.optional(),
-  ignored_file_changes: IgnoredFileChangeSummarySchema.optional(),
-  retirement_effects: RetirementEffectsSchema.optional(),
-  consent: LandingConsentDataSchema.optional(),
-  scopes_changed: z.array(z.string()).optional(),
-  proof_line: z.string().optional(),
-  variances: z.array(AuthorizedVarianceSchema).optional(),
-  standard_approvals: z.array(StandardLimitProposalSchema).optional(),
-  preview_actions: z.array(PreviewActionDataSchema).optional(),
-  approval_requests: z.array(StandardLimitApprovalRequestSchema).optional(),
-  checkpoint_review: ProofCheckpointsSchema.optional(),
-  checkpoint_drops: z.array(CheckpointDropSchema).optional(),
+/** One landing-queue row: an effort's submitted revision awaiting its landing. */
+export const SubmissionRowSchema = z.strictObject({
   effort: z.string(),
   branch: z.string(),
-  source_head: z.string(),
-  candidate_id: z.string().nullable(),
-  expected_trunk: z.string().nullable(),
-  target: z.string().nullable(),
-  state: z.enum(["ready", "pending", "landed"]),
-  /** How this row relates to the selected effort: its own row, an effort
-   * ahead of or behind it in the queue, or outside the current queue order.
-   * Present when the call selected an effort; presentations label rows from
-   * this field rather than re-deriving queue order. */
-  relation: z.enum(["selected", "ahead", "behind", "other"]).optional(),
-  landing_id: z.string().optional(),
-  note: z.enum(["pending", "published", "recovery"]).optional(),
-  note_reason: z.string().optional(),
-  proof_note: AcceptProofNoteSchema.optional(),
-  authority_id: z.string().nullable().optional(),
-  authority_settlement: z.enum(["pending", "consumed", "restored"]).optional(),
-  planned_action: z.enum(["ready", "compose", "validate", "blocked"])
-    .optional(),
-  planned_producers: z.array(z.string()).optional(),
-  retirement: z.enum(["retained", "retired", "recovery"]),
-  retirement_reason: z.string().optional(),
-  convergence: z.enum(["pending", "passed", "failed"]).optional(),
-  pending: z.array(CompletionPendingSchema),
+  /** The submitting worktree's path. */
+  path: z.string(),
+  /** The exact submitted commit. */
+  head: z.string(),
+  submitted_at: z.string(),
+  /** Pre-authorized rows land once green without a further conversation. */
+  authority: z.enum(["pre-authorized", "awaiting-owner"]),
+  authority_source: z.enum(["effort-grant", "standing-grant"]).optional(),
+  granted_at: z.string().optional(),
+  /** 1-based place in the displayed order. */
+  position: z.number().int().positive(),
+  readiness: z.enum(["ready", "waiting"]),
+  /** One full sentence: why the submission waits. Absent when ready. */
+  reason: z.string().optional(),
+}).meta({
+  id: "DiscernSubmissionRow",
+  description:
+    "One landing-queue row derived from an effort's submission record: the " +
+    "branch, the exact submitted commit, whether a recorded grant covers it, " +
+    "and the one sentence that says why it waits.",
 });
 export const AcceptDataSchema = z.strictObject({
-  /** The effort the owner selected, implicitly by running from its worktree or
-   * explicitly with --target. Its row is always present in `queue`, and every
-   * presentation leads with its verdict before other efforts' outcomes. */
-  selected_effort: z.string().optional(),
-  continuation: z.string().optional(),
-  external_integration: z.strictObject({
-    integration_id: z.string().optional(),
-    retirement_id: z.string().optional(),
-    retirement_reason: z.string().optional(),
-    reservations: z.array(z.string()).optional(),
-    effort: z.string(),
-    candidate_id: z.string(),
-    source_head: z.string(),
-    proof_id: z.string(),
-    target: z.string(),
-    observed_trunk: z.string(),
-    expected_state: z.string(),
-    governed_landing_receipt: z.null(),
-    state: z.enum(["planned", "observed"]),
-    retirement: z.enum(["pending", "retained", "retired", "recovery"]),
-  }).optional(),
-  queue_control: z.strictObject({
-    action: QueueControlSchema,
-    target: z.string().nullable(),
-    expected_state: z.string(),
-    before_order: z.array(z.string()),
-    after_order: z.array(z.string()),
-    affected_efforts: z.array(z.string()),
-    state: z.enum(["planned", "applied"]),
-  }).optional(),
-  /** Artifact cleanup does not change landing, retirement, or retained evidence. */
-  storage_cleanup: z.discriminatedUnion("state", [
-    z.strictObject({
-      state: z.literal("planned"),
-      planned_files: z.number().int().nonnegative(),
-      retirement_ids: z.array(z.string()),
-    }),
-    z.strictObject({
-      state: z.literal("settled"),
-      removed_files: z.number().int().nonnegative(),
-      retirement_ids: z.array(z.string()),
-    }),
-    z.strictObject({
-      state: z.literal("retained"),
-      removed_files: z.number().int().nonnegative(),
-      retirement_ids: z.array(z.string()),
-      reason: z.string(),
-    }),
-  ]).optional(),
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   emergency: EmergencyDataSchema.optional(),
-  queue: z.array(AcceptancePrefixSchema).optional(),
-  pending: z.array(CompletionPendingSchema).optional(),
+  /** The landing queue: every unlanded submission, in landing order. */
+  queue: z.array(SubmissionRowSchema).optional(),
   /** Present after landing; read-only reviews may carry only checkpoint drops. */
   root: z.string().optional(),
   consent: LandingConsentDataSchema.optional(),
@@ -1974,7 +1892,6 @@ const statusFleetEntrySchema = z.strictObject({
   /** Present when this checkout's committed source has landed and the
    * checkout stayed: one sentence with why it stayed and the command that
    * finishes cleanup, the same words the effort's own status leads with. */
-  landed_checkout: z.strictObject({ message: z.string() }).optional(),
   gate_proof: GateProofCheckSchema.optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
 });
@@ -2039,21 +1956,6 @@ const parkedTaskSchema = z.strictObject({
  * efforts in landing order, then provisional ones, each with its readiness and
  * the single reason it waits. Status and `accept --dry-run` derive their lists
  * from the same projection so the two surfaces agree. */
-export const StatusQueueRowSchema = z.strictObject({
-  effort: z.string(),
-  branch: z.string(),
-  /** 1-based place in the displayed order. */
-  position: z.number().int().positive(),
-  state: z.enum(["provisional", "eligible", "active", "failed"]),
-  held: z.boolean(),
-  readiness: z.enum(["ready", "waiting", "landing"]),
-  /** One full sentence: why the effort waits. Absent when ready or landing. */
-  reason: z.string().optional(),
-  /** The recorded source is already reachable from the trunk; the reason
-   * offers the entry's own withdrawal or reconciliation. */
-  on_trunk: z.boolean().optional(),
-});
-export type StatusQueueRow = z.infer<typeof StatusQueueRowSchema>;
 
 /** One path discern removed with a worktree that currently exists again. */
 const reappearedWorktreePathSchema = z.strictObject({
@@ -2071,27 +1973,6 @@ const reappearedWorktreePathSchema = z.strictObject({
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
 export const StatusDataSchema = z.strictObject({
-  execution_recovery: z.array(z.strictObject({
-    environment_id: z.string(),
-    attempt_id: z.string().optional(),
-    phase: z.string().optional(),
-    children_quiescent: z.boolean().optional(),
-    reason: z.string(),
-    retained_paths: z.array(z.string()),
-    next_action: z.string(),
-  })).optional(),
-  execution_activity: z.array(z.strictObject({
-    environment_id: z.string(),
-    attempt_id: z.string(),
-    candidate_id: z.string(),
-    phase: z.string(),
-    lease_expires_at: z.number(),
-    /** Advisory observation only; recovery reacquires and retains native exclusion. */
-    ownership: z.enum(["held", "available", "unknown"]).optional(),
-    children_quiescent: z.boolean().optional(),
-    reason: z.string().optional(),
-    next_action: z.string().optional(),
-  })).optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   location: z.enum(LOCATIONS),
   root: z.string(),
@@ -2183,9 +2064,9 @@ export const StatusDataSchema = z.strictObject({
   contained_refs: z.array(
     z.strictObject({ branch: z.string(), contained_in: z.string() }),
   ).optional(),
-  /** The landing queue in order — present when at least one unlanded effort
-   * is queued. The same derivation feeds `accept --dry-run`. */
-  queue: z.array(StatusQueueRowSchema).optional(),
+  /** The landing queue in order — present when at least one submission
+   * awaits landing. The same derivation feeds `accept --dry-run`. */
+  queue: z.array(SubmissionRowSchema).optional(),
   /** The calling checkout's most recently started long operation while it
    * is still running: the verb, the effort, the handle that reads it back,
    * and the latest sentence it recorded. Absent once it finishes. */
@@ -2802,13 +2683,6 @@ export const CompletionAssuranceSchema = z.strictObject({
   })),
   candidate_bound: z.array(z.string()),
   declared: z.array(z.string()),
-  speculation: z.enum([
-    "off",
-    "undeclared",
-    "unproven",
-    "no-slot",
-    "available",
-  ]),
 });
 
 export const SetupAssuranceSchema = z.strictObject({
@@ -2920,14 +2794,6 @@ const SetupDoneBaseSchema = z.strictObject({
   /** Whether the required worktree-viability probe ran green. False only on
    * explicitly unproven completion. */
   worktree_proven: z.boolean(),
-  /** Which required contexts proved their declared environment return, which
-   * have no declaration, and which declare an isolated environment setup does
-   * not rehearse. Present when this invocation ran the probe. */
-  environment_probe: z.strictObject({
-    proven: z.array(z.string()),
-    undeclared: z.array(z.string()),
-    isolated: z.array(z.string()),
-  }).optional(),
   marker_committed: z.boolean(),
   /** The git stderr line explaining a FAILED completion-marker auto-commit
    * (absent when committed, skipped deliberately, or outside git). */
@@ -2998,9 +2864,7 @@ export const SETUP_DONE_COMPLETION_STAGES = [
   "refresh",
   "doctor",
   "worktree_probe",
-  "environment_probe",
   "done",
-  "contexts",
   "proof",
 ] as const;
 export type SetupDoneCompletionStage =
@@ -3386,12 +3250,6 @@ export const UpgradeDataSchema = z.strictObject({
     refusedGitattributesPatternSchema,
   ).optional(),
   changes: z.array(z.string()).optional(),
-  /** Recorded execution claims or unfinished checkout returns that keep this
-   * checkout from being upgraded until they are recovered. */
-  recorded_execution: z.array(z.strictObject({
-    environment_id: z.string(),
-    next_action: z.string(),
-  })).optional(),
   /** Completion records written by a newer discern than this build. */
   newer_records: z.array(z.string()).optional(),
   issues: z.array(ConfigIssueSchema).optional(),
@@ -3663,7 +3521,7 @@ export const ProgressFailureSchema = z.object({
 
 /** The latest progress fact, exactly as live observers received it. */
 export const ProgressFactSchema = z.object({
-  phase: z.enum(["producer", "environment", "queue", "pending", "operation"]),
+  phase: z.enum(["producer", "queue", "pending", "operation"]),
   state: z.string(),
   candidate_id: z.string().nullable(),
   reason: z.string(),
@@ -3671,10 +3529,7 @@ export const ProgressFactSchema = z.object({
   next: z.string().optional(),
   owner_must_act: z.boolean().optional(),
   work: ProgressWorkSchema.optional(),
-  capacity: z.unknown().optional(),
-  environment_id: z.string().optional(),
   attempt_id: z.string().optional(),
-  recovery: z.unknown().optional(),
 });
 
 /** One named timing boundary; each category is its own recorded fact. */

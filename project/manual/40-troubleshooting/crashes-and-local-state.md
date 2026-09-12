@@ -31,7 +31,7 @@ If discern reports a crash, keep its report and inspect the task's state before 
 
 ## discern crashed
 
-Run `discern status` in the task's checkout and follow the reported recovery. In particular, interrupted validation may need to [return its workspace](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation), while an interrupted acceptance may already have landed the change. Inspect those facts before repeating an action.
+Run `discern status` in the task's checkout and follow the reported recovery. In particular, an interrupted run may still be going and can be [read back](../10-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see), while an interrupted acceptance may already have landed the change. Inspect those facts before repeating an action.
 
 You can recognize an internal crash by:
 

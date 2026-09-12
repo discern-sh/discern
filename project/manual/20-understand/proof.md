@@ -51,7 +51,7 @@ The line summarizes the record. Open the full Proof from the worktree with `disc
 
 ## What green establishes
 
-The **gate** is the set of checks your project requires. These might build the app, test its behavior, check code conventions, and measure limits such as download size. Your project chooses the checks; discern runs them and records their results. Completion requires evidence in every declared context, which can include more than one environment.
+The **gate** is the set of checks your project requires. These might build the app, test its behavior, check code conventions, and measure limits such as download size. Your project chooses the checks; discern runs them and records their results.
 
 For recipe search, a test might check that clearing the search box restores the full list. That tells you something useful about that behavior. It cannot tell you whether the search box is pleasant to use on your phone unless the project checks that too.
 
@@ -59,13 +59,11 @@ Proof therefore helps you choose what to investigate next. Try the changed featu
 
 ## The exact commit it covers
 
-Evidence needs to describe the version that will become part of the project. Your agent prepares and commits the intended files before completion. discern checks that the source is clean and records the exact candidate it validated: the proposed version to land.
+Evidence needs to describe the version that will become part of the project. Your agent prepares and commits the intended files before completion. discern checks that the worktree is clean and records the exact commit it validated.
 
-When a task can land directly, that candidate is the agent's committed change. With parallel work, discern may combine it with earlier ready changes or a newer shared branch, then validate the combined result. The Proof names that candidate's commit, which can differ from the commit in the author's worktree.
+That commit is what the agent later submits for landing, and what acceptance moves onto the trunk. Nothing else stands in: discern checks only the commit in the agent's worktree, and lands only a version the checks covered.
 
-For example, one task adds recipe search while another changes how recipes are sorted. Each feature may work on its own. The combined version needs evidence too, and any conflict or newly applicable review question needs attention before it can land. Each contributing task also needs its own landing permission.
-
-The authoring worktree remains the place to make corrections. The candidate and its retained evidence let discern account for what was checked even after a temporary validation environment has been returned.
+For example, one task adds recipe search while another changes how recipes are sorted. Each lands on its own commit with its own Proof and its own landing permission. Whichever lands second brings the first into its worktree with `discern update`, runs the gate again, and submits the combined result; the checks the incoming change does not affect are reused. Any conflict or newly applicable review question gets attention in that agent's worktree, where corrections belong.
 
 ## Why Proof becomes stale
 
@@ -74,13 +72,13 @@ Suppose you ask for a clearer message when a search returns no recipes. The agen
 The following can prevent reuse of the earlier Proof:
 
 - a later commit or amended commit;
-- staged, uncommitted, or untracked files in the source worktree;
+- staged, uncommitted, or untracked files in the worktree;
 - a changed checkpoint conclusion or rationale;
-- a changed standard proposal or a change to the evidence required for completion.
+- a changed standard proposal.
 
 Generated files count as changes too. If a formatter or generator rewrites a file, the agent reviews and commits the intended output before renewing completion.
 
-A newer shared branch can also require a new combined candidate. discern checks the applicable evidence again rather than assuming the earlier result covers the combination.
+A shared branch that moves after the Proof does not make the Proof stale, but it does stop the landing. Acceptance refuses and names the route, `discern update`, `discern done`, then `discern accept`, so the evidence covers the combination that lands.
 
 Fresh completion does not always mean repeating every command. discern can reuse passing evidence whose declared inputs and requirements still match, and obtain the evidence that is missing. When current Proof already covers the result, ordinary `discern done` can return it without running gate jobs again. A deliberate repeat uses `--rerun`.
 
@@ -98,7 +96,7 @@ A checkpoint might ask whether a new message gives someone a useful next action.
 
 If the agent declares a question unmet, Proof preserves the reason. You can ask for a correction, or approve that specific exception, called a **variance**. General landing permission and recorded grants do not approve a variance. [Checkpoints](checkpoints.md) explains how to weigh one.
 
-Landing permission can come from your approval in the current conversation, a standing grant for named areas of the project, or a grant recorded for one effort. Every contributing change is checked against its permission. This lets routine work proceed within limits you chose while uncovered work comes back for a decision.
+Landing permission can come from your approval in the current conversation, a standing grant for named areas of the project, or a grant you record for one task at the desk. The desk grant covers the task's branch: a later green run on that branch is still covered once its agent submits it, so a review fix does not send you back to the desk. Acceptance checks the changed paths of the submitted commit against the permission it finds. This lets routine work proceed within limits you chose while uncovered work comes back for a decision.
 
 ### Approve a Standard limit proposal
 
@@ -114,17 +112,16 @@ A finished feature passes through different decisions on its way to users:
 
 | State                  | What it tells you                                                                                                 |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Green**              | The checks that ran passed. Completion can still require other evidence or recorded judgments.                    |
+| **Green**              | The checks that ran passed. Completion can still require recorded judgments.                                      |
 | **Ready for review**   | Current Proof exists, and the handoff explains the behavior and any decisions you need to weigh.                  |
+| **Submitted**          | The agent asked to land that exact commit. The submission waits in the landing queue until permission arrives.    |
 | **Authorized to land** | Your consent or a verified grant covers the relevant work. Any separate exception decisions must also be settled. |
-| **Landed**             | Acceptance moved the validated candidate onto the trunk, the project's shared branch.                             |
-| **Released or live**   | Your project's release process made the change available to its users.                                            |
+| **Landed**             | Acceptance moved the submitted commit onto the trunk, the project's shared branch.                                |
+| **Live**               | Your project's release process made the change available to its users.                                            |
 
 One state sits outside this sequence. An **emergency landing** is a repair you chose to land before its checks finished. It needs a fresh decision from you, and discern keeps a permanent record of which checks failed, never ran, or were stale. That record is not Proof, and later validation can settle the outstanding checks without erasing it. [Land an urgent repair](../10-guides/land-an-urgent-repair.md) explains the route.
 
-Ordinary successful `discern done` releases the worktree from authoring control so it can support later validation and eligible cleanup. If the agent expects more local review edits, `--retain-checkout` keeps that control. Releasing a worktree does not land its change.
-
-Acceptance may remove eligible released worktrees and resources after landing. With local Proof notes enabled, which is the default, it attaches the completion evidence to the landed commit. Future maintainers can retrieve that record without the original chat or temporary worktree. The result reports any unfinished note publication or cleanup.
+A landing removes the task's worktree, its resources, and its branch when the branch holds nothing beyond what landed; until then the workspace stays the agent's. With local Proof notes enabled, which is the default, acceptance attaches the completion evidence to the landed commit. Future maintainers can retrieve that record without the original chat or temporary worktree. The result reports any unfinished note recording or cleanup.
 
 Publication to users belongs to your project. discern does not infer a release from a green gate or a landing. [Local control](local-control.md) explains where its work and evidence stay.
 

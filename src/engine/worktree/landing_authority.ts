@@ -4,10 +4,9 @@
  *
  * Standing grants are read from the trunk's committed config at a pinned commit,
  * never from the branch. Scope membership routes through the gate's matcher.
- * Effort grants come from the desk-owned Git-admin marker. Every uncertainty
- * leaves authority unverified. Queue acceptance independently requires readable
- * protected policy and complete evidence; ordinary consent cannot bypass either
- * requirement. Warnings remain visible even when evidence is also missing.
+ * Effort grants come from the desk-owned Git-admin marker and bind to the
+ * effort's branch. Every uncertainty leaves authority unverified. Warnings
+ * remain visible even when evidence is also missing.
  */
 
 import { parse as parseToml } from "@std/toml";
@@ -29,7 +28,6 @@ import {
   resolveGeneratedGroups,
 } from "../../shared/generated_artifacts.ts";
 import { type EffortGrant, readEffortGrant } from "./effort_grant.ts";
-import { inspectEffortGrantSubject } from "./effort_grant_subject.ts";
 
 /** One changed path and every configured scope it matches. */
 export interface ClassifiedLandingPath {
@@ -47,8 +45,7 @@ export interface LandingAuthorityFacts {
   readonly grantedScopes: readonly string[];
   readonly definedScopes: readonly string[];
   readonly warnings?: readonly string[];
-  /** Defect in the committed policy record. Queue acceptance requires this
-   * policy to be readable, independently of the source of ordinary consent. */
+  /** Defect in the committed policy record, reported beside any consent. */
   readonly blockingReason?: string;
   readonly trunkCommit?: string;
   readonly headCommit?: string;
@@ -324,59 +321,40 @@ async function classifyLanding(
   };
 }
 
-/** The effort grant read against this worktree's current committed source. */
+/** The effort grant read beside this worktree's branch. */
 interface EffortGrantState {
   readonly effort: Awaited<ReturnType<typeof readEffortGrant>>;
   readonly branch: string | undefined;
-  readonly sourceHead: string | undefined;
-  readonly sourceTree: string | undefined;
-  /** Granted only when the branch, head, tree, and composition procedure
-   * all match what a landing would take. */
+  /** Granted when the recorded grant names the checked-out branch. */
   readonly granted: boolean;
 }
 
-/** Read the grant beside this worktree's branch, head, tree, and composition
- * procedure, and decide once whether it covers the current committed source. */
+/** Read the grant beside this worktree's branch and decide once whether it covers the effort. */
 async function readEffortGrantState(cwd: string): Promise<EffortGrantState> {
-  const [branchRead, effort, sourceRead] = await Promise.all([
+  const [branchRead, effort] = await Promise.all([
     runGit(["branch", "--show-current"], { cwd }),
     readEffortGrant(cwd),
-    // One read names the commit and its tree together, so they cannot disagree.
-    runGit(["rev-parse", "HEAD", "HEAD^{tree}"], { cwd }),
   ]);
-  const [sourceHead, sourceTree] = sourceRead.success
-    ? sourceRead.stdout.trim().split("\n")
-    : [];
   const branch = branchRead.success && branchRead.stdout.trim() !== ""
     ? branchRead.stdout.trim()
     : undefined;
-  let granted = effort.status === "granted" &&
-    branch !== undefined && effort.grant.branch === branch &&
-    sourceHead !== undefined && sourceTree !== undefined &&
-    effort.grant.source.head === sourceHead &&
-    effort.grant.source.tree === sourceTree;
-  if (granted && effort.status === "granted" && branch !== undefined) {
-    try {
-      const subject = await inspectEffortGrantSubject(cwd, branch);
-      granted =
-        subject.composition_procedure === effort.grant.composition_procedure;
-    } catch {
-      granted = false;
-    }
-  }
-  return { effort, branch, sourceHead, sourceTree, granted };
+  const granted = effort.status === "granted" &&
+    branch !== undefined && effort.grant.branch === branch;
+  return { effort, branch, granted };
 }
 
-/**
- * The committed source head a desk grant in this worktree covers, or
- * undefined. Every surface that reports desk approval derives it here, so a
- * grant counts the same way in the landing queue as at acceptance.
- */
-export async function grantedSourceHead(
-  cwd: string,
-): Promise<string | undefined> {
-  const state = await readEffortGrantState(cwd);
-  return state.granted ? state.sourceHead : undefined;
+/** The recorded effort grant covering `branch`, when one is granted for it.
+ * The one row-level grant derivation the landing queue's view consumes, so
+ * grant validity keeps a single runtime reader boundary. */
+export async function effortGrantCovering(
+  path: string,
+  branch: string,
+): Promise<{ readonly granted_at: string } | undefined> {
+  const grant = await readEffortGrant(path);
+  if (grant.status !== "granted" || grant.grant.branch !== branch) {
+    return undefined;
+  }
+  return { granted_at: grant.grant.granted_at };
 }
 
 /**
@@ -393,11 +371,6 @@ export async function inspectLandingAuthority(
     cwd,
   );
   const warnings = effortWarnings(effort, branch);
-  if (effort.status === "granted" && !effortGranted) {
-    warnings.push(
-      "The effort grant is stale for the current source or composition procedure. Review the current committed source before granting it again.",
-    );
-  }
 
   const trunkConfig = await readTrunkConfig(cwd, trunk);
   if (trunkConfig.kind === "unreadable") {

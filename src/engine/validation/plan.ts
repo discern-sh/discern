@@ -33,12 +33,10 @@ export function planValidation(
     reused: [] as ValidationPlan["reused"][number][],
     blockers: [] as ValidationPlan["blockers"][number][],
   };
-  if (demand.kind === "prepare" || demand.kind === "compose") return plan;
-  if (
-    !snapshot.conditions.some((condition) =>
-      condition.context === demand.context
-    )
-  ) throw new Error(`unknown validation context '${demand.context}'`);
+  if (demand.kind === "prepare") return plan;
+  if (snapshot.conditions.length === 0) {
+    throw new Error("validation conditions were not observed");
+  }
   const records = observation.records.flatMap(({ reading }) =>
     reading.kind === "recorded" ? [reading.record] : []
   );

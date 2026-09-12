@@ -92,6 +92,6 @@ Resource and setup commands receive `@worktree@`, `@db@`, `@site@`, `@port@`, `@
 
 - The port, site tail, database name, and test seed use the frozen Portable Operating System Interface (POSIX) `cksum` derivation. Changing it changes existing checkout coordinates or test order.
 - `@resource@` has no DNS length limit. Use `@site@` for a 63-character DNS label.
-- An env override applies only to the process's own worktree. Inspecting another path still resolves that target's identity. An explicit identity target does not require the invoking directory to survive retirement. A missing process directory supplies no override authority; other read failures still propagate.
+- An env override applies only to the process's own worktree. Inspecting another path still resolves that target's identity. An explicit identity target does not require the invoking directory to survive the worktree's removal. A missing process directory supplies no override authority; other read failures still propagate.
 - The seed provides deterministic test-order replay. It carries no randomness or security meaning.
 - Identity handles and ports can collide and confer no ownership or access rights.

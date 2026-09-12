@@ -183,6 +183,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 - Guard: `tests/engine_accept_authority_test.ts` — exercises every landing-authority source end to end.
 - Decision: `project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md` — binds variances to conversation consent and current evidence.
 - Guard: `tests/engine_checkpoints_accept_test.ts` — rejects grants and incomplete decisions for variances.
+- Guard: `tests/engine_accept_supersession_test.ts` — proves recorded grants cover only the submitted revision and never a superseded green.
 
 ### provider-security-boundary
 
@@ -309,6 +310,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 - Decision: `project/map/_adr/0110-the-landing-model.md` — defines local fast-forward landing.
 - Source: `src/engine/gate/proof_notes.ts` — adds Proof-note fetch configuration without fetching.
 - Guard: `tests/engine_accept_gate_test.ts` — exercises local acceptance.
+- Guard: `tests/engine_accept_supersession_test.ts` — proves a superseded green cannot land until a deliberate rerun passes.
 
 ### agent-runtime-boundary
 

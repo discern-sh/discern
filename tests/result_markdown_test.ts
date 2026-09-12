@@ -22,10 +22,7 @@ import {
   HINTS,
   hintTexts,
 } from "../src/shared/hints.ts";
-import {
-  checkoutOutcomeSentence,
-  retainedCheckoutExplanation,
-} from "../src/shared/result_completion.ts";
+import { submissionRowLine } from "../src/shared/result_markdown_queue.ts";
 import { projectStatusResult } from "../src/shared/result_wire.ts";
 import {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -1288,24 +1285,18 @@ Deno.test("accept renders the landing state from its canonical fields", () => {
 Deno.test("an acceptance preview leads with the selected effort's first paragraph on the Markdown surface", () => {
   const data = {
     root: "/workspace/project",
-    selected_effort: "mine",
     queue: [{
       effort: "mine",
       branch: "refs/heads/agent/mine",
-      source_head: "a".repeat(40),
-      candidate_id: null,
-      expected_trunk: null,
-      target: null,
-      state: "pending" as const,
-      relation: "selected" as const,
-      retirement: "retained" as const,
-      pending: [{
-        kind: "validation-failed",
-        reason: "Its checks failed; rerun discern done from its worktree.",
-      }],
+      path: "/workspace/project.worktrees/mine",
+      head: "a".repeat(40),
+      submitted_at: "2026-09-12T00:00:00.000Z",
+      authority: "awaiting-owner" as const,
+      position: 1,
+      readiness: "waiting" as const,
+      reason: "Its checks failed; rerun discern done from its worktree.",
     }],
     checkpoint_drops: [],
-    pending: [],
   };
   AcceptDataSchema.parse(data);
   const message = [
@@ -1330,10 +1321,6 @@ Deno.test("an acceptance preview leads with the selected effort's first paragrap
   assert(
     afterLead.startsWith("Selected effort `agent/mine`: not ready."),
     rendered,
-  );
-  assertStringIncludes(
-    state,
-    "`discern accept` would stop at these conditions.",
   );
   assert(!state.includes("would proceed as described below"), rendered);
 });
@@ -1467,164 +1454,84 @@ Deno.test("patterns Markdown carries completion economics without granting autho
   for (
     const text of [
       "Native producer executions: unknown",
-      "Approval-to-land:",
-      "denominator unknown",
+      "Validation feedback: unknown",
       "Observations grant no Proof",
     ]
   ) assertStringIncludes(rendered, text);
 });
 
-Deno.test("accept rows explain a kept checkout and omit retirement for unlanded work", () => {
-  const row = {
-    effort: "one",
-    branch: "refs/heads/agent/one",
-    source_head: "a".repeat(40),
-    candidate_id: null,
-    expected_trunk: null,
-    target: null,
-    retirement: "retained" as const,
-    pending: [],
-  };
-  for (
-    const reason of [
-      "unreleased",
-      "active-use",
-      "moved-branch",
-      "dirty",
-      "ownership-uncertain",
-      "a reason the engine recorded verbatim",
-      undefined,
-    ]
-  ) {
-    const data = {
-      root: "/workspace/project",
-      queue: [{
-        ...row,
-        state: "landed" as const,
-        ...(reason === undefined ? {} : { retirement_reason: reason }),
-      }],
-    };
-    AcceptDataSchema.parse(data);
-    const rendered = renderResultMarkdown(
-      { ok: true, verb: "accept", data },
-      resultPresenterForVerb("accept"),
-    );
-    assertStringIncludes(
-      rendered,
-      reason === undefined ? "checkout kept." : `checkout kept (${reason}).`,
-    );
-    assertStringIncludes(rendered, retainedCheckoutExplanation(reason));
-  }
-  const retiredData = {
-    root: "/workspace/project",
-    queue: [{
-      ...row,
-      state: "landed" as const,
-      retirement: "retired" as const,
-    }],
-  };
-  AcceptDataSchema.parse(retiredData);
-  assertStringIncludes(
-    renderResultMarkdown(
-      { ok: true, verb: "accept", data: retiredData },
-      resultPresenterForVerb("accept"),
-    ),
-    "checkout retired.",
-  );
-  const pendingData = {
-    root: "/workspace/project",
-    queue: [{
-      ...row,
-      state: "pending" as const,
-      pending: [{ kind: "missing-evidence", reason: "Run discern done." }],
-    }],
-  };
-  AcceptDataSchema.parse(pendingData);
-  const pending = renderResultMarkdown(
-    { ok: true, verb: "accept", data: pendingData },
-    resultPresenterForVerb("accept"),
-  );
-  assertStringIncludes(
-    pending,
-    "`refs/heads/agent/one`: pending; authority pending.",
-  );
-  assert(!pending.includes("retirement"), pending);
-  assert(!pending.includes("convergence"), pending);
-  assert(!pending.includes("checkout kept"), pending);
-});
-
-Deno.test("the checkout outcome is one sentence with the command that finishes cleanup", () => {
-  assertEquals(
-    checkoutOutcomeSentence({ retirement: "retired" }),
-    "Its checkout was removed.",
-  );
-  for (
-    const reason of [
-      "unreleased",
-      "active-use",
-      "moved-branch",
-      "dirty",
-      "ownership-uncertain",
-      undefined,
-    ]
-  ) {
-    const kept = checkoutOutcomeSentence({
-      retirement: "retained",
-      ...(reason === undefined ? {} : { retirement_reason: reason }),
-    });
-    assert(kept.startsWith("Its checkout stayed. "), kept);
-    assertStringIncludes(
-      kept,
-      "discern ",
-      "every kept outcome names a command",
-    );
-  }
-  const recovery = checkoutOutcomeSentence({
-    retirement: "recovery",
-    retirement_reason: "the capture failed",
-  });
-  assertStringIncludes(recovery, "the capture failed");
-  assertStringIncludes(recovery, "run discern accept again");
-});
-
-Deno.test("accept rows are labelled from their recorded relation to the selected effort", () => {
-  const row = (effort: string, relation: "selected" | "ahead" | "behind") => ({
+Deno.test("queue rows render one line per submission with authority, readiness, and the caller's marker", () => {
+  const row = (
+    position: number,
+    effort: string,
+    extra: Record<string, unknown> = {},
+  ) => ({
     effort,
     branch: `refs/heads/agent/${effort}`,
-    source_head: "a".repeat(40),
-    candidate_id: null,
-    expected_trunk: null,
-    target: null,
-    state: "pending" as const,
-    relation,
-    retirement: "retained" as const,
-    pending: [{ kind: "queued", reason: "Waiting for the owner's approval." }],
+    path: `/workspace/project.worktrees/${effort}`,
+    head: "a".repeat(40),
+    submitted_at: "2026-09-12T00:00:00.000Z",
+    authority: "awaiting-owner" as const,
+    position,
+    readiness: "waiting" as const,
+    reason: "Waiting for the owner's approval.",
+    ...extra,
   });
+  const granted = row(1, "earlier", {
+    authority: "pre-authorized" as const,
+    authority_source: "effort-grant" as const,
+    granted_at: "2026-09-12T00:00:00.000Z",
+    readiness: "ready" as const,
+    reason: undefined,
+  });
+  const ready = Object.fromEntries(
+    Object.entries(granted).filter(([, value]) => value !== undefined),
+  );
+  assertEquals(
+    submissionRowLine(ready, undefined),
+    "Queue 1: `agent/earlier` at " + "a".repeat(12) +
+      " — pre-authorized; ready.",
+  );
+  assertEquals(
+    submissionRowLine(row(2, "mine"), "mine"),
+    "Queue 2: `agent/mine` at " + "a".repeat(12) +
+      " (this effort) — awaiting the owner; Waiting for the owner's approval.",
+  );
   const data = {
     root: "/workspace/project",
-    selected_effort: "mine",
-    queue: [
-      row("earlier", "ahead"),
-      row("mine", "selected"),
-      row("later", "behind"),
-    ],
+    queue: [ready, row(2, "mine"), row(3, "later")],
   };
   AcceptDataSchema.parse(data);
   const rendered = renderResultMarkdown(
     { ok: true, verb: "accept", data },
     resultPresenterForVerb("accept"),
   );
-  assertStringIncludes(rendered, "Selected effort `agent/mine`: not landed.");
-  assertStringIncludes(
-    rendered,
-    "Ahead in the queue — `refs/heads/agent/earlier`",
+  assertStringIncludes(rendered, "Queue 1: `agent/earlier`");
+  assertStringIncludes(rendered, "pre-authorized; ready.");
+  assertStringIncludes(rendered, "Queue 2: `agent/mine`");
+  assertStringIncludes(rendered, "awaiting the owner");
+  assertStringIncludes(rendered, "Queue 3: `agent/later`");
+});
+
+Deno.test("a long landing queue stays bounded with an explicit overflow count", () => {
+  const rows = Array.from({ length: 9 }, (_, index) => ({
+    effort: `effort-${index}`,
+    branch: `refs/heads/agent/effort-${index}`,
+    path: `/workspace/project.worktrees/effort-${index}`,
+    head: "b".repeat(40),
+    submitted_at: "2026-09-12T00:00:00.000Z",
+    authority: "awaiting-owner" as const,
+    position: index + 1,
+    readiness: "waiting" as const,
+    reason: "Waiting for the owner's approval.",
+  }));
+  const data = { root: "/workspace/project", queue: rows };
+  AcceptDataSchema.parse(data);
+  const rendered = renderResultMarkdown(
+    { ok: true, verb: "accept", data },
+    resultPresenterForVerb("accept"),
   );
-  assertStringIncludes(
-    rendered,
-    "Behind in the queue — `refs/heads/agent/later`",
-  );
-  assert(
-    !rendered.includes("Ahead in the queue — `refs/heads/agent/later`"),
-    rendered,
-  );
+  assertStringIncludes(rendered, "Queue 6: `agent/effort-5`");
+  assert(!rendered.includes("Queue 7:"), rendered);
+  assertStringIncludes(rendered, "3 more submissions wait behind these.");
 });

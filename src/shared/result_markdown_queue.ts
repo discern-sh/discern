@@ -1,11 +1,9 @@
 /**
- * Queue-aware helpers for the Markdown result presentations: the status
- * queue facts, and the acceptance presentation's selected-effort
- * organisation — its verdict line first, other efforts labelled after it.
+ * Queue-aware helpers for the Markdown result presentations: the status and
+ * acceptance queue facts derived from submission rows, and the checkpoint
+ * lines several presenters share.
  */
-import { checkoutOutcomeSentence } from "./result_completion.ts";
 import {
-  boolean,
   code,
   displayBranch,
   number,
@@ -27,123 +25,52 @@ export function emergencyValidationFacts(
   );
 }
 
-/** Close a fact as one sentence without doubling an existing terminator. */
-export function closedSentence(fact: string): string {
-  return /[.!?]$/.test(fact) ? fact : `${fact}.`;
-}
-
-/** One human-readable state label per queue row — shared by every surface. */
-export function queueRowStateLabel(
-  row: { readonly readiness?: unknown; readonly held?: unknown },
+/** One human-readable authority label per submission row — shared by every surface. */
+export function submissionRowAuthorityLabel(
+  row: { readonly authority?: unknown },
 ): string {
-  return text(row.readiness) === "ready"
-    ? "ready to land"
-    : text(row.readiness) === "landing"
-    ? "checks running now"
-    : boolean(row.held) === true
-    ? "on hold"
-    : "waiting";
+  return text(row.authority) === "pre-authorized"
+    ? "pre-authorized"
+    : "awaiting the owner";
 }
 
 /**
- * The selected effort's one-sentence verdict — one derivation for the
- * terminal message and every rendered presentation. An absent `state` means
- * the effort has no row at all: it has not validated.
+ * One queue row as one line: position, branch, submitted commit, authority,
+ * then either "ready" or the single reason it waits. `currentEffort` marks the
+ * caller's own row. Every surface derives the row from these words.
  */
-export function selectedVerdictSentence(input: {
-  readonly branch: string;
-  readonly state: string | undefined;
-  readonly dryRun: boolean;
-  readonly checkout?: {
-    readonly retirement?: unknown;
-    readonly retirement_reason?: unknown;
-  };
-}): string {
-  const name = code(input.branch);
-  if (input.state === undefined) {
-    return `Selected effort ${name}: not validated. Run discern done from its clean committed worktree, then retry acceptance.`;
-  }
-  if (input.state === "landed") {
-    return `Selected effort ${name}: landed. ${
-      checkoutOutcomeSentence(input.checkout ?? {})
-    }`;
-  }
-  if (input.state === "ready") {
-    return `Selected effort ${name}: ready to land.`;
-  }
-  return `Selected effort ${name}: ${
-    input.dryRun ? "not ready" : "not landed"
-  }.`;
+export function submissionRowLine(
+  row: Record<string, unknown>,
+  currentEffort: string | undefined,
+  options: { readonly code: boolean } = { code: true },
+): string {
+  const branch = displayBranch(text(row.branch) ?? "unknown");
+  const name = options.code ? code(branch) : branch;
+  const head = text(row.head);
+  const mine = currentEffort !== undefined && text(row.effort) === currentEffort
+    ? " (this effort)"
+    : "";
+  const readiness = text(row.readiness) === "ready"
+    ? "ready"
+    : text(row.reason) ?? "waiting";
+  return `Queue ${number(row.position) ?? "?"}: ${name}${
+    head === undefined ? "" : ` at ${head.slice(0, 12)}`
+  }${mine} — ${submissionRowAuthorityLabel(row)}; ${
+    /[.!?]$/.test(readiness) ? readiness : `${readiness}.`
+  }`;
 }
 
-/** Bounded status queue lines: position, branch, state, single reason, with
- * the current checkout's own effort marked. */
+/** Bounded status queue lines with the current checkout's own effort marked. */
 export function statusQueueFacts(
   data: Record<string, unknown>,
   limit: number,
 ): { lines: string[]; overflow: number } {
   const rows = records(data.queue);
   const currentEffort = text(object(data.worktree)?.id);
-  const lines = rows.slice(0, limit).map((row) => {
-    const reason = text(row.reason);
-    const mine = currentEffort !== undefined &&
-        text(row.effort) === currentEffort
-      ? " (this effort)"
-      : "";
-    return `Queue ${number(row.position) ?? "?"}: ${
-      code(displayBranch(text(row.branch) ?? "unknown"))
-    }${mine} — ${queueRowStateLabel(row)}${
-      reason === undefined ? "." : `: ${reason}`
-    }`;
-  });
+  const lines = rows.slice(0, limit).map((row) =>
+    submissionRowLine(row, currentEffort)
+  );
   return { lines, overflow: Math.max(0, rows.length - limit) };
-}
-
-/** The acceptance rows in presentation order with the selected effort's
- * verdict and per-row label. `rows` leads with the selected effort's row when
- * one is marked; `verdict` is its one-sentence state line. Labels come from
- * each row's recorded relation to the selected effort. */
-export function acceptOrganization(
-  data: Record<string, unknown>,
-  dryRun: boolean,
-): {
-  rows: Record<string, unknown>[];
-  own: Record<string, unknown> | undefined;
-  verdict: string | undefined;
-  label: (row: Record<string, unknown>) => string;
-} {
-  const prefixes = records(data.queue);
-  const selected = text(data.selected_effort);
-  const own = selected === undefined
-    ? undefined
-    : prefixes.find((row) => text(row.effort) === selected);
-  const rows = own === undefined
-    ? prefixes
-    : [own, ...prefixes.filter((row) => row !== own)];
-  const verdict = selected === undefined ? undefined : selectedVerdictSentence({
-    branch: displayBranch(text(own?.branch) ?? selected),
-    state: own === undefined ? undefined : text(own.state),
-    dryRun,
-    ...(own === undefined ? {} : { checkout: own }),
-  });
-  return {
-    rows,
-    own,
-    verdict,
-    label: (row) => {
-      const name = code(text(row.branch) ?? "candidate");
-      switch (text(row.relation)) {
-        case "ahead":
-          return `Ahead in the queue — ${name}`;
-        case "behind":
-          return `Behind in the queue — ${name}`;
-        case "other":
-          return `Other effort — ${name}`;
-        default:
-          return name;
-      }
-    },
-  };
 }
 
 /** One checkpoint row's compact state phrase, from the serialized fields. */

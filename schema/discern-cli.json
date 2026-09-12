@@ -2149,20 +2149,6 @@
         },
         {
           "spellings": [
-            "--contexts"
-          ],
-          "description": "Required execution context; repeat for every context.",
-          "type_definition": "<value:string>",
-          "arity": 1,
-          "value_types": [
-            "string"
-          ],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
             "--dry-run"
           ],
           "description": "Print the edit and write nothing.",
@@ -2387,20 +2373,6 @@
             "--toolchain"
           ],
           "description": "Toolchain identity file; repeat for every file.",
-          "type_definition": "<value:string>",
-          "arity": 1,
-          "value_types": [
-            "string"
-          ],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
-            "--contexts"
-          ],
-          "description": "Required execution context; repeat for every context.",
           "type_definition": "<value:string>",
           "arity": 1,
           "value_types": [
@@ -2731,20 +2703,6 @@
             "--toolchain"
           ],
           "description": "Toolchain identity file; repeat for every file.",
-          "type_definition": "<value:string>",
-          "arity": 1,
-          "value_types": [
-            "string"
-          ],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
-            "--contexts"
-          ],
-          "description": "Required execution context; repeat for every context.",
           "type_definition": "<value:string>",
           "arity": 1,
           "value_types": [
@@ -3566,20 +3524,6 @@
         },
         {
           "spellings": [
-            "--recover"
-          ],
-          "description": "Recover an abandoned owned execution once native ownership and stopped children are established, without waiting for its validation deadline or running validation or landing.",
-          "type_definition": "<environment-id:string>",
-          "arity": 1,
-          "value_types": [
-            "string"
-          ],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
             "--dry-run"
           ],
           "description": "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
@@ -3594,7 +3538,7 @@
           "spellings": [
             "--policy-base"
           ],
-          "description": "Use the fetched immutable policy base for a standalone CI report. Strict completion selects its own queue predecessor.",
+          "description": "Use the fetched immutable policy base for a standalone CI report. Strict completion checks against the trunk's current tip.",
           "type_definition": "<ref:string>",
           "arity": 1,
           "value_types": [
@@ -3606,50 +3550,12 @@
         },
         {
           "spellings": [
-            "--retain-checkout"
-          ],
-          "description": "Keep authoring control after completion; do not release this checkout for later validation or retirement.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
-            "--release-checkout"
-          ],
-          "description": "Release this exact proven source for validation and eligible cleanup without running a gate or landing, including after trunk moves.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
             "--standalone"
           ],
-          "description": "Run complete diagnostic feedback, including on a dirty tree. Results are transient, without queue admission or Proof.",
+          "description": "Run complete diagnostic feedback, including on a dirty tree. Results are transient and issue no Proof.",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
-            "--context"
-          ],
-          "description": "Supply evidence only for this declared execution context (default: local).",
-          "type_definition": "<name:string>",
-          "arity": 1,
-          "value_types": [
-            "string"
-          ],
           "default": null,
           "hidden": false,
           "global": false
@@ -6369,7 +6275,7 @@
       "path": [
         "accept"
       ],
-      "description": "Accept and land this worktree's finished branch on the trunk, the shared landing branch. Tracked refresh artifacts must already be current. Eligible cleanup removes released checkouts after landing. Use `hold`, `resume`, `withdraw`, `revoke`, or `reprioritize` with --dry-run to review a queue decision; apply with --confirmed and its --expected token. Use accept emergency --reason <text> to review an explicit exception against actual trunk. Emergency integration requires fresh exact owner confirmation and issues no passing Proof.",
+      "description": "Submit this worktree's proven commit and land it on the trunk, the shared landing branch. Landing needs the owner's consent in this conversation or a recorded grant; without one, the submission waits in the landing queue. Landing removes the worktree and its branch when the branch holds nothing beyond the landed commit. Use accept emergency --reason <text> to review an explicit exception against actual trunk. Emergency integration requires fresh exact owner confirmation and issues no passing Proof.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
@@ -6460,50 +6366,10 @@
           "spellings": [
             "--dry-run"
           ],
-          "description": "Show the acceptance plan; touch nothing.",
+          "description": "Show the landing plan and the queue; touch nothing.",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
-            "--reconcile"
-          ],
-          "description": "Reconcile an externally integrated exact proven source and eligible retirement. Requires --target and the --expected token from its preview; never advances refs or records historical landing consent.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
-            "--expected"
-          ],
-          "description": "For queue controls or --reconcile: the `expected_state` token returned by its preview.",
-          "type_definition": "<stamp:string>",
-          "arity": 1,
-          "value_types": [
-            "string"
-          ],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
-            "--order"
-          ],
-          "description": "For `reprioritize`: every eligible effort in the desired order (repeatable).",
-          "type_definition": "<effort:string>",
-          "arity": 1,
-          "value_types": [
-            "string"
-          ],
           "default": null,
           "hidden": false,
           "global": false
@@ -6512,22 +6378,8 @@
           "spellings": [
             "--target"
           ],
-          "description": "Select the effort by id, path, branch, or full local ref. Confirmation covers only this source; required predecessors need separate authority.",
+          "description": "Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with --confirmed.",
           "type_definition": "<effort:string>",
-          "arity": 1,
-          "value_types": [
-            "string"
-          ],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
-            "--reclaim"
-          ],
-          "description": "Retry bounded artifact cleanup for one settled retirement from the main checkout, without validation or landing.",
-          "type_definition": "<retirement-id:string>",
           "arity": 1,
           "value_types": [
             "string"

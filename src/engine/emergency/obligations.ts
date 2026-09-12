@@ -8,20 +8,36 @@ import { z } from "@zod/zod";
 import type { EmergencyValidation } from "../../shared/emergency.ts";
 import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
-import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
-import { artifactPath } from "../execution/artifact_read.ts";
+import { saveCompletionArtifact } from "../completion/artifacts.ts";
+import { artifactPath } from "../completion/artifact_paths.ts";
+import { EmergencyResolutionSchema } from "../completion/documents.ts";
+import type { ExceptionRecord } from "../completion/exception.ts";
+import type { CompletionRecord } from "../completion/records.ts";
 import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { decodeJson, decodeUnknown } from "../../shared/runtime_decode.ts";
 import { readProofPresentation } from "../gate/proof_presentation.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
-import { observedRecords, withQueueLock } from "../landing_queue/repository.ts";
-import type { LandingRecord } from "../landing_queue/publication.ts";
+import { withCompletionPublication } from "../operation_lock.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
-import { EmergencyResolutionSchema } from "../execution/artifact_contracts.ts";
-export { EmergencyResolutionSchema } from "../execution/artifact_contracts.ts";
-const resolutionName = (landing: LandingRecord): string =>
-  `emergency-validation-${landing.id}`;
+export { EmergencyResolutionSchema } from "../completion/documents.ts";
+
+type RecordedException = Extract<CompletionRecord, { kind: "exception" }>;
+
+const resolutionName = (exception: RecordedException): string =>
+  `emergency-validation-${exception.id}`;
+
+/** Every recorded exception, read once from common storage. */
+export async function recordedExceptions(
+  root: string,
+): Promise<RecordedException[]> {
+  return (await observeCompletionRecords(root, SYSTEM_CLOCK, ["exception"]))
+    .records.flatMap(({ reading }) =>
+      reading.kind === "recorded" && reading.record.kind === "exception"
+        ? [reading.record]
+        : []
+    );
+}
 
 /** Classify forward skew before interpreting an independent resolution document. */
 export function parseEmergencyResolution(
@@ -41,17 +57,17 @@ export function parseEmergencyResolution(
 /** Validate the retained later Proof before reporting an obligation as resolved. */
 async function resolution(
   root: string,
-  landing: LandingRecord,
+  exception: RecordedException,
 ): Promise<z.infer<typeof EmergencyResolutionSchema> | undefined> {
   const path = await artifactPath(
     await Deno.realPath(root),
-    landing.data.attempt_id,
-    `environment/${resolutionName(landing)}.json`,
+    exception.id,
+    `environment/${resolutionName(exception)}.json`,
   );
   const raw = await readTextIfExists(path);
   if (raw === undefined) return undefined;
   const value = parseEmergencyResolution(raw, path);
-  if (value.landing_id !== landing.id) {
+  if (value.landing_id !== exception.id) {
     throw new Error(
       "The emergency validation receipt names another landing. Preserve it for recovery.",
     );
@@ -59,7 +75,7 @@ async function resolution(
   const proof = await readProofPresentation(root, value.proof);
   if (
     proof.completion?.candidate.head !== value.head ||
-    !await resolvesLanding(root, landing, proof)
+    !await resolvesLanding(root, exception.data, proof)
   ) {
     throw new Error(
       "The emergency validation receipt lacks matching later complete Proof. Preserve it and restore its evidence before treating validation as resolved.",
@@ -71,27 +87,25 @@ async function resolution(
 /** The same predicate governs resolution publication and every later reading. */
 async function resolvesLanding(
   root: string,
-  landing: LandingRecord,
+  exception: ExceptionRecord,
   proof: Awaited<ReturnType<typeof readProofPresentation>>,
 ): Promise<boolean> {
   const complete = proof.completion;
   if (
     proof.mode === "report" || complete === undefined ||
-    landing.data.claim.kind !== "exception" ||
-    landing.data.outcome.kind !== "landed" ||
-    complete.validation.assembled_at <= landing.data.outcome.at
+    exception.outcome.kind !== "landed" ||
+    complete.validation.assembled_at <= exception.outcome.at
   ) return false;
   const contains = await runGit([
     "merge-base",
     "--is-ancestor",
-    landing.data.target,
+    exception.target,
     complete.candidate.head,
   ], { cwd: root });
   if (!contains.success) return false;
-  return landing.data.claim.exceptions.every(({ requirement }) =>
+  return exception.claim.exceptions.every(({ requirement }) =>
     complete.validation.requirements.some((current) =>
-      current.kind === requirement.kind && current.id === requirement.id &&
-      current.context === requirement.context
+      current.kind === requirement.kind && current.id === requirement.id
     )
   );
 }
@@ -104,30 +118,22 @@ export async function resolveEmergencyValidation(
   const proof = await readProofPresentation(root, pointer);
   const complete = proof.completion;
   if (proof.mode === "report" || complete === undefined) return;
-  for (
-    const record of observedRecords(
-      await observeCompletionRecords(root, SYSTEM_CLOCK, ["landing"]),
-    )
-  ) {
-    if (record.kind !== "landing" || record.data.claim.kind !== "exception") {
-      continue;
-    }
-    await withQueueLock(root, async () => {
+  for (const exception of await recordedExceptions(root)) {
+    await withCompletionPublication(root, async () => {
       if (
-        await resolution(root, record) !== undefined ||
-        !await resolvesLanding(root, record, proof)
+        await resolution(root, exception) !== undefined ||
+        !await resolvesLanding(root, exception.data, proof)
       ) return;
-      await saveEnvironmentArtifact(
+      await saveCompletionArtifact(
         root,
         {
-          attempt_id: record.data.attempt_id,
-          candidate_id: record.data.candidate_id,
-          context: "local",
+          attempt_id: exception.id,
+          candidate_id: exception.data.claim.candidate_id,
         },
-        resolutionName(record),
+        resolutionName(exception),
         {
           version: ON_DISK_FORMATS.emergencyResolution.version,
-          landing_id: record.id,
+          landing_id: exception.id,
           proof: pointer,
           head: complete.candidate.head,
           resolved_at: SYSTEM_CLOCK.wallNow(),
@@ -149,27 +155,18 @@ export async function emergencyValidationInventory(
   });
   if (!inside.success || inside.stdout.trim() !== "true") return [];
   const rows: EmergencyValidation[] = [];
-  for (
-    const record of observedRecords(
-      await observeCompletionRecords(root, SYSTEM_CLOCK, ["landing"]),
-    )
-  ) {
-    if (
-      record.kind !== "landing" || record.data.claim.kind !== "exception" ||
-      !(record.data.outcome.kind === "landed" ||
-        (record.data.outcome.kind === "recovery" &&
-          record.data.outcome.ref_advanced))
-    ) continue;
-    const resolved = await resolution(root, record);
+  for (const exception of await recordedExceptions(root)) {
+    if (exception.data.outcome.kind !== "landed") continue;
+    const resolved = await resolution(root, exception);
     rows.push({
-      landing_id: record.id,
-      head: record.data.target,
-      reason: record.data.claim.reason,
-      exceptions: record.data.claim.exceptions,
+      landing_id: exception.id,
+      head: exception.data.target,
+      reason: exception.data.claim.reason,
+      exceptions: exception.data.claim.exceptions,
       state: resolved === undefined ? "outstanding" : "resolved",
       ...(resolved === undefined ? {} : { resolved_by: resolved.proof }),
       next_action: resolved === undefined
-        ? "Run discern done --rerun on the current committed trunk or a repair containing it. Complete every required context. The emergency exception remains historical."
+        ? "Run discern done --rerun on the current committed trunk or a repair containing it. The emergency exception remains historical."
         : "A later complete run resolved this validation. The exception record and its note remain the durable history; it never becomes passing Proof for the emergency landing.",
     });
   }

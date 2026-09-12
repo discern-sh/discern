@@ -28,7 +28,6 @@ export async function standaloneValidation(input: {
   readonly root: string;
   readonly config: DiscernConfig;
   readonly scopes: readonly string[];
-  readonly context?: string;
   readonly base?: string;
   readonly mode?: "strict" | "report";
   readonly kind: "test" | "standalone";
@@ -49,7 +48,6 @@ export async function standaloneValidation(input: {
       input.scopes,
       stageDependencies,
     );
-    const context = input.context ?? "local";
     const mode = input.mode ?? "strict";
     const effort = `diagnostic-${await sha256Hex(root)}`;
     const facts = await runGit(["rev-parse", "HEAD", "HEAD^{tree}"], {
@@ -81,7 +79,7 @@ export async function standaloneValidation(input: {
     );
     const candidate = CandidateSchema.parse({
       attempt_id: attempt.id,
-      // Detached diagnostics have no authored branch and cannot enter the queue.
+      // Detached diagnostics have no authored branch and never become a candidate record.
       source: {
         effort_id: effort,
         branch: branch.success
@@ -90,34 +88,22 @@ export async function standaloneValidation(input: {
         head,
         tree,
       },
-      dependencies: [],
-      expected_predecessor: {
-        head: input.base === undefined
-          ? head
-          : (await runGit(["rev-parse", "--verify", `${input.base}^{commit}`], {
-            cwd: root,
-          })).stdout.trim(),
-        candidate_id: null,
-      },
+      predecessor: input.base === undefined
+        ? head
+        : (await runGit(["rev-parse", "--verify", `${input.base}^{commit}`], {
+          cwd: root,
+        })).stdout.trim(),
       head,
       tree,
       policy: reference,
       requirement_set: await requirementSetIdentity(
         configured.obligations.map((obligation) => obligation.requirement),
       ),
-      composition: {
-        procedure: reference,
-        generated_ownership: reference,
-        generators: reference,
-        merge_commit: null,
-        regeneration_commit: null,
-      },
     });
     const execution: DiagnosticExecution = {
       diagnostic: true,
       attempt: { identity: attempt, subjects: [], mode, purpose: "diagnostic" },
-      environment_id: SYSTEM_SECURE_ENTROPY.uuid(),
-      environment: { path: root },
+      path: root,
       seed: seedForBranch(
         branch.success
           ? branch.stdout.trim().replace(/^refs\/heads\//u, "")
@@ -130,7 +116,6 @@ export async function standaloneValidation(input: {
     const demand: ValidationDemand = input.kind === "test"
       ? {
         kind: "test",
-        context,
         mode,
         readings: "already-produced",
         producers: [...configured.stages].filter(([, stage]) =>
@@ -139,7 +124,6 @@ export async function standaloneValidation(input: {
       }
       : {
         kind: "standalone",
-        context,
         mode,
         requirements: configured.obligations.filter((entry) =>
           input.standards === undefined ||

@@ -56,9 +56,7 @@ export async function protocolOutputPath(label: string): Promise<string> {
 /** Publish once with createNew: mutable paths never become evidence coordinates. */
 export async function retainArtifact(
   root: string,
-  subject: Pick<ComponentEvidence, "attempt_id" | "candidate_id"> & {
-    readonly context: string;
-  },
+  subject: Pick<ComponentEvidence, "attempt_id" | "candidate_id">,
   path: string,
   bytes: Uint8Array,
 ): Promise<ComponentEvidence["artifacts"][number]> {
@@ -92,9 +90,7 @@ export async function retainArtifact(
 /** Capture a freshly produced, stable file into its attempt's immutable storage. */
 export async function captureProducedArtifact(
   root: string,
-  subject: Pick<ComponentEvidence, "attempt_id" | "candidate_id"> & {
-    readonly context: string;
-  },
+  subject: Pick<ComponentEvidence, "attempt_id" | "candidate_id">,
   path: string,
   previous: string | null,
 ): Promise<ComponentEvidence["artifacts"][number]> {

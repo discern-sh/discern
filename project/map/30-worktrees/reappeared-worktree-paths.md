@@ -39,11 +39,18 @@ Prune keeps a path that contains Git metadata, cannot be read, exceeds the 1,000
 
 Cleanup does not clear the record. A second reappearance remains observable until the 90-day limit ([ADR 0265](../_adr/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup.md)).
 
+## Landed branches with an unfinished deletion
+
+A landing can remove the effort's checkout and then fail only the final branch deletion — a leftover ref lock file is enough. The checkout was the ownership evidence, so without a record a later prune would see an ordinary merged ref it must keep.
+
+The shared deletion primitive records the branch, its exact tip, and the trunk that contains it at that fully verified seam, in a `branches/` family of the same bounded store with the same caps. Prune re-verifies each record against live refs: it finishes the deletion when the branch still sits at the recorded tip, is not checked out, and remains reachable from the recorded trunk. It clears a record that live state supersedes — the branch moved, returned to a worktree, or is already gone — and it keeps both the branch and the record while the landing cannot be proven. A settled deletion clears its record.
+
 ## Where it lives in code
 
-| Responsibility          | Source                                                                                  |
-| ----------------------- | --------------------------------------------------------------------------------------- |
-| Evidence and inspection | [`src/engine/worktree/retired_paths.ts`](../../../src/engine/worktree/retired_paths.ts) |
-| Removal enrollment      | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                     |
-| Status projection       | [`src/engine/status/status.ts`](../../../src/engine/status/status.ts)                   |
-| Behavioral coverage     | [`tests/engine_worktree_prune_test.ts`](../../../tests/engine_worktree_prune_test.ts)   |
+| Responsibility                    | Source                                                                                  |
+| --------------------------------- | --------------------------------------------------------------------------------------- |
+| Evidence and inspection           | [`src/engine/worktree/retired_paths.ts`](../../../src/engine/worktree/retired_paths.ts) |
+| Removal enrollment                | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                     |
+| Deletion chokepoint and recording | [`src/engine/worktree/ownership.ts`](../../../src/engine/worktree/ownership.ts)         |
+| Status projection                 | [`src/engine/status/status.ts`](../../../src/engine/status/status.ts)                   |
+| Behavioral coverage               | [`tests/engine_worktree_prune_test.ts`](../../../tests/engine_worktree_prune_test.ts)   |

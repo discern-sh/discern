@@ -1,7 +1,6 @@
 /** Public Proof projects the domain records without upgrading old machine evidence. */
 import { z } from "@zod/zod";
-import { AuthoritySchema } from "../engine/completion/source_authority.ts";
-import { AttemptSchema } from "../engine/completion/environment.ts";
+import { AttemptSchema } from "../engine/completion/attempt.ts";
 import { CandidateSchema } from "../engine/completion/candidate.ts";
 import {
   CandidateProofSchema,
@@ -67,8 +66,6 @@ export const CompleteProofEvidenceSchema = CompletionProofPointerSchema.extend({
       value.components.some((component) =>
         component.id === receipt.evidence_id &&
         component.evidence.purpose === "completion" &&
-        component.evidence.applicability.context ===
-          receipt.requirement.context &&
         (value.validation.mode === "report" ||
           component.evidence.mode === "strict") &&
         component.evidence.outcome.kind === "passed"
@@ -77,19 +74,3 @@ export const CompleteProofEvidenceSchema = CompletionProofPointerSchema.extend({
   "Complete Proof must retain every successful completion receipt for its candidate",
 );
 export type CompleteProofEvidence = z.infer<typeof CompleteProofEvidenceSchema>;
-
-/** Durable authorization identifies the one settled landing, separately from machine evidence. */
-export const LandedAuthorityEvidenceSchema = z.strictObject({
-  authority_id: RecordIdSchema,
-  landing_id: RecordIdSchema,
-  authority: AuthoritySchema,
-  executor: ExecutorSchema,
-}).refine(
-  (value) =>
-    value.authority.state.kind === "consumed" &&
-    value.authority.state.landing_id === value.landing_id,
-  "Landing authority must be settled against this exact landing record",
-);
-export type LandedAuthorityEvidence = z.infer<
-  typeof LandedAuthorityEvidenceSchema
->;

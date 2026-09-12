@@ -1,5 +1,7 @@
-import { saveEnvironmentArtifact } from "../src/engine/execution/artifacts.ts";
-import { readEnvironmentArtifact } from "../src/engine/execution/artifact_read.ts";
+import {
+  readCompletionArtifact,
+  saveCompletionArtifact,
+} from "../src/engine/completion/artifacts.ts";
 import { openArtifactPaths } from "../src/engine/completion/artifact_paths.ts";
 import { countedAdminQueries } from "./git_admin_observer.ts";
 import { completionFixtures } from "./completion_fixtures.ts";
@@ -70,7 +72,6 @@ Deno.test("E05: attempt artifacts reject unsafe paths, stale files, replacement,
     const subject = {
       attempt_id: completionId(50),
       candidate_id: completionId(1),
-      context: "local",
     };
     const bytes = new TextEncoder().encode("measurements");
     for (
@@ -158,6 +159,7 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         attempt_id: completionId(101),
         head,
         tree,
+        source: { ...baseline.candidate.source, head, tree },
       },
       producers: { "jobs.test": ARTIFACT_RECIPE },
       obligations: declarations,
@@ -193,15 +195,11 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
     const before = await evaluator.observe(snap.candidate_id);
     const plan = evaluator.plan(before, {
       kind: "done",
-      context: "local",
       mode: "strict",
       requirements: snap.requirements,
     }, snap.candidate_id);
     const fake = claimed(snap, plan);
-    const execution = {
-      ...fake,
-      environment: { ...fake.environment, path: root },
-    };
+    const execution = { ...fake, path: root };
     const attempt = CompletionRecordSchema.parse({
       version: ON_DISK_FORMATS.completionRecord.version,
       revision: 1,
@@ -209,25 +207,16 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
       id: execution.attempt.identity.id,
       data: execution.attempt,
     });
-    const environment = CompletionRecordSchema.parse({
-      version: ON_DISK_FORMATS.completionRecord.version,
-      revision: 1,
-      kind: "environment",
-      id: execution.environment_id,
-      data: execution.environment,
-    });
-    for (const record of [attempt, environment]) {
-      assertEquals(
-        (await writeCompletionRecord(
-          root,
-          record,
-          null,
-          undefined,
-          COMPLETION_CLOCK,
-        )).kind,
-        "written",
-      );
-    }
+    assertEquals(
+      (await writeCompletionRecord(
+        root,
+        attempt,
+        null,
+        undefined,
+        COMPLETION_CLOCK,
+      )).kind,
+      "written",
+    );
     assertEquals(
       (await writeCompletionRecord(
         root,
@@ -340,15 +329,16 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
     const records = after.records.flatMap(({ reading }) =>
       reading.kind === "recorded" ? [reading.record] : []
     );
+    assert(assembler.data.state.kind === "claimed");
     const assembled = evaluator.assemble(
       snap.candidate_id,
       snap.candidate,
       snap.requirements,
       records,
       "strict",
+      { attempt_id: assembler.id, token: assembler.data.state.claim.token },
     );
     assert(assembled.kind === "complete");
-    assert(assembler.data.state.kind === "claimed");
     assertEquals(
       (await writeCompletionRecord(
         root,
@@ -374,7 +364,6 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
     assertEquals(
       evaluator.plan(after, {
         kind: "standards",
-        context: "local",
         mode: "strict",
         requirements: snap.requirements,
       }, snap.candidate_id).producers.length,
@@ -384,7 +373,6 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
       assertEquals(
         evaluator.plan(after, {
           kind,
-          context: "local",
           mode: "strict",
           requirements: snap.requirements,
         }, snap.candidate_id).producers,
@@ -404,7 +392,6 @@ Deno.test("artifact audit resolves storage once and reads duplicate coordinates 
     const subject = {
       attempt_id: component.attempt_id,
       candidate_id: component.candidate_id,
-      context: component.applicability.context,
     };
     const artifact = await retainArtifact(
       root,
@@ -483,7 +470,7 @@ Deno.test("artifact path scopes recheck containment after every storage replacem
   });
 });
 
-Deno.test("environment publications reuse checked storage and retain immutable bytes and containment", async () => {
+Deno.test("completion document publications reuse checked storage and retain immutable bytes and containment", async () => {
   await withTempDir(async (root) => {
     await Deno.writeTextFile(
       join(root, "discern.toml"),
@@ -493,24 +480,23 @@ Deno.test("environment publications reuse checked storage and retain immutable b
     const subject = {
       attempt_id: completionId(700),
       candidate_id: completionId(701),
-      context: "local",
     };
     const value = { newArtifactKind: "complete bytes" };
     const published = await countedAdminQueries(() =>
-      saveEnvironmentArtifact(root, subject, "unrelated-new-kind", value)
+      saveCompletionArtifact(root, subject, "unrelated-new-kind", value)
     );
     assertEquals(
       published.queries,
-      2,
-      "source storage discovery and fresh publication preflight",
+      4,
+      "storage discovery, both lock identities, and the boundary preflight",
     );
-    assertEquals(await readEnvironmentArtifact(root, published.value), value);
+    assertEquals(await readCompletionArtifact(root, published.value), value);
     assertEquals(
-      await saveEnvironmentArtifact(root, subject, "unrelated-new-kind", value),
+      await saveCompletionArtifact(root, subject, "unrelated-new-kind", value),
       published.value,
     );
     await assertRejects(() =>
-      saveEnvironmentArtifact(root, subject, "unrelated-new-kind", {
+      saveCompletionArtifact(root, subject, "unrelated-new-kind", {
         changed: true,
       })
     );
@@ -521,12 +507,12 @@ Deno.test("environment publications reuse checked storage and retain immutable b
     await Deno.remove(join(directory, subject.attempt_id), { recursive: true });
     await Deno.symlink(outside, join(directory, subject.attempt_id));
     await assertRejects(
-      () => saveEnvironmentArtifact(root, subject, "another-kind", value),
+      () => saveCompletionArtifact(root, subject, "another-kind", value),
       Error,
       "symlink",
     );
     await assertRejects(
-      () => readEnvironmentArtifact(root, published.value),
+      () => readCompletionArtifact(root, published.value),
       Error,
       "symlink",
     );

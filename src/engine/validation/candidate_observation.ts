@@ -6,7 +6,6 @@ import {
   parseConfigOrThrow,
 } from "../../shared/config_schema.ts";
 import { readCheckpointQuestionFileAtCommit } from "../../shared/checkpoint_question_files.ts";
-import { DISCERN_VERSION } from "../../lib/version.ts";
 import type { Candidate } from "../completion/candidate.ts";
 import type {
   CompletionObservation,
@@ -20,14 +19,10 @@ import {
 } from "../gate/standard_plan.ts";
 import { collectPaths, scopesForPaths } from "../scopes/scopes.ts";
 import {
-  type CompositionRecipe,
-  compositionRecipe,
-} from "../landing_queue/generation.ts";
-import {
   type ConfiguredValidation,
   configuredValidation,
 } from "./configuration.ts";
-import { candidateConditions } from "./context.ts";
+import { candidateConditions } from "./conditions.ts";
 import {
   prepareValidationSnapshot,
   type ValidationSnapshot,
@@ -40,7 +35,6 @@ export interface CandidateValidationObservation {
   readonly configured: ConfiguredValidation;
   readonly snapshot: ValidationSnapshot;
   readonly evaluator: ProducerEvaluator;
-  readonly recipe: CompositionRecipe;
   readonly demand: Extract<ValidationDemand, { kind: "done" }>;
   readonly standards: readonly PlannedStandard[];
 }
@@ -79,13 +73,12 @@ export async function observeCandidateValidation(input: {
   readonly candidate_id: string;
   readonly candidate: Candidate;
   readonly observation: CompletionObservation;
-  readonly context: string;
 }): Promise<CandidateValidationObservation> {
-  const { root, candidate, candidate_id, context } = input;
+  const { root, candidate, candidate_id } = input;
   const config = await candidateConfig(root, candidate.head);
   const paths = await collectPaths(
     root,
-    candidate.expected_predecessor.head,
+    candidate.predecessor,
     candidate.head,
     false,
   );
@@ -123,7 +116,6 @@ export async function observeCandidateValidation(input: {
     inputs,
     conditions: await candidateConditions(
       candidate_id,
-      configured,
       undefined,
       input.observation,
       root,
@@ -138,18 +130,9 @@ export async function observeCandidateValidation(input: {
       snapshot,
       observe: () => Promise.resolve(input.observation),
     }),
-    recipe: await compositionRecipe(
-      root,
-      config,
-      DISCERN_VERSION,
-      Math.max(1, config.gate.timeout),
-      {},
-      candidate.head,
-    ),
     demand: {
       kind: "done",
       mode: "strict",
-      context,
       requirements: snapshot.requirements,
     },
     standards: buildStandardPlan(config).standards,

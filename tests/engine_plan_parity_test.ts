@@ -614,15 +614,19 @@ const PROBES: Record<string, DryRunProbe> = {
     },
   },
   "accept": {
-    envelope: "data-preview",
+    envelope: "engine-plan",
     assertPreview: (envelope) => {
-      const data = AcceptDataSchema.parse(envelope.data);
-      assert(data.queue?.length === 1);
-      assert(data.queue[0]?.candidate_id !== null);
+      const data = envelope.data === undefined
+        ? undefined
+        : AcceptDataSchema.parse(envelope.data);
       assert(
-        data.queue[0]?.pending.some((pending) =>
-          pending.kind === "missing-authority"
-        ),
+        data?.landing === undefined,
+        "an acceptance preview performs no landing effects",
+      );
+      assertEquals(
+        envelope.plan?.title,
+        "Acceptance plan",
+        "an acceptance preview presents the landing plan",
       );
     },
     // Continues on the `done` member's fixture: its applied green gate is the

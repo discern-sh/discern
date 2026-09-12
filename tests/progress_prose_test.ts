@@ -1,12 +1,7 @@
 /** Every progress sentence is composed once, plainly, with its next step. */
 import { assert, assertEquals } from "@std/assert";
-import type { CompletionRecovery } from "../src/engine/completion/environment.ts";
 import type { Requirement } from "../src/engine/completion/evidence.ts";
-import type { SourceRevision } from "../src/engine/completion/identity.ts";
-import type {
-  CompletionBlocker,
-  CompletionCapacity,
-} from "../src/engine/completion/protocol.ts";
+import type { CompletionBlocker } from "../src/engine/completion/protocol.ts";
 import {
   completionBlockerAccount,
   completionFailureSentence,
@@ -17,31 +12,8 @@ import {
 
 const requirement: Requirement = {
   id: "coverage",
-  context: "local",
   kind: "standard",
   definition: "0".repeat(64),
-};
-const source: SourceRevision = {
-  effort_id: "alpha",
-  branch: "refs/heads/agent/alpha",
-  head: "a".repeat(40),
-  tree: "b".repeat(40),
-};
-const recovery: CompletionRecovery = {
-  phase: "restore",
-  reason: "the checkout was left mid-restore",
-  children_quiescent: true,
-  drift: { kind: "none" },
-  retained_paths: [],
-  frozen_cleanup: [],
-};
-const capacity: CompletionCapacity = {
-  setting: "completion.concurrency",
-  limit: 1,
-  occupied: 1,
-  reserved: 0,
-  blockers: ["agent/beta"],
-  wake_condition: "a validation slot returns",
 };
 
 /** One member per blocker kind, plus the branches inside a kind. */
@@ -53,27 +25,19 @@ const BLOCKERS: readonly CompletionBlocker[] = [
     reason: "written by a newer discern",
   },
   { kind: "record-corrupt", record_id: "candidate/2", reason: "not JSON" },
-  {
-    kind: "capacity-unavailable",
-    reason: "Every validation slot is in use",
-    capacity,
-    transient: false,
-  },
   { kind: "missing-judgment", subjects: [] },
   { kind: "missing-judgment", subjects: ["a", "b", "c", "d", "e"] },
-  { kind: "missing-authority", sources: [source] },
   { kind: "missing-evidence", requirements: [requirement] },
   { kind: "stale-evidence", evidence_ids: ["e1"], reason: "policy-changed" },
   { kind: "validation-failed", evidence_ids: [], requirement },
   { kind: "validation-failed", evidence_ids: [], reason: "lint failed" },
   { kind: "validation-failed", evidence_ids: [] },
-  { kind: "environment-unavailable", reason: "no free port" },
-  { kind: "recovery-incomplete", record_id: "env/1", recovery },
+  { kind: "unavailable", reason: "the trunk cannot serve this run" },
   { kind: "waiting-for-operation", attempt_id: "att/1", expires_at: 1 },
   { kind: "report-only" },
 ];
 
-const OWNER_DECIDES = new Set(["missing-judgment", "missing-authority"]);
+const OWNER_DECIDES = new Set(["missing-judgment"]);
 
 Deno.test("every pending blocker kind has a plain account with a next step", () => {
   for (const blocker of BLOCKERS) {

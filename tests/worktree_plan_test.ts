@@ -248,6 +248,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
       staleMetadata: [],
       worktreeLines: [],
       branchLines: [],
+      orphanedLandedBranches: [],
     },
     orphanScan: {
       mainRepo: "/repo",
@@ -290,6 +291,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
       }],
       worktreeLines: [],
       branchLines: [],
+      orphanedLandedBranches: [],
     },
     orphanScan: {
       mainRepo: "/repo",
@@ -364,6 +366,7 @@ Deno.test("prunePlanToEngine: the contained group is offer-only by default and r
       staleMetadata: [],
       worktreeLines: [],
       branchLines: [],
+      orphanedLandedBranches: [],
     },
     orphanScan: {
       mainRepo: "/repo",

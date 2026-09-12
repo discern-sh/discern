@@ -10,7 +10,7 @@ aliases:
 
 # Validation findings
 
-_Patterns separates repeated per-job divergence under matched recorded conditions from differences between controlled execution contexts._
+_Patterns separates repeated per-job divergence under matched recorded conditions from differences between controlled execution conditions._
 
 ## Matched conditions
 

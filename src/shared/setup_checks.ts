@@ -140,7 +140,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     step: 8,
     name: "complete_validation",
     describe:
-      "Every configured standard names a producer that exists, no two producers run the same command, and either [completion].lookahead is 0 or every required context has an [execution.<context>] declaration.",
+      "Every configured standard names a producer that exists, and no two producers run the same command.",
     evaluate({ config }): Promise<boolean> {
       const producers = new Map<string, string>();
       const register = (selector: string, run: readonly string[]): void => {
@@ -166,11 +166,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
             : producers.has(standard.producer),
       );
       const distinct = new Set(producers.values()).size === producers.size;
-      const coordinated = config.completion.lookahead === 0 ||
-        config.completion.required_contexts.every((context) =>
-          config.execution[context] !== undefined
-        );
-      return Promise.resolve(resolvable && distinct && coordinated);
+      return Promise.resolve(resolvable && distinct);
     },
   },
   {

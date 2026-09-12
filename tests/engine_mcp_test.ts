@@ -777,7 +777,7 @@ Deno.test("mcp: discern_done never reuses green Proof while the branch is behind
     assertEquals(forcedPayload.data.gate_ran, false);
     assert(
       forcedPayload.data.completion?.pending?.some((item) =>
-        item.kind === "environment-unavailable"
+        item.kind === "unavailable"
       ),
     );
     assertStringIncludes(forcedPayload.message ?? "", "discern update");
@@ -2963,7 +2963,7 @@ Deno.test("discern mcp: one main-rooted session — accept refuses with no candi
         );
         assertEquals(
           refused.result.structuredContent.error,
-          "incomplete",
+          "precondition_failed",
         );
       },
     );
@@ -3054,12 +3054,21 @@ Deno.test("discern mcp: one main-rooted session — accept refuses with no candi
         );
         assertEquals(landed.result.structuredContent.verb, "accept");
         assertEquals(landed.result.structuredContent.ok, true);
-        assertEquals(landed.result.structuredContent.data.queue[0].consent, {
+        assertEquals(landed.result.structuredContent.data.consent, {
           source: "conversation",
         });
-        assertStringIncludes(
-          landed.result.structuredContent.data.queue[0].proof_line,
-          "landed with conversation consent",
+        assertEquals(
+          landed.result.structuredContent.data.landing,
+          {
+            recovery_performed: false,
+            trunk_landed: true,
+            worktree_removed: true,
+            branch_deleted: true,
+          },
+        );
+        assert(
+          typeof landed.result.structuredContent.data.proof_line === "string",
+          JSON.stringify(landed.result.structuredContent.data),
         );
         // accept removed the worktree it landed — proof it acted on the worktree, not
         // the (still-present) trunk.
@@ -3229,13 +3238,19 @@ Deno.test("discern mcp: a worktree-spawned server — accepting another worktree
         assertEquals(preview.result.isError, false);
         assertEquals(preview.result.structuredContent.verb, "accept");
         assertEquals(preview.result.structuredContent.dry_run, true);
-        const rows = preview.result.structuredContent.data.queue;
-        assertEquals(rows.length, 1);
-        assertEquals(rows[0].branch, `refs/heads/${held.branch}`);
+        const plan = preview.result.structuredContent.plan;
+        assertEquals(plan?.title, "Acceptance plan");
         assert(
-          rows[0].pending.some((item: { kind: string }) =>
-            item.kind === "missing-authority"
+          (plan?.details ?? []).some((detail: string) =>
+            detail.includes(held.branch)
           ),
+          JSON.stringify(preview.result.structuredContent),
+        );
+        assert(
+          (plan?.details ?? []).some((detail: string) =>
+            detail.includes("conversation required on apply")
+          ),
+          JSON.stringify(preview.result.structuredContent),
         );
         assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
         assert(await targetExists(held.path));

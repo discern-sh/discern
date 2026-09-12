@@ -360,18 +360,14 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0374 — Complete Proof is independent of measurement scheduling](0374-complete-proof-is-independent-of-measurement-scheduling.md)
 - [0375 — Source authority survives declared composition](0375-source-authority-survives-declared-composition.md)
 - [0376 — Active commands advance an authorized landing queue](0376-active-commands-advance-an-authorized-landing-queue.md)
-- [0377 — Execution environments declare reuse and recovery](0377-execution-environments-declare-reuse-and-recovery.md)
 - [0378 — Landing completion survives checkout retirement](0378-landing-completion-survives-checkout-retirement.md)
 - [0379 — Emergency landings record an explicit Proof exception](0379-emergency-landings-record-an-explicit-proof-exception.md)
-- [0380 — Bind validation demand after composition within one execution lease](0380-bind-validation-demand-after-composition.md)
 - [0381 — Stage complete completion in place before publication](0381-stage-complete-completion-in-place-before-publication.md)
-- [0382 — Release checkout semantics independently of recovery bytes](0382-release-checkout-semantics-independently-of-recovery-bytes.md)
 - [0383 — Test shell waits require observable transitions](0383-test-shell-waits-require-observable-transitions.md)
 - [0384 — Evaluate lazy modules outside invocation context](0384-evaluate-lazy-modules-outside-invocation-context.md)
 - [0385 — Retain Git discovery within one operation](0385-retain-git-discovery-within-one-operation.md)
-- [0386 — Retain recovery bytes through durable reference graphs](0386-retain-recovery-bytes-through-durable-reference-graphs.md)
-- [0387 — Flush recovery authority independently of process observations](0387-flush-recovery-authority-not-process-observations.md)
 - [0388 — Rank priority partitions by committed duration hints](0388-rank-priority-partitions-by-committed-duration-hints.md)
+- [0389 — The workspace contract — a checkout changes only under its own operation](0389-the-workspace-contract.md)
 
 <!-- END GENERATED: current ADR records -->
 
@@ -406,6 +402,11 @@ These records remain under [`_superseded/`](_superseded/) because the path to th
 - [0118 — Preset config fills never overwrite a present value](_superseded/0118-preset-fills-never-overwrite.md)
 - [0185 — done refuses an unchanged-tree rerun without --confirmed](_superseded/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)
 - [0227 — `await` bounds follow repository evidence](_superseded/0227-await-bounds-follow-repository-evidence.md)
+- [0377 — Execution environments declare reuse and recovery](_superseded/0377-execution-environments-declare-reuse-and-recovery.md)
+- [0380 — Bind validation demand after composition within one execution lease](_superseded/0380-bind-validation-demand-after-composition.md)
+- [0382 — Release checkout semantics independently of recovery bytes](_superseded/0382-release-checkout-semantics-independently-of-recovery-bytes.md)
+- [0386 — Retain recovery bytes through durable reference graphs](_superseded/0386-retain-recovery-bytes-through-durable-reference-graphs.md)
+- [0387 — Flush recovery authority independently of process observations](_superseded/0387-flush-recovery-authority-not-process-observations.md)
 
 <!-- END GENERATED: superseded ADR records -->
 

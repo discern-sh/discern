@@ -80,15 +80,15 @@ Commands:
                  <span style="opacity:0.68">preserves the original condition across calls. To wrap a</span>
                  <span style="opacity:0.68">command behind the concurrent test-run cap, use `discern queue</span>
                  <span style="opacity:0.68">-- &lt;command&gt; [args...]`.</span>
-    <span style="color:rgb(135 215 255);font-weight:700">accept     </span>  <span style="opacity:0.68">Accept and land this worktree&#39;s finished branch on the trunk</span>
-                 <span style="opacity:0.68">(`main`), the shared landing branch. Tracked refresh artifacts</span>
-                 <span style="opacity:0.68">must already be current. Eligible cleanup removes released</span>
-                 <span style="opacity:0.68">checkouts after landing. Use `hold`, `resume`, `withdraw`,</span>
-                 <span style="opacity:0.68">`revoke`, or `reprioritize` with --dry-run to review a queue</span>
-                 <span style="opacity:0.68">decision; apply with --confirmed and its --expected token. Use</span>
-                 <span style="opacity:0.68">accept emergency --reason &lt;text&gt; to review an explicit</span>
-                 <span style="opacity:0.68">exception against actual trunk. Emergency integration requires</span>
-                 <span style="opacity:0.68">fresh exact owner confirmation and issues no passing Proof.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">accept     </span>  <span style="opacity:0.68">Submit this worktree&#39;s proven commit and land it on the trunk</span>
+                 <span style="opacity:0.68">(`main`), the shared landing branch. Landing needs the owner&#39;s</span>
+                 <span style="opacity:0.68">consent in this conversation or a recorded grant; without one,</span>
+                 <span style="opacity:0.68">the submission waits in the landing queue. Landing removes the</span>
+                 <span style="opacity:0.68">worktree and its branch when the branch holds nothing beyond</span>
+                 <span style="opacity:0.68">the landed commit. Use accept emergency --reason &lt;text&gt; to</span>
+                 <span style="opacity:0.68">review an explicit exception against actual trunk. Emergency</span>
+                 <span style="opacity:0.68">integration requires fresh exact owner confirmation and issues</span>
+                 <span style="opacity:0.68">no passing Proof.</span>
     <span style="color:rgb(135 215 255);font-weight:700">worktree   </span>  <span style="opacity:0.68">Manage worktrees <span data-discern-terminal-cell="1" style="display:inline-block;width:1ch;text-align:center;vertical-align:baseline">—</span> separate checkouts and branches for</span>
                  <span style="opacity:0.68">individual changes.</span>
     <span style="color:rgb(135 215 255);font-weight:700">identity   </span>  <span style="opacity:0.68">Print stable values that keep each checkout&#39;s branch,</span>

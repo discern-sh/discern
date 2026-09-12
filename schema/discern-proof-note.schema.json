@@ -104,61 +104,9 @@
                     "tree"
                   ]
                 },
-                "dependencies": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "effort_id": {
-                        "type": "string",
-                        "minLength": 1,
-                        "pattern": "^[A-Za-z0-9_-]+$"
-                      },
-                      "branch": {
-                        "type": "string",
-                        "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
-                      },
-                      "head": {
-                        "type": "string",
-                        "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                      },
-                      "tree": {
-                        "type": "string",
-                        "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                      }
-                    },
-                    "required": [
-                      "effort_id",
-                      "branch",
-                      "head",
-                      "tree"
-                    ]
-                  }
-                },
-                "expected_predecessor": {
-                  "type": "object",
-                  "properties": {
-                    "head": {
-                      "type": "string",
-                      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                    },
-                    "candidate_id": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "required": [
-                    "head",
-                    "candidate_id"
-                  ]
+                "predecessor": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
                 },
                 "head": {
                   "type": "string",
@@ -175,64 +123,16 @@
                 "requirement_set": {
                   "type": "string",
                   "pattern": "^[0-9a-f]{64}$"
-                },
-                "composition": {
-                  "type": "object",
-                  "properties": {
-                    "procedure": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{64}$"
-                    },
-                    "generated_ownership": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{64}$"
-                    },
-                    "generators": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{64}$"
-                    },
-                    "merge_commit": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "regeneration_commit": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "required": [
-                    "procedure",
-                    "generated_ownership",
-                    "generators",
-                    "merge_commit",
-                    "regeneration_commit"
-                  ]
                 }
               },
               "required": [
                 "attempt_id",
                 "source",
-                "dependencies",
-                "expected_predecessor",
+                "predecessor",
                 "head",
                 "tree",
                 "policy",
-                "requirement_set",
-                "composition"
+                "requirement_set"
               ]
             },
             "validation": {
@@ -278,11 +178,6 @@
                         "minLength": 1,
                         "pattern": "^[A-Za-z0-9_-]+$"
                       },
-                      "context": {
-                        "type": "string",
-                        "minLength": 1,
-                        "pattern": "^[A-Za-z0-9_-]+$"
-                      },
                       "kind": {
                         "type": "string",
                         "enum": [
@@ -298,7 +193,6 @@
                     },
                     "required": [
                       "id",
-                      "context",
                       "kind",
                       "definition"
                     ]
@@ -318,11 +212,6 @@
                             "minLength": 1,
                             "pattern": "^[A-Za-z0-9_-]+$"
                           },
-                          "context": {
-                            "type": "string",
-                            "minLength": 1,
-                            "pattern": "^[A-Za-z0-9_-]+$"
-                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -338,7 +227,6 @@
                         },
                         "required": [
                           "id",
-                          "context",
                           "kind",
                           "definition"
                         ]
@@ -395,11 +283,6 @@
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
-                    "context": {
-                      "type": "string",
-                      "minLength": 1,
-                      "pattern": "^[A-Za-z0-9_-]+$"
-                    },
                     "path": {
                       "type": "string",
                       "minLength": 1
@@ -417,7 +300,6 @@
                   "required": [
                     "attempt_id",
                     "candidate_id",
-                    "context",
                     "path",
                     "digest",
                     "bytes"
@@ -485,11 +367,6 @@
                           "producer": {
                             "type": "string",
                             "minLength": 1
-                          },
-                          "context": {
-                            "type": "string",
-                            "minLength": 1,
-                            "pattern": "^[A-Za-z0-9_-]+$"
                           },
                           "policy": {
                             "type": "string",
@@ -569,7 +446,6 @@
                         },
                         "required": [
                           "producer",
-                          "context",
                           "policy",
                           "protected_definitions",
                           "command",
@@ -602,11 +478,6 @@
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
-                            "context": {
-                              "type": "string",
-                              "minLength": 1,
-                              "pattern": "^[A-Za-z0-9_-]+$"
-                            },
                             "path": {
                               "type": "string",
                               "minLength": 1
@@ -624,7 +495,6 @@
                           "required": [
                             "attempt_id",
                             "candidate_id",
-                            "context",
                             "path",
                             "digest",
                             "bytes"
@@ -826,11 +696,6 @@
                       "started_at"
                     ]
                   },
-                  "environment_id": {
-                    "type": "string",
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                  },
                   "subjects": {
                     "type": "array",
                     "items": {
@@ -859,19 +724,7 @@
                         "properties": {
                           "kind": {
                             "type": "string",
-                            "const": "planned"
-                          }
-                        },
-                        "required": [
-                          "kind"
-                        ]
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "type": "string",
-                            "const": "composing"
+                            "const": "planning"
                           },
                           "claim": {
                             "type": "object",
@@ -1020,166 +873,12 @@
                           "outcome",
                           "finished_at"
                         ]
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "type": "string",
-                            "const": "recovery"
-                          },
-                          "recovery": {
-                            "type": "object",
-                            "properties": {
-                              "phase": {
-                                "type": "string",
-                                "enum": [
-                                  "prepare",
-                                  "install",
-                                  "validate",
-                                  "capture",
-                                  "restore",
-                                  "reset",
-                                  "dispose",
-                                  "publish",
-                                  "settle",
-                                  "retire"
-                                ]
-                              },
-                              "reason": {
-                                "type": "string",
-                                "minLength": 1
-                              },
-                              "children_quiescent": {
-                                "type": "boolean"
-                              },
-                              "drift": {
-                                "oneOf": [
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "type": "string",
-                                        "const": "none"
-                                      }
-                                    },
-                                    "required": [
-                                      "kind"
-                                    ]
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "type": "string",
-                                        "const": "captured"
-                                      },
-                                      "artifacts": {
-                                        "minItems": 1,
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "attempt_id": {
-                                              "type": "string",
-                                              "format": "uuid",
-                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                            },
-                                            "candidate_id": {
-                                              "type": "string",
-                                              "format": "uuid",
-                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                            },
-                                            "context": {
-                                              "type": "string",
-                                              "minLength": 1,
-                                              "pattern": "^[A-Za-z0-9_-]+$"
-                                            },
-                                            "path": {
-                                              "type": "string",
-                                              "minLength": 1
-                                            },
-                                            "digest": {
-                                              "type": "string",
-                                              "pattern": "^[0-9a-f]{64}$"
-                                            },
-                                            "bytes": {
-                                              "type": "integer",
-                                              "minimum": 0,
-                                              "maximum": 9007199254740991
-                                            }
-                                          },
-                                          "required": [
-                                            "attempt_id",
-                                            "candidate_id",
-                                            "context",
-                                            "path",
-                                            "digest",
-                                            "bytes"
-                                          ]
-                                        }
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "artifacts"
-                                    ]
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "type": "string",
-                                        "const": "uncaptured"
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "minLength": 1
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "reason"
-                                    ]
-                                  }
-                                ]
-                              },
-                              "retained_paths": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string",
-                                  "minLength": 1
-                                }
-                              },
-                              "frozen_cleanup": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string",
-                                  "minLength": 1
-                                }
-                              }
-                            },
-                            "required": [
-                              "phase",
-                              "reason",
-                              "children_quiescent",
-                              "drift",
-                              "retained_paths",
-                              "frozen_cleanup"
-                            ]
-                          }
-                        },
-                        "required": [
-                          "kind",
-                          "recovery"
-                        ]
                       }
                     ]
                   }
                 },
                 "required": [
                   "identity",
-                  "environment_id",
                   "subjects",
                   "purpose",
                   "mode",
@@ -1466,6 +1165,121 @@
       ],
       "description": "The Proof line and Markdown page derived from the gate result for human inspection. Verification policy uses the structured claim, never these renderings."
     },
+    "DiscernAcceptanceEvidence": {
+      "title": "DiscernAcceptanceEvidence",
+      "type": "object",
+      "properties": {
+        "consent": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "conversation",
+                "standing-grant",
+                "effort-grant"
+              ]
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "source"
+          ]
+        },
+        "variances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DiscernAuthorizedVariance"
+          }
+        },
+        "standard_proposals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "standard": {
+                "type": "string"
+              },
+              "commit": {
+                "type": "string"
+              },
+              "bound_commit": {
+                "type": "string"
+              },
+              "measured_commit": {
+                "type": "string"
+              },
+              "definition_fingerprint": {
+                "type": "string"
+              },
+              "trunk": {
+                "type": "string"
+              },
+              "trunk_commit": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              "trunk_limit": {
+                "type": "number"
+              },
+              "proposed_limit": {
+                "type": "number"
+              },
+              "measurement": {
+                "type": "number"
+              },
+              "delta": {
+                "type": "number"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "evidence_paths": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "standard",
+              "commit",
+              "bound_commit",
+              "measured_commit",
+              "definition_fingerprint",
+              "trunk",
+              "trunk_commit",
+              "direction",
+              "trunk_limit",
+              "proposed_limit",
+              "measurement",
+              "delta",
+              "reason",
+              "evidence_paths"
+            ]
+          }
+        }
+      },
+      "required": [
+        "consent",
+        "variances",
+        "standard_proposals"
+      ],
+      "description": "How one landing was authorized: the consent evidence, each owner-authorized variance for a declared-unmet checkpoint, and each exact owner-approved standard limit. A reader can therefore distinguish a conclusion awaiting a decision from one the owner authorized to land."
+    },
     "DiscernAuthorizedVariance": {
       "title": "DiscernAuthorizedVariance",
       "type": "object",
@@ -1583,11 +1397,6 @@
                   "format": "uuid",
                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                 },
-                "context": {
-                  "type": "string",
-                  "minLength": 1,
-                  "pattern": "^[A-Za-z0-9_-]+$"
-                },
                 "path": {
                   "type": "string",
                   "minLength": 1
@@ -1605,7 +1414,6 @@
               "required": [
                 "attempt_id",
                 "candidate_id",
-                "context",
                 "path",
                 "digest",
                 "bytes"
@@ -1629,11 +1437,6 @@
                         "minLength": 1,
                         "pattern": "^[A-Za-z0-9_-]+$"
                       },
-                      "context": {
-                        "type": "string",
-                        "minLength": 1,
-                        "pattern": "^[A-Za-z0-9_-]+$"
-                      },
                       "kind": {
                         "type": "string",
                         "enum": [
@@ -1649,7 +1452,6 @@
                     },
                     "required": [
                       "id",
-                      "context",
                       "kind",
                       "definition"
                     ]
@@ -1795,320 +1597,7 @@
           "$ref": "#/$defs/DiscernProofPresentation"
         },
         "acceptance": {
-          "type": "object",
-          "properties": {
-            "authority": {
-              "type": "object",
-              "properties": {
-                "authority_id": {
-                  "type": "string",
-                  "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                },
-                "landing_id": {
-                  "type": "string",
-                  "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                },
-                "authority": {
-                  "type": "object",
-                  "properties": {
-                    "source": {
-                      "type": "object",
-                      "properties": {
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "conversation",
-                            "standing-grant",
-                            "effort-grant"
-                          ]
-                        },
-                        "record_id": {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        "scopes": {
-                          "type": "array",
-                          "items": {
-                            "type": "string",
-                            "minLength": 1,
-                            "pattern": "^[A-Za-z0-9_-]+$"
-                          }
-                        }
-                      },
-                      "required": [
-                        "source",
-                        "record_id",
-                        "scopes"
-                      ]
-                    },
-                    "approved_at": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "sources": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "effort_id": {
-                            "type": "string",
-                            "minLength": 1,
-                            "pattern": "^[A-Za-z0-9_-]+$"
-                          },
-                          "branch": {
-                            "type": "string",
-                            "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
-                          },
-                          "head": {
-                            "type": "string",
-                            "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                          },
-                          "tree": {
-                            "type": "string",
-                            "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                          }
-                        },
-                        "required": [
-                          "effort_id",
-                          "branch",
-                          "head",
-                          "tree"
-                        ]
-                      }
-                    },
-                    "composition_procedure": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{64}$"
-                    },
-                    "policy": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{64}$"
-                    },
-                    "predecessor_authorities": {
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "format": "uuid",
-                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                      }
-                    },
-                    "state": {
-                      "oneOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "kind": {
-                              "type": "string",
-                              "const": "granted"
-                            }
-                          },
-                          "required": [
-                            "kind"
-                          ]
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "kind": {
-                              "type": "string",
-                              "const": "revoked"
-                            },
-                            "at": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "at"
-                          ]
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "kind": {
-                              "type": "string",
-                              "const": "consumed"
-                            },
-                            "landing_id": {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            "at": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "landing_id",
-                            "at"
-                          ]
-                        }
-                      ]
-                    }
-                  },
-                  "required": [
-                    "source",
-                    "approved_at",
-                    "sources",
-                    "composition_procedure",
-                    "policy",
-                    "predecessor_authorities",
-                    "state"
-                  ]
-                },
-                "executor": {
-                  "type": "object",
-                  "properties": {
-                    "operation_id": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    },
-                    "originating_effort": {
-                      "type": "string",
-                      "minLength": 1,
-                      "pattern": "^[A-Za-z0-9_-]+$"
-                    },
-                    "started_at": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    }
-                  },
-                  "required": [
-                    "operation_id",
-                    "originating_effort",
-                    "started_at"
-                  ]
-                }
-              },
-              "required": [
-                "authority_id",
-                "landing_id",
-                "authority",
-                "executor"
-              ]
-            },
-            "consent": {
-              "type": "object",
-              "properties": {
-                "source": {
-                  "type": "string",
-                  "enum": [
-                    "conversation",
-                    "standing-grant",
-                    "effort-grant"
-                  ]
-                },
-                "scopes": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              },
-              "required": [
-                "source"
-              ]
-            },
-            "variances": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/DiscernAuthorizedVariance"
-              }
-            },
-            "standard_proposals": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "standard": {
-                    "type": "string"
-                  },
-                  "commit": {
-                    "type": "string"
-                  },
-                  "bound_commit": {
-                    "type": "string"
-                  },
-                  "measured_commit": {
-                    "type": "string"
-                  },
-                  "definition_fingerprint": {
-                    "type": "string"
-                  },
-                  "trunk": {
-                    "type": "string"
-                  },
-                  "trunk_commit": {
-                    "type": "string"
-                  },
-                  "direction": {
-                    "type": "string",
-                    "enum": [
-                      "up",
-                      "down"
-                    ]
-                  },
-                  "trunk_limit": {
-                    "type": "number"
-                  },
-                  "proposed_limit": {
-                    "type": "number"
-                  },
-                  "measurement": {
-                    "type": "number"
-                  },
-                  "delta": {
-                    "type": "number"
-                  },
-                  "reason": {
-                    "type": "string"
-                  },
-                  "evidence_paths": {
-                    "minItems": 1,
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  }
-                },
-                "required": [
-                  "standard",
-                  "commit",
-                  "bound_commit",
-                  "measured_commit",
-                  "definition_fingerprint",
-                  "trunk",
-                  "trunk_commit",
-                  "direction",
-                  "trunk_limit",
-                  "proposed_limit",
-                  "measurement",
-                  "delta",
-                  "reason",
-                  "evidence_paths"
-                ]
-              }
-            }
-          },
-          "required": [
-            "authority",
-            "consent",
-            "variances",
-            "standard_proposals"
-          ]
+          "$ref": "#/$defs/DiscernAcceptanceEvidence"
         },
         "issuer": {
           "type": "object",

@@ -1,14 +1,12 @@
-import { ExceptionClaimSchema } from "./exception_claim.ts";
-export { ExceptionClaimSchema } from "./exception_claim.ts";
-/** Recorded authority is input to re-verification, never a substitute for it. */
+/** Recorded decisions are input to re-verification, never a substitute for it. */
 import { z } from "@zod/zod";
 import {
   AuthorizedVarianceSchema,
   StandardLimitProposalSchema,
 } from "../../shared/result_schemas.ts";
-import { DigestSchema, NameSchema, RecordIdSchema } from "./identity.ts";
+import { DigestSchema, NameSchema } from "./identity.ts";
 
-export { AuthoritySchema } from "./source_authority.ts";
+export { ExceptionClaimSchema } from "./exception_claim.ts";
 
 const JudgmentSchema = z.strictObject({
   checkpoint: NameSchema,
@@ -21,15 +19,4 @@ export const DecisionsSchema = z.strictObject({
   variances: z.array(AuthorizedVarianceSchema),
   proposals: z.array(StandardLimitProposalSchema),
 });
-
-export const NormalClaimSchema = z.strictObject({
-  kind: z.literal("normal"),
-  proof_id: RecordIdSchema,
-  authority_id: RecordIdSchema,
-  decisions: DecisionsSchema,
-});
-
-export const CompletionClaimSchema = z.discriminatedUnion("kind", [
-  NormalClaimSchema,
-  ExceptionClaimSchema,
-]);
+export type CandidateDecisions = z.infer<typeof DecisionsSchema>;

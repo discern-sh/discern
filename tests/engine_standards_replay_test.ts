@@ -38,7 +38,16 @@ import {
 } from "./engine_helpers.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
-import { observedRecords } from "../src/engine/landing_queue/repository.ts";
+import type { CompletionRecord } from "../src/engine/completion/records.ts";
+
+/** Project recorded readings onto validated envelopes. */
+function observedRecords(
+  observation: Awaited<ReturnType<typeof observeCompletionRecords>>,
+): CompletionRecord[] {
+  return observation.records.flatMap(({ reading }) =>
+    reading.kind === "recorded" ? [reading.record] : []
+  );
+}
 import type { GateWireData } from "../src/shared/result_schemas.ts";
 import {
   type CliResultForCommand,

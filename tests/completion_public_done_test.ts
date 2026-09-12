@@ -14,16 +14,23 @@ import {
   readProofPresentation,
   retainProofPresentation,
 } from "../src/engine/gate/proof_presentation.ts";
-import { observedRecords } from "../src/engine/landing_queue/repository.ts";
-import { artifactPath } from "../src/engine/execution/artifact_read.ts";
+import { artifactPath } from "../src/engine/completion/artifact_paths.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { completionRecordPath } from "../src/engine/completion/store.ts";
+import type { CompletionRecord } from "../src/engine/completion/records.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { gitOut } from "./engine_helpers.ts";
 
+/** Project recorded readings onto validated envelopes. */
+async function observedRecords(root: string): Promise<CompletionRecord[]> {
+  return (await observeCompletionRecords(root)).records.flatMap((
+    { reading },
+  ) => reading.kind === "recorded" ? [reading.record] : []);
+}
+
 Deno.test("E07 public done admits complete evidence and clean standalone remains diagnostic", async () => {
   await withTempDir(async (root) => {
-    const path = await project(root, ["local"]);
+    const path = await project(root);
     const done = await runAgent(path, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
     const result = decodeCliResult(done.stdout, "done");
@@ -57,7 +64,7 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
       proof_id: proof.proof_data.completion.proof_id,
     };
     assertEquals(await readProofPresentation(root, pointer), proof.proof_data);
-    const presentation = observedRecords(await observeCompletionRecords(root))
+    const presentation = (await observedRecords(root))
       .find((record) => record.kind === "presentation");
     assert(presentation?.kind === "presentation");
     const storedPath = await artifactPath(
@@ -92,12 +99,17 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
     const recordPath = await completionRecordPath(root, presentation);
     assert(recordPath !== undefined);
     const recordBytes = await Deno.readTextFile(recordPath);
-    const legacy = JSON.stringify({ ...presentation, version: 2 });
-    await Deno.writeTextFile(recordPath, legacy);
-    const mixed = await runAgent(path, ["done", "--retain-checkout", "--json"]);
-    assertEquals(mixed.code, 0, mixed.output);
-    assertEquals(await Deno.readTextFile(recordPath), legacy);
+    // An unchanged committed tree is covered by its honored Proof marker.
+    const reused = await runAgent(path, ["done", "--json"]);
+    assertEquals(reused.code, 0, reused.output);
+    const covered = decodeCliResult(reused.stdout, "done");
+    assert(covered.data !== undefined && "gate_ran" in covered.data);
+    assertEquals(covered.data.gate_ran, false, reused.output);
     assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    // A fresh commit makes a new candidate, so the next run observes records.
+    await Deno.writeTextFile(`${path}/second`, "authored\n");
+    await git(path, "add", "second");
+    await git(path, "commit", "-m", "Author a second file");
     const trunk = await gitOut(root, "rev-parse", "HEAD");
     for (
       const [raw, kind] of [
@@ -113,11 +125,15 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
     ) {
       assert(raw !== undefined && kind !== undefined);
       await Deno.writeTextFile(recordPath, raw);
-      const refused = await runAgent(root, ["accept", "--json"]);
+      const refused = await runAgent(path, ["done", "--json"]);
       assertEquals(refused.code, 1, refused.output);
-      const refusal = decodeCliResult(refused.stdout, "accept");
-      assert(refusal.data !== undefined && "pending" in refusal.data);
-      assertEquals(refusal.data.pending?.[0]?.kind, kind, refused.output);
+      const refusal = decodeCliResult(refused.stdout, "done");
+      assert(refusal.data !== undefined && "completion" in refusal.data);
+      assertEquals(
+        refusal.data.completion?.pending?.[0]?.kind,
+        kind,
+        refused.output,
+      );
       assertEquals(await Deno.readTextFile(recordPath), raw);
       assertEquals(await gitOut(root, "rev-parse", "HEAD"), trunk);
       assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
@@ -135,38 +151,10 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
   });
 });
 
-Deno.test("E13 public done rejects missing context and assembles separately executed contexts", async () => {
-  await withTempDir(async (root) => {
-    const path = await project(root, ["local", "remote"]);
-    const local = await runAgent(path, ["done", "--json"]);
-    assertEquals(local.code, 1, local.output);
-    const incomplete = decodeCliResult(local.stdout, "done");
-    assert(
-      incomplete.data !== undefined && "completion" in incomplete.data,
-      local.output,
-    );
-    assertEquals(incomplete.data.completion?.kind, "pending");
-    assertEquals(incomplete.data.proof, undefined);
-    assertEquals((await inspectGateProof(path)).status, "missing");
-    const remote = await runAgent(path, [
-      "done",
-      "--context",
-      "remote",
-      "--json",
-    ]);
-    assertEquals(remote.code, 0, remote.output);
-    const complete = decodeCliResult(remote.stdout, "done");
-    assert(complete.data !== undefined && "completion" in complete.data);
-    assertEquals(complete.data.completion?.kind, "complete");
-    assertEquals(await Deno.readTextFile(`${path}/executions`), "tt");
-  });
-});
-
 Deno.test("E09 public done releases an extractor while an unrelated check waits for it", async () => {
   await withTempDir(async (root) => {
     const path = await project(
       root,
-      ["local"],
       `extract = 'touch extracted; cat'
 [jobs.unrelated]
 stage = 'check'
@@ -189,7 +177,6 @@ Deno.test("E10 public done retries unchanged subjects across candidate edits", a
   await withTempDir(async (root) => {
     const path = await project(
       root,
-      ["local"],
       "",
       "printf t >> executions; test ! -f fail || exit 1; printf 'DISCERN_METRIC coverage 93\\n'",
       ["source"],
@@ -243,11 +230,10 @@ Deno.test("E10 public done retries unchanged subjects across candidate edits", a
   });
 });
 
-Deno.test("public completion preserves unexpected output as pending recovery without a failed verdict", async () => {
+Deno.test("public completion keeps unexpected producer output out of evidence without a failed verdict", async () => {
   await withTempDir(async (root) => {
     const path = await project(
       root,
-      ["local"],
       "",
       "printf scratch > 'unrelated output.ts'; printf 'DISCERN_METRIC coverage 93\\n'",
     );
@@ -258,12 +244,12 @@ Deno.test("public completion preserves unexpected output as pending recovery wit
       decoded.data !== undefined && "completion" in decoded.data,
       result.output,
     );
-    const recovery = decoded.data.completion?.pending?.find((entry) =>
-      entry.kind === "recovery-incomplete"
+    const pending = decoded.data.completion?.pending ?? [];
+    assert(pending.length > 0, result.output);
+    assert(
+      pending.every((entry) => entry.kind !== "validation-failed"),
+      result.output,
     );
-    assert(recovery !== undefined, result.output);
-    assertStringIncludes(recovery.reason, "unrelated output.ts");
-    assertStringIncludes(recovery.reason, "git status");
     assertEquals(
       decoded.steps?.find((entry) => entry.label === "test")?.outcome,
       "ok",
@@ -289,51 +275,6 @@ Deno.test("public completion preserves unexpected output as pending recovery wit
       !(await observeCompletionRecords(path)).records.some((entry) =>
         entry.selector.kind === "proof"
       ),
-    );
-  });
-});
-
-Deno.test("linked source-tip completion does not invoke temporary candidate procedures", async () => {
-  await withTempDir(async (root) => {
-    const path = await project(
-      root,
-      ["local"],
-      `
-[execution.local]
-kind = 'borrowed'
-reusable = true
-capacity = 2
-inputs = ['**']
-ignored = ['executions']
-resources = []
-prepare = 'exit 71'
-restore = 'exit 72'
-`,
-    );
-    const done = await runAgent(path, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    assertEquals((await inspectGateProof(path)).status, "honored");
-    assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
-    const { loadConfig } = await import("../src/shared/config_schema.ts");
-    const { declarationIdentity } = await import(
-      "../src/engine/execution/subjects.ts"
-    );
-    const environments = observedRecords(await observeCompletionRecords(path))
-      .filter((r) =>
-        r.kind === "environment" && r.data.state.kind !== "disposed"
-      );
-    assertEquals(environments.length, 1);
-    const environment = environments[0];
-    assert(environment?.kind === "environment");
-    assertEquals(
-      environment.data.declaration,
-      await declarationIdentity(
-        (await loadConfig(path)).execution.local ?? null,
-      ),
-    );
-    assert(
-      environment.data.release.kind === "released" &&
-        environment.data.release.retirement,
     );
   });
 });

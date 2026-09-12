@@ -81,7 +81,7 @@ The planning agent records that arrangement in the briefs and gives each depende
 
 Starting work and approving its landing are separate decisions, and review before landing is a choice you make per task rather than a turn every task owes you. A task whose scope you have already granted can finish its checks and land on its own; a task you want to see first stops at its Proof and waits. Ask the planning agent to state which is which in each brief. A later task's approval does not automatically approve earlier work included in it. [Proof, review, and authority](../20-understand/proof.md) explains how those decisions accompany the completed change.
 
-The agents coordinate the rest without you. A finished task joins the landing queue on its own, an agent waiting for a sibling holds one call until the sibling is ready, and acceptance lands approved tasks in a stable order. A brief does not need to ask for a separate test run before the full check, a message to you when an independent task is ready to land, or a preview kept open until landing; none of them changes what the checks prove or what acceptance decides.
+The agents coordinate the rest without you. A finished task submits its proven commit for landing, an agent waiting for a sibling holds one call until the sibling is ready, and a task you pre-authorized lands as soon as its agent submits a green commit. A brief does not need to ask for a separate test run before the full check, a message to you when an independent task is ready to land, or a preview kept open until landing; none of them changes what the checks prove or what acceptance decides.
 
 ## 5. Start the agreed tasks
 
@@ -128,7 +128,7 @@ The selected task determines which actions are available, recommended, disabled,
 | `jump`         | Work   | Open a shell                                                                    | `<user-shell>`                       | None                                                             |
 | `inspect`      | Review | Review Proof and changes                                                        | `git diff`                           | None                                                             |
 | `rename`       | Manage | Change task title                                                               | `discern worktree rename <title>`    | No by default; Change                                            |
-| `grant`        | Manage | Approve this committed source                                                   | `discern desk`                       | No by default; Allow                                             |
+| `grant`        | Manage | Pre-authorize landing once green                                                | `discern desk`                       | No by default; Allow                                             |
 | `revoke_grant` | Manage | Revoke landing pre-authorization                                                | `discern desk`                       | No by default; Revoke                                            |
 | `reclaim`      | Manage | Reclaim checkout, keep branch (work contained in &lt;later-branch&gt;)          | `discern worktree prune --contained` | No by default; Reclaim                                           |
 | `park`         | Manage | Park checkout, keep branch                                                      | `discern worktree park <path>`       | No by default; Park                                              |

@@ -1,6 +1,4 @@
-import { invalidateCompletionPublication } from "./publication_witness.ts";
 /** Common-admin record IO. Observation has no effects; publication is a short CAS. */
-import { completionRecordVersionSupported } from "./version.ts";
 import { dirname, join } from "@std/path";
 import {
   atomicReplaceJson,
@@ -47,28 +45,16 @@ export async function parseCompletionRecord(
   selector: RecordSelector,
 ): Promise<CompletionRecordReading> {
   const version = inspectOnDiskJsonVersion("completionRecord", raw);
-  const supportedOlder = version.status === "older" &&
-    completionRecordVersionSupported(version);
-  if (
-    version.status === "newer" ||
-    (version.status === "older" && !supportedOlder)
-  ) {
+  if (version.status === "newer" || version.status === "older") {
     return { kind: version.status, version: version.found };
   }
-  if (version.status !== "current" && !supportedOlder) {
+  if (version.status !== "current") {
     return {
       kind: "invalid",
       reason: "completion record needs its registered version",
     };
   }
-  // Reviewed older envelopes omit only optional fields. Normalize the envelope;
-  // retain the byte stamp so a later CAS archives the exact original document.
-  const decoded = JSON.parse(raw);
-  const parsed = CompletionRecordSchema.safeParse(
-    supportedOlder
-      ? { ...decoded, version: ON_DISK_FORMATS.completionRecord.version }
-      : decoded,
-  );
+  const parsed = CompletionRecordSchema.safeParse(JSON.parse(raw));
   if (!parsed.success) return { kind: "invalid", reason: parsed.error.message };
   if (parsed.data.kind !== selector.kind || parsed.data.id !== selector.id) {
     return {
@@ -82,7 +68,6 @@ export async function parseCompletionRecord(
 /** Read fresh records through a directory resolved for one operation. */
 export interface CompletionRecordStore {
   readonly directory: string;
-  readonly publicationPath: string;
   readonly path: (selector: RecordSelector, revision?: number) => string;
   readonly read: (
     selector: RecordSelector,
@@ -128,13 +113,6 @@ function completionStoreAt(directory: string): CompletionRecordStore {
     join(directory, recordRelativePath(selector, revision));
   return {
     directory,
-    publicationPath: join(
-      GIT_ADMIN_STATE.completionRecords.path.split("/").reduce(
-        (parent) => dirname(parent),
-        directory,
-      ),
-      GIT_ADMIN_STATE.completionPublication.path,
-    ),
     path,
     read: (selector, revision) => readStoredRecord(path, selector, revision),
   };
@@ -257,7 +235,7 @@ async function checkFence(
   }
   const attempt = reading.record.data;
   if (
-    (attempt.state.kind !== "claimed" && attempt.state.kind !== "composing") ||
+    attempt.state.kind === "finished" ||
     attempt.state.claim.token !== fence.token ||
     attempt.state.claim.expires_at <= now
   ) return "attempt claim was lost, expired, or superseded";
@@ -265,16 +243,7 @@ async function checkFence(
     (record.kind === "proof" || record.kind === "evidence") &&
     attempt.state.kind !== "claimed"
   ) {
-    return "Composition cannot publish validation evidence or Proof before demand is bound.";
-  }
-  if (
-    record.kind === "landing" && (record.data.attempt_id !== fence.attempt_id ||
-      record.data.candidate_id !== attempt.identity.candidate_id ||
-      JSON.stringify(record.data.executor) !==
-        JSON.stringify(attempt.identity.executor) ||
-      attempt.mode !== "strict" || attempt.purpose !== "completion")
-  ) {
-    return "landing publication must match its current strict completion actor";
+    return "Evidence and Proof publication wait until the attempt's demand is bound.";
   }
   if (publishes) {
     if (record.data.attempt_id !== fence.attempt_id) {
@@ -310,9 +279,8 @@ async function checkFence(
 }
 
 /**
- * The existing acceptance lock supplies common-before-checkout ordering. This
- * boundary encloses only record IO, never project commands. 4A moves the public
- * accept lock to individual queue transitions before invoking this capability.
+ * Publish one record under the common publication lock. This boundary encloses
+ * only record IO, never project commands.
  */
 export async function writeCompletionRecord(
   root: string,
@@ -367,7 +335,6 @@ export async function writeCompletionRecord(
           clock.wallNow(),
         );
         if (lost !== undefined) return { kind: "claim-lost", reason: lost };
-        await invalidateCompletionPublication(store.publicationPath);
         if (current.kind === "recorded") {
           const blocked = await preserveRevision(
             store,

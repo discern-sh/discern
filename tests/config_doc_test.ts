@@ -328,7 +328,6 @@ const COMPLETE_RECORD_DOC = {
       artifacts: ["dist/report"],
       environment: ["CI"],
       toolchain: ["lockfile"],
-      contexts: ["local"],
     },
   },
   scopes: {
@@ -343,7 +342,6 @@ const COMPLETE_RECORD_DOC = {
       artifacts: ["dist/report"],
       environment: ["CI"],
       toolchain: ["lockfile"],
-      contexts: ["local"],
     },
   },
   generated: {
@@ -370,22 +368,7 @@ const COMPLETE_RECORD_DOC = {
       artifacts: ["dist/report"],
       environment: ["CI"],
       toolchain: ["lockfile"],
-      contexts: ["local"],
       timeout: 20,
-    },
-  },
-  execution: {
-    local: {
-      kind: "borrowed",
-      prepare: "prepare",
-      restore: "restore",
-      reset: "reset",
-      dispose: "dispose",
-      reusable: true,
-      resources: ["database"],
-      ignored: ["dist/**"],
-      inputs: ["**"],
-      capacity: 1,
     },
   },
   checkpoints: {
@@ -436,7 +419,6 @@ const RECORD_FAMILY_FIXTURES = {
   standards: [COMPLETE_RECORD_DOC.standards.density, {
     producer: "jobs.report",
   }],
-  execution: [COMPLETE_RECORD_DOC.execution.local],
   checkpoints: [
     COMPLETE_RECORD_DOC.checkpoints.inline,
     COMPLETE_RECORD_DOC.checkpoints.file,
@@ -693,8 +675,6 @@ Deno.test("applyConfigDoc on an empty document leaves the config untouched", () 
 /** A document exercising EVERY fill section the config-doc schema declares —
  * the fixture behind the class-level skip-existing guard below. */
 const FULL_FILL_DOC: DiscernConfigDoc = {
-  completion: { required_contexts: ["local"], concurrency: 1, lookahead: 0 },
-  execution: COMPLETE_RECORD_DOC.execution,
   map: { dir: "docs/x/" },
   jobs: {
     lint: "deno lint",

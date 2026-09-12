@@ -46,7 +46,7 @@ export function intervalEconomics(
 function observationIdentity(event: CompletionEvent): string {
   const fact = event.fact;
   switch (fact.kind) {
-    case "admitted":
+    case "proven":
       return canonicalJson([fact.kind, fact.proof_id]);
     case "validation-summary":
       return canonicalJson([
@@ -54,8 +54,6 @@ function observationIdentity(event: CompletionEvent): string {
         event.attempt_id ?? event.id,
         event.executor_operation,
       ]);
-    case "withdrawn":
-      return event.id;
     case "command-started":
     case "command-finished":
       return canonicalJson([fact.kind, fact.execution_id]);
@@ -74,20 +72,7 @@ function observationIdentity(event: CompletionEvent): string {
         fact.category,
         fact.interval_id,
       ]);
-    case "restoration":
-      if (event.environment_id === null || event.attempt_id === null) {
-        return event.id;
-      }
-      return canonicalJson([
-        fact.kind,
-        event.environment_id,
-        event.attempt_id,
-        event.executor_operation,
-        fact.outcome,
-      ]);
     case "invalidated":
-    case "landing":
-    case "retirement":
       return event.id;
   }
 }
@@ -124,10 +109,7 @@ function commandObservations(events: readonly CompletionEvent[]): {
     if (fact.kind !== "command-started" && fact.kind !== "command-finished") {
       continue;
     }
-    if (
-      event.attempt_id === null || event.environment_id === null ||
-      fact.execution_id === ""
-    ) {
+    if (event.attempt_id === null || fact.execution_id === "") {
       unknown++;
       continue;
     }
@@ -136,7 +118,6 @@ function commandObservations(events: readonly CompletionEvent[]): {
       event.source_head,
       event.candidate_id,
       event.attempt_id,
-      event.environment_id,
       event.executor_operation,
       fact.producer,
       fact.role,
@@ -207,7 +188,6 @@ function uniqueObservations(events: readonly CompletionEvent[]): {
       prior.effort_id !== event.effort_id ||
       prior.source_head !== event.source_head ||
       prior.candidate_id !== event.candidate_id ||
-      prior.environment_id !== event.environment_id ||
       prior.attempt_id !== event.attempt_id ||
       ((event.fact.kind === "command-started" ||
         event.fact.kind === "command-finished") &&
@@ -246,105 +226,6 @@ function conflictingReceipts(events: readonly CompletionEvent[]): Set<string> {
   return conflicts;
 }
 
-/** A prediction needs observed admission and an unambiguous later outcome in this window. */
-function predictionObservations(events: readonly CompletionEvent[]): {
-  eligible_predictions: number | null;
-  prediction_denominator: number | null;
-  prediction_miss_rate: number | null;
-  successful_predictions: number;
-  resolved_prediction_misses: number;
-  unresolved_predictions: number;
-  conflicting_prediction_outcomes: number;
-  withdrawals_before_green: number;
-  invalidated_candidate_executions: number | null;
-  invalidated_candidate_producer_work_ms: number | null;
-} {
-  const admissions = new Map<string, CompletionEvent>();
-  const invalidated = new Set<string>();
-  const landed = new Set<string>();
-  const exceptions = new Set<string>();
-  const conflicts = new Set<string>();
-  const withdrawnBefore = new Set<string>();
-  const outcomesByCandidate = new Map<string, CompletionEvent[]>();
-  let observedAdmissions = 0;
-  for (const event of events) {
-    const fact = event.fact;
-    if (fact.kind === "withdrawn" && fact.admission === "before-green") {
-      withdrawnBefore.add(canonicalJson([event.effort_id, event.source_head]));
-    }
-    const id = event.candidate_id;
-    if (id === null) continue;
-    if (fact.kind === "admitted") {
-      observedAdmissions++;
-      if (
-        fact.mode !== "strict" || !fact.eligible_prediction ||
-        fact.expected_predecessor_candidate_id === null
-      ) continue;
-      const prior = admissions.get(id);
-      if (
-        prior !== undefined &&
-        (prior.source_head !== event.source_head ||
-          prior.effort_id !== event.effort_id ||
-          (prior.fact.kind === "admitted" &&
-            prior.fact.expected_predecessor_candidate_id !==
-              fact.expected_predecessor_candidate_id))
-      ) conflicts.add(id);
-      if (prior === undefined || event.at < prior.at) admissions.set(id, event);
-    }
-    if (
-      fact.kind === "invalidated" ||
-      (fact.kind === "landing" && fact.outcome === "landed")
-    ) {
-      const outcomes = outcomesByCandidate.get(id) ?? [];
-      outcomes.push(event);
-      outcomesByCandidate.set(id, outcomes);
-    }
-    if (fact.kind === "invalidated") invalidated.add(id);
-    if (fact.kind === "landing" && fact.outcome === "landed") {
-      (fact.claim_kind === "normal" ? landed : exceptions).add(id);
-    }
-  }
-  let successes = 0;
-  let misses = 0;
-  for (const [id, admitted] of admissions) {
-    const outcomes = outcomesByCandidate.get(id) ?? [];
-    if (
-      outcomes.some((event) =>
-        event.at < admitted.at || event.source_head !== admitted.source_head ||
-        event.effort_id !== admitted.effort_id
-      ) ||
-      (invalidated.has(id) && landed.has(id)) || exceptions.has(id)
-    ) conflicts.add(id);
-    if (conflicts.has(id)) continue;
-    if (invalidated.has(id)) misses++;
-    else if (landed.has(id)) successes++;
-  }
-  const work = events.filter((event) =>
-    event.candidate_id !== null && invalidated.has(event.candidate_id) &&
-    event.fact.kind === "command-finished" && event.fact.role === "producer"
-  );
-  const workCommands = commandObservations([
-    ...events.filter((event) =>
-      event.candidate_id !== null && invalidated.has(event.candidate_id) &&
-      event.fact.kind === "command-started"
-    ),
-    ...work,
-  ]);
-  const resolved = successes + misses;
-  return {
-    eligible_predictions: observedAdmissions === 0 ? null : admissions.size,
-    prediction_denominator: observedAdmissions === 0 ? null : resolved,
-    prediction_miss_rate: resolved === 0 ? null : misses / resolved,
-    successful_predictions: successes,
-    resolved_prediction_misses: misses,
-    unresolved_predictions: admissions.size - resolved - conflicts.size,
-    conflicting_prediction_outcomes: conflicts.size,
-    withdrawals_before_green: withdrawnBefore.size,
-    invalidated_candidate_executions: workCommands.producer_executions,
-    invalidated_candidate_producer_work_ms: workCommands.producer_work_ms,
-  };
-}
-
 /** Read each recorded contract at its declared resolution; absent facts stay unknown. */
 export function completionEconomics(
   observations: readonly CompletionEvent[],
@@ -353,8 +234,7 @@ export function completionEconomics(
   const receiptConflicts = conflictingReceipts(observations);
   const events = unique.events;
   const summaries = events.filter((event) =>
-    event.fact.kind === "validation-summary" && event.attempt_id !== null &&
-    event.environment_id !== null
+    event.fact.kind === "validation-summary" && event.attempt_id !== null
   );
   const startedAttempts = new Set(
     events.filter((event) =>
@@ -380,22 +260,14 @@ export function completionEconomics(
   const executions = new Set<string>();
   const reused = new Set<string>();
   const invalidations = new Map<string, Set<string>>();
-  const predictions = new Set<string>();
-  const withdrawnPredictions = new Set<string>();
-  const otherWithdrawals = new Set<string>();
-  const landed = new Map<
-    string,
-    Extract<CompletionEvent["fact"], { kind: "landing" }>["claim_kind"]
-  >();
-  const retirements = new Map<string, string>();
-  const returns = new Map<string, string>();
-  let unknownReturnIdentity = 0;
+  const proofs = new Set<string>();
   let unknownComponentUseIdentity = 0;
   for (const event of events) {
     const fact = event.fact;
     switch (fact.kind) {
-      case "admitted":
-      case "withdrawn":
+      case "proven":
+        if (fact.mode === "strict") proofs.add(fact.proof_id);
+        break;
       case "validation-summary":
       case "command-started":
       case "command-finished":
@@ -420,36 +292,13 @@ export function completionEconomics(
         break;
       }
       case "invalidated": {
-        const ids = invalidations.get(fact.reason) ?? new Set<string>();
         // One emitted row describes its own candidate. The affected list is
         // context shared by every row, not another set of independent events.
-        if (event.candidate_id !== null) {
-          ids.add(event.candidate_id);
-          if (fact.eligible_prediction) predictions.add(event.candidate_id);
-          if (fact.reason === "withdrawn") {
-            (fact.eligible_prediction ? withdrawnPredictions : otherWithdrawals)
-              .add(event.candidate_id);
-          }
-        }
+        const ids = invalidations.get(fact.reason) ?? new Set<string>();
+        if (event.candidate_id !== null) ids.add(event.candidate_id);
         invalidations.set(fact.reason, ids);
         break;
       }
-      case "landing":
-        if (fact.outcome === "landed") {
-          landed.set(fact.landing_id, fact.claim_kind);
-        }
-        break;
-      case "retirement":
-        retirements.set(fact.retirement_id, fact.outcome);
-        break;
-      case "restoration":
-        if (event.environment_id === null || event.attempt_id === null) {
-          unknownReturnIdentity += 1;
-        } else {returns.set(
-            canonicalJson([event.environment_id, event.attempt_id]),
-            fact.outcome,
-          );}
-        break;
     }
   }
   const counts = (values: Iterable<string>): Record<string, number> => {
@@ -489,9 +338,9 @@ export function completionEconomics(
         : null),
     validation_runs: summaries.length,
     reuse_only_runs: reuseOnly.length,
-    ...predictionObservations(events),
+    proofs: proofs.size,
     latencies: Object.fromEntries(
-      (["approval-to-land", "validation-feedback"] as const).map((category) => {
+      (["validation-feedback"] as const).map((category) => {
         const intervals = timings.get(category) ?? [];
         const durations = intervals.filter((span) =>
           Number.isFinite(span.started_at) &&
@@ -521,23 +370,12 @@ export function completionEconomics(
     invalidations: Object.fromEntries(
       [...invalidations].map(([reason, ids]) => [reason, ids.size]),
     ),
-    invalidated_predictions: predictions.size,
-    withdrawals_after_prediction: withdrawnPredictions.size,
-    withdrawals_without_prediction_evidence: otherWithdrawals.size,
-    landings: landed.size,
-    emergency_landings:
-      [...landed.values()].filter((kind) => kind === "exception").length,
-    retirements: counts(retirements.values()),
-    returns: counts(returns.values()),
-    unknown_return_identity: unknownReturnIdentity,
     limitations: [
-      "This advisory window cannot establish ownership, child quiescence, recovery permission, or Proof.",
+      "This advisory window cannot establish ownership, child quiescence, or Proof.",
       "Producer executions count only observed native starts. Missing starts, results or older events make the window incomplete; an unmatched start establishes neither activity nor death.",
       "Producer work is summed command-to-captured-result elapsed duration, not CPU time. Component receipts and extractor processes do not multiply producer executions.",
-      "Prediction rates cover observed eligible admissions with resolved outcomes in this window. Pending, contradictory and emergency outcomes are excluded; invalidated work may be reused and is not automatically discarded.",
-      "A missing return duration or recovery executor identity is unknown; an interrupted attempt has no inferred failed verdict.",
+      "Invalidated work may be reused and is not automatically discarded.",
       "Category spans can overlap. Their sums are separate work observations, not additive elapsed completion time or CPU time.",
-      "Retirement outcomes do not establish storage reclamation or a leak; retained historical references remain valid.",
     ],
   };
 }

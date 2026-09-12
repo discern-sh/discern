@@ -1,4 +1,3 @@
-import type { EffortGrantSubject } from "../worktree/effort_grant.ts";
 /**
  * `desk` — the operator's interactive ingress and surface over the worktree fleet
  * (ADR 0119). Bare `discern`, post-setup on an interactive terminal, opens it;
@@ -71,8 +70,6 @@ import { statusResult } from "../status/status.ts";
 import { finishResult } from "../gate/finish.ts";
 import { inspectGateProof } from "../gate/proof.ts";
 import {
-  accept,
-  acceptResult,
   applyStartPlan,
   buildStartPlan,
   IdentityError,
@@ -146,11 +143,11 @@ import {
   clearEffortGrantPlan,
 } from "../worktree/effort_grant_cleanup.ts";
 import {
-  type EffortGrantPlan,
   effortGrantPlan,
   type EffortGrantWrite,
   grantEffort,
 } from "../worktree/effort_grant_writer.ts";
+import { acceptLanding, acceptLandingResult } from "../worktree/accept.ts";
 import { userShell } from "../user_shell.ts";
 import {
   DESK_FILTER_THRESHOLD,
@@ -232,11 +229,10 @@ export interface DeskRuntime {
   grantEffortPlan(
     path: string,
     branch: string,
-  ): DeskMaybePromise<EffortGrantPlan>;
+  ): DeskMaybePromise<EnginePlan>;
   grantEffort(
     path: string,
     branch: string,
-    subject: EffortGrantSubject,
   ): DeskMaybePromise<EffortGrantWrite>;
   clearEffortGrantPlan(path: string): DeskMaybePromise<EnginePlan>;
   clearEffortGrant(path: string): DeskMaybePromise<boolean>;
@@ -263,7 +259,6 @@ export interface DeskRuntime {
   ): DeskMaybePromise<DiscernResult<GateData>>;
   acceptPlan(
     ctx: LifecycleContext,
-    cliModel: CliModelProvider,
   ): DeskMaybePromise<DiscernResult<AcceptData>>;
   accept(
     ctx: LifecycleContext,
@@ -546,8 +541,8 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   status: (root) => statusResult(root),
   mainRepoPath: (root) => mainRepoPath(root),
   grantEffortPlan: (path, branch) => effortGrantPlan(path, branch),
-  grantEffort: (path, branch, subject) =>
-    grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow()), subject),
+  grantEffort: (path, branch) =>
+    grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow())),
   clearEffortGrantPlan: (path) => clearEffortGrantPlan(path),
   clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => {
@@ -572,13 +567,20 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       cliModel,
       dryRun: true,
     }),
-  acceptPlan: (ctx, cliModel) => acceptResult(ctx, { dryRun: true, cliModel }),
-  accept: (ctx, opts) => {
-    if (opts.cliModel === undefined) {
-      throw new Error("desk acceptance requires a live CLI model provider");
-    }
-    return accept(ctx, { ...opts, cliModel: opts.cliModel });
-  },
+  acceptPlan: (ctx) =>
+    acceptLandingResult(ctx, {
+      dryRun: true,
+      confirmed: false,
+      variance: [],
+      approveStandard: [],
+    }),
+  accept: (ctx, opts) =>
+    acceptLanding(ctx, {
+      dryRun: opts.dryRun ?? false,
+      confirmed: opts.confirmed ?? false,
+      variance: [],
+      approveStandard: [],
+    }),
   update: (ctx, opts) =>
     withOperationLock(
       ctx.cwd,
@@ -1990,10 +1992,7 @@ async function dispatchAction(
     case "accept": {
       echoCommand(out, `discern accept  (in ${target})`);
       const ctx = await runtime.lifecycle(row.entry.path);
-      if (cliModel === undefined) {
-        throw new Error("Desk acceptance requires a live CLI model provider.");
-      }
-      const preview = await runtime.acceptPlan(ctx, cliModel);
+      const preview = await runtime.acceptPlan(ctx);
       showActionPlan(out, row, action, resultPlan(preview), runtime);
       if (
         !(await confirmAction(
@@ -2008,10 +2007,7 @@ async function dispatchAction(
       // The human just accepted the landing in this interaction, so pass
       // the consent attestation in — the desk's confirm IS the acceptance, and
       // accept must not double-refuse for a consent it already collected (ADR 0134).
-      await runtime.accept(ctx, {
-        confirmed: true,
-        ...(cliModel === undefined ? {} : { cliModel }),
-      });
+      await runtime.accept(ctx, { confirmed: true });
       await runtime.pause(out);
       return true;
     }
@@ -2031,7 +2027,7 @@ async function dispatchAction(
         !(await confirmAction(
           row,
           action,
-          `Approve the displayed committed source of ${row.entry.branch} to land once green?`,
+          `Allow ${row.entry.branch} to land once green without a further conversation?`,
           runtime,
         ))
       ) {
@@ -2040,15 +2036,14 @@ async function dispatchAction(
       const result = await runtime.grantEffort(
         row.entry.path,
         row.entry.branch,
-        plan.subject,
       );
       if (result.status === "already_granted") {
         out.info(
-          `The displayed source of ${row.entry.branch} is already approved to land once green.`,
+          `${row.entry.branch} is already pre-authorized to land once green.`,
         );
       } else {
         out.ok(
-          `The displayed source of ${row.entry.branch} may land once green. New source edits require another grant.`,
+          `${row.entry.branch} lands once green without a further conversation. A variance, a standard proposal, or an emergency still needs you.`,
         );
       }
       await runtime.pause(out);

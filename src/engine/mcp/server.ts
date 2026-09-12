@@ -1,11 +1,7 @@
-import {
-  type QueueControl,
-  QueueControlSchema,
-} from "../../shared/queue_control.ts";
-import { EXECUTION_RECOVERY_DESCRIPTION } from "../../shared/execution_recovery.ts";
-import { acceptanceArguments } from "../landing_queue/arguments.ts";
 import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
-import type { EmergencyOptions } from "../emergency/action.ts";
+import { emergencyArguments } from "../emergency/arguments.ts";
+import { type EmergencyOptions, emergencyResult } from "../emergency/action.ts";
+import { acceptLandingResult } from "../worktree/accept.ts";
 import {
   type CompletionProgressNotification,
   withMcpCompletionProgress,
@@ -143,7 +139,6 @@ import { refreshResult } from "../instructions.ts";
 import { doctorResult } from "../../commands/doctor.ts";
 import { docsResult, mapResult } from "../../commands/docs.ts";
 import {
-  acceptResult,
   lifecycleContext,
   startResult,
   updateResult,
@@ -531,10 +526,8 @@ export const TOOLS: McpTool[] = orderTools([
       "each failure). A green run over a clean committed tree ahead of the selected " +
       "project's configured trunk — its shared landing branch — " +
       "also carries data.proof and resolves any recorded grant into " +
-      "data.landing_authority. Successful ordinary completion admits a validated " +
-      "candidate and releases the source checkout for later validation and eligible " +
-      "retirement; it does not land on the trunk. Set retain_checkout when further " +
-      "local edits are planned. Follow the resolution-gated hints: an uncovered " +
+      "data.landing_authority. Completion proves this worktree's committed tip; " +
+      "it does not land on the trunk. Follow the resolution-gated hints: an uncovered " +
       "landing is reported to the owner in your own words and ends with " +
       "data.proof.line verbatim before you wait; a covered landing names the " +
       "verified source and routes straight to discern_accept. Never paste " +
@@ -574,38 +567,18 @@ export const TOOLS: McpTool[] = orderTools([
       policy_base: z.string().optional().describe(
         "Fetched policy base for a standalone CI report only.",
       ),
-      recover: z.string().optional().describe(
-        EXECUTION_RECOVERY_DESCRIPTION,
-      ),
-      retain_checkout: z.boolean().optional().describe(
-        "Keep authoring control after completion when further local edits are planned (default false). Ordinary successful completion releases the checkout for later validation and eligible retirement.",
-      ),
-      release_checkout: z.boolean().optional().describe(
-        "Release this exact proven source for validation and eligible cleanup without running a gate or landing, including after trunk moves. Use separately from retention, recovery, validation, policy, and judgment options.",
-      ),
       standalone: z.boolean().optional().describe(
-        "Run complete diagnostic feedback, including on a dirty tree. Results are transient, without queue admission or Proof.",
-      ),
-      context: z.string().optional().describe(
-        "The declared execution context this invocation supplies; defaults to local.",
+        "Run complete diagnostic feedback, including on a dirty tree. Results are transient and issue no Proof.",
       ),
     },
     run: (root, args, signal, context) =>
       finishResult(root, {
-        ...(args.recover === undefined ? {} : { recover: args.recover }),
-        ...(args.release_checkout === undefined
-          ? {}
-          : { releaseCheckout: args.release_checkout }),
         ...(args.policy_base === undefined
           ? {}
           : { policyBase: args.policy_base }),
-        ...(args.retain_checkout === undefined
-          ? {}
-          : { retainCheckout: args.retain_checkout }),
         ...(args.standalone === undefined
           ? {}
           : { standalone: args.standalone }),
-        ...(args.context === undefined ? {} : { context: args.context }),
         surface: { kind: "quiet" },
         cliModel: context.cliModel,
         dryRun: args.dry_run === true,
@@ -732,10 +705,10 @@ export const TOOLS: McpTool[] = orderTools([
       "Verify the discern install and return each check as an actionable result: " +
       "config validity, schema currency, whether the declared job commands — " +
       "configured project commands such as format, lint, and test — " +
-      "resolve on PATH, how completion.concurrency, gate.concurrent_test_runs, and " +
-      "execution capacity combine and whether early validation can run, which producers " +
-      "standards share or duplicate and which are candidate-bound, recorded execution " +
-      "claims and interrupted checkout returns, and advisories. " +
+      "resolve on PATH, producer coverage and evidence reuse under the " +
+      "gate.concurrent_test_runs cap, which producers standards share or " +
+      "duplicate and which are candidate-bound, completion-record readability " +
+      "and outstanding emergency validation, and advisories. " +
       "data.checks lists every check with its detail " +
       "and — on failure — the exact fix. Set verbose=true only when you need " +
       "data.execution_model, which lists, per configurable " +
@@ -1111,26 +1084,21 @@ export const TOOLS: McpTool[] = orderTools([
   }),
   defineTool({
     name: "discern_accept",
-    title: "Accept and land the worktree",
+    title: "Submit and land the worktree",
     outputSchema: AcceptOutputSchema,
     annotations: DESTRUCTIVE,
-    description: "Ordinary acceptance: " +
-      "Land only with explicit owner consent or machine-verified authority. " +
-      "Acceptance composes this effort's committed source with earlier ready " +
-      "work against the selected project's configured trunk. " +
-      "Each predecessor requires its own current evidence and authority; permission " +
-      "for this effort does not authorize another. Acceptance validates the exact " +
-      "candidate before advancing the trunk. Its Proof identifies that validated " +
-      "commit, which can differ from this worktree's HEAD. Eligible cleanup " +
-      "removes only released, positively owned, clean checkouts and their " +
-      "resources after landing. " +
-      "Recorded grants never cover a checkpoint variance or standard proposal. " +
-      "Without authority the call re-serves the review moment without landing. " +
-      "The result leads with the selected effort's own verdict; " +
-      "data.selected_effort marks its row, other efforts follow with their " +
-      "state and recovery action, and an earlier authorized effort may have " +
-      "landed before a later stop. " +
-      "Set dry_run to inspect the acceptance plan without changing anything. " +
+    description: "Submit this effort's proven commit and land it on the " +
+      "selected project's configured trunk. Land only with explicit owner " +
+      "consent or machine-verified authority; without either, the call records " +
+      "the submission, re-serves the review moment, and lands nothing. Landing " +
+      "fast-forwards the trunk to the exact proven commit, records its Proof " +
+      "note, converges the main checkout, and removes the worktree, its branch, " +
+      "and its resources when the branch holds nothing beyond the landed commit; " +
+      "a branch with later commits keeps its checkout and is told to run " +
+      "discern_done then discern_accept for them. A trunk that moved after the " +
+      "Proof refuses with the update route. Recorded grants never cover a " +
+      "checkpoint variance or standard proposal. " +
+      "Set dry_run to inspect the landing plan and the queue without changing anything. " +
       "After success, report what landed and any unresolved cleanup in your own " +
       "words, then end with data.proof_line verbatim; the full review page remains " +
       "available through `discern status --verbose`. " +
@@ -1141,24 +1109,11 @@ export const TOOLS: McpTool[] = orderTools([
       "The exception stays durable and outstanding validation stays visible; no passing Proof is issued. " +
       "Use recover with the emergency landing id for interrupted transitions. Neither route pushes or deploys.",
     inputSchema: {
-      reconcile: z.boolean().optional().describe(
-        "Reconcile an externally integrated exact proven source and eligible retirement. Set target; preview with dry_run, then pass its expected token. Does not advance refs or invent a historical governed landing receipt. Use separately from new approval.",
-      ),
-      expected: z.string().optional().describe(
-        "For queue controls or reconcile, the expected_state token returned by the read-only preview. Changed state requires a new preview.",
-      ),
-      order: z.array(z.string()).optional().describe(
-        "For reprioritize, every eligible effort in the desired order. Source dependencies must remain before their dependents.",
-      ),
       target: z.string().optional().describe(
-        "Select the effort by id, path, branch, or full local ref. Required when several efforts are pending from main. Confirmation covers only the selected unchanged source; each predecessor needs separate authority. Use the same target for continuation.",
+        "Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with confirmed.",
       ),
-      action: z.enum([EMERGENCY_ACCEPT_ACTION, ...QueueControlSchema.options])
-        .optional().describe(
-          "Use hold, resume, withdraw, revoke, or reprioritize to change the queue: preview with dry_run, then apply the owner-approved decision with confirmed and expected. Omit action for ordinary acceptance. Select emergency only for an explicit exception with fresh exact owner approval; ordinary grants do not cover it.",
-        ),
-      reclaim: z.string().optional().describe(
-        "Retry bounded artifact cleanup for this settled retirement id from the main checkout. Use separately from landing or emergency approval; no validation, landing, or checkout removal runs.",
+      action: z.enum([EMERGENCY_ACCEPT_ACTION]).optional().describe(
+        "Omit for ordinary landing. Select emergency only for an explicit exception with fresh exact owner approval; ordinary grants do not cover it.",
       ),
       reason: z.string().optional().describe(
         "Emergency reason presented in the exact owner review.",
@@ -1179,10 +1134,10 @@ export const TOOLS: McpTool[] = orderTools([
         "Emergency landing id to reconcile without a new transition or new approval.",
       ),
       dry_run: z.boolean().optional().describe(
-        "Preview the acceptance plan and touch nothing (default false).",
+        "Preview the landing plan and the queue; touch nothing (default false).",
       ),
       confirmed: z.boolean().optional().describe(
-        "Attestation that the owner has approved this landing or selected queue decision in the current " +
+        "Attestation that the owner has approved this landing in the current " +
           "conversation. Set it only then. Recorded standing and effort grants " +
           "are checked directly; do not assert them through this flag.",
       ),
@@ -1209,22 +1164,21 @@ export const TOOLS: McpTool[] = orderTools([
       const data = result.data as AcceptData | undefined;
       return ctx.heldRootMissing &&
           (data?.landing?.worktree_removed === true ||
-            data?.queue?.some((prefix) => prefix.state === "landed") ||
-            data?.emergency?.retirement === "retired")
+            data?.emergency?.cleanup === "removed")
         ? data.root
         : undefined;
     },
     run: (root, args, signal, context) => {
-      const parsed = acceptanceArguments(
-        args.action,
-        {
-          ...args,
-          dryRun: args.dry_run === true,
-        },
-      );
+      const parsed = emergencyArguments(args.action, {
+        ...args,
+        dryRun: args.dry_run === true,
+      });
       if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
       return acceptToolResult(root, {
-        ...parsed.value,
+        ...(parsed.value.emergency === undefined
+          ? {}
+          : { emergency: parsed.value.emergency }),
+        ...(args.target === undefined ? {} : { target: args.target }),
         ...(signal === undefined ? {} : { signal }),
         dryRun: args.dry_run === true,
         confirmed: args.confirmed === true,
@@ -1404,23 +1358,19 @@ function renderMcpHintText(authored: string): string {
 /**
  * The `discern_accept` tool core: build a lifecycle context with a quiet logger
  * (accept narrates through its logger as it runs — silence it so the stdio
- * channel carries only protocol messages), perform the acceptance, and map a
- * precondition / identity refusal to the same error envelope the CLI returns.
- * Unexpected errors propagate to {@link runTool}'s catch-all.
+ * channel carries only protocol messages), perform the landing or the emergency
+ * exchange, and map a precondition / identity refusal to the same error
+ * envelope the CLI returns. Unexpected errors propagate to {@link runTool}'s
+ * catch-all.
  */
 async function acceptToolResult(
   root: string,
   opts: {
     target?: string;
-    reconcile?: boolean;
-    control?: QueueControl;
-    order?: string[];
-    expected?: string;
-    reclaim?: string;
     emergency?: EmergencyOptions;
     signal?: AbortSignal;
-    dryRun?: boolean;
-    confirmed?: boolean;
+    dryRun: boolean;
+    confirmed: boolean;
     variance?: string[];
     approveStandard?: string[];
     cliModel: CliModelProvider;
@@ -1431,7 +1381,20 @@ async function acceptToolResult(
     new Logger({ json: true, noColor: true }),
   );
   try {
-    return await acceptResult(ctx, opts);
+    if (opts.emergency !== undefined) {
+      return await emergencyResult(ctx, {
+        ...opts.emergency,
+        ...(opts.signal === undefined ? {} : { signal: opts.signal }),
+      });
+    }
+    return await acceptLandingResult(ctx, {
+      ...(opts.target === undefined ? {} : { target: opts.target }),
+      ...(opts.signal === undefined ? {} : { signal: opts.signal }),
+      dryRun: opts.dryRun,
+      confirmed: opts.confirmed,
+      variance: opts.variance ?? [],
+      approveStandard: opts.approveStandard ?? [],
+    });
   } catch (e) {
     const mapped = worktreeErrorResult("accept", e);
     if (mapped !== undefined) {

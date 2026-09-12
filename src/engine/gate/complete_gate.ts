@@ -1,4 +1,4 @@
-/** Coordinate candidate admission around the gate; validation remains its own executor. */
+/** Coordinate complete Proof around the gate; validation remains its own executor. */
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
@@ -11,12 +11,12 @@ import {
 } from "../../shared/hints.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { integrationBranch } from "../worktree/git.ts";
+import { completionBlockerAccount } from "../completion/progress_prose.ts";
 import {
+  completeSourceTip,
   type CompletionRunValue,
   type CompletionSession,
-  withPublicCompletion,
-} from "../landing_queue/public_completion.ts";
-import { acceptancePending } from "../landing_queue/public_result.ts";
+} from "../completion/source_tip.ts";
 import {
   describeDirtyPaths,
   pinValidatedTree,
@@ -54,10 +54,10 @@ interface CompletionGateResult {
   finalize: (pointer: CompletionProofPointer) => Promise<boolean>;
 }
 
-/** Publish the caller's clean gate result only after complete evidence and environment return. */
+/** Publish the caller's clean gate result only after its complete Proof exists. */
 export async function runCompleteGate<T extends CompletionGateResult>(
   root: string,
-  options: Parameters<typeof withPublicCompletion>[1] & {
+  options: Parameters<typeof completeSourceTip>[1] & {
     readonly standalone?: boolean;
   },
   run: (
@@ -81,8 +81,7 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   ], { cwd: root });
   // The gate preflight owns the unreadable policy-base diagnostic.
   if (!trunk.success) return (await run(undefined)).value;
-  const context = options.context;
-  const completed = await withPublicCompletion(
+  const completed = await completeSourceTip(
     root,
     options,
     run,
@@ -93,9 +92,7 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   if (completed.kind !== "completed") {
     // Every pending cause reaches the owner as the plain sentence its account
     // composes; a raw record shape is never the first paragraph.
-    const reason = completed.kind === "replan"
-      ? "The queue changed while this run was starting. Run discern done again."
-      : acceptancePending(completed).reason;
+    const reason = completionBlockerAccount(completed).reason;
     return await unrun({
       ok: false,
       verb: "done",
@@ -113,7 +110,6 @@ export async function runCompleteGate<T extends CompletionGateResult>(
         producer_executions: {},
         completion: {
           kind: "pending",
-          context,
           pending_reasons: [reason],
           pending: [{ kind: completed.kind, reason }],
         },
@@ -124,17 +120,16 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   if (gate.result.data !== undefined) {
     gate.result.data.completion = {
       kind: completed.proof_id === undefined ? "pending" : "complete",
-      context,
       candidate_id: completed.candidate_id,
       ...(completed.proof_id === undefined
         ? {}
         : { proof_id: completed.proof_id }),
       pending: completed.blockers.map((blocker) => ({
         kind: blocker.kind,
-        reason: acceptancePending(blocker).reason,
+        reason: completionBlockerAccount(blocker).reason,
       })),
       pending_reasons: completed.blockers.map((blocker) =>
-        acceptancePending(blocker).reason
+        completionBlockerAccount(blocker).reason
       ),
     };
   }
@@ -143,7 +138,7 @@ export async function runCompleteGate<T extends CompletionGateResult>(
     gate.result.ok
   ) {
     const causes = completed.blockers.map((blocker) =>
-      acceptancePending(blocker).reason
+      completionBlockerAccount(blocker).reason
     );
     gate.result = {
       ...gate.result,
@@ -171,23 +166,19 @@ export async function runCompleteGate<T extends CompletionGateResult>(
 /** Keep distinct pending states attached to their next valid operation. */
 function completionNextAction(blocker: { readonly kind: string }): string {
   switch (blocker.kind) {
-    case "missing-authority":
-      return "Review the candidate with discern accept --dry-run and obtain a recorded grant covering that exact source before accepting.";
     case "stale-evidence":
-      return "The candidate or its predecessor changed. Run discern update when the source is behind trunk, then run discern done to establish complete current evidence.";
+      return "The source or the trunk changed. Run discern update when the branch is behind the trunk, then run discern done to establish complete current evidence.";
     case "missing-judgment":
-      return "Resolve the served checkpoint or composition judgment, then run discern done again.";
-    case "environment-unavailable":
-      return "Make an eligible declared execution environment available, or run discern update to bring the source to the current trunk before running discern done.";
-    case "recovery-incomplete":
-      return "Preserve the retained execution state and reconcile the reported recovery before any new validation or retirement.";
+      return "Resolve the served checkpoint judgment, then run discern done again.";
+    case "unavailable":
+      return "Resolve the reported condition, then run discern done again.";
     case "waiting-for-operation":
-      return "Allow the owning operation to return its environment, then retry the requested command.";
+      return "Allow the running operation on this checkout to finish, then retry the requested command.";
     case "report-only":
-      return "Run discern done in strict mode in every required context before acceptance.";
+      return "Run discern done without --ci before acceptance.";
     case "validation-failed":
       return "Resolve the failed validation; use discern done --rerun for a deliberate retry of the unchanged subject.";
     default:
-      return "Supply the missing or stale evidence in its declared execution context, then run discern done again.";
+      return "Supply the missing or stale evidence, then run discern done again.";
   }
 }

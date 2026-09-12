@@ -14,7 +14,6 @@
 import { isKnownJob, KNOWN_JOBS, STAGES } from "./config.ts";
 import {
   type CommandValue,
-  CompletionPolicySchema,
   CONFIG_DOC_BOUNDED_SECTION_SCHEMAS,
   CONFIG_DOC_VERSION,
   configDocRuntimeSchema,
@@ -56,8 +55,6 @@ export const CONFIG_DOC_FIELD_CONSUMERS = {
   generated: "config_fill",
   standards: "config_fill",
   checkpoints: "config_fill",
-  completion: "config_fill",
-  execution: "config_fill",
   setup: "config_fill",
   worktree: "config_fill",
 } as const;
@@ -192,7 +189,6 @@ export function configDocFillPaths(doc: DiscernConfigDoc): string[] {
       "scopes",
       "generated",
       "checkpoints",
-      "execution",
     ] as const
   ) {
     for (const [name, spec] of Object.entries(doc[section] ?? {})) {
@@ -205,11 +201,6 @@ export function configDocFillPaths(doc: DiscernConfigDoc): string[] {
       );
     }
   }
-  paths.push(
-    ...presentSchemaFields(doc.completion ?? {}, CompletionPolicySchema).map((
-      field,
-    ) => `completion.${field}`),
-  );
   for (const [name, spec] of Object.entries(doc.standards ?? {})) {
     paths.push(
       ...recordFillPaths(
@@ -568,29 +559,6 @@ export function applyConfigDoc(
       `standards.${name}`,
       { ...spec, metric: spec.metric ?? name },
       RECORD_ENTRY_SCHEMAS.standards,
-    );
-  }
-
-  for (const [name, spec] of Object.entries(doc.execution ?? {})) {
-    assertName("execution environment", name);
-    writeRecord(`execution.${name}`, spec, RECORD_ENTRY_SCHEMAS.execution);
-  }
-  for (
-    const field of presentSchemaFields(
-      doc.completion ?? {},
-      CompletionPolicySchema,
-    )
-  ) {
-    const path = `completion.${field}`;
-    write(
-      path,
-      editor.hasKey(path),
-      () =>
-        setConfigField(
-          editor,
-          path,
-          doc.completion?.[field as keyof typeof doc.completion],
-        ),
     );
   }
 

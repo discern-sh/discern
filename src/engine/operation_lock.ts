@@ -77,8 +77,6 @@ interface LockSpec {
   readonly path: string;
 }
 
-const locallyOwnedLeases = new WeakSet<OperationLockLease>();
-
 interface AcquiredLock {
   readonly file?: Deno.FsFile;
   readonly previousContents?: Uint8Array;
@@ -584,71 +582,18 @@ export async function observeCompletionCheckout(cwd: string): Promise<{
 
 interface CompletionCheckoutScope {
   readonly key: string;
-  readonly purpose: "execution" | "recovery";
   active: boolean;
 }
 const completionCheckoutScope = new AsyncLocalStorage<
   CompletionCheckoutScope
 >();
 
-/** A claim may enter execution only while its original checkout scope is retained. */
-export async function retainCompletionCheckout(
-  cwd: string,
-): Promise<() => void> {
-  const scope = completionCheckoutScope.getStore();
-  const specs = await resolveLockSpecs(cwd, "checkout");
-  if (scope === undefined || !scope.active || specs?.[0]?.key !== scope.key) {
-    throw new Error(
-      "Claim publication requires retained checkout ownership through execution and return.",
-    );
-  }
-  return () => {
-    if (
-      !scope.active || completionCheckoutScope.getStore()?.key !== scope.key
-    ) {
-      throw new Error(
-        "The claim's checkout scope ended. Use supported recovery before another execution.",
-      );
-    }
-  };
-}
-
-/** Native execution retains checkout exclusion and process-signal ownership
- * through child shutdown, source restoration and short state publications. */
+/** Native validation retains checkout exclusion and process-signal ownership
+ * through child shutdown and short state publications. The scope keeps its
+ * underlying OS lease until every owned effect settles. */
 export async function withCompletionCheckout<T>(
   cwd: string,
   operation: (signal: AbortSignal) => Promise<T>,
-  externalSignal?: AbortSignal,
-): Promise<T> {
-  return await withCheckoutScope(
-    cwd,
-    operation,
-    completionCheckoutScope.getStore()?.purpose ?? "execution",
-    externalSignal,
-  );
-}
-
-/** Recovery cannot borrow a live parent's lease or interrupt its active execution scope. */
-export async function withCompletionRecovery<T>(
-  cwd: string,
-  operation: (signal: AbortSignal) => Promise<T>,
-): Promise<T> {
-  const parent = completionCheckoutScope.getStore();
-  if (
-    parent !== undefined && (parent.purpose !== "recovery" || !parent.active)
-  ) {
-    throw new Error(
-      "Recovery cannot take over an active or ended execution scope. Finish the owning command, then run recovery as a separate operation.",
-    );
-  }
-  return await withCheckoutScope(cwd, operation, "recovery");
-}
-
-/** Native lifetime scopes retain their underlying OS lease until every owned effect settles. */
-async function withCheckoutScope<T>(
-  cwd: string,
-  operation: (signal: AbortSignal) => Promise<T>,
-  purpose: CompletionCheckoutScope["purpose"],
   externalSignal?: AbortSignal,
 ): Promise<T> {
   return await withTrackedRun(
@@ -665,9 +610,8 @@ async function withCheckoutScope<T>(
           throw new Error("Completion checkout exclusion was not acquired.");
         }
         // A setup probe holds two checkout leases: its parent's and the
-        // probe's. The scope binds the lease for exactly this directory, so
-        // retained ownership and recovery checks compare against the checkout
-        // in use; another held checkout lease is never a substitute.
+        // probe's. The scope binds the lease for exactly this directory;
+        // another held checkout lease is never a substitute.
         const own = (await resolveLockSpecs(cwd, "checkout"))?.find((spec) =>
           spec.boundary === "checkout"
         );
@@ -681,12 +625,7 @@ async function withCheckoutScope<T>(
             "Completion checkout lease for this directory is unavailable.",
           );
         }
-        if (purpose === "recovery" && !locallyOwnedLeases.has(checkout)) {
-          throw new Error(
-            "Recovery cannot use a delegated checkout lease while its owner is active. Let the owning operation finish, then retry recovery from a separate command.",
-          );
-        }
-        const scope = { key: checkout.key, purpose, active: true };
+        const scope = { key: checkout.key, active: true };
         try {
           return await completionCheckoutScope.run(scope, () =>
             runWithOperationLocks(
@@ -842,7 +781,6 @@ async function withPolicyLock<T>(
       );
       acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);
-      if (acquired.file !== undefined) locallyOwnedLeases.add(acquired.lease);
     }
     // Newly held exclusion rechecks administration. Short publications may
     // verify the routing witness; other operations require fresh Git.
@@ -870,9 +808,6 @@ async function withPolicyLock<T>(
       return await operation(commonGitDirectory);
     });
   } finally {
-    for (const acquired of acquiredLocks) {
-      locallyOwnedLeases.delete(acquired.lease);
-    }
     await releaseLocks(acquiredLocks);
   }
 }

@@ -11,7 +11,6 @@ export {
   resolveHintTextsForSurface,
   resolveResultHintsForSurface,
 } from "./hint_projection.ts";
-import { executionRecoveryHint } from "./execution_recovery.ts";
 /**
  * The hint registry — the single module defining every advisory hint the
  * engine and installer can emit into a result's `hints[]` channel (ADR 0172).
@@ -1017,23 +1016,6 @@ export const HINTS = {
   /** Every validation slot is occupied while queued efforts wait — the one
    * capacity sentence status carries, naming the binding setting and who
    * holds the slots. */
-  "status-queue-capacity-saturated": defineHint<{
-    limit: number;
-    holders: readonly string[];
-  }>({
-    id: "status-queue-capacity-saturated",
-    category: "notice",
-    audience: "all",
-    when:
-      "Every completion.concurrency validation slot is in use while queued efforts wait.",
-    example: { limit: 2, holders: ["agent/first", "agent/second"] },
-    template: ({ limit, holders }): string =>
-      `Every validation slot is in use${
-        holders.length === 0 ? "" : `, held by ${holders.join(" and ")}`
-      } (completion.concurrency = ${limit}). Queued efforts wait until a ` +
-      `running validation finishes or returns its slot.`,
-  }),
-
   /** The fleet-wide collision check the survey-the-fleet skill once carried:
    * pairs of efforts whose fork diffs touch the same paths (ADR 0173). */
   "status-fleet-collisions": defineHint<{
@@ -1963,15 +1945,6 @@ export const HINTS = {
       `not read the trunk (${reason}).`,
   }),
 
-  "execution-recovery": defineHint<{ id: string }>({
-    id: "execution-recovery",
-    category: "next-step",
-    audience: "all",
-    when: "A recorded execution environment has not returned to its owner.",
-    example: { id: "00000000-0000-4000-8000-000000000001" },
-    template: executionRecoveryHint,
-  }),
-
   "emergency-outstanding": defineHint<{ commit: string }>({
     id: "emergency-outstanding",
     category: "notice",
@@ -1979,7 +1952,7 @@ export const HINTS = {
     when: "An integrated emergency has no later complete validation receipt.",
     example: { commit: "0123abcd4567" },
     template: ({ commit }): string =>
-      `The emergency landing at ${commit} still has its skipped checks outstanding. Run discern done --rerun on the trunk, or on a change that contains it, in every required context; the emergency record stays in the history.`,
+      `The emergency landing at ${commit} still has its skipped checks outstanding. Run discern done --rerun on the trunk, or on a change that contains it; the emergency record stays in the history.`,
   }),
 
   "completion-uncommitted": defineHint({
@@ -2001,8 +1974,7 @@ export const HINTS = {
     id: "completion-pending",
     category: "next-step",
     audience: "all",
-    when:
-      "Complete candidate validation or its execution environment has a pending obligation.",
+    when: "Complete candidate validation has a pending obligation.",
     example: {
       action:
         "Resolve the failed validation, then use discern done --rerun to request a new attempt.",
@@ -2041,30 +2013,6 @@ export const HINTS = {
   }),
 
   /** A declared setting that is inert must say so on the daily surfaces. */
-  "completion-early-validation-inert": defineHint<{
-    lookahead: number;
-    /** Why early checking cannot run, as one clause without a full stop. */
-    because: string;
-    /** The route that turns it on; undefined means proving the declaration. */
-    route: string | undefined;
-  }>({
-    id: "completion-early-validation-inert",
-    category: "notice",
-    audience: "all",
-    when:
-      "`[completion].lookahead` asks for early checking, but the declared environment is unproven, undeclared, or has no spare slot, so efforts are checked in order.",
-    example: {
-      lookahead: 1,
-      because:
-        "the environment declared for `local` has not been proven since it was declared or changed",
-      route: undefined,
-    },
-    template: ({ lookahead, because, route }): string =>
-      `Early checking is off: \`completion.lookahead = ${lookahead}\` asks to check efforts early, but ${because}. Efforts are checked and land in order. ${
-        route ?? `Run ${CMD.setupDone} from a clean committed tree to prove it`
-      }, or set \`completion.lookahead\` to 0.`,
-  }),
-
   "gate-proof-head-moved": defineHint<{ reason: string | undefined }>({
     id: "gate-proof-head-moved",
     category: "next-step",
@@ -3228,8 +3176,8 @@ export const HINTS = {
 
   /** Recovery after an irreversible acceptance step follows the recorded state,
    * never a blind retry. */
-  "accept-reconcile-partial-effects": defineHint({
-    id: "accept-reconcile-partial-effects",
+  "accept-recover-partial-effects": defineHint({
+    id: "accept-recover-partial-effects",
     category: "next-step",
     audience: "all",
     when: "Acceptance stops after at least one irreversible effect.",

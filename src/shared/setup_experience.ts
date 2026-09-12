@@ -1048,19 +1048,19 @@ export const SETUP_HUMAN_MOMENTS = [
     purpose:
       "Explain how the project's checks will be reused and coordinated once several efforts run at once.",
     owner_outcome:
-      "The owner knows which evidence is produced again for every commit and which is reused, how many efforts can validate at the same time, and whether efforts can be validated before their predecessors land.",
+      "The owner knows which evidence is produced again for every commit and which is reused, how many whole test suites can run at the same time, and that every task is proven at its own commit and lands in order.",
     why:
-      "Coordination settings look like performance knobs but change what is verified and when. An owner who understands the default (validate and land in order) can judge whether early validation is worth its preparation, restore, and discarded-work cost for this project.",
+      "Coordination settings look like performance knobs but change what is verified and when. An owner who understands that tasks are proven at their own commits and land in order can judge the cost of parallel work for this project.",
     current_action:
-      "State the evidence-reuse facts, the number of simultaneous validations and the setting that limits it, and whether early validation is on; when it stays off, say why in one sentence.",
+      "State the evidence-reuse facts and the number of simultaneous whole-suite test runs with the setting that limits it.",
     authority:
-      "Setup configures reuse and ordering from repository evidence. Declaring an environment that spends money, shares durable state, or destroys data is the owner's decision.",
+      "Setup configures reuse and the test-run cap from repository evidence.",
     reversibility:
-      "Every coordination setting is a reviewable line in discern.toml on the setup branch; lowering lookahead to 0 always returns to ordering-only behavior.",
+      "Every coordination setting is a reviewable line in discern.toml on the setup branch; the test-run cap can change at any time.",
     recovery:
-      "When the environment cannot be declared safely, leave lookahead at 0 and record the unmet declaration as one concrete open item.",
+      "When the right cap is unclear, keep the default and record the open question as one concrete item.",
     recommendation:
-      "Keep ordering-only coordination until the project has a restore procedure setup can prove; enable early validation only after that proof.",
+      "Keep the default test-run cap until measured contention shows a better number.",
     agent_behavior: {
       before_owner_action: "proceed",
       after_owner_action:
@@ -1069,9 +1069,9 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "Here is how discern will run your checks when several tasks are in flight. Evidence for <candidate-bound producers> is produced again for every commit; evidence for <declared producers> is reused when nothing it reads has changed. Up to <count> tasks can validate at the same time, limited by <setting>. Early validation of a task before the one ahead of it lands is <on or off>: <reason in plain words>.",
+        "Here is how discern will run your checks when several tasks are in flight. Evidence for <candidate-bound producers> is produced again for every commit; evidence for <declared producers> is reused when nothing it reads has changed. Up to <count> whole test suites can run at the same time, limited by <setting>. Each task is checked against its own commit and lands in turn.",
       experienced:
-        "Reuse: <declared producers> declare closures; <candidate-bound producers> stay candidate-bound. Concurrency: <count> simultaneous validations, bound by <setting>. Speculation: <on or off> because <reason>.",
+        "Reuse: <declared producers> declare closures; <candidate-bound producers> stay candidate-bound. Concurrency: <count> simultaneous test runs, bound by <setting>. Tasks are proven at their own commits and land in order.",
     },
   },
   {

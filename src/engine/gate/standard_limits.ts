@@ -112,10 +112,6 @@ export const STANDARD_DEFINITION_POLICIES = {
     kind: "enforcement-meaning",
     reason: "defines applicable runtime identity",
   },
-  contexts: {
-    kind: "enforcement-meaning",
-    reason: "defines required execution lanes",
-  },
   timeout: {
     kind: "execution-or-pinning",
     reason:
@@ -172,7 +168,6 @@ function normalizeBranchStandard(
     artifacts: spec.artifacts ?? [],
     environment: spec.environment ?? [],
     toolchain: spec.toolchain ?? [],
-    contexts: spec.contexts,
     inputs: spec.inputs === undefined ? undefined : [...spec.inputs],
     timeout: spec.timeout,
   } satisfies NormalizedStandardConfig;
@@ -205,7 +200,6 @@ export async function standardDefinitionFingerprint(
     artifacts: normalized.artifacts,
     environment: normalized.environment,
     toolchain: normalized.toolchain,
-    contexts: normalized.contexts,
     inputs: normalized.inputs,
     timeout: normalized.timeout,
   };
@@ -277,9 +271,6 @@ function normalizeTrunkStandard(
     artifacts: config.array(`${prefix}.artifacts`),
     environment: config.array(`${prefix}.environment`),
     toolchain: config.array(`${prefix}.toolchain`),
-    contexts: config.has(`${prefix}.contexts`)
-      ? config.array(`${prefix}.contexts`)
-      : undefined,
     inputs: config.has(inputsKey) ? config.array(inputsKey) : undefined,
     timeout: rawNumber(config, `${prefix}.timeout`, undefined),
   } satisfies NormalizedStandardConfig;
@@ -303,7 +294,6 @@ function effectiveStandardDefinition(
       ),
       producer: producer.inputs,
     },
-    contexts: spec.contexts ?? config.completion.required_contexts,
   };
 }
 
@@ -314,9 +304,7 @@ function retainsDefinitionField(
   after: unknown,
 ): boolean {
   if (sameNormalizedValue(before, after)) return true;
-  if (
-    field === "environment" || field === "toolchain" || field === "contexts"
-  ) {
+  if (field === "environment" || field === "toolchain") {
     return Array.isArray(before) && Array.isArray(after) &&
       retainsFacts(before, after);
   }
@@ -344,56 +332,6 @@ function retainsDefinitionField(
     );
   }
   return false;
-}
-
-/** A branch cannot remove a required context or relax an existing return contract. */
-function completionPolicyChanges(
-  before: DiscernConfig,
-  after: DiscernConfig,
-): string[] {
-  const changes: string[] = [];
-  if (
-    !retainsFacts(
-      before.completion.required_contexts,
-      after.completion.required_contexts,
-    )
-  ) {
-    changes.push("completion.required_contexts");
-  }
-  for (const [name, declaration] of Object.entries(before.execution)) {
-    const current = after.execution[name];
-    if (current === undefined) {
-      changes.push(`execution.${name}`);
-      continue;
-    }
-    const { capacity: oldCapacity, ...oldContract } = declaration;
-    const { capacity: newCapacity, ...newContract } = current;
-    void oldCapacity;
-    void newCapacity;
-    if (!sameNormalizedValue(oldContract, newContract)) {
-      changes.push(`execution.${name}`);
-    }
-  }
-  for (const family of ["jobs", "scopes"] as const) {
-    for (const [name, oldValue] of Object.entries(before[family])) {
-      const nextValue = after[family][name];
-      const contexts = (
-        value: unknown,
-        cfg: DiscernConfig,
-      ): readonly string[] =>
-        typeof value === "object" && value !== null && "contexts" in value &&
-          Array.isArray(value.contexts)
-          ? value.contexts
-          : cfg.completion.required_contexts;
-      if (
-        nextValue !== undefined &&
-        !retainsFacts(contexts(oldValue, before), contexts(nextValue, after))
-      ) {
-        changes.push(`${family}.${name}.contexts`);
-      }
-    }
-  }
-  return changes;
 }
 
 interface StandardDefinitionChange {
@@ -472,7 +410,14 @@ export type TrunkConfigRead =
   }
   | { kind: "absent"; commit: string }
   | { kind: "unreadable"; reason: string }
-  | { kind: "parse_failed"; reason: string; commit: string; path: string };
+  | {
+    kind: "parse_failed";
+    reason: string;
+    /** The committed bytes, retained so identity readers can still digest them. */
+    text: string;
+    commit: string;
+    path: string;
+  };
 
 /**
  * Read the trunk's committed config raw (it may be older or un-migrated, so it
@@ -513,6 +458,7 @@ export async function readTrunkConfig(
     } catch (error) {
       return {
         kind: "parse_failed",
+        text: out.stdout,
         commit,
         path: rel,
         reason: `the trunk's ${rel} does not parse: ${
@@ -626,27 +572,15 @@ export async function verifyTrunkLimits(
     trunk: await protectedStandardProducers(parsedTrunk),
     branch: await protectedStandardProducers(branch),
   };
-  if (parsedTrunk !== undefined) {
-    for (const field of completionPolicyChanges(parsedTrunk, branch)) {
-      diagnostics.push({
-        tool: "standards",
-        severity: "error",
-        message:
-          `${field} weakens or changes protected completion policy versus ${mainBranch}. ${REDEFINITION_NEXT_STEP}`,
-        reproduce_cmd: "discern standards --dry-run",
-      });
-    }
-  } else if (
-    Object.keys(branch.execution).length > 0 ||
-    trunk.config.subsections("execution").length > 0 ||
-    trunk.config.has("completion.required_contexts") ||
+  if (
+    parsedTrunk === undefined &&
     standards.some((standard) => standard.spec.producer !== undefined)
   ) {
     diagnostics.push({
       tool: "standards",
       severity: "error",
       message:
-        "The committed producer or completion policy cannot be resolved; restore valid governing configuration before validation.",
+        "The committed producer configuration cannot be resolved; restore valid governing configuration before validation.",
       reproduce_cmd: `git show ${mainBranch}:./discern.toml`,
     });
   }

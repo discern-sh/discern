@@ -1,7 +1,6 @@
 /**
- * A behind-trunk source without a declared composition environment stops before
- * expensive producers. The same current source runs normally. An eligible
- * released environment is exercised by the public prefix composition tests.
+ * A behind-trunk source stops before expensive producers with the update
+ * route. The same current source runs normally.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -55,7 +54,7 @@ async function worktreeBehindMain(dir: string, name: string): Promise<string> {
   return wt;
 }
 
-Deno.test("done behind trunk without a composition environment stops before the capability", async () => {
+Deno.test("done behind trunk stops before the capability", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeBehindMain(dir, "behind");
 
@@ -75,14 +74,21 @@ Deno.test("done behind trunk without a composition environment stops before the 
     assertEquals(json.code, 1, json.output);
     const result = decodeCliResult(json.stdout, "done");
     assertHasHint(result, HINTS["completion-pending"], {
-      action:
-        "Make an eligible declared execution environment available, or run discern update to bring the source to the current trunk before running discern done.",
+      action: "Resolve the reported condition, then run discern done again.",
     });
+    assert(
+      (result.data !== undefined && "completion" in result.data
+        ? result.data.completion?.pending_reasons ?? []
+        : []).some((reason) =>
+          reason.includes("Run discern update, then discern done")
+        ),
+      json.output,
+    );
     assertTerminalTextIncludes(r.output, "discern update");
   });
 });
 
-Deno.test("done --json behind trunk reports unavailable composition environment without running jobs", async () => {
+Deno.test("done --json behind trunk reports the behind-trunk refusal without running jobs", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeBehindMain(dir, "behindjson");
 
@@ -95,12 +101,10 @@ Deno.test("done --json behind trunk reports unavailable composition environment 
     assertEquals(obj.data.failed_stage, null);
     assertResultDataKey(obj, "completion");
     assert(
-      obj.data.completion?.pending?.some((item) =>
-        item.kind === "environment-unavailable"
-      ),
+      obj.data.completion?.pending?.some((item) => item.kind === "unavailable"),
     );
     assertEquals(obj.data.producer_executions, {});
-    // No producer demand was installed before the environment refusal.
+    // No producer demand was installed before the behind-trunk refusal.
     assertEquals(obj.data.gate_ran, false);
     assert(
       (obj.steps ?? []).every((s: { outcome: string }) =>

@@ -1,6 +1,6 @@
 # ADR 0376: Active commands advance an authorized landing queue
 
-**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Extends [ADR 0374](0374-complete-proof-is-independent-of-measurement-scheduling.md) and [ADR 0375](0375-source-authority-survives-declared-composition.md). Amends the transaction scope of [ADR 0366](0366-landing-is-one-exact-repository-transaction.md).
+**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Extends [ADR 0374](0374-complete-proof-is-independent-of-measurement-scheduling.md) and [ADR 0375](0375-source-authority-survives-declared-composition.md). Amends the transaction scope of [ADR 0366](0366-landing-is-one-exact-repository-transaction.md). Amended by [ADR 0389](0389-the-workspace-contract.md) on 2026-09-12: the queue is now a derived view over submissions; provisional positions, queue controls, and reconciliation are gone; an active `accept` still advances approved proven work.
 
 ## Context
 
@@ -18,7 +18,7 @@ Active effectful commands perform queue work. A brief common-state lock claims o
 
 An active `accept` can advance current, proven, separately authorized predecessors before its requested effort. It may refresh stale evidence in an eligible execution environment. Missing judgment, missing authority, and unavailable execution environments are distinct pending states. No actor means no progress. Read-only status never starts work.
 
-Ordered coordination is the default. Speculation requires an eligible environment under [ADR 0377](0377-execution-environments-declare-reuse-and-recovery.md). Without one, work follows the ordinary forward update and validation path when trunk moves. Temporary checkout of a changed candidate still needs the environment contract, even when the predecessor has already landed.
+Ordered coordination is the default. Speculation requires an eligible environment under [ADR 0377](_superseded/0377-execution-environments-declare-reuse-and-recovery.md). Without one, work follows the ordinary forward update and validation path when trunk moves. Temporary checkout of a changed candidate still needs the environment contract, even when the predecessor has already landed.
 
 Concurrency and speculative depth bound compute. Queue length is not the compute budget. Approved head work receives priority. A changed dependency invalidates affected candidates; an unrelated queue revision does not invalidate every Proof.
 

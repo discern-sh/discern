@@ -543,7 +543,6 @@ Deno.test("every hosted full gate declares its report scope and fetched policy b
         const flag of [
           "--ci",
           "--standalone",
-          "--context local",
           "--policy-base refs/discern/ci-policy-base",
         ]
       ) assertStringIncludes(run, flag, `${document.path}:${path}`);

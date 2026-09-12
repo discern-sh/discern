@@ -1,6 +1,3 @@
-import { project as completionProject } from "./completion_public_fixture.ts";
-import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
-import { SYSTEM_CLOCK, wallTimeIso } from "../src/shared/clock.ts";
 /**
  * Black-box coverage for `done`'s human presentation boundary. A real
  * pseudo-terminal gets the live compact table and proof panel; a pipe keeps
@@ -16,7 +13,6 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import {
-  git,
   gitInit,
   runAgent,
   runAgentPty,
@@ -41,7 +37,6 @@ import { CAPTURE_CAP } from "../src/shared/result.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
 import { shellBarrier } from "./shell_barrier.ts";
-import { quoteCommandWord } from "../src/shared/command_evidence.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const REPAINT = `${CSI}1G`;
@@ -304,79 +299,6 @@ realPtyTest({
       assert((diagnostic.output?.length ?? 0) <= CAPTURE_CAP);
       assertEquals(diagnostic.output?.includes("\x1b"), false);
       assertEquals(diagnostic.output?.includes("\r"), false);
-    });
-  },
-});
-
-realPtyTest({
-  name:
-    "accept shows live producer progress while refreshing a stale candidate in a released environment",
-  contracts: ["control-rendering", "terminal-modes", "platform-transport"],
-  canary: true,
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    await withTempDir(async (base) => {
-      const root = join(base, "project");
-      await Deno.mkdir(root);
-      const barrierPath = join(base, "acknowledgement.fifo");
-      const quotedBarrier = quoteCommandWord(barrierPath);
-      const worktree = await completionProject(
-        root,
-        ["local"],
-        `
-[execution.local]
-kind = 'borrowed'
-capacity = 1
-reusable = true
-inputs = ['discern.toml']
-ignored = ['executions']
-resources = []
-prepare = 'true'
-restore = 'true'
-`,
-        `printf t >> executions; printf 'refresh-visible\r'; if test -p ${quotedBarrier}; then IFS= read -r acknowledgement < ${quotedBarrier}; fi; printf 'refresh-finished\nDISCERN_METRIC coverage 93\n'`,
-      );
-      const done = await runAgent(worktree, ["done", "--json"]);
-      assertEquals(done.code, 0, done.output);
-      await grantEffort(
-        worktree,
-        "agent/public-done",
-        wallTimeIso(SYSTEM_CLOCK.wallNow()),
-      );
-      await Deno.writeTextFile(
-        join(root, "predecessor.txt"),
-        "trunk advanced\n",
-      );
-      await git(root, "add", "predecessor.txt");
-      await git(root, "commit", "-m", "Advance the predecessor");
-      using barrier = await shellBarrier(barrierPath);
-      const accepted = await runAgentPtyJourney(root, ["accept"], {
-        geometry: { columns: 100, rows: 24 },
-        env: { NO_COLOR: "1", CI: "false" },
-        input: [{
-          waitFor: "refresh-visible",
-          capture: {
-            name: "validating",
-            when: ptyOutputContains(["test started", "refresh-visible"]),
-          },
-          steps: [{ effect: barrier.release }],
-        }],
-      });
-      assertEquals(accepted.code, 0, accepted.transcript);
-      const frame = accepted.keyframes.validating ?? "";
-      assertStringIncludes(frame, HIDE_CURSOR);
-      assertTerminalTextIncludes(frame, "test started");
-      assertTerminalTextIncludes(frame, "refresh-visible");
-      assertStringIncludes(accepted.stdout, SHOW_CURSOR);
-      assertTerminalTextIncludes(
-        accepted.transcript,
-        "landed. Its checkout was removed",
-      );
-      assertEquals(await Deno.readTextFile(join(root, "source")), "authored\n");
-      assertEquals(
-        await Deno.readTextFile(join(root, "predecessor.txt")),
-        "trunk advanced\n",
-      );
     });
   },
 });

@@ -87,6 +87,12 @@ export const BOUNDARIES = [
         path: "tests/engine_checkpoints_accept_test.ts",
         summary: "rejects grants and incomplete decisions for variances",
       },
+      {
+        kind: "guard",
+        path: "tests/engine_accept_supersession_test.ts",
+        summary:
+          "proves recorded grants cover only the submitted revision and never a superseded green",
+      },
     ],
     refusals: [{
       order: 1,
@@ -466,6 +472,12 @@ export const BOUNDARIES = [
         kind: "guard",
         path: "tests/engine_accept_gate_test.ts",
         summary: "exercises local acceptance",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_accept_supersession_test.ts",
+        summary:
+          "proves a superseded green cannot land until a deliberate rerun passes",
       },
     ],
     refusals: [{

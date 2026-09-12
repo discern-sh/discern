@@ -16,8 +16,6 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join } from "@std/path";
-import { finishResult } from "../src/engine/gate/finish.ts";
 import {
   AWAITING_DECLARATION_SLUG,
   AWAITING_VARIANCE_SLUG,
@@ -26,9 +24,7 @@ import {
   type DeclarationSurface,
   VARIANCE_GATED_ACCEPTANCE,
 } from "../src/shared/declarations.ts";
-import { targetExists } from "../src/shared/fs_presence.ts";
 import { ERROR_SLUGS } from "../src/shared/result.ts";
-import { TEST_CLI_MODEL } from "./cli_model.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import {
   checkpointedWorktree,
@@ -43,7 +39,7 @@ import {
   type SurfaceObservation,
   terminalSurface,
 } from "./engine_checkpoints_surfaces.ts";
-import { git, gitOut, runAgent } from "./engine_helpers.ts";
+import { gitOut, runAgent } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 /** The meaning every declared surface must carry without paraphrase: the
@@ -82,51 +78,6 @@ const PROBES = {
         // Markdown and terminal are prose surfaces: the machine slug rides
         // json/mcp, while these must refuse with the same complete serving.
         markdown: markdownSurface(json, env, "done"),
-        terminal: terminalSurface(terminal, AWAITING_DECLARATION_SLUG),
-        mcp: mcpSurface(mcp),
-      },
-    };
-  },
-  accept: async (dir: string): Promise<DeclarationProbeResult> => {
-    const wt = await checkpointedWorktree(dir);
-    // Reach the accept-side precondition through the done core: a recorded
-    // conclusion staled by a further committed revision to the matched path.
-    const served = await finishResult(wt, {
-      surface: { kind: "quiet" },
-      cliModel: TEST_CLI_MODEL,
-    });
-    assertEquals(served.error, AWAITING_DECLARATION_SLUG);
-    const met = await finishResult(wt, {
-      surface: { kind: "quiet" },
-      cliModel: TEST_CLI_MODEL,
-      met: ["api-review"],
-    });
-    assert(met.ok, JSON.stringify(met));
-    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint v2\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "revise the api", "--no-gpg-sign");
-    const stale = await finishResult(wt, {
-      surface: { kind: "quiet" },
-      cliModel: TEST_CLI_MODEL,
-    });
-    assertEquals(stale.error, AWAITING_DECLARATION_SLUG);
-
-    const json = await runAgent(wt, ["accept", "--json"]);
-    const env = decodeCliResult(json.stdout, "accept");
-    const terminal = await runAgent(wt, ["accept"]);
-    const mcp = await runMcp("discern_accept", wt, {});
-    const mutated = (await targetExists(join(dir, "api"))) ||
-      !(await targetExists(wt));
-    return {
-      mutated,
-      meaning: [
-        "api-review",
-        "discern done",
-        "not landed",
-      ],
-      surfaces: {
-        json: jsonSurface(json, env),
-        markdown: markdownSurface(json, env, "accept"),
         terminal: terminalSurface(terminal, AWAITING_DECLARATION_SLUG),
         mcp: mcpSurface(mcp),
       },

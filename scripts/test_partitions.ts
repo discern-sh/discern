@@ -1,6 +1,7 @@
 /** Native test partitions remain one awaited suite and one complete report. */
 import { join } from "@std/path";
 import { commandEvidence } from "../src/shared/command_evidence.ts";
+import { fileExists } from "../src/shared/fs_presence.ts";
 import { cksumString } from "../src/shared/crc.ts";
 import type { EnvReader } from "../src/shared/env.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
@@ -415,6 +416,33 @@ export function partitionSelections(
   };
 }
 
+/**
+ * Admit only priority files present on disk. Hints are advisory: a path the
+ * partitions cannot load (deleted after discovery, or a defective hint
+ * source) would fail its whole partition child on a module-graph error while
+ * the shard `--ignore` list still withheld it from native selection, so none
+ * of the files grouped with it would run anywhere. Dropping the path from
+ * both the priority groups and the ignore list (they share this array)
+ * returns it to native discovery, which simply does not find an absent file —
+ * a missing-file hint must never fail the run.
+ */
+async function admittedPriority(
+  priority: TestPriority,
+  cwd: string = Deno.cwd(),
+): Promise<TestPriority> {
+  const present = await Promise.all(
+    priority.files.map((file) => fileExists(join(cwd, file))),
+  );
+  const files = priority.files.filter((_, index) => present[index] === true);
+  if (files.length === priority.files.length) return priority;
+  console.error(
+    `Test priority: ${
+      priority.files.length - files.length
+    } missing files dropped from priority hints; native selection stays authoritative.`,
+  );
+  return { ...priority, files };
+}
+
 /** Refill bounded native process slots and settle every active child on failure. */
 async function runPartitionChildren(
   args: readonly string[],
@@ -552,7 +580,12 @@ export async function runTestPartitions(
         ? await options.priority?.(signal)
         : undefined;
       if (signal.aborted) return { code: 1 };
-      const allocation = partitionSelections(count, options.seed, priority);
+      const admitted = priority === undefined
+        ? undefined
+        : options.cwd === undefined
+        ? await admittedPriority(priority)
+        : await admittedPriority(priority, options.cwd);
+      const allocation = partitionSelections(count, options.seed, admitted);
       const partitionCount = count;
       const reports = Array.from(
         { length: partitionCount },

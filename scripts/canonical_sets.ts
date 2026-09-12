@@ -3431,6 +3431,31 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         ),
   },
   {
+    id: "checkout-mutation-surfaces",
+    title: "Checkout-mutation boundaries",
+    what:
+      "Every authored Git invocation that installs a revision or replaces a checkout's index or working tree, with its exact path, enclosing function, command, workspace-contract allowance, and reason.",
+    source: {
+      kind: "module",
+      module: "tests/checkout_mutation_surfaces.ts",
+      exportName: "CHECKOUT_MUTATION_BOUNDARIES",
+    },
+    guards: ["tests/checkout_mutation_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the workspace contract is a decision record and a guard, not a reader-facing term",
+      },
+      featureCanon: { nodeId: "worktrees" },
+    },
+    members: async () =>
+      (await import("../tests/checkout_mutation_surfaces.ts"))
+        .CHECKOUT_MUTATION_BOUNDARIES.map((entry) =>
+          `${entry.path}#${entry.enclosingFunction}#${entry.command}`
+        ),
+  },
+  {
     id: "process-output-boundaries",
     title: "Process output boundaries",
     what:
@@ -4041,14 +4066,12 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/operation_lock_sync_guard_test.ts":
+    "pins the operation lock's no-fsync acquisition and release — exclusion comes from the OS handle — rather than guarding a closed member set",
   "tests/progress_surface_parity_test.ts":
     "proves that the terminal, MCP notifications, the operation journal, and nested presenters present one completion fact stream identically rather than guarding a closed member set",
   "tests/test_registration_guard_test.ts":
     "rejects execution-time imports of test-registration modules across authored Deno sources rather than guarding a closed member set",
-  "tests/completion_publication_cost_guard_test.ts":
-    "checks the process-observation and recovery-publication durability boundary behaviorally rather than guarding a closed member set",
-  "tests/execution_child_inventory_cost_guard_test.ts":
-    "checks that one child inventory resolves artifact storage once, independent of receipt count, rather than guarding a closed member set",
   "tests/test_elapsed_guard_test.ts":
     "applies timer-ownership review across authored test duration measurements rather than guarding a closed member set",
   "tests/module_loading_guard_test.ts":

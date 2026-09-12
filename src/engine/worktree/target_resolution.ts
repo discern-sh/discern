@@ -204,11 +204,9 @@ export async function conventionalBranchForWorktreeId(
 }
 
 /**
- * The registered checkout that durably belongs to `branch`, including a
- * managed checkout temporarily detached from it — candidate installation
- * detaches HEAD while the effort's identity keeps naming its branch. Returns
- * undefined when no registration matches; a detached checkout whose durable
- * identity names another branch never matches.
+ * The registered checkout that durably belongs to `branch`. Returns undefined
+ * when no registration matches; a detached checkout whose durable identity
+ * names another branch never matches.
  */
 export async function worktreePathForEffortBranch(
   root: string,

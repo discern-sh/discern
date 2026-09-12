@@ -33,7 +33,6 @@ import { gitOperationMarkerPath } from "../../shared/git_admin_paths.ts";
 import {
   ACCEPTANCE_TRANSACTION_MARKER_PREFIX,
   acceptanceReflogMessage,
-  COMPLETION_LANDING_MARKER_PREFIX,
 } from "../../shared/git_conventions.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import {
@@ -67,6 +66,11 @@ import {
   type WorktreeSide,
 } from "./side_restrictions.ts";
 import { recordRetiredWorktreePath } from "./retired_paths.ts";
+import {
+  applyOrphanedLandedBranches,
+  type OrphanedLandedBranch,
+  scanOrphanedLandedBranches,
+} from "./landed_branches.ts";
 import {
   type IdentitySettings,
   worktreeIdFromGitKey,
@@ -523,12 +527,6 @@ export interface CheckedOutFastForwardOptions {
   readonly transactionId?: string;
   /** Worktree whose per-worktree marker ref joins the trunk ref transaction. */
   readonly transactionCwd?: string;
-  /** Common markers and exact source/candidate checks are retained by queue landing. */
-  readonly commonMarker?: boolean;
-  readonly verifyRefs?: readonly {
-    readonly ref: string;
-    readonly head: string;
-  }[];
 }
 
 export type AcceptanceTransactionMarkerRead =
@@ -539,24 +537,16 @@ export type AcceptanceTransactionMarkerRead =
 export { ACCEPTANCE_TRANSACTION_MARKER_PREFIX };
 
 /** Derive the per-worktree proof ref coupled to one acceptance transaction. */
-export function acceptanceTransactionMarkerRef(
-  transactionId: string,
-  common = false,
-): string {
-  return `${
-    common
-      ? COMPLETION_LANDING_MARKER_PREFIX
-      : ACCEPTANCE_TRANSACTION_MARKER_PREFIX
-  }/${transactionId}`;
+export function acceptanceTransactionMarkerRef(transactionId: string): string {
+  return `${ACCEPTANCE_TRANSACTION_MARKER_PREFIX}/${transactionId}`;
 }
 
 /** Read the per-worktree ref proving an acceptance CAS committed. */
 export async function readAcceptanceTransactionMarker(
   cwd: string,
   transactionId: string,
-  common = false,
 ): Promise<AcceptanceTransactionMarkerRead> {
-  const marker = acceptanceTransactionMarkerRef(transactionId, common);
+  const marker = acceptanceTransactionMarkerRef(transactionId);
   const exists = await git(["show-ref", "--verify", "--quiet", marker], cwd);
   if (exists.code === 1) {
     return { kind: "missing" };
@@ -678,10 +668,7 @@ function rollbackCheckedOutBranchRef(
     [
       `update ${ref} ${expected} ${target}`,
       `delete ${
-        acceptanceTransactionMarkerRef(
-          options.transactionId,
-          options.commonMarker,
-        )
+        acceptanceTransactionMarkerRef(options.transactionId)
       } ${target}`,
     ],
   );
@@ -794,17 +781,6 @@ export async function fastForwardCheckedOutBranch(
   target: string,
   options: CheckedOutFastForwardOptions = {},
 ): Promise<CheckedOutFastForwardResult> {
-  for (const item of options.verifyRefs ?? []) {
-    if (
-      !item.ref.startsWith("refs/") || /[\s~^:?*\[\\]/u.test(item.ref) ||
-      !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(item.head)
-    ) {
-      return {
-        kind: "moved",
-        detail: "A source ref assertion is not canonical.",
-      };
-    }
-  }
   const ancestor = await git(
     ["merge-base", "--is-ancestor", expected, target],
     cwd,
@@ -866,15 +842,9 @@ export async function fastForwardCheckedOutBranch(
       options.transactionCwd ?? cwd,
       updateMessage,
       [
-        ...(options.verifyRefs ?? []).map(({ ref, head }) =>
-          `verify ${ref} ${head}`
-        ),
         `update ${ref} ${target} ${expected}`,
         `create ${
-          acceptanceTransactionMarkerRef(
-            options.transactionId,
-            options.commonMarker,
-          )
+          acceptanceTransactionMarkerRef(options.transactionId)
         } ${target}`,
       ],
     );
@@ -1237,12 +1207,16 @@ async function resolveGeneratedConflicts(
   cwd: string,
   paths: readonly string[],
 ): Promise<{ success: true } | { success: false; reason: string }> {
+  // Paths taken as incoming CONTENT still need staging; an incoming DELETION
+  // is staged by `git rm` itself, and its pathspec then matches nothing.
+  const taken: string[] = [];
   for (const path of paths) {
     const checkedOut = await git(
       ["checkout", "--theirs", "--", literalPathspec(path)],
       cwd,
     );
     if (checkedOut.success) {
+      taken.push(path);
       continue;
     }
     const hasTheirs = await unmergedPathHasTheirs(cwd, path);
@@ -1265,11 +1239,11 @@ async function resolveGeneratedConflicts(
       };
     }
   }
-  const staged = await git(
-    ["add", "-A", "--", ...paths.map(literalPathspec)],
+  const staged = taken.length === 0 ? undefined : await git(
+    ["add", "-A", "--", ...taken.map(literalPathspec)],
     cwd,
   );
-  if (!staged.success) {
+  if (staged !== undefined && !staged.success) {
     return {
       success: false,
       reason: staged.stderr.trim() ||
@@ -2994,6 +2968,8 @@ export interface GitWorktreePruneScan {
   identitySettings: IdentitySettings;
   worktreesToRemove: WorktreeRemovalCandidate[];
   staleMetadata: OwnedStaleWorktreeMetadata[];
+  /** Recorded landed branches whose final deletion a landing could not finish. */
+  orphanedLandedBranches: OrphanedLandedBranch[];
   worktreeLines: PruneScanLine[];
   branchLines: PruneScanLine[];
 }
@@ -3004,6 +2980,14 @@ export interface PruneResult {
   removed: string[];
   /** Branches deleted. */
   branchesDeleted: string[];
+  /** Landed branches whose recorded outstanding deletion prune finished. */
+  landedBranchesDeleted: string[];
+  /** Landing records settled without a deletion: cleared or kept, with why. */
+  landedBranchRecords: {
+    branch: string;
+    action: "cleared" | "kept";
+    reason: string;
+  }[];
   /** Stale worktree metadata entries pruned. */
   staleMetadata: string[];
   /** Whether any removal or branch deletion failed. */
@@ -3061,26 +3045,6 @@ export async function commitIsAncestorOf(
       commit,
       descendant,
     ], repoRoot)).success;
-}
-
-/**
- * The registered worktree path checked out on `branch`, or undefined when no
- * checkout holds it. One porcelain read through {@link parseWorktreeList} (the
- * single parser), with none of the per-checkout snapshots a full
- * {@link listWorktreeFleet} pays for — the shape a repeated poll can afford.
- */
-export async function worktreePathForBranch(
-  cwd: string,
-  branch: string,
-): Promise<string | undefined> {
-  const listRun = await git(["worktree", "list", "--porcelain"], cwd);
-  if (!listRun.success) {
-    return undefined;
-  }
-  const match = parseWorktreeList(listRun.stdout).find(
-    (rec) => rec.branch === `refs/heads/${branch}`,
-  );
-  return match === undefined ? undefined : await realPathOr(match.path);
 }
 
 /** Strip the local-head namespace while preserving detached and nonlocal refs. */
@@ -3185,6 +3149,7 @@ async function staleMetadataForRecord(
  * Scan Git worktrees and refs while keeping work worth reviewing. Only an exact
  * identity/branch match backed by discern's worktree-ready marker enters the
  * destructive candidate set; merge status remains an independent safety fact.
+ * Landing records enroll their recorded branches the same read-only way.
  * Read-only: this returns the exact candidate set the apply path consumes.
  */
 export async function scanGitWorktreesForPrune(
@@ -3377,6 +3342,18 @@ export async function scanGitWorktreesForPrune(
     keptWorktreeBranches.add(shortBranch);
   }
 
+  const orphanedLandedBranches = await scanOrphanedLandedBranches(
+    repoRoot,
+    mainBranch,
+    scheduledBranches,
+    keptWorktreeBranches,
+    { localBranchExists, commitIsMerged },
+  );
+  const orphanedByBranch = new Map(
+    orphanedLandedBranches.map((candidate) => [candidate.branch, candidate]),
+  );
+  const renderedRecordBranches = new Set<string>();
+
   const refsRun = await git(
     ["for-each-ref", "--format=%(refname:short)", "refs/heads"],
     repoRoot,
@@ -3391,6 +3368,22 @@ export async function scanGitWorktreesForPrune(
         label: branchName,
         reason: "protected",
       });
+      continue;
+    }
+    const recorded = orphanedByBranch.get(branchName);
+    if (recorded !== undefined) {
+      renderedRecordBranches.add(branchName);
+      branchLines.push(
+        recorded.disposition === "delete"
+          ? { action: "DELETE", label: branchName, reason: recorded.reason }
+          : {
+            action: "KEEP",
+            label: branchName,
+            reason: recorded.disposition === "clear"
+              ? `${recorded.reason} — clearing the landing record`
+              : recorded.reason,
+          },
+      );
       continue;
     }
     if (keptWorktreeBranches.has(branchName)) {
@@ -3420,6 +3413,18 @@ export async function scanGitWorktreesForPrune(
       });
     }
   }
+  for (const candidate of orphanedLandedBranches) {
+    if (renderedRecordBranches.has(candidate.branch)) continue;
+    branchLines.push(
+      candidate.disposition === "blocked"
+        ? { action: "KEEP", label: candidate.branch, reason: candidate.reason }
+        : {
+          action: "PRUNE",
+          label: candidate.branch,
+          reason: `${candidate.reason} — clearing the landing record`,
+        },
+    );
+  }
 
   return {
     repoRoot,
@@ -3427,6 +3432,7 @@ export async function scanGitWorktreesForPrune(
     identitySettings: opts.identitySettings,
     worktreesToRemove,
     staleMetadata,
+    orphanedLandedBranches,
     worktreeLines,
     branchLines,
   };
@@ -3561,10 +3567,17 @@ export async function pruneGitWorktrees(
 
   const removed: string[] = [];
   const branchesDeleted: string[] = [];
+  const landedBranchesDeleted: string[] = [];
+  const landedBranchRecords: PruneResult["landedBranchRecords"] = [];
   let failed = false;
 
-  if (scan.worktreesToRemove.length === 0) {
+  if (
+    scan.worktreesToRemove.length === 0 &&
+    scan.orphanedLandedBranches.length === 0
+  ) {
     log.line("Nothing to remove.");
+  } else if (scan.worktreesToRemove.length === 0) {
+    log.line("No worktrees to remove.");
   } else {
     for (const candidate of scan.worktreesToRemove) {
       const changed = await removalCandidateChanged(scan, candidate);
@@ -3602,7 +3615,27 @@ export async function pruneGitWorktrees(
     }
   }
 
-  return { removed, branchesDeleted, staleMetadata: [], failed };
+  {
+    const landed = await applyOrphanedLandedBranches(
+      scan.repoRoot,
+      scan.orphanedLandedBranches,
+      log,
+    );
+    landedBranchesDeleted.push(...landed.deleted);
+    landedBranchRecords.push(...landed.records);
+    if (landed.failed) {
+      failed = true;
+    }
+  }
+
+  return {
+    removed,
+    branchesDeleted,
+    landedBranchesDeleted,
+    landedBranchRecords,
+    staleMetadata: [],
+    failed,
+  };
 }
 
 /** Revalidate that a scanned admin entry still points to an absent checkout before deletion. */

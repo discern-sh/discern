@@ -280,34 +280,10 @@ destroy = "unlink-site @site@"`,
       ensure: { hint: '["ready-worktree-resource"]' },
     },
   },
-  completion: {
-    what: "How many efforts validate at once, and whether any validate early.",
-    why:
-      "Every `discern done` proves one exact commit against every required check and standard. `concurrency` caps how many efforts hold a validation slot at the same time; `lookahead` lets an effort validate before its predecessor lands, which needs a declared environment. Efforts land in order by default.",
-  },
-  execution: {
-    what:
-      "How a checkout is prepared for another commit and returned afterwards.",
-    why:
-      "Validating an effort early installs a different commit in a released checkout, which changes generated files, ignored output, and resources. A declaration names the prepare and restore procedures that make that safe; `discern setup done` proves them in a throwaway copy before early validation can use them.",
-    examples: [{
-      lead:
-        "A borrowed checkout with project-owned preparation and restoration",
-      toml: `[execution.local]
-kind = "borrowed"
-prepare = "project-prepare-candidate"
-restore = "project-restore-source"
-reusable = true
-resources = []
-ignored = ["build/**"]
-inputs = ["**"]
-capacity = 1`,
-    }],
-  },
   standards: {
     what: "Quality numbers that can never get worse.",
     why:
-      "Every `discern done` requires current readings for each standard and refuses a limit looser than the trunk's. Producers run once for their consumers, and reusable evidence must match the declared inputs, policy, toolchain, environment, and execution context. Hold a raw count for an invariant, a rate through `per` for a quality that scales, and give a total that grows with the product a `margin`.",
+      "Every `discern done` requires current readings for each standard and refuses a limit looser than the trunk's. Producers run once for their consumers, and reusable evidence must match the declared inputs, policy, toolchain, and environment. Hold a raw count for an invariant, a rate through `per` for a quality that scales, and give a total that grows with the product a `margin`.",
     detail: [
       "A producer or extractor reports a number: DISCERN_METRIC <name> <number>",
       "Set run for an inline producer, or producer for an existing selector.",

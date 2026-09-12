@@ -4,6 +4,14 @@ import {
   type ValidationInputSelection,
 } from "./input_selection.ts";
 /** Immutable Git subjects use the same content and executable-mode identity as live validation. */
+import {
+  dirname,
+  isAbsolute,
+  join,
+  normalize,
+  SEPARATOR_PATTERN,
+} from "@std/path";
+import { z } from "@zod/zod";
 import { runGit } from "../../shared/subprocess.ts";
 import { ObjectIdSchema } from "../completion/identity.ts";
 import { PRODUCER_CAPTURE_BYTES } from "../jobs/captured.ts";
@@ -151,4 +159,43 @@ export async function observeCandidateInputs(
     files,
     complete: toolchain.every((path) => Object.hasOwn(files, path)),
   };
+}
+
+/** Checkout names are literal filesystem data outside Git administration. */
+const CheckoutPathSchema = z.string().min(1).refine(
+  (path) =>
+    !isAbsolute(path) && normalize(path) === path &&
+    !/[\0\ufffd]/u.test(path) &&
+    !path.split(SEPARATOR_PATTERN).some((part) =>
+      part === "" || part === "." || part === ".." ||
+      part.toLowerCase() === ".git"
+    ),
+  "checkout file must be a literal relative path outside Git administration",
+);
+
+/** Resolve one checkout path only when no ancestor is a link or a non-directory. */
+export async function containedCheckoutFile(
+  root: string,
+  path: string,
+): Promise<string> {
+  if (!CheckoutPathSchema.safeParse(path).success) {
+    throw new Error(
+      `Invalid checkout path ${
+        JSON.stringify(path)
+      }: checkout file must be a literal relative path outside Git administration.`,
+    );
+  }
+  let parent = dirname(path);
+  while (parent !== ".") {
+    try {
+      const stat = await Deno.lstat(join(root, parent));
+      if (!stat.isDirectory || stat.isSymlink) {
+        throw new Error(`Checkout path has a non-directory ancestor: ${path}`);
+      }
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    parent = dirname(parent);
+  }
+  return join(root, path);
 }

@@ -9,8 +9,10 @@ import {
   readCompletionRecord,
   writeCompletionRecord,
 } from "../completion/store.ts";
-import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
-import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
+import {
+  readCompletionArtifact,
+  saveCompletionArtifact,
+} from "../completion/artifacts.ts";
 import { readCompleteProof } from "./completion_proof.ts";
 
 /** A presentation must reproduce the complete immutable claim, never replace it. */
@@ -49,12 +51,11 @@ export async function retainProofPresentation(
       "A retained gate presentation requires complete candidate review.",
     );
   }
-  const artifact = await saveEnvironmentArtifact(
+  const artifact = await saveCompletionArtifact(
     root,
     {
       attempt_id: complete.validation.attempt_id,
       candidate_id: pointer.candidate_id,
-      context: complete.validation.review.context,
     },
     `gate-proof-${pointer.proof_id}`,
     proof,
@@ -88,8 +89,6 @@ export async function readProofPresentation(
     retained.record.data.candidate_id !== pointer.candidate_id ||
     retained.record.data.artifact.attempt_id !==
       complete.validation.attempt_id ||
-    retained.record.data.artifact.context !==
-      complete.validation.review?.context ||
     retained.record.data.artifact.path !==
       `environment/gate-proof-${pointer.proof_id}.json`
   ) {
@@ -99,6 +98,6 @@ export async function readProofPresentation(
   }
   return validatePresentation(
     complete,
-    await readEnvironmentArtifact(root, retained.record.data.artifact),
+    await readCompletionArtifact(root, retained.record.data.artifact),
   );
 }

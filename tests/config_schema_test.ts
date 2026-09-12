@@ -19,6 +19,7 @@ import {
   NAME_RE,
   parseConfig,
   parseConfigOrThrow,
+  parseGoverningConfig,
   projectDisplayName,
   RECORD_ENTRY_SCHEMAS,
   resolveConfiguredAgents,
@@ -264,8 +265,47 @@ Deno.test("every retired top-level key is redirected to its successor", () => {
   }
 });
 
-Deno.test("the pre-v1 config contract carries no dead-position history", () => {
-  assertEquals(DEAD_CONFIG_POSITIONS, []);
+Deno.test("every registered dead config position refuses its exact section with the registered recovery", () => {
+  assert(
+    DEAD_CONFIG_POSITIONS.length > 0,
+    "rows exist only while an actual migration needs a targeted refusal",
+  );
+  for (const position of DEAD_CONFIG_POSITIONS) {
+    assertEquals(position.path, "", "launch dead positions are root sections");
+    const key = position.key;
+    assert(key !== undefined, "a root dead position names its key");
+    const parsed = parseConfig(position.example);
+    assertEquals(parsed.config, undefined, key);
+    const issue = parsed.issues.find((entry) =>
+      entry.path === key || entry.path.startsWith(`${key}.`)
+    );
+    assert(issue !== undefined, JSON.stringify(parsed.issues));
+    assertEquals(issue.message, position.message(key));
+    assert(
+      !/(?:upgrade|renam|became)/i.test(issue.message),
+      `dead-position recovery must describe only the current contract: ${issue.message}`,
+    );
+  }
+});
+
+Deno.test("a governing document carrying every registered dead section still governs through its valid remainder", () => {
+  // The class guard for config retirements: a committed trunk config written
+  // before a retirement must keep governing standards and checkpoints, while
+  // the same text stays loudly refused as a live project config. Driven off
+  // the registry, so a future dead position enrols automatically.
+  const document = [
+    'project.name = "governed"',
+    "[standards.sample]",
+    'direction = "down"',
+    "limit = 5",
+    'run = "echo 5"',
+    ...DEAD_CONFIG_POSITIONS.map((position) => position.example),
+  ].join("\n");
+  assertEquals(parseConfig(document).config, undefined, "live parse refuses");
+  const governed = parseGoverningConfig(document).config;
+  assert(governed !== undefined, "the governing parse reads the remainder");
+  assertEquals(governed.project.name, "governed");
+  assertEquals(governed.standards["sample"]?.limit, 5);
 });
 
 Deno.test("dead-position matching: keyed rows win over a same-path wildcard, in table order", () => {

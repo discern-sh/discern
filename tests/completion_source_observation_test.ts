@@ -1,192 +1,163 @@
-/** Source observation reads checkout identity through the shared bounded reader. */
+/** Source observation reads one mutable branch into immutable candidate coordinates. */
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import {
-  assertEquals,
-  assertRejects,
-  assertStringIncludes,
-  assertThrows,
-} from "@std/assert";
-import { join } from "@std/path";
-import {
-  captureGitSnapshot,
-  decodeCheckoutIdentity,
-} from "../src/engine/execution/snapshot.ts";
-import { observeSourceSnapshot } from "../src/engine/execution/source_snapshot.ts";
-import { SOURCE_OBSERVATION_FORMAT } from "../src/engine/execution/snapshot_schema.ts";
-import { git, gitOut } from "./engine_helpers.ts";
+  observeSource,
+  predecessorPolicyIdentity,
+  recordedCandidate,
+  retainCandidate,
+  sameSource,
+} from "../src/engine/completion/source.ts";
+import { sha256Hex } from "../src/shared/sha256.ts";
+import { CandidateSchema } from "../src/engine/completion/candidate.ts";
+import { writeCompletionRecord } from "../src/engine/completion/store.ts";
+import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
-import { TEST_PROCESS_TIMEOUT_MS } from "./waiting.ts";
+import {
+  COMPLETION_CLAIM,
+  COMPLETION_CLOCK,
+  completionFixtures,
+  completionId,
+} from "./completion_fixtures.ts";
 
-const BOUNDS = {
-  maxFiles: 100,
-  maxBytes: 1024 * 1024,
-  gitTimeoutMs: TEST_PROCESS_TIMEOUT_MS,
-};
-
-const IDENTITY_QUERY = "rev-parse HEAD HEAD^{tree} --symbolic-full-name HEAD";
-
-/** The git subcommand behind the runner's inline configuration pairs. */
-function subcommand(args: readonly string[]): string | undefined {
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index];
-    if (arg === "-c") {
-      index += 1;
-      continue;
-    }
-    if (arg !== undefined && !arg.startsWith("-")) return arg;
-  }
-  return undefined;
-}
-
-/** One committed repository on an attached branch, without any tracked file. */
-async function emptyRepository(root: string): Promise<void> {
-  await git(root, "init", "-q", "-b", "main");
-  await git(
-    root,
-    "-c",
-    "user.name=Snapshot",
-    "-c",
-    "user.email=fixture@example.test",
-    "-c",
-    "commit.gpgsign=false",
-    "commit",
-    "--allow-empty",
-    "-qm",
-    "empty",
-  );
-}
-
-/** Observe each native git launch while the real commands keep running. */
-async function withGitSpawns<T>(
-  onSpawn: (args: readonly string[]) => void,
-  operation: () => Promise<T>,
-): Promise<T> {
-  const Command = Deno.Command;
-  Deno.Command = class extends Command {
-    /** Record the argv of each git process at its actual launch boundary. */
-    constructor(command: string | URL, options?: Deno.CommandOptions) {
-      super(command, options);
-      if (command === "git") onSpawn(options?.args ?? []);
-    }
-  };
-  try {
-    return await operation();
-  } finally {
-    Deno.Command = Command;
-  }
-}
-
-Deno.test("source observation reads checkout identity in one bounded Git process per pass and keeps both passes", async () => {
+Deno.test("source observation resolves the branch tip and tree and rejects a missing or unborn branch", async () => {
   await withTempDir(async (root) => {
-    await emptyRepository(root);
-    const spawns: string[][] = [];
-    const snapshot = await withGitSpawns(
-      (args) => spawns.push([...args]),
-      () => observeSourceSnapshot(root, BOUNDS),
-    );
+    await Deno.writeTextFile(`${root}/source`, "authored\n");
+    await gitInit(root);
+    const branch = `refs/heads/${await gitOut(
+      root,
+      "symbolic-ref",
+      "--short",
+      "HEAD",
+    )}`;
+    const observed = await observeSource(root, "effort-a", branch);
+    assertEquals(observed.head, await gitOut(root, "rev-parse", "HEAD"));
     assertEquals(
-      spawns.length,
-      8,
-      "four native queries in each of two complete observations",
+      observed.tree,
+      await gitOut(root, "rev-parse", "HEAD^{tree}"),
     );
+    assertEquals(observed.effort_id, "effort-a");
+    assert(sameSource(observed, await observeSource(root, "effort-a", branch)));
+    await git(root, "commit", "--allow-empty", "-m", "advance");
+    const advanced = await observeSource(root, "effort-a", branch);
+    assert(!sameSource(observed, advanced));
     assertEquals(
-      spawns.filter((args) => args.slice(-5).join(" ") === IDENTITY_QUERY)
-        .length,
-      2,
-      "one identity query per observation pass",
+      advanced.tree,
+      observed.tree,
+      "an empty commit keeps its tree",
     );
-    assertEquals(
-      spawns.filter((args) => subcommand(args) === "status").length,
-      2,
-    );
-    assertEquals(snapshot.format, SOURCE_OBSERVATION_FORMAT);
-    assertEquals(snapshot.head, await gitOut(root, "rev-parse", "HEAD"));
-    assertEquals(snapshot.tree, await gitOut(root, "rev-parse", "HEAD^{tree}"));
-    assertEquals(snapshot.branch, "refs/heads/main");
-    assertEquals(snapshot.index_entries, "");
-    await git(root, "switch", "--detach", "HEAD");
-    assertEquals((await observeSourceSnapshot(root, BOUNDS)).branch, null);
     await assertRejects(
-      () => observeSourceSnapshot(root, { ...BOUNDS, maxBytes: 40 }),
+      () => observeSource(root, "effort-a", "refs/heads/absent"),
       Error,
-      "output limit 40 bytes",
     );
-    let cancelled = 0;
-    await assertRejects(() =>
-      withGitSpawns(
-        () => cancelled++,
-        () =>
-          observeSourceSnapshot(root, {
-            ...BOUNDS,
-            signal: AbortSignal.abort(),
-          }),
-      )
+  });
+});
+
+Deno.test("policy identity digests the committed bytes even when they do not parse", async () => {
+  await withTempDir(async (root) => {
+    const broken = "[acceptance\npre_authorized = [\n";
+    await Deno.writeTextFile(`${root}/discern.toml`, broken);
+    await gitInit(root);
+    const head = await gitOut(root, "rev-parse", "HEAD");
+    assertEquals(
+      await predecessorPolicyIdentity(root, head),
+      await sha256Hex(broken),
+      "an unparseable committed config still has an exact identity",
     );
-    assertEquals(cancelled, 0, "a cancelled observation launches no git");
-    let statuses = 0;
+    await git(root, "rm", "-q", "discern.toml");
+    await git(root, "commit", "-q", "-m", "drop config", "--no-gpg-sign");
+    assertEquals(
+      await predecessorPolicyIdentity(
+        root,
+        await gitOut(root, "rev-parse", "HEAD"),
+      ),
+      await sha256Hex("absent-config"),
+    );
+    await assertRejects(
+      () => predecessorPolicyIdentity(root, "refs/heads/absent"),
+      Error,
+    );
+  });
+});
+
+Deno.test("recorded candidates match on every coordinate and select deterministically", () => {
+  const fixture = completionFixtures().candidate;
+  assert(fixture.kind === "candidate");
+  const subject = {
+    source: fixture.data.source,
+    predecessor: fixture.data.predecessor,
+    policy: fixture.data.policy,
+    requirement_set: fixture.data.requirement_set,
+  };
+  const later = { ...fixture, id: completionId(9) };
+  assertEquals(recordedCandidate([later, fixture], subject)?.id, fixture.id);
+  assertEquals(recordedCandidate([fixture, later], subject)?.id, fixture.id);
+  assertEquals(
+    recordedCandidate([fixture], {
+      ...subject,
+      predecessor: "e".repeat(40),
+    }),
+    undefined,
+  );
+  assertEquals(
+    recordedCandidate([fixture], {
+      ...subject,
+      source: { ...subject.source, head: "e".repeat(40) },
+    }),
+    undefined,
+  );
+  assertEquals(
+    recordedCandidate([fixture], { ...subject, policy: "e".repeat(64) }),
+    undefined,
+  );
+});
+
+Deno.test("candidate retention requires the observing attempt's own live claim", async () => {
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(`${root}/source`, "authored\n");
+    await gitInit(root);
+    const fixtures = completionFixtures();
+    const candidateRecord = fixtures.candidate;
+    assert(candidateRecord.kind === "candidate");
+    const candidate = CandidateSchema.parse(candidateRecord.data);
+    const fence = {
+      attempt_id: completionId(2),
+      token: COMPLETION_CLAIM.token,
+    };
+    await assertRejects(
+      () => retainCandidate(root, candidateRecord.id, candidate, fence),
+      Error,
+      "Candidate belongs to another attempt identity.",
+      "retention needs the attempt on record first",
+    );
     await assertRejects(
       () =>
-        withGitSpawns((args) => {
-          // The second pass sees a new untracked file the first pass never saw.
-          if (subcommand(args) === "status" && ++statuses === 2) {
-            Deno.writeTextFileSync(join(root, "late"), "changed\n");
-          }
-        }, () => observeSourceSnapshot(root, BOUNDS)),
+        retainCandidate(root, candidateRecord.id, candidate, {
+          ...fence,
+          attempt_id: completionId(99),
+        }),
       Error,
-      "changed during observation",
+      "Candidate names another attempt.",
     );
-    assertEquals(statuses, 2, "the second pass still ran its own status query");
-  });
-});
-
-Deno.test("an unborn HEAD keeps the existing rejection for both observation forms", async () => {
-  await withTempDir(async (root) => {
-    await git(root, "init", "-q", "-b", "main");
-    for (
-      const observe of [
-        () => observeSourceSnapshot(root, BOUNDS),
-        () => captureGitSnapshot(root, BOUNDS),
-      ]
-    ) {
-      const error = await assertRejects(observe, Error, "Git rev-parse failed");
-      assertStringIncludes(error.message, "exit 128");
-    }
-  });
-});
-
-Deno.test("checkout identity decoding keeps attachment semantics and rejects incomplete or oversized fields", () => {
-  const head = "a".repeat(40);
-  const tree = "b".repeat(40);
-  assertEquals(
-    decodeCheckoutIdentity(`${head}\n${tree}\nrefs/heads/main\n`, BOUNDS),
-    { head, tree, branch: "refs/heads/main" },
-  );
-  assertEquals(decodeCheckoutIdentity(`${head}\n${tree}\nHEAD\n`, BOUNDS), {
-    head,
-    tree,
-    branch: null,
-  });
-  for (
-    const incomplete of [
-      "",
-      `${head}\n`,
-      `${head}\n${tree}\n`,
-      `${head}\n${tree}\nHEAD`,
-      `${head}\n${tree}\nHEAD\nextra\n`,
-    ]
-  ) {
-    assertThrows(
-      () => decodeCheckoutIdentity(incomplete, BOUNDS),
+    const attempt = await writeCompletionRecord(
+      root,
+      fixtures.attempt,
+      null,
+      undefined,
+      COMPLETION_CLOCK,
+    );
+    assert(attempt.kind === "written", JSON.stringify(attempt));
+    await assertRejects(
+      () => retainCandidate(root, completionId(90), candidate, fence),
       Error,
-      "incomplete checkout identity",
+      "Candidate belongs to another attempt identity.",
+      "the attempt's own candidate coordinate binds retention",
     );
-  }
-  assertThrows(
-    () =>
-      decodeCheckoutIdentity(`${head}\n${tree}\nHEAD\n`, {
-        ...BOUNDS,
-        maxBytes: 40,
-      }),
-    Error,
-    "output limit 40 bytes",
-  );
+    // The real store enforces the live-claim clock; a system clock past the
+    // fixture claim expiry refuses publication rather than recording it.
+    await assertRejects(
+      () => retainCandidate(root, candidateRecord.id, candidate, fence),
+      Error,
+      "Candidate publication claim-lost",
+    );
+  });
 });

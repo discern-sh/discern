@@ -1,16 +1,14 @@
 /**
  * The capability to consume or revoke an effort landing grant.
  *
- * Only the human-operated desk and checked acceptance decisions may import this
- * module. Grant creation remains desk-only in effort_grant_writer.ts.
+ * Only the human-operated desk and the landing may import this module. Grant
+ * creation remains desk-only in effort_grant_writer.ts.
  */
 
 import { join } from "@std/path";
-import { z } from "@zod/zod";
 import { lstatIfExists, readTextIfExists } from "../../shared/fs_presence.ts";
 import { removeIfExists } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
-import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import { type EnginePlan, verbatimStepLabel } from "../../shared/result.ts";
 import {
   type SecureEntropy,
@@ -72,15 +70,11 @@ export async function clearEffortGrantPlan(cwd: string): Promise<EnginePlan> {
 async function effortGrantClaimPath(
   cwd: string,
   claimId: string,
-  common = false,
 ): Promise<string | undefined> {
   if (!CLAIM_ID.test(claimId)) {
     return undefined;
   }
-  const claimsDir = await gitAdminStatePath(
-    cwd,
-    common ? "completionGrantClaims" : "effortGrantClaims",
-  );
+  const claimsDir = await gitAdminStatePath(cwd, "effortGrantClaims");
   return claimsDir === undefined ? undefined : join(claimsDir, claimId);
 }
 
@@ -107,26 +101,13 @@ function parseClaim(
   };
 }
 
-const HistoricalEffortGrantSchema = z.strictObject({
-  version: z.literal(ON_DISK_FORMATS.effortGrant.historicalVersions[0]),
-  branch: z.string().min(1),
-  granted_at: z.string().refine((value) => !Number.isNaN(Date.parse(value))),
-});
-
-/** Recovery reads old raw claims only for their already-recorded transition.
- * These bytes never pass the current grant reader or authorize a new claim. */
+/** Recovery reads a recorded claim only for its already-recorded transition. */
 export async function readRecoveryEffortGrantClaim(
   cwd: string,
   branch: string,
   claimId: string,
-  common = false,
-): Promise<
-  EffortGrantClaimRead | {
-    readonly status: "historical-claim";
-    readonly claim: Pick<EffortGrantClaim, "path" | "raw">;
-  }
-> {
-  const path = await effortGrantClaimPath(cwd, claimId, common);
+): Promise<EffortGrantClaimRead> {
+  const path = await effortGrantClaimPath(cwd, claimId);
   if (path === undefined) {
     return {
       status: "unavailable",
@@ -135,40 +116,13 @@ export async function readRecoveryEffortGrantClaim(
   }
   try {
     const raw = await Deno.readTextFile(path);
-    const current = parseClaim(path, raw, branch);
-    if (current.status === "invalid") {
-      let value: unknown;
-      try {
-        value = JSON.parse(raw);
-      } catch {
-        return current;
-      }
-      const historical = HistoricalEffortGrantSchema.safeParse(value);
-      if (historical.success && historical.data.branch === branch) {
-        return { status: "historical-claim", claim: { path, raw } };
-      }
-    }
-    return current;
+    return parseClaim(path, raw, branch);
   } catch (error) {
     return error instanceof Deno.errors.NotFound ? { status: "missing" } : {
       status: "unavailable",
       reason: effortGrantFailureReason(error),
     };
   }
-}
-
-/** Revoke only the marker reviewed by a queue action; a newer grant remains intact. */
-export async function clearReviewedEffortGrant(
-  cwd: string,
-  expectedId: string,
-): Promise<boolean> {
-  const current = await readEffortGrant(cwd);
-  if (current.status === "missing") return true;
-  if (current.status !== "granted" || current.grant.id !== expectedId) {
-    return false;
-  }
-  await clearEffortGrant(cwd);
-  return true;
 }
 
 /** Revoke this worktree's grant. Repeating the revoke is a no-op. */
@@ -195,15 +149,11 @@ export async function claimEffortGrant(
   branch: string,
   claimId?: string,
   entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
-  common = false,
 ): Promise<EffortGrantClaimRead> {
   const resolvedClaimId = claimId ?? entropy.uuid();
   const marker = await gitAdminStatePath(cwd, "effortGrant");
-  const claimsDir = await gitAdminStatePath(
-    cwd,
-    common ? "completionGrantClaims" : "effortGrantClaims",
-  );
-  const claimPath = await effortGrantClaimPath(cwd, resolvedClaimId, common);
+  const claimsDir = await gitAdminStatePath(cwd, "effortGrantClaims");
+  const claimPath = await effortGrantClaimPath(cwd, resolvedClaimId);
   if (
     marker === undefined || claimsDir === undefined || claimPath === undefined
   ) {
@@ -312,9 +262,8 @@ export async function consumeEffortGrantClaim(
 export async function consumeEffortGrantClaimById(
   cwd: string,
   claimId: string,
-  common = false,
 ): Promise<boolean> {
-  const path = await effortGrantClaimPath(cwd, claimId, common);
+  const path = await effortGrantClaimPath(cwd, claimId);
   if (path === undefined) {
     return false;
   }

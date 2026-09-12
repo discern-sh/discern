@@ -17,16 +17,21 @@ import {
 } from "./waiting.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
-import {
-  observedRecords,
-  observeQueue,
-} from "../src/engine/landing_queue/repository.ts";
+import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
+import type { CompletionRecord } from "../src/engine/completion/records.ts";
 import { gitOut, runAgent } from "./engine_helpers.ts";
 import { readPidsIfReady } from "./process_id.ts";
 
 const StatusToolResultSchema = z.object({
   structuredContent: StatusOutputSchema,
 });
+
+/** Project recorded readings onto validated envelopes. */
+async function observedRecords(root: string): Promise<CompletionRecord[]> {
+  return (await observeCompletionRecords(root)).records.flatMap((
+    { reading },
+  ) => reading.kind === "recorded" ? [reading.record] : []);
+}
 
 for (const phase of ["producer", "capacity", "queued-producer"] as const) {
   Deno.test(`real MCP cancellation during ${phase} preserves source and supports reconnect`, async () => {
@@ -36,7 +41,6 @@ for (const phase of ["producer", "capacity", "queued-producer"] as const) {
           `echo $$ > '${aux}/leader'; tail -f /dev/null & echo $! > '${aux}/descendant'; wait`;
         const path = await project(
           root,
-          ["local"],
           `
 [gate]
 concurrent_test_runs = 1
@@ -115,7 +119,7 @@ concurrent_test_runs = 1
           );
           await waitUntil(
             async () => {
-              const records = observedRecords(await observeQueue(root, "main"));
+              const records = await observedRecords(root);
               return records.some((record) => record.kind === "attempt") &&
                 records.every((record) =>
                   record.kind !== "attempt" ||
@@ -136,13 +140,8 @@ concurrent_test_runs = 1
             await gitOut(path, "rev-parse", "HEAD", "HEAD^{tree}"),
             before,
           );
-          const records = observedRecords(await observeQueue(root, "main"));
+          const records = await observedRecords(root);
           assertEquals(records.filter((record) => record.kind === "proof"), []);
-          assert(records.every((record) =>
-            record.kind !== "environment" ||
-            record.data.state.kind === "idle" ||
-            record.data.state.kind === "recovery"
-          ));
           if (phase === "capacity") {
             assertEquals(await pathExists(`${aux}/leader`), false);
           }

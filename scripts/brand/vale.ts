@@ -701,8 +701,8 @@ export const VALE_DISPOSITIONS = [
     ],
     guards: [
       enforcementReference(
-        "src/engine/worktree/lifecycle.ts",
-        "landingConsentForApply",
+        "src/engine/worktree/accept.ts",
+        "availableLandingConsent",
       ),
       enforcementReference("src/shared/setup_messages.ts", "consentMessage"),
     ],

@@ -23,10 +23,7 @@ import {
 } from "../../shared/public_schemas.ts";
 import { EmergencyNotePayloadSchema } from "../../shared/emergency_note.ts";
 import { z } from "@zod/zod";
-import {
-  CompleteProofEvidenceSchema,
-  LandedAuthorityEvidenceSchema,
-} from "../../shared/completion_proof.ts";
+import { CompleteProofEvidenceSchema } from "../../shared/completion_proof.ts";
 import {
   type AcceptanceEvidenceData,
   type DurableProofClaim,
@@ -464,9 +461,6 @@ function canonicalAcceptanceEvidence(
   acceptance: AcceptanceEvidenceData,
 ): AcceptanceEvidenceData {
   return {
-    ...(acceptance.authority === undefined ? {} : {
-      authority: LandedAuthorityEvidenceSchema.parse(acceptance.authority),
-    }),
     consent: {
       source: acceptance.consent.source,
       ...(acceptance.consent.scopes === undefined
@@ -687,9 +681,6 @@ function decodeProofNotePayload(encoded: string): unknown {
 /** Recognize an incomplete prelaunch claim without publishing another payload contract. */
 const IncompleteProofNotePayloadSchema = TolerantProofNotePayloadSchema.extend({
   proof: TolerantProofNotePayloadSchema.shape.proof.omit({ completion: true }),
-  acceptance: TolerantProofNotePayloadSchema.shape.acceptance.unwrap().omit({
-    authority: true,
-  }).optional(),
 });
 
 /** Read an emergency exception envelope: its recorded facts, or an unsupported
@@ -749,16 +740,13 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   const decoded = decodeProofNotePayload(envelope.data.payload);
   const incomplete = IncompleteProofNotePayloadSchema.safeParse(decoded);
   if (
-    incomplete.success && (
-      !Object.hasOwn(incomplete.data.proof, "completion") ||
-      (incomplete.data.acceptance !== undefined &&
-        !Object.hasOwn(incomplete.data.acceptance, "authority"))
-    )
+    incomplete.success &&
+    !Object.hasOwn(incomplete.data.proof, "completion")
   ) {
     return {
       kind: "stale",
       reason:
-        "This Proof note lacks complete candidate evidence or settled source authority and cannot supply current completion or landing authority.",
+        "This Proof note lacks complete candidate evidence and cannot supply current completion.",
       subject: incomplete.data.subject.commit,
       head: incomplete.data.proof.head,
     };

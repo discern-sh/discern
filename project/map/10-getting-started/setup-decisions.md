@@ -28,9 +28,9 @@ The agent handles routine, reversible branch work. It waits for missing product 
 
 Each applicable decision begins with its practical outcome, then gives a recommendation, every option's consequence, your authority, the reversal boundary, and recovery. For a safe reversible technical choice, **“use your recommendation”** records your direction. Consequential choices never use that route. An absent trigger produces no question or wait.
 
-## Efforts land in order unless you choose early validation
+## Efforts land in order
 
-By default each task is checked against its own commit and lands in turn. Setup can enable early validation, where a task is checked before its predecessor lands, only after the project declares how a working copy is prepared for another commit and returned afterwards. Setup proves that declaration in a throwaway copy before finishing, and its completion report says whether early validation is on and, if not, why. Declaring an environment that spends money, shares durable data, or destroys state is your decision.
+Each task is checked against its own commit and lands in turn. When the shared branch moves after a task's checks pass, that task updates and proves itself again before landing; nothing is ever checked in another task's working copy.
 
 ## Inspection stays inside the project
 
