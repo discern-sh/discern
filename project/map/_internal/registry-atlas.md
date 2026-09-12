@@ -3722,8 +3722,6 @@ The numbered decision records in the map, including records later superseded.
   - `0373`
   - `0374`
   - `0375`
-  - `0376`
-  - `0378`
   - `0379`
   - `0381`
   - `0383`
@@ -3755,7 +3753,9 @@ The numbered decision records in the map, including records later superseded.
   - `0118`
   - `0185`
   - `0227`
+  - `0376`
   - `0377`
+  - `0378`
   - `0380`
   - `0382`
   - `0386`
