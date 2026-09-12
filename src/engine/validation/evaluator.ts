@@ -23,6 +23,8 @@ export function createProducerEvaluator(options: {
   readonly runtime?: ValidationRuntime;
   readonly rerun_of?: string;
   readonly clock?: Clock;
+  /** The run's own live attempt; its fresh receipts are audited and selectable. */
+  readonly live?: string;
 }): ProducerEvaluator {
   const indexes = new WeakMap<CompletionObservation, EvidenceIndex>();
   const evidenceFor = (observation: CompletionObservation): EvidenceIndex => {
@@ -49,6 +51,7 @@ export function createProducerEvaluator(options: {
         artifactAuditEvidence(
           options.snapshot,
           evidenceFor(observation),
+          options.live,
         ),
       );
       return observation;

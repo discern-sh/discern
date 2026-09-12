@@ -456,6 +456,9 @@ export async function executePublicValidation(input: {
         : observeCompletionRecords(root),
     runtime: observedRuntime,
     ...(input.rerun_of === undefined ? {} : { rerun_of: input.rerun_of }),
+    ...("fence" in input.claimed
+      ? { live: input.claimed.fence.attempt_id }
+      : {}),
   });
   const observed = await evaluator.observe(snapshot.candidate_id);
   const plan = evaluator.plan(observed, demand, snapshot.candidate_id);

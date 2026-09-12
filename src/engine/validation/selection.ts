@@ -85,7 +85,7 @@ export function indexEvidence(
     : new EvidenceIndex(records);
 }
 
-/** Explicit retry records a finished validation predecessor in reservation order.
+/** Explicit retry records a finished validation predecessor in sequence order.
  * Its sequence bounds earlier failed subjects; it never authorizes live work or landing.
  */
 export function finishedValidationAttempts(
@@ -118,6 +118,10 @@ export function selectEvidence(
   mode: ValidationDemand["mode"],
   purpose: ComponentEvidence["purpose"],
   audited: ReadonlySet<string>,
+  /** The caller's own live attempt. Its freshly published receipts are
+   * selectable while its claim is still held — the publisher is never
+   * "another operation" to itself. Any other live claim still blocks. */
+  live?: string,
 ): EvidenceSelection {
   const receipts = (attempt: AttemptRecord): readonly EvidenceRecord[] =>
     index.receipts.get(attempt.id) ?? [];
@@ -161,7 +165,7 @@ export function selectEvidence(
       }
       : blocker,
   });
-  if (attempt.state.kind === "claimed") {
+  if (attempt.state.kind === "claimed" && latest.id !== live) {
     return blocked({
       kind: "waiting-for-operation",
       attempt_id: latest.id,
@@ -169,7 +173,10 @@ export function selectEvidence(
     });
   }
   // A finished attempt can have an unrelated failed producer. Its valid siblings survive.
-  if (attempt.state.kind !== "finished" || matching.length !== 1) {
+  if (
+    (attempt.state.kind !== "finished" && latest.id !== live) ||
+    matching.length !== 1
+  ) {
     return blocked({
       kind: "missing-evidence",
       requirements: [obligation.requirement],
@@ -220,6 +227,8 @@ export function selectEvidence(
 export function artifactAuditEvidence(
   snapshot: ValidationSnapshot,
   records: readonly CompletionRecord[] | EvidenceIndex,
+  /** The caller's own live attempt, whose fresh receipts still need auditing. */
+  live?: string,
 ): ComponentEvidence[] {
   const index = indexEvidence(records);
   const wanted = new Set<string>();
@@ -233,6 +242,7 @@ export function artifactAuditEvidence(
         "report",
         purpose,
         unaudited,
+        live,
       );
       if (selection.kind === "selected") wanted.add(selection.record.id);
       else if (
@@ -285,6 +295,7 @@ export function assembleCandidate(
       mode,
       "completion",
       audited,
+      assembler.attempt_id,
     );
     if (selection.kind === "missing") {
       blockers.push({
