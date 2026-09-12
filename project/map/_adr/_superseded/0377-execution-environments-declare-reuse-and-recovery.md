@@ -1,6 +1,8 @@
 # ADR 0377: Execution environments declare reuse and recovery
 
-**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Extends [ADR 0025](0025-worktree-resources.md), [ADR 0367](0367-worktree-local-state-records-intent-before-effects.md), and [ADR 0368](0368-local-durable-formats-declare-forward-skew.md).
+> **Superseded by [ADR 0389](../0389-the-workspace-contract.md).** The workspace contract lets an operation change only the checkout it was invoked in, a worktree discern created, or the main checkout a landing converges. No checkout is borrowed, released, captured, or restored; the environment declaration, its setup probe, and the recovery it needed are removed.
+
+**Status**: superseded by [ADR 0389](../0389-the-workspace-contract.md) on 2026-09-12; accepted on 2026-09-05 and implemented by the complete completion and coordinated acceptance boundaries. Extends [ADR 0025](../0025-worktree-resources.md), [ADR 0367](../0367-worktree-local-state-records-intent-before-effects.md), and [ADR 0368](../0368-local-durable-formats-declare-forward-skew.md).
 
 ## Context
 

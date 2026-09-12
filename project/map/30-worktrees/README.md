@@ -11,7 +11,7 @@ aliases:
 
 _Each discern task uses an isolated workspace (a Git worktree) with its own checkout, branch, identity, and local dependencies._
 
-`discern start` creates a separate checkout and `agent/…` branch for one task. The main checkout remains the fleet's shared view.
+`discern start` creates a separate checkout and `agent/…` branch for one task. The main checkout remains the fleet's shared view. A checkout changes only under its own operation: discern never installs another revision into a worktree it did not create for that purpose, and no checkout is borrowed ([ADR 0389](../_adr/0389-the-workspace-contract.md)).
 
 Every checkout has a stable identity, development port, and test-order seed. Linked worktrees additionally receive their declared resources, isolated setup, and human task metadata. The display title and brief remain separate from branch and resource identity. The main checkout derives its constant identity from the configured trunk branch.
 

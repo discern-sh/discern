@@ -71,7 +71,11 @@ The footprint consists of one committed root file, one visible folder, the agent
 
 Source revisions, composition, authority, validation evidence, and recovery state must be durable enough for a replacement session to continue an effort without the original conversation. A discern executor can perform recorded mechanical work. Any missing judgment or consent must be supplied before the affected action proceeds. No active executor means no progress.
 
-Coordinated completion under this principle is accepted with implementation pending. [ADR 0375](../_adr/0375-source-authority-survives-declared-composition.md) defines durable source authority, [ADR 0376](../_adr/0376-active-commands-advance-an-authorized-landing-queue.md) defines active-command coordination, and [ADR 0378](../_adr/0378-landing-completion-survives-checkout-retirement.md) keeps recovery evidence beyond checkout retirement. Eligibility to use another effort's released environment remains subject to [ADR 0377](../_adr/0377-execution-environments-declare-reuse-and-recovery.md).
+[ADR 0375](../_adr/0375-source-authority-survives-declared-composition.md) defines durable source authority and [ADR 0376](../_adr/0376-active-commands-advance-an-authorized-landing-queue.md) defines active-command coordination, both as amended by [ADR 0389](../_adr/0389-the-workspace-contract.md). A landing removes the effort's worktree; the submission record and the Proof note are the durable facts that outlive it.
+
+### 15. A checkout changes only under its own operation
+
+An operation changes the checked-out revision, index, or working tree only of the checkout it was invoked in, of a worktree discern itself created, or of the main checkout a landing converges to the trunk it advanced. No operation installs another revision into an authoring worktree, and no checkout is borrowed. A structural guard registers every Git invocation that could do otherwise under one of those three allowances ([ADR 0389](../_adr/0389-the-workspace-contract.md)).
 
 ## When a principle bends
 
