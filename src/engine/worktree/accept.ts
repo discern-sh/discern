@@ -1150,7 +1150,7 @@ function partialAcceptanceResult(
     ...(progress.steps.length === 0 ? {} : { steps: [...progress.steps] }),
     data: progressData(root, consent, progress),
     hints: mergeHintTexts(
-      hintTexts([fire(HINTS["accept-reconcile-partial-effects"])]),
+      hintTexts([fire(HINTS["accept-recover-partial-effects"])]),
       progress.convergenceHints,
     ),
     ...(progress.diagnostics.length === 0

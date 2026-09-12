@@ -74,7 +74,7 @@ Rendered example:
 
 > The owner can share this landing's Proof with other clones by running `git push origin refs/notes/discern`; discern records it locally and never publishes it.
 
-## `accept-reconcile-partial-effects`
+## `accept-recover-partial-effects`
 
 - Category: `next-step`
 - Audience: `all`

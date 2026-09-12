@@ -701,8 +701,8 @@ export async function runChecks(
   }
 
   // 5c. Complete validation and coordination — how the configured limits
-  // combine, what each declared execution environment promises, which producers
-  // the standards share or duplicate, and whose evidence is candidate-bound.
+  // combine, which producers the standards share or duplicate, and whose
+  // evidence is candidate-bound.
   // Derived from the same authorities `setup done` reports, so the two surfaces
   // cannot disagree.
   checks.push(...await completionConfigurationChecks(config));

@@ -676,7 +676,7 @@ Deno.test("accept's partial envelope carries the exact irreversible effect state
     verb: "accept",
     error: "partial_acceptance",
     message: "The trunk landed, but cleanup did not finish.",
-    hints: hintTexts([fire(HINTS["accept-reconcile-partial-effects"])]),
+    hints: hintTexts([fire(HINTS["accept-recover-partial-effects"])]),
     data: {
       root: "/repo",
       consent: { source: "conversation" },

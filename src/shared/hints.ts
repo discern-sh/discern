@@ -3176,8 +3176,8 @@ export const HINTS = {
 
   /** Recovery after an irreversible acceptance step follows the recorded state,
    * never a blind retry. */
-  "accept-reconcile-partial-effects": defineHint({
-    id: "accept-reconcile-partial-effects",
+  "accept-recover-partial-effects": defineHint({
+    id: "accept-recover-partial-effects",
     category: "next-step",
     audience: "all",
     when: "Acceptance stops after at least one irreversible effect.",

@@ -2002,7 +2002,7 @@ The advisory hint registry: every hint string enters results through it.
   - `skills-eject-finish-materialization`
   - `accept-awaiting-confirmation`
   - `accept-review-via-status`
-  - `accept-reconcile-partial-effects`
+  - `accept-recover-partial-effects`
   - `accept-refresh-failed`
   - `accept-convergence-changed-tracked`
   - `lifecycle-convergence-failed`

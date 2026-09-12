@@ -413,7 +413,7 @@ export async function recordGateOutcome(
       return proofRecord("unavailable", {
         path,
         reason:
-          "Complete candidate evidence and queue admission are required before recording Proof.",
+          "Complete candidate evidence is required before recording Proof.",
       });
     }
     try {

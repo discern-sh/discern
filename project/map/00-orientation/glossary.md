@@ -59,11 +59,13 @@ aliases:
   - variance
   - worktree
   - worktree resource
+  - queue reconciliation
   - compiled agent file
   - co-change advisory
   - harness
   - binary version
   - queue prefix
+  - queue admission
   - file dispositions
   - done --confirmed
   - the binary's files
@@ -73,9 +75,16 @@ aliases:
   - criterion
   - scopes.docs
   - co-managed seed
+  - early validation
+  - lookahead
   - integration branch
   - discern_main_branch
   - not_on_integration_branch
+  - borrowed checkout
+  - released checkout
+  - retained checkout
+  - execution environment
+  - candidate installation
 ---
 
 <!-- This reference is generated from the product-term registry. -->
