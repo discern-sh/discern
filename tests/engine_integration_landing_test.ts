@@ -11,7 +11,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { listIntegrationLandingRecords } from "../src/engine/worktree/integration_record.ts";
 import { readSubmission } from "../src/engine/worktree/submission.ts";
@@ -27,6 +27,7 @@ import {
 } from "./engine_helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
+import { waitUntil } from "./waiting.ts";
 
 const CONFIG = [
   "[meta]",
@@ -70,6 +71,7 @@ async function effortWithWork(
   contents = `${name} work\n`,
 ): Promise<string> {
   const wt = await addWorktree(dir, name);
+  await Deno.mkdir(join(wt, dirname(file)), { recursive: true });
   await Deno.writeTextFile(join(wt, file), contents);
   await git(wt, "add", "-A");
   await git(wt, "commit", "-q", "-m", `feat: ${name}`, "--no-gpg-sign");
@@ -327,6 +329,199 @@ Deno.test("author commits during checking stay intact, excluded, and named for t
       "missing",
       "the landed submission is consumed",
     );
+    await assertNoIntegrationRemains(dir);
+  });
+});
+Deno.test("the integration copy provisions its resources and removes them with the landing", async () => {
+  await withTempDir(async (dir) => {
+    await withTempDir(async (markers) => {
+      await integrationFixture(
+        dir,
+        `${CONFIG}[worktree.resources.thing]\ncreate  = 'sh -c "printf x >> ${markers}/created-@worktree@"'\ndestroy = 'sh -c "printf x >> ${markers}/destroyed-@worktree@"'\n`,
+      );
+      const alpha = await effortWithWork(dir, "alpha", "alpha.txt");
+      const beta = await effortWithWork(dir, "beta", "beta.txt");
+      assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+      assertEquals((await runAgent(beta, ["done", "--json"])).code, 0);
+      assertEquals(
+        (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+        0,
+      );
+      const landed = await runAgent(beta, ["accept", "--confirmed", "--json"]);
+      assertEquals(landed.code, 0, landed.output);
+
+      // The integration copy's own resource was created once and destroyed
+      // once, under its own worktree-derived handle.
+      const files: string[] = [];
+      for await (const entry of Deno.readDir(markers)) {
+        files.push(entry.name);
+      }
+      const created = files.filter((name) =>
+        name.startsWith("created-") && name.includes("integration")
+      );
+      const destroyed = files.filter((name) =>
+        name.startsWith("destroyed-") && name.includes("integration")
+      );
+      assertEquals(created.length, 1, files.join(", "));
+      assertEquals(destroyed.length, 1, files.join(", "));
+      await assertNoIntegrationRemains(dir);
+    });
+  });
+});
+
+Deno.test("a checkpoint conclusion travels with its evidence and an unchanged subject lands without a new decision", async () => {
+  await withTempDir(async (dir) => {
+    await integrationFixture(
+      dir,
+      `${CONFIG}[checkpoints.api-review]\npaths = ["api/**"]\nquestion = "Does this API change keep its consumers working?"\n`,
+    );
+    const alpha = await effortWithWork(dir, "alpha", "alpha.txt");
+    const beta = await effortWithWork(dir, "beta", "api/surface.txt");
+    // Beta answers its own fired checkpoint and proves green.
+    assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(beta, ["done", "--met", "api-review", "--json"])).code,
+      0,
+    );
+    const betaHead = await gitOut(beta, "rev-parse", "HEAD");
+    assertEquals(
+      (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+      0,
+    );
+
+    // The author's declaration travels with its evidence, so the unchanged
+    // subject stays answered on the combined tree and the landing completes
+    // without anyone re-deciding or inventing anything.
+    const landed = await runAgent(beta, ["accept", "--confirmed", "--json"]);
+    assertEquals(landed.code, 0, landed.output);
+    const tip = await gitOut(dir, "rev-parse", "main");
+    await git(dir, "merge-base", "--is-ancestor", betaHead, tip);
+    await assertNoIntegrationRemains(dir);
+  });
+});
+
+Deno.test("a trunk that moves during the combined check recomposes once, shows the checking row, and lands", async () => {
+  await withTempDir(async (dir) => {
+    await withTempDir(async (scratch) => {
+      // The gate job itself moves the trunk on the FIRST integration run —
+      // a deterministic stand-in for an outside actor committing to main —
+      // and slows down enough for the queue row to be observed mid-check.
+      const moved = join(scratch, "moved-once");
+      await integrationFixture(
+        dir,
+        CONFIG.replace('lint = ":"', 'lint = "sh maybe-move.sh"'),
+      );
+      await Deno.writeTextFile(
+        join(dir, "maybe-move.sh"),
+        [
+          "#!/bin/sh",
+          "sleep 2",
+          'case "$(pwd)" in',
+          `  *integration*) if [ ! -e "${moved}" ]; then`,
+          `    touch "${moved}"`,
+          `    git -C "${await Deno.realPath(
+            dir,
+          )}" commit -q --allow-empty -m outside --no-gpg-sign`,
+          "  fi ;;",
+          "esac",
+          "exit 0",
+          "",
+        ].join("\n"),
+      );
+      await git(dir, "add", "-A");
+      await git(dir, "commit", "-q", "-m", "wire moving gate", "--no-gpg-sign");
+      assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
+      await git(dir, "add", "-A");
+      if ((await gitOut(dir, "status", "--porcelain")) !== "") {
+        await git(dir, "commit", "-q", "-m", "converge", "--no-gpg-sign");
+      }
+
+      const alpha = await effortWithWork(dir, "alpha", "alpha.txt");
+      const beta = await effortWithWork(dir, "beta", "beta.txt");
+      assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+      assertEquals((await runAgent(beta, ["done", "--json"])).code, 0);
+      const betaHead = await gitOut(beta, "rev-parse", "HEAD");
+      assertEquals(
+        (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+        0,
+      );
+
+      const root = await Deno.realPath(dir);
+      const landing = runAgent(beta, ["accept", "--confirmed", "--json"]);
+      // While the combined check runs, the queue row names the running
+      // landing: waiting, with the reconnect handle every surface shares.
+      await waitUntil(
+        async () => {
+          const rows = await submissionRows(root, "main");
+          return rows.some((row) =>
+            row.readiness === "waiting" &&
+            row.operation_handle !== undefined &&
+            (row.reason ?? "").includes("discern progress")
+          );
+        },
+        "the queue row names the running landing's handle",
+        {
+          timeoutMs: 120_000,
+        },
+      );
+
+      const landed = await landing;
+      assertEquals(landed.code, 0, landed.output);
+      const tip = await gitOut(dir, "rev-parse", "main");
+      await git(dir, "merge-base", "--is-ancestor", betaHead, tip);
+      assert(await targetExists(join(dir, "beta.txt")));
+      await assertNoIntegrationRemains(dir);
+    });
+  });
+});
+
+Deno.test("a trunk that keeps moving stops the landing after one bounded recompose with the retry route", async () => {
+  await withTempDir(async (dir) => {
+    await integrationFixture(
+      dir,
+      CONFIG.replace('lint = ":"', 'lint = "sh always-move.sh"'),
+    );
+    await Deno.writeTextFile(
+      join(dir, "always-move.sh"),
+      [
+        "#!/bin/sh",
+        'case "$(pwd)" in',
+        `  *integration*) git -C "${await Deno.realPath(
+          dir,
+        )}" commit -q --allow-empty -m outside --no-gpg-sign ;;`,
+        "esac",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "wire moving gate", "--no-gpg-sign");
+    assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
+    await git(dir, "add", "-A");
+    if ((await gitOut(dir, "status", "--porcelain")) !== "") {
+      await git(dir, "commit", "-q", "-m", "converge", "--no-gpg-sign");
+    }
+
+    const alpha = await effortWithWork(dir, "alpha", "alpha.txt");
+    const beta = await effortWithWork(dir, "beta", "beta.txt");
+    assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+    assertEquals((await runAgent(beta, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+      0,
+    );
+    const refused = await runAgent(beta, ["accept", "--confirmed", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    const result = decodeCliResult(refused.stdout, "accept");
+    assertStringIncludes(
+      result.message ?? "",
+      "moved again while this landing recomposed",
+    );
+    assertStringIncludes(
+      result.message ?? "",
+      "Re-run `discern accept` to compose against the current trunk.",
+    );
+    assertEquals((await readSubmission(beta)).status, "submitted");
     await assertNoIntegrationRemains(dir);
   });
 });
