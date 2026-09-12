@@ -24,7 +24,9 @@ discern compiles the project's instruction sources (`project/instructions.md`) i
 
 ## Isolated worktree workflow
 
-discern keeps each effort in its own **linked git worktree** so parallel work doesn't collide. It provisions per-worktree external **resources**; read one with `discern identity --resource <name>`.
+discern keeps each effort in its own **linked git worktree** so parallel work doesn't collide.
+
+No per-worktree resources are configured. If parallel worktrees collide over shared state (a database, a port), the `[worktree.resources]` table isolates it per worktree.
 
 Keep one worktree for the whole effort, through review feedback and resumed sessions.
 
@@ -42,9 +44,9 @@ Keep one worktree for the whole effort, through review feedback and resumed sess
 3. Read the completion evidence and landing-authority result. **Proof** records what the configured gate established for the exact validated commit. Later edits require renewed verification.
 4. Report what changed, what was verified, and anything still unresolved. End with the returned Proof line verbatim.
 
-Ordinary successful completion releases the checkout for later validation and eligible cleanup. Completion does not itself merge the change into `main`. To keep authoring control for further edits or anything else run in the checkout, use `retain_checkout: true` (CLI `--retain-checkout`); when that use ends without edits, stop it and run `discern done --release-checkout`, which reruns nothing. Follow the reported state when resuming a released checkout.
+`discern_done` proves the committed tip of this worktree and records Proof for that exact commit. It lands nothing, and the worktree stays yours afterwards.
 
-**`discern_accept` lands the validated change on `main`.** A passing gate supplies evidence; landing also requires explicit owner consent or machine-verified authority. Follow `done`'s authority-aware next action: report and wait when consent is needed, or proceed under the verified authority. Acceptance lands approved efforts in queue order, so it may land efforts ahead of this one first or stop at one that needs approval; read the `Selected effort` line for this effort's own outcome and follow its next command rather than reordering or waiting by hand.
+**`discern_accept` submits and lands.** From this worktree it records the effort's submission, the exact commit and its Proof, then lands that commit on `main` under verified authority: consent in the current conversation (`--confirmed`), a standing scope grant on `main`, or an effort grant the owner recorded at the desk. Follow `done`'s authority-aware next action. When authority is present, call `discern_accept`. When it is absent, `discern_accept` refuses read-only, the submission waits for the owner, and you relay the Proof line and stop. A landing removes this worktree, its resources, and its branch when the branch holds nothing beyond the landed submission; the result names the surviving checkout. If `main` moved after your Proof, `accept` refuses and names the route: `discern_update`, `discern_done`, then `discern_accept`.
 
 ## Quality standards
 
