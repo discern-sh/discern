@@ -1,6 +1,6 @@
 # ADR 0389: The workspace contract — a checkout changes only under its own operation
 
-**Status**: accepted on 2026-09-12. Supersedes [ADR 0377](_superseded/0377-execution-environments-declare-reuse-and-recovery.md). Amends [ADR 0374](0374-complete-proof-is-independent-of-measurement-scheduling.md), [ADR 0375](0375-source-authority-survives-declared-composition.md), [ADR 0376](0376-active-commands-advance-an-authorized-landing-queue.md), and [ADR 0378](0378-landing-completion-survives-checkout-retirement.md). Restores the landing behavior of [ADR 0110](0110-the-landing-model.md) and the effort grant of [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md).
+**Status**: accepted on 2026-09-12. Supersedes [ADR 0376](_superseded/0376-active-commands-advance-an-authorized-landing-queue.md), [ADR 0377](_superseded/0377-execution-environments-declare-reuse-and-recovery.md), and [ADR 0378](_superseded/0378-landing-completion-survives-checkout-retirement.md). Amends [ADR 0374](0374-complete-proof-is-independent-of-measurement-scheduling.md) and [ADR 0375](0375-source-authority-survives-declared-composition.md). Restores the landing behavior of [ADR 0110](0110-the-landing-model.md) and the effort grant of [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md).
 
 ## Context
 

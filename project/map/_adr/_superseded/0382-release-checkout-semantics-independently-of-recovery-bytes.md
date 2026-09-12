@@ -2,7 +2,7 @@
 
 > **Superseded by [ADR 0389](../0389-the-workspace-contract.md).** Under the workspace contract no checkout is released, captured, or restored, so release identity and recovery-byte matching have no subject; the modules that owned them are removed.
 
-**Status**: superseded by [ADR 0389](../0389-the-workspace-contract.md) on 2026-09-12; previously accepted. Amends [ADR 0378](../0378-landing-completion-survives-checkout-retirement.md).
+**Status**: superseded by [ADR 0389](../0389-the-workspace-contract.md) on 2026-09-12; previously accepted. Amends [ADR 0378](0378-landing-completion-survives-checkout-retirement.md).
 
 ## Context
 
