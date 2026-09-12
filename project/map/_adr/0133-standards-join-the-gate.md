@@ -2,7 +2,7 @@
 
 > **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 >
-> - **Accepted completion-model direction (2026-09-05):** [ADR 0374](0374-complete-proof-is-independent-of-measurement-scheduling.md) removes deferred required measurement and separates enforcement from shared producer scheduling. This accepted change has implementation pending.
+> - **Completion-model direction (2026-09-05; implemented):** [ADR 0374](0374-complete-proof-is-independent-of-measurement-scheduling.md) removes deferred required measurement and separates enforcement from shared producer scheduling; every required standard now measures with the gate.
 
 **Status**: accepted. Supersedes [ADR 0003](0003-named-metric-standards.md)'s on-demand split _as it applies to the gate verb_ and reverses the "fold standards into finish" rejection in [ADR 0106](0106-standards-pin-carries-the-gate-receipt.md)'s alternatives (amendment notes on both). Extends [ADR 0112](0112-standard-measurement-receipt.md) (the gate now records the measurement receipt) and [ADR 0108](0108-gate-job-timeout.md) (the per-job `timeout` override its deferral waited for). Builds on the plan/apply seam ([ADR 0027](0027-plan-apply-engine-execution.md)), the result envelope ([ADR 0028](0028-result-envelope-and-diagnostics.md)), and the receipt ([ADR 0114](0114-the-gate-emits-the-receipt.md)).
 

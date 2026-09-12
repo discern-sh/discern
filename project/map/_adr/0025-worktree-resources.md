@@ -3,7 +3,7 @@
 > **Amendments.**
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `accept` (formerly `graduate`) and `[jobs]` / `[jobs.<name>]` (formerly `[capabilities]` / `[checks.<name>]`); the decisions below are unchanged.
-> - **Accepted completion-model direction (2026-09-05):** [ADR 0377](_superseded/0377-execution-environments-declare-reuse-and-recovery.md) adds declared execution-environment reuse, exclusive release/claim, and restoration or reset. This accepted direction has implementation pending.
+> - **Completion-model direction (2026-09-05; superseded 2026-09-12):** [ADR 0377](_superseded/0377-execution-environments-declare-reuse-and-recovery.md) layered declared execution-environment reuse, exclusive release/claim, and restoration or reset over this seam; [ADR 0389](0389-the-workspace-contract.md) superseded it — no checkout is borrowed, released, or restored, and the resource seam below is unchanged.
 
 **Status**: accepted
 
