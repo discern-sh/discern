@@ -1890,7 +1890,7 @@ function narrateIntegration(
  * shared worktree-target resolver as `start --from`, refusing an unknown or
  * ambiguous source in plain language).
  */
-async function buildUpdatePlan(
+export async function buildUpdatePlan(
   ctx: LifecycleContext,
   from?: string,
 ): Promise<UpdatePlan> {
@@ -2433,6 +2433,26 @@ async function runUpdateConvergence(
   };
 }
 
+/** What the shared update core did, for callers that compose it rather than
+ * throw: acceptance's integration phase needs the conflict's exact files, not
+ * a rendered refusal. `applied` covers the merge and the no-op convergence
+ * pass alike. */
+export type UpdateCoreOutcome =
+  | {
+    readonly kind: "conflict";
+    readonly files: string[];
+    readonly resolvable: string[];
+    readonly aborted: boolean;
+    readonly resolutionFailure?: string;
+  }
+  | { readonly kind: "dirty" }
+  | { readonly kind: "merge_failed"; readonly reason: string }
+  | {
+    readonly kind: "applied";
+    readonly result: DiscernResult<UpdateData>;
+    readonly merged: boolean;
+  };
+
 /**
  * Apply an integration: merge the source (the trunk, or the `--from` ref) in,
  * run the complete refresh reconciliation, then run checkout-shared
@@ -2451,6 +2471,46 @@ async function executeUpdatePlan(
   ctx: LifecycleContext,
   plan: UpdatePlan,
 ): Promise<DiscernResult<UpdateData>> {
+  const outcome = await applyUpdateCore(ctx, plan);
+  switch (outcome.kind) {
+    case "applied":
+      return outcome.result;
+    case "dirty":
+      throw new WorktreeGitError(
+        "This worktree has uncommitted tracked changes, and update merges only into a " +
+          "clean tree. Commit or stash them, then re-run `discern update`.",
+      );
+    case "conflict":
+      throw new WorktreeGitError(
+        updateConflictMessage(
+          plan,
+          outcome.files,
+          outcome.resolvable,
+          outcome.aborted,
+          outcome.resolutionFailure,
+        ),
+      );
+    case "merge_failed":
+      // Git refused before any merge began — unrelated histories, an untracked
+      // file in the way. The tree is untouched; the cause is git's to name.
+      throw new WorktreeGitError(
+        `Updating ${plan.source} failed before any merge began — your ` +
+          `tree is untouched. Git refused:\n    ${outcome.reason}\n` +
+          `Fix the cause git names, then re-run \`${
+            plan.fromOverride
+              ? `discern update --from ${plan.source}`
+              : "discern update"
+          }\`.`,
+      );
+  }
+}
+
+/** The update core acceptance composes inside an integration worktree; the
+ * standalone verb wraps it in the refusal prose above. */
+export async function applyUpdateCore(
+  ctx: LifecycleContext,
+  plan: UpdatePlan,
+): Promise<UpdateCoreOutcome> {
   const { source } = plan;
   const outcome = await updateMain(
     ctx.cwd,
@@ -2499,35 +2559,22 @@ async function executeUpdatePlan(
       if (convergence.diagnostics.length > 0) {
         result.diagnostics = convergence.diagnostics;
       }
-      return result;
+      return { kind: "applied", result, merged: false };
     }
     case "dirty":
-      throw new WorktreeGitError(
-        "This worktree has uncommitted tracked changes, and update merges only into a " +
-          "clean tree. Commit or stash them, then re-run `discern update`.",
-      );
+      return { kind: "dirty" };
     case "conflict":
-      throw new WorktreeGitError(
-        updateConflictMessage(
-          plan,
-          outcome.files,
-          outcome.resolvable,
-          outcome.aborted,
-          outcome.resolutionFailure,
-        ),
-      );
+      return {
+        kind: "conflict",
+        files: outcome.files,
+        resolvable: outcome.resolvable,
+        aborted: outcome.aborted,
+        ...(outcome.resolutionFailure === undefined
+          ? {}
+          : { resolutionFailure: outcome.resolutionFailure }),
+      };
     case "merge_failed":
-      // Git refused before any merge began — unrelated histories, an untracked
-      // file in the way. The tree is untouched; the cause is git's to name.
-      throw new WorktreeGitError(
-        `Updating ${plan.source} failed before any merge began — your ` +
-          `tree is untouched. Git refused:\n    ${outcome.reason}\n` +
-          `Fix the cause git names, then re-run \`${
-            plan.fromOverride
-              ? `discern update --from ${plan.source}`
-              : "discern update"
-          }\`.`,
-      );
+      return { kind: "merge_failed", reason: outcome.reason };
     case "updated": {
       const behindText = isKnownGitCount(outcome.behind)
         ? `${outcome.behind} commit(s)`
@@ -2608,7 +2655,7 @@ async function executeUpdatePlan(
       if (convergence.diagnostics.length > 0) {
         result.diagnostics = convergence.diagnostics;
       }
-      return result;
+      return { kind: "applied", result, merged: true };
     }
   }
 }
