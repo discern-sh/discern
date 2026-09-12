@@ -29529,6 +29529,12 @@
                     "$ref": "#/$defs/DiscernSubmissionRow"
                   }
                 },
+                "landings": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/DiscernLandingOutcome"
+                  }
+                },
                 "root": {
                   "type": "string"
                 },
@@ -35888,6 +35894,74 @@
         "readiness"
       ],
       "description": "One landing-queue row derived from an effort's submission record: the branch, the exact submitted commit, whether a recorded grant covers it, and the one sentence that says why it waits."
+    },
+    "DiscernLandingOutcome": {
+      "title": "DiscernLandingOutcome",
+      "type": "object",
+      "properties": {
+        "effort": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "head": {
+          "type": "string"
+        },
+        "selected": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "landed",
+            "refused",
+            "failed"
+          ]
+        },
+        "landed_commit": {
+          "type": "string"
+        },
+        "integrated": {
+          "type": "boolean"
+        },
+        "consent": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "conversation",
+                "standing-grant",
+                "effort-grant"
+              ]
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "source"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "proof_line": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "effort",
+        "branch",
+        "head",
+        "selected",
+        "status"
+      ],
+      "description": "One attempted landing in an acceptance call: the submission it names, whether it was the selected one, its broad terminal state, and the exact commit that reached the trunk when one did."
     },
     "DiscernAuthorizedVariance": {
       "title": "DiscernAuthorizedVariance",

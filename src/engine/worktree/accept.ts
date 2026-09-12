@@ -34,6 +34,7 @@ import {
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
+import { targetExists } from "../../shared/fs_presence.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import {
@@ -64,6 +65,7 @@ import {
   type AcceptProofNoteData,
   AppliedAcceptDataSchema,
   type AuthorizedVarianceData,
+  type LandingOutcomeData,
   type Proof,
   type StandardLimitApprovalRequestData,
   type StandardLimitProposalData,
@@ -117,6 +119,7 @@ import { clearEffortGrant } from "./effort_grant_cleanup.ts";
 import {
   assertResolvedTrunkMerged,
   commitIsAncestorOf,
+  commitIsMerged,
   inLinkedWorktree,
   inspectGitOperation,
   integrationBranch,
@@ -146,6 +149,7 @@ import {
   type LifecycleContext,
   lifecycleContext,
   teardownResources,
+  worktreeErrorResult,
 } from "./lifecycle.ts";
 import {
   classifyAutomaticBranchOwnership,
@@ -156,10 +160,15 @@ import {
   removeIntegrationWorktree,
   runIntegrationAttempt,
 } from "./integration_landing.ts";
+import { runWithCommonLeasesOnly } from "../operation_lock.ts";
 import { readResourceSpecs } from "./resources.ts";
 import { standardLimitApprovalRequests } from "./standard_approval.ts";
 import { strictVerdictCurrency } from "../completion/verdict.ts";
-import { readSubmission, type Submission } from "./submission.ts";
+import {
+  readSubmission,
+  type Submission,
+  type SubmissionRead,
+} from "./submission.ts";
 import {
   clearSubmission,
   clearSubmissionIfCurrent,
@@ -1522,7 +1531,12 @@ async function executeLanding(
   progress: AcceptExecutionProgress,
   signal: AbortSignal | undefined,
   env: Pick<typeof Deno.env, "get">,
-): Promise<{ readonly message: string; readonly proofLine?: string }> {
+): Promise<{
+  readonly message: string;
+  readonly proofLine?: string;
+  readonly landedCommit: string;
+  readonly integrated: boolean;
+}> {
   const { mainRepo, trunk } = effort;
   const log = effort.ctx.log;
   const ownership = classifyAutomaticBranchOwnership({
@@ -1806,7 +1820,12 @@ async function executeLanding(
   const message = landedMessage(effort, subject.head, disposition);
   log.heading("Acceptance complete.");
   log.line(`  ${message}`);
-  return proofLine === undefined ? { message } : { message, proofLine };
+  return {
+    message,
+    landedCommit: subject.head,
+    integrated: false,
+    ...(proofLine === undefined ? {} : { proofLine }),
+  };
 }
 
 // ── the integrated landing ───────────────────────────────────────────────────
@@ -1890,7 +1909,12 @@ async function executeIntegrationLanding(
   enteredTip: string,
   request: AcceptRequest,
   env: Pick<typeof Deno.env, "get">,
-): Promise<{ readonly message: string; readonly proofLine?: string }> {
+): Promise<{
+  readonly message: string;
+  readonly proofLine?: string;
+  readonly landedCommit: string;
+  readonly integrated: boolean;
+}> {
   const { mainRepo, trunk } = effort;
   const log = effort.ctx.log;
   const frozen = subject.submission;
@@ -2252,7 +2276,12 @@ async function executeIntegrationLanding(
     );
     log.heading("Acceptance complete.");
     log.line(`  ${message}`);
-    return { message, proofLine };
+    return {
+      message,
+      proofLine,
+      landedCommit: composed.head,
+      integrated: true,
+    };
   }
 }
 
@@ -2442,21 +2471,17 @@ async function reportLandingWait(effort: EffortCheckout): Promise<void> {
  * Submit and land under the effort's acceptance lock. The apply path recovers
  * an interrupted transaction first, then decides and lands once.
  */
-async function landingResult(
-  ctx: LifecycleContext,
+/**
+ * Decide and perform one effort's landing — the shared core behind the
+ * caller's own landing and every further landing the queue walk attempts.
+ * The caller holds the acceptance boundary for `effort.path`.
+ */
+async function landEffortOnce(
+  effort: EffortCheckout,
   request: AcceptRequest,
-  env: Pick<typeof Deno.env, "get"> = Deno.env,
+  env: Pick<typeof Deno.env, "get">,
 ): Promise<DiscernResult<AcceptData>> {
-  await assertProjectRootIsRepoToplevel(ctx, "accept");
-  const effort = await effortCheckout(ctx, request.target);
-  if (effort === undefined) {
-    return await refuseFromMainCheckout(
-      ctx,
-      integrationBranch(ctx.config.repository.trunk),
-      request.dryRun,
-    );
-  }
-  const body = async (): Promise<DiscernResult<AcceptData>> => {
+  {
     let authority = await inspectLandingAuthority(effort.path, effort.trunk, {
       includeScopeEvidence: true,
     });
@@ -2541,8 +2566,22 @@ async function landingResult(
         progress.diagnostics,
       );
       result.message = landed.message;
+      const selfOutcome: LandingOutcomeData = {
+        effort: effort.id,
+        branch: effort.branch,
+        head: subject.head,
+        selected: true,
+        status: "landed",
+        landed_commit: landed.landedCommit,
+        ...(landed.integrated ? { integrated: true } : {}),
+        consent: cloneLandingConsent(decision.consent),
+        ...(landed.proofLine === undefined
+          ? {}
+          : { proof_line: landed.proofLine }),
+      };
       result.data = {
         ...progressData(effort.mainRepo, decision.consent, progress),
+        landings: [selfOutcome],
         ...(decision.drops.length === 0
           ? {}
           : { checkpoint_drops: [...decision.drops] }),
@@ -2595,6 +2634,224 @@ async function landingResult(
       }
       throw error;
     }
+  }
+}
+
+/** The settled result when a preceding landing already landed the submission
+ * this call entered with; the call verifies and changes nothing. */
+async function settledByPredecessor(
+  effort: EffortCheckout,
+  preWait: SubmissionRead,
+): Promise<DiscernResult<AcceptData> | undefined> {
+  if (preWait.status !== "submitted") return undefined;
+  const now = await readSubmission(effort.path);
+  if (now.status === "submitted" || now.status === "invalid") return undefined;
+  const frozen = preWait.submission;
+  if (
+    !(await commitIsMerged(effort.mainRepo, frozen.head, effort.trunk))
+  ) return undefined;
+  const checkoutGone = !(await targetExists(effort.path));
+  const message = `${effort.branch}'s submission ${
+    short(frozen.head)
+  } already landed on ${effort.trunk} through a preceding landing; this call verified that outcome and changed nothing.${
+    checkoutGone
+      ? " Its checkout and branch were already cleaned up."
+      : ` Run discern status from ${effort.path} for what remains there.`
+  }`;
+  return {
+    ok: true,
+    verb: "accept",
+    message,
+    data: {
+      root: effort.mainRepo,
+      landing: {
+        recovery_performed: false,
+        trunk_landed: true,
+        worktree_removed: checkoutGone,
+        branch_deleted: checkoutGone,
+      },
+      landings: [{
+        effort: effort.id,
+        branch: effort.branch,
+        head: frozen.head,
+        selected: true,
+        status: "landed",
+        reason:
+          "A preceding landing already landed this exact submission; nothing was checked, consumed, or cleaned up twice.",
+      }],
+    },
+  };
+}
+
+/** Project one effort's settled landing result onto its walk outcome row. */
+function landingOutcomeOf(
+  row: Pick<SubmissionRow, "effort" | "branch" | "head">,
+  selected: boolean,
+  result: DiscernResult<AcceptData>,
+): LandingOutcomeData {
+  const own = result.data?.landings?.[0];
+  if (result.ok && own !== undefined) {
+    return { ...own, selected };
+  }
+  const landedAnyway = result.data?.landing?.trunk_landed === true;
+  const reason = result.message?.split("\n")[0] ??
+    "The landing did not report a reason.";
+  return {
+    effort: row.effort,
+    branch: row.branch,
+    head: row.head,
+    selected,
+    status: landedAnyway ? "failed" : "refused",
+    ...(landedAnyway ? {} : {}),
+    reason,
+  };
+}
+
+/**
+ * Land the remaining submissions after an explicitly selected landing, in the
+ * queue's one canonical order. Each further landing needs its own honored
+ * Proof and a verified recorded grant — the conversation covered only the
+ * selected landing — and the walk stops at the first refusal or failure.
+ */
+async function walkQueue(
+  ctx: LifecycleContext,
+  effort: EffortCheckout,
+  selected: DiscernResult<AcceptData>,
+  request: AcceptRequest,
+  env: Pick<typeof Deno.env, "get">,
+): Promise<DiscernResult<AcceptData>> {
+  const outcomes: LandingOutcomeData[] = [
+    ...(selected.data?.landings ?? []),
+  ];
+  const paragraphs: string[] = [];
+  const attempted = new Set([
+    await Deno.realPath(effort.path).catch(() => effort.path),
+  ]);
+  let stopped: string | undefined;
+  while (stopped === undefined) {
+    const rows = await submissionRows(effort.mainRepo, effort.trunk);
+    const next = rows.find((row) => !attempted.has(row.path));
+    if (next === undefined) break;
+    attempted.add(next.path);
+    let follower: DiscernResult<AcceptData>;
+    try {
+      const followerEffort = await effortCheckout(ctx, next.path);
+      if (followerEffort === undefined) {
+        throw new WorktreeGitError(
+          `${next.branch}'s worktree could not be selected for the walk.`,
+        );
+      }
+      // Serialization stays with the held common lock; the follower's own
+      // checkout boundary is acquired non-blockingly, so a busy follower
+      // refuses and the walk stops there.
+      follower = await runWithCommonLeasesOnly(() =>
+        withAcceptanceTransactionLock(
+          followerEffort.path,
+          () =>
+            landEffortOnce(followerEffort, {
+              dryRun: false,
+              confirmed: false,
+              variance: [],
+              approveStandard: [],
+              target: next.path,
+              ...(request.cliModel === undefined
+                ? {}
+                : { cliModel: request.cliModel }),
+              ...(request.signal === undefined
+                ? {}
+                : { signal: request.signal }),
+            }, env),
+        )
+      );
+    } catch (error) {
+      const mapped = worktreeErrorResult("accept", error);
+      if (mapped === undefined) throw error;
+      follower = mapped as DiscernResult<AcceptData>;
+    }
+    const outcome = landingOutcomeOf(next, false, follower);
+    outcomes.push(outcome);
+    if (outcome.status === "landed") {
+      paragraphs.push(
+        `The walk then landed ${next.branch}'s submission ${short(next.head)}${
+          outcome.landed_commit !== undefined &&
+            outcome.landed_commit !== next.head
+            ? `, composed and proven as ${short(outcome.landed_commit)}`
+            : ""
+        } under its recorded grant.`,
+      );
+      continue;
+    }
+    stopped = next.branch;
+    paragraphs.push(
+      `The walk stopped at ${next.branch}: ${
+        outcome.reason ?? "its landing did not complete."
+      }`,
+    );
+  }
+  const queue = await submissionRows(effort.mainRepo, effort.trunk);
+  if (queue.length > 0 && stopped === undefined) {
+    paragraphs.push(
+      `${queue.length} submission${queue.length === 1 ? "" : "s"} remain${
+        queue.length === 1 ? "s" : ""
+      } in the landing queue.`,
+    );
+  }
+  const walkFailed = outcomes.some((outcome) => outcome.status !== "landed");
+  const message = [selected.message, ...paragraphs]
+    .filter((paragraph) => paragraph !== undefined && paragraph !== "")
+    .join("\n");
+  const data: AcceptData = {
+    ...(selected.data ?? {}),
+    landings: outcomes,
+  };
+  if (queue.length > 0) data.queue = [...queue];
+  if (walkFailed) {
+    return {
+      ...selected,
+      ok: false,
+      error: "partial_acceptance",
+      message,
+      data,
+    };
+  }
+  return { ...selected, message, data };
+}
+
+/**
+ * Submit and land under the effort's acceptance lock. The apply path recovers
+ * an interrupted transaction first, then decides and lands once; an explicit
+ * selection walks the remaining queue afterwards.
+ */
+async function landingResult(
+  ctx: LifecycleContext,
+  request: AcceptRequest,
+  env: Pick<typeof Deno.env, "get"> = Deno.env,
+): Promise<DiscernResult<AcceptData>> {
+  await assertProjectRootIsRepoToplevel(ctx, "accept");
+  const effort = await effortCheckout(ctx, request.target);
+  if (effort === undefined) {
+    return await refuseFromMainCheckout(
+      ctx,
+      integrationBranch(ctx.config.repository.trunk),
+      request.dryRun,
+    );
+  }
+  // The submission this call enters with, read before any wait: after the
+  // boundary is acquired, a preceding queue walk may already have landed it.
+  const preWait = request.dryRun
+    ? { status: "missing" as const }
+    : await readSubmission(effort.path);
+  const body = async (): Promise<DiscernResult<AcceptData>> => {
+    const settled = await settledByPredecessor(effort, preWait);
+    if (settled !== undefined) return settled;
+    if (!(await targetExists(effort.path))) {
+      throw new WorktreeGitError(
+        `The worktree at ${effort.path} is gone. Run discern status from ${effort.mainRepo} to see what remains.`,
+      );
+    }
+    const selected = await landEffortOnce(effort, request, env);
+    if (request.dryRun || !selected.ok || !effort.explicit) return selected;
+    return await walkQueue(ctx, effort, selected, request, env);
   };
   if (request.dryRun) return await body();
   // A second accept waits its turn behind a running landing and resumes on

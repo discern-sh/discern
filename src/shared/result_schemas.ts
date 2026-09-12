@@ -1616,12 +1616,47 @@ export const SubmissionRowSchema = z.strictObject({
     "branch, the exact submitted commit, whether a recorded grant covers it, " +
     "and the one sentence that says why it waits.",
 });
+/** One attempted landing in an acceptance call: the selected submission or
+ * a further queue-walk landing. Broad terminal states stay stable; optional
+ * fields carry detail a consumer may ignore. */
+export const LandingOutcomeSchema = z.strictObject({
+  effort: z.string(),
+  branch: z.string(),
+  /** The exact submitted revision this outcome describes. */
+  head: z.string(),
+  /** This outcome belongs to the call's selected submission. */
+  selected: z.boolean(),
+  /** Landed: the trunk holds it. Refused: nothing changed for it. Failed:
+   * its landing stopped after effects; `landed_commit` and `reason` say
+   * exactly which, and nothing implies earlier effects were undone. */
+  status: z.enum(["landed", "refused", "failed"]),
+  /** The exact commit that reached the trunk (equals `head` on the direct
+   * path; the proven composed commit on an integrated landing). */
+  landed_commit: z.string().optional(),
+  /** The landing composed and checked in an integration worktree. */
+  integrated: z.boolean().optional(),
+  consent: LandingConsentDataSchema.optional(),
+  /** One sentence: why a refused or failed landing stopped, with its route. */
+  reason: z.string().optional(),
+  proof_line: z.string().optional(),
+}).meta({
+  id: "DiscernLandingOutcome",
+  description:
+    "One attempted landing in an acceptance call: the submission it names, " +
+    "whether it was the selected one, its broad terminal state, and the " +
+    "exact commit that reached the trunk when one did.",
+});
+export type LandingOutcomeData = z.infer<typeof LandingOutcomeSchema>;
+
 export const AcceptDataSchema = z.strictObject({
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   emergency: EmergencyDataSchema.optional(),
   /** The landing queue: every unlanded submission, in landing order. */
   queue: z.array(SubmissionRowSchema).optional(),
+  /** Every landing this call attempted, the selected submission marked and
+   * first. `landing` remains the selected landing's effect projection. */
+  landings: z.array(LandingOutcomeSchema).optional(),
   /** Present after landing; read-only reviews may carry only checkpoint drops. */
   root: z.string().optional(),
   consent: LandingConsentDataSchema.optional(),

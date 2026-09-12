@@ -327,6 +327,22 @@ export type DiscernSubmissionRow = {
   operation_handle?: string;
 };
 
+export type DiscernLandingOutcome = {
+  effort: string;
+  branch: string;
+  head: string;
+  selected: boolean;
+  status: "landed" | "refused" | "failed";
+  landed_commit?: string;
+  integrated?: boolean;
+  consent?: {
+    source: "conversation" | "standing-grant" | "effort-grant";
+    scopes?: Array<string>;
+  };
+  reason?: string;
+  proof_line?: string;
+};
+
 export type DiscernAuthorizedVariance = {
   checkpoint: string;
   definition_hash: string;
@@ -8934,6 +8950,7 @@ export type DiscernAcceptResult = DiscernResultState & {
       cleanup?: "removed" | "kept" | "failed";
     };
     queue?: Array<DiscernSubmissionRow>;
+    landings?: Array<DiscernLandingOutcome>;
     root?: string;
     consent?: {
       source: "conversation" | "standing-grant" | "effort-grant";

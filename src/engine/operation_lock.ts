@@ -735,6 +735,27 @@ export async function withSetupProbeCheckout<T>(
   );
 }
 
+/** Run `operation` holding only the common-repository leases of the current
+ * context. The landing walk uses this to move from the selected effort's
+ * checkout to the next submission's: serialization stays with the common
+ * lock, while each further landing acquires its own checkout boundary
+ * non-blockingly — a busy follower refuses and stops the walk. */
+export async function runWithCommonLeasesOnly<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  const held = currentOperationLocks();
+  if (held === undefined) return await operation();
+  const leases = new Map(
+    [...held.leases].filter(([, lease]) => lease.boundary === "common"),
+  );
+  return await runWithOperationLocks({
+    leases,
+    boundaries: new Set(
+      [...held.boundaries].filter((boundary) => boundary === "common"),
+    ),
+  }, operation);
+}
+
 /** A landing's freshly created integration worktree holds its own checkout
  * lease for the composed update and gate cores, under the acceptance
  * transaction's already-held common lock — so those cores reuse held leases
