@@ -8,13 +8,30 @@
 
 import { decodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../src/shared/clock.ts";
 import { EmergencyNotePayloadSchema } from "../src/shared/emergency_note.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { sha256Hex } from "../src/shared/sha256.ts";
 import { readEffortGrant } from "../src/engine/worktree/effort_grant.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
-import { readCompletionRecord } from "../src/engine/completion/store.ts";
+import {
+  readCompletionRecord,
+  writeCompletionRecord,
+} from "../src/engine/completion/store.ts";
+import type { CompletionRecord } from "../src/engine/completion/records.ts";
+import type { ExceptionRecord } from "../src/engine/completion/exception.ts";
+import { emergencyId } from "../src/engine/emergency/plan.ts";
+import {
+  canonicalExceptionNote,
+  recordExceptionNote,
+} from "../src/engine/emergency/note.ts";
 import {
   addWorktree,
   git,
@@ -301,6 +318,298 @@ Deno.test("emergency refuses a changed subject and a replayed confirmation witho
   });
 });
 
+/**
+ * The exception record the exchange writes before its transition, rebuilt from
+ * a served preview — the durable shape an interruption between record
+ * publication and the trunk transition leaves behind for --recover.
+ */
+function plannedExceptionRecord(
+  preview: ReturnType<typeof emergencyData>,
+  id: string,
+  reason: string,
+): CompletionRecord {
+  const candidate = preview.candidate;
+  const exceptions = preview.exceptions;
+  assert(candidate !== undefined && exceptions !== undefined);
+  const now = SYSTEM_CLOCK.wallNow();
+  return {
+    version: ON_DISK_FORMATS.completionRecord.version,
+    kind: "exception",
+    id,
+    revision: 1,
+    data: {
+      claim: {
+        kind: "exception",
+        authorization_id: id,
+        authorized_at: now,
+        actual_trunk: candidate.predecessor,
+        source: candidate.source,
+        candidate_id: preview.candidate_id ?? candidate.attempt_id,
+        candidate_head: candidate.head,
+        policy: candidate.policy,
+        reason,
+        exceptions,
+      },
+      executor: {
+        operation_id: crypto.randomUUID(),
+        originating_effort: candidate.source.effort_id,
+        started_at: now,
+      },
+      expected_trunk: candidate.predecessor,
+      target: candidate.head,
+      outcome: { kind: "planned" },
+      note: "pending",
+    },
+  };
+}
+
+Deno.test("a recorded authorization refuses confirmation replay, and recovery settles a never-advanced transition as not landed", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await failingRepair(dir);
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
+    const reason = "Restore service";
+    const preview = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--json",
+    ]);
+    assertEquals(preview.code, 1, preview.output);
+    const served = emergencyData(preview.stdout);
+    const token = served.confirmation;
+    assert(token !== undefined);
+
+    // A dry-run preview serves the same plan shape and consumes nothing.
+    const dry = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(dry.code, 0, dry.output);
+    const dryEnvelope = decodeCliResult(dry.stdout, "accept");
+    assertEquals(dryEnvelope.dry_run, true);
+    assertEquals(emergencyData(dry.stdout).outcome, "preview");
+    assertStringIncludes(dryEnvelope.message ?? "", BOUNDARY);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+
+    // The crash shape: the authorization record exists, planned, and the
+    // transition never ran. Replaying the owner's confirmation refuses.
+    const id = emergencyId(await sha256Hex(token));
+    const written = await writeCompletionRecord(
+      dir,
+      plannedExceptionRecord(served, id, reason),
+      null,
+    );
+    assertEquals(written.kind, "written", JSON.stringify(written));
+    const replay = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--confirmed",
+      "--confirmation",
+      token,
+      "--json",
+    ]);
+    assertEquals(replay.code, 1, replay.output);
+    const replayEnvelope = decodeCliResult(replay.stdout, "accept");
+    assertEquals(replayEnvelope.error, "precondition_failed");
+    assertStringIncludes(
+      replayEnvelope.message ?? "",
+      `This emergency authorization already has a record. Use discern accept emergency --recover ${id}; do not replay confirmation.`,
+    );
+    assert(
+      (replayEnvelope.hints ?? []).some((hint) =>
+        hint.includes(
+          "Resolve the reported precondition, then prepare a new emergency plan.",
+        )
+      ),
+      replay.output,
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+
+    // Recovery settles the recorded transition: the trunk never advanced.
+    const recovered = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      id,
+      "--json",
+    ]);
+    assertEquals(recovered.code, 1, recovered.output);
+    const recoveredEnvelope = decodeCliResult(recovered.stdout, "accept");
+    assertEquals(recoveredEnvelope.error, "precondition_failed");
+    assertStringIncludes(
+      recoveredEnvelope.message ?? "",
+      "did not land; the emergency was not applied and no Proof was issued.",
+    );
+    assertStringIncludes(
+      recoveredEnvelope.message ?? "",
+      "The unlanded outcome is settled. Return to the repair worktree and prepare a new emergency plan for fresh owner review.",
+    );
+    assertEquals(emergencyData(recovered.stdout).outcome, "not-landed");
+    assert(
+      (recoveredEnvelope.hints ?? []).some((hint) =>
+        hint.includes(
+          "No integration occurred. Return to the repair worktree and prepare a new emergency plan for fresh owner review.",
+        )
+      ),
+      recovered.output,
+    );
+    const settled = await readCompletionRecord(dir, {
+      kind: "exception",
+      id,
+    });
+    assert(settled.kind === "recorded" && settled.record.kind === "exception");
+    assert(settled.record.data.outcome.kind === "not-landed");
+    assertEquals(
+      settled.record.data.outcome.reason,
+      "the recorded transition never advanced the trunk",
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+    assert(await targetExists(wt), "a not-landed recovery keeps the repair");
+
+    // The settled outcome reads the same on a repeated recovery.
+    const again = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      id,
+      "--json",
+    ]);
+    assertEquals(again.code, 1, again.output);
+    assertEquals(emergencyData(again.stdout).outcome, "not-landed");
+
+    // An unknown landing id names no record.
+    const unknown = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      crypto.randomUUID(),
+      "--json",
+    ]);
+    assertEquals(unknown.code, 1, unknown.output);
+    assertTerminalTextIncludes(
+      decodeCliResult(unknown.stdout, "accept").message ?? "",
+      "No readable emergency landing exists at that id. Preserve the records and inspect status.",
+    );
+  });
+});
+
+Deno.test("recovery completes an advanced-but-unsettled transition: note collision reported, then published, checkout kept then removed", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await failingRepair(dir);
+    const repairHead = await gitOut(wt, "rev-parse", "HEAD");
+    const reason = "Restore the broken deploy path";
+    const preview = await runAgent(wt, [
+      "accept",
+      "emergency",
+      "--reason",
+      reason,
+      "--json",
+    ]);
+    assertEquals(preview.code, 1, preview.output);
+    const id = crypto.randomUUID();
+    const written = await writeCompletionRecord(
+      dir,
+      plannedExceptionRecord(emergencyData(preview.stdout), id, reason),
+      null,
+    );
+    assertEquals(written.kind, "written", JSON.stringify(written));
+
+    // The crash happened after the trunk advanced: reproduce that exact state
+    // by hand, with a foreign note already on the landed commit and work
+    // still sitting uncommitted in the repair's checkout.
+    await git(dir, "merge", "--ff-only", repairHead);
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      "prior claim",
+      repairHead,
+    );
+    await Deno.writeTextFile(join(wt, "follow-up.txt"), "unfinished\n");
+
+    const first = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      id,
+      "--json",
+    ]);
+    assertEquals(first.code, 1, first.output);
+    const firstEnvelope = decodeCliResult(first.stdout, "accept");
+    assertEquals(firstEnvelope.error, "partial_acceptance");
+    const firstEmergency = emergencyData(first.stdout);
+    assertEquals(firstEmergency.outcome, "landed");
+    assertEquals(firstEmergency.note, "failed");
+    assertEquals(firstEmergency.cleanup, "kept");
+    assertStringIncludes(
+      firstEnvelope.message ?? "",
+      `The exception note was not recorded. Run discern accept emergency --recover ${id} after repairing Git notes access.`,
+    );
+    // The foreign claim survives untouched.
+    assertEquals(
+      await gitOut(dir, "notes", "--ref=discern", "show", repairHead),
+      "prior claim",
+    );
+    assert(
+      (firstEnvelope.hints ?? []).some((hint) =>
+        hint.includes(
+          `Run discern accept emergency --recover ${id} to inspect and reconcile this recorded transition.`,
+        )
+      ),
+      first.output,
+    );
+
+    // With the collision cleared and the checkout clean, the same recovery
+    // publishes the note and finishes cleanup.
+    await git(dir, "notes", "--ref=discern", "remove", repairHead);
+    await Deno.remove(join(wt, "follow-up.txt"));
+    const second = await runAgent(dir, [
+      "accept",
+      "emergency",
+      "--recover",
+      id,
+      "--json",
+    ]);
+    assertEquals(second.code, 0, second.output);
+    const secondEmergency = emergencyData(second.stdout);
+    assertEquals(secondEmergency.note, "published");
+    assertEquals(secondEmergency.cleanup, "removed");
+    assertTerminalTextIncludes(
+      decodeCliResult(second.stdout, "accept").message ?? "",
+      "Run discern done --rerun on the current committed trunk or a repair containing it to resolve outstanding validation.",
+    );
+    assertEquals(await targetExists(wt), false, second.output);
+    const payload = decodeWith(
+      EmergencyNotePayloadSchema,
+      new TextDecoder().decode(
+        decodeBase64(
+          decodeWith(
+            DSSE_ENVELOPE_SCHEMA,
+            await gitOut(dir, "notes", "--ref=discern", "show", repairHead),
+          ).payload,
+        ),
+      ),
+    );
+    assertEquals(payload.landing_id, id);
+    const settled = await readCompletionRecord(dir, {
+      kind: "exception",
+      id,
+    });
+    assert(settled.kind === "recorded" && settled.record.kind === "exception");
+    assertEquals(settled.record.data.outcome.kind, "landed");
+    assertEquals(settled.record.data.note, "published");
+  });
+});
+
 Deno.test("emergency argument combinations refuse before any plan is read", async () => {
   await withTempDir(async (dir) => {
     const wt = await failingRepair(dir);
@@ -332,6 +641,146 @@ Deno.test("emergency argument combinations refuse before any plan is read", asyn
     assertTerminalTextIncludes(
       decodeCliResult(mixed.stdout, "accept").message ?? "",
       "Emergency preparation cannot be combined with a receipt, confirmation, or transition recovery.",
+    );
+  });
+});
+
+/** A schema-valid landed exception whose note targets `head`. */
+function landedException(head: string): ExceptionRecord {
+  const now = SYSTEM_CLOCK.wallNow();
+  const trunk = "a".repeat(40);
+  return {
+    claim: {
+      kind: "exception",
+      authorization_id: crypto.randomUUID(),
+      authorized_at: now,
+      actual_trunk: trunk,
+      source: {
+        effort_id: "repair",
+        branch: "refs/heads/agent/repair",
+        head,
+        tree: "b".repeat(40),
+      },
+      candidate_id: crypto.randomUUID(),
+      candidate_head: head,
+      policy: "c".repeat(64),
+      reason: "Restore service",
+      exceptions: [{
+        requirement: { id: "lint", kind: "job", definition: "d".repeat(64) },
+        state: "failed",
+        evidence_id: null,
+      }],
+    },
+    executor: {
+      operation_id: crypto.randomUUID(),
+      originating_effort: "repair",
+      started_at: now,
+    },
+    expected_trunk: trunk,
+    target: head,
+    outcome: { kind: "landed", at: now },
+    note: "pending",
+  };
+}
+
+Deno.test("an exception note exists only for a landed integration", () => {
+  const record = landedException("e".repeat(40));
+  assertThrows(
+    () =>
+      canonicalExceptionNote(crypto.randomUUID(), {
+        ...record,
+        outcome: { kind: "planned" },
+      }),
+    Error,
+    "An exception note requires its landed integration.",
+  );
+});
+
+Deno.test("exception note publication is create-only: recorded once, idempotent after, and never replaces another claim", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const head = await gitOut(dir, "rev-parse", "HEAD");
+    const record = landedException(head);
+    const id = record.claim.authorization_id;
+
+    const first = await recordExceptionNote(dir, id, record);
+    assertEquals(first.status, "recorded", JSON.stringify(first));
+    assertEquals(
+      await gitOut(dir, "notes", "--ref=discern", "show", head),
+      canonicalExceptionNote(id, record).trimEnd(),
+    );
+
+    // The same bytes already on the commit are a settled publication.
+    const second = await recordExceptionNote(dir, id, record);
+    assertEquals(second.status, "already_present", JSON.stringify(second));
+
+    // A different claim on the commit is preserved, never replaced.
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-f",
+      "-m",
+      "prior claim",
+      head,
+    );
+    const third = await recordExceptionNote(dir, id, record);
+    assertEquals(third.status, "record_failed");
+    assertEquals(
+      third.reason,
+      "The integrated commit already has a different note. Preserve it and the durable exception record; no existing claim was replaced.",
+    );
+    assertEquals(
+      await gitOut(dir, "notes", "--ref=discern", "show", head),
+      "prior claim",
+    );
+
+    // A target this repository cannot inspect (a SHA-256 object id against a
+    // SHA-1 object store) reports the inspection failure instead of writing.
+    const missing = await recordExceptionNote(
+      dir,
+      id,
+      { ...record, target: "f".repeat(64), claim: record.claim },
+    );
+    assertEquals(missing.status, "record_failed");
+    assert(
+      missing.status === "record_failed" && missing.reason !== undefined &&
+        missing.reason.length > 0 &&
+        !missing.reason.startsWith("The integrated commit"),
+      JSON.stringify(missing),
+    );
+  });
+});
+
+Deno.test("a failed note write reports the publication failure instead of claiming the note", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const head = await gitOut(dir, "rev-parse", "HEAD");
+    const record = landedException(head);
+    const objects = join(dir, ".git", "objects");
+    try {
+      await Deno.chmod(objects, 0o555);
+      const written = await recordExceptionNote(
+        dir,
+        record.claim.authorization_id,
+        record,
+      );
+      assertEquals(written.status, "record_failed");
+      assert(
+        written.status === "record_failed" && written.reason !== undefined &&
+          written.reason.length > 0,
+        JSON.stringify(written),
+      );
+    } finally {
+      await Deno.chmod(objects, 0o755);
+    }
+    assertEquals(
+      (await gitOut(dir, "notes", "--ref=discern", "list")).trim(),
+      "",
+      "no note was published",
     );
   });
 });
