@@ -1,5 +1,6 @@
 import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
 import { readCompleteProof } from "./completion_proof.ts";
+import { strictVerdictCurrency } from "../completion/verdict.ts";
 /**
  * The **proof marker** — a tiny per-worktree file recording the commit `done`
  * last validated GREEN over a CLEAN tree, so `accept` can prove the exact tree it
@@ -703,6 +704,32 @@ export async function inspectGateProof(
   }
   if (!(await isWorktreeFullyClean(cwd))) {
     return { status: "dirty", path, recorded, head };
+  }
+  // The marker is a locator, not the verdict: the completion store settles
+  // every finished strict attempt, red included, so the newest strict verdict
+  // over this exact revision decides whether the recorded green still stands.
+  // A red rerun therefore supersedes the vouch for every reader at once, and
+  // an unreadable verdict inventory fails closed rather than honoring blind.
+  const verdict = await strictVerdictCurrency(cwd, recorded);
+  if (verdict.kind === "superseded") {
+    return {
+      status: "stale",
+      path,
+      recorded,
+      head,
+      reason:
+        `a newer strict gate run judged this revision red (attempt ${verdict.attempt_id}); resolve the failure, then run discern done --rerun to re-prove it`,
+    };
+  }
+  if (verdict.kind === "unavailable") {
+    return {
+      status: "unavailable",
+      path,
+      recorded,
+      head,
+      reason:
+        `the strict verdict over this revision could not be read (${verdict.reason})`,
+    };
   }
   if (
     proofData !== undefined &&

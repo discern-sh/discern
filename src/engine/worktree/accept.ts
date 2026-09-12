@@ -167,6 +167,7 @@ import {
 import { type AcceptPlan, acceptPlanToEngine } from "./plan.ts";
 import { readResourceSpecs } from "./resources.ts";
 import { standardLimitApprovalRequests } from "./standard_approval.ts";
+import { strictVerdictCurrency } from "../completion/verdict.ts";
 import { readSubmission, type Submission } from "./submission.ts";
 import { clearSubmission, recordSubmission } from "./submission_writer.ts";
 import { type SubmissionRow, submissionRows } from "./submissions_view.ts";
@@ -449,6 +450,25 @@ async function resolveSubject(
       `${effort.branch} no longer contains its submitted revision ${
         short(submission.head)
       }. Run discern done from ${effort.path}, then discern accept for the current work.`,
+    );
+  }
+  // The submission's Proof is durable, but it is landable only while it is
+  // still the revision's NEWEST strict verdict: a later strict run that
+  // judged the same revision red supersedes it for landing, and an
+  // unreadable verdict inventory fails closed rather than landing blind.
+  const verdict = await strictVerdictCurrency(effort.path, submission.head);
+  if (verdict.kind === "superseded") {
+    throw new WorktreeGitError(
+      `${effort.branch} submitted ${
+        short(submission.head)
+      }, but a newer strict gate run judged that revision red, so its earlier Proof is not landable. Resolve the failure and run discern done --rerun from ${effort.path}, then discern accept.`,
+    );
+  }
+  if (verdict.kind === "unavailable") {
+    throw new WorktreeGitError(
+      `${effort.branch} submitted ${
+        short(submission.head)
+      }, but the strict verdict over that revision could not be read: ${verdict.reason}. Restore the completion records, run discern done from ${effort.path}, then discern accept.`,
     );
   }
   return {
@@ -1527,10 +1547,25 @@ export async function convergeMainCheckout(
 /** What the cleanup tail found in the effort's checkout after the landing. */
 export type CleanupDisposition =
   | { readonly kind: "removed" }
+  | {
+    readonly kind: "resources-remain";
+    /** The resources whose destroy command failed, still recorded for recovery. */
+    readonly failed: readonly string[];
+  }
   | { readonly kind: "later-commits" }
   | { readonly kind: "uncommitted-changes" };
 
-/** Remove the effort's resources, checkout, and branch when nothing remains beyond the landing. */
+/** Whether the disposition leaves the effort's checkout (and its worktree-scoped
+ * state, such as the acceptance journal) on disk. */
+export function cleanupKeepsCheckout(disposition: CleanupDisposition): boolean {
+  return disposition.kind === "later-commits" ||
+    disposition.kind === "uncommitted-changes";
+}
+
+/** Remove the effort's resources, checkout, and branch when nothing remains
+ * beyond the landing. A failed resource destroy is retained (with its recovery
+ * advisory) and reported as the `resources-remain` disposition, so the
+ * result's first sentence can state the incomplete cleanup truthfully. */
 export async function cleanUpEffort(
   effort: EffortCheckout,
   landed: string,
@@ -1647,7 +1682,9 @@ export async function cleanUpEffort(
     outcome: "ok",
   });
   progress.landing.branch_deleted = true;
-  return { kind: "removed" };
+  return teardown.failed.length === 0
+    ? { kind: "removed" }
+    : { kind: "resources-remain", failed: [...teardown.failed] };
 }
 
 /** The first paragraph of a completed landing: the branch, what happened, one next command. */
@@ -1660,6 +1697,10 @@ export function landedMessage(
   switch (disposition.kind) {
     case "removed":
       return `${lead}; its checkout, branch, and resources are gone. You are on ${effort.trunk} in ${effort.mainRepo}.`;
+    case "resources-remain":
+      return `${lead}, but resource teardown failed for ${
+        disposition.failed.join(", ")
+      }: run discern worktree prune from ${effort.mainRepo} after fixing the failed destroy command. Its checkout and branch are gone, and you are on ${effort.trunk} in ${effort.mainRepo}.`;
     case "later-commits":
       return `${lead}; the branch holds later commits, so its checkout and branch stay. Run discern done, then discern accept from ${effort.path} for them.`;
     case "uncommitted-changes":
@@ -1933,9 +1974,12 @@ async function executeLanding(
   // A kept checkout outlives its transaction. Once every post-transition step
   // settled, the journal is a spent retry vehicle and must not send the next
   // accept into recovery; while any step remains failed, the journal stays so
-  // a retry can finish it.
+  // a retry can finish it. The journal is worktree-scoped state, so only the
+  // dispositions that keep the checkout (later commits, uncommitted changes)
+  // have a journal left to settle — `removed` and `resources-remain` deleted
+  // the checkout, and its journal went with it.
   if (
-    disposition.kind !== "removed" &&
+    cleanupKeepsCheckout(disposition) &&
     progress.steps
       .slice(postTransitionStepStart)
       .every((entry) => entry.outcome !== "failed") &&
@@ -2055,18 +2099,30 @@ async function decideLanding(
     { confirmed: request.confirmed, names: request.approveStandard },
   );
   // A variance or a standard approval forces current-conversation consent; an
-  // owner landing a never-submitted revision decides in conversation too.
+  // owner landing a never-submitted revision decides in conversation too. A
+  // submission is exact: recorded grants cover only a subject whose head IS
+  // the recorded submission's head, so a later green revision the agent never
+  // submitted — even at the checkout's HEAD — stays the owner's explicit
+  // decision.
   const explicitUnsubmitted = effort.explicit &&
-    subject.submission === undefined;
+    (subject.submission === undefined ||
+      subject.submission.head !== subject.head);
   let consent: LandingConsent;
   if (
     variances.length > 0 || standardProposals.length > 0 || explicitUnsubmitted
   ) {
     if (!request.confirmed) {
       if (explicitUnsubmitted) {
+        const submitted = subject.submission;
         refusal(
           AWAITING_CONSENT_SLUG,
-          `${effort.branch} has a green run its agent never submitted, so only the owner lands it: decide in conversation, then re-run discern accept --target ${effort.branch} --confirmed. Recorded grants do not cover an unsubmitted revision. ${ACCEPT_NOTHING_LANDED}`,
+          submitted === undefined
+            ? `${effort.branch} has a green run its agent never submitted, so only the owner lands it: decide in conversation, then re-run discern accept --target ${effort.branch} --confirmed. Recorded grants do not cover an unsubmitted revision. ${ACCEPT_NOTHING_LANDED}`
+            : `${effort.branch} has a green run at ${
+              short(subject.head)
+            } its agent never submitted — its recorded submission names ${
+              short(submitted.head)
+            } — so only the owner lands it: decide in conversation, then re-run discern accept --target ${effort.branch} --confirmed. Recorded grants cover only the submitted revision. ${ACCEPT_NOTHING_LANDED}`,
           {
             hints: hintTexts([
               fire(HINTS["accept-awaiting-confirmation"]),

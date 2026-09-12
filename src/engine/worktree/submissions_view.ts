@@ -4,14 +4,16 @@
  * A row is one effort whose agent submitted an exact revision with `accept`
  * and whose submission has not landed: pre-authorized rows first, by grant
  * time, then rows awaiting the owner, by submission time. A row whose Proof
- * predates trunk movement, or whose branch has moved on, says so and names
- * the route. Nothing here mutates a record; `status`, the desk, and
- * `accept --dry-run` all read this one derivation so they agree.
+ * predates trunk movement, whose branch has moved on, or whose revision a
+ * newer strict gate run judged red says so and names the route. Nothing here
+ * mutates a record; `status`, the desk, and `accept --dry-run` all read this
+ * one derivation so they agree.
  */
 
 import { runGit } from "../../shared/subprocess.ts";
 import { readCompleteProof } from "../gate/completion_proof.ts";
 import { candidatePredecessor } from "../completion/candidate.ts";
+import { strictVerdictCurrency } from "../completion/verdict.ts";
 import {
   commitIsMerged,
   integrationBranch,
@@ -50,6 +52,8 @@ export interface SubmissionFacts {
   readonly branchCurrent: boolean;
   /** The submission's complete Proof reads from the store. */
   readonly proofReadable: boolean;
+  /** The store's newest strict verdict over the submitted revision. */
+  readonly verdict: "current" | "superseded" | "unavailable";
 }
 
 /** Derive one row's readiness and single waiting reason (pure). */
@@ -75,6 +79,20 @@ export function submissionReadiness(
       readiness: "waiting",
       reason:
         "Its branch has moved on since it was submitted; run discern done, then discern accept from its worktree for the new work.",
+    };
+  }
+  if (facts.verdict === "superseded") {
+    return {
+      readiness: "waiting",
+      reason:
+        "A newer strict gate run judged its submitted revision red; resolve the failure and run discern done --rerun from its worktree, then discern accept.",
+    };
+  }
+  if (facts.verdict === "unavailable") {
+    return {
+      readiness: "waiting",
+      reason:
+        "The strict verdict over its submitted revision could not be read; run discern done from its worktree, then discern accept.",
     };
   }
   return { readiness: "ready" };
@@ -130,6 +148,9 @@ async function submissionRow(
     { cwd: root },
   );
   const branchCurrent = tip.success && tip.stdout.trim() === submission.head;
+  const verdict = proofReadable
+    ? (await strictVerdictCurrency(root, submission.head)).kind
+    : "current" as const;
   const covering = await effortGrantCovering(path, submission.branch);
   let authority: SubmissionAuthority = "awaiting-owner";
   let source: SubmissionRow["authority_source"];
@@ -157,7 +178,12 @@ async function submissionRow(
     authority,
     ...(source === undefined ? {} : { authority_source: source }),
     ...(grantedAt === undefined ? {} : { granted_at: grantedAt }),
-    ...submissionReadiness({ trunkCurrent, branchCurrent, proofReadable }),
+    ...submissionReadiness({
+      trunkCurrent,
+      branchCurrent,
+      proofReadable,
+      verdict,
+    }),
   };
 }
 

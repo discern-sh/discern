@@ -4,6 +4,8 @@ import type {
   GateData,
   StandardLimitProposalData,
 } from "../../shared/result_schemas.ts";
+import { runGit } from "../../shared/subprocess.ts";
+import { candidatePredecessor } from "../completion/candidate.ts";
 import { gateProofHasCompleteEvidence, inspectGateProof } from "./proof.ts";
 import { isIndeterminateStopDrop } from "../../shared/checkpoint_drops.ts";
 import { inspectResolvedTrunkMerged } from "../worktree/git.ts";
@@ -14,6 +16,13 @@ import { sameStandardLimitProposalSet } from "./standard_proposal_state.ts";
  * HEAD. This check runs before checkpoint reconciliation, so the optimization
  * cannot mutate conclusions, run fixers, measure Standards, or invoke a
  * configured job. An incomplete marker is a cache miss, never success.
+ *
+ * Reuse also requires the Proof's recorded predecessor to BE the trunk's
+ * current tip — the exact equality acceptance requires — because ancestry
+ * alone is not enough: a trunk fast-forwarded to a commit this branch already
+ * contains leaves the branch merged while the Proof names a predecessor the
+ * trunk no longer tips, and a reused "green" would then be unlandable. A
+ * moved trunk is a cache miss, so the ordinary run re-proves against it.
  */
 export async function reusableGreenProof(
   root: string,
@@ -41,6 +50,18 @@ export async function reusableGreenProof(
   if (
     merged.kind === "behind" || merged.kind === "missing" ||
     merged.kind === "unavailable"
+  ) {
+    return undefined;
+  }
+  const completion = proof.proof_data.completion;
+  if (completion === undefined) return undefined;
+  const tip = await runGit(
+    ["rev-parse", "--verify", `refs/heads/${proposalState.trunk}^{commit}`],
+    { cwd: root },
+  );
+  if (
+    !tip.success ||
+    tip.stdout.trim() !== candidatePredecessor(completion.candidate)
   ) {
     return undefined;
   }
