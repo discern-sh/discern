@@ -54,6 +54,7 @@ tokens:
   - (?:\b|_)[A-Za-z][\w-]*\s+Stages?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Standards?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Trunks?\b
+  - (?:\b|_)[A-Za-z][\w-]*\s+Submissions?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Tidys?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Tips?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Updates?\b

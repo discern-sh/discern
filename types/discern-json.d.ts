@@ -311,109 +311,25 @@ export type __schema0 = {
   children: Array<__schema0>;
 };
 
+export type DiscernSubmissionRow = {
+  effort: string;
+  branch: string;
+  path: string;
+  head: string;
+  submitted_at: string;
+  authority: "pre-authorized" | "awaiting-owner";
+  authority_source?: "effort-grant" | "standing-grant";
+  granted_at?: string;
+  position: number;
+  readiness: "ready" | "waiting";
+  reason?: string;
+};
+
 export type DiscernAuthorizedVariance = {
   checkpoint: string;
   definition_hash: string;
   subject: string;
   why: string;
-};
-
-export type DiscernProofCheckpoints = {
-  policy?: string;
-  declared_met: Array<{
-    id: string;
-    question?: string;
-    question_file?: string;
-    teach?: string;
-    reference?: string;
-    declared_at: string;
-    matched?: Array<string>;
-    related?: Array<{
-      kind: "similar_existing";
-      for_path: string;
-      path: string;
-    }>;
-  }>;
-  declared_unmet: Array<{
-    id: string;
-    question?: string;
-    question_file?: string;
-    teach?: string;
-    reference?: string;
-    why: string;
-    declared_at: string;
-    matched?: Array<string>;
-    related?: Array<{
-      kind: "similar_existing";
-      for_path: string;
-      path: string;
-    }>;
-  }>;
-  review?: {
-    enforcement: "reported";
-    status: "not_needed" | "unreviewed";
-    unreviewed?: Array<{
-      id: string;
-      mode: "stop" | "advise";
-      question: string;
-      question_file?: string;
-      teach?: string;
-      reference?: string;
-      matched: Array<string>;
-      related?: Array<{
-        kind: "similar_existing";
-        for_path: string;
-        path: string;
-      }>;
-    }>;
-  };
-  drops?: Array<
-    {
-      scope: "policy";
-      checkpoint: null;
-      mode: null;
-      policy_commit?: string;
-      reason:
-        | "merge_base_unresolved"
-        | "governing_config_unreadable"
-        | "governing_config_invalid"
-        | "open_question_store_unreadable"
-        | "open_question_store_corrupt"
-        | "declaration_evidence_unavailable"
-        | "strand_check_unavailable";
-      account: string;
-    } | {
-      scope: "checkpoint";
-      checkpoint: string;
-      mode: "stop" | "advise";
-      policy_commit: string;
-      reason:
-        | "checkpoint_missing_question"
-        | "checkpoint_question_file_missing"
-        | "checkpoint_question_file_invalid_path"
-        | "checkpoint_question_file_not_regular"
-        | "checkpoint_question_file_oversized"
-        | "checkpoint_question_file_invalid_utf8"
-        | "checkpoint_question_file_unreadable"
-        | "checkpoint_question_source_conflict"
-        | "checkpoint_selector_conflict"
-        | "checkpoint_unknown_scope"
-        | "effort_diff_unreadable"
-        | "trigger_content_unavailable"
-        | "trigger_history_unavailable"
-        | "when_spawn_failed"
-        | "when_timeout"
-        | "when_invalid_exit"
-        | "when_cancelled"
-        | "when_input_failed"
-        | "when_input_cleanup_failed"
-        | "when_output_limit"
-        | "open_question_store_rebuilt"
-        | "subject_unavailable"
-        | "open_question_store_write_failed";
-      account: string;
-    }
-  >;
 };
 
 export type DiscernRootResult = DiscernResultState & {
@@ -726,12 +642,6 @@ export type DiscernSetupResult = DiscernResultState & {
           }>;
           candidate_bound: Array<string>;
           declared: Array<string>;
-          speculation:
-            | "off"
-            | "undeclared"
-            | "unproven"
-            | "no-slot"
-            | "available";
         };
       };
     };
@@ -1527,11 +1437,6 @@ export type DiscernSetupDoneResult = DiscernResultState & {
     unproven: boolean;
     gate_proven: boolean;
     worktree_proven: boolean;
-    environment_probe?: {
-      proven: Array<string>;
-      undeclared: Array<string>;
-      isolated: Array<string>;
-    };
     marker_committed: boolean;
     marker_commit_error?: string;
     proof_line?: string;
@@ -1557,12 +1462,6 @@ export type DiscernSetupDoneResult = DiscernResultState & {
         }>;
         candidate_bound: Array<string>;
         declared: Array<string>;
-        speculation:
-          | "off"
-          | "undeclared"
-          | "unproven"
-          | "no-slot"
-          | "available";
       };
     };
     inventory: {
@@ -1727,9 +1626,7 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       | "refresh"
       | "doctor"
       | "worktree_probe"
-      | "environment_probe"
       | "done"
-      | "contexts"
       | "proof";
     rollback: "not_needed" | "owned_commit_removed" | "retained";
     state: string;
@@ -2201,10 +2098,6 @@ export type DiscernUpgradeResult = DiscernResultState & {
       reason: string;
     }>;
     changes?: Array<string>;
-    recorded_execution?: Array<{
-      environment_id: string;
-      next_action: string;
-    }>;
     newer_records?: Array<string>;
     issues?: Array<{
       kind?: "unknown_root_section";
@@ -3875,7 +3768,6 @@ export type DiscernDoneResult = DiscernResultState & {
       exceptions: Array<{
         requirement: {
           id: string;
-          context: string;
           kind: "job" | "scope" | "standard";
           definition: string;
         };
@@ -3902,7 +3794,6 @@ export type DiscernDoneResult = DiscernResultState & {
     }>;
     completion?: {
       kind: "diagnostic" | "complete" | "pending";
-      context: string;
       candidate_id?: string;
       proof_id?: string;
       pending_reasons: Array<string>;
@@ -4289,7 +4180,6 @@ export type DiscernPrepareResult = DiscernResultState & {
     measurement?: "none";
     completion?: {
       kind: "diagnostic";
-      context: string;
       proof: "not-issued";
     };
   } | {
@@ -4462,7 +4352,6 @@ export type DiscernTestResult = DiscernResultState & {
     measurement?: "none";
     completion?: {
       kind: "diagnostic";
-      context: string;
       proof: "not-issued";
     };
   } | {
@@ -5170,7 +5059,7 @@ export type DiscernProgressResult = DiscernResultState & {
     executor_reason?: string;
     outcome?: "completed" | "failed" | "cancelled";
     progress?: {
-      phase: "producer" | "environment" | "queue" | "pending" | "operation";
+      phase: "producer" | "queue" | "pending" | "operation";
       state: string;
       candidate_id: string | null;
       reason: string;
@@ -5194,10 +5083,7 @@ export type DiscernProgressResult = DiscernResultState & {
         partial?: boolean;
         output_path?: string;
       };
-      capacity?: unknown;
-      environment_id?: string;
       attempt_id?: string;
-      recovery?: unknown;
     };
     producers?: Array<{
       producer: string;
@@ -6923,30 +6809,9 @@ export type DiscernPatternsResult = DiscernResultState & {
       invalidations: {
         [key: string]: number;
       };
-      invalidated_predictions: number;
-      eligible_predictions?: number | null;
-      successful_predictions?: number;
-      resolved_prediction_misses?: number;
-      unresolved_predictions?: number;
-      conflicting_prediction_outcomes?: number;
-      withdrawals_before_green?: number;
-      invalidated_candidate_executions?: number | null;
-      invalidated_candidate_producer_work_ms?: number | null;
       validation_runs?: number;
       reuse_only_runs?: number;
-      prediction_denominator: number | null;
-      prediction_miss_rate: number | null;
-      withdrawals_after_prediction: number;
-      withdrawals_without_prediction_evidence: number;
-      landings: number;
-      emergency_landings: number;
-      retirements: {
-        [key: string]: number;
-      };
-      returns: {
-        [key: string]: number;
-      };
-      unknown_return_identity: number;
+      proofs: number;
       limitations: Array<string>;
     };
   } | {
@@ -7845,26 +7710,6 @@ export type DiscernStatusResult = DiscernResultState & {
   message?: string;
   verb: "status";
   data?: {
-    execution_recovery?: Array<{
-      environment_id: string;
-      attempt_id?: string;
-      phase?: string;
-      children_quiescent?: boolean;
-      reason: string;
-      retained_paths: Array<string>;
-      next_action: string;
-    }>;
-    execution_activity?: Array<{
-      environment_id: string;
-      attempt_id: string;
-      candidate_id: string;
-      phase: string;
-      lease_expires_at: number;
-      ownership?: "held" | "available" | "unknown";
-      children_quiescent?: boolean;
-      reason?: string;
-      next_action?: string;
-    }>;
     emergency_validation?: Array<{
       landing_id: string;
       head: string;
@@ -7872,7 +7717,6 @@ export type DiscernStatusResult = DiscernResultState & {
       exceptions: Array<{
         requirement: {
           id: string;
-          context: string;
           kind: "job" | "scope" | "standard";
           definition: string;
         };
@@ -7969,12 +7813,6 @@ export type DiscernStatusResult = DiscernResultState & {
           }>;
           candidate_bound: Array<string>;
           declared: Array<string>;
-          speculation:
-            | "off"
-            | "undeclared"
-            | "unproven"
-            | "no-slot"
-            | "available";
         };
       };
     };
@@ -8005,16 +7843,7 @@ export type DiscernStatusResult = DiscernResultState & {
       branch: string;
       contained_in: string;
     }>;
-    queue?: Array<{
-      effort: string;
-      branch: string;
-      position: number;
-      state: "provisional" | "eligible" | "active" | "failed";
-      held: boolean;
-      readiness: "ready" | "waiting" | "landing";
-      reason?: string;
-      on_trunk?: boolean;
-    }>;
+    queue?: Array<DiscernSubmissionRow>;
     operation?: {
       verb: string;
       branch?: string;
@@ -8201,9 +8030,6 @@ export type DiscernStatusResult = DiscernResultState & {
         unavailable_reason?: string;
       };
       broken?: boolean;
-      landed_checkout?: {
-        message: string;
-      };
       gate_proof?: {
         status:
           | "honored"
@@ -8922,47 +8748,6 @@ export type DiscernAcceptResult = DiscernResultState & {
   message?: string;
   verb: "accept";
   data?: {
-    selected_effort?: string;
-    continuation?: string;
-    external_integration?: {
-      integration_id?: string;
-      retirement_id?: string;
-      retirement_reason?: string;
-      reservations?: Array<string>;
-      effort: string;
-      candidate_id: string;
-      source_head: string;
-      proof_id: string;
-      target: string;
-      observed_trunk: string;
-      expected_state: string;
-      governed_landing_receipt: null;
-      state: "planned" | "observed";
-      retirement: "pending" | "retained" | "retired" | "recovery";
-    };
-    queue_control?: {
-      action: "hold" | "resume" | "withdraw" | "revoke" | "reprioritize";
-      target: string | null;
-      expected_state: string;
-      before_order: Array<string>;
-      after_order: Array<string>;
-      affected_efforts: Array<string>;
-      state: "planned" | "applied";
-    };
-    storage_cleanup?: {
-      state: "planned";
-      planned_files: number;
-      retirement_ids: Array<string>;
-    } | {
-      state: "settled";
-      removed_files: number;
-      retirement_ids: Array<string>;
-    } | {
-      state: "retained";
-      removed_files: number;
-      retirement_ids: Array<string>;
-      reason: string;
-    };
     checkpoint_preparation?: {
       policy?: string;
       outstanding?: Array<{
@@ -9096,7 +8881,6 @@ export type DiscernAcceptResult = DiscernResultState & {
       exceptions: Array<{
         requirement: {
           id: string;
-          context: string;
           kind: "job" | "scope" | "standard";
           definition: string;
         };
@@ -9120,33 +8904,16 @@ export type DiscernAcceptResult = DiscernResultState & {
           head: string;
           tree: string;
         };
-        dependencies: Array<{
-          effort_id: string;
-          branch: string;
-          head: string;
-          tree: string;
-        }>;
-        expected_predecessor: {
-          head: string;
-          candidate_id: string | null;
-        };
+        predecessor: string;
         head: string;
         tree: string;
         policy: string;
         requirement_set: string;
-        composition: {
-          procedure: string;
-          generated_ownership: string;
-          generators: string;
-          merge_commit: string | null;
-          regeneration_commit: string | null;
-        };
       };
       reason?: string;
       exceptions?: Array<{
         requirement: {
           id: string;
-          context: string;
           kind: "job" | "scope" | "standard";
           definition: string;
         };
@@ -9158,202 +8925,10 @@ export type DiscernAcceptResult = DiscernResultState & {
       expires_at?: number;
       landing_id?: string;
       outcome?: "preview" | "prepared" | "landed" | "not-landed" | "recovery";
-      retirement?: string;
+      note?: "pending" | "published" | "failed";
+      cleanup?: "removed" | "kept" | "failed";
     };
-    queue?: Array<{
-      exception?: {
-        kind: "exception";
-        authorization_id: string;
-        authorized_at: number;
-        actual_trunk: string;
-        source: {
-          effort_id: string;
-          branch: string;
-          head: string;
-          tree: string;
-        };
-        candidate_id: string;
-        candidate_head: string;
-        policy: string;
-        review?: {
-          attempt_id: string;
-          candidate_id: string;
-          context: string;
-          path: string;
-          digest: string;
-          bytes: number;
-        };
-        reason: string;
-        exceptions: Array<{
-          requirement: {
-            id: string;
-            context: string;
-            kind: "job" | "scope" | "standard";
-            definition: string;
-          };
-          state: "failed" | "unrun" | "stale";
-          evidence_id: string | null;
-        }>;
-      };
-      ignored_file_changes?: {
-        status:
-          | "disabled"
-          | "baseline_missing"
-          | "newer"
-          | "unavailable"
-          | "unchanged"
-          | "changed";
-        changed_roots: Array<string>;
-        changed_total: number;
-        truncated: boolean;
-        reason?: string;
-      };
-      retirement_effects?: {
-        worktree_removed: boolean;
-        branch_deleted: boolean;
-      };
-      consent?: {
-        source: "conversation" | "standing-grant" | "effort-grant";
-        scopes?: Array<string>;
-      };
-      scopes_changed?: Array<string>;
-      proof_line?: string;
-      variances?: Array<DiscernAuthorizedVariance>;
-      standard_approvals?: Array<{
-        standard: string;
-        commit: string;
-        bound_commit: string;
-        measured_commit: string;
-        definition_fingerprint: string;
-        trunk: string;
-        trunk_commit: string;
-        direction: "up" | "down";
-        trunk_limit: number;
-        proposed_limit: number;
-        measurement: number;
-        delta: number;
-        reason: string;
-        evidence_paths: Array<string>;
-      }>;
-      preview_actions?: Array<{
-        scope: string;
-        command: string;
-      }>;
-      approval_requests?: Array<{
-        proposal: {
-          standard: string;
-          commit: string;
-          bound_commit: string;
-          measured_commit: string;
-          definition_fingerprint: string;
-          trunk: string;
-          trunk_commit: string;
-          direction: "up" | "down";
-          trunk_limit: number;
-          proposed_limit: number;
-          measurement: number;
-          delta: number;
-          reason: string;
-          evidence_paths: Array<string>;
-        };
-        token: string;
-      }>;
-      checkpoint_review?: DiscernProofCheckpoints;
-      checkpoint_drops?: Array<
-        {
-          scope: "policy";
-          checkpoint: null;
-          mode: null;
-          policy_commit?: string;
-          reason:
-            | "merge_base_unresolved"
-            | "governing_config_unreadable"
-            | "governing_config_invalid"
-            | "open_question_store_unreadable"
-            | "open_question_store_corrupt"
-            | "declaration_evidence_unavailable"
-            | "strand_check_unavailable";
-          account: string;
-        } | {
-          scope: "checkpoint";
-          checkpoint: string;
-          mode: "stop" | "advise";
-          policy_commit: string;
-          reason:
-            | "checkpoint_missing_question"
-            | "checkpoint_question_file_missing"
-            | "checkpoint_question_file_invalid_path"
-            | "checkpoint_question_file_not_regular"
-            | "checkpoint_question_file_oversized"
-            | "checkpoint_question_file_invalid_utf8"
-            | "checkpoint_question_file_unreadable"
-            | "checkpoint_question_source_conflict"
-            | "checkpoint_selector_conflict"
-            | "checkpoint_unknown_scope"
-            | "effort_diff_unreadable"
-            | "trigger_content_unavailable"
-            | "trigger_history_unavailable"
-            | "when_spawn_failed"
-            | "when_timeout"
-            | "when_invalid_exit"
-            | "when_cancelled"
-            | "when_input_failed"
-            | "when_input_cleanup_failed"
-            | "when_output_limit"
-            | "open_question_store_rebuilt"
-            | "subject_unavailable"
-            | "open_question_store_write_failed";
-          account: string;
-        }
-      >;
-      effort: string;
-      branch: string;
-      source_head: string;
-      candidate_id: string | null;
-      expected_trunk: string | null;
-      target: string | null;
-      state: "ready" | "pending" | "landed";
-      relation?: "selected" | "ahead" | "behind" | "other";
-      landing_id?: string;
-      note?: "pending" | "published" | "recovery";
-      note_reason?: string;
-      proof_note?: {
-        fetch: {
-          mode: "local" | "fetch";
-          status: "local" | "wired" | "unchanged" | "no_remote" | "failed";
-          remotes: Array<string>;
-          added: Array<string>;
-          removed: Array<string>;
-          errors: Array<string>;
-        };
-        write: {
-          status:
-            | "recorded"
-            | "already_present"
-            | "record_failed"
-            | "missing_proof";
-          ref: string;
-          commit: string;
-          merged_refs: Array<string>;
-          reason?: string;
-        };
-      };
-      authority_id?: string | null;
-      authority_settlement?: "pending" | "consumed" | "restored";
-      planned_action?: "ready" | "compose" | "validate" | "blocked";
-      planned_producers?: Array<string>;
-      retirement: "retained" | "retired" | "recovery";
-      retirement_reason?: string;
-      convergence?: "pending" | "passed" | "failed";
-      pending: Array<{
-        kind: string;
-        reason: string;
-      }>;
-    }>;
-    pending?: Array<{
-      kind: string;
-      reason: string;
-    }>;
+    queue?: Array<DiscernSubmissionRow>;
     root?: string;
     consent?: {
       source: "conversation" | "standing-grant" | "effort-grant";

@@ -99,7 +99,7 @@
     {
       "name": "discern_done",
       "title": "Verify the claim that the change is done",
-      "description": "Require a clean, committed tree before selecting a candidate or running producers. Use prepare or test while iterating, or standalone for transient diagnostics. Run finishing steps, including format, which may rewrite files; then verify lint, type-check, tests, and scope gates. A scope is a named region of the repository with its own check. Return the structured result with per-step outcomes plus normalized diagnostics (tool, file/line when available, message, and the exact command to reproduce each failure). A green run over a clean committed tree ahead of the selected project's configured trunk — its shared landing branch — also carries data.proof and resolves any recorded grant into data.landing_authority. Successful ordinary completion admits a validated candidate and releases the source checkout for later validation and eligible retirement; it does not land on the trunk. Set retain_checkout when further local edits are planned. Follow the resolution-gated hints: an uncovered landing is reported to the owner in your own words and ends with data.proof.line verbatim before you wait; a covered landing names the verified source and routes straight to discern_accept. Never paste the full Proof page into a message; your owner retrieves it with `discern status --verbose`. Set dry_run to preview the plan without running anything.",
+      "description": "Require a clean, committed tree before selecting a candidate or running producers. Use prepare or test while iterating, or standalone for transient diagnostics. Run finishing steps, including format, which may rewrite files; then verify lint, type-check, tests, and scope gates. A scope is a named region of the repository with its own check. Return the structured result with per-step outcomes plus normalized diagnostics (tool, file/line when available, message, and the exact command to reproduce each failure). A green run over a clean committed tree ahead of the selected project's configured trunk — its shared landing branch — also carries data.proof and resolves any recorded grant into data.landing_authority. Completion proves this worktree's committed tip; it does not land on the trunk. Follow the resolution-gated hints: an uncovered landing is reported to the owner in your own words and ends with data.proof.line verbatim before you wait; a covered landing names the verified source and routes straight to discern_accept. Never paste the full Proof page into a message; your owner retrieves it with `discern status --verbose`. Set dry_run to preview the plan without running anything.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -150,25 +150,9 @@
             "description": "Fetched policy base for a standalone CI report only.",
             "type": "string"
           },
-          "recover": {
-            "description": "Recover an abandoned owned execution once native ownership and stopped children are established, without waiting for its validation deadline or running validation or landing.",
-            "type": "string"
-          },
-          "retain_checkout": {
-            "description": "Keep authoring control after completion when further local edits are planned (default false). Ordinary successful completion releases the checkout for later validation and eligible retirement.",
-            "type": "boolean"
-          },
-          "release_checkout": {
-            "description": "Release this exact proven source for validation and eligible cleanup without running a gate or landing, including after trunk moves. Use separately from retention, recovery, validation, policy, and judgment options.",
-            "type": "boolean"
-          },
           "standalone": {
-            "description": "Run complete diagnostic feedback, including on a dirty tree. Results are transient, without queue admission or Proof.",
+            "description": "Run complete diagnostic feedback, including on a dirty tree. Results are transient and issue no Proof.",
             "type": "boolean"
-          },
-          "context": {
-            "description": "The declared execution context this invocation supplies; defaults to local.",
-            "type": "string"
           }
         },
         "additionalProperties": false
@@ -250,46 +234,22 @@
     },
     {
       "name": "discern_accept",
-      "title": "Accept and land the worktree",
-      "description": "Ordinary acceptance: Land only with explicit owner consent or machine-verified authority. Acceptance composes this effort's committed source with earlier ready work against the selected project's configured trunk. Each predecessor requires its own current evidence and authority; permission for this effort does not authorize another. Acceptance validates the exact candidate before advancing the trunk. Its Proof identifies that validated commit, which can differ from this worktree's HEAD. Eligible cleanup removes only released, positively owned, clean checkouts and their resources after landing. Recorded grants never cover a checkpoint variance or standard proposal. Without authority the call re-serves the review moment without landing. The result leads with the selected effort's own verdict; data.selected_effort marks its row, other efforts follow with their state and recovery action, and an earlier authorized effort may have landed before a later stop. Set dry_run to inspect the acceptance plan without changing anything. After success, report what landed and any unresolved cleanup in your own words, then end with data.proof_line verbatim; the full review page remains available through `discern status --verbose`. Use action: emergency with a reason for an explicit exception against actual trunk. For checkpoints, use prepare: true and met for satisfied served questions; pass the returned preparation receipt to the read-only plan. Emergency preview lists failed, unrun, and stale obligations; fresh owner approval must name its current confirmation token and set confirmed. No ordinary grant authorizes emergency integration. The exception stays durable and outstanding validation stays visible; no passing Proof is issued. Use recover with the emergency landing id for interrupted transitions. Neither route pushes or deploys.",
+      "title": "Submit and land the worktree",
+      "description": "Submit this effort's proven commit and land it on the selected project's configured trunk. Land only with explicit owner consent or machine-verified authority; without either, the call records the submission, re-serves the review moment, and lands nothing. Landing fast-forwards the trunk to the exact proven commit, records its Proof note, converges the main checkout, and removes the worktree, its branch, and its resources when the branch holds nothing beyond the landed commit; a branch with later commits keeps its checkout and is told to run discern_done then discern_accept for them. A trunk that moved after the Proof refuses with the update route. Recorded grants never cover a checkpoint variance or standard proposal. Set dry_run to inspect the landing plan and the queue without changing anything. After success, report what landed and any unresolved cleanup in your own words, then end with data.proof_line verbatim; the full review page remains available through `discern status --verbose`. Use action: emergency with a reason for an explicit exception against actual trunk. For checkpoints, use prepare: true and met for satisfied served questions; pass the returned preparation receipt to the read-only plan. Emergency preview lists failed, unrun, and stale obligations; fresh owner approval must name its current confirmation token and set confirmed. No ordinary grant authorizes emergency integration. The exception stays durable and outstanding validation stays visible; no passing Proof is issued. Use recover with the emergency landing id for interrupted transitions. Neither route pushes or deploys.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
-          "reconcile": {
-            "description": "Reconcile an externally integrated exact proven source and eligible retirement. Set target; preview with dry_run, then pass its expected token. Does not advance refs or invent a historical governed landing receipt. Use separately from new approval.",
-            "type": "boolean"
-          },
-          "expected": {
-            "description": "For queue controls or reconcile, the expected_state token returned by the read-only preview. Changed state requires a new preview.",
-            "type": "string"
-          },
-          "order": {
-            "description": "For reprioritize, every eligible effort in the desired order. Source dependencies must remain before their dependents.",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "target": {
-            "description": "Select the effort by id, path, branch, or full local ref. Required when several efforts are pending from main. Confirmation covers only the selected unchanged source; each predecessor needs separate authority. Use the same target for continuation.",
+            "description": "Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with confirmed.",
             "type": "string"
           },
           "action": {
-            "description": "Use hold, resume, withdraw, revoke, or reprioritize to change the queue: preview with dry_run, then apply the owner-approved decision with confirmed and expected. Omit action for ordinary acceptance. Select emergency only for an explicit exception with fresh exact owner approval; ordinary grants do not cover it.",
+            "description": "Omit for ordinary landing. Select emergency only for an explicit exception with fresh exact owner approval; ordinary grants do not cover it.",
             "type": "string",
             "enum": [
-              "emergency",
-              "hold",
-              "resume",
-              "withdraw",
-              "revoke",
-              "reprioritize"
+              "emergency"
             ]
-          },
-          "reclaim": {
-            "description": "Retry bounded artifact cleanup for this settled retirement id from the main checkout. Use separately from landing or emergency approval; no validation, landing, or checkout removal runs.",
-            "type": "string"
           },
           "reason": {
             "description": "Emergency reason presented in the exact owner review.",
@@ -319,11 +279,11 @@
             "type": "string"
           },
           "dry_run": {
-            "description": "Preview the acceptance plan and touch nothing (default false).",
+            "description": "Preview the landing plan and the queue; touch nothing (default false).",
             "type": "boolean"
           },
           "confirmed": {
-            "description": "Attestation that the owner has approved this landing or selected queue decision in the current conversation. Set it only then. Recorded standing and effort grants are checked directly; do not assert them through this flag.",
+            "description": "Attestation that the owner has approved this landing in the current conversation. Set it only then. Recorded standing and effort grants are checked directly; do not assert them through this flag.",
             "type": "boolean"
           },
           "variance": {

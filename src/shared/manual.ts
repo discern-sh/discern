@@ -116,6 +116,7 @@ export const MANUAL_SECTION_REGISTRY: readonly ManualSectionRegistration[] = [
 export const MANUAL_ALIAS_OWNER_OVERRIDES: Readonly<Record<string, string>> = {
   "--markdown": "reference-results-and-mcp",
   "checkpoints": "explanation-checkpoints",
+  "submission": "guide-finish-and-land-a-change",
   "coupling": "guide-improve-the-practice",
   "declared met": "reference-proof-and-checkpoint-formats",
   "declared unmet": "reference-proof-and-checkpoint-formats",

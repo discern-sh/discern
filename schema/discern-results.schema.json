@@ -1305,24 +1305,13 @@
                                   "items": {
                                     "type": "string"
                                   }
-                                },
-                                "speculation": {
-                                  "type": "string",
-                                  "enum": [
-                                    "off",
-                                    "undeclared",
-                                    "unproven",
-                                    "no-slot",
-                                    "available"
-                                  ]
                                 }
                               },
                               "required": [
                                 "standards",
                                 "shared",
                                 "candidate_bound",
-                                "declared",
-                                "speculation"
+                                "declared"
                               ]
                             }
                           },
@@ -4109,34 +4098,6 @@
                     "worktree_proven": {
                       "type": "boolean"
                     },
-                    "environment_probe": {
-                      "type": "object",
-                      "properties": {
-                        "proven": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "undeclared": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "isolated": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        }
-                      },
-                      "required": [
-                        "proven",
-                        "undeclared",
-                        "isolated"
-                      ]
-                    },
                     "marker_committed": {
                       "type": "boolean"
                     },
@@ -4250,24 +4211,13 @@
                               "items": {
                                 "type": "string"
                               }
-                            },
-                            "speculation": {
-                              "type": "string",
-                              "enum": [
-                                "off",
-                                "undeclared",
-                                "unproven",
-                                "no-slot",
-                                "available"
-                              ]
                             }
                           },
                           "required": [
                             "standards",
                             "shared",
                             "candidate_bound",
-                            "declared",
-                            "speculation"
+                            "declared"
                           ]
                         }
                       },
@@ -4882,9 +4832,7 @@
                             "refresh",
                             "doctor",
                             "worktree_probe",
-                            "environment_probe",
                             "done",
-                            "contexts",
                             "proof"
                           ]
                         },
@@ -6414,24 +6362,6 @@
                   "type": "array",
                   "items": {
                     "type": "string"
-                  }
-                },
-                "recorded_execution": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "environment_id": {
-                        "type": "string"
-                      },
-                      "next_action": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "environment_id",
-                      "next_action"
-                    ]
                   }
                 },
                 "newer_records": {
@@ -11689,11 +11619,6 @@
                                   "minLength": 1,
                                   "pattern": "^[A-Za-z0-9_-]+$"
                                 },
-                                "context": {
-                                  "type": "string",
-                                  "minLength": 1,
-                                  "pattern": "^[A-Za-z0-9_-]+$"
-                                },
                                 "kind": {
                                   "type": "string",
                                   "enum": [
@@ -11709,7 +11634,6 @@
                               },
                               "required": [
                                 "id",
-                                "context",
                                 "kind",
                                 "definition"
                               ]
@@ -11844,9 +11768,6 @@
                         "pending"
                       ]
                     },
-                    "context": {
-                      "type": "string"
-                    },
                     "candidate_id": {
                       "type": "string"
                     },
@@ -11880,7 +11801,6 @@
                   },
                   "required": [
                     "kind",
-                    "context",
                     "pending_reasons"
                   ]
                 },
@@ -13175,9 +13095,6 @@
                       "type": "string",
                       "const": "diagnostic"
                     },
-                    "context": {
-                      "type": "string"
-                    },
                     "proof": {
                       "type": "string",
                       "const": "not-issued"
@@ -13185,7 +13102,6 @@
                   },
                   "required": [
                     "kind",
-                    "context",
                     "proof"
                   ]
                 }
@@ -13734,9 +13650,6 @@
                       "type": "string",
                       "const": "diagnostic"
                     },
-                    "context": {
-                      "type": "string"
-                    },
                     "proof": {
                       "type": "string",
                       "const": "not-issued"
@@ -13744,7 +13657,6 @@
                   },
                   "required": [
                     "kind",
-                    "context",
                     "proof"
                   ]
                 }
@@ -16105,7 +16017,6 @@
                       "type": "string",
                       "enum": [
                         "producer",
-                        "environment",
                         "queue",
                         "pending",
                         "operation"
@@ -16215,14 +16126,9 @@
                         "producer"
                       ]
                     },
-                    "capacity": {},
-                    "environment_id": {
-                      "type": "string"
-                    },
                     "attempt_id": {
                       "type": "string"
-                    },
-                    "recovery": {}
+                    }
                   },
                   "required": [
                     "phase",
@@ -22496,71 +22402,6 @@
                         "maximum": 9007199254740991
                       }
                     },
-                    "invalidated_predictions": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "eligible_predictions": {
-                      "anyOf": [
-                        {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "successful_predictions": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "resolved_prediction_misses": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "unresolved_predictions": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "conflicting_prediction_outcomes": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "withdrawals_before_green": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "invalidated_candidate_executions": {
-                      "anyOf": [
-                        {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "invalidated_candidate_producer_work_ms": {
-                      "anyOf": [
-                        {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
                     "validation_runs": {
                       "type": "integer",
                       "minimum": 0,
@@ -22571,73 +22412,7 @@
                       "minimum": 0,
                       "maximum": 9007199254740991
                     },
-                    "prediction_denominator": {
-                      "anyOf": [
-                        {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "prediction_miss_rate": {
-                      "anyOf": [
-                        {
-                          "type": "number",
-                          "minimum": 0,
-                          "maximum": 1
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "withdrawals_after_prediction": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "withdrawals_without_prediction_evidence": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "landings": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "emergency_landings": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "retirements": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string"
-                      },
-                      "additionalProperties": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      }
-                    },
-                    "returns": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string"
-                      },
-                      "additionalProperties": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      }
-                    },
-                    "unknown_return_identity": {
+                    "proofs": {
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
@@ -22667,16 +22442,7 @@
                     "timing",
                     "observed_wall",
                     "invalidations",
-                    "invalidated_predictions",
-                    "prediction_denominator",
-                    "prediction_miss_rate",
-                    "withdrawals_after_prediction",
-                    "withdrawals_without_prediction_evidence",
-                    "landings",
-                    "emergency_landings",
-                    "retirements",
-                    "returns",
-                    "unknown_return_identity",
+                    "proofs",
                     "limitations"
                   ]
                 }
@@ -25359,91 +25125,6 @@
             {
               "type": "object",
               "properties": {
-                "execution_recovery": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "environment_id": {
-                        "type": "string"
-                      },
-                      "attempt_id": {
-                        "type": "string"
-                      },
-                      "phase": {
-                        "type": "string"
-                      },
-                      "children_quiescent": {
-                        "type": "boolean"
-                      },
-                      "reason": {
-                        "type": "string"
-                      },
-                      "retained_paths": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "next_action": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "environment_id",
-                      "reason",
-                      "retained_paths",
-                      "next_action"
-                    ]
-                  }
-                },
-                "execution_activity": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "environment_id": {
-                        "type": "string"
-                      },
-                      "attempt_id": {
-                        "type": "string"
-                      },
-                      "candidate_id": {
-                        "type": "string"
-                      },
-                      "phase": {
-                        "type": "string"
-                      },
-                      "lease_expires_at": {
-                        "type": "number"
-                      },
-                      "ownership": {
-                        "type": "string",
-                        "enum": [
-                          "held",
-                          "available",
-                          "unknown"
-                        ]
-                      },
-                      "children_quiescent": {
-                        "type": "boolean"
-                      },
-                      "reason": {
-                        "type": "string"
-                      },
-                      "next_action": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "environment_id",
-                      "attempt_id",
-                      "candidate_id",
-                      "phase",
-                      "lease_expires_at"
-                    ]
-                  }
-                },
                 "emergency_validation": {
                   "type": "array",
                   "items": {
@@ -25472,11 +25153,6 @@
                                   "minLength": 1,
                                   "pattern": "^[A-Za-z0-9_-]+$"
                                 },
-                                "context": {
-                                  "type": "string",
-                                  "minLength": 1,
-                                  "pattern": "^[A-Za-z0-9_-]+$"
-                                },
                                 "kind": {
                                   "type": "string",
                                   "enum": [
@@ -25492,7 +25168,6 @@
                               },
                               "required": [
                                 "id",
-                                "context",
                                 "kind",
                                 "definition"
                               ]
@@ -25986,24 +25661,13 @@
                               "items": {
                                 "type": "string"
                               }
-                            },
-                            "speculation": {
-                              "type": "string",
-                              "enum": [
-                                "off",
-                                "undeclared",
-                                "unproven",
-                                "no-slot",
-                                "available"
-                              ]
                             }
                           },
                           "required": [
                             "standards",
                             "shared",
                             "candidate_bound",
-                            "declared",
-                            "speculation"
+                            "declared"
                           ]
                         }
                       },
@@ -26140,54 +25804,7 @@
                 "queue": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "effort": {
-                        "type": "string"
-                      },
-                      "branch": {
-                        "type": "string"
-                      },
-                      "position": {
-                        "type": "integer",
-                        "exclusiveMinimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "state": {
-                        "type": "string",
-                        "enum": [
-                          "provisional",
-                          "eligible",
-                          "active",
-                          "failed"
-                        ]
-                      },
-                      "held": {
-                        "type": "boolean"
-                      },
-                      "readiness": {
-                        "type": "string",
-                        "enum": [
-                          "ready",
-                          "waiting",
-                          "landing"
-                        ]
-                      },
-                      "reason": {
-                        "type": "string"
-                      },
-                      "on_trunk": {
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "effort",
-                      "branch",
-                      "position",
-                      "state",
-                      "held",
-                      "readiness"
-                    ]
+                    "$ref": "#/$defs/DiscernSubmissionRow"
                   }
                 },
                 "operation": {
@@ -26891,17 +26508,6 @@
                       },
                       "broken": {
                         "type": "boolean"
-                      },
-                      "landed_checkout": {
-                        "type": "object",
-                        "properties": {
-                          "message": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "message"
-                        ]
                       },
                       "gate_proof": {
                         "type": "object",
@@ -29136,229 +28742,6 @@
             {
               "type": "object",
               "properties": {
-                "selected_effort": {
-                  "type": "string"
-                },
-                "continuation": {
-                  "type": "string"
-                },
-                "external_integration": {
-                  "type": "object",
-                  "properties": {
-                    "integration_id": {
-                      "type": "string"
-                    },
-                    "retirement_id": {
-                      "type": "string"
-                    },
-                    "retirement_reason": {
-                      "type": "string"
-                    },
-                    "reservations": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "effort": {
-                      "type": "string"
-                    },
-                    "candidate_id": {
-                      "type": "string"
-                    },
-                    "source_head": {
-                      "type": "string"
-                    },
-                    "proof_id": {
-                      "type": "string"
-                    },
-                    "target": {
-                      "type": "string"
-                    },
-                    "observed_trunk": {
-                      "type": "string"
-                    },
-                    "expected_state": {
-                      "type": "string"
-                    },
-                    "governed_landing_receipt": {
-                      "type": "null"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "planned",
-                        "observed"
-                      ]
-                    },
-                    "retirement": {
-                      "type": "string",
-                      "enum": [
-                        "pending",
-                        "retained",
-                        "retired",
-                        "recovery"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "effort",
-                    "candidate_id",
-                    "source_head",
-                    "proof_id",
-                    "target",
-                    "observed_trunk",
-                    "expected_state",
-                    "governed_landing_receipt",
-                    "state",
-                    "retirement"
-                  ]
-                },
-                "queue_control": {
-                  "type": "object",
-                  "properties": {
-                    "action": {
-                      "type": "string",
-                      "enum": [
-                        "hold",
-                        "resume",
-                        "withdraw",
-                        "revoke",
-                        "reprioritize"
-                      ]
-                    },
-                    "target": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "expected_state": {
-                      "type": "string"
-                    },
-                    "before_order": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "after_order": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "affected_efforts": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "planned",
-                        "applied"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "action",
-                    "target",
-                    "expected_state",
-                    "before_order",
-                    "after_order",
-                    "affected_efforts",
-                    "state"
-                  ]
-                },
-                "storage_cleanup": {
-                  "oneOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "type": "string",
-                          "const": "planned"
-                        },
-                        "planned_files": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "retirement_ids": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        }
-                      },
-                      "required": [
-                        "state",
-                        "planned_files",
-                        "retirement_ids"
-                      ]
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "type": "string",
-                          "const": "settled"
-                        },
-                        "removed_files": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "retirement_ids": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        }
-                      },
-                      "required": [
-                        "state",
-                        "removed_files",
-                        "retirement_ids"
-                      ]
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "type": "string",
-                          "const": "retained"
-                        },
-                        "removed_files": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "retirement_ids": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "reason": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "state",
-                        "removed_files",
-                        "retirement_ids",
-                        "reason"
-                      ]
-                    }
-                  ]
-                },
                 "checkpoint_preparation": {
                   "type": "object",
                   "properties": {
@@ -29860,11 +29243,6 @@
                                   "minLength": 1,
                                   "pattern": "^[A-Za-z0-9_-]+$"
                                 },
-                                "context": {
-                                  "type": "string",
-                                  "minLength": 1,
-                                  "pattern": "^[A-Za-z0-9_-]+$"
-                                },
                                 "kind": {
                                   "type": "string",
                                   "enum": [
@@ -29880,7 +29258,6 @@
                               },
                               "required": [
                                 "id",
-                                "context",
                                 "kind",
                                 "definition"
                               ]
@@ -29995,61 +29372,9 @@
                             "tree"
                           ]
                         },
-                        "dependencies": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "effort_id": {
-                                "type": "string",
-                                "minLength": 1,
-                                "pattern": "^[A-Za-z0-9_-]+$"
-                              },
-                              "branch": {
-                                "type": "string",
-                                "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
-                              },
-                              "head": {
-                                "type": "string",
-                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                              },
-                              "tree": {
-                                "type": "string",
-                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                              }
-                            },
-                            "required": [
-                              "effort_id",
-                              "branch",
-                              "head",
-                              "tree"
-                            ]
-                          }
-                        },
-                        "expected_predecessor": {
-                          "type": "object",
-                          "properties": {
-                            "head": {
-                              "type": "string",
-                              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                            },
-                            "candidate_id": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid",
-                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            }
-                          },
-                          "required": [
-                            "head",
-                            "candidate_id"
-                          ]
+                        "predecessor": {
+                          "type": "string",
+                          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
                         },
                         "head": {
                           "type": "string",
@@ -30066,64 +29391,16 @@
                         "requirement_set": {
                           "type": "string",
                           "pattern": "^[0-9a-f]{64}$"
-                        },
-                        "composition": {
-                          "type": "object",
-                          "properties": {
-                            "procedure": {
-                              "type": "string",
-                              "pattern": "^[0-9a-f]{64}$"
-                            },
-                            "generated_ownership": {
-                              "type": "string",
-                              "pattern": "^[0-9a-f]{64}$"
-                            },
-                            "generators": {
-                              "type": "string",
-                              "pattern": "^[0-9a-f]{64}$"
-                            },
-                            "merge_commit": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "regeneration_commit": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            }
-                          },
-                          "required": [
-                            "procedure",
-                            "generated_ownership",
-                            "generators",
-                            "merge_commit",
-                            "regeneration_commit"
-                          ]
                         }
                       },
                       "required": [
                         "attempt_id",
                         "source",
-                        "dependencies",
-                        "expected_predecessor",
+                        "predecessor",
                         "head",
                         "tree",
                         "policy",
-                        "requirement_set",
-                        "composition"
+                        "requirement_set"
                       ]
                     },
                     "reason": {
@@ -30143,11 +29420,6 @@
                                 "minLength": 1,
                                 "pattern": "^[A-Za-z0-9_-]+$"
                               },
-                              "context": {
-                                "type": "string",
-                                "minLength": 1,
-                                "pattern": "^[A-Za-z0-9_-]+$"
-                              },
                               "kind": {
                                 "type": "string",
                                 "enum": [
@@ -30163,7 +29435,6 @@
                             },
                             "required": [
                               "id",
-                              "context",
                               "kind",
                               "definition"
                             ]
@@ -30218,855 +29489,28 @@
                         "recovery"
                       ]
                     },
-                    "retirement": {
-                      "type": "string"
+                    "note": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "published",
+                        "failed"
+                      ]
+                    },
+                    "cleanup": {
+                      "type": "string",
+                      "enum": [
+                        "removed",
+                        "kept",
+                        "failed"
+                      ]
                     }
                   }
                 },
                 "queue": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "exception": {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "type": "string",
-                            "const": "exception"
-                          },
-                          "authorization_id": {
-                            "type": "string",
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                          },
-                          "authorized_at": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "actual_trunk": {
-                            "type": "string",
-                            "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                          },
-                          "source": {
-                            "type": "object",
-                            "properties": {
-                              "effort_id": {
-                                "type": "string",
-                                "minLength": 1,
-                                "pattern": "^[A-Za-z0-9_-]+$"
-                              },
-                              "branch": {
-                                "type": "string",
-                                "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
-                              },
-                              "head": {
-                                "type": "string",
-                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                              },
-                              "tree": {
-                                "type": "string",
-                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                              }
-                            },
-                            "required": [
-                              "effort_id",
-                              "branch",
-                              "head",
-                              "tree"
-                            ]
-                          },
-                          "candidate_id": {
-                            "type": "string",
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                          },
-                          "candidate_head": {
-                            "type": "string",
-                            "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                          },
-                          "policy": {
-                            "type": "string",
-                            "pattern": "^[0-9a-f]{64}$"
-                          },
-                          "review": {
-                            "type": "object",
-                            "properties": {
-                              "attempt_id": {
-                                "type": "string",
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                              },
-                              "candidate_id": {
-                                "type": "string",
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                              },
-                              "context": {
-                                "type": "string",
-                                "minLength": 1,
-                                "pattern": "^[A-Za-z0-9_-]+$"
-                              },
-                              "path": {
-                                "type": "string",
-                                "minLength": 1
-                              },
-                              "digest": {
-                                "type": "string",
-                                "pattern": "^[0-9a-f]{64}$"
-                              },
-                              "bytes": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 9007199254740991
-                              }
-                            },
-                            "required": [
-                              "attempt_id",
-                              "candidate_id",
-                              "context",
-                              "path",
-                              "digest",
-                              "bytes"
-                            ]
-                          },
-                          "reason": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "exceptions": {
-                            "minItems": 1,
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "requirement": {
-                                  "type": "object",
-                                  "properties": {
-                                    "id": {
-                                      "type": "string",
-                                      "minLength": 1,
-                                      "pattern": "^[A-Za-z0-9_-]+$"
-                                    },
-                                    "context": {
-                                      "type": "string",
-                                      "minLength": 1,
-                                      "pattern": "^[A-Za-z0-9_-]+$"
-                                    },
-                                    "kind": {
-                                      "type": "string",
-                                      "enum": [
-                                        "job",
-                                        "scope",
-                                        "standard"
-                                      ]
-                                    },
-                                    "definition": {
-                                      "type": "string",
-                                      "pattern": "^[0-9a-f]{64}$"
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "context",
-                                    "kind",
-                                    "definition"
-                                  ]
-                                },
-                                "state": {
-                                  "type": "string",
-                                  "enum": [
-                                    "failed",
-                                    "unrun",
-                                    "stale"
-                                  ]
-                                },
-                                "evidence_id": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                }
-                              },
-                              "required": [
-                                "requirement",
-                                "state",
-                                "evidence_id"
-                              ]
-                            }
-                          }
-                        },
-                        "required": [
-                          "kind",
-                          "authorization_id",
-                          "authorized_at",
-                          "actual_trunk",
-                          "source",
-                          "candidate_id",
-                          "candidate_head",
-                          "policy",
-                          "reason",
-                          "exceptions"
-                        ]
-                      },
-                      "ignored_file_changes": {
-                        "type": "object",
-                        "properties": {
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "disabled",
-                              "baseline_missing",
-                              "newer",
-                              "unavailable",
-                              "unchanged",
-                              "changed"
-                            ]
-                          },
-                          "changed_roots": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          },
-                          "changed_total": {
-                            "type": "number"
-                          },
-                          "truncated": {
-                            "type": "boolean"
-                          },
-                          "reason": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "status",
-                          "changed_roots",
-                          "changed_total",
-                          "truncated"
-                        ]
-                      },
-                      "retirement_effects": {
-                        "type": "object",
-                        "properties": {
-                          "worktree_removed": {
-                            "type": "boolean"
-                          },
-                          "branch_deleted": {
-                            "type": "boolean"
-                          }
-                        },
-                        "required": [
-                          "worktree_removed",
-                          "branch_deleted"
-                        ]
-                      },
-                      "consent": {
-                        "type": "object",
-                        "properties": {
-                          "source": {
-                            "type": "string",
-                            "enum": [
-                              "conversation",
-                              "standing-grant",
-                              "effort-grant"
-                            ]
-                          },
-                          "scopes": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        "required": [
-                          "source"
-                        ]
-                      },
-                      "scopes_changed": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "proof_line": {
-                        "type": "string"
-                      },
-                      "variances": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/$defs/DiscernAuthorizedVariance"
-                        }
-                      },
-                      "standard_approvals": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "standard": {
-                              "type": "string"
-                            },
-                            "commit": {
-                              "type": "string"
-                            },
-                            "bound_commit": {
-                              "type": "string"
-                            },
-                            "measured_commit": {
-                              "type": "string"
-                            },
-                            "definition_fingerprint": {
-                              "type": "string"
-                            },
-                            "trunk": {
-                              "type": "string"
-                            },
-                            "trunk_commit": {
-                              "type": "string"
-                            },
-                            "direction": {
-                              "type": "string",
-                              "enum": [
-                                "up",
-                                "down"
-                              ]
-                            },
-                            "trunk_limit": {
-                              "type": "number"
-                            },
-                            "proposed_limit": {
-                              "type": "number"
-                            },
-                            "measurement": {
-                              "type": "number"
-                            },
-                            "delta": {
-                              "type": "number"
-                            },
-                            "reason": {
-                              "type": "string"
-                            },
-                            "evidence_paths": {
-                              "minItems": 1,
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "minLength": 1
-                              }
-                            }
-                          },
-                          "required": [
-                            "standard",
-                            "commit",
-                            "bound_commit",
-                            "measured_commit",
-                            "definition_fingerprint",
-                            "trunk",
-                            "trunk_commit",
-                            "direction",
-                            "trunk_limit",
-                            "proposed_limit",
-                            "measurement",
-                            "delta",
-                            "reason",
-                            "evidence_paths"
-                          ]
-                        }
-                      },
-                      "preview_actions": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "scope": {
-                              "type": "string"
-                            },
-                            "command": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "scope",
-                            "command"
-                          ]
-                        }
-                      },
-                      "approval_requests": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "proposal": {
-                              "type": "object",
-                              "properties": {
-                                "standard": {
-                                  "type": "string"
-                                },
-                                "commit": {
-                                  "type": "string"
-                                },
-                                "bound_commit": {
-                                  "type": "string"
-                                },
-                                "measured_commit": {
-                                  "type": "string"
-                                },
-                                "definition_fingerprint": {
-                                  "type": "string"
-                                },
-                                "trunk": {
-                                  "type": "string"
-                                },
-                                "trunk_commit": {
-                                  "type": "string"
-                                },
-                                "direction": {
-                                  "type": "string",
-                                  "enum": [
-                                    "up",
-                                    "down"
-                                  ]
-                                },
-                                "trunk_limit": {
-                                  "type": "number"
-                                },
-                                "proposed_limit": {
-                                  "type": "number"
-                                },
-                                "measurement": {
-                                  "type": "number"
-                                },
-                                "delta": {
-                                  "type": "number"
-                                },
-                                "reason": {
-                                  "type": "string"
-                                },
-                                "evidence_paths": {
-                                  "minItems": 1,
-                                  "type": "array",
-                                  "items": {
-                                    "type": "string",
-                                    "minLength": 1
-                                  }
-                                }
-                              },
-                              "required": [
-                                "standard",
-                                "commit",
-                                "bound_commit",
-                                "measured_commit",
-                                "definition_fingerprint",
-                                "trunk",
-                                "trunk_commit",
-                                "direction",
-                                "trunk_limit",
-                                "proposed_limit",
-                                "measurement",
-                                "delta",
-                                "reason",
-                                "evidence_paths"
-                              ]
-                            },
-                            "token": {
-                              "type": "string",
-                              "pattern": "^[0-9a-f]{64}$"
-                            }
-                          },
-                          "required": [
-                            "proposal",
-                            "token"
-                          ]
-                        }
-                      },
-                      "checkpoint_review": {
-                        "$ref": "#/$defs/DiscernProofCheckpoints"
-                      },
-                      "checkpoint_drops": {
-                        "type": "array",
-                        "items": {
-                          "oneOf": [
-                            {
-                              "type": "object",
-                              "properties": {
-                                "scope": {
-                                  "type": "string",
-                                  "const": "policy"
-                                },
-                                "checkpoint": {
-                                  "type": "null"
-                                },
-                                "mode": {
-                                  "type": "null"
-                                },
-                                "policy_commit": {
-                                  "type": "string"
-                                },
-                                "reason": {
-                                  "type": "string",
-                                  "enum": [
-                                    "merge_base_unresolved",
-                                    "governing_config_unreadable",
-                                    "governing_config_invalid",
-                                    "open_question_store_unreadable",
-                                    "open_question_store_corrupt",
-                                    "declaration_evidence_unavailable",
-                                    "strand_check_unavailable"
-                                  ]
-                                },
-                                "account": {
-                                  "type": "string",
-                                  "maxLength": 500
-                                }
-                              },
-                              "required": [
-                                "scope",
-                                "checkpoint",
-                                "mode",
-                                "reason",
-                                "account"
-                              ]
-                            },
-                            {
-                              "type": "object",
-                              "properties": {
-                                "scope": {
-                                  "type": "string",
-                                  "const": "checkpoint"
-                                },
-                                "checkpoint": {
-                                  "type": "string"
-                                },
-                                "mode": {
-                                  "type": "string",
-                                  "enum": [
-                                    "stop",
-                                    "advise"
-                                  ]
-                                },
-                                "policy_commit": {
-                                  "type": "string"
-                                },
-                                "reason": {
-                                  "type": "string",
-                                  "enum": [
-                                    "checkpoint_missing_question",
-                                    "checkpoint_question_file_missing",
-                                    "checkpoint_question_file_invalid_path",
-                                    "checkpoint_question_file_not_regular",
-                                    "checkpoint_question_file_oversized",
-                                    "checkpoint_question_file_invalid_utf8",
-                                    "checkpoint_question_file_unreadable",
-                                    "checkpoint_question_source_conflict",
-                                    "checkpoint_selector_conflict",
-                                    "checkpoint_unknown_scope",
-                                    "effort_diff_unreadable",
-                                    "trigger_content_unavailable",
-                                    "trigger_history_unavailable",
-                                    "when_spawn_failed",
-                                    "when_timeout",
-                                    "when_invalid_exit",
-                                    "when_cancelled",
-                                    "when_input_failed",
-                                    "when_input_cleanup_failed",
-                                    "when_output_limit",
-                                    "open_question_store_rebuilt",
-                                    "subject_unavailable",
-                                    "open_question_store_write_failed"
-                                  ]
-                                },
-                                "account": {
-                                  "type": "string",
-                                  "maxLength": 500
-                                }
-                              },
-                              "required": [
-                                "scope",
-                                "checkpoint",
-                                "mode",
-                                "policy_commit",
-                                "reason",
-                                "account"
-                              ]
-                            }
-                          ]
-                        }
-                      },
-                      "effort": {
-                        "type": "string"
-                      },
-                      "branch": {
-                        "type": "string"
-                      },
-                      "source_head": {
-                        "type": "string"
-                      },
-                      "candidate_id": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "expected_trunk": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "target": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "state": {
-                        "type": "string",
-                        "enum": [
-                          "ready",
-                          "pending",
-                          "landed"
-                        ]
-                      },
-                      "relation": {
-                        "type": "string",
-                        "enum": [
-                          "selected",
-                          "ahead",
-                          "behind",
-                          "other"
-                        ]
-                      },
-                      "landing_id": {
-                        "type": "string"
-                      },
-                      "note": {
-                        "type": "string",
-                        "enum": [
-                          "pending",
-                          "published",
-                          "recovery"
-                        ]
-                      },
-                      "note_reason": {
-                        "type": "string"
-                      },
-                      "proof_note": {
-                        "type": "object",
-                        "properties": {
-                          "fetch": {
-                            "type": "object",
-                            "properties": {
-                              "mode": {
-                                "type": "string",
-                                "enum": [
-                                  "local",
-                                  "fetch"
-                                ]
-                              },
-                              "status": {
-                                "type": "string",
-                                "enum": [
-                                  "local",
-                                  "wired",
-                                  "unchanged",
-                                  "no_remote",
-                                  "failed"
-                                ]
-                              },
-                              "remotes": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                }
-                              },
-                              "added": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                }
-                              },
-                              "removed": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                }
-                              },
-                              "errors": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                }
-                              }
-                            },
-                            "required": [
-                              "mode",
-                              "status",
-                              "remotes",
-                              "added",
-                              "removed",
-                              "errors"
-                            ]
-                          },
-                          "write": {
-                            "type": "object",
-                            "properties": {
-                              "status": {
-                                "type": "string",
-                                "enum": [
-                                  "recorded",
-                                  "already_present",
-                                  "record_failed",
-                                  "missing_proof"
-                                ]
-                              },
-                              "ref": {
-                                "type": "string"
-                              },
-                              "commit": {
-                                "type": "string"
-                              },
-                              "merged_refs": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                }
-                              },
-                              "reason": {
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "status",
-                              "ref",
-                              "commit",
-                              "merged_refs"
-                            ]
-                          }
-                        },
-                        "required": [
-                          "fetch",
-                          "write"
-                        ]
-                      },
-                      "authority_id": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "authority_settlement": {
-                        "type": "string",
-                        "enum": [
-                          "pending",
-                          "consumed",
-                          "restored"
-                        ]
-                      },
-                      "planned_action": {
-                        "type": "string",
-                        "enum": [
-                          "ready",
-                          "compose",
-                          "validate",
-                          "blocked"
-                        ]
-                      },
-                      "planned_producers": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "retirement": {
-                        "type": "string",
-                        "enum": [
-                          "retained",
-                          "retired",
-                          "recovery"
-                        ]
-                      },
-                      "retirement_reason": {
-                        "type": "string"
-                      },
-                      "convergence": {
-                        "type": "string",
-                        "enum": [
-                          "pending",
-                          "passed",
-                          "failed"
-                        ]
-                      },
-                      "pending": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "kind": {
-                              "type": "string"
-                            },
-                            "reason": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "reason"
-                          ]
-                        }
-                      }
-                    },
-                    "required": [
-                      "effort",
-                      "branch",
-                      "source_head",
-                      "candidate_id",
-                      "expected_trunk",
-                      "target",
-                      "state",
-                      "retirement",
-                      "pending"
-                    ]
-                  }
-                },
-                "pending": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "kind": {
-                        "type": "string"
-                      },
-                      "reason": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "kind",
-                      "reason"
-                    ]
+                    "$ref": "#/$defs/DiscernSubmissionRow"
                   }
                 },
                 "root": {
@@ -37359,6 +35803,70 @@
         "children"
       ]
     },
+    "DiscernSubmissionRow": {
+      "title": "DiscernSubmissionRow",
+      "type": "object",
+      "properties": {
+        "effort": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "head": {
+          "type": "string"
+        },
+        "submitted_at": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "pre-authorized",
+            "awaiting-owner"
+          ]
+        },
+        "authority_source": {
+          "type": "string",
+          "enum": [
+            "effort-grant",
+            "standing-grant"
+          ]
+        },
+        "granted_at": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "readiness": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "waiting"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "effort",
+        "branch",
+        "path",
+        "head",
+        "submitted_at",
+        "authority",
+        "position",
+        "readiness"
+      ],
+      "description": "One landing-queue row derived from an effort's submission record: the branch, the exact submitted commit, whether a recorded grant covers it, and the one sentence that says why it waits."
+    },
     "DiscernAuthorizedVariance": {
       "title": "DiscernAuthorizedVariance",
       "type": "object",
@@ -37383,345 +35891,6 @@
         "why"
       ],
       "description": "Owner authorization to land one declared-unmet checkpoint, bound to the exact declaration (checkpoint, definition hash, subject fingerprint, rationale) and the commit it landed with. Never a future policy."
-    },
-    "DiscernProofCheckpoints": {
-      "title": "DiscernProofCheckpoints",
-      "type": "object",
-      "properties": {
-        "policy": {
-          "type": "string"
-        },
-        "declared_met": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "question": {
-                "type": "string"
-              },
-              "question_file": {
-                "type": "string"
-              },
-              "teach": {
-                "type": "string"
-              },
-              "reference": {
-                "type": "string"
-              },
-              "declared_at": {
-                "type": "string"
-              },
-              "matched": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "related": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "similar_existing"
-                      ]
-                    },
-                    "for_path": {
-                      "type": "string"
-                    },
-                    "path": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "kind",
-                    "for_path",
-                    "path"
-                  ]
-                }
-              }
-            },
-            "required": [
-              "id",
-              "declared_at"
-            ],
-            "description": "One checkpoint question the agent declared met, with the declaration time. Agent evidence: recorded, not machine-verified."
-          }
-        },
-        "declared_unmet": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "question": {
-                "type": "string"
-              },
-              "question_file": {
-                "type": "string"
-              },
-              "teach": {
-                "type": "string"
-              },
-              "reference": {
-                "type": "string"
-              },
-              "why": {
-                "type": "string"
-              },
-              "declared_at": {
-                "type": "string"
-              },
-              "matched": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "related": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "similar_existing"
-                      ]
-                    },
-                    "for_path": {
-                      "type": "string"
-                    },
-                    "path": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "kind",
-                    "for_path",
-                    "path"
-                  ]
-                }
-              }
-            },
-            "required": [
-              "id",
-              "why",
-              "declared_at"
-            ],
-            "description": "One checkpoint question the agent declared unmet, with its rationale and declaration time. Landing requires an owner-authorized variance."
-          }
-        },
-        "review": {
-          "type": "object",
-          "properties": {
-            "enforcement": {
-              "type": "string",
-              "const": "reported"
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "not_needed",
-                "unreviewed"
-              ]
-            },
-            "unreviewed": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string"
-                  },
-                  "mode": {
-                    "type": "string",
-                    "enum": [
-                      "stop",
-                      "advise"
-                    ]
-                  },
-                  "question": {
-                    "type": "string"
-                  },
-                  "question_file": {
-                    "type": "string"
-                  },
-                  "teach": {
-                    "type": "string"
-                  },
-                  "reference": {
-                    "type": "string"
-                  },
-                  "matched": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "related": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "enum": [
-                            "similar_existing"
-                          ]
-                        },
-                        "for_path": {
-                          "type": "string"
-                        },
-                        "path": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "kind",
-                        "for_path",
-                        "path"
-                      ]
-                    }
-                  }
-                },
-                "required": [
-                  "id",
-                  "mode",
-                  "question",
-                  "matched"
-                ]
-              }
-            }
-          },
-          "required": [
-            "enforcement",
-            "status"
-          ]
-        },
-        "drops": {
-          "type": "array",
-          "items": {
-            "oneOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "scope": {
-                    "type": "string",
-                    "const": "policy"
-                  },
-                  "checkpoint": {
-                    "type": "null"
-                  },
-                  "mode": {
-                    "type": "null"
-                  },
-                  "policy_commit": {
-                    "type": "string"
-                  },
-                  "reason": {
-                    "type": "string",
-                    "enum": [
-                      "merge_base_unresolved",
-                      "governing_config_unreadable",
-                      "governing_config_invalid",
-                      "open_question_store_unreadable",
-                      "open_question_store_corrupt",
-                      "declaration_evidence_unavailable",
-                      "strand_check_unavailable"
-                    ]
-                  },
-                  "account": {
-                    "type": "string",
-                    "maxLength": 500
-                  }
-                },
-                "required": [
-                  "scope",
-                  "checkpoint",
-                  "mode",
-                  "reason",
-                  "account"
-                ]
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "scope": {
-                    "type": "string",
-                    "const": "checkpoint"
-                  },
-                  "checkpoint": {
-                    "type": "string"
-                  },
-                  "mode": {
-                    "type": "string",
-                    "enum": [
-                      "stop",
-                      "advise"
-                    ]
-                  },
-                  "policy_commit": {
-                    "type": "string"
-                  },
-                  "reason": {
-                    "type": "string",
-                    "enum": [
-                      "checkpoint_missing_question",
-                      "checkpoint_question_file_missing",
-                      "checkpoint_question_file_invalid_path",
-                      "checkpoint_question_file_not_regular",
-                      "checkpoint_question_file_oversized",
-                      "checkpoint_question_file_invalid_utf8",
-                      "checkpoint_question_file_unreadable",
-                      "checkpoint_question_source_conflict",
-                      "checkpoint_selector_conflict",
-                      "checkpoint_unknown_scope",
-                      "effort_diff_unreadable",
-                      "trigger_content_unavailable",
-                      "trigger_history_unavailable",
-                      "when_spawn_failed",
-                      "when_timeout",
-                      "when_invalid_exit",
-                      "when_cancelled",
-                      "when_input_failed",
-                      "when_input_cleanup_failed",
-                      "when_output_limit",
-                      "open_question_store_rebuilt",
-                      "subject_unavailable",
-                      "open_question_store_write_failed"
-                    ]
-                  },
-                  "account": {
-                    "type": "string",
-                    "maxLength": 500
-                  }
-                },
-                "required": [
-                  "scope",
-                  "checkpoint",
-                  "mode",
-                  "policy_commit",
-                  "reason",
-                  "account"
-                ]
-              }
-            ]
-          }
-        }
-      },
-      "required": [
-        "declared_met",
-        "declared_unmet"
-      ],
-      "description": "Agent-declared checkpoint conclusions carried by the Proof, separate from machine results: the governing policy identity, the declared-met set, and the declared-unmet set whose landing still requires owner-authorized variances."
     },
     "DiscernDoctorMcpToolResult": {
       "title": "DiscernDoctorMcpToolResult",

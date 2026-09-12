@@ -63,22 +63,10 @@
         "kind": "directory",
         "validation": false
       },
-      "completionPublication": {
-        "path": "discern/completion/publication.json",
-        "scope": "common",
-        "kind": "file",
-        "validation": false
-      },
       "completionArtifacts": {
         "path": "discern/completion/artifacts",
         "scope": "common",
         "kind": "directory",
-        "validation": false
-      },
-      "environmentProofs": {
-        "path": "discern/completion/environment-proofs.json",
-        "scope": "common",
-        "kind": "file",
         "validation": false
       },
       "resources": {
@@ -247,12 +235,6 @@
         "path": "discern/submission",
         "scope": "worktree",
         "kind": "file",
-        "validation": false
-      },
-      "completionGrantClaims": {
-        "path": "discern/completion/grant-claims",
-        "scope": "common",
-        "kind": "directory",
         "validation": false
       },
       "acceptanceTransaction": {
@@ -450,101 +432,13 @@
   },
   "local_formats": {
     "completion-record": {
-      "version": 5,
+      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
         "kind": "git-admin",
         "keys": [
           "completionRecords"
-        ]
-      }
-    },
-    "completion-publication": {
-      "version": 1,
-      "version_field": "version",
-      "newer_version_policy": "refuse",
-      "location": {
-        "kind": "git-admin",
-        "keys": [
-          "completionPublication"
-        ]
-      }
-    },
-    "environment-proof": {
-      "version": 1,
-      "version_field": "version",
-      "newer_version_policy": "observe",
-      "location": {
-        "kind": "git-admin",
-        "keys": [
-          "environmentProofs"
-        ]
-      }
-    },
-    "execution-git-snapshot": {
-      "version": 1,
-      "version_field": "format",
-      "newer_version_policy": "refuse",
-      "location": {
-        "kind": "git-admin",
-        "keys": [
-          "completionArtifacts"
-        ]
-      }
-    },
-    "execution-source-observation": {
-      "version": 1,
-      "version_field": "format",
-      "newer_version_policy": "refuse",
-      "location": {
-        "kind": "git-admin",
-        "keys": [
-          "completionArtifacts"
-        ]
-      }
-    },
-    "execution-git-manifest": {
-      "version": 2,
-      "version_field": "format",
-      "newer_version_policy": "refuse",
-      "location": {
-        "kind": "git-admin",
-        "keys": [
-          "completionArtifacts"
-        ]
-      }
-    },
-    "execution-release-observation": {
-      "version": 2,
-      "version_field": "format",
-      "newer_version_policy": "refuse",
-      "location": {
-        "kind": "git-admin",
-        "keys": [
-          "completionArtifacts"
-        ]
-      }
-    },
-    "execution-workspace-state": {
-      "version": 1,
-      "version_field": "format",
-      "newer_version_policy": "refuse",
-      "location": {
-        "kind": "git-admin",
-        "keys": [
-          "completionArtifacts"
-        ]
-      }
-    },
-    "execution-intent": {
-      "version": 1,
-      "version_field": "format",
-      "newer_version_policy": "refuse",
-      "location": {
-        "kind": "git-admin",
-        "keys": [
-          "completionArtifacts"
         ]
       }
     },
@@ -560,7 +454,7 @@
       }
     },
     "emergency-resolution": {
-      "version": 2,
+      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -659,15 +553,14 @@
       }
     },
     "effort-grant": {
-      "version": 2,
+      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
         "kind": "git-admin",
         "keys": [
           "effortGrant",
-          "effortGrantClaims",
-          "completionGrantClaims"
+          "effortGrantClaims"
         ]
       }
     },
@@ -892,7 +785,6 @@
       "proof_notes_tracking_prefix": "refs/discern/remotes",
       "proof_notes_tracking_reservation": "refs/discern/remotes/<remote>/notes*",
       "drop_recovery_prefix": "refs/discern/recovery",
-      "candidate_prefix": "refs/discern/candidates",
       "acceptance_transaction_prefix": "refs/worktree/discern/acceptance-transactions"
     },
     "refspec_templates": {
