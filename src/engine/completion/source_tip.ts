@@ -18,7 +18,10 @@ import { configuredValidation } from "../validation/configuration.ts";
 import { producerLabel } from "../validation/public_run.ts";
 import type { PublicValidationRun } from "../validation/public_run.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
-import { finishedValidationAttempts } from "../validation/selection.ts";
+import {
+  finishedValidationAttempts,
+  indexEvidence,
+} from "../validation/selection.ts";
 import { integrationBranch } from "../worktree/git.ts";
 import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
 import type { CompletionArtifact } from "./artifacts.ts";
@@ -191,16 +194,24 @@ export async function completeSourceTip<T>(
       )?.id ?? null
       : null;
     // A red verdict is sticky for the unchanged subject: when this exact
-    // candidate's newest finished attempt failed, a bare strict run refuses
-    // before any producer or gate job runs, and `--rerun` executes and
-    // records the deliberate repeat. A cancelled attempt carries no verdict
-    // and never blocks.
+    // candidate's newest finished attempt failed WITH an adverse receipt — a
+    // producer the run judged red — a bare strict run refuses before any
+    // producer or gate job runs, and `--rerun` executes and records the
+    // deliberate repeat. A cancelled attempt carries no verdict, and an
+    // attempt that failed without judging any producer (an observation or
+    // environment failure) may clear itself, so neither blocks a retry.
     if (!options.rerun && options.mode === "strict") {
       const judged = finishedValidationAttempts(records).find((attempt) =>
         attempt.data.identity.candidate_id === candidateId
       );
+      const adverse = judged === undefined
+        ? false
+        : (indexEvidence(records).receipts.get(judged.id) ?? []).some((
+          receipt,
+        ) => receipt.data.outcome.kind === "failed");
       if (
-        judged !== undefined && judged.data.state.kind === "finished" &&
+        judged !== undefined && adverse &&
+        judged.data.state.kind === "finished" &&
         judged.data.state.outcome === "failed"
       ) {
         return {
