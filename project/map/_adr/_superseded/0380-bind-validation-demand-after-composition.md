@@ -1,6 +1,8 @@
 # ADR 0380: Bind validation demand after composition within one execution lease
 
-**Status**: accepted
+> **Superseded by [ADR 0389](../0389-the-workspace-contract.md).** The workspace contract removes composed candidates, environment attempts, and execution leases; `done` proves the invoked checkout's own committed tip, so validation demand binds at the source tip and no composing state exists.
+
+**Status**: superseded by [ADR 0389](../0389-the-workspace-contract.md) on 2026-09-12; previously accepted
 
 ## Context
 

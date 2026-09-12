@@ -1,6 +1,8 @@
 # ADR 0387: Flush recovery authority independently of process observations
 
-**Status**: accepted
+> **Superseded by [ADR 0389](../0389-the-workspace-contract.md).** Native execution and its child-receipt publishing retired with the borrowed substrate; the durability boundary this record refined went with [ADR 0386](0386-retain-recovery-bytes-through-durable-reference-graphs.md).
+
+**Status**: superseded by [ADR 0389](../0389-the-workspace-contract.md) on 2026-09-12; previously accepted
 
 ## Context
 

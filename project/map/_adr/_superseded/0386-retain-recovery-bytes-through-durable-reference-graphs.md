@@ -1,6 +1,8 @@
 # ADR 0386: Retain recovery bytes through durable reference graphs
 
-**Status**: accepted
+> **Superseded by [ADR 0389](../0389-the-workspace-contract.md).** Temporary execution, capture, restoration, and reclamation retired with the borrowed substrate; no recovery bytes are captured, so the durable reference graph and its storage lease have no subject.
+
+**Status**: superseded by [ADR 0389](../0389-the-workspace-contract.md) on 2026-09-12; previously accepted
 
 ## Context
 
@@ -26,4 +28,4 @@ Retained payload storage grows with distinct required bytes rather than repeated
 
 Hashing and streaming cost additional file reads. The witness adds a small durable write to publication, while large observations stay outside the common lock. Interrupted deletion leaves a closed remaining graph. Retirement callers must hold the storage lease until their reference is durable, then invoke the tested reclamation interface after retirement authority is settled.
 
-[Execution storage](../50-engine-internals/execution-storage.md) describes the source, recovery and retirement boundaries.
+The map's execution-storage page described the source, recovery and retirement boundaries; it retired with this record.

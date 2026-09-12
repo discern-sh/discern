@@ -1,6 +1,8 @@
 # ADR 0382: Release checkout semantics independently of recovery bytes
 
-**Status**: accepted. Amends [ADR 0378](0378-landing-completion-survives-checkout-retirement.md).
+> **Superseded by [ADR 0389](../0389-the-workspace-contract.md).** Under the workspace contract no checkout is released, captured, or restored, so release identity and recovery-byte matching have no subject; the modules that owned them are removed.
+
+**Status**: superseded by [ADR 0389](../0389-the-workspace-contract.md) on 2026-09-12; previously accepted. Amends [ADR 0378](../0378-landing-completion-survives-checkout-retirement.md).
 
 ## Context
 
@@ -14,7 +16,7 @@ Recovery artifacts retain the exact index bytes and their full snapshot digest. 
 
 Completion finishes its source checks and retains its Proof presentation under checkout exclusion before publishing the author's release. An unsuccessful finalization retains authoring control. Changes to ignored files after release remain protected, just like other captured local data. Setup's optional ignored-file comparison is a separate advisory.
 
-[`subjects.ts`](../../../src/engine/execution/subjects.ts) owns release identity and matching. [`snapshot.ts`](../../../src/engine/execution/snapshot.ts) owns the captured Git semantics and unsupported-state refusals.
+The `subjects.ts` module owned release identity and matching; `snapshot.ts` owned the captured Git semantics and unsupported-state refusals. Both were removed with the release model.
 
 ## Consequences
 

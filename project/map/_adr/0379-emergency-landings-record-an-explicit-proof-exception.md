@@ -1,6 +1,6 @@
 # ADR 0379: Emergency landings record an explicit Proof exception
 
-**Status**: accepted on 2026-09-05; implementation pending. Amends the ordinary acceptance boundary of [ADR 0110](0110-the-landing-model.md) and the claim contract of [ADR 0215](0215-landing-receipts-travel-as-git-notes.md), with authority from [ADR 0375](0375-source-authority-survives-declared-composition.md).
+**Status**: accepted on 2026-09-05; implemented on 2026-09-12 by the `exception` record family. Amends the ordinary acceptance boundary of [ADR 0110](0110-the-landing-model.md) and the claim contract of [ADR 0215](0215-landing-receipts-travel-as-git-notes.md), with authority from [ADR 0375](0375-source-authority-survives-declared-composition.md).
 
 ## Context
 

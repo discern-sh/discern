@@ -1,8 +1,8 @@
 # ADR 0378: Landing completion survives checkout retirement
 
-**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Amends [ADR 0366](0366-landing-is-one-exact-repository-transaction.md), [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), and [ADR 0215](0215-landing-receipts-travel-as-git-notes.md).
+**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Amends [ADR 0366](0366-landing-is-one-exact-repository-transaction.md), [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), and [ADR 0215](0215-landing-receipts-travel-as-git-notes.md). Amended by [ADR 0389](0389-the-workspace-contract.md) on 2026-09-12: a landing now removes the worktree; retirement, release, and reclamation are gone, so landing completion survives only the acceptance transaction.
 
-> Amended by [ADR 0382](0382-release-checkout-semantics-independently-of-recovery-bytes.md): checkout release binds meaningful state while recovery retains exact bytes. [`subjects.ts`](../../../src/engine/execution/subjects.ts) owns that distinction.
+> Amended by [ADR 0382](_superseded/0382-release-checkout-semantics-independently-of-recovery-bytes.md), since itself superseded: checkout release bound meaningful state while recovery retained exact bytes; the `subjects.ts` module that owned the distinction is removed.
 
 ## Context
 
