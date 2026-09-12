@@ -250,6 +250,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
       branchLines: [],
       orphanedLandedBranches: [],
     },
+    worktreeResourceTeardowns: [],
     orphanScan: {
       mainRepo: "/repo",
       mainBranch: "main",
@@ -293,6 +294,14 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
       branchLines: [],
       orphanedLandedBranches: [],
     },
+    worktreeResourceTeardowns: [{
+      worktreePath: "/repo/.wt/stale",
+      gitKey: "stale",
+      entries: items(entry({
+        resource_name: "cache",
+        resource_identity: "app-stale-cache",
+      })),
+    }],
     orphanScan: {
       mainRepo: "/repo",
       mainBranch: "main",
@@ -353,6 +362,8 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
       "Contained worktrees",
     ]),
   );
+  assertEquals(enginePlan.steps[0]?.label, "app-stale-cache");
+  assertEquals(enginePlan.steps[0]?.kind, "resource-destroy");
   assert(enginePlan.details.some((d) => d.includes("Stale metadata: 1 entry")));
 });
 
@@ -368,6 +379,7 @@ Deno.test("prunePlanToEngine: the contained group is offer-only by default and r
       branchLines: [],
       orphanedLandedBranches: [],
     },
+    worktreeResourceTeardowns: [],
     orphanScan: {
       mainRepo: "/repo",
       mainBranch: "main",

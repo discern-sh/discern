@@ -608,6 +608,12 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
 export interface PrunePlan {
   /** Git-worktree/branch/stale-metadata scan to apply exactly. */
   gitScan: GitWorktreePruneScan;
+  /** Ledger entries to tear down before removing each still-live worktree. */
+  worktreeResourceTeardowns: Array<{
+    worktreePath: string;
+    gitKey: string | undefined;
+    entries: LedgerItem[];
+  }>;
   /** Orphan-directory scan to apply exactly. */
   orphanScan: OrphanWorktreeSweepScan;
   /** Removed paths that exist again without a live worktree registration. */
@@ -634,6 +640,17 @@ function pruneBranchesToDelete(scan: GitWorktreePruneScan): string[] {
 /** Project a prune plan onto the shared renderer, grouping by what is reclaimed. */
 export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   const steps: PlanStep[] = [];
+  for (const teardown of plan.worktreeResourceTeardowns) {
+    for (const item of teardown.entries) {
+      steps.push({
+        kind: "resource-destroy",
+        label: verbatimStepLabel(item.entry.resource_identity),
+        disposition: "run",
+        note: `tear down before removing ${teardown.worktreePath}`,
+        group: "Resources",
+      });
+    }
+  }
   for (const w of plan.gitScan.worktreesToRemove) {
     steps.push({
       kind: "git",

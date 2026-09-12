@@ -875,6 +875,18 @@ export interface LedgerItem {
   entry: ResourceEntry;
 }
 
+/** Whether two ordered ledger snapshots carry the same paths and entries. */
+export function sameLedgerItems(
+  planned: LedgerItem[],
+  current: LedgerItem[],
+): boolean {
+  return planned.length === current.length && planned.every((item, index) => {
+    const now = current[index];
+    return now !== undefined && item.path === now.path &&
+      sameEntry(item.entry, now.entry);
+  });
+}
+
 /** The live-worktree snapshot the orphan classifier reasons against. */
 export interface LiveWorktrees {
   /** Admin-dir basenames (`git_key`) whose checkout still exists. */
