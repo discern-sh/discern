@@ -39,7 +39,7 @@ import {
   decodeCliResult,
 } from "./decode_cli_result.ts";
 import type { GateWireData } from "../src/shared/result_schemas.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 const SHORT = 12;
 
@@ -184,7 +184,7 @@ Deno.test("a genuinely failed rerun supersedes the green Proof for landing, keep
       // and the landing supersession read the same durable records.
       const bare = await runAgent(wt, ["done", "--json"]);
       assertEquals(bare.code, 1, bare.output);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         bare.output,
         "the gate already judged this exact candidate red",
       );

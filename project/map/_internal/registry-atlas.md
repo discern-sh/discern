@@ -38,7 +38,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 16      | —                | node `desk`                 |
 | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 35      | —                | —                           |
-| [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                          | `src/shared/on_disk_formats.ts#ON_DISK_FORMATS`                                   | 31      | —                | —                           |
+| [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                          | `src/shared/on_disk_formats.ts#ON_DISK_FORMATS`                                   | 32      | —                | —                           |
 | [`git-footprint`](#git-footprint--clone-local-git-footprint)                                                          | `src/engine/git_footprint.ts#DISCERN_GIT_FOOTPRINT`                               | 10      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
@@ -1068,7 +1068,7 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
 Every versioned record discern writes in Git administration state or a Proof note: its storage coordinate, current version, reader, and forward-skew policy.
 
 - Source: `src/shared/on_disk_formats.ts` — `ON_DISK_FORMATS`
-- Members: 31
+- Members: 32
   - `completion-record`
   - `candidate-review`
   - `emergency-resolution`
@@ -1091,6 +1091,7 @@ Every versioned record discern writes in Git administration state or a Proof not
   - `logbook-validation-evidence`
   - `proof-note`
   - `resource-ledger`
+  - `retired-worktree-branch`
   - `retired-worktree-path`
   - `setup-machinery-commit-evidence`
   - `setup-step-journal`
@@ -4787,6 +4788,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 
 `UNAFFILIATED_GUARDS` records conventionally named guard tests with no member set.
 
+- `tests/operation_lock_sync_guard_test.ts` — pins the operation lock's no-fsync acquisition and release — exclusion comes from the OS handle — rather than guarding a closed member set
 - `tests/progress_surface_parity_test.ts` — proves that the terminal, MCP notifications, the operation journal, and nested presenters present one completion fact stream identically rather than guarding a closed member set
 - `tests/test_registration_guard_test.ts` — rejects execution-time imports of test-registration modules across authored Deno sources rather than guarding a closed member set
 - `tests/test_elapsed_guard_test.ts` — applies timer-ownership review across authored test duration measurements rather than guarding a closed member set

@@ -20,9 +20,10 @@ import { sameStandardLimitProposalSet } from "./standard_proposal_state.ts";
  * Reuse also requires the Proof's recorded predecessor to BE the trunk's
  * current tip — the exact equality acceptance requires — because ancestry
  * alone is not enough: a trunk fast-forwarded to a commit this branch already
- * contains leaves the branch merged while the Proof names a predecessor the
- * trunk no longer tips, and a reused "green" would then be unlandable. A
- * moved trunk is a cache miss, so the ordinary run re-proves against it.
+ * contains leaves the branch merged while the Proof names a predecessor other
+ * than the trunk's current tip, and a reused "green" would then be
+ * unlandable. A moved trunk is a cache miss, so the ordinary run re-proves
+ * against it.
  */
 export async function reusableGreenProof(
   root: string,

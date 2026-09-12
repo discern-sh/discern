@@ -4066,6 +4066,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/operation_lock_sync_guard_test.ts":
+    "pins the operation lock's no-fsync acquisition and release — exclusion comes from the OS handle — rather than guarding a closed member set",
   "tests/progress_surface_parity_test.ts":
     "proves that the terminal, MCP notifications, the operation journal, and nested presenters present one completion fact stream identically rather than guarding a closed member set",
   "tests/test_registration_guard_test.ts":

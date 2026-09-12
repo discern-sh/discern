@@ -677,6 +677,17 @@
         ]
       }
     },
+    "retired-worktree-branch": {
+      "version": 1,
+      "version_field": "schema_version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "retiredWorktreePaths"
+        ]
+      }
+    },
     "retired-worktree-path": {
       "version": 1,
       "version_field": "schema_version",
