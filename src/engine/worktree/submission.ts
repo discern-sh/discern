@@ -48,6 +48,12 @@ export type SubmissionRead =
   | { readonly status: "newer"; readonly reason: string }
   | { readonly status: "unavailable"; readonly reason: string };
 
+/** Narrow parsed JSON to a plain object so no unvalidated cast crosses the
+ * runtime boundary. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /** Validate a persisted submission without accepting absence as version 1. */
 export function parseSubmission(raw: string): SubmissionRead {
   let value: unknown;
@@ -56,16 +62,13 @@ export function parseSubmission(raw: string): SubmissionRead {
   } catch {
     return { status: "invalid", reason: "the submission is not valid JSON" };
   }
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return {
       status: "invalid",
       reason: "the submission is not a JSON object",
     };
   }
-  const version = inspectOnDiskRecordVersion(
-    "submission",
-    value as Record<string, unknown>,
-  );
+  const version = inspectOnDiskRecordVersion("submission", value);
   if (version.status === "newer") {
     return {
       status: "newer",

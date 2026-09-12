@@ -190,6 +190,29 @@ export async function completeSourceTip<T>(
         attempt.data.identity.executor.originating_effort === source.effort_id
       )?.id ?? null
       : null;
+    // A red verdict is sticky for the unchanged subject: when this exact
+    // candidate's newest finished attempt failed, a bare strict run refuses
+    // before any producer or gate job runs, and `--rerun` executes and
+    // records the deliberate repeat. A cancelled attempt carries no verdict
+    // and never blocks.
+    if (!options.rerun && options.mode === "strict") {
+      const judged = finishedValidationAttempts(records).find((attempt) =>
+        attempt.data.identity.candidate_id === candidateId
+      );
+      if (
+        judged !== undefined && judged.data.state.kind === "finished" &&
+        judged.data.state.outcome === "failed"
+      ) {
+        return {
+          kind: "validation-failed" as const,
+          evidence_ids: [],
+          attempt_id: judged.id,
+          reason:
+            `the gate already judged this exact candidate red (attempt ${judged.id}); nothing has changed since. ` +
+            `Resolve the failure, then use discern done --rerun for a deliberate retry of the unchanged subject.`,
+        };
+      }
+    }
     const reserved = await reserveAttempt(root, {
       candidate_id: candidateId,
       executor: actor,

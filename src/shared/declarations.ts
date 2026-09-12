@@ -71,19 +71,17 @@ export interface DeclarationGatedVerb {
  * The declaration-interlocked verbs — the single source the interlock class
  * test iterates. Adding a member here enrols it in the shared-refusal
  * contract, which then fails until the new member refuses with
- * {@link AWAITING_DECLARATION_SLUG} and serves its resolution.
+ * {@link AWAITING_DECLARATION_SLUG} and serves its resolution. `done` is the
+ * only member: Proof binds the declaration evidence, so no answerable
+ * declaration state survives past `done` — acceptance meets a stale
+ * conclusion only as a stale Proof and serves the nothing-proven route,
+ * never this slug.
  */
 export const DECLARATION_GATED_VERBS = [
   {
     id: "done",
     command: "done",
     resolution: "declare",
-    surfaces: ["terminal", "json", "markdown", "mcp"],
-  },
-  {
-    id: "accept",
-    command: "accept",
-    resolution: "route-to-done",
     surfaces: ["terminal", "json", "markdown", "mcp"],
   },
 ] as const satisfies readonly DeclarationGatedVerb[];
