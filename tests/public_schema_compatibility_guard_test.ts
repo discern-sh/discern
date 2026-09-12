@@ -1,7 +1,7 @@
 /**
  * Same-major public schema compatibility.
  *
- * The live guard compares generated artifacts with the configured trunk. Pure
+ * The live guard compares generated artifacts with the released baseline. Pure
  * controls use unrelated field and contract names so the predicate proves the
  * class rather than memorizing today's result definitions.
  */
@@ -30,6 +30,7 @@ import {
   type PublicSchemaPublication,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../src/shared/public_schemas.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
 import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
 import { runGit } from "../src/shared/subprocess.ts";
@@ -1992,16 +1993,16 @@ Deno.test("the MCP manifest permits only append-only tools and optional request 
     ).some((issue) => issue.includes("path") && issue.includes("removed")),
   );
 
-  const changedDescription = clone(previous);
-  const changedTool = (changedDescription.tools as JsonObject[])[0];
+  const changedAnnotations = clone(previous);
+  const changedTool = (changedAnnotations.tools as JsonObject[])[0];
   assert(changedTool !== undefined);
-  changedTool.description = "Changed selection semantics.";
+  changedTool.annotations = { readOnlyHint: false };
   assert(
     publicSchemaCompatibilityIssues(
       previous,
-      changedDescription,
+      changedAnnotations,
       MCP_TOOLS_COMPATIBILITY_POLICY,
-    ).some((issue) => issue.includes("description")),
+    ).some((issue) => issue.includes("annotations")),
   );
 
   const newlyRequired = clone(previous);
@@ -2132,6 +2133,218 @@ Deno.test("the conventions manifest permits new members but keeps existing value
       issue.includes("refs.proof") && issue.includes("changed")
     ),
   );
+});
+
+Deno.test("manifest documentation can evolve without changing requests or grammar", () => {
+  const schema: JsonObject = {
+    type: "object",
+    title: "Request",
+    description: "Explain the request.",
+    properties: {
+      description: {
+        type: "string",
+        description: "A property whose name is also an annotation keyword.",
+        default: "preserved",
+      },
+      payload: {
+        type: "object",
+        const: { description: "literal value" },
+        default: { description: "literal default" },
+      },
+    },
+  };
+  const previous: JsonObject = {
+    format: 1,
+    tools: [{
+      name: "discern_orbit",
+      title: "Orbit",
+      description: "Read an orbit.",
+      inputSchema: schema,
+    }],
+  };
+  const compatible = clone(previous);
+  const tool = (compatible.tools as JsonObject[])[0];
+  assert(tool !== undefined && isRecord(tool.inputSchema));
+  tool.title = "Inspect orbit";
+  tool.description = "Explain an additional optional capability.";
+  tool.inputSchema.title = "Orbit request";
+  delete tool.inputSchema.description;
+  tool.inputSchema.examples = [{}];
+  assert(isRecord(tool.inputSchema.properties));
+  const named = tool.inputSchema.properties.description;
+  assert(isRecord(named));
+  named.description = "Clarify the existing input.";
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      compatible,
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+
+  for (const keyword of ["default", "const"]) {
+    const changed = clone(compatible);
+    const changedTool = (changed.tools as JsonObject[])[0];
+    assert(changedTool !== undefined && isRecord(changedTool.inputSchema));
+    assert(isRecord(changedTool.inputSchema.properties));
+    const payload = changedTool.inputSchema.properties.payload;
+    assert(isRecord(payload));
+    payload[keyword] = { description: "different literal" };
+    assert(
+      publicSchemaCompatibilityIssues(
+        previous,
+        changed,
+        MCP_TOOLS_COMPATIBILITY_POLICY,
+      ).some((issue) => issue.includes(keyword)),
+    );
+  }
+  const removed = clone(compatible);
+  const removedTool = (removed.tools as JsonObject[])[0];
+  assert(removedTool !== undefined && isRecord(removedTool.inputSchema));
+  assert(isRecord(removedTool.inputSchema.properties));
+  delete removedTool.inputSchema.properties.description;
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      removed,
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes("removed")),
+  );
+
+  const cli: JsonObject = {
+    format: 1,
+    implicit_flags: { command: [], root: [] },
+    commands: [{
+      path: ["sonar"],
+      description: "Observe.",
+      usage: "[options]",
+      aliases: [],
+      positionals: [],
+      flags: [{
+        spellings: ["--label"],
+        description: "A label.",
+        arity: 1,
+        value_types: ["string"],
+        default: "kept",
+      }],
+    }],
+  };
+  const revisedCli = clone(cli);
+  const command = (revisedCli.commands as JsonObject[])[0];
+  assert(command !== undefined && Array.isArray(command.flags));
+  command.description = "Explain the existing observation.";
+  command.usage = "[--label <text>]";
+  const flag = command.flags[0];
+  assert(isRecord(flag));
+  flag.description = "Clarify the label.";
+  assertEquals(
+    publicSchemaCompatibilityIssues(cli, revisedCli, CLI_COMPATIBILITY_POLICY),
+    [],
+  );
+  flag.default = "changed";
+  assert(
+    publicSchemaCompatibilityIssues(cli, revisedCli, CLI_COMPATIBILITY_POLICY)
+      .some((issue) => issue.includes("default")),
+  );
+});
+
+Deno.test("MCP documentation changes traverse schema children without relaxing their constraints", () => {
+  const child: JsonObject = {
+    type: "string",
+    description: "Original.",
+    minLength: 2,
+  };
+  const wrappers: JsonObject[] = [
+    ...[
+      "items",
+      "additionalProperties",
+      "unevaluatedProperties",
+      "additionalItems",
+      "unevaluatedItems",
+      "contains",
+      "not",
+      "if",
+      "then",
+      "else",
+      "propertyNames",
+    ].map((key) => ({ [key]: child })),
+    ...["oneOf", "anyOf", "allOf", "prefixItems", "items"].map((key) => ({
+      [key]: [child],
+    })),
+    ...[
+      "properties",
+      "patternProperties",
+      "$defs",
+      "definitions",
+      "dependentSchemas",
+      "dependencies",
+    ].map((key) => ({ [key]: { description: child } })),
+  ];
+  for (const wrapper of wrappers) {
+    const previous: JsonObject = {
+      format: 1,
+      tools: [{ name: "discern_future", inputSchema: wrapper }],
+    };
+    const revisedChild = {
+      ...child,
+      description: "Revised.",
+      title: "Detail",
+      $comment: "Explanation.",
+      examples: ["ok"],
+    };
+    const current = decodeWith(
+      JsonObjectSchema,
+      JSON.stringify(previous).replace(
+        JSON.stringify(child),
+        JSON.stringify(revisedChild),
+      ),
+    );
+    assertEquals(
+      publicSchemaCompatibilityIssues(
+        previous,
+        current,
+        MCP_TOOLS_COMPATIBILITY_POLICY,
+      ),
+      [],
+      JSON.stringify(wrapper),
+    );
+    const narrowed = decodeWith(
+      JsonObjectSchema,
+      JSON.stringify(current).replace('"minLength":2', '"minLength":3'),
+    );
+    assert(
+      publicSchemaCompatibilityIssues(
+        previous,
+        narrowed,
+        MCP_TOOLS_COMPATIBILITY_POLICY,
+      ).some((issue) => issue.includes("minLength")),
+    );
+  }
+});
+
+Deno.test("private format revisions do not enter the frozen conventions contract", () => {
+  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
+  );
+  assert(publication !== undefined);
+  const manifest = buildCurrentPublicSchema(publication);
+  assert(isRecord(manifest.local_formats));
+  for (const format of Object.values(ON_DISK_FORMATS)) {
+    const published = manifest.local_formats[format.id];
+    assert(isRecord(published), format.id);
+    assertEquals(
+      Object.hasOwn(published, "version"),
+      format.location.kind === "git-note",
+      format.id,
+    );
+    assertEquals(published.version_field, format.versionField, format.id);
+    assertEquals(
+      published.newer_version_policy,
+      format.newerVersionPolicy,
+      format.id,
+    );
+  }
 });
 
 Deno.test("the schema baseline is the highest predecessor version tag, never a release candidate at HEAD", async () => {

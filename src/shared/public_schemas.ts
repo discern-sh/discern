@@ -168,7 +168,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     compatibility: MCP_TOOLS_COMPATIBILITY_POLICY,
     label: "MCP tools manifest",
     contract:
-      "Tool order, names, titles, descriptions, request schemas, and annotations.",
+      "Tool order, names, request schemas, and safety annotations; descriptive text may evolve.",
   },
   {
     id: CLI_MANIFEST_ID,
@@ -186,7 +186,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     compatibility: CONVENTIONS_COMPATIBILITY_POLICY,
     label: "Conventions manifest",
     contract:
-      "Frozen environment, skill, Git, checkpoint, identity, provider, hook, and local-format names.",
+      "Frozen environment, skill, Git, checkpoint, identity, provider, hook, and format conventions; private format revisions are independent.",
   },
 ] as const satisfies readonly PublicSchemaPublication[];
 
@@ -218,11 +218,11 @@ function compatibilityContract(
     case CONFIG_SCHEMA_COMPATIBILITY_POLICY:
       return "Same-major releases may add only optional keys and sections.";
     case MCP_TOOLS_COMPATIBILITY_POLICY:
-      return "Same-major releases may add tools or optional input properties; existing metadata and inputs remain compatible.";
+      return "Same-major releases may update documentation and add tools or optional inputs; existing identities, safety annotations, and requests stay compatible.";
     case CLI_COMPATIBILITY_POLICY:
-      return "Same-major releases may add commands, aliases, options, and positional arguments without changing existing grammar.";
+      return "Same-major releases may update help and add commands, aliases, options, and positional arguments without changing existing grammar.";
     case CONVENTIONS_COMPATIBILITY_POLICY:
-      return "Same-major releases may add names; every published existing value is immutable.";
+      return "Same-major releases may add names; published existing values are immutable. Private format versions are not published here.";
   }
 }
 

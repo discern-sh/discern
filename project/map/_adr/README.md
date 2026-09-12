@@ -366,6 +366,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0385 — Retain Git discovery within one operation](0385-retain-git-discovery-within-one-operation.md)
 - [0388 — Rank priority partitions by committed duration hints](0388-rank-priority-partitions-by-committed-duration-hints.md)
 - [0389 — The workspace contract — a checkout changes only under its own operation](0389-the-workspace-contract.md)
+- [0390 — Public contracts preserve behavior and independent format versions](0390-public-contracts-preserve-behavior-and-independent-format-versions.md)
 
 <!-- END GENERATED: current ADR records -->
 

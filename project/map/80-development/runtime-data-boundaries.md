@@ -47,3 +47,11 @@ Do not catch a validation error merely to turn readable malformed data into abse
 The rule targets assertion-shaped trust jumps in runtime and script code. Other uses of the `as` keyword stay outside its predicate. A complete manual projection can carry an exact path, enclosing-function, and rule exception with a specific reason. Duplicate, vague, moved, or removed exceptions fail. Test-side command and fixture JSON follows the decoder and falling-ceiling contract on [Testing](testing.md).
 
 When the detector reports a new boundary, add or reuse a real schema and decode at the source. Register an exception only when the function has already established the entire declared shape or constructs a fresh typed value from individually validated fields.
+
+## Public compatibility and internal formats
+
+[ADR 0390](../_adr/0390-public-contracts-preserve-behavior-and-independent-format-versions.md) separates stable caller behavior from documentation and private format revisions. The [public-contract registry](../../../src/shared/public_schemas.ts) owns each publication's policy; [the manifest comparator](../../../scripts/contract_manifest_compatibility.ts) holds identities, grammar, defaults, and safety annotations while allowing descriptive text to change.
+
+[The shared schema-documentation projection](../../../scripts/public_contract_compatibility_common.ts) visits schema children only. A property named `description` or an object inside a default remains input data. Reuse that boundary when adding a schema-bearing surface.
+
+[The local-format registry](../../../src/shared/on_disk_formats.ts) owns private versions and forward-skew policy. Its current Git-administration format numbers are absent from the frozen conventions manifest; public Proof-note versions remain published. An internal version change still needs compatible readers or migration and recovery coverage. The [format tests](../../../tests/on_disk_formats_test.ts) govern those obligations; a passing public-manifest comparison does not establish them.

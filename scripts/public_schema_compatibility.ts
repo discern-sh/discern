@@ -36,6 +36,7 @@ import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts
 import {
   isObject,
   json,
+  JSON_SCHEMA_DOCUMENTATION_KEYS,
   type JsonObject,
   type JsonValue,
   pathKey,
@@ -97,12 +98,9 @@ const CURRENT_SCHEMA_BUILDERS: Record<
 };
 
 const ANNOTATION_KEYS = new Set([
-  "$comment",
-  "description",
+  ...JSON_SCHEMA_DOCUMENTATION_KEYS,
   "deprecated",
-  "examples",
   "readOnly",
-  "title",
   "writeOnly",
 ]);
 

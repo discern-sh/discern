@@ -16,6 +16,7 @@ import {
   pathKey,
   sameJson,
   stringSet,
+  withoutSchemaDocumentation,
 } from "./public_contract_compatibility_common.ts";
 
 /** Whether a policy governs a registry manifest rather than a JSON Schema. */
@@ -175,7 +176,7 @@ function compareMcpInputSchema(
   }
 }
 
-/** Compare the exact tool-selection and request contract. */
+/** Compare tool identities, safety annotations, and requests; documentation may evolve. */
 function mcpToolsManifestCompatibilityIssues(
   previous: JsonObject,
   current: JsonObject,
@@ -208,7 +209,7 @@ function mcpToolsManifestCompatibilityIssues(
       continue;
     }
     const toolPath = `$.tools[name=${JSON.stringify(name)}]`;
-    for (const key of ["name", "title", "description", "annotations"]) {
+    for (const key of ["name", "annotations"]) {
       if (!sameJson(prior[key], next[key])) {
         issues.push(
           `${pathKey(toolPath, key)}: changed from ${json(prior[key])} to ${
@@ -218,8 +219,8 @@ function mcpToolsManifestCompatibilityIssues(
       }
     }
     compareMcpInputSchema(
-      prior.inputSchema,
-      next.inputSchema,
+      withoutSchemaDocumentation(prior.inputSchema),
+      withoutSchemaDocumentation(next.inputSchema),
       pathKey(toolPath, "inputSchema"),
       issues,
     );
@@ -312,7 +313,6 @@ function compareCliFlags(
     );
     for (
       const key of [
-        "description",
         "type_definition",
         "arity",
         "value_types",
@@ -342,10 +342,8 @@ function compareCliCommand(
   for (
     const key of [
       "path",
-      "description",
       "hidden",
       "hidden_when",
-      "usage",
     ]
   ) {
     if (!sameJson(previous[key], current[key])) {

@@ -193,7 +193,9 @@ export function buildConventionsManifest(): ContractManifest {
       Object.values(ON_DISK_FORMATS).map((format) => [
         format.id,
         {
-          version: format.version,
+          ...(format.location.kind === "git-note"
+            ? { version: format.version }
+            : {}),
           version_field: format.versionField,
           newer_version_policy: format.newerVersionPolicy,
           location: format.location,

@@ -432,7 +432,6 @@
   },
   "local_formats": {
     "completion-record": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -443,7 +442,6 @@
       }
     },
     "candidate-review": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -454,7 +452,6 @@
       }
     },
     "emergency-resolution": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -465,7 +462,6 @@
       }
     },
     "acceptance-transaction": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -476,7 +472,6 @@
       }
     },
     "await-continuation": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -487,7 +482,6 @@
       }
     },
     "checkpoint-open-questions": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -498,7 +492,6 @@
       }
     },
     "continuation-record": {
-      "version": 1,
       "version_field": "schema_version",
       "newer_version_policy": "refuse",
       "location": {
@@ -509,7 +502,6 @@
       }
     },
     "operation-journal": {
-      "version": 1,
       "version_field": "schema_version",
       "newer_version_policy": "refuse",
       "location": {
@@ -520,7 +512,6 @@
       }
     },
     "crash-report": {
-      "version": 1,
       "version_field": "header",
       "newer_version_policy": "observe",
       "location": {
@@ -531,7 +522,6 @@
       }
     },
     "desk-preferences": {
-      "version": 1,
       "version_field": "schema_version",
       "newer_version_policy": "observe",
       "location": {
@@ -542,7 +532,6 @@
       }
     },
     "desk-tip-state": {
-      "version": 1,
       "version_field": "schema_version",
       "newer_version_policy": "observe",
       "location": {
@@ -553,7 +542,6 @@
       }
     },
     "effort-grant": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -565,7 +553,6 @@
       }
     },
     "submission": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -576,7 +563,6 @@
       }
     },
     "fresh-standard-measurement-evidence": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "observe",
       "location": {
@@ -587,7 +573,6 @@
       }
     },
     "gate-proof": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -598,7 +583,6 @@
       }
     },
     "ignored-baseline": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "observe",
       "location": {
@@ -609,7 +593,6 @@
       }
     },
     "last-gate-run": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "observe",
       "location": {
@@ -620,7 +603,6 @@
       }
     },
     "logbook-epoch": {
-      "version": 1,
       "version_field": "schema",
       "newer_version_policy": "observe",
       "location": {
@@ -632,7 +614,6 @@
       }
     },
     "logbook-event": {
-      "version": 1,
       "version_field": "schema",
       "newer_version_policy": "observe",
       "location": {
@@ -645,7 +626,6 @@
       }
     },
     "logbook-validation-evidence": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "observe",
       "location": {
@@ -667,7 +647,6 @@
       }
     },
     "resource-ledger": {
-      "version": 1,
       "version_field": "schema",
       "newer_version_policy": "refuse",
       "location": {
@@ -678,7 +657,6 @@
       }
     },
     "retired-worktree-branch": {
-      "version": 1,
       "version_field": "schema_version",
       "newer_version_policy": "observe",
       "location": {
@@ -689,7 +667,6 @@
       }
     },
     "retired-worktree-path": {
-      "version": 1,
       "version_field": "schema_version",
       "newer_version_policy": "observe",
       "location": {
@@ -700,7 +677,6 @@
       }
     },
     "setup-machinery-commit-evidence": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -711,7 +687,6 @@
       }
     },
     "setup-step-journal": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -722,7 +697,6 @@
       }
     },
     "standard-limit-proposal-store": {
-      "version": 2,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -733,7 +707,6 @@
       }
     },
     "standard-limit-proposal-transaction": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -744,7 +717,6 @@
       }
     },
     "standard-measurements": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "observe",
       "location": {
@@ -755,7 +727,6 @@
       }
     },
     "task-metadata": {
-      "version": 1,
       "version_field": "schema_version",
       "newer_version_policy": "observe",
       "location": {
@@ -766,7 +737,6 @@
       }
     },
     "parked-task-metadata": {
-      "version": 1,
       "version_field": "schema_version",
       "newer_version_policy": "observe",
       "location": {
@@ -777,7 +747,6 @@
       }
     },
     "temp-artifact-sweep": {
-      "version": 1,
       "version_field": "version",
       "newer_version_policy": "observe",
       "location": {

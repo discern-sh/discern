@@ -1,5 +1,7 @@
 # ADR 0368: Local durable formats declare forward skew
 
+> **Amendment ([ADR 0390](0390-public-contracts-preserve-behavior-and-independent-format-versions.md)).** Private current format versions stay in the registry and are omitted from the public conventions manifest. Format ownership, compatibility review, and forward-skew behavior remain required.
+
 **Status**: accepted. Extends the Git-admin placement registry in [ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md), the exact Gate evidence model in [ADR 0319](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md), and replay-safe worktree effects in [ADR 0367](0367-worktree-local-state-records-intent-before-effects.md). Amends the Standards pin optimization in [ADR 0106](0106-standards-pin-carries-the-gate-receipt.md).
 
 ## Context
