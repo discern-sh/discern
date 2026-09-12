@@ -39,7 +39,11 @@ import {
   freshAcceptExecutionProgress,
   landingPlan,
 } from "../worktree/accept.ts";
-import { inspectIgnoredFileChanges } from "../worktree/ignored.ts";
+import {
+  ignoredFileDriftDisabled,
+  inspectIgnoredFileChanges,
+} from "../worktree/ignored.ts";
+import { loadIdentitySettings } from "../worktree/identity.ts";
 import type { ExceptionRecord } from "../completion/exception.ts";
 import type { CompletionRecord } from "../completion/records.ts";
 import {
@@ -355,6 +359,28 @@ function notLandedResult(
   };
 }
 
+/** A main-checkout stand-in that lets convergence run after the repair's
+ * checkout is gone. Only the fields {@link landingPlan} and
+ * {@link convergeMainCheckout} read are meaningful; the stand-in is never
+ * handed to cleanup, so nothing can target the main checkout for removal. */
+async function mainCheckoutStandIn(
+  ctx: LifecycleContext,
+  root: string,
+  trunk: string,
+  record: RecordedException,
+): Promise<EffortCheckout> {
+  return {
+    ctx: await lifecycleContext(root, ctx.log, root),
+    path: root,
+    branch: record.data.claim.source.branch.slice("refs/heads/".length),
+    id: record.data.claim.source.effort_id,
+    settings: await loadIdentitySettings(root),
+    mainRepo: root,
+    trunk,
+    explicit: false,
+  };
+}
+
 /** Record the note, converge the main checkout, and clean up the repair after a landed exception. */
 async function settleLanded(
   ctx: LifecycleContext,
@@ -377,21 +403,43 @@ async function settleLanded(
   }
   const progress = freshAcceptExecutionProgress();
   progress.landing.trunk_landed = true;
-  let cleanup: "removed" | "kept" | "failed" = "kept";
-  let cleanupDetail: string | undefined;
-  if (effort !== undefined) {
-    const plan = landingPlan(
-      effort,
-      await inspectIgnoredFileChanges(
+  // Convergence is owed by the main checkout, not the repair's checkout, so
+  // it runs on every landed settlement — recovery included, even after the
+  // repair's worktree is gone. The durable record keeps no convergence field
+  // (convergence outcomes travel in the result's steps), so each settlement
+  // judges convergence from this run's own steps: a recovery retries the
+  // commands and succeeds only when they actually converged.
+  const convergence = effort ??
+    await mainCheckoutStandIn(ctx, root, trunk, current);
+  const plan = landingPlan(
+    convergence,
+    effort === undefined
+      ? ignoredFileDriftDisabled()
+      : await inspectIgnoredFileChanges(
         effort.path,
         effort.ctx.config.worktree.ignored_file_drift,
       ),
-    );
-    await convergeMainCheckout(effort, plan, progress, signal);
+  );
+  const convergenceStepStart = progress.steps.length;
+  await convergeMainCheckout(convergence, plan, progress, signal);
+  const converged = progress.steps
+    .slice(convergenceStepStart)
+    .every((step) => step.outcome !== "failed");
+  let cleanup: "removed" | "kept" | "failed" = "kept";
+  let cleanupDetail: string | undefined;
+  if (effort !== undefined) {
     let disposition: CleanupDisposition;
     try {
       disposition = await cleanUpEffort(effort, current.data.target, progress);
-      cleanup = disposition.kind === "removed" ? "removed" : "kept";
+      if (disposition.kind === "resources-remain") {
+        cleanup = "failed";
+        cleanupDetail =
+          `The repair's checkout and branch are gone, but resource teardown failed for ${
+            disposition.failed.join(", ")
+          }.`;
+      } else {
+        cleanup = disposition.kind === "removed" ? "removed" : "kept";
+      }
     } catch (error) {
       cleanup = "failed";
       cleanupDetail = error instanceof WorktreeGitError
@@ -408,6 +456,7 @@ async function settleLanded(
     progress,
     cleanup,
     cleanupDetail,
+    converged,
   );
 }
 
@@ -509,7 +558,7 @@ async function recoverEmergency(
   return await settleLanded(ctx, effort, current, options.signal);
 }
 
-/** Keep integration, note publication, and cleanup outcomes separate. */
+/** Keep integration, convergence, note publication, and cleanup outcomes separate. */
 async function emergencyOutcome(
   root: string,
   trunk: string,
@@ -517,19 +566,35 @@ async function emergencyOutcome(
   progress: AcceptExecutionProgress,
   cleanup: "removed" | "kept" | "failed",
   cleanupDetail: string | undefined,
+  converged: boolean,
 ): Promise<DiscernResult<AcceptData>> {
   const claim = record.data.claim;
   const published = record.data.note === "published";
-  const settled = published && cleanup !== "failed";
+  const settled = published && converged && cleanup !== "failed";
   const branch = markdownCodeSpan(displayBranch(claim.source.branch));
   const lead =
     `${branch} landed on ${trunk} as an emergency, with no passing Proof.`;
-  const next = !published
-    ? `The exception note was not recorded. Run discern accept emergency --recover ${record.id} after repairing Git notes access.`
-    : cleanup === "failed"
-    ? `${
-      cleanupDetail ?? "Cleanup did not complete."
-    } Run discern worktree prune from ${root}.`
+  // Every unresolved obligation is named; the landing itself already stands.
+  const owed: string[] = [];
+  if (!published) {
+    owed.push(
+      `The exception note was not recorded. Run discern accept emergency --recover ${record.id} after repairing Git notes access.`,
+    );
+  }
+  if (!converged) {
+    owed.push(
+      `The main checkout at ${root} did not converge on the landed tree; the failed steps are in this result. Fix their cause, then run discern accept emergency --recover ${record.id} to retry convergence.`,
+    );
+  }
+  if (cleanup === "failed") {
+    owed.push(
+      `${
+        cleanupDetail ?? "Cleanup did not complete."
+      } Run discern worktree prune from ${root}.`,
+    );
+  }
+  const next = owed.length > 0
+    ? owed.join("\n")
     : cleanup === "kept"
     ? "The repair's checkout stays for the work it still holds. Run discern done --rerun on the current committed trunk or a repair containing it to resolve outstanding validation."
     : "Run discern done --rerun on the current committed trunk or a repair containing it to resolve outstanding validation.";

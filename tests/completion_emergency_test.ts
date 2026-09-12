@@ -43,12 +43,9 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
+import { BOUNDARY, emergencyData } from "./completion_emergency_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { z } from "@zod/zod";
-
-/** The exact scope sentence every emergency surface repeats verbatim. */
-const BOUNDARY =
-  "This authorizes only the displayed local emergency integration. No passing Proof, ordinary grant, remote push, deployment, or change to external branch protections is implied.";
 
 /** A gate whose one check fails while `taboo.txt` exists in the tree. */
 const CONFIG_CHECK = [
@@ -83,22 +80,6 @@ async function failingRepair(dir: string): Promise<string> {
   const failed = await runAgent(wt, ["done", "--json"]);
   assertEquals(failed.code, 1, failed.output);
   return wt;
-}
-
-/** Decode the accept envelope's emergency payload, requiring its presence. */
-function emergencyData(
-  stdout: string,
-): NonNullable<
-  Extract<
-    NonNullable<ReturnType<typeof decodeCliResult<"accept">>["data"]>,
-    { emergency?: unknown }
-  >["emergency"]
-> {
-  const envelope = decodeCliResult(stdout, "accept");
-  assert(envelope.data !== undefined && "emergency" in envelope.data, stdout);
-  const emergency = envelope.data.emergency;
-  assert(emergency !== undefined, stdout);
-  return emergency;
 }
 
 Deno.test("emergency serves an exact confirmation, excludes recorded grants, and lands an exception record with note and cleanup reported", async () => {
