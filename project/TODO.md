@@ -73,6 +73,8 @@ _Work built but not merged, or otherwise at risk of being lost. Nothing outstand
 
 ## ⚪ Explorations / ideas (unscheduled)
 
+- [ ] **Restore a dogfooding worktree resource.** The workspace-contract cut removed the `lifecycle-probe` temp-dir probe with the machinery it served, so this repository no longer exercises the `[worktree.resources]` lifecycle it ships — create, ensure, destroy, and orphan GC; declare one genuinely useful per-worktree resource, with a Deno localhost server for the frontend site as the candidate to consider first. Evidence: `project/map/_adr/0025-worktree-resources.md`; `src/engine/worktree/resources.ts`; `discern.toml`.
+
 - [ ] **Build Docs Studio for the public manual.** A local, loopback-only studio launched from a selected worktree: Library, Editor, and exact-outcome panes previewing an in-memory draft through the production renderer; plan-and-apply writes confined to the worktree (autosave, create, reorder, rename with redirects, withhold, include); live diagnostics from the project's own validators; review, commit, `discern done`, and acceptance through the existing cores with truthful delivery states; no CMS database, telemetry, or agent auto-publish. Specify it afresh against `project/manual/` after launch. Evidence: `project/map/_adr/0314-separate-public-manual-and-project-map.md`; `src/lib/manual.ts`; `site/docs.ts`.
 
 ## 📣 Marketing & positioning
