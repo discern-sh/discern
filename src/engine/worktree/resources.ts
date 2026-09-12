@@ -35,7 +35,7 @@ import { bestEffort } from "../../shared/best_effort.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
-import { readDirIfExists, readTextIfExists } from "../../shared/fs_presence.ts";
+import { readTextIfExists } from "../../shared/fs_presence.ts";
 import {
   inspectOnDiskJsonVersion,
   newerOnDiskFormatMessage,
@@ -310,43 +310,6 @@ export async function listEntries(
     }
   }
   return out;
-}
-
-/** Capture every resource owned by one checkout, refusing uncertain bytes or ownership. */
-export async function captureWorktreeResourceLedger(
-  commonGitDir: string,
-  gitKey: string,
-  worktreePath: string,
-): Promise<{ path: string; raw: string; entry: ResourceEntry }[]> {
-  const directory = resourcesDir(commonGitDir);
-  const names: string[] = [];
-  for (const file of await readDirIfExists(directory) ?? []) {
-    if (!file.name.startsWith(`${fsafe(gitKey)}__`)) continue;
-    if (!file.isFile || !file.name.endsWith(".json")) {
-      throw new Error(
-        "Resource ownership inventory contains an uncertain entry.",
-      );
-    }
-    names.push(file.name);
-  }
-  const captured: { path: string; raw: string; entry: ResourceEntry }[] = [];
-  for (const name of names.sort()) {
-    const path = join(directory, name);
-    const raw = await Deno.readTextFile(path);
-    const reading = parseResourceEntry(raw);
-    if (
-      reading.status !== "recorded" || reading.entry.git_key !== gitKey ||
-      reading.entry.worktree_path !== worktreePath
-    ) {
-      throw new Error(
-        "Resource ownership is uncertain or belongs to another checkout.",
-      );
-    }
-    captured.push({ path, raw, entry: reading.entry });
-  }
-  return captured.sort((a, b) =>
-    b.entry.seq - a.entry.seq || a.path.localeCompare(b.path)
-  );
 }
 
 /** Report whether the observed ledger entry was actually removed. */
