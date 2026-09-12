@@ -37,11 +37,11 @@ DISCERN_METRIC coverage 91.4
 
 An existing standard holds three field roles:
 
-| Role                 | Fields                                                                      | Branch policy                                                                        |
-| -------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Role                 | Fields                                                    | Branch policy                                                           |
+| -------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Enforcement meaning  | Metric, extraction, producer dependency graph, and inputs | Equivalent recipes may share a producer; observed inputs cannot weaken. |
-| Monotonic bound      | `limit`                                                                     | May only tighten: floors rise; ceilings fall.                                        |
-| Execution or pinning | `margin`, `timeout`                                                         | May change without redefining the claim.                                             |
+| Monotonic bound      | `limit`                                                   | May only tighten: floors rise; ceilings fall.                           |
+| Execution or pinning | `margin`, `timeout`                                       | May change without redefining the claim.                                |
 
 Comparison resolves producer aliases through the execution graph. The same command can move to a shared producer without redefining a held metric. Observed environment/toolchain facts may be added, while declared input sets may widen. Omitted inputs bind evidence to its commit. A referenced job cannot change a standard’s command or dependency meaning. The policy is keyed by `StandardConfig`; new fields require a code policy and normalization.
 

@@ -562,7 +562,6 @@ export function applyConfigDoc(
     );
   }
 
-
   // The two bounded fixed sections are the live schemas themselves. Primitive
   // worktree fields write directly; its two nested groups preserve their
   // conventional table shape.

@@ -37,23 +37,23 @@ CI, pipes, `--plain`, and terminals without cursor control remain static: `strea
 
 [`execute.ts`](../../../src/engine/gate/execute.ts) resolves presentation separately from capture. [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) feeds the package; [`command.ts`](../../../src/engine/jobs/command.ts) retains raw evidence. For result contracts, see [MCP tools & results](../70-reference/mcp-and-results.md).
 
-| Read next                                                               | What it helps you do                                                                                |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| [When the gate fails](when-the-gate-fails.md)                           | Read a red result and take the shortest route to the fix.                                           |
-| [Complete evidence](complete-evidence.md)                               | Prove the committed tip through one producer graph and reuse evidence whose inputs are unchanged.    |
-| [Standards](standards.md)                                               | Hold a metric floor or ceiling and respond when it fires.                                           |
-| [Checkpoints](checkpoints.md)                                           | Serve a judgment when a change makes it relevant, and record the conclusion.                        |
-| [The Proof](the-proof.md)                                               | Read the review evidence a clean green run records for one commit.                                  |
-| [Proof notes](proof-notes.md)                                           | Carry a landed Proof with its trunk commit and opt into fetch transport.                            |
-| [Strand detection](strand-detection.md)                                 | Fix tracked files a gate stage changed after the final commit.                                      |
-| [Run the gate in CI](ci.md)                                             | Require the same gate on pull requests and trunk pushes.                                            |
-| [Continuous improvement](improvement.md)                                | Find the highest-value practice to improve after the current change passes.                         |
-| [Co-change coupling](coupling.md)                                       | Check whether this change omitted a file that usually moves with it.                                |
-| [Practice patterns](patterns.md)                                        | Read recurring workflow evidence from the local Logbook.                                            |
-| [`discern tidy`](tidy.md)                                               | Format discern-owned Markdown and TOML directly or through the format job.                          |
-| [The fleet test-run cap](concurrent-test-runs.md)                       | Queue concurrent test-stage runs so parallel agents share one machine.                              |
-| [Practice stats](practice-stats.md)                                     | Share what went well as one card of plain counts from the local logbook.                            |
-| [Validation findings](validation-findings.md)                           | Compare per-job verdicts within and across recorded execution conditions.                           |
-| [Patterns decision evidence](patterns-decision-evidence.md)             | Read the evidence required before Patterns recommends a Gate or Standard change.                    |
-| [Pattern investigations](pattern-investigations.md)                     | Trace related findings into bounded diagnostic paths.                                               |
-| [Checkpoint recipes](checkpoint-recipes.md)                             | Adapt nine copyable triggers for common review moments.                                             |
+| Read next                                                   | What it helps you do                                                                              |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [When the gate fails](when-the-gate-fails.md)               | Read a red result and take the shortest route to the fix.                                         |
+| [Complete evidence](complete-evidence.md)                   | Prove the committed tip through one producer graph and reuse evidence whose inputs are unchanged. |
+| [Standards](standards.md)                                   | Hold a metric floor or ceiling and respond when it fires.                                         |
+| [Checkpoints](checkpoints.md)                               | Serve a judgment when a change makes it relevant, and record the conclusion.                      |
+| [The Proof](the-proof.md)                                   | Read the review evidence a clean green run records for one commit.                                |
+| [Proof notes](proof-notes.md)                               | Carry a landed Proof with its trunk commit and opt into fetch transport.                          |
+| [Strand detection](strand-detection.md)                     | Fix tracked files a gate stage changed after the final commit.                                    |
+| [Run the gate in CI](ci.md)                                 | Require the same gate on pull requests and trunk pushes.                                          |
+| [Continuous improvement](improvement.md)                    | Find the highest-value practice to improve after the current change passes.                       |
+| [Co-change coupling](coupling.md)                           | Check whether this change omitted a file that usually moves with it.                              |
+| [Practice patterns](patterns.md)                            | Read recurring workflow evidence from the local Logbook.                                          |
+| [`discern tidy`](tidy.md)                                   | Format discern-owned Markdown and TOML directly or through the format job.                        |
+| [The fleet test-run cap](concurrent-test-runs.md)           | Queue concurrent test-stage runs so parallel agents share one machine.                            |
+| [Practice stats](practice-stats.md)                         | Share what went well as one card of plain counts from the local logbook.                          |
+| [Validation findings](validation-findings.md)               | Compare per-job verdicts within and across recorded execution conditions.                         |
+| [Patterns decision evidence](patterns-decision-evidence.md) | Read the evidence required before Patterns recommends a Gate or Standard change.                  |
+| [Pattern investigations](pattern-investigations.md)         | Trace related findings into bounded diagnostic paths.                                             |
+| [Checkpoint recipes](checkpoint-recipes.md)                 | Adapt nine copyable triggers for common review moments.                                           |
