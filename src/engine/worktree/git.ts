@@ -1202,12 +1202,16 @@ async function resolveGeneratedConflicts(
   cwd: string,
   paths: readonly string[],
 ): Promise<{ success: true } | { success: false; reason: string }> {
+  // Paths taken as incoming CONTENT still need staging; an incoming DELETION
+  // is staged by `git rm` itself, and its pathspec then matches nothing.
+  const taken: string[] = [];
   for (const path of paths) {
     const checkedOut = await git(
       ["checkout", "--theirs", "--", literalPathspec(path)],
       cwd,
     );
     if (checkedOut.success) {
+      taken.push(path);
       continue;
     }
     const hasTheirs = await unmergedPathHasTheirs(cwd, path);
@@ -1230,11 +1234,11 @@ async function resolveGeneratedConflicts(
       };
     }
   }
-  const staged = await git(
-    ["add", "-A", "--", ...paths.map(literalPathspec)],
+  const staged = taken.length === 0 ? undefined : await git(
+    ["add", "-A", "--", ...taken.map(literalPathspec)],
     cwd,
   );
-  if (!staged.success) {
+  if (staged !== undefined && !staged.success) {
     return {
       success: false,
       reason: staged.stderr.trim() ||

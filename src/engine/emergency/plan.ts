@@ -192,9 +192,20 @@ export async function observeEmergencySubject(
   const id = retained?.id ?? provisional.attempt_id;
   const candidate: Candidate = retained?.data ??
     { ...provisional, attempt_id: id, requirement_set: requirementSet };
+  // Evidence binds to the durable candidate identity: when a prior run already
+  // recorded this candidate, its evidence selects only under that recorded id,
+  // so the exception inventory is read against the retained identity.
+  const settled = retained === undefined
+    ? validation
+    : await observeCandidateValidation({
+      root: ctx.cwd,
+      candidate_id: retained.id,
+      candidate,
+      observation,
+    });
   // Emergency integration cannot weaken ordinary policy: the repair's config
   // must hold every standard limit the trunk protects.
-  const standards = [...validation.standards];
+  const standards = [...settled.standards];
   const proposals = await inspectActiveStandardLimitProposals(
     ctx.cwd,
     trunk,
@@ -205,7 +216,7 @@ export async function observeEmergencySubject(
     trunk,
     standards,
     proposals.active,
-    validation.config,
+    settled.config,
   );
   if (limits.blocking) {
     throw new Error(
@@ -214,7 +225,7 @@ export async function observeEmergencySubject(
   }
   const exceptions = await emergencyExceptions(
     root,
-    validation.snapshot,
+    settled.snapshot,
     records,
   );
   if (!exceptions.length) {
