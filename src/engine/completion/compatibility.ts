@@ -1,5 +1,3 @@
-import { type CompletionRecordReading, readCompletionRecord } from "./store.ts";
-import type { RecordSelector } from "./records.ts";
 /** Preserve unreadable state and distinguish compatibility from damaged bytes. */
 import { newerOnDiskFormatMessage } from "../../shared/on_disk_formats.ts";
 import type { CompletionBlocker, CompletionObservation } from "./protocol.ts";
@@ -27,20 +25,4 @@ export function completionRecordBlocker(
       : { kind: "unavailable", reason };
   }
   return undefined;
-}
-
-/** Read a required coordinate with a supported refusal, before a caller uses its shape. */
-export async function readCompatibleCompletionRecord(
-  root: string,
-  selector: RecordSelector,
-): Promise<
-  Extract<CompletionRecordReading, { kind: "recorded" }> | CompletionBlocker
-> {
-  const reading = await readCompletionRecord(root, selector);
-  if (reading.kind === "recorded") return reading;
-  return completionRecordBlocker({ records: [{ selector, reading }] }) ?? {
-    kind: "unavailable",
-    reason:
-      `Required completion record ${selector.kind}/${selector.id} is missing. Restore or initialize its owning state before retrying.`,
-  };
 }

@@ -20,27 +20,3 @@ export const DecisionsSchema = z.strictObject({
   proposals: z.array(StandardLimitProposalSchema),
 });
 export type CandidateDecisions = z.infer<typeof DecisionsSchema>;
-
-/** Settled decisions must equal their approved counterparts exactly. */
-export function verifyCandidateDecisions(
-  current: CandidateDecisions,
-  authorized: CandidateDecisions,
-):
-  | { readonly kind: "missing-judgment"; readonly subjects: string[] }
-  | undefined {
-  const same = (left: readonly unknown[], right: readonly unknown[]): boolean =>
-    left.length === right.length &&
-    left.every((item, index) =>
-      JSON.stringify(item) === JSON.stringify(right[index])
-    );
-  const sortedJson = (items: readonly unknown[]): unknown[] =>
-    [...items].map((item) => JSON.stringify(item)).sort();
-  if (
-    !same(sortedJson(current.judgments), sortedJson(authorized.judgments)) ||
-    !same(sortedJson(current.variances), sortedJson(authorized.variances)) ||
-    !same(sortedJson(current.proposals), sortedJson(authorized.proposals))
-  ) {
-    return { kind: "missing-judgment", subjects: ["decisions-changed"] };
-  }
-  return undefined;
-}

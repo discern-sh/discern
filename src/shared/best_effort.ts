@@ -51,7 +51,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     operation: "read the main checkout's tracked status after convergence",
     kind: "direct",
     shape: "async",
-    observability: { kind: "reported", authority: "DiscernResult" },
+    observability: { kind: "unobservable" },
     reason:
       "The trunk has already landed; an unreadable status makes the clean-check step fail visibly instead of undoing the landing.",
   },
@@ -62,7 +62,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "read the main checkout's tracked status right after the fast-forward",
     kind: "direct",
     shape: "async",
-    observability: { kind: "reported", authority: "DiscernResult" },
+    observability: { kind: "unobservable" },
     reason:
       "The trunk has already landed; an unavailable baseline is reported through the clean-check step's advisory rather than failing the landing.",
   },
@@ -1698,16 +1698,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "Fleet rows still report Git facts, while unavailable identity settings cannot safely derive worktree IDs or ports.",
   },
-  "submission-row-proof-unreadable": {
-    path: "src/engine/worktree/submissions_view.ts",
-    enclosingFunction: "submissionRow",
-    operation: "treat an unreadable submitted Proof as a waiting row",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "reported", authority: "DiscernResult" },
-    reason:
-      "The queue row states that the Proof cannot be read and names the route; the landing itself re-reads the Proof under its own lock before any effect.",
-  },
   "status-root-canonicalization-fallback": {
     path: "src/engine/status/status.ts",
     enclosingFunction: "statusResult",
@@ -1729,6 +1719,16 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     observability: { kind: "unobservable" },
     reason:
       "The fleet row retains its Git state and path, while unresolved metadata cannot safely invent an ID or port.",
+  },
+  "submission-row-proof-unreadable": {
+    path: "src/engine/worktree/submissions_view.ts",
+    enclosingFunction: "submissionRow",
+    operation: "treat an unreadable submitted Proof as a waiting row",
+    kind: "direct",
+    shape: "async",
+    observability: { kind: "unobservable" },
+    reason:
+      "The queue row states that the Proof cannot be read and names the route; the landing itself re-reads the Proof under its own lock before any effect.",
   },
   "subprocess-bounded-child-kill": {
     path: "src/shared/subprocess.ts",

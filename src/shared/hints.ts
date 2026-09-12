@@ -1952,7 +1952,7 @@ export const HINTS = {
     when: "An integrated emergency has no later complete validation receipt.",
     example: { commit: "0123abcd4567" },
     template: ({ commit }): string =>
-      `The emergency landing at ${commit} still has its skipped checks outstanding. Run discern done --rerun on the trunk, or on a change that contains it, in every required context; the emergency record stays in the history.`,
+      `The emergency landing at ${commit} still has its skipped checks outstanding. Run discern done --rerun on the trunk, or on a change that contains it; the emergency record stays in the history.`,
   }),
 
   "completion-uncommitted": defineHint({
@@ -1974,8 +1974,7 @@ export const HINTS = {
     id: "completion-pending",
     category: "next-step",
     audience: "all",
-    when:
-      "Complete candidate validation or its execution environment has a pending obligation.",
+    when: "Complete candidate validation has a pending obligation.",
     example: {
       action:
         "Resolve the failed validation, then use discern done --rerun to request a new attempt.",

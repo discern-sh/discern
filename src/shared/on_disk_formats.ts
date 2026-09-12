@@ -52,7 +52,7 @@ export const ON_DISK_FORMATS = {
       module: "src/engine/completion/records.ts",
       export: "CompletionRecordSchema",
       sha256:
-        "d5286cfcdbeaea110ca72c86b2017e02e8b505b0f22e19b0174fcee9af3d4518",
+        "d36aaab1212bffb7f5cd9b01f2cf0a31dfc936cbcd7e95205c317c5b8771d8fc",
     },
     versionField: "version",
     reader: "src/engine/completion/store.ts#readCompletionRecord",
@@ -80,7 +80,7 @@ export const ON_DISK_FORMATS = {
       module: "src/engine/completion/documents.ts",
       export: "EmergencyResolutionSchema",
       sha256:
-        "727f025495d5e2481c52bb860149a5d5cac7780983bffe6d8a77637b24c1cf48",
+        "b670b8285f27489eed6e801314bc90b7c2ebed8a6b73d8984b0f81f8013fec39",
     },
     reader: "src/engine/emergency/obligations.ts#resolution",
     writers: [

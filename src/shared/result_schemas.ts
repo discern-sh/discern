@@ -1610,7 +1610,6 @@ export const SubmissionRowSchema = z.strictObject({
     "branch, the exact submitted commit, whether a recorded grant covers it, " +
     "and the one sentence that says why it waits.",
 });
-export type SubmissionRowData = z.infer<typeof SubmissionRowSchema>;
 export const AcceptDataSchema = z.strictObject({
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),

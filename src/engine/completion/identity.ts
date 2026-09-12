@@ -42,7 +42,7 @@ export const AttemptIdentitySchema = z.strictObject({
   id: RecordIdSchema,
   candidate_id: RecordIdSchema,
   executor: ExecutorSchema,
-  /** Repository-wide reservation order; evidence compares only applicable subjects. */
+  /** Repository-wide attempt order; evidence compares only applicable subjects. */
   sequence: z.number().int().positive(),
   /** Observed finished predecessor; its sequence bounds an explicit retry of failed subjects. */
   rerun_of: RecordIdSchema.nullable(),

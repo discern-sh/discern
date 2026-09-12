@@ -25,11 +25,6 @@ export function emergencyValidationFacts(
   );
 }
 
-/** Close a fact as one sentence without doubling an existing terminator. */
-export function closedSentence(fact: string): string {
-  return /[.!?]$/.test(fact) ? fact : `${fact}.`;
-}
-
 /** One human-readable authority label per submission row — shared by every surface. */
 export function submissionRowAuthorityLabel(
   row: { readonly authority?: unknown },

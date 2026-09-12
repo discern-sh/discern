@@ -28,8 +28,3 @@ export const ExceptionRecordSchema = z.strictObject({
   "an exception record lands exactly the approved repair on the approved trunk",
 );
 export type ExceptionRecord = z.infer<typeof ExceptionRecordSchema>;
-
-/** Whether the recorded transition advanced the trunk. */
-export function exceptionLanded(record: ExceptionRecord): boolean {
-  return record.outcome.kind === "landed";
-}
