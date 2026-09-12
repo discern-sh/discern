@@ -174,7 +174,7 @@ The project's authored instructions for coding agents. Their paths are named by 
 
 ### Landing authority
 
-Permission for a particular change to join the [trunk](#trunk). It can come from the current conversation, a standing scope grant on the trunk, or an effort grant recorded from the [desk](#desk), which covers the effort's branch so any later green `done` on it is covered once its agent submits it. Acceptance checks the permission against the submitted commit's changed paths. A passing [Proof](#proof) is evidence, not permission. See [landing authority](../20-understand/proof.md).
+Permission for a particular change to join the [trunk](#trunk). It can come from the current conversation, a standing scope grant on the trunk, or an effort grant recorded from the [desk](#desk), which covers the effort's branch so any later green `done` on it is covered once its agent submits it. Acceptance checks the permission against the changed paths of the submitted commit. A passing [Proof](#proof) is evidence, not permission. See [landing authority](../20-understand/proof.md).
 
 ### Logbook
 
