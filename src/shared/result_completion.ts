@@ -511,13 +511,14 @@ function requiredFailure(
           "Acceptance omitted the required typed landing-effect state.",
         );
       }
-      return landing.trunk_landed === true &&
-          landing.worktree_removed === true && landing.branch_deleted === true
-        ? undefined
-        : failed(
-          "partial_acceptance",
-          "Acceptance performed only part of its required landing and cleanup transaction; data.landing records the exact effects.",
-        );
+      // The landing is the required effect. A kept checkout is a recorded
+      // disposition (later commits, uncommitted changes), never a partial
+      // transaction: a genuinely failed cleanup step fails the executed-steps
+      // postcondition with its own recovery evidence.
+      return landing.trunk_landed === true ? undefined : failed(
+        "partial_acceptance",
+        "Acceptance performed only part of its required landing transaction; data.landing records the exact effects.",
+      );
     }
     case "skill-materialization": {
       if (result.dry_run === true) return undefined;
