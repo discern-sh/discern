@@ -27,7 +27,7 @@ A validation run acquires one slot when its first demanded test or measurement p
 
 ## Wrap direct test invocations
 
-Gate verbs acquire automatically. This cap is the one capacity setting; nothing else bounds how many efforts validate at once. Wrap the project's canonical test command so direct full and targeted runs also count:
+Gate verbs acquire automatically. `[gate].concurrent_test_runs` is the capacity setting; nothing else bounds how many efforts validate at once. Wrap the project's canonical test command so direct full and targeted runs also count:
 
 ```sh
 discern queue -- <command> [args...]
