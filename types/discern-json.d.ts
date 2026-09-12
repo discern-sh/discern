@@ -8048,6 +8048,10 @@ export type DiscernStatusResult = DiscernResultState & {
         unavailable_reason?: string;
       };
       broken?: boolean;
+      integration?: {
+        owner: "live" | "interrupted";
+        for_branch: string;
+      };
       gate_proof?: {
         status:
           | "honored"

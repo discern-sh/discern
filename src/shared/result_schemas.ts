@@ -1935,6 +1935,15 @@ const statusFleetEntrySchema = z.strictObject({
    * finishes cleanup, the same words the effort's own status leads with. */
   gate_proof: GateProofCheckSchema.optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
+  /** Present when this checkout is a landing's own integration worktree —
+   * discern-owned, never an effort an agent may adopt. `live` while its
+   * landing runs; `interrupted` when the owner is gone and
+   * `discern worktree prune` reclaims it. */
+  integration: z.strictObject({
+    owner: z.enum(["live", "interrupted"]),
+    /** The authoring branch whose submission the landing composes. */
+    for_branch: z.string(),
+  }).optional(),
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
 

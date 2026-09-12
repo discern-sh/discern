@@ -1250,6 +1250,32 @@ async function recoverInterruptedJournal(
     effort.path,
     interrupted,
   );
+  // A recorded integration copy is settled with its transaction: obsolete
+  // after a proven pre-CAS rollback, and landed after a durable CAS. The
+  // ambiguous arms keep it for inspection; `discern worktree prune` reclaims
+  // it once its owner is gone.
+  const recordedIntegration = interrupted.transaction.integration;
+  if (
+    recordedIntegration !== undefined &&
+    (recovered.kind === "ready" || recovered.trunkLanded)
+  ) {
+    const failures = await removeIntegrationWorktree(
+      interrupted.transaction.main_repo,
+      {
+        worktree: {
+          id: recordedIntegration.worktree_id,
+          branch: recordedIntegration.worktree_branch,
+          path: recordedIntegration.worktree_path,
+        },
+      },
+      effort.ctx.log,
+    );
+    for (const failure of failures) {
+      effort.ctx.log.warn(
+        `Interrupted-integration cleanup: ${failure}. Run discern worktree prune from ${interrupted.transaction.main_repo}.`,
+      );
+    }
+  }
   const progress = freshAcceptExecutionProgress([
     recoveryStep(
       recovered.kind === "ready" || recovered.recoveryPerformed
@@ -1909,6 +1935,7 @@ async function executeIntegrationLanding(
   enteredTip: string,
   request: AcceptRequest,
   env: Pick<typeof Deno.env, "get">,
+  operationHandle?: string,
 ): Promise<{
   readonly message: string;
   readonly proofLine?: string;
@@ -1953,6 +1980,7 @@ async function executeIntegrationLanding(
       expectedTrunk: tip,
       log,
       cliModel,
+      ...(operationHandle === undefined ? {} : { operationHandle }),
       ...(request.signal === undefined ? {} : { signal: request.signal }),
     });
     const cleanupTail = (failures: readonly string[]): string =>
@@ -2480,6 +2508,7 @@ async function landEffortOnce(
   effort: EffortCheckout,
   request: AcceptRequest,
   env: Pick<typeof Deno.env, "get">,
+  operationHandle?: string,
 ): Promise<DiscernResult<AcceptData>> {
   {
     let authority = await inspectLandingAuthority(effort.path, effort.trunk, {
@@ -2559,6 +2588,7 @@ async function landEffortOnce(
           tip,
           request,
           env,
+          operationHandle,
         );
       const result: DiscernResult<AcceptData> = appliedResult(
         "accept",
@@ -2719,6 +2749,7 @@ async function walkQueue(
   selected: DiscernResult<AcceptData>,
   request: AcceptRequest,
   env: Pick<typeof Deno.env, "get">,
+  operationHandle?: string,
 ): Promise<DiscernResult<AcceptData>> {
   const outcomes: LandingOutcomeData[] = [
     ...(selected.data?.landings ?? []),
@@ -2748,19 +2779,24 @@ async function walkQueue(
         withAcceptanceTransactionLock(
           followerEffort.path,
           () =>
-            landEffortOnce(followerEffort, {
-              dryRun: false,
-              confirmed: false,
-              variance: [],
-              approveStandard: [],
-              target: next.path,
-              ...(request.cliModel === undefined
-                ? {}
-                : { cliModel: request.cliModel }),
-              ...(request.signal === undefined
-                ? {}
-                : { signal: request.signal }),
-            }, env),
+            landEffortOnce(
+              followerEffort,
+              {
+                dryRun: false,
+                confirmed: false,
+                variance: [],
+                approveStandard: [],
+                target: next.path,
+                ...(request.cliModel === undefined
+                  ? {}
+                  : { cliModel: request.cliModel }),
+                ...(request.signal === undefined
+                  ? {}
+                  : { signal: request.signal }),
+              },
+              env,
+              operationHandle,
+            ),
         )
       );
     } catch (error) {
@@ -2826,6 +2862,7 @@ async function landingResult(
   ctx: LifecycleContext,
   request: AcceptRequest,
   env: Pick<typeof Deno.env, "get"> = Deno.env,
+  operationHandle?: string,
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
   const effort = await effortCheckout(ctx, request.target);
@@ -2849,7 +2886,12 @@ async function landingResult(
         `The worktree at ${effort.path} is gone. Run discern status from ${effort.mainRepo} to see what remains.`,
       );
     }
-    const selected = await landEffortOnce(effort, request, env);
+    const selected = await landEffortOnce(
+      effort,
+      request,
+      env,
+      operationHandle,
+    );
     if (request.dryRun || !selected.ok || !effort.explicit) return selected;
     return await walkQueue(ctx, effort, selected, request, env);
   };

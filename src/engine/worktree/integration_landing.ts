@@ -150,7 +150,7 @@ async function copyAuthorDecisionState(
  * `discern worktree prune`. */
 export async function removeIntegrationWorktree(
   mainRepo: string,
-  record: IntegrationLandingRecord,
+  record: Pick<IntegrationLandingRecord, "worktree">,
   log: Logger,
 ): Promise<string[]> {
   const failures: string[] = [];

@@ -697,6 +697,11 @@ export const STATUS_PROOF_STATE = {
 /** State label for Fleet, including the operation and elapsed time when live. */
 function fleetStatusLabel(row: FleetRowPresentation): string {
   const running = row.entry.running;
+  if (row.entry.integration !== undefined) {
+    return row.entry.integration.owner === "live"
+      ? `discern's integration copy for ${row.entry.integration.for_branch} · checking`
+      : `discern's interrupted integration copy · reclaim with discern worktree prune`;
+  }
   if (row.kind !== "running" || running === undefined) {
     return `${row.label}${row.entry.is_current ? " · current" : ""}`;
   }

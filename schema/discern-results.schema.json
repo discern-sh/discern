@@ -26509,6 +26509,25 @@
                       "broken": {
                         "type": "boolean"
                       },
+                      "integration": {
+                        "type": "object",
+                        "properties": {
+                          "owner": {
+                            "type": "string",
+                            "enum": [
+                              "live",
+                              "interrupted"
+                            ]
+                          },
+                          "for_branch": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "owner",
+                          "for_branch"
+                        ]
+                      },
                       "gate_proof": {
                         "type": "object",
                         "properties": {

@@ -170,6 +170,7 @@ import {
 import {
   dropPlanToEngine,
   FULL_REFRESH_STEP_NOTE,
+  type IntegrationPruneItem,
   type PrunePlan,
   prunePlanIsEmpty,
   prunePlanToEngine,
@@ -204,6 +205,11 @@ import {
   recordResourceEnv,
   WorktreeResourceError,
 } from "./resources.ts";
+import {
+  integrationOwnerLiveness,
+  listIntegrationLandingRecords,
+} from "./integration_record.ts";
+import { removeIntegrationWorktree } from "./integration_landing.ts";
 import {
   pruneReappearedWorktreePaths,
   type ReappearedWorktreePathPruneResult,
@@ -3722,7 +3728,106 @@ async function buildPrunePlan(
     resourceReclaimsKept: resources.kept,
     contained: await pruneContainedScan(ctx, reclaimContained),
     reclaimContained,
+    integrations: await scanIntegrationLandings(ctx),
   };
+}
+
+/** Classify every recorded integration landing for the prune plan: a dead
+ * owner's copy is reclaimable, a live landing is never a candidate, and an
+ * unreadable record is reported rather than acted on. */
+async function scanIntegrationLandings(
+  ctx: LifecycleContext,
+): Promise<IntegrationPruneItem[]> {
+  const items: IntegrationPruneItem[] = [];
+  for (const entry of await listIntegrationLandingRecords(ctx.root)) {
+    if (entry.reading.status !== "recorded") {
+      items.push({
+        worktreeId: entry.worktreeId,
+        branch: "",
+        path: "",
+        disposition: "unreadable",
+        reason:
+          `its integration-landing record is kept for inspection: ${entry.reading.reason}`,
+      });
+      continue;
+    }
+    const record = entry.reading.record;
+    const liveness = integrationOwnerLiveness(record);
+    if (liveness === "gone") {
+      items.push({
+        worktreeId: record.worktree.id,
+        branch: record.worktree.branch,
+        path: record.worktree.path,
+        disposition: "reclaim",
+        reason: "its owning landing process is gone",
+      });
+      continue;
+    }
+    items.push({
+      worktreeId: record.worktree.id,
+      branch: record.worktree.branch,
+      path: record.worktree.path,
+      disposition: "live",
+      reason: liveness === "running"
+        ? `a live landing for ${record.landing.branch} owns it — never pruned`
+        : "its owner's liveness could not be established; kept",
+    });
+  }
+  return items;
+}
+
+/** Reclaim the planned dead-owner integration copies, re-checking liveness
+ * immediately before each act. */
+async function reclaimIntegrationLandings(
+  ctx: LifecycleContext,
+  planned: readonly IntegrationPruneItem[],
+): Promise<{ reclaimed: string[]; failures: string[]; failed: boolean }> {
+  const outcome = {
+    reclaimed: [] as string[],
+    failures: [] as string[],
+    failed: false,
+  };
+  const candidates = planned.filter((item) => item.disposition === "reclaim");
+  if (candidates.length === 0) {
+    ctx.log.line("No interrupted integration worktrees found.");
+    return outcome;
+  }
+  const current = new Map(
+    (await listIntegrationLandingRecords(ctx.root)).map(
+      (entry) => [entry.worktreeId, entry],
+    ),
+  );
+  for (const item of candidates) {
+    const entry = current.get(item.worktreeId);
+    if (entry === undefined || entry.reading.status !== "recorded") {
+      ctx.log.warn(
+        `Skipped ${item.path}: its integration record changed since the plan was built.`,
+      );
+      continue;
+    }
+    if (integrationOwnerLiveness(entry.reading.record) !== "gone") {
+      ctx.log.warn(
+        `Skipped ${item.path}: its owning landing is live again; a live integration is never pruned.`,
+      );
+      continue;
+    }
+    const failures = await removeIntegrationWorktree(
+      ctx.root,
+      entry.reading.record,
+      ctx.log,
+    );
+    if (failures.length === 0) {
+      ctx.log.ok(`Reclaimed interrupted integration worktree ${item.path}.`);
+      outcome.reclaimed.push(item.path);
+    } else {
+      ctx.log.error(
+        `Reclaim of ${item.path} did not finish: ${failures.join("; ")}.`,
+      );
+      outcome.failures.push(...failures);
+      outcome.failed = true;
+    }
+  }
+  return outcome;
 }
 
 /**
@@ -3889,6 +3994,12 @@ export async function worktreePrune(
   ctx.log.heading("Reclaiming orphaned worktree directories…");
   const sweep = await sweepOrphanWorktrees(plan.orphanScan, ctx.log);
 
+  ctx.log.heading("Reclaiming interrupted integration worktrees…");
+  const integrations = await reclaimIntegrationLandings(
+    ctx,
+    plan.integrations,
+  );
+
   ctx.log.heading("Reclaiming reappeared worktree paths…");
   const reappeared = await pruneReappearedWorktreePaths(
     plan.reappearedPathScan,
@@ -3944,7 +4055,7 @@ export async function worktreePrune(
   }
   if (
     prune.failed || sweep.failed || reappeared.failed || gc.failed ||
-    reclaim.failed
+    reclaim.failed || integrations.failed
   ) {
     throw new WorktreeGitError(
       "One or more worktree cleanups failed. Review the failed steps above, fix " +
@@ -3957,7 +4068,7 @@ export async function worktreePrune(
     ctx,
     appliedResult(
       "worktree prune",
-      pruneResults(prune, sweep, reappeared, gc, plan, reclaim),
+      pruneResults(prune, sweep, reappeared, gc, plan, reclaim, integrations),
     ),
     json,
   );
@@ -4208,6 +4319,7 @@ function pruneResults(
   gc: GcResult,
   plan: PrunePlan,
   reclaim: ContainedReclaimResult,
+  integrations: { reclaimed: string[]; failures: string[] },
 ): StepResult[] {
   const step = (
     kind: StepResult["step"]["kind"],
@@ -4260,6 +4372,30 @@ function pruneResults(
       outcome: "skipped",
     }));
   return [
+    ...integrations.reclaimed.map((path) =>
+      step(
+        "git",
+        path,
+        "reclaimed the interrupted integration worktree, its resources, its branch, and its record",
+        "Integration worktrees",
+      )
+    ),
+    ...plan.integrations
+      .filter((item) =>
+        item.disposition !== "reclaim" && item.worktreeId !== ""
+      )
+      .map((item): StepResult => ({
+        step: {
+          kind: "git",
+          label: verbatimStepLabel(
+            item.path === "" ? item.worktreeId : item.path,
+          ),
+          disposition: "skip",
+          note: item.reason,
+          group: "Integration worktrees",
+        },
+        outcome: "skipped",
+      })),
     ...prune.removed.map((w) =>
       step("git", w, "removed owned clean merged worktree", "Worktrees")
     ),
