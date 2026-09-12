@@ -3431,6 +3431,31 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         ),
   },
   {
+    id: "checkout-mutation-surfaces",
+    title: "Checkout-mutation boundaries",
+    what:
+      "Every authored Git invocation that installs a revision or replaces a checkout's index or working tree, with its exact path, enclosing function, command, workspace-contract allowance, and reason.",
+    source: {
+      kind: "module",
+      module: "tests/checkout_mutation_surfaces.ts",
+      exportName: "CHECKOUT_MUTATION_BOUNDARIES",
+    },
+    guards: ["tests/checkout_mutation_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the workspace contract is a decision record and a guard, not a reader-facing term",
+      },
+      featureCanon: { nodeId: "worktrees" },
+    },
+    members: async () =>
+      (await import("../tests/checkout_mutation_surfaces.ts"))
+        .CHECKOUT_MUTATION_BOUNDARIES.map((entry) =>
+          `${entry.path}#${entry.enclosingFunction}#${entry.command}`
+        ),
+  },
+  {
     id: "process-output-boundaries",
     title: "Process output boundaries",
     what:

@@ -1046,6 +1046,23 @@
     "deno.lock",
   ]
 
+# Checkout-mutation boundary standard — the workspace contract's census. Every
+# authored argument list that hands Git a command able to install a revision or
+# replace a checkout's index or working tree is one exact registered row naming
+# its path, enclosing function, command, allowance, and reason. The census
+# refuses unknown and stale entries before emitting the population held by this
+# falling ceiling; a new site needs a conscious allowance, never a quiet add.
+[standards.checkout_mutation_boundaries]
+  direction = "down"
+  limit = 17
+  run = "deno task checkout-mutation-boundaries"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "deno.json",
+    "deno.lock",
+  ]
+
 # Direct process-output boundary standard — every console call and direct
 # stdout/stderr write under src/ is one exact registry member naming its path,
 # enclosing function, operation, channel, purpose, and reason. The structural
