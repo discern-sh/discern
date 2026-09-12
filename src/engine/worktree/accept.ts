@@ -155,7 +155,11 @@ import { readResourceSpecs } from "./resources.ts";
 import { standardLimitApprovalRequests } from "./standard_approval.ts";
 import { strictVerdictCurrency } from "../completion/verdict.ts";
 import { readSubmission, type Submission } from "./submission.ts";
-import { clearSubmission, recordSubmission } from "./submission_writer.ts";
+import {
+  clearSubmission,
+  clearSubmissionIfCurrent,
+  recordSubmission,
+} from "./submission_writer.ts";
 import { type SubmissionRow, submissionRows } from "./submissions_view.ts";
 import { resolveWorktreeTarget } from "./target_resolution.ts";
 
@@ -1234,11 +1238,26 @@ async function recoverInterruptedJournal(
   if (recovered.kind === "stopped") {
     progress.landing.trunk_landed = recovered.trunkLanded;
     if (recovered.trunkLanded) {
+      // The journal's own Proof pointer wins: an integrated landing's Proof
+      // never lived in this worktree's gate marker.
+      let pointed: Proof | undefined;
+      if (interrupted.transaction.proof !== undefined) {
+        try {
+          pointed = await readProofPresentation(
+            effort.path,
+            interrupted.transaction.proof,
+          );
+        } catch {
+          // discern-best-effort: accept-recovery-proof-pointer-fallback
+          pointed = undefined;
+        }
+      }
       const recoveredProof = await inspectGateProof(effort.path);
-      const matching = recoveredProof.status === "honored" &&
-          recoveredProof.head === interrupted.transaction.target
-        ? recoveredProof.proof_data
-        : undefined;
+      const matching = pointed ??
+        (recoveredProof.status === "honored" &&
+            recoveredProof.head === interrupted.transaction.target
+          ? recoveredProof.proof_data
+          : undefined);
       const recording = await recordLandingProofNote({
         mainRepo: interrupted.transaction.main_repo,
         commit: interrupted.transaction.target,
@@ -1257,14 +1276,16 @@ async function recoverInterruptedJournal(
       progress.steps.push(...recording.steps);
       progress.proofNote = recording.proofNote;
       progress.convergenceHints.push(...recording.hints);
-      if (matching !== undefined && recoveredProof.status === "honored") {
-        progress.gateValidation = { mode: "proof", proof: recoveredProof };
-        if (recoveredProof.proof !== undefined) {
-          progress.proofMarkdown = recoveredProof.proof;
+      if (matching !== undefined) {
+        if (pointed === undefined && recoveredProof.status === "honored") {
+          progress.gateValidation = { mode: "proof", proof: recoveredProof };
         }
-        if (recoveredProof.proof_line !== undefined) {
+        if (matching.markdown !== "") {
+          progress.proofMarkdown = matching.markdown;
+        }
+        if (matching.line !== "") {
           progress.proofLine = renderLandingProofLine(
-            recoveredProof.proof_line,
+            matching.line,
             interrupted.transaction.consent,
             {
               ...(interrupted.transaction.standard_proposals.length > 0
@@ -1278,7 +1299,17 @@ async function recoverInterruptedJournal(
           );
         }
       }
-      await clearSubmission(effort.path);
+      // Consumption is exact: with a recorded submission id, only that
+      // submission is spent; a replacement recorded before this retry
+      // survives the older transaction's settling.
+      if (interrupted.transaction.submission_id === undefined) {
+        await clearSubmission(effort.path);
+      } else {
+        await clearSubmissionIfCurrent(
+          effort.path,
+          interrupted.transaction.submission_id,
+        );
+      }
     }
     if (recovered.recoveryPerformed || recovered.trunkLanded) {
       throwPartialAcceptance(
@@ -1614,6 +1645,13 @@ async function executeLanding(
     ...(authority.effortGrant === undefined
       ? {}
       : { grantId: authority.effortGrant.id }),
+    ...(subject.submission === undefined
+      ? {}
+      : { submissionId: subject.submission.id }),
+    proof: {
+      candidate_id: subject.complete.candidate_id,
+      proof_id: subject.complete.proof_id,
+    },
     consent,
     variances,
     standardProposals,
@@ -1709,9 +1747,14 @@ async function executeLanding(
 
   await convergeMainCheckout(effort, plan, progress, signal);
 
-  // The submission is consumed and the grant spent by this landing, whether or
-  // not the checkout stays for later commits.
-  await clearSubmission(effort.path);
+  // The submission is consumed and the grant spent by this landing, whether
+  // or not the checkout stays for later commits. Consumption is exact: a
+  // replacement submission recorded since the snapshot survives settling.
+  if (subject.submission === undefined) {
+    await clearSubmission(effort.path);
+  } else {
+    await clearSubmissionIfCurrent(effort.path, subject.submission.id);
+  }
   try {
     await clearEffortGrant(effort.path);
   } catch (error) {

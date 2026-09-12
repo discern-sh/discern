@@ -78,6 +78,13 @@ export const ACCEPTANCE_TRANSACTION_BOUNDARIES = [
 export type AcceptanceTransactionBoundary =
   (typeof ACCEPTANCE_TRANSACTION_BOUNDARIES)[number]["id"];
 
+/** The integration worktree one recorded landing owns, when it composed. */
+export interface AcceptanceTransactionIntegration {
+  readonly worktree_id: string;
+  readonly worktree_branch: string;
+  readonly worktree_path: string;
+}
+
 interface AcceptanceTransactionBase {
   readonly id: string;
   readonly worktree_branch: string;
@@ -86,6 +93,17 @@ interface AcceptanceTransactionBase {
   readonly target: string;
   readonly main_repo: string;
   readonly effort_claim: boolean;
+  /** The exact submission this landing consumes, when one was recorded. */
+  readonly submission_id?: string;
+  /** The complete Proof the landed target carries, for post-transition
+   * recording; recovery reads it from common storage. */
+  readonly proof?: {
+    readonly candidate_id: string;
+    readonly proof_id: string;
+  };
+  /** Present when the landing composed a moved trunk in an integration
+   * worktree it owns; recovery and pruning finish that copy's cleanup. */
+  readonly integration?: AcceptanceTransactionIntegration;
 }
 
 type AcceptanceTransaction = AcceptanceTransactionBase & {
@@ -287,6 +305,39 @@ function parseStandardProposals(
   return proposals;
 }
 
+/** Validate an optional journaled proof pointer. */
+function parseProofPointer(
+  value: unknown,
+): AcceptanceTransactionBase["proof"] | undefined | false {
+  if (value === undefined) return undefined;
+  if (!isPlainObject(value)) return false;
+  const { candidate_id, proof_id } = value;
+  if (
+    typeof candidate_id !== "string" || !TRANSACTION_ID.test(candidate_id) ||
+    typeof proof_id !== "string" || !TRANSACTION_ID.test(proof_id)
+  ) return false;
+  return { candidate_id, proof_id };
+}
+
+/** Validate an optional journaled integration-worktree block. */
+function parseIntegration(
+  value: unknown,
+): AcceptanceTransactionIntegration | undefined | false {
+  if (value === undefined) return undefined;
+  if (!isPlainObject(value)) return false;
+  const { worktree_id, worktree_branch, worktree_path } = value;
+  if (
+    typeof worktree_id !== "string" || worktree_id === "" ||
+    !isRefName(worktree_branch) ||
+    typeof worktree_path !== "string" || !isAbsolute(worktree_path)
+  ) return false;
+  return {
+    worktree_id,
+    worktree_branch: worktree_branch as string,
+    worktree_path,
+  };
+}
+
 /** Decode and validate the versioned journal that binds authority to one expected-to-target transition. */
 function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   let parsed: unknown;
@@ -309,7 +360,13 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   const standardProposals = parseStandardProposals(
     parsed.standard_proposals,
   );
+  const proof = parseProofPointer(parsed.proof);
+  const integration = parseIntegration(parsed.integration);
   if (
+    proof === false || integration === false ||
+    (parsed.submission_id !== undefined &&
+      (typeof parsed.submission_id !== "string" ||
+        !TRANSACTION_ID.test(parsed.submission_id))) ||
     parsed.version !== ON_DISK_FORMATS.acceptanceTransaction.version ||
     typeof parsed.id !== "string" ||
     !TRANSACTION_ID.test(parsed.id) ||
@@ -346,6 +403,11 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     target: parsed.target,
     main_repo: parsed.main_repo,
     effort_claim: parsed.effort_claim,
+    ...(typeof parsed.submission_id === "string"
+      ? { submission_id: parsed.submission_id }
+      : {}),
+    ...(proof === undefined ? {} : { proof }),
+    ...(integration === undefined ? {} : { integration }),
   };
   return {
     version: ON_DISK_FORMATS.acceptanceTransaction.version,
@@ -446,6 +508,15 @@ async function writeAcceptanceTransaction(
   },
   entropy: SecureEntropy,
 ): Promise<RecordedAcceptanceTransaction> {
+  const optional = {
+    ...(input.submission_id === undefined
+      ? {}
+      : { submission_id: input.submission_id }),
+    ...(input.proof === undefined ? {} : { proof: { ...input.proof } }),
+    ...(input.integration === undefined
+      ? {}
+      : { integration: { ...input.integration } }),
+  };
   const current = await readAcceptanceTransaction(cwd);
   if (current.status !== "missing") {
     const detail = current.status === "invalid"
@@ -467,6 +538,7 @@ async function writeAcceptanceTransaction(
     target: input.target,
     main_repo: input.main_repo,
     effort_claim: input.effort_claim,
+    ...optional,
     consent: cloneConsent(input.consent),
     variances: input.variances.map((variance) => ({ ...variance })),
     standard_proposals: input.standardProposals.map((proposal) => ({
@@ -533,6 +605,12 @@ export async function performAcceptanceTransition(
     /** The owner-authorized variances this exact transition lands under. */
     readonly variances: readonly AuthorizedVarianceData[];
     readonly standardProposals: readonly StandardLimitProposalData[];
+    /** The exact submission this landing consumes, when one is recorded. */
+    readonly submissionId?: string;
+    /** The landed target's complete Proof pointer, for recovery recording. */
+    readonly proof?: { candidate_id: string; proof_id: string };
+    /** The integration worktree this landing owns, when it composed. */
+    readonly integration?: AcceptanceTransactionIntegration;
   },
   entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<AcceptanceTransitionResult> {
@@ -543,6 +621,13 @@ export async function performAcceptanceTransition(
     target: input.target,
     main_repo: input.mainRepo,
     effort_claim: input.effortClaim,
+    ...(input.submissionId === undefined
+      ? {}
+      : { submission_id: input.submissionId }),
+    ...(input.proof === undefined ? {} : { proof: input.proof }),
+    ...(input.integration === undefined
+      ? {}
+      : { integration: input.integration }),
     consent: input.consent,
     variances: input.variances,
     standardProposals: input.standardProposals,
