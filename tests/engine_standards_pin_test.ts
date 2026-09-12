@@ -1335,7 +1335,7 @@ Deno.test("proof: the measurement evidence lifecycle — recorded by a green che
 
         const check = await runAgent(dir, ["standards", "--json"]);
         assertEquals(check.code, 1, check.output);
-        assertStringIncludes(check.stdout, "measurement is stale");
+        assertTerminalTextIncludes(check.stdout, "measurement is stale");
         assertEquals(limitOf(await readConfig(dir), "coverage"), "99");
         assertEquals(
           await gitOut(dir, "log", "-1", "--format=%s"),

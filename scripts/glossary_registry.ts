@@ -233,8 +233,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     retired: [{
       phrase: "queue reconciliation",
       // The queue engine's noun for recording an outside integration into
-      // its ledger, and the old `--reconcile` flag. A retry now completes or
-      // rolls back the recorded transaction; gitignore, config, skills, and
+      // its ledger, and its `--reconcile` flag. A retry completes or rolls
+      // back the recorded transaction; gitignore, config, skills, and
       // Proof-note-fetch reconciliation stay legal because the pattern needs
       // the queue, landing, or acceptance subject.
       pattern: String

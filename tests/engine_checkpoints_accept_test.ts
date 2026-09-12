@@ -475,7 +475,7 @@ Deno.test("accept: a stale conclusion routes back to done, and the owner's compl
         // repeat the landing observation.
         const retry = await runAgent(dir, ["accept", "--json"]);
         assertEquals(retry.code, 1, retry.output);
-        assertStringIncludes(
+        assertTerminalTextIncludes(
           parseAcceptMessageJson(retry.stdout).message,
           "No effort has submitted a revision for landing.",
         );

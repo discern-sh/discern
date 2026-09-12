@@ -44,7 +44,12 @@ import {
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { waitForPendingCondition } from "./waiting.ts";
-import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
+import { z } from "@zod/zod";
 
 const INTERRUPTION_FIXTURES = {
   "effort-claim": "pre-CAS claim and post-CAS consumption",
@@ -1249,14 +1254,17 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
       await waitForPath(paused, first);
       // The journal-bound transaction is the durable mid-flight evidence.
       journalBefore = await Deno.readTextFile(journalPath);
-      const transaction = JSON.parse(journalBefore) as {
-        id: string;
-        worktree_branch: string;
-        trunk: string;
-        expected_trunk: string;
-        effort_claim: boolean;
-        consent: { source: string };
-      };
+      const transaction = decodeWith(
+        z.looseObject({
+          id: z.string(),
+          worktree_branch: z.string(),
+          trunk: z.string(),
+          expected_trunk: z.string(),
+          effort_claim: z.boolean(),
+          consent: z.looseObject({ source: z.string() }),
+        }),
+        journalBefore,
+      );
       assertEquals(transaction.worktree_branch, branch);
       assertEquals(transaction.trunk, "main");
       assertEquals(transaction.expected_trunk, expected);

@@ -26,7 +26,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { z } from "@zod/zod";
 
 /** The exact scope sentence every emergency surface repeats verbatim. */
@@ -218,7 +218,7 @@ Deno.test("emergency serves an exact confirmation, excludes recorded grants, and
       "--json",
     ]);
     assertEquals(recoverPreview.code, 0, recoverPreview.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       decodeCliResult(recoverPreview.stdout, "accept").message ?? "",
       "Recover only this recorded emergency transition and its cleanup. No new integration or authorization is created.",
     );
@@ -329,7 +329,7 @@ Deno.test("emergency argument combinations refuse before any plan is read", asyn
       "--json",
     ]);
     assertEquals(mixed.code, 1, mixed.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       decodeCliResult(mixed.stdout, "accept").message ?? "",
       "Emergency preparation cannot be combined with a receipt, confirmation, or transition recovery.",
     );

@@ -26,7 +26,7 @@ import {
 import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -552,7 +552,7 @@ Deno.test("accept: the stale-finish hole stays closed — a gate-breaking merge 
     // The proven-but-stale Proof cannot land the merged future.
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 1, accepted.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       decodeCliResult(accepted.stdout, "accept").message ?? "",
       "The trunk moved after agent/composed's Proof",
     );

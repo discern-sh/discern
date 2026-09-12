@@ -464,7 +464,7 @@ question = "${QUESTION_NOTES}"
           "unavailable",
           before.output,
         );
-        assertStringIncludes(
+        assertTerminalTextIncludes(
           parseJson(before.stdout).message ?? "",
           "This branch is behind main. Run discern update, then discern done.",
         );
