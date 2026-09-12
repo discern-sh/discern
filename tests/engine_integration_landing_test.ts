@@ -27,7 +27,7 @@ import {
 } from "./engine_helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition } from "./waiting.ts";
 
 const CONFIG = [
   "[meta]",
@@ -404,8 +404,9 @@ Deno.test("a trunk that moves during the combined check recomposes once, shows t
   await withTempDir(async (dir) => {
     await withTempDir(async (scratch) => {
       // The gate job itself moves the trunk on the FIRST integration run —
-      // a deterministic stand-in for an outside actor committing to main —
-      // and slows down enough for the queue row to be observed mid-check.
+      // a deterministic stand-in for an outside actor committing to main.
+      // The checking record spans the whole attempt, so the row observation
+      // below needs no artificial slowness.
       const moved = join(scratch, "moved-once");
       await integrationFixture(
         dir,
@@ -415,7 +416,6 @@ Deno.test("a trunk that moves during the combined check recomposes once, shows t
         join(dir, "maybe-move.sh"),
         [
           "#!/bin/sh",
-          "sleep 2",
           'case "$(pwd)" in',
           `  *integration*) if [ ! -e "${moved}" ]; then`,
           `    touch "${moved}"`,
@@ -450,7 +450,8 @@ Deno.test("a trunk that moves during the combined check recomposes once, shows t
       const landing = runAgent(beta, ["accept", "--confirmed", "--json"]);
       // While the combined check runs, the queue row names the running
       // landing: waiting, with the reconnect handle every surface shares.
-      await waitUntil(
+      await waitForPendingCondition(
+        landing,
         async () => {
           const rows = await submissionRows(root, "main");
           return rows.some((row) =>
@@ -461,7 +462,10 @@ Deno.test("a trunk that moves during the combined check recomposes once, shows t
         },
         "the queue row names the running landing's handle",
         {
-          timeoutMs: 120_000,
+          settledError: (value) =>
+            new Error(
+              `the landing settled before the checking row was observed: ${value.output}`,
+            ),
         },
       );
 
