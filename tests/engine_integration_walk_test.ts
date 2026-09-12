@@ -273,6 +273,54 @@ Deno.test("the walk stops at the first submission awaiting the owner and reports
   });
 });
 
+Deno.test("the overnight chain: a pre-authorized submission integrates a moved trunk on its own and a dependent await returns", async () => {
+  await withTempDir(async (dir) => {
+    await withTempDir(async (scratch) => {
+      const counter = join(scratch, "producer-runs");
+      await walkFixture(dir, counter);
+      const alpha = await effortWithWork(dir, "alpha");
+      const beta = await effortWithWork(dir, "beta");
+      const gamma = await effortWithWork(dir, "gamma");
+      // The owner pre-authorizes beta at the desk and steps away.
+      await grantEffort(beta, "agent/beta", "2026-09-12T10:00:00.000Z");
+      // A dependent effort starts waiting for beta's landing.
+      const dependent = runAgent(gamma, [
+        "await",
+        "--landed",
+        "agent/beta",
+        "--timeout",
+        "120",
+        "--json",
+      ]);
+
+      // Overnight, beta goes green; another landing moves the trunk first.
+      assertEquals((await runAgent(beta, ["done", "--json"])).code, 0);
+      const betaHead = await gitOut(beta, "rev-parse", "HEAD");
+      assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+      assertEquals(
+        (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+        0,
+      );
+
+      // Beta's own accept submits, composes the moved trunk, and lands under
+      // the recorded grant — no further agent or owner decision.
+      const landed = await runAgent(beta, ["accept", "--json"]);
+      assertEquals(landed.code, 0, landed.output);
+      const result = decodeCliResult(landed.stdout, "accept");
+      assert(result.data !== undefined && !("issues" in result.data));
+      assertEquals(result.data.consent, { source: "effort-grant" });
+      assertEquals(result.data.landings?.[0]?.integrated, true);
+      const tip = await gitOut(dir, "rev-parse", "main");
+      await git(dir, "merge-base", "--is-ancestor", betaHead, tip);
+
+      // The dependent's wait returns met once the landing is reachable.
+      const met = await dependent;
+      assertEquals(met.code, 0, met.output);
+      assertStringIncludes(met.output, '"landed":true');
+    });
+  });
+});
+
 Deno.test("an agent's own accept lands only its own submission", async () => {
   await withTempDir(async (dir) => {
     await withTempDir(async (scratch) => {
