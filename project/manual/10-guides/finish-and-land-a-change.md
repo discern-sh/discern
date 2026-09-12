@@ -115,7 +115,7 @@ Without permission, `discern accept` changes nothing. The submission stays in th
 Read the first sentence of the result before anything else: it names your task's branch, says whether it landed, and gives the next command when it did not. A landing reads like this, with your task's branch in place of the example:
 
 ```text
-Selected effort `agent/recipe-search-0a7563`: landed. Its checkout was removed.
+Landed agent/recipe-search-0a7563 at 3f9c2d81a4b7 on main; its checkout, branch, and resources are gone. You are on main in /Users/you/projects/recipes.
 ```
 
 If the shared branch moved after the Proof was recorded, acceptance refuses in one sentence and names the route: the agent runs `discern update`, then `discern done`, then `discern accept` again. Checks that the incoming changes do not affect are reused.
