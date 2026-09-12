@@ -27,15 +27,17 @@ A new task normally starts from the trunk through `discern start`. discern also 
 
 The worktree stays with the effort through implementation, review, and resumed sessions. If you ask for a change to search after reviewing it, the agent continues that effort. A fresh conversation does not mean the work must start again.
 
+discern changes a worktree only through the command its agent runs there. It never installs another version of the project into an agent's workspace, and an idle or clean worktree is never treated as free for other work. What the agent left is what the agent finds.
+
 The main checkout is the original project directory from which you oversee the tasks. Agents do their task edits in worktrees, so that directory can stay available for inspecting the shared project.
 
 ## The trunk is what the project agrees on
 
 The trunk is the common version that new work builds from. In discern's normal workflow, a task reaches it through **acceptance**: the step that checks the evidence and permission for landing.
 
-Finishing a feature does not add it to the trunk automatically. The agent commits its work and runs `discern done`, which records [Proof](proof.md) for the validated change. You can review the result before it joins the shared project, or use a recorded permission for work you have already authorized.
+Finishing a feature does not add it to the trunk automatically. The agent commits its work and runs `discern done`, which records [Proof](proof.md) for that exact commit. You can review the result before it joins the shared project, or use a recorded permission for work you have already authorized.
 
-Finished tasks wait in a queue and land in a stable order: a task that was built on another lands after it, an order you chose is kept, and the rest follow the order in which they became ready. Approving one task approves only that task.
+A finished task waits in the landing queue once its agent submits it: the exact commit the agent asked to land, with its Proof. Tasks you pre-authorized come first, then tasks waiting for your decision. Approving one task approves only that task.
 
 Think of the reading-list search as an example. You can try it in its worktree, discover that it should search authors as well as titles, and ask for that improvement. Those iterations can happen while the trunk continues to hold the previously accepted version.
 
@@ -49,11 +51,11 @@ These commands connect a task to other work:
 | --------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | **Update**      | Brings the latest trunk into an existing worktree.                                 | The search task receives a phone-layout improvement that has landed.       |
 | **Composition** | Builds a task on an explicit commit or branch, including work that has not landed. | A help-writing task tries the checked search feature before you accept it. |
-| **Accept**      | Lands validated, authorized work on the trunk.                                     | The shared app receives the approved search improvement.                   |
+| **Accept**      | Submits the worktree's proven commit and lands it on the trunk once authorized.    | The shared app receives the approved search improvement.                   |
 
 For an update, `discern_update` reports files changed on both sides so the agent knows what to re-read. For composition, the agent uses `discern start --from <ref>` or `discern update --from <ref>`. It can [wait for another task](../10-guides/wait-for-another-task.md) to supply the checked commit it needs.
 
-With several tasks ready, discern can validate a **candidate** that combines the task's committed work with earlier ready changes. Proof identifies the exact candidate checked. Acceptance validates each candidate's evidence and permission before landing it; one task's permission does not automatically cover another's work.
+Proof names the exact commit in the task's worktree, and acceptance lands that commit and no other. If the trunk moved after the Proof was recorded, acceptance refuses and names the route: the task's agent brings the trunk in with `discern update`, runs `discern done` again, and submits again. Checks the incoming changes do not affect are reused, so the second run is usually shorter than the first.
 
 You do not need to manage that record by hand. The completion and landing results explain what was verified, what reached the trunk, and what is still waiting. [Finish and land a change](../10-guides/finish-and-land-a-change.md) shows how to review those results.
 
@@ -67,9 +69,9 @@ The same care applies to resources. A database declared separately for each work
 
 ## What happens to a finished workspace
 
-Ordinary successful completion releases the checkout from authoring control. discern can then use eligible released environments for further validation and remove eligible checkouts after landing. If more local editing is planned, `discern done --retain-checkout` keeps authoring control.
+A landing removes the task's worktree, its resources, and its branch when the branch holds nothing beyond what landed. Until then the worktree stays the agent's: review fixes, a resumed session, and the agent's own preview all happen there.
 
-Release does not make a workspace available for another agent to adopt. Resumed work follows the reported state of its own effort. After a landing, the workspace goes when nothing else holds it. When it stays, the result says why in one sentence: it was never released, it is still in use, its branch or files changed, or its ownership could not be verified. The landing stands either way, and the result names the command that finishes cleanup.
+When the worktree stays after a landing, the result says why in one sentence. Either the branch gained commits after the submission, which need their own `discern done` and `discern accept`, or cleanup could not complete, which `discern worktree prune` finishes once whatever blocked it has stopped. The landing stands either way.
 
 For a longer pause, parking can remove a clean checkout while keeping the task's branch, committed work, and wording. You can return to the branch later. [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md#park-a-task-you-will-return-to) covers that choice; [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) covers a session or operation that stopped unexpectedly.
 

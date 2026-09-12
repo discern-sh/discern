@@ -71,7 +71,7 @@ A new question does not govern the same change that introduces it. Once the poli
 discern checkpoints
 ```
 
-The result lists the question, trigger, and mode. It also shows the policy source used for inspection. Completion evaluates the policy preceding its selected candidate; the agent follows the served question if queued work changes that context.
+The result lists the question, trigger, and mode. It also shows the policy source used for inspection: the committed policy that precedes the change.
 
 ### 4. Exercise the trigger and refusal
 

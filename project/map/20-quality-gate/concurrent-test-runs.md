@@ -27,7 +27,7 @@ A validation run acquires one slot when its first demanded test or measurement p
 
 ## Wrap direct test invocations
 
-Gate verbs acquire automatically. Environment capacity is a separate constraint: a standalone measurement waits for a live execution to return, while expired claims or incomplete recovery produce a pending diagnostic. [Validation capacity and early validation](capacity-and-speculation.md) explains how this cap combines with `[completion].concurrency` and environment capacity. Wrap the project's canonical test command so direct full and targeted runs also count:
+Gate verbs acquire automatically. This cap is the one capacity setting; nothing else bounds how many efforts validate at once. Wrap the project's canonical test command so direct full and targeted runs also count:
 
 ```sh
 discern queue -- <command> [args...]
@@ -69,7 +69,7 @@ Waited 1m 10s for a test-run slot.
 
 ## Slot release after process exit
 
-Slots are OS advisory locks under the shared git directory. Public validation retains process-signal ownership through child shutdown, source restoration and claim settlement. Process death releases the advisory slot without a daemon or cleanup ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md)).
+Slots are OS advisory locks under the shared git directory. Public validation retains process-signal ownership through child shutdown. Process death releases the advisory slot without a daemon or cleanup ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md)).
 
 ## Where it lives in code
 

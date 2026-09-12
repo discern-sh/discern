@@ -383,47 +383,43 @@ The structural probe runs during `discern setup done` after the completion marke
 
 ```toml
 phase = "complete validation and coordination"
-stable_target = "Every configured standard reads a producer the Gate already runs or one deliberate command of its own, producers that can safely reuse evidence declare what they read, efforts land in order by default, and any early-validation declaration is backed by a return procedure `discern setup done` will prove."
-intent = "Make the Gate's evidence complete and cheap to reuse, then choose between ordering-only coordination and proved early validation from evidence, not hope."
+stable_target = "Every configured standard reads a producer the Gate already runs or one deliberate command of its own, producers that can safely reuse evidence declare what they read, and the owner knows which evidence is produced again for every commit and which is reused."
+intent = "Make the Gate's evidence complete and cheap to reuse, then tell the owner what each commit pays for."
 files_to_read = [
-  "discern.toml ([jobs], [standards], [completion], and [execution])",
-  "`discern doctor --json`: its completion capacity, producer coverage, evidence reuse, and execution environment checks",
+  "discern.toml ([jobs], [standards], and [gate])",
+  "`discern doctor --json`: its producer coverage and evidence reuse checks",
   "the project's build, test, and generated-output commands, and the paths each one reads and writes",
-  "tracked generated artifacts, ignored build output, databases, caches, and running services that a validation touches",
+  "tracked generated artifacts, ignored build output, and the caches a check reads",
 ]
 must_do = [
-  "Inventory what validation touches: each Gate command, every quality number the project should hold, the artifacts producers write, the stateful resources they use, the ignored output they create, and any existing preparation or cleanup command.",
+  "Inventory what validation touches: each Gate command, every quality number the project should hold, the artifacts producers write, and the paths each command reads.",
   "Give each quality number a `[standards.<name>]` entry whose reading comes from a producer the Gate already runs (`producer = \"jobs.test\"`, with `extract` when the reading needs deriving) or from one command of its own; never run the same suite twice under two names.",
-  "Declare `inputs` only on a producer whose command reads nothing outside the listed paths, so its evidence is reused when those paths are unchanged; leave every other producer candidate-bound and say so. Narrowing an existing closure later is a protected change the Gate checks against the trunk.",
-  "Leave `[completion].lookahead = 0` unless the project can prepare a checkout for a different commit and return it to source-ready state; in that case declare `[execution.local]` with its prepare and restore procedures, the ignored output restore covers, its resources, and its capacity, and set `[completion].concurrency` to at least 2.",
-  "Run `discern doctor --json` and act on its completion capacity, producer coverage, evidence reuse, and execution environment checks before the final documentation.",
-  "Fill the `Environment return` section of {{map_dir}}80-development/testing.md from the decision above: one sentence when nothing is declared, or the declared procedures and what their return covers.",
-  "Tell the owner, in plain terms, which evidence is reused across commits and which is produced again, how many efforts can validate at once and which setting limits that, and whether early validation is on and why.",
+  "Declare `inputs` only on a producer whose command reads nothing outside the listed paths, so its evidence is reused when those paths are unchanged; leave every other producer bound to the commit and say so. Narrowing an existing closure later is a protected change the Gate checks against the trunk.",
+  "Run `discern doctor --json` and act on its producer coverage and evidence reuse checks before the final documentation.",
+  "Tell the owner, in plain terms, which evidence is reused across commits and which is produced again, and that `[gate].concurrent_test_runs` is the one setting that bounds how many test stages share this machine.",
 ]
 authority_boundaries = [
-  "Every configured standard is required for completion; sharing a producer, declaring inputs, or scheduling never makes a standard advisory or skips its measurement.",
-  "An environment declaration is the project's evidence that its restore procedure returns a checkout exactly; `discern setup done` proves it in a throwaway copy before completion and records that proof for the declaration as written, so a later change to the declaration must be proved again. Cost-bearing or shared-state execution environments remain owner decisions.",
+  "Every configured standard is required for completion; sharing a producer or declaring inputs never makes a standard advisory or skips its measurement.",
 ]
 owner_moments = ["coordination-explained"]
 what_not_to_do = [
   "Do not add a second full test run so a standard has a producer of its own when the test job already produces the reading.",
-  "Do not declare `inputs` you have not verified, and do not infer that a checkout can be restored from a clean `git status`, a successful build, or the absence of a database.",
-  "Do not raise `lookahead` without a declaration for every required context, and do not describe a positive lookahead as early validation that runs.",
-  "Do not align `[completion].concurrency`, `[gate].concurrent_test_runs`, and `[execution.<context>].capacity` merely because they differ; they bound different work.",
+  "Do not declare `inputs` you have not verified; a clean `git status` or a successful build says nothing about what a command reads.",
+  "Do not raise `[gate].concurrent_test_runs` to make waits disappear; measure whether the machine can carry another test stage first.",
 ]
-completion_check = "Every configured standard names a producer that exists, no two producers run the same command, and either [completion].lookahead is 0 or every required context has an [execution.<context>] declaration."
+completion_check = "Every configured standard names a producer that exists, and no two producers run the same command."
 stop_conditions = [
-  "Stop when a standard's producer cannot be resolved, when the only way to make a standard pass is to weaken or remove it, or when declaring an environment would create, share, or destroy state the owner has not authorized.",
+  "Stop when a standard's producer cannot be resolved, or when the only way to make a standard pass is to weaken or remove it.",
 ]
 recovery = [
-  "Use the doctor check's named fix; keep a failing standard as it is and record the regression as one concrete {{todo_path}} item; leave lookahead at 0 and record the unmet environment declaration as an open item.",
+  "Use the doctor check's named fix; keep a failing standard as it is and record the regression as one concrete {{todo_path}} item.",
 ]
 next_action = "discern setup step 9"
 ```
 
-Ordering needs no declaration: each effort validates its own commit and lands in turn. Early validation lets discern validate the next effort against work that has not landed yet, so it can land the moment its predecessor does. It costs a prepare and restore round trip per candidate, and work is discarded when an earlier effort changes. It needs three things together: `[completion].lookahead` above 0, `[completion].concurrency` of at least 2 so one slot stays free for the effort landing next, and an `[execution.<context>]` declaration for every required context. `discern setup done` proves that declaration in a throwaway copy by installing a different commit, then checking the copy returns to its exact source branch, commit, index, and declared ignored output after a passing, a failing, and a cancelled validation.
+Each effort validates its own committed tip and lands in turn. A producer's evidence is reused when its declared inputs, command, policy, toolchain, and conditions are unchanged; every other producer runs again for each commit. A standard that reads the test job's producer costs nothing extra, and a standard with a command of its own costs that command on every commit, so prefer sharing.
 
-`[gate].concurrent_test_runs` is a separate limit: it caps how many test stages share this machine at once and queues the rest. `discern doctor` states the combined effect for two simultaneous `done` runs and names the setting that binds, so quote it rather than deriving the arithmetic yourself. It also says whether each declared environment has been proved as it currently stands; early validation runs only for a proved declaration, and a declaration added or changed after setup stays inert until `discern setup done` proves it.
+`[gate].concurrent_test_runs` is the one capacity setting. It caps how many test stages share this machine at once and queues the rest; the other checks continue while a test stage waits. Quote the setting and its current value to the owner rather than describing a wait as a failure.
 
 ---
 

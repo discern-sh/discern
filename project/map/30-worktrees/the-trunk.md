@@ -18,7 +18,7 @@ The main checkout derives every [identity field](identity-and-env.md) from the c
 
 ## What moves it
 
-`discern accept` advances the trunk only after conversation consent or a machine-verified standing or effort grant. It publishes the exact validated candidate, converges the main checkout, and separately retires an eligible released worktree ([ADR 0110](../_adr/0110-the-landing-model.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)). Fast-forward-only landing keeps trunk history as a sequence of accepted branches. Owner decisions that belong to the shared state, such as moving a standard's limit or changing `discern.toml` policy, are made on the trunk by the owner. Agent work lands only through acceptance.
+`discern accept` advances the trunk only after conversation consent or a machine-verified standing or effort grant. It fast-forwards the trunk to the submitted, proven commit, converges the main checkout, and removes the effort's worktree, resources, and branch when the branch holds nothing beyond the landed submission ([ADR 0110](../_adr/0110-the-landing-model.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)). Fast-forward-only landing keeps trunk history as a sequence of accepted branches. Owner decisions that belong to the shared state, such as moving a standard's limit or changing `discern.toml` policy, are made on the trunk by the owner. Agent work lands only through acceptance.
 
 ## Why work stays off it
 

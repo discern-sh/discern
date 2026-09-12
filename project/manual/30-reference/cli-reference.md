@@ -163,20 +163,16 @@ Require a clean, committed tree. Run finishing steps that may change files, then
 
 Usage: `discern done [options]`
 
-| Option                       | Description                                                                                                                                                                                                                                                     |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--recover <environment-id>` | Recover an abandoned owned execution once native ownership and stopped children are established, without waiting for its validation deadline or running validation or landing.                                                                                  |
-| `--dry-run`                  | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                                                                    |
-| `--policy-base <ref>`        | Use the fetched immutable policy base for a standalone CI report. Strict completion selects its own queue predecessor.                                                                                                                                          |
-| `--retain-checkout`          | Keep authoring control after completion; do not release this checkout for later validation or retirement.                                                                                                                                                       |
-| `--release-checkout`         | Release this exact proven source for validation and eligible cleanup without running a gate or landing, including after trunk moves.                                                                                                                            |
-| `--standalone`               | Run complete diagnostic feedback, including on a dirty tree. Results are transient, without queue admission or Proof.                                                                                                                                           |
-| `--context <name>`           | Supply evidence only for this declared execution context (default: local).                                                                                                                                                                                      |
-| `--rerun`                    | Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.                                                                                                                    |
-| `--ci`                       | Run the machine gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.                                                                                                                             |
-| `--met <id>`                 | Declare a served checkpoint's question met (repeatable). Valid only for a checkpoint with an active open question here; the declaration is recorded as your judgment, and the gate runs in the same invocation once every awaiting checkpoint has a conclusion. |
-| `--unmet <id>`               | Declare a served checkpoint's question unmet (one per invocation; requires --why). The gate still runs; landing then needs the owner to authorize a variance for it.                                                                                            |
-| `--why <rationale>`          | The required rationale for --unmet: one paragraph, 1-500 characters, no newlines or control characters. Recorded opaquely as Proof evidence for the owner's landing decision.                                                                                   |
+| Option                | Description                                                                                                                                                                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`           | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                                                                    |
+| `--policy-base <ref>` | Use the fetched immutable policy base for a standalone CI report. Strict completion checks against the trunk's current tip.                                                                                                                                     |
+| `--standalone`        | Run complete diagnostic feedback, including on a dirty tree. Results are transient and issue no Proof.                                                                                                                                                          |
+| `--rerun`             | Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.                                                                                                                    |
+| `--ci`                | Run the machine gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.                                                                                                                             |
+| `--met <id>`          | Declare a served checkpoint's question met (repeatable). Valid only for a checkpoint with an active open question here; the declaration is recorded as your judgment, and the gate runs in the same invocation once every awaiting checkpoint has a conclusion. |
+| `--unmet <id>`        | Declare a served checkpoint's question unmet (one per invocation; requires --why). The gate still runs; landing then needs the owner to authorize a variance for it.                                                                                            |
+| `--why <rationale>`   | The required rationale for --unmet: one paragraph, 1-500 characters, no newlines or control characters. Recorded opaquely as Proof evidence for the owner's landing decision.                                                                                   |
 
 ### `discern test`
 
@@ -251,18 +247,14 @@ Usage: `discern await [options]`
 
 ### `discern accept`
 
-Accept and land this worktree's finished branch on the trunk, the shared landing branch. Tracked refresh artifacts must already be current. Eligible cleanup removes released checkouts after landing. Use `hold`, `resume`, `withdraw`, `revoke`, or `reprioritize` with --dry-run to review a queue decision; apply with --confirmed and its --expected token. Use accept emergency --reason <text> to review an explicit exception against actual trunk. Emergency integration requires fresh exact owner confirmation and issues no passing Proof.
+Submit this worktree's proven commit and land it on the trunk, the shared landing branch. Landing needs the owner's consent in this conversation or a recorded grant; without one, the submission waits in the landing queue. Landing removes the worktree and its branch when the branch holds nothing beyond the landed commit. Use accept emergency --reason <text> to review an explicit exception against actual trunk. Emergency integration requires fresh exact owner confirmation and issues no passing Proof.
 
 Usage: `discern accept [action] [options]`
 
 | Option                       | Description                                                                                                                                                                                                                                                                                                                                    |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`                  | Show the acceptance plan; touch nothing.                                                                                                                                                                                                                                                                                                       |
-| `--reconcile`                | Reconcile an externally integrated exact proven source and eligible retirement. Requires --target and the --expected token from its preview; never advances refs or records historical landing consent.                                                                                                                                        |
-| `--expected <stamp>`         | For queue controls or --reconcile: the `expected_state` token returned by its preview.                                                                                                                                                                                                                                                         |
-| `--order <effort>`           | For `reprioritize`: every eligible effort in the desired order (repeatable).                                                                                                                                                                                                                                                                   |
-| `--target <effort>`          | Select the effort by id, path, branch, or full local ref. Confirmation covers only this source; required predecessors need separate authority.                                                                                                                                                                                                 |
-| `--reclaim <retirement-id>`  | Retry bounded artifact cleanup for one settled retirement from the main checkout, without validation or landing.                                                                                                                                                                                                                               |
+| `--dry-run`                  | Show the landing plan and the queue; touch nothing.                                                                                                                                                                                                                                                                                            |
+| `--target <effort>`          | Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with --confirmed.                                                                                                                                                                                                            |
 | `--prepare`                  | Emergency only: run checkpoint triggers and retain exact review evidence without validation or integration.                                                                                                                                                                                                                                    |
 | `--preparation <receipt>`    | Emergency only: the checkpoint-preparation receipt for this exact repair and trunk.                                                                                                                                                                                                                                                            |
 | `--met <id>`                 | Emergency preparation only: record a satisfied served checkpoint question (repeatable).                                                                                                                                                                                                                                                        |
@@ -489,7 +481,6 @@ Usage: `discern config set-job <name> [command] [options]`
 | `--artifacts <value>`   | Output artifact path to capture; repeat for every artifact.           |
 | `--environment <value>` | Environment variable name to bind to evidence; repeat for every name. |
 | `--toolchain <value>`   | Toolchain identity file; repeat for every file.                       |
-| `--contexts <value>`    | Required execution context; repeat for every context.                 |
 | `--dry-run`             | Print the edit and write nothing.                                     |
 
 #### `discern config set-scope`
@@ -509,7 +500,6 @@ Usage: `discern config set-scope <name> <globs...> [options]`
 | `--artifacts <value>`   | Output artifact path to capture; repeat for every artifact.           |
 | `--environment <value>` | Environment variable name to bind to evidence; repeat for every name. |
 | `--toolchain <value>`   | Toolchain identity file; repeat for every file.                       |
-| `--contexts <value>`    | Required execution context; repeat for every context.                 |
 | `--dry-run`             | Print the edit and write nothing.                                     |
 
 #### `discern config set-standard`
@@ -536,7 +526,6 @@ Usage: `discern config set-standard <name> [options]`
 | `--artifacts <value>`      | Output artifact path to capture; repeat for every artifact.                                              |
 | `--environment <value>`    | Environment variable name to bind to evidence; repeat for every name.                                    |
 | `--toolchain <value>`      | Toolchain identity file; repeat for every file.                                                          |
-| `--contexts <value>`       | Required execution context; repeat for every context.                                                    |
 | `--dry-run`                | Print the edit and write nothing.                                                                        |
 
 #### `discern config set`

@@ -28,7 +28,7 @@ The compact path starts from the configured trunk and opens the last-used config
 - trunk, a live task, or an unlanded branch as the starting point;
 - an optional one-line brief;
 - each available provider's fresh or continue action;
-- source approval after the committed source is available for review.
+- landing pre-authorization for the new task.
 
 Preferences remember the last agent and creation path in repository-local Git state. They carry no task fact or authority.
 
@@ -70,7 +70,7 @@ Broken, setup-incomplete, or Git-unreadable tasks recommend `Show recovery steps
 
 The typed action registry owns menu order, grouping, contextual labels, command evidence, confirmation policy, and whether each action can coexist with a reported running operation. The decision model applies running compatibility centrally before the action's contextual predicate, so a newly enrolled action cannot bypass that boundary. The [product-manual action table](https://discern.sh/docs/guides/delegate-work#inspect-decisions-from-the-desk) projects every member for readers; its registry-driven test enrols future actions automatically.
 
-Grant and revoke remain human-only actions inside `discern desk`. They stay available while the gate runs: the grant marker writer and acceptance claim share one atomic decision point, so changing future landing authority does not conflict with the running check.
+Grant and revoke remain human-only actions inside `discern desk`. The grant action reads `Pre-authorize landing once green` and asks `Allow <branch> to land once green without a further conversation?`. It binds to the task's branch: any later green `done` on that branch is covered once its agent submits it, the landing consumes the grant, revoke removes it, and it dies with the worktree. It never covers a checkpoint variance, a standard limit proposal, or an emergency. Grant and revoke stay available while the gate runs; changing future landing authority does not conflict with the running check.
 
 `Start a follow-up from this task` fixes the selected task's reported branch as the new task's base. Its preview includes that ref and resolved commit before creation. The follow-up remains an independent worktree. Branch containment records the dependency without creating a landing queue.
 

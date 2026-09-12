@@ -11,11 +11,11 @@ aliases:
 
 _Each discern task uses an isolated workspace (a Git worktree) with its own checkout, branch, identity, and local dependencies._
 
-`discern start` creates a separate checkout and `agent/…` branch for one task. The main checkout remains the fleet's shared view. A checkout changes only under its own operation: discern never installs another revision into a worktree it did not create for that purpose, and no checkout is borrowed ([ADR 0389](../_adr/0389-the-workspace-contract.md)).
+`discern start` creates a separate checkout and `agent/…` branch for one task. The main checkout remains the fleet's shared view. A checkout changes only under its own operation: no operation installs another revision into an authoring worktree, and a checkout's cleanliness or idleness never makes it available to another operation ([ADR 0389](../_adr/0389-the-workspace-contract.md)).
 
 Every checkout has a stable identity, development port, and test-order seed. Linked worktrees additionally receive their declared resources, isolated setup, and human task metadata. The display title and brief remain separate from branch and resource identity. The main checkout derives its constant identity from the configured trunk branch.
 
-The lifecycle starts from the main checkout. Commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` advances each proven, separately authorized candidate to the trunk. It then retires checkouts that are released, positively owned, clean and excluded from concurrent use. A retained checkout or failed cleanup leaves the landing intact. `--confirmed` attests only to consent in the current conversation. Automatic cleanup requires recorded fleet ownership; merge status alone never authorizes deletion.
+The lifecycle starts from the main checkout. Commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`, which proves the committed tip. `discern accept` records the effort's submission and, once conversation consent or a recorded grant authorizes it, fast-forwards the trunk to that commit, converges the main checkout, and removes the worktree, its resources, and its branch when the branch holds nothing beyond the submission. A branch with later commits or a cleanup that cannot complete leaves the landing intact and names the route. `--confirmed` attests only to consent in the current conversation. Automatic cleanup requires recorded fleet ownership; merge status alone never authorizes deletion.
 
 Treat every worktree as occupied, even when Git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the human view over work in progress (the desk) to inspect, update, land, or drop tasks across the fleet.
 
@@ -41,5 +41,3 @@ Treat every worktree as occupied, even when Git reports it clean. [`discern stat
 |   180 | [Recover a dropped branch](drop-recovery.md)                        | Restore committed work from discern's bounded local recovery refs.              |
 
 [Emergency integration](emergency-integration.md) records an explicit owner decision to integrate before machine validation finishes. It issues no passing Proof.
-
-[Execution recovery](execution-recovery.md) returns a retained borrowed checkout and its queue reservation without repeating validation or landing.

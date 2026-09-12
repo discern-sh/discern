@@ -20,11 +20,11 @@ A fully merged branch is not owned merely because deletion would preserve its co
 
 An explicit `discern worktree drop <worktree>` can select a foreign checkout by exact id, path, local branch, or full local ref. It keeps a branch that discern cannot prove it owns. Merge status, cleanliness, containment, locks, and current worktree use remain independent safety checks; none can replace ownership.
 
-## Retirement after acceptance
+## Removal after landing
 
-Landing and retirement have separate durable records in Git's common metadata. An actor may retire another source checkout only after its owner releases it and the engine proves current ownership, cleanliness, resource inventory and exclusion. A changed source branch, an uncertain resource, or an active child process keeps the checkout. Recovery receipts and pending Proof notes remain available outside the disposable checkout.
+A landing removes the effort's worktree, its resources, and its branch when the branch holds nothing beyond the landed submission, after the engine proves current ownership, cleanliness, resource inventory, and exclusion. A branch with later commits, an uncertain resource, or an active child process keeps the checkout in place; the landing stands and the result names the route. Pending Proof notes remain available outside the removed checkout.
 
-A note or cleanup failure reports the candidate as landed with recovery pending. Retrying settles that record; it cannot publish the candidate again or spend authority twice. [Interrupted landing recovery](acceptance-recovery.md) describes the current states and next actions.
+A note or cleanup failure reports the change as landed with recovery pending. Retrying settles that record; it cannot land again or spend authority twice. [Interrupted landing recovery](acceptance-recovery.md) describes the current states and next actions.
 
 ## Prove absence before reporting success
 
@@ -32,13 +32,13 @@ Lifecycle commands stop their command-owned shell, hook, Git, and background des
 
 Removal can succeed only when both observations agree:
 
-- Git has no worktree registration for the retired path.
+- Git has no worktree registration for the removed path.
 - A strict filesystem check reports no file, symbolic link, or directory there.
 
-discern records retirement evidence and repeats both checks at the return boundary. A remaining or recreated entry makes the lifecycle fail and keeps the branch where possible. Setup's structural probe consumes the same result, so a successful setup cannot leave a probe checkout or registration behind.
+discern records removal evidence and repeats both checks at the return boundary. A remaining or recreated entry makes the lifecycle fail and keeps the branch where possible. Setup's structural probe consumes the same result, so a successful setup cannot leave a probe checkout or registration behind.
 
 ## Recover without widening deletion
 
 The failure names the exact path, retained Git or branch state, and the safe next action. Stop the named writer or repair that one Git worktree entry, then repeat the same lifecycle command. The retry checks the current identity and filesystem object again and converges from partial state. Do not replace it with a parent-directory deletion or repository-wide prune.
 
-A separate program can still write to a retired location after the lifecycle returns. [Reappeared worktree paths](reappeared-worktree-paths.md) explains how removal evidence makes that later state visible and reclaimable. The ownership and absence decision is recorded separately ([ADR 0315](../_adr/0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence.md)).
+A separate program can still write to a removed location after the lifecycle returns. [Reappeared worktree paths](reappeared-worktree-paths.md) explains how removal evidence makes that later state visible and reclaimable. The ownership and absence decision is recorded separately ([ADR 0315](../_adr/0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence.md)).

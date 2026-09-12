@@ -60,7 +60,7 @@ Until the skipped checks pass, `discern status` reports the emergency's validati
 
 > Run the full checks on the landed fix and settle the outstanding emergency validation.
 
-The agent runs `discern done --rerun` on the current shared branch, or on a later change that contains the repair, in every required context. A passing result settles the outstanding checks and the emergency stops appearing in everyday status. The historical record stays: anyone reading the project's history can see that this repair landed first and was checked afterwards.
+The agent runs `discern done --rerun` on the current shared branch, or on a later change that contains the repair. A passing result settles the outstanding checks and the emergency stops appearing in everyday status. The historical record stays: anyone reading the project's history can see that this repair landed first and was checked afterwards.
 
 If the checks fail, you have found the cost of the shortcut early. The agent fixes the cause in an ordinary task and lands the correction with Proof.
 

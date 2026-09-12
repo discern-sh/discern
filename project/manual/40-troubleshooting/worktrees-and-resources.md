@@ -20,16 +20,12 @@ aliases:
   - "reappeared worktree path"
   - "stale worktree files"
   - "files left after worktree removal"
-  - "retired worktree path"
   - "precondition_failed"
   - "awaiting_consent"
   - "partial_acceptance"
   - "provisioned_resources"
   - "worktree disk usage"
-  - "checkout kept"
   - "landed but worktree remains"
-  - "stale queue entry"
-  - "wrong task landed"
 ---
 
 # Worktrees and resources
@@ -44,25 +40,23 @@ Keep the task's existing worktree where available. A clean or idle-looking row m
 
 Read the named condition before retrying:
 
-| Condition                                                   | Next action                                                                                                                                                                      |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The worktree has uncommitted changes                        | Review and commit intended work. Preserve unfamiliar files and resolve their ownership before removing them.                                                                     |
-| The proposed landing needs the latest trunk                 | Follow the result. Acceptance can compose and validate it in an eligible released workspace; otherwise the source agent updates, reviews the overlap, and runs completion again. |
-| The main checkout has local changes or is on another branch | Resolve those changes with their owner and return main to the trunk before retrying the operation that needs it.                                                                 |
-| Generated output needs repair                               | Run the named generator or refresh action, review its changes, and complete validation on the intended result.                                                                   |
-| Landing authority is missing                                | Review the proposed change and the requested consent. Passing Proof alone does not authorize landing.                                                                            |
+| Condition                                                   | Next action                                                                                                                         |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| The worktree has uncommitted changes                        | Review and commit intended work. Preserve unfamiliar files and resolve their ownership before removing them.                        |
+| The shared branch moved after the task's Proof              | Have the agent run `discern update`, re-read the overlapping files it names, then run `discern done` and `discern accept` again.    |
+| The main checkout has local changes or is on another branch | Resolve those changes with their owner and return main to the trunk before retrying the operation that needs it.                    |
+| Generated output needs repair                               | Run the named generator or refresh action, review its changes, and complete validation on the intended result.                      |
+| Landing authority is missing                                | Review the proposed change and the requested consent. Passing Proof alone does not authorize landing; the submission waits for you. |
 
-Acceptance accounts for each task separately. Read every task's outcome: an earlier change may have landed while a later one remains pending. [Landing result fields](../30-reference/mcp-and-results.md#the-discernresult-envelope) give the structured contract.
+Acceptance reports on the task it was run for. [Landing result fields](../30-reference/mcp-and-results.md#the-discernresult-envelope) give the structured contract.
 
 ## Acceptance was interrupted partway
 
-Read status and the acceptance result before attempting another landing. Ask which tasks landed, whether their Proof notes were recorded locally, and whether their checkouts were retained, removed, or left needing recovery.
+Read status and the acceptance result before attempting another landing. Ask whether the change landed, whether its Proof note was recorded locally, and whether its worktree was removed.
 
-If landing already happened, the reported recovery reconciles the recorded transition and remaining work without spending its authority again. A cleanup failure does not undo the landed change. If landing did not happen, resolve the named blocker and follow the returned acceptance action.
+discern records the landing before moving the shared branch, so a retry either finishes the remaining steps or rolls the attempt back. It never lands the same change twice and never spends your permission again. If landing did not happen, resolve the named blocker and follow the returned acceptance action.
 
-A retained checkout can be expected: acceptance removes only eligible released checkouts. Keeping authoring control with `discern done --retain-checkout` also keeps the checkout from automatic retirement.
-
-[Recover an interrupted acceptance](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance) walks through the full procedure. If the problem instead concerns a workspace still held by validation, use [workspace recovery](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation).
+[Recover an interrupted acceptance](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance) walks through the full procedure.
 
 ## Removal failed, or a removed path came back
 
@@ -96,7 +90,7 @@ discern worktree prune --contained --dry-run
 
 Reclaim removes the checkout, its resources, and its worktree-local Proof after confirmation. Its branch ref remains available for `discern start --from <branch>`. A later `discern await --green` watch on the removed checkout refuses and points to the containing branch.
 
-For finished work ready to land, use acceptance first and read its retirement outcome. A retained checkout may still be useful or ineligible for automatic removal; landing alone does not guarantee that its directory disappears.
+For finished work ready to land, use acceptance first. A landing removes the worktree, its resources, and its branch when the branch holds nothing beyond the landed submission.
 
 ## A healthy task should pause without its checkout
 
@@ -107,7 +101,7 @@ discern worktree park <target> --dry-run
 discern worktree park <target>
 ```
 
-Review the preview before confirming. It names the kept branch and commit, retained task wording, destroyed resources, removed checkout, and consumed worktree-local Proof and landing grant. Park refuses a dirty, unreadable, setup-incomplete, trunk, detached, or branch-mismatched checkout. It has no force option: a branch cannot preserve uncommitted files.
+Review the preview before confirming. It names the kept branch and commit, retained task wording, destroyed resources, removed checkout, and consumed worktree-local Proof, submission, and landing grant. Park refuses a dirty, unreadable, setup-incomplete, trunk, detached, or branch-mismatched checkout. It has no force option: a branch cannot preserve uncommitted files.
 
 After success, open the branch under **Work without a worktree** in the desk, or resume directly:
 
@@ -123,35 +117,18 @@ Read the reason it was kept. Automatic cleanup needs recorded ownership, matchin
 
 For a deliberately chosen foreign checkout, `discern worktree drop <worktree>` accepts its exact id, path, local branch, or full local ref. Review that destructive action explicitly. When discern cannot prove ownership of the branch, it keeps the branch ref.
 
-For a landed task, a kept workspace and a workspace whose cleanup needs recovery are different outcomes. The first is a choice or a protection; the second names unfinished cleanup to resolve. Use the returned reason rather than assuming every remaining directory is a failed removal.
+For a landed task, a worktree that stayed because its branch holds unlanded commits and a worktree whose cleanup needs recovery are different outcomes. The first is a protection; the second names unfinished cleanup to resolve. Use the returned reason rather than assuming every remaining directory is a failed removal.
 
-## A landed task's workspace stayed behind
+## A landed task's worktree stayed behind
 
 The change is on the shared branch, and its worktree is still there. The landing result and `discern status` say why in one sentence. The reasons, and what finishes cleanup:
 
-| Why it stayed                     | What finishes cleanup                                                                                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| It was never released for cleanup | It was kept for review or further edits. Stop active use, have the agent run `discern done --release-checkout` there, then `discern accept` from the main checkout. |
-| It is still in use                | Stop the preview or other operation running in it, then retry `discern accept` from the main checkout.                                                              |
-| The branch changed after landing  | New commits exist that never landed. Preserve them and read `discern status` from that worktree before deciding what they are.                                      |
-| It contains changed files         | Preserve and review them before retrying cleanup from the main checkout.                                                                                            |
-| Ownership could not be verified   | Preserve its files and resources and inspect `discern status --verbose` from the main checkout.                                                                     |
+| Why it stayed                                  | What finishes cleanup                                                                                                                                              |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The branch gained commits after the submission | Those commits never landed. Preserve them; the agent runs `discern done` and then `discern accept` for them from that worktree.                                    |
+| Removal could not complete                     | Stop the preview or other program still writing in the directory, resolve any resource the result names, then run `discern worktree prune` from the main checkout. |
 
-None of these undo the landing, and none need the change approved again. If the result says cleanup needs recovery rather than that the workspace was kept, follow the named recovery instead.
-
-## The landing result was about a different task
-
-Acceptance lands finished tasks in a stable order, so a run from one worktree can land approved tasks ahead of it and stop at one that needs approval. The result answers about the task you ran it from first, in a line that starts `Selected effort` and names your branch: landed, or not landed and why. Read that line before the sections headed `Ahead of it in the queue` and `Behind it in the queue`; a Proof line under another task's branch is that task's, not yours.
-
-If you ran acceptance from the main checkout with several tasks pending, name the task you mean with `--target`. [Finish and land a change](../10-guides/finish-and-land-a-change.md#land-under-verified-authority) explains the order.
-
-## A queue entry is stale
-
-A task whose work is already on the shared branch, but that discern never landed, keeps a waiting entry. Its own row in status and in the acceptance preview says `Its work is already on main` and offers the two ways to settle it: withdraw the entry if the work is not coming back through discern, or reconcile it when the exact proven version is on the shared branch. Both start with a preview and apply with its token; neither lands anything or spends any approval. [Reconcile work that reached the trunk another way](../10-guides/recover-an-interrupted-task.md#reconcile-work-that-reached-the-trunk-another-way) gives the procedure.
-
-## A validation run was abandoned
-
-Status names a validation environment and says no executor is active. The workspace has not been returned to its author. Have the agent recover it from the owning worktree with `discern done --recover <environment-id>`; recovery does not wait for the run's time limit and stops safely if a process from the run is still alive or its state is unknown. [Return a workspace after interrupted validation](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation) lists the conditions.
+Neither undoes the landing, and neither needs the change approved again. If the result says cleanup needs recovery rather than that the worktree stayed, follow the named recovery instead.
 
 ## A branch or worktree was dropped by mistake
 
@@ -183,9 +160,9 @@ Keep the resource ledger during recovery. It stores the recorded teardown action
 
 ## Ignored files changed under a worktree
 
-Read the named files before releasing or removing the checkout. Ignored files may hold local settings or data that no commit preserves. Copy out anything you want to keep.
+Read the named files before removing the checkout. Ignored files may hold local settings or data that no commit preserves. Copy out anything you want to keep.
 
-When enabled, discern compares ignored files with the baseline recorded during worktree setup. That comparison is advisory; it does not preserve the file contents for you. Completion's separate workspace checks may also retain a checkout when its state no longer matches the recorded release.
+When enabled, discern compares ignored files with the baseline recorded during worktree setup. That comparison is advisory; it does not preserve the file contents for you.
 
 For the optional comparison setting, see `[worktree].ignored_file_drift` in the [configuration reference](../30-reference/config-reference.md). Disabling the report does not turn local-only files into recoverable Git history.
 

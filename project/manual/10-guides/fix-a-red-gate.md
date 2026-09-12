@@ -98,8 +98,6 @@ These details help if you are following the repair in a terminal. The diagnostic
 | A project check failed                            | Use its `reproduce_cmd` and captured output to investigate.                                                                                      |
 | `generated_drift`                                 | Edit the owning source and run the named generator.                                                                                              |
 | `tree_drift` or unexpected output                 | Inspect and preserve the reported files before deciding whether they belong in the change or the producing command needs correction.             |
-| Missing execution context                         | Supply evidence in the required context; a local pass alone may be incomplete.                                                                   |
-| Execution recovery is pending                     | Follow [Recover an interrupted task](recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation) before resuming validation. |
 | Timeout or a missing executable                   | Use the reported environment remedy or `discern doctor`; extend a timeout only after establishing that the command is valid and needs more time. |
 
 Projects can limit concurrent test runs. When `[gate].concurrent_test_runs` is positive, the agent runs direct tests through `discern queue -- <focused-test-command>` so parallel tasks share that capacity.

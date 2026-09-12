@@ -35,7 +35,7 @@ git notes --ref=discern show <commit>
 
 The DSSE-compatible Base64 payload separates structured result facts from human presentation and excludes runtime telemetry. A future signature covers both; verification policy reads only the `proof` field. `signatures: []` records no signature, and discern signs or verifies nothing today ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
-Current v1 records carry complete candidate, source, composition procedure, component evidence, authority, and executor facts. Prelaunch notes missing complete evidence are stale for current completion and never become authority through conversion. Unknown payload types report unsupported; bare and pre-split private formats are not Proof notes. [Proof note format](../70-reference/proof-note-format.md) defines the contract and reading rules.
+Current v1 records carry the landed commit, its complete component evidence, its authority, and the Proof presentation. A note written in a pre-launch shape has no reader and never becomes authority through conversion. Unknown payload types report unsupported; bare and pre-split private formats are not Proof notes. [Proof note format](../70-reference/proof-note-format.md) defines the contract and reading rules.
 
 ## Replay keeps the first presentation
 

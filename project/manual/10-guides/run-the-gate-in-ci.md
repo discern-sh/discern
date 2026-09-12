@@ -18,7 +18,7 @@ aliases:
 
 Continuous integration, or **CI**, runs checks when changes reach your code-hosting service. Running discern there lets your project use the same declared checks locally and remotely, with a result that another person can inspect.
 
-Suppose a change works on your laptop but needs to work on Linux too. A CI job can exercise it in that environment and keep the failure output with the change. You and your agent get another place to check the result without maintaining a second list of quality rules.
+Suppose a change works on your laptop but needs to work on Linux too. A CI job can exercise it there and keep the failure output with the change. You and your agent get another place to check the result without maintaining a second list of quality rules.
 
 ## Ask for the check you need
 
@@ -26,9 +26,9 @@ Once the project has completed discern setup, ask your agent or the person maint
 
 > Add discern's gate to our CI workflow. Use the checks already declared for this project, keep useful failure output, and show that the workflow fails for a known broken change and passes for a corrected one. Explain any repository setting I need to change.
 
-Choose the environments the project needs to support. Your agent can recommend them from the project's runtimes and users. CI configuration and any credentials belong to your hosting service; discern runs the checks you configure there.
+Choose the operating systems and runtimes the workflow should cover. Your agent can recommend them from the project's runtimes and users. CI configuration and any credentials belong to your hosting service; discern runs the checks you configure there.
 
-A passing CI report says what ran in that environment. It does not give permission to land, record an agent's checkpoint answers, or create the Proof that discern acceptance requires. The task still goes through its ordinary completion and review process.
+A passing CI report says what ran on that runner. It does not give permission to land, record an agent's checkpoint answers, or create the Proof that discern acceptance requires. The task still goes through its ordinary completion and review process.
 
 ## 1. Recreate the project's declared environment
 
@@ -43,19 +43,18 @@ The workflow also needs enough Git history to identify what changed. Fetch the e
 From the repository root, the CI runner invokes:
 
 ```sh
-discern done --ci --standalone --context linux --policy-base refs/discern/ci-policy-base --markdown
+discern done --ci --standalone --policy-base refs/discern/ci-policy-base --markdown
 ```
 
-This workflow produces a separate CI report. Its results do not fulfill the evidence requirements for ordinary task completion, and a report never places the task in the landing queue.
+This workflow produces a separate CI report. Its result never becomes the task's Proof, and a report never puts the task in the landing queue.
 
-This example assumes the workflow has fetched the comparison commit into `refs/discern/ci-policy-base` and supplies the declared `linux` context. A **context** names an environment where the project requires checks or measurements. Use the name configured for your workflow.
+This example assumes the workflow has fetched the comparison commit into `refs/discern/ci-policy-base`.
 
 The options make the purpose explicit:
 
 - `--ci` reports checkpoint questions without recording answers for the task.
-- `--standalone` requests a report without admitting work to the completion queue or producing landing Proof.
-- `--context` identifies the environment this run supplies.
-- `--policy-base` identifies the rules the report should compare against.
+- `--standalone` requests transient diagnostics without producing Proof, and allows the report to run on a tree that still holds uncommitted rewrites.
+- `--policy-base` identifies the rules the report should compare against. It is valid only together with `--ci` and `--standalone`.
 - `--markdown` keeps a readable result in the job log or summary. Use `--json` if another step needs structured fields.
 
 Retain the command's failure status and complete diagnostic. A later log-upload or summary step must not turn a failed gate into a successful CI job.
@@ -70,11 +69,9 @@ git diff --exit-code
 
 A tracked diff means the submitted commit did not include the output its configured commands produce. Your agent should run `discern prepare` in the task's worktree, review and commit the output, and send the corrected commit through CI.
 
-## 4. Include required measurements
+## 4. Keep the report separate from completion
 
-The CI report should include the measurements required in the environment it supplies. A successful Linux check does not answer a requirement to check the same behavior on macOS. Ask the agent to show which environments the workflow covered and which remain outstanding.
-
-Ordinary task completion has its own evidence requirements. Your agent must arrange the [required contexts and execution procedures](../30-reference/config-reference.md#completion) for that process; it cannot import this standalone report as completion evidence. An unavailable context or skipped check cannot stand in for a pass.
+The CI report covers the checks and measurements the project configures, run on the workflow's runner. It is evidence you can read, and a useful place to catch a platform difference. It is not evidence the task's agent can import: ordinary `discern done` in the task's worktree produces the Proof that landing requires, and a standalone report leaves nothing for it to reuse.
 
 ## 5. Route failures back to the task
 

@@ -26,7 +26,6 @@ Find the current state of a task, interpret a status field, or look up the ident
 | -------------------------------------------------- | ----------------------------------------------------------- |
 | The next action for a task                         | [Status and session hints](#status-and-session-hints)       |
 | A status field or a missing result                 | [Structured result](#structured-result)                     |
-| A workspace waiting for recovery                   | [Recovery and retained state](#recovery-and-retained-state) |
 | A task's port, branch, resource name, or test seed | [Read the derived identity](#read-the-derived-identity)     |
 | Which environment values a new worktree receives   | [Inherit selected env values](#inherit-selected-env-values) |
 
@@ -53,7 +52,7 @@ Status requires a discern project. Linked-worktree lifecycle fields require a Gi
 
 Worktrees default to a local view. The main checkout shows its state, fleet task rows, the **Landing queue**, **Owner attention**, **Landing risks**, and **Next action**. `--verbose` adds per-task evidence, configured checks, local environment, landing history, shared paths, and stored Proof pages.
 
-The **Landing queue** lists every unlanded task in landing order: tasks eligible to land first, then provisional ones, with a held task kept in its place. Each line carries the task's branch, its state label (`ready to land`, `on hold`, `waiting`, or `landing now`), and, when it waits, one sentence saying why. The current worktree's own task is marked. The acceptance preview derives its list from the same projection, so the two surfaces show the same tasks in the same order. When every validation slot is in use while tasks queue, status adds one sentence naming the binding setting and the branches holding the slots.
+The **Landing queue** lists every submission with honored Proof that has not landed: tasks a grant pre-authorizes first, in grant order, then tasks awaiting the owner, in submission order. Each line carries the task's branch and, when it cannot land yet, one sentence saying why: the trunk moved after its Proof, so its agent runs `discern update`, `discern done`, then `discern accept`; or its branch moved on after the submission, so its agent runs `discern done` then `discern accept` for the new work. The current worktree's own task is marked. A failed or abandoned run, or a run its agent never submitted, has no line. The desk and the acceptance preview derive their lists from the same projection, so the surfaces show the same tasks in the same order.
 
 The report uses stored task titles when available; `--verbose` reveals complete worktree and branch identities. Use the stable id or branch in commands, even when a friendlier title appears in the report.
 
@@ -89,21 +88,21 @@ During setup, this read-only result reports the recorded phase, dedicated branch
 
 CLI JSON, MCP `structuredContent`, and the status resource use the same structured fields. The default is a bounded view for orientation; request full collections when a decision depends on entries outside that sample.
 
-| Field                                                 | Contract                                                                                                                                                                                                                                                                                                                                           |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data.project`, `location`, `root`, `worktree`, `git` | Identify the project, checkout, and observed Git state.                                                                                                                                                                                                                                                                                            |
-| `data.projection.mode`                                | `orientation` by default; `full` with verbose structured status.                                                                                                                                                                                                                                                                                   |
-| `data.projection.omitted`                             | True overflow counts for capped collections, under dotted paths with zero-based indexes. Present omissions are positive.                                                                                                                                                                                                                           |
-| `data.fleet`                                          | In orientation mode, the main row plus at most six non-main samples.                                                                                                                                                                                                                                                                               |
-| `data.fleet_total`                                    | The complete non-main task count, including omitted rows.                                                                                                                                                                                                                                                                                          |
-| `data.queue`                                          | The landing queue in order. Each row carries `effort`, `branch`, 1-based `position`, `state` (`provisional`, `eligible`, `active`, or `failed`), `held`, `readiness` (`ready`, `waiting`, or `landing`, which means its checks are running now), one `reason` sentence, and `on_trunk` when its recorded work is already reachable from the trunk. |
-| `data.operation`                                      | Present while a long operation this checkout started is still running: its `verb`, `branch`, the `discern progress` `handle` that reads it back, and the `latest` sentence it recorded.                                                                                                                                                            |
-| `data.fleet[].landed_checkout`                        | Present when that checkout's committed source has landed and the checkout stayed: one `message` with why it stayed and the command that finishes cleanup.                                                                                                                                                                                          |
-| `data.pending_tracked_refresh`                        | Tracked paths that ordinary refresh would change.                                                                                                                                                                                                                                                                                                  |
-| `data.tracked_refresh_plan_errors`                    | Failures deriving that refresh plan.                                                                                                                                                                                                                                                                                                               |
-| `data.gate_proof`                                     | The current Proof inspection and compact evidence when available.                                                                                                                                                                                                                                                                                  |
-| `data.landed_proof`                                   | A readable local or fetched Proof note for the trunk tip.                                                                                                                                                                                                                                                                                          |
-| `data.landed_exception`                               | The trunk tip landed as an emergency, with no passing Proof: the `reason`, the number of skipped checks (`exceptions`), and `validation` (`outstanding` until a later complete run settles them, then `resolved`).                                                                                                                                 |
+| Field                                                 | Contract                                                                                                                                                                                                                                                |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data.project`, `location`, `root`, `worktree`, `git` | Identify the project, checkout, and observed Git state.                                                                                                                                                                                                 |
+| `data.projection.mode`                                | `orientation` by default; `full` with verbose structured status.                                                                                                                                                                                        |
+| `data.projection.omitted`                             | True overflow counts for capped collections, under dotted paths with zero-based indexes. Present omissions are positive.                                                                                                                                |
+| `data.fleet`                                          | In orientation mode, the main row plus at most six non-main samples.                                                                                                                                                                                    |
+| `data.fleet_total`                                    | The complete non-main task count, including omitted rows.                                                                                                                                                                                               |
+| `data.queue`                                          | The landing queue in order: one row per submission with honored Proof that has not landed. Each row carries `effort`, `branch`, 1-based `position`, the submitted commit, whether a grant covers it, and one `reason` sentence when it cannot land yet. |
+| `data.operation`                                      | Present while a long operation this checkout started is still running: its `verb`, `branch`, the `discern progress` `handle` that reads it back, and the `latest` sentence it recorded.                                                                 |
+| `data.fleet[].landed_checkout`                        | Present when that task's submitted commit has landed and its worktree stayed: one `message` with why it stayed and the command that finishes cleanup.                                                                                                   |
+| `data.pending_tracked_refresh`                        | Tracked paths that ordinary refresh would change.                                                                                                                                                                                                       |
+| `data.tracked_refresh_plan_errors`                    | Failures deriving that refresh plan.                                                                                                                                                                                                                    |
+| `data.gate_proof`                                     | The current Proof inspection and compact evidence when available.                                                                                                                                                                                       |
+| `data.landed_proof`                                   | A readable local or fetched Proof note for the trunk tip.                                                                                                                                                                                               |
+| `data.landed_exception`                               | The trunk tip landed as an emergency, with no passing Proof: the `reason`, the number of skipped checks (`exceptions`), and `validation` (`outstanding` until a later complete run settles them, then `resolved`).                                      |
 
 Repeated orientation collections retain at most six members; landing history is omitted. `discern status --verbose --json` or MCP `verbose: true` selects `mode: "full"`, restores complete collections and landing history, and removes the omission map. Every default result includes this route to full detail.
 
@@ -115,7 +114,7 @@ MCP `content` and `discern status --markdown` provide an authored summary of the
 
 Ahead and behind counts are non-negative integers when known, `"unknown"` after a failed or malformed count, and `null` on local status when the trunk is missing. Missing evidence cannot establish readiness or containment.
 
-Proof inspection reports `honored`, `report_only`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored marker includes compact facts: branch, trunk, validated commit, diff counts, and line. Report-only evidence cannot be used for landing. The source commit and validated candidate can differ when completion combines work; [Proof](../20-understand/proof.md#the-exact-commit-it-covers) explains the distinction.
+Proof inspection reports `honored`, `report_only`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored marker includes compact facts: branch, trunk, validated commit, diff counts, and line. Report-only evidence cannot be used for landing. The validated commit is the worktree's own committed tip; [Proof](../20-understand/proof.md#the-exact-commit-it-covers) explains what it covers.
 
 Dirty, behind, and missing-Proof states are observations and can still return `ok: true`. A status operation that cannot complete returns its own failure. Read the reported task state separately from whether the status command succeeded.
 
@@ -131,20 +130,17 @@ Authority includes the current decision, up to six authored-first path examples,
 
 `fleet_collisions` pairs branches with overlapping changed files and retains the shared-file count. `adr_collisions` identifies contested Architecture Decision Record numbers and claimant branches, including branches without worktrees. Structured results omit their path lists; terminal `--verbose` shows them. A later `discern update` names overlapping paths to re-read.
 
-#### Recovery and retained state
+#### Recovery records
 
-| Field                       | What it records                                                                                                   |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `execution_recovery`        | Environment id, reason, retained paths, and next action when a validation workspace needs to return to its owner. |
-| `emergency_validation`      | Validation still owed after an explicitly approved emergency landing.                                             |
-| `parked_tasks`              | Retained branch commit, park time, and task wording for a later `discern start --from`.                           |
-| `parked_tasks_unavailable`  | Failure reading parked-task records; the underlying unlanded branches remain visible.                             |
-| `recent_completed_tasks`    | A bounded tail from successful acceptance events and the latest landed Proof.                                     |
-| `reappeared_worktree_paths` | Removed worktree paths that exist again without live Git registration.                                            |
+| Field                       | What it records                                                                         |
+| --------------------------- | --------------------------------------------------------------------------------------- |
+| `emergency_validation`      | Validation still owed after an explicitly approved emergency landing.                   |
+| `parked_tasks`              | Retained branch commit, park time, and task wording for a later `discern start --from`. |
+| `parked_tasks_unavailable`  | Failure reading parked-task records; the underlying unlanded branches remain visible.   |
+| `recent_completed_tasks`    | A bounded tail from successful acceptance events and the latest landed Proof.           |
+| `reappeared_worktree_paths` | Removed worktree paths that exist again without live Git registration.                  |
 
-A reappeared-path row carries `path`, `removed_at`, `kind`, `entries`, a bounded `contents` sample, and `cleanup_blocked_reason` when prune must preserve it. Cleanup appears under Owner attention; status itself performs no cleanup.
-
-For execution recovery, use the returned environment id and action. Returning the workspace and completing validation are separate operations. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) gives the practical procedure.
+A reappeared-path row carries `path`, `removed_at`, `kind`, `entries`, a bounded `contents` sample, and `cleanup_blocked_reason` when prune must preserve it. Cleanup appears under Owner attention; status itself performs no cleanup. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) gives the practical procedure for an interrupted landing.
 
 ### Session findings
 
@@ -152,7 +148,7 @@ After setup, detectors can add recent logbook observations to `hints[]`. They in
 
 ### Current state and gotchas
 
-- `status` never runs the gate. A valid Proof links the current clean source to complete evidence for its validated candidate.
+- `status` never runs the gate. A valid Proof links the current clean commit to its complete evidence.
 - Fleet worktrees belong to separate efforts. A clean sibling remains occupied until its owner lands or discards it; its maintenance state appears under Owner attention.
 - A reappeared worktree path is no longer an active fleet member. Review its contents and close any program still writing there before confirmed prune.
 - The dashboard and Markdown result are projections. Default JSON and MCP are also bounded for orientation; request verbose structured status only when exact full collections are needed.
@@ -193,7 +189,7 @@ Main identity uses the configured trunk and preserves it in `--branch`. Its seed
 
 ### Task title and brief
 
-A task's display title and optional brief are human metadata, kept separate from the stable identity above. New starts store them with the creation ref and resolved commit in the worktree's Git administrative directory (`discern/task-metadata.json`), and `discern worktree rename <title>` changes only the title. Status shows the stored title when one exists; a worktree from an older discern reports `title_source: "identity-fallback"` and keeps its id-derived label. Removing the worktree deletes its local record. Acceptance removes only eligible released worktrees. `discern worktree park` copies the wording into a branch-keyed record that a later `discern start --from` consumes ([ADR 0356](https://discern.sh/docs/decisions/0356-task-metadata-follows-the-worktree-identity), [ADR 0358](https://discern.sh/docs/decisions/0358-recovery-observes-before-repair-and-park-preserves-the-branch)).
+A task's display title and optional brief are human metadata, kept separate from the stable identity above. New starts store them with the creation ref and resolved commit in the worktree's Git administrative directory (`discern/task-metadata.json`), and `discern worktree rename <title>` changes only the title. Status shows the stored title when one exists; a worktree from an older discern reports `title_source: "identity-fallback"` and keeps its id-derived label. Removing the worktree deletes its local record. A landing removes the worktree when its branch holds nothing beyond the landed submission. `discern worktree park` copies the wording into a branch-keyed record that a later `discern start --from` consumes ([ADR 0356](https://discern.sh/docs/decisions/0356-task-metadata-follows-the-worktree-identity), [ADR 0358](https://discern.sh/docs/decisions/0358-recovery-observes-before-repair-and-park-preserves-the-branch)).
 
 ### Inherit selected env values
 

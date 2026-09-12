@@ -39,22 +39,21 @@ For example, a failed search test should lead to an explanation such as “Searc
 
 Read the next action and whether the result says the gate ran. Common cases are:
 
-| What the result names                             | Next step                                                                                                                                                                             |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Uncommitted or untracked files                    | The full check needs a committed tree. Have the agent run `discern prepare`, review and commit the intended files, then ask again.                                                    |
-| A checkpoint needs judgment                       | Have the agent answer the served question against the actual change. See [checkpoint answers](#a-checkpoint-needs-an-answer).                                                         |
-| A workspace needs recovery                        | Follow the recorded environment recovery before editing it. See [returning a workspace](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation). |
-| The branch or its proposed landing needs updating | Follow the printed update or completion action. Acceptance may compose and validate the change in an eligible released workspace.                                                     |
-| A state path cannot be written                    | Resolve access to the exact path named, then retry.                                                                                                                                   |
-| The same validation input already failed          | Fix the cause first. Use `--rerun` when the result requires a deliberate new attempt on unchanged input.                                                                              |
+| What the result names                    | Next step                                                                                                                          |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Uncommitted or untracked files           | The full check needs a committed tree. Have the agent run `discern prepare`, review and commit the intended files, then ask again. |
+| A checkpoint needs judgment              | Have the agent answer the served question against the actual change. See [checkpoint answers](#a-checkpoint-needs-an-answer).      |
+| The branch is behind the shared branch   | Have the agent run `discern update`, re-read the overlapping files it names, then run `discern done` again.                        |
+| A state path cannot be written           | Resolve access to the exact path named, then retry.                                                                                |
+| The same validation input already failed | Fix the cause first. Use `--rerun` when the result requires a deliberate new attempt on unchanged input.                           |
 
 An already passing result is different: discern can reuse applicable evidence without running its jobs again. A result that says no gate ran is therefore not, by itself, a refusal. Read its completion state and any missing requirements.
 
 ## The gate is waiting, not failing
 
-The project bounds how many tasks can run their full checks at once, how many test runs can share the machine, and how many workspaces can be prepared for another commit. A run that reaches one of those limits waits. The result names the setting that is binding, which tasks hold the slots, and what releases the wait.
+The project bounds how many test runs can share the machine with `[gate].concurrent_test_runs`. A run that reaches that limit waits for a slot while its other checks continue. The result names the task holding the slot and how long its tests usually take.
 
-Nothing needs repairing. Let the run wait, or ask the agent which task holds the slot and whether it is close to finishing. Raise a limit only after checking that the machine can carry another run; [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md#share-limited-capacity) explains the settings.
+Nothing needs repairing. Let the run wait, or ask the agent which task holds the slot and whether it is close to finishing. Raise the limit only after checking that the machine can carry another run; [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md#share-limited-capacity) explains the setting.
 
 ## The result was cut short
 
@@ -86,31 +85,28 @@ Inspect the named paths and diff before committing or removing anything. A passi
 
 If generation immediately produces different bytes again from the same input, investigate the generator before making another commit. Repeatedly accepting those differences will not give you a stable result.
 
-If unexpected files were left by interrupted validation, use the [workspace recovery procedure](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation). Preserve anything it cannot account for. Temporary files can affect another concurrent check even if a later cleanup removes them.
+Temporary files can affect another concurrent check even if a later cleanup removes them. Preserve anything the result cannot account for before deciding what it belongs to.
 
-For normal source repair, success is a clean final commit with complete Proof. During composition, discern can also regenerate declared outputs for the proposed landing; read the result to distinguish that managed work from a source change requiring your agent's attention.
+Success is a clean final commit with complete Proof.
 
 ## Green, but no Proof
 
 Read the completion state and missing requirements. Passing jobs can be useful progress while completion is still pending.
 
-| Why Proof is missing                                         | What completes the task                                                                                                                                   |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A required validation context has not run                    | Run the next context named by the result, using `discern done --context <name>` where requested.                                                          |
-| Uncommitted changes or a commit that moved during validation | Review and commit the final intended state, then run ordinary completion.                                                                                 |
-| Evidence storage or workspace recovery is incomplete         | Preserve the recorded state and follow its specific recovery action.                                                                                      |
-| The run used `--standalone`                                  | Run ordinary `discern done` when ready. Standalone diagnostics do not admit the task to completion or issue landing Proof.                                |
-| The run used `--ci`                                          | Treat it as a CI report. CI does not admit the task to completion or produce landing Proof. See [Run the gate in CI](../10-guides/run-the-gate-in-ci.md). |
-
-Returning a workspace through `done --recover` also does not run validation or create Proof. After recovery, ordinary `done` can reuse applicable passing evidence and obtain what is still missing.
+| Why Proof is missing                                         | What completes the task                                                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Uncommitted changes or a commit that moved during validation | Review and commit the final intended state, then run ordinary completion.                                                 |
+| A checkpoint question is still open                          | Have the agent judge it and record the conclusion; completion continues in the same run.                                  |
+| The run used `--standalone`                                  | Run ordinary `discern done` when ready. Standalone diagnostics do not issue landing Proof.                                |
+| The run used `--ci`                                          | Treat it as a CI report. CI does not produce landing Proof. See [Run the gate in CI](../10-guides/run-the-gate-in-ci.md). |
 
 ## Proof was current and went stale
 
-Ask the agent what changed since validation. A new source commit, a new predecessor on the trunk, or a changed checkpoint judgment can require fresh evidence for the proposed landing.
+Ask the agent what changed since validation. A new commit or a changed checkpoint judgment requires fresh evidence for the version that will land.
 
-For source edits, commit the intended final change and run `discern done`. If the trunk moved, follow the result: acceptance may compose and validate the new candidate in an eligible released workspace, or ask the source agent to update and complete the work again.
+For source edits, commit the intended final change and run `discern done`. A shared branch that moved after the Proof does not make the Proof stale, but it does stop the landing: acceptance refuses and names the route, `discern update`, `discern done`, then `discern accept`, so the evidence covers the combination that lands.
 
-Success is current Proof for the exact proposed landing, with no required evidence missing. [Why Proof becomes stale](../20-understand/proof.md#why-proof-becomes-stale) explains the boundary.
+Success is current Proof for the exact commit that will land, with no required evidence missing. [Why Proof becomes stale](../20-understand/proof.md#why-proof-becomes-stale) explains the boundary.
 
 ## A standard failed
 
@@ -128,7 +124,7 @@ Have the agent read the question and inspect the change it names. For example, a
 
 - **Awaiting declaration.** The agent records `discern done --met <id>` if the change satisfies the served question, or `discern done --unmet <id> --why "<rationale>"` if it does not.
 - **Declared unmet.** The checks may still pass. Landing requires the owner to approve that exact exception in the current conversation; a recorded landing grant does not cover it. The agent can instead change the work, judge it again, and complete validation.
-- **A recorded answer reopened.** The change or the proposed landing no longer matches the answer's subject. Judge the served question again using the current version.
+- **A recorded answer reopened.** The change no longer matches the answer's subject. Judge the served question again using the current version.
 
 [Checkpoint states and declarations](../30-reference/proof-and-checkpoint-formats.md#checkpoint-state-and-declarations) provides the exact states. [Checkpoints](../20-understand/checkpoints.md) explains how the questions help a project retain decisions that tests cannot make.
 

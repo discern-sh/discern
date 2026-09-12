@@ -1,6 +1,6 @@
 ---
 title: Landing authority
-description: How conversation consent and recorded grants decide whether a finished worktree returns for review or lands directly.
+description: How conversation consent and recorded grants decide whether a submitted commit returns for review or lands directly.
 order: 120
 aliases:
   - landing authority
@@ -13,25 +13,27 @@ aliases:
 
 _discern verifies landing authority before moving the trunk._
 
-A green [Proof](../20-quality-gate/the-proof.md) records that an exact clean commit passed the declared gate. Landing permission comes from conversation consent or a recorded grant for the worktree ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+A green [Proof](../20-quality-gate/the-proof.md) records that an exact clean commit passed the declared gate. A submission records that the effort's agent asked to land that commit. Landing permission comes from conversation consent or a recorded grant ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
 A Proof that contains a standard limit proposal also needs separate owner approval for each current standard/value/reason tuple. Landing authority does not cover that narrower decision ([ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 
 ## Authority sources
 
-| Source         | Evidence                                                                                               | Lifetime                        |
-| -------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| Conversation   | `discern accept --confirmed` attests to acceptance in this conversation.                               | Unchanged source and procedure. |
-| Standing grant | The trunk's `[acceptance].pre_authorized` lists granted [scopes](../00-orientation/glossary.md#scope). | Every covered landing.          |
-| Effort grant   | A recorded approval of the exact source and composition procedure at [the desk](the-desk.md).          | That source and procedure.      |
+| Source         | Evidence                                                                                               | Lifetime                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Conversation   | `discern accept --confirmed` attests to acceptance in this conversation.                               | The submitted commit.                                                           |
+| Standing grant | The trunk's `[acceptance].pre_authorized` lists granted [scopes](../00-orientation/glossary.md#scope). | Every covered landing.                                                          |
+| Effort grant   | The desk's `Pre-authorize landing once green` action records permission for the effort's branch.       | Until the landing consumes it, the owner revokes it, or the worktree goes away. |
 
-`--confirmed` attests to the owner’s instruction for the selected landing or queue control. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
+`--confirmed` attests to the owner's instruction for the selected landing. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
+
+The desk asks `Allow <branch> to land once green without a further conversation?` and stores the grant git-side, outside any branch-writable tree. The grant binds to the effort, so any later green `done` on that branch is covered once its agent submits it; a review fix after the grant needs no second visit to the desk. A green `done` covered by a grant routes the agent straight to `discern_accept`. The grant never covers a checkpoint variance, a standard limit proposal, or an emergency ([ADR 0389](../_adr/0389-the-workspace-contract.md)).
 
 Fresh setup's standing-grant example names `docs`, whose seed contains the map and deferred-work ledger. The separate `instructions` seed contains the project brief, instruction sources, authored skills, and materialized skill directories; it stays outside that example and reaches the owner for review. Upgrade leaves existing named scopes unchanged, so owners of earlier installs split their scope manually to adopt this boundary ([ADR 0209](../_adr/0209-fresh-seed-grants-cover-pure-documentation.md)).
 
 ## How discern resolves coverage
 
-`start` reports possible standing scopes. `status` and green `done` classify the final paths: every path must match a known granted scope. Unknown grants and unmatched paths stay uncovered. Effort grants bind to the exact source revision and composition procedure. A source edit or changed procedure needs another review; an old incomplete grant is stale.
+`start` reports possible standing scopes. `status` and green `done` classify the final paths: every path must match a known granted scope. Unknown grants and unmatched paths stay uncovered. Exactness comes from the submission, which names one commit; a later commit needs its own submission before any grant applies to it.
 
 When a grant exists, `data.landing_authority` carries the result:
 
@@ -46,13 +48,11 @@ When a grant exists, `data.landing_authority` carries the result:
 
 Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Proof ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
-Each effort in the queue needs its own current authority. A caller's `--confirmed` applies only to the selected reviewed source; it cannot approve predecessors. An earlier approved effort can land before a later entry reports missing authority. The result retains both outcomes.
+Each submission needs its own current authority. A caller's `--confirmed` applies only to the selected submission. A green run its agent never submitted is landed by nobody but the owner, explicitly: from its worktree with `--target` and conversational consent, or from the desk.
 
-`accept --target <effort-id>` selects the same effort from its worktree or main. Main requires a target when several efforts are pending. Recorded explicit source consent survives an interrupted call while its source and composition procedure remain unchanged.
+`accept --target <effort-id>` selects the same effort from its worktree or the main checkout; the main checkout requires a target. Recorded conversation consent survives an interrupted call while its submitted commit remains unchanged.
 
-`accept --dry-run` reports each predecessor's candidate, preview commands, recorded authority, and pending decisions without applying a claim. Ordinary grants cannot approve a checkpoint variance, a standard proposal, an emergency exception, a push, or a deployment. An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
-
-Standing scope coverage supplies permission when that effort is accepted. Coverage alone does not enroll an unrelated effort ahead of the requested work. [Queue decisions](queue-decisions.md) explains holds, withdrawal, revocation, and ordering.
+`accept --dry-run` shows the landing queue, each submission with honored Proof that has not landed with pre-authorized ones first, and the selected effort's recorded authority and pending decisions, without changing anything. Ordinary grants cannot approve a checkpoint variance, a standard proposal, an emergency exception, a push, or a deployment. An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
 
 ## Approve a Standard limit proposal
 
@@ -75,13 +75,14 @@ If the owner declines, leave acceptance stopped. Restore the trunk limit in the 
 | Resolution and vocabulary | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts), [`consent.ts`](../../../src/shared/consent.ts)                             |
 | Standing grants           | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                                              |
 | Effort grants             | [`effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts), [`effort_grant_writer.ts`](../../../src/engine/worktree/effort_grant_writer.ts)      |
+| Submission record         | [`submission.ts`](../../../src/engine/worktree/submission.ts), [`engine_submission_test.ts`](../../../tests/engine_submission_test.ts)                  |
 | Standard limit approval   | [`standard_proposal_state.ts`](../../../src/engine/gate/standard_proposal_state.ts), [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)        |
 | Results and surface guard | [`result_schemas.ts`](../../../src/shared/result_schemas.ts), [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts) |
 
 ## Current state & gotchas
 
 - Standing authority is pinned to its trunk commit; concurrent advances refuse.
-- Landing consumes the claim. Drop, prune, and orphan cleanup reap abandoned state.
+- Landing consumes the grant and the submission. Drop and park remove both with the worktree; prune reaps abandoned state.
 - Uncertainty returns to conversation review; it never widens authority.
 - Approval of a Standard limit proposal binds one acceptance call to the current proposal set. It is not a standing source of landing authority.
 

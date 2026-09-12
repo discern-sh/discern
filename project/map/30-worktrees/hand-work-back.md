@@ -14,7 +14,7 @@ aliases:
 
 _Finish the intended commit, report what changed, end with its Proof line, and wait for the owner to decide whether it lands._
 
-A green gate starts review. Landing remains the owner's decision. Keep the source branch available until that decision arrives. Complete evidence and recovery records live in common Git administration; the worktree holds the authoring checkout and its local resources.
+A green gate starts review. Landing remains the owner's decision. Keep the source branch available until that decision arrives. Complete evidence lives in common Git administration; the worktree holds the authoring checkout, its Proof marker, its submission, and its local resources.
 
 ## Finish the branch
 
@@ -37,11 +37,11 @@ Stop after the Proof line and wait. An uncommitted edit dirties the tree. A late
 
 ## Accept after authorization
 
-Every landing needs [landing authority](landing-authority.md): consent from the current conversation, a standing scope grant recorded on the trunk, or a one-worktree effort grant from [the desk](the-desk.md). The shared resolver checks recorded grants directly. `--confirmed` attests only that the owner accepted this landing in the current conversation ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+Every landing needs [landing authority](landing-authority.md): consent from the current conversation, a standing scope grant recorded on the trunk, or an effort grant from [the desk](the-desk.md) that covers the effort's branch. The shared resolver checks recorded grants directly. `--confirmed` attests only that the owner accepted this landing in the current conversation ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-Acceptance requires a tracked-clean main checkout sitting on the trunk. It reads the queue plan and checks each queued effort against its own complete Proof and recorded authority. Stale evidence can be refreshed only in an eligible released execution environment. Without one, follow the forward `update → done → accept` recovery action in the source worktree.
+Run `discern accept` from the worktree. It records the effort's submission, the exact `HEAD` and its Proof, and lands it when authority is verified; without authority it refuses read-only and the submission waits in the landing queue for the owner. Acceptance requires a tracked-clean main checkout sitting on the trunk. When the trunk moved after the Proof, it refuses and names `discern update`, `discern done`, then `discern accept`.
 
-For each approved effort, discern advances the exact expected trunk to the proven candidate and settles that effort's authority. Retirement follows separately and requires release, positive ownership, current cleanliness and exclusion. Changed branches and uncertain resources remain available. A failed note or cleanup cannot repeat landing or spend authority again. [Start, update, and accept](lifecycle.md) explains the states; [interrupted landing recovery](acceptance-recovery.md) covers partial progress and retry.
+A landing advances the trunk to the submitted commit, records the Proof note, converges the main checkout, and removes the worktree, its resources, and its branch when the branch holds nothing beyond the submission. A branch with later commits stays, with `discern done` then `discern accept` as the route. A failed note or cleanup cannot repeat landing or spend authority again. [Start, update, and accept](lifecycle.md) explains the states; [interrupted landing recovery](acceptance-recovery.md) covers partial progress and retry.
 
 You can also supervise a ready branch from [the desk](the-desk.md). Its accept action shows the plan, asks for confirmation, and calls the same acceptance core.
 
@@ -65,4 +65,4 @@ Leave the ready worktree untouched while its landing decision is pending. Indepe
 ## Current state & gotchas
 
 - Any tracked, staged, or untracked change in the worktree blocks acceptance. The main checkout blocks on tracked changes.
-- The handoff Proof binds the exact source, candidate, expected predecessor and complete evidence.
+- The handoff Proof binds the exact `HEAD` and its complete evidence; the submission names that commit.
