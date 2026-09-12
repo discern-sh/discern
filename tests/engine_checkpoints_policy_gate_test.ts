@@ -1,9 +1,12 @@
 /** Checkpoint policy gate journeys with independently owned fixtures. */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
-import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
+import {
+  AWAITING_DECLARATION_SLUG,
+  AWAITING_VARIANCE_SLUG,
+} from "../src/shared/declarations.ts";
 import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
-import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import {
   CHECK_OK,
   CONFIG_ONE_CHECKPOINT,
@@ -219,17 +222,13 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
     assertEquals(acceptance.code, 1, acceptance.output);
     const acceptanceEnvelope = decodeCliResult(acceptance.stdout, "accept");
     assert(typeof acceptanceEnvelope.message === "string");
-    assertResultDataKey(acceptanceEnvelope, "queue");
-    const pending = acceptanceEnvelope.data.pending?.map((item) => item.kind) ??
-      [];
-    assert(pending.includes("missing-authority"), acceptance.output);
-    assert(pending.includes("missing-judgment"), acceptance.output);
-    assertEquals(
-      acceptanceEnvelope.data.queue?.[0]?.checkpoint_review?.declared_unmet[0]
-        ?.question,
-      FILE_QUESTION,
+    // The declared-unmet conclusion serves the owner's variance decision with
+    // the file-sourced question, its source, and its reference verbatim.
+    assertEquals(acceptanceEnvelope.error, AWAITING_VARIANCE_SLUG);
+    assertStringIncludes(
+      acceptanceEnvelope.message,
+      `Question: ${FILE_QUESTION.trim()}`,
     );
-    assertStringIncludes(acceptanceEnvelope.message, "## Governing review");
     assertStringIncludes(
       acceptanceEnvelope.message,
       `Question source: ${markdownCodeSpan(FILE_QUESTION_PATH)}`,
@@ -450,9 +449,9 @@ question = "${QUESTION_NOTES}"
           "--no-gpg-sign",
         );
 
-        // Before `update`, the branch is behind. Exact current Proof is no longer
-        // reusable because missing integration evidence cannot become green by
-        // omission. The not-yet-governing checkpoint is still absent.
+        // Before `update`, the branch is behind: completion proves the source
+        // tip against the trunk's current tip, so a behind branch routes to
+        // update. The not-yet-governing checkpoint is still absent.
         const before = await runAgent(wt, ["done", "--json"]);
         assertEquals(before.code, 1, before.output);
         assertEquals(
@@ -462,15 +461,19 @@ question = "${QUESTION_NOTES}"
         );
         assertEquals(
           parseGateJson(before.stdout).data.completion?.pending?.[0]?.kind,
-          "environment-unavailable",
+          "unavailable",
           before.output,
+        );
+        assertStringIncludes(
+          parseJson(before.stdout).message ?? "",
+          "This branch is behind main. Run discern update, then discern done.",
         );
         assert(!before.output.includes("risk-notes"), before.output);
         const forced = await runAgent(wt, ["done", "--rerun", "--json"]);
         assertEquals(forced.code, 1, forced.output);
         assertEquals(
           parseGateJson(forced.stdout).data.completion?.pending?.[0]?.kind,
-          "environment-unavailable",
+          "unavailable",
         );
         const preUpdate = await runAgent(wt, ["checkpoints", "--json"]);
         assertStringIncludes(preUpdate.stdout, `"policy":"${governed}"`);

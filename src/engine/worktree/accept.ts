@@ -89,10 +89,7 @@ import {
   serializeJobSteps,
 } from "../gate/plan.ts";
 import { renderProofLineCli } from "../gate/presentation.ts";
-import {
-  gateProofHasCompleteEvidence,
-  inspectGateProof,
-} from "../gate/proof.ts";
+import { inspectGateProof } from "../gate/proof.ts";
 import { readProofPresentation } from "../gate/proof_presentation.ts";
 import { renderLandingProofLine } from "../gate/proof_render.ts";
 import { buildStandardPlan } from "../gate/standard_plan.ts";
@@ -385,15 +382,26 @@ async function resolveSubject(
   const submission = submissionRead.status === "submitted"
     ? submissionRead.submission
     : undefined;
+  // An honored Proof whose only defect is a checkpoint drop still names the
+  // proven revision: the decision layers serve the drop-specific refusal
+  // (unreadable declaration evidence, an indeterminate stop) instead of the
+  // generic nothing-proven route. Unverifiable strand evidence stays excluded:
+  // no decision layer can compensate for it.
+  const proofData = inspected.status === "honored"
+    ? inspected.proof_data
+    : undefined;
   if (
-    gateProofHasCompleteEvidence(inspected) &&
-    inspected.proof_data.completion !== undefined &&
-    inspected.head !== undefined
+    inspected.status === "honored" &&
+    proofData !== undefined && proofData.completion !== undefined &&
+    inspected.proof_line !== undefined && inspected.head !== undefined &&
+    inspectedDrops.some((drop) =>
+        drop.reason === "strand_check_unavailable"
+      ) !== true
   ) {
     return {
       head: inspected.head,
-      complete: inspected.proof_data.completion,
-      proof: inspected.proof_data,
+      complete: proofData.completion,
+      proof: proofData,
       proofMarkdown: inspected.proof,
       proofLine: inspected.proof_line,
       drops: inspectedDrops,

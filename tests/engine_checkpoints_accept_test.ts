@@ -84,7 +84,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
           (env.hints ?? []).join("\n"),
           "never authorize a variance",
         );
-        assertStringIncludes(env.message, "not landed");
+        assertStringIncludes(env.message, "Nothing has been landed");
         assertHasHint(env, HINTS["accept-authorize-variance"], {
           ids: ["api-review"],
         });
@@ -107,7 +107,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
         assertEquals(confirmedOnly.code, 1, confirmedOnly.output);
         const confirmedEnv = parseAcceptMessageJson(confirmedOnly.stdout);
         assertEquals(confirmedEnv.error, AWAITING_VARIANCE_SLUG);
-        assertStringIncludes(confirmedEnv.message, "variance:api-review");
+        assertStringIncludes(confirmedEnv.message, "missing: api-review");
 
         // --variance without --confirmed cannot land.
         const varianceOnly = await runAgent(wt, [
@@ -164,7 +164,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
           "--confirmed",
           "--variance",
           "never authorize a variance",
-          "not landed",
+          "Nothing has been landed",
         ];
         assertEquals(
           Object.keys(surfaces).sort(),
@@ -307,7 +307,7 @@ Deno.test("accept: declared-met work needs no variance and keeps the ordinary co
     const landed = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(landed.code, 0, landed.output);
     const env = parseAppliedAcceptJson(landed.stdout);
-    assertEquals(env.prefix.variances, []);
+    assertEquals(env.data.variances ?? [], []);
     const landedSha = await gitOut(dir, "rev-parse", "main");
     const payload = await landedNotePayload(dir, landedSha);
     assertEquals(payload.acceptance?.consent, { source: "conversation" });
@@ -325,8 +325,9 @@ Deno.test("accept: a stale conclusion routes back to done, and the owner's compl
       "a stale conclusion routes back to done before any effect",
       async () => {
         // A further committed edit to the matched path stales the conclusion
-        // (the subject moved) — acceptance must route back to done, not serve a
-        // variance decision for evidence that no longer stands.
+        // (the subject moved) — and with it the Proof that bound it, so
+        // acceptance routes back to done instead of serving a variance
+        // decision for evidence that no longer stands.
         await Deno.writeTextFile(
           join(wt, "api", "surface.txt"),
           "endpoint v2\n",
@@ -349,12 +350,13 @@ Deno.test("accept: a stale conclusion routes back to done, and the owner's compl
         ]);
         assertEquals(r.code, 1, r.output);
         const env = parseAcceptMessageJson(r.stdout);
-        assertEquals(env.error, AWAITING_DECLARATION_SLUG, r.stdout);
-        assertStringIncludes(env.message, "api-review");
+        assertEquals(env.error, "precondition_failed", r.stdout);
+        assertStringIncludes(
+          env.message,
+          "has no honored Proof at HEAD, so there is nothing proven to land. " +
+            "Run discern done, then discern accept.",
+        );
         assertStringIncludes((env.hints ?? []).join("\n"), "discern done");
-        assertHasHint(env, HINTS["accept-declarations-stale"], {
-          ids: ["api-review"],
-        });
         assert(
           await targetExists(wt),
           "a precondition refusal must land nothing",
@@ -389,25 +391,25 @@ Deno.test("accept: a stale conclusion routes back to done, and the owner's compl
         landed = r.stdout;
         const env = parseAppliedAcceptJson(r.stdout);
         assertEquals(env.ok, true);
-        assertEquals(env.prefix.consent, { source: "conversation" });
+        assertEquals(env.data.consent, { source: "conversation" });
         // The authorized variance is distinct evidence in the result…
-        assertEquals(env.prefix.variances?.length, 1);
-        assertEquals(env.prefix.variances?.[0]?.checkpoint, "api-review");
-        assertEquals(env.prefix.variances?.[0]?.why, RATIONALE);
-        assert((env.prefix.variances?.[0]?.definition_hash.length ?? 0) > 0);
-        assert((env.prefix.variances?.[0]?.subject.length ?? 0) > 0);
+        assertEquals(env.data.variances?.length, 1);
+        assertEquals(env.data.variances?.[0]?.checkpoint, "api-review");
+        assertEquals(env.data.variances?.[0]?.why, RATIONALE);
+        assert((env.data.variances?.[0]?.definition_hash.length ?? 0) > 0);
+        assert((env.data.variances?.[0]?.subject.length ?? 0) > 0);
         // …and on the landing proof line the unmet segment resolves in place,
         // separate from consent — no "required to land" demand survives landing.
         assertStringIncludes(
-          env.prefix.proof_line ?? "",
+          env.data.proof_line ?? "",
           "landed with conversation consent",
         );
         assertStringIncludes(
-          env.prefix.proof_line ?? "",
+          env.data.proof_line ?? "",
           "1 declared unmet — variance authorized by the owner",
         );
         assertEquals(
-          (env.prefix.proof_line ?? "").includes("required to land"),
+          (env.data.proof_line ?? "").includes("required to land"),
           false,
         );
 
@@ -428,11 +430,11 @@ Deno.test("accept: a stale conclusion routes back to done, and the owner's compl
         assertEquals(payload.acceptance?.variances[0]?.why, RATIONALE);
         assertEquals(
           payload.acceptance?.variances[0]?.definition_hash,
-          env.prefix.variances?.[0]?.definition_hash,
+          env.data.variances?.[0]?.definition_hash,
         );
         assertEquals(
           payload.acceptance?.variances[0]?.subject,
-          env.prefix.variances?.[0]?.subject,
+          env.data.variances?.[0]?.subject,
         );
       },
     );
@@ -468,8 +470,15 @@ Deno.test("accept: a stale conclusion routes back to done, and the owner's compl
         assert(typeof variance?.definition === "string");
         assert(typeof variance?.subject === "string");
         assertEquals(accept.checkpoints?.abandoned, undefined);
+        // From the main checkout, accept is a read-only queue refusal now that
+        // the landing consumed this effort's submission — and it must not
+        // repeat the landing observation.
         const retry = await runAgent(dir, ["accept", "--json"]);
-        assertEquals(retry.code, 0, retry.output);
+        assertEquals(retry.code, 1, retry.output);
+        assertStringIncludes(
+          parseAcceptMessageJson(retry.stdout).message,
+          "No effort has submitted a revision for landing.",
+        );
         const repeated = await readLogbook(dir);
         assertEquals(
           repeated.events.filter((event) =>
@@ -510,8 +519,8 @@ Deno.test("accept: standing grants land declared-met work but never authorize a 
     const landed = await runAgent(wt, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
     const env = parseAppliedAcceptJson(landed.stdout);
-    assertEquals(env.prefix.consent?.source, "standing-grant");
-    assertEquals(env.prefix.variances, []);
+    assertEquals(env.data.consent.source, "standing-grant");
+    assertEquals(env.data.variances ?? [], []);
     assertEquals(await targetExists(wt), false);
   });
 });

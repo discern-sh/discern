@@ -1,16 +1,13 @@
 /** MCP acceptance preserves landed outcomes through cancellation and cleanup retry. */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import {
-  observedRecords,
-  observeQueue,
-} from "../src/engine/landing_queue/repository.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { AcceptDataSchema } from "../src/shared/result_schemas.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 import {
   addWorktree,
+  git,
   gitInit,
   gitOut,
   runAgent,
@@ -74,19 +71,21 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
       JSON.stringify(partial),
     );
     const partialData = AcceptDataSchema.parse(partial.structuredContent.data);
-    const prefix = partialData.queue?.[0];
-    assert(prefix !== undefined);
     const canonicalRoot = await Deno.realPath(dir);
     assertEquals(partialData.root, canonicalRoot);
-    assertEquals(prefix.consent, { source: "conversation" });
-    assertEquals(prefix.target, landedSha);
-    assertEquals(prefix.state, "landed");
-    assertEquals(prefix.retirement, "recovery");
-    assertEquals(prefix.retirement_effects, {
+    assertEquals(partialData.consent, { source: "conversation" });
+    assertEquals(partialData.landing, {
+      recovery_performed: false,
+      trunk_landed: true,
       worktree_removed: true,
       branch_deleted: false,
     });
-    assertStringIncludes(String(partial.structuredContent.message), "landed");
+    assertEquals(await gitOut(dir, "rev-parse", "main"), landedSha);
+    assertStringIncludes(String(partial.structuredContent.message), "Landed");
+    assertStringIncludes(
+      String(partial.structuredContent.message),
+      `Run discern worktree prune from ${canonicalRoot}`,
+    );
     assertEquals(await targetExists(worktree), false);
     assertEquals(
       working.get(),
@@ -126,9 +125,8 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
 
     await Deno.remove(branchLock);
     assertEquals(await gitOut(dir, "rev-parse", branch), landedSha);
-    const settled = observedRecords(await observeQueue(dir, "main")).filter((
-      record,
-    ) => record.kind === "landing" || record.kind === "authority");
+    // The landing consumed the submission: a retried accept from the re-aimed
+    // main root is a read-only queue view and replays no consent.
     const resumed = await runTool(
       acceptTool,
       working,
@@ -139,13 +137,15 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
       "unknown-client",
       TEST_CLI_MODEL,
     );
-    assertEquals(resumed.isError, false, JSON.stringify(resumed));
-    assertEquals(
-      observedRecords(await observeQueue(dir, "main")).filter((record) =>
-        record.kind === "landing" || record.kind === "authority"
-      ),
-      settled,
+    assertEquals(resumed.isError, true, JSON.stringify(resumed));
+    assertStringIncludes(
+      String(resumed.structuredContent.message),
+      "No effort has submitted a revision for landing.",
     );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), landedSha);
+    // The by-hand cleanup the partial result names finishes the recovery.
+    assertEquals(await gitOut(dir, "rev-parse", branch), landedSha);
+    await git(dir, "branch", "-d", branch);
     assertEquals(await gitOut(dir, "branch", "--list", branch), "");
   });
 });
@@ -201,19 +201,27 @@ Deno.test("discern mcp: cancellation during main convergence preserves landing a
       "partial_acceptance",
       JSON.stringify(cancelled),
     );
-    const prefix = AcceptDataSchema.parse(cancelled.structuredContent.data)
-      .queue?.[0];
-    assertEquals(prefix?.state, "landed");
-    assertEquals(prefix?.convergence, "failed");
-    assertEquals(prefix?.retirement, "retained");
+    // The landing is durable and its cleanup completes: cancellation cannot
+    // roll the trunk back or strand the effort's checkout.
+    const cancelledData = AcceptDataSchema.parse(
+      cancelled.structuredContent.data,
+    );
+    assertEquals(cancelledData.landing, {
+      recovery_performed: false,
+      trunk_landed: true,
+      worktree_removed: true,
+      branch_deleted: true,
+    });
     assertEquals(await gitOut(root, "rev-parse", "HEAD"), target);
-    assert(await targetExists(worktree));
-    const before = observedRecords(await observeQueue(root, "main"));
-    const authority = before.filter((record) => record.kind === "authority");
-    const landingIds = before.filter((record) => record.kind === "landing").map(
-      (record) => record.id,
+    assertEquals(await targetExists(worktree), false);
+    assertEquals(
+      working.get(),
+      await Deno.realPath(root),
+      "the removed held root must re-aim to the main checkout",
     );
     await Deno.remove(armed);
+    // A retried accept from the re-aimed main checkout is a read-only queue
+    // view: the landing consumed the submission and replays no authority.
     const resumed = await runTool(
       tool,
       working,
@@ -224,22 +232,13 @@ Deno.test("discern mcp: cancellation during main convergence preserves landing a
       "unknown-client",
       TEST_CLI_MODEL,
     );
-    assertEquals(resumed.isError, false, JSON.stringify(resumed));
-    assertEquals(await targetExists(worktree), false);
-    const after = observedRecords(await observeQueue(root, "main"));
-    assertEquals(
-      after.filter((record) => record.kind === "authority"),
-      authority,
+    assertEquals(resumed.isError, true, JSON.stringify(resumed));
+    assertStringIncludes(
+      String(resumed.structuredContent.message),
+      "No effort has submitted a revision for landing.",
     );
-    assertEquals(
-      after.filter((record) => record.kind === "landing").map((record) =>
-        record.id
-      ),
-      landingIds,
-    );
-    assertEquals((await Deno.readTextFile(calls)).trim().split("\n"), [
-      "run",
-      "run",
-    ]);
+    assertEquals(await gitOut(root, "rev-parse", "HEAD"), target);
+    // The interrupted convergence ran ensure once; recovery replays nothing.
+    assertEquals((await Deno.readTextFile(calls)).trim().split("\n"), ["run"]);
   });
 });

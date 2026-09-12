@@ -5,11 +5,11 @@
 
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { dirname, isAbsolute, join } from "@std/path";
+import { readSubmission } from "../src/engine/worktree/submission.ts";
 import {
   clearSubmission,
-  readSubmission,
   recordSubmission,
-} from "../src/engine/worktree/submission.ts";
+} from "../src/engine/worktree/submission_writer.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { addWorktree, gitInit, gitOut } from "./engine_helpers.ts";
@@ -65,9 +65,10 @@ Deno.test("a submission is recorded beside the grant, replaced, and consumed", a
     assert(replaced.status === "submitted");
     assertEquals(replaced.submission.id, second.id, "a later accept replaces");
 
-    assertEquals(await clearSubmission(worktree), true);
+    await clearSubmission(worktree);
     assertEquals(await readSubmission(worktree), { status: "missing" });
-    assertEquals(await clearSubmission(worktree), true, "absence is settled");
+    await clearSubmission(worktree); // absence is settled, not an error
+    assertEquals(await readSubmission(worktree), { status: "missing" });
   });
 });
 

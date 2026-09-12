@@ -394,7 +394,7 @@ Deno.test("accept: one proven worktree refuses every main-checkout precondition 
         assertTerminalTextIncludes(r.output, "'(detached)', not 'main'");
         assertTerminalTextIncludes(
           r.output,
-          "Return to the configured trunk",
+          "so return it first",
         );
         assertEquals(
           await gitOut(dir, "branch", "--show-current"),
@@ -451,7 +451,7 @@ Deno.test("accept: one proven worktree refuses every main-checkout precondition 
         // The way back is named (path canonicalization may differ, so match the tail).
         assertTerminalTextIncludes(
           r.output,
-          "Return to the configured trunk",
+          "so return it first",
         );
         assertEquals(
           await targetExists(wt),
@@ -586,7 +586,7 @@ Deno.test("accept: one proven worktree refuses every main-checkout precondition 
         );
         assertTerminalTextIncludes(
           r.output,
-          "landed. Its checkout was removed",
+          "; its checkout, branch, and resources are gone. You are on main in ",
         );
         assert(
           await targetExists(join(dir, ".codex/session.local.toml")),
@@ -868,7 +868,8 @@ Deno.test("accept: malformed tracked refresh input is refused before landing", a
     );
     assertTerminalTextIncludes(
       r.output,
-      "No Proof covers this effort's current source",
+      "has no honored Proof at HEAD, so there is nothing proven to land. " +
+        "Run discern done, then discern accept.",
     );
   });
 });
@@ -884,9 +885,9 @@ Deno.test("accept: refuses a dirty worktree without moving anything", async () =
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(
       r.output,
-      "not validated. Run discern done from its clean committed worktree",
+      "has no honored Proof at HEAD, so there is nothing proven to land. " +
+        "Run discern done, then discern accept.",
     );
-    assertTerminalTextIncludes(r.output, "clean committed worktree");
     assertEquals(
       await targetExists(wt),
       true,
@@ -914,9 +915,10 @@ Deno.test("accept: refuses a dirty worktree without moving anything", async () =
   });
 });
 
-Deno.test("accept: lands a proven locked worktree and retains its checkout and branch", async () => {
+Deno.test("accept: refuses a locked worktree read-only until it is unlocked", async () => {
   await withTempDir(async (dir) => {
-    // Landing and retirement are separate: the explicit Git lock preserves the checkout.
+    // Acceptance removes the worktree after landing, so an explicit Git lock
+    // refuses the landing up front with the unlock route.
     const wt = await mainWithWorktree(dir, "locked-grad");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
@@ -927,14 +929,14 @@ Deno.test("accept: lands a proven locked worktree and retains its checkout and b
     const target = await gitOut(wt, "rev-parse", "HEAD");
 
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
     const result = decodeCliResult(r.stdout, "accept");
-    assertResultDataKey(result, "queue");
-    assert(
-      result.data.queue?.some((row) =>
-        row.state === "landed" && row.retirement === "retained"
-      ),
-      r.stdout,
+    assertEquals(result.ok, false);
+    assertStringIncludes(
+      result.message ?? "",
+      `Unlock it first (git worktree unlock ${await Deno.realPath(
+        wt,
+      )}), then re-run discern accept.`,
     );
     assertEquals(
       await targetExists(wt),
@@ -942,15 +944,22 @@ Deno.test("accept: lands a proven locked worktree and retains its checkout and b
       `the worktree survives\n${r.output}`,
     );
     assertEquals(
-      await gitOut(dir, "rev-parse", "main"),
+      await gitOut(dir, "rev-parse", "agent/locked-grad"),
       target,
-      `the exact authorized source must land\n${r.output}`,
+      `the refusal must not move the branch\n${r.output}`,
     );
     assertStringIncludes(
       await gitOut(dir, "branch", "--list", "agent/locked-grad"),
       "agent/locked-grad",
       `the branch keeps its commits\n${r.output}`,
     );
+
+    // Unlocked, the same proven revision lands and the checkout is removed.
+    await git(dir, "worktree", "unlock", wt);
+    const landed = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(landed.code, 0, landed.output);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), target);
+    assertEquals(await targetExists(wt), false);
   });
 });
 
@@ -968,7 +977,8 @@ Deno.test("accept: unproven work behind main retains all committed and uncommitt
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(
       r.output,
-      "not validated. Run discern done from its clean committed worktree",
+      "has no honored Proof at HEAD, so there is nothing proven to land. " +
+        "Run discern done, then discern accept.",
     );
     assert(
       await targetExists(wt),
@@ -1014,20 +1024,29 @@ Deno.test("completion: main moving during validation prevents admission and acce
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
     const branchHead = await gitOut(wt, "rev-parse", "HEAD");
 
+    // The Proof binds the predecessor pinned at run start; a producer that
+    // moves the trunk mid-run leaves a green Proof that can never land.
     const done = await runAgent(wt, ["done", "--json"]);
-    assertEquals(done.code, 1, done.output);
+    assertEquals(done.code, 0, done.output);
     assertEquals(
       await gitOut(dir, "log", "-1", "--format=%s"),
       "race-main",
       "the declared producer really moved trunk",
     );
+    const trunkAfterRace = await gitOut(dir, "rev-parse", "main");
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 1, r.output);
     const refused = decodeCliResult(r.stdout, "accept");
-    assertResultDataKey(refused, "queue");
-    assert(
-      !refused.data.queue?.some((row) => row.state === "landed"),
-      r.stdout,
+    assertEquals(refused.ok, false);
+    assertStringIncludes(
+      refused.message ?? "",
+      "The trunk moved after agent/race's Proof; run discern update, " +
+        "discern done, then discern accept.",
+    );
+    assertEquals(
+      await gitOut(dir, "rev-parse", "main"),
+      trunkAfterRace,
+      `the refusal must not move the trunk\n${r.output}`,
     );
     assert(
       await targetExists(wt),
@@ -1075,8 +1094,8 @@ Deno.test("accept reports ignored files changed since worktree setup at the top 
     const applied = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(applied.code, 0, applied.output);
     const obj = decodeCliResult(applied.stdout, "accept");
-    assertResultDataKey(obj, "queue");
-    const ignored = obj.data.queue?.[0]?.ignored_file_changes;
+    assertResultDataKey(obj, "ignored_file_changes");
+    const ignored = obj.data.ignored_file_changes;
     assertExists(ignored);
     assertEquals(ignored.changed_roots, ["local-cache/"]);
     assertEquals(ignored.truncated, false);
@@ -1095,6 +1114,9 @@ Deno.test("accept suppresses ignored-file drift detection when configured off", 
         "[repository]",
         'trunk = "main"',
         "",
+        "[jobs]",
+        'lint = ":"',
+        "",
         "[worktree]",
         "ignored_file_drift = false",
         "",
@@ -1111,6 +1133,8 @@ Deno.test("accept suppresses ignored-file drift detection when configured off", 
     await Deno.mkdir(join(wt, "local-cache"), { recursive: true });
     await Deno.writeTextFile(join(wt, "local-cache", "changed.txt"), "x\n");
     await commitCurrentWorktree(wt);
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
 
     const dry = await runAgent(wt, ["accept", "--dry-run"]);
 
@@ -1140,7 +1164,8 @@ Deno.test("accept: the main checkout cannot progress an unproven queue", async (
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(
       r.output,
-      "No Proof covers this effort's current source",
+      "Run discern accept from the effort's worktree, or select one with " +
+        "--target <effort>. No effort has submitted a revision for landing.",
     );
   });
 });
@@ -1196,7 +1221,8 @@ Deno.test("the interrupted-acceptance guide keeps recovery commands on their reg
   const resultReference = await Deno.readTextFile(
     join(REPO_ROOT, "project/manual/30-reference/mcp-and-results.md"),
   );
-  for (const field of ["data.queue", "authority_settlement", "retirement"]) {
+  // The queue-row vocabulary the derived landing queue actually serves.
+  for (const field of ["data.queue", "pre-authorized", "awaiting-owner"]) {
     assertStringIncludes(resultReference, field);
   }
   assertEquals("accept" in SIDE_RESTRICTED_OPS, false);

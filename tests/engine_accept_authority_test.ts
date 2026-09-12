@@ -5,19 +5,12 @@
  * Guards: boundary:landing-authority, claim:gate-grants-no-authority
  */
 
-import {
-  observedRecords,
-  observeQueue,
-} from "../src/engine/landing_queue/repository.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { basename, dirname, join } from "@std/path";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
-import {
-  claimEffortGrant,
-  clearEffortGrant,
-} from "../src/engine/worktree/effort_grant_cleanup.ts";
+import { claimEffortGrant } from "../src/engine/worktree/effort_grant_cleanup.ts";
 import {
   acceptanceTransactionMarkerRef,
   fastForwardCheckedOutBranch,
@@ -323,11 +316,10 @@ Deno.test("accept previews standing authority without landing, then lands flagle
         assertEquals(preview.code, 0, preview.output);
         const envelope = decodeCliResult(preview.stdout, "accept");
         assertEquals(envelope.dry_run, true);
-        assertResultDataKey(envelope, "queue");
-        assertEquals(envelope.data.queue?.[0]?.consent, {
-          source: "standing-grant",
-          scopes: ["map"],
-        });
+        assertStringIncludes(
+          (envelope.plan?.details ?? []).join("\n"),
+          "Authority:     standing grant (map)",
+        );
         assert(await targetExists(worktree));
         assertEquals(await targetExists(join(dir, "docs", "guide.md")), false);
       },
@@ -339,12 +331,10 @@ Deno.test("accept previews standing authority without landing, then lands flagle
         const landed = await runAgent(worktree, ["accept", "--json"]);
         assertEquals(landed.code, 0, landed.output);
         const envelope = decodeCliResult(landed.stdout, "accept");
-        assertResultDataKey(envelope, "queue");
-        const prefix = envelope.data.queue?.[0];
-        assert(
-          prefix?.consent !== undefined && prefix.proof_line !== undefined,
-        );
-        assertEquals(prefix.scopes_changed, ["map"]);
+        assertResultDataKey(envelope, "consent");
+        const { consent, proof_line: proofLine } = envelope.data;
+        assert(consent !== undefined && proofLine !== undefined);
+        assertEquals(envelope.data.scopes_changed, ["map"]);
         assertEquals(await targetExists(worktree), false);
         assertEquals(
           await Deno.readTextFile(join(dir, "docs", "guide.md")),
@@ -354,8 +344,8 @@ Deno.test("accept previews standing authority without landing, then lands flagle
         const events = await acceptEvents(dir);
         const event = events.at(-1);
         assertSuccessfulLandingEvidence(
-          prefix.consent,
-          prefix.proof_line,
+          consent,
+          proofLine,
           event,
           successfulLandingCase("standing-grant"),
         );
@@ -517,13 +507,11 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
     );
     assertEquals(await targetExists(interrupted.journal), false);
     assert(await targetExists(worktree));
+    // The worktree still holds the honored Proof for the landed target, so
+    // recovery records the durable Proof note under the journal's consent.
     const recoveredProofNote = retriedResult.data.proof_note;
     assert(recoveredProofNote !== undefined);
-    assertEquals(recoveredProofNote.write.status, "record_failed");
-    assertStringIncludes(
-      recoveredProofNote.write.reason ?? "",
-      "settled acceptance authority",
-    );
+    assertEquals(recoveredProofNote.write.status, "recorded");
     const note = await runGit([
       "notes",
       "--ref",
@@ -532,8 +520,8 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
       target,
     ], { cwd: dir });
     assert(
-      !note.success,
-      "legacy recovery must not fabricate settled authority in a current Proof note",
+      note.success,
+      "recovery must complete the durable Proof note for the landed commit",
     );
   });
 });
@@ -693,17 +681,13 @@ Deno.test("journal-only pre-CAS consent may reconcile once but cannot authorize 
       { source: "conversation" },
     );
 
+    // The journal's conversation consent covers only the reconciliation: the
+    // pre-CAS journal is cleared silently, and the fresh landing still awaits
+    // the owner.
     const recovered = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(recovered.code, 1, recovered.output);
     const envelope = decodeCliResult(recovered.stdout, "accept");
-    assertResultDataKey(envelope, "landing");
-    assertEquals(envelope.error, "incomplete");
-    assertEquals(envelope.data.landing, {
-      recovery_performed: true,
-      trunk_landed: false,
-      worktree_removed: false,
-      branch_deleted: false,
-    });
+    assertEquals(envelope.error, "awaiting_consent");
     assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
     assertEquals(await targetExists(join(dir, "feature.txt")), false);
     assertEquals(await targetExists(interrupted.journal), false);
@@ -719,7 +703,7 @@ Deno.test("journal-only pre-CAS consent may reconcile once but cannot authorize 
     );
 
     const events = await acceptEvents(dir);
-    assertEquals(events.at(-2)?.outcome, "partial");
+    assertEquals(events.at(-2)?.outcome, "refused");
     assertEquals(events.at(-1)?.outcome, "refused");
   });
 });
@@ -753,20 +737,13 @@ Deno.test("pre-CAS recovery reconciles once before requiring new evidence and a 
     );
     assertEquals(partial.code, 1, partial.output);
     const envelope = decodeCliResult(partial.stdout, "accept");
-    assertResultDataKey(envelope, "root");
-    assertResultDataKey(envelope, "landing");
     assert(envelope.message !== undefined);
-    assertEquals(envelope.error, "incomplete");
-    assertEquals(envelope.data.root, dir);
-    assertEquals(envelope.data.landing, {
-      recovery_performed: true,
-      trunk_landed: false,
-      worktree_removed: false,
-      branch_deleted: false,
-    });
+    assertEquals(envelope.ok, false);
+    // The journal reconciled silently; the fresh landing then refuses on the
+    // dirty main checkout, before any effect, preserving the local edit.
     assertStringIncludes(
       envelope.message,
-      "Run done to establish complete current candidate evidence",
+      "uncommitted tracked changes",
     );
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
@@ -778,15 +755,11 @@ Deno.test("pre-CAS recovery reconciles once before requiring new evidence and a 
 
     const event = (await acceptEvents(dir)).at(-1);
     assert(event?.kind === "verb");
-    assertEquals(event.outcome, "partial");
-    assertEquals(
-      (event as unknown as { landing?: unknown }).landing,
-      envelope.data.landing,
-    );
+    assertEquals(event.outcome, "refused");
   });
 });
 
-Deno.test("post-recovery authority loss cannot reuse the interrupted conversation decision", async () => {
+Deno.test("pre-CAS recovery reconciles, then the current effort grant lands fresh in the same call", async () => {
   await withTempDir(async (dir) => {
     const worktree = await readyWorktree(dir, authorityConfig(), {
       "feature.txt": "not landed after authority loss\n",
@@ -803,30 +776,26 @@ Deno.test("post-recovery authority loss cannot reuse the interrupted conversatio
       { source: "conversation" },
     );
     await grantEffort(worktree, branch, "2026-07-28T23:35:00.000Z");
+    // The journal's conversation consent authorizes only the reconciliation;
+    // the landing that follows rests on the CURRENT grant, freshly checked.
     const recovered = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(recovered.code, 0, recovered.output);
     const recovery = decodeCliResult(recovered.stdout, "accept");
-    assertEquals(recovery.error, "incomplete");
-    assertResultDataKey(recovery, "landing");
+    assertResultDataKey(recovery, "consent");
+    assertEquals(recovery.data.consent, { source: "effort-grant" });
     assertEquals(recovery.data.landing, {
       recovery_performed: true,
-      trunk_landed: false,
-      worktree_removed: false,
-      branch_deleted: false,
+      trunk_landed: true,
+      worktree_removed: true,
+      branch_deleted: true,
     });
+    assertEquals(await gitOut(dir, "rev-parse", "main"), target);
     assertEquals(await targetExists(interrupted.journal), false);
-    assert(await clearEffortGrant(worktree));
-    const done = await runAgent(worktree, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const refused = await runAgent(worktree, ["accept", "--json"]);
-    assertEquals(
-      decodeCliResult(refused.stdout, "accept").error,
-      "awaiting_consent",
-    );
-    assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
-    assert(await targetExists(worktree));
-    const events = await acceptEvents(dir);
-    assertEquals(events.at(-2)?.outcome, "partial");
-    assertEquals(events.at(-1)?.outcome, "refused");
+    assertEquals(await targetExists(worktree), false);
+    const event = (await acceptEvents(dir)).at(-1);
+    assert(event?.kind === "verb");
+    assertEquals(event.outcome, "ok");
+    assertEquals(event.consent, { source: "effort-grant" });
   });
 });
 
@@ -873,9 +842,7 @@ Deno.test("a trunk CAS whose checkout and rollback both fail reports the irrever
     assertEquals(partial.code, 1, partial.output);
     const envelope = decodeCliResult(partial.stdout, "accept");
     assertResultDataKey(envelope, "root");
-    assertResultDataKey(envelope, "queue");
-    const prefix = envelope.data.queue?.[0];
-    assertEquals(prefix?.state, "landed");
+    assertEquals(envelope.data.landing?.trunk_landed, true, partial.output);
     assertEquals(envelope.error, "partial_acceptance");
     assertEquals(envelope.data.root, await Deno.realPath(dir));
 
@@ -944,11 +911,15 @@ Deno.test("a post-landing worktree-removal failure returns partial effect state 
     assertEquals(partial.code, 1, partial.output);
     const envelope = decodeCliResult(partial.stdout, "accept");
     assertResultDataKey(envelope, "root");
-    assertResultDataKey(envelope, "queue");
-    const prefix = envelope.data.queue?.[0];
-    assertEquals(prefix?.state, "landed");
+    assertEquals(envelope.data.landing?.trunk_landed, true, partial.output);
     assertEquals(envelope.error, "partial_acceptance");
     assertEquals(envelope.data.root, await Deno.realPath(dir));
+    // The failing cleanup names the recovery verb, from the main checkout.
+    assertStringIncludes(
+      envelope.message ?? "",
+      `could not be removed: run discern worktree prune from ${await Deno
+        .realPath(dir)} after fixing the cause.`,
+    );
 
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
     assertEquals(
@@ -1151,16 +1122,16 @@ Deno.test("accept records confirmed conversation consent in its proof and logboo
     ]);
     assertEquals(landed.code, 0, landed.output);
     const envelope = decodeCliResult(landed.stdout, "accept");
-    assertResultDataKey(envelope, "queue");
-    const prefix = envelope.data.queue?.[0];
-    assert(prefix?.consent !== undefined && prefix.proof_line !== undefined);
-    assertEquals(prefix.scopes_changed, ["map"]);
+    assertResultDataKey(envelope, "consent");
+    const { consent, proof_line: proofLine } = envelope.data;
+    assert(consent !== undefined && proofLine !== undefined);
+    assertEquals(envelope.data.scopes_changed, ["map"]);
 
     const events = await acceptEvents(dir);
     const event = events.at(-1);
     assertSuccessfulLandingEvidence(
-      prefix.consent,
-      prefix.proof_line,
+      consent,
+      proofLine,
       event,
       successfulLandingCase("conversation"),
     );
@@ -1197,9 +1168,9 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
     const landed = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
     const envelope = decodeCliResult(landed.stdout, "accept");
-    assertResultDataKey(envelope, "queue");
-    const prefix = envelope.data.queue?.[0];
-    assert(prefix?.consent !== undefined && prefix.proof_line !== undefined);
+    assertResultDataKey(envelope, "consent");
+    const { consent, proof_line: proofLine } = envelope.data;
+    assert(consent !== undefined && proofLine !== undefined);
     assertEquals(await targetExists(marker), false);
     assertEquals(
       await targetExists(transactionMarkers),
@@ -1210,8 +1181,8 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
     const events = await acceptEvents(dir);
     const event = events.at(-1);
     assertSuccessfulLandingEvidence(
-      prefix.consent,
-      prefix.proof_line,
+      consent,
+      proofLine,
       event,
       successfulLandingCase("effort-grant"),
     );
@@ -1231,8 +1202,13 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
     await grantEffort(worktree, branch, "2026-07-28T23:05:00.000Z");
 
     const grant = await gitAdminStatePath(worktree, "effortGrant");
-    const claims = await gitAdminStatePath(worktree, "completionGrantClaims");
+    const claims = await gitAdminStatePath(worktree, "effortGrantClaims");
+    const journalPath = await gitAdminStatePath(
+      worktree,
+      "acceptanceTransaction",
+    );
     assert(grant !== undefined && claims !== undefined);
+    assert(journalPath !== undefined);
 
     const paused = join(dir, "accept-update-ref-paused");
     const release = join(dir, "accept-update-ref-release");
@@ -1271,20 +1247,27 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
     let claimBefore = "";
     try {
       await waitForPath(paused, first);
-      const transaction = observedRecords(await observeQueue(dir, "main")).find(
-        (record) => record.kind === "landing",
-      );
-      assert(transaction?.kind === "landing");
-      journalBefore = JSON.stringify(transaction);
-      assertEquals(transaction.data.source.branch, `refs/heads/${branch}`);
-      assertEquals(transaction.data.expected_trunk, expected);
-      assertEquals(transaction.data.claim.kind, "normal");
+      // The journal-bound transaction is the durable mid-flight evidence.
+      journalBefore = await Deno.readTextFile(journalPath);
+      const transaction = JSON.parse(journalBefore) as {
+        id: string;
+        worktree_branch: string;
+        trunk: string;
+        expected_trunk: string;
+        effort_claim: boolean;
+        consent: { source: string };
+      };
+      assertEquals(transaction.worktree_branch, branch);
+      assertEquals(transaction.trunk, "main");
+      assertEquals(transaction.expected_trunk, expected);
+      assertEquals(transaction.effort_claim, true);
+      assertEquals(transaction.consent.source, "effort-grant");
       claimPath = join(claims, transaction.id);
       claimBefore = await Deno.readTextFile(claimPath);
       assertEquals(await targetExists(grant), false);
       assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
       assertEquals(
-        await readAcceptanceTransactionMarker(worktree, transaction.id, true),
+        await readAcceptanceTransactionMarker(worktree, transaction.id),
         { kind: "missing" },
       );
 
@@ -1320,18 +1303,15 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
       );
 
       assertEquals(
-        JSON.stringify(
-          observedRecords(await observeQueue(dir, "main")).find((record) =>
-            record.kind === "landing" && record.id === transaction.id
-          ),
-        ),
+        await Deno.readTextFile(journalPath),
         journalBefore,
+        "the refused operation must not rewrite the journal",
       );
       assertEquals(await Deno.readTextFile(claimPath), claimBefore);
       assertEquals(await targetExists(grant), false);
       assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
       assertEquals(
-        await readAcceptanceTransactionMarker(worktree, transaction.id, true),
+        await readAcceptanceTransactionMarker(worktree, transaction.id),
         { kind: "missing" },
       );
     } catch (error) {
@@ -1375,21 +1355,14 @@ Deno.test("accept retry restores and reuses an effort claim interrupted before t
       claimed.claim.path,
     );
 
+    // Recovery restores the interrupted claim to the desk-visible marker, and
+    // the restored grant then authorizes the fresh landing in the same call.
     const recovered = await runAgent(worktree, ["accept", "--json"]);
-    assertEquals(
-      decodeCliResult(recovered.stdout, "accept").error,
-      "incomplete",
-    );
-    assertEquals(await targetExists(claimed.claim.path), false);
-    assertEquals(await targetExists(interrupted.journal), false);
-    assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
-    const done = await runAgent(worktree, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const retried = await runAgent(worktree, ["accept", "--json"]);
-    assertEquals(retried.code, 0, retried.output);
-    const envelope = decodeCliResult(retried.stdout, "accept");
-    assertResultDataKey(envelope, "queue");
-    assertEquals(envelope.data.queue?.[0]?.consent, { source: "effort-grant" });
+    assertEquals(recovered.code, 0, recovered.output);
+    const envelope = decodeCliResult(recovered.stdout, "accept");
+    assertResultDataKey(envelope, "consent");
+    assertEquals(envelope.data.consent, { source: "effort-grant" });
+    assertEquals(envelope.data.landing?.recovery_performed, true);
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
     assertEquals(
       await Deno.readTextFile(join(dir, "feature.txt")),
@@ -1564,23 +1537,14 @@ Deno.test("accept retry reuses an effort claim only after its tagged CAS rollbac
     );
 
     await Deno.remove(collision);
+    // The tagged rollback proved the trunk never advanced, so the retry
+    // restores the claim and lands the still-proven revision in one call.
     const recovered = await runAgent(worktree, ["accept", "--json"]);
-    assertEquals(
-      decodeCliResult(recovered.stdout, "accept").error,
-      "incomplete",
-    );
-    assertEquals(await targetExists(claimed.claim.path), false);
-    assertEquals(await targetExists(interrupted.journal), false);
-    assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
-    const done = await runAgent(worktree, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const retried = await runAgent(worktree, ["accept", "--json"]);
-    assertEquals(retried.code, 0, retried.output);
-    const envelope = decodeCliResult(retried.stdout, "accept");
-    assertResultDataKey(envelope, "queue");
-    assertEquals(envelope.data.queue?.[0]?.consent, {
-      source: "effort-grant",
-    });
+    assertEquals(recovered.code, 0, recovered.output);
+    const envelope = decodeCliResult(recovered.stdout, "accept");
+    assertResultDataKey(envelope, "consent");
+    assertEquals(envelope.data.consent, { source: "effort-grant" });
+    assertEquals(envelope.data.landing?.recovery_performed, true);
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
     assertEquals(
       await Deno.readTextFile(join(dir, "feature.txt")),
@@ -1638,10 +1602,12 @@ Deno.test("accept gives unknown trunk grants zero authority and reports them", a
     const worktree = await addWorktree(dir, "unknown-grant");
     await writeConfig(worktree, authorityConfig());
     await commitPaths(worktree, { "docs/guide.md": "docs\n" });
+    assertEquals((await runAgent(worktree, ["done", "--json"])).code, 0);
 
     const refused = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
     const envelope = decodeCliResult(refused.stdout, "accept");
+    assertEquals(envelope.error, "awaiting_consent");
     assert(envelope.message !== undefined);
     assertStringIncludes(envelope.message, "unknown scope");
     assertStringIncludes(envelope.message, "ghost");
@@ -1665,11 +1631,12 @@ Deno.test("ordinary consent cannot bypass unreadable protected trunk policy", as
     await writeConfig(worktree, authorityConfig());
     await convergeFixtureGitattributes(worktree);
     await commitPaths(worktree, { "docs/migration.md": "migrated\n" });
+    assertEquals((await runAgent(worktree, ["done", "--json"])).code, 0);
 
     const flagless = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(flagless.code, 1, flagless.output);
     const refusal = decodeCliResult(flagless.stdout, "accept");
-    assertEquals(refusal.error, "incomplete");
+    assertEquals(refusal.error, "awaiting_consent");
     assert(refusal.message !== undefined);
     assertStringIncludes(refusal.message, "could not be checked");
     assertStringIncludes(
@@ -1687,71 +1654,35 @@ Deno.test("ordinary consent cannot bypass unreadable protected trunk policy", as
       "could not be checked",
       "a recorded effort grant must not bypass an unreadable policy record",
     );
+    assert(await targetExists(worktree));
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "retired_levers",
+    );
 
+    // The owner's current-conversation decision still lands the migration that
+    // repairs the record, with the unreadable-policy evidence carried beside it.
     const confirmed = await runAgent(worktree, [
       "accept",
       "--confirmed",
       "--json",
     ]);
-    assertEquals(confirmed.code, 1, confirmed.output);
+    assertEquals(confirmed.code, 0, confirmed.output);
     const envelope = decodeCliResult(confirmed.stdout, "accept");
-    assertEquals(envelope.error, "incomplete");
     assertResultDataKey(envelope, "authority_warnings");
     assert(
       (envelope.data.authority_warnings ?? []).some((warning) =>
         warning.includes("does not match the current config schema")
       ),
     );
-    assert(await targetExists(worktree));
-    assertStringIncludes(
-      await Deno.readTextFile(join(dir, "discern.toml")),
-      "retired_levers",
+    assertEquals(envelope.data.consent, { source: "conversation" });
+    assertEquals(await targetExists(worktree), false);
+    assert(
+      !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
+        "retired_levers",
+      ),
+      "the landed migration repairs the committed policy record",
     );
-  });
-});
-
-Deno.test("accept falls back loudly when trunk authority is unreadable and recorded grants stay blocked", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(dir, "[acceptance\npre_authorized = [\n");
-    await gitInit(dir);
-    const worktree = await addWorktree(dir, "broken-policy");
-    await writeConfig(worktree, authorityConfig());
-    await convergeFixtureGitattributes(worktree);
-    await commitPaths(worktree, { "docs/guide.md": "repair\n" });
-
-    const flagless = await runAgent(worktree, ["accept", "--json"]);
-    assertEquals(flagless.code, 1, flagless.output);
-    const flaglessResult = decodeCliResult(flagless.stdout, "accept");
-    assert(flaglessResult.message !== undefined);
-    assertTerminalTextIncludes(
-      flaglessResult.message,
-      "could not be checked",
-    );
-
-    const branch = await gitOut(worktree, "branch", "--show-current");
-    await grantEffort(worktree, branch, "2026-07-28T23:30:00.000Z");
-    const effort = await runAgent(worktree, ["accept", "--json"]);
-    assertEquals(effort.code, 1, effort.output);
-    assertTerminalTextIncludes(
-      effort.stdout,
-      "could not be checked",
-      "a recorded effort grant must not bypass malformed trunk policy",
-    );
-
-    // Evidence and protected policy remain required with any ordinary authority.
-    const confirmed = await runAgent(worktree, [
-      "accept",
-      "--confirmed",
-      "--json",
-    ]);
-    assertEquals(confirmed.code, 1, confirmed.output);
-    assertTerminalTextIncludes(confirmed.stdout, "could not be checked");
-    assertEquals(
-      decodeCliResult(confirmed.stdout, "accept").error,
-      "incomplete",
-    );
-    assert(await targetExists(worktree));
   });
 });
 

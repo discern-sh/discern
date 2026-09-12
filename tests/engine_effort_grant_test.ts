@@ -1,5 +1,3 @@
-import { inspectLandingAuthority } from "../src/engine/worktree/landing_authority.ts";
-import { performAcceptanceTransition } from "../src/engine/worktree/acceptance_transaction.ts";
 /**
  * The desk-owned, worktree-scoped landing grant: storage lifetime,
  * forge-resistant placement, idempotence, and the sole production writer.
@@ -50,21 +48,10 @@ Deno.test("effort grant round-trips idempotently outside the worktree tree", asy
     assertEquals(before.steps.map((step) => step.disposition), ["run"]);
     assertStringIncludes(before.details.join("\n"), branch);
 
-    const firstGrant = await grantEffort(
-      worktree,
-      branch,
-      FIRST_GRANT,
-      before.subject,
-    );
+    const firstGrant = await grantEffort(worktree, branch, FIRST_GRANT);
     assertEquals(firstGrant.status, "granted");
-    assertEquals(
-      firstGrant.grant.source.head,
-      await gitOut(worktree, "rev-parse", "HEAD"),
-    );
-    assertEquals(
-      firstGrant.grant.composition_procedure,
-      before.subject.composition_procedure,
-    );
+    assertEquals(firstGrant.grant.branch, branch);
+    assertEquals(firstGrant.grant.granted_at, FIRST_GRANT);
     assertEquals(await readEffortGrant(worktree), {
       status: "granted",
       grant: firstGrant.grant,
@@ -110,7 +97,7 @@ Deno.test("effort grant round-trips idempotently outside the worktree tree", asy
     await git(worktree, "branch", "-m", "agent/renamed");
     const renamed = await grantEffort(worktree, "agent/renamed", SECOND_GRANT);
     assertEquals(renamed.status, "granted");
-    assertEquals(renamed.grant.source.branch, "refs/heads/agent/renamed");
+    assertEquals(renamed.grant.branch, "agent/renamed");
     assert(renamed.grant.id !== firstGrant.grant.id);
     assertEquals(
       (await clearEffortGrantPlan(worktree)).steps.map((step) =>
@@ -370,103 +357,43 @@ Deno.test("Git worktree removal reaps its effort grant with no orphan state", as
   });
 });
 
-Deno.test("source grants reject edited descendants and preview substitution at the ref boundary", async () => {
-  await withTempDir(async (dir) => {
-    await Deno.writeTextFile(
-      join(dir, "discern.toml"),
-      "[project]\nslug = 'sample'\nagents = []\n",
-    );
-    await gitInit(dir);
-    const worktree = await addWorktree(dir, "source-authority");
-    const branch = await gitOut(worktree, "branch", "--show-current");
-    const before = await effortGrantPlan(worktree, branch);
-    const approved = await grantEffort(
-      worktree,
-      branch,
-      FIRST_GRANT,
-      before.subject,
-    );
-    assertEquals(
-      (await inspectLandingAuthority(worktree, "main")).kind,
-      "authorized",
-    );
-    await Deno.writeTextFile(join(worktree, "authored"), "changed source\n");
-    assertEquals(
-      (await inspectLandingAuthority(worktree, "main")).kind,
-      "conversation-required",
-    );
-    await git(worktree, "add", "authored");
-    await git(worktree, "commit", "-m", "Change the approved source");
-    await assertRejects(
-      () => grantEffort(worktree, branch, SECOND_GRANT, before.subject),
-      Error,
-      "Source changed after the grant preview",
-    );
-    assertEquals(await readEffortGrant(worktree), {
-      status: "granted",
-      grant: approved.grant,
-    });
-    assertEquals(
-      (await inspectLandingAuthority(worktree, "main")).kind,
-      "conversation-required",
-    );
-    const expected = await gitOut(dir, "rev-parse", "main");
-    const target = await gitOut(worktree, "rev-parse", "HEAD");
-    const refused = await performAcceptanceTransition(worktree, {
-      mainRepo: dir,
-      trunk: "main",
-      worktreeBranch: branch,
-      expectedTrunk: expected,
-      target,
-      effortClaim: true,
-      consent: { source: "effort-grant" },
-      variances: [],
-      standardProposals: [],
-    });
-    assertEquals(refused.kind, "authority-changed");
-    assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
-    assertEquals(await readEffortGrant(worktree), {
-      status: "granted",
-      grant: approved.grant,
-    });
-    const current = await effortGrantPlan(worktree, branch);
-    const renewed = await grantEffort(
-      worktree,
-      branch,
-      SECOND_GRANT,
-      current.subject,
-    );
-    assert(renewed.grant.id !== approved.grant.id);
-    assertEquals(renewed.grant.source.head, target);
-  });
-});
-
-Deno.test("old one-shot claims can only settle their existing transaction", async () => {
+Deno.test("recovery reads a recorded claim only for its own branch and transition", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed"), "seed\n");
     await gitInit(dir);
-    const worktree = await addWorktree(dir, "historical-grant");
+    const worktree = await addWorktree(dir, "recovery-claim");
     const branch = await gitOut(worktree, "branch", "--show-current");
-    const raw = JSON.stringify({
-      version: ON_DISK_FORMATS.effortGrant.historicalVersions[0],
-      branch,
-      granted_at: FIRST_GRANT,
-    });
-    const marker = await gitAdminStatePath(worktree, "effortGrant");
-    const claims = await gitAdminStatePath(worktree, "effortGrantClaims");
-    assert(marker !== undefined && claims !== undefined);
-    await Deno.mkdir(dirname(marker), { recursive: true });
-    await Deno.writeTextFile(marker, raw);
-    assertEquals((await readEffortGrant(worktree)).status, "invalid");
-    assertEquals((await claimEffortGrant(worktree, branch)).status, "invalid");
-    assertEquals(await Deno.readTextFile(marker), raw);
     const id = "12345678-1234-4123-8123-123456789abc";
-    await Deno.mkdir(claims, { recursive: true });
-    await Deno.rename(marker, join(claims, id));
-    const claimed = await readRecoveryEffortGrantClaim(worktree, branch, id);
-    assert(claimed.status === "historical-claim");
+    assertEquals(
+      await readRecoveryEffortGrantClaim(worktree, branch, id),
+      { status: "missing" },
+      "an unrecorded claim reads as missing, never as authority",
+    );
+    await grantEffort(worktree, branch, FIRST_GRANT);
+    const claimed = await claimEffortGrant(worktree, branch, id);
+    assert(claimed.status === "claimed");
+    const reread = await readRecoveryEffortGrantClaim(worktree, branch, id);
+    assert(reread.status === "claimed");
+    assertEquals(reread.claim.grant, claimed.claim.grant);
+    const other = await readRecoveryEffortGrantClaim(
+      worktree,
+      "agent/another",
+      id,
+    );
+    assert(
+      other.status === "invalid",
+      "a claim never settles another branch's transition",
+    );
+    assertEquals(
+      (await readRecoveryEffortGrantClaim(worktree, branch, "not-a-claim-id"))
+        .status,
+      "unavailable",
+      "a malformed claim id resolves no path",
+    );
     assertEquals(await restoreEffortGrantClaim(worktree, claimed.claim), true);
-    assertEquals(await Deno.readTextFile(marker), raw);
-    assertEquals((await readEffortGrant(worktree)).status, "invalid");
+    assertEquals(await readEffortGrant(worktree), {
+      status: "granted",
+      grant: claimed.claim.grant,
+    });
   });
 });

@@ -187,7 +187,7 @@ function acceptFollowOn(
         assert(typeof env.data.proof_line === "string");
         assertEquals(env.ok, true);
         assertEquals(env.verb, "accept");
-        assertEquals(env.data.queue?.[0]?.consent, { source: "conversation" });
+        assertEquals(env.data.consent, { source: "conversation" });
         assertStringIncludes(
           env.data.proof_line,
           "landed with conversation consent",
@@ -215,7 +215,7 @@ function acceptFollowOn(
  */
 const PROBES = {
   "accept-emergency": async (dir) => {
-    const wt = await project(dir, ["local"]);
+    const wt = await project(dir);
     const before = await gitOut(dir, "rev-parse", "main");
     const argv = ["accept", "emergency", "--reason", "Restore service"];
     const json = await runAgent(wt, [...argv, "--json"]);
@@ -341,10 +341,10 @@ const PROBES = {
       env,
       mutated,
       meaning: {
-        act: "the owner's recorded approval",
-        consequence: "not landed",
-        scope: "current source",
-        continuation: "confirmed",
+        act: "Landing is the owner's decision",
+        consequence: "Nothing has been landed",
+        scope: "the worktree, its branch, and the trunk are untouched",
+        continuation: "--confirmed",
       },
       surfaces: {
         json: {

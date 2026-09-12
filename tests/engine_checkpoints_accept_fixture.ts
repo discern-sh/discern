@@ -33,9 +33,8 @@ type AcceptMessageEnvelope = AcceptEnvelope & { message: string };
 type AppliedAcceptEnvelope = Omit<AcceptEnvelope, "data"> & {
   data: AcceptWireData & {
     root: string;
-  };
-  prefix: NonNullable<AcceptWireData["queue"]>[number] & {
     consent: NonNullable<AcceptWireData["consent"]>;
+    landing: NonNullable<AcceptWireData["landing"]>;
   };
 };
 
@@ -58,12 +57,12 @@ export function parseAppliedAcceptJson(stdout: string): AppliedAcceptEnvelope {
   const result = parseAcceptJson(stdout);
   assertResultDataKey(result, "root");
   assert(typeof result.data.root === "string");
-  const prefix = result.data.queue?.find((row) => row.state === "landed");
-  assert(prefix?.consent !== undefined, stdout);
+  const { consent, landing } = result.data;
+  assert(consent !== undefined && landing !== undefined, stdout);
+  assert(landing.trunk_landed, stdout);
   return {
     ...result,
-    data: { ...result.data, root: result.data.root },
-    prefix: { ...prefix, consent: prefix.consent },
+    data: { ...result.data, root: result.data.root, consent, landing },
   };
 }
 

@@ -10,10 +10,7 @@
  * Guards: boundary:agent-runtime-boundary, boundary:invoked-process-lifecycle
  */
 
-import {
-  fixtureEffortGrant,
-  fixtureEffortGrantSubject,
-} from "./effort_grant_fixtures.ts";
+import { fixtureEffortGrant } from "./effort_grant_fixtures.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { DISCERN_DOCS_URL, DISCERN_WORDMARK } from "../src/shared/brand.ts";
 import {
@@ -337,7 +334,6 @@ function scriptedRuntime(
     mainRepoPath: () => ROOT,
     grantEffortPlan: () => ({
       title: "Landing pre-authorization plan",
-      subject: fixtureEffortGrantSubject("agent/fixture"),
       details: [],
       steps: [],
     }),
@@ -788,7 +784,6 @@ Deno.test("desk grants and revokes one effort only through its human action", as
       grantPlans.push({ path, branch });
       return {
         title: "Landing pre-authorization plan",
-        subject: fixtureEffortGrantSubject("agent/fixture"),
         details: [],
         steps: [],
       };
@@ -828,7 +823,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   assertEquals(confirmations, [
     {
       message:
-        `Approve the displayed committed source of ${effort.branch} to land once green?`,
+        `Allow ${effort.branch} to land once green without a further conversation?`,
       options: { defaultTo: false, noLabel: "Keep", yesLabel: "Allow" },
     },
     {
@@ -838,7 +833,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   ]);
   assertStringIncludes(
     menus.join("\n"),
-    "Approve this committed source",
+    "Pre-authorize landing once green",
   );
   assertStringIncludes(
     menus.join("\n"),
@@ -846,7 +841,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   );
   assertStringIncludes(
     joined(output),
-    `The displayed source of ${effort.branch} may land once green. New source edits require another grant.`,
+    `${effort.branch} lands once green without a further conversation. A variance, a standard proposal, or an emergency still needs you.`,
   );
   assertStringIncludes(
     joined(output),
@@ -2873,10 +2868,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   // The desk's interactive confirm IS the acceptance, so the apply carries the
   // attestation (ADR 0134) — never a bare, consent-less landing.
   assertEquals(acceptPlanCalls, 1);
-  assertEquals(appliedAccept, [{
-    confirmed: true,
-    cliModel: TEST_CLI_MODEL,
-  }]);
+  assertEquals(appliedAccept, [{ confirmed: true }]);
   assertEquals(acceptPauses, 1);
 
   const dropOutput = transcript();
