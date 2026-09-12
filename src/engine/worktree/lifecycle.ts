@@ -424,7 +424,7 @@ interface WorktreeResultRenderHooks<TData> {
  * renderer; applies use the shared StepResult renderer, so the human summary and
  * `--json` agree on the settled step list.
  */
-function emitOrRenderWorktreeResult<TData>(
+export function emitOrRenderWorktreeResult<TData>(
   ctx: LifecycleContext,
   result: DiscernResult<TData>,
   json: boolean,
@@ -477,7 +477,7 @@ async function resolveContextIdentity(
  * backstop). A no-op when nothing was created. Run from inside the worktree (so
  * `@dir@`-bearing destroys still resolve).
  */
-async function teardownResources(
+export async function teardownResources(
   ctx: LifecycleContext,
 ): Promise<{ destroyed: string[]; failed: string[] }> {
   const { entries } = await buildTeardownPlan(ctx);
@@ -710,7 +710,7 @@ function ensureFailureDiagnostic(
  * retain each failure as a diagnostic and continue without undoing prior effects.
  * Duplicate commands remain distinct results, and an empty bucket is a no-op.
  */
-async function runEnsureCommands(
+export async function runEnsureCommands(
   ctx: LifecycleContext,
   commands: string[],
   opts: {
@@ -835,7 +835,7 @@ interface LifecycleRefreshRun {
 }
 
 /** Turn isolated refresh errors into diagnostics plus the registered retry hint. */
-function failedRefreshRun(
+export function failedRefreshRun(
   errors: readonly string[],
   cwd: string,
   existingHints: readonly string[] = hintTexts([]),
@@ -862,7 +862,7 @@ function failedRefreshRun(
 }
 
 /** Project the refresh compiler's partial-success report onto lifecycle evidence. */
-function instructionRefreshRun(
+export function instructionRefreshRun(
   result: InstructionsResult,
   cwd: string,
 ): LifecycleRefreshRun {
@@ -1754,10 +1754,10 @@ export async function worktreePark(
 }
 
 /** A bound git runner for the acceptance flow (defaults to the worktree cwd). */
-type GitRunner = (args: string[], cwd?: string) => Promise<GitResult>;
+export type GitRunner = (args: string[], cwd?: string) => Promise<GitResult>;
 
 /** The git runner acceptance uses — the shared runner bound to the worktree cwd. */
-function makeGitRunner(ctx: LifecycleContext): GitRunner {
+export function makeGitRunner(ctx: LifecycleContext): GitRunner {
   return (args: string[], cwd: string = ctx.cwd) =>
     runGit(args, { cwd, quiesceDescendants: true });
 }
@@ -3618,7 +3618,7 @@ async function resolveStartPoint(
  * template warns against, and its `discern.toml` would not be where the setup
  * expects. Named paths, plain language; `doctor` carries the matching check.
  */
-async function assertProjectRootIsRepoToplevel(
+export async function assertProjectRootIsRepoToplevel(
   ctx: LifecycleContext,
   verb: WorktreeLifecycleRepoRootVerb,
 ): Promise<void> {

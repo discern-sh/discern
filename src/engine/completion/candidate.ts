@@ -43,3 +43,8 @@ export const CandidateSchema = z.strictObject({
   "each authored effort has one source revision",
 );
 export type Candidate = z.infer<typeof CandidateSchema>;
+
+/** The trunk commit the candidate was proven against. */
+export function candidatePredecessor(candidate: Candidate): string {
+  return candidate.expected_predecessor.head;
+}
