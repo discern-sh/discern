@@ -21,14 +21,13 @@ Deno.test("nested presentation observers retain detached facts for the surroundi
     effort_id: "effort",
     source_head: "head",
     candidate_id: null,
-    environment_id: null,
     attempt_id: null,
     executor_operation: "operation",
     at: 1,
     fact: {
       kind: "timing",
       interval_id: "phase",
-      category: "execution",
+      category: "producer",
       started_at: 0,
       finished_at: 1,
     },
@@ -97,9 +96,6 @@ Deno.test("producer event projection preserves every canonical component outcome
   const candidate = COMPLETION_FAMILIES.candidate.schema.parse(
     fixtures.candidate,
   );
-  const environment = COMPLETION_FAMILIES.environment.schema.parse(
-    fixtures.environment,
-  );
   if (attempt.data.state.kind !== "claimed") {
     throw new Error("Fixture needs a claim");
   }
@@ -107,8 +103,8 @@ Deno.test("producer event projection preserves every canonical component outcome
     attempt: attempt.data,
     candidate: candidate.data,
     candidate_id: candidate.id,
-    environment_id: environment.id,
-    environment: environment.data,
+    path: "/workspace",
+    seed: 42,
     fence: { attempt_id: attempt.id, token: attempt.data.state.claim.token },
     signal: new AbortController().signal,
   };

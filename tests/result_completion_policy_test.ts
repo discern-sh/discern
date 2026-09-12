@@ -8,16 +8,8 @@
  * guard proves the predicate rather than only recounting today's members.
  */
 
-import {
-  assert,
-  assertEquals,
-  assertStringIncludes,
-  assertThrows,
-} from "@std/assert";
-import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
-import { resultPresenterForVerb } from "../src/shared/result_contracts.ts";
+import { assert, assertEquals, assertThrows } from "@std/assert";
 import { serializeResult } from "../src/shared/result_serialization.ts";
-import { ExceptionClaimSchema } from "../src/engine/completion/exception_claim.ts";
 import { EmergencyDataSchema } from "../src/shared/emergency.ts";
 import { completionExitCode } from "../src/engine/logbook/cli.ts";
 import { renderMcpResult } from "../src/engine/mcp/server.ts";
@@ -201,8 +193,8 @@ Deno.test("partial landing stays red and preserves exact effects", () => {
     verb: "accept",
     data: {
       landing: {
-        recovery_performed: false,
-        trunk_landed: true,
+        recovery_performed: true,
+        trunk_landed: false,
         worktree_removed: false,
         branch_deleted: false,
       },
@@ -213,13 +205,31 @@ Deno.test("partial landing stays red and preserves exact effects", () => {
   assertEquals(evaluated.error, "partial_acceptance");
   assertEquals(evaluated.data, {
     landing: {
-      recovery_performed: false,
-      trunk_landed: true,
+      recovery_performed: true,
+      trunk_landed: false,
       worktree_removed: false,
       branch_deleted: false,
     },
   });
   assertEquals(completionExitCode(0, evaluated), 1);
+});
+
+Deno.test("a landed trunk with a deliberately kept checkout is a complete landing", () => {
+  // Later commits or uncommitted changes keep the checkout and branch by
+  // design; the landing itself is whole and the verbatim landed sentence stands.
+  const evaluated = evaluateResultCompletion({
+    ok: true,
+    verb: "accept",
+    data: {
+      landing: {
+        recovery_performed: false,
+        trunk_landed: true,
+        worktree_removed: false,
+        branch_deleted: false,
+      },
+    },
+  });
+  assertEquals(evaluated.ok, true);
 });
 
 Deno.test("every typed required-postcondition evaluator rejects its planted failure", () => {
@@ -281,8 +291,8 @@ Deno.test("every typed required-postcondition evaluator rejects its planted fail
       verb: "accept",
       data: {
         landing: {
-          recovery_performed: false,
-          trunk_landed: true,
+          recovery_performed: true,
+          trunk_landed: false,
           worktree_removed: false,
           branch_deleted: false,
         },
@@ -458,18 +468,19 @@ Deno.test("emergency outcomes preserve success only for complete independent lan
     candidate_id: "candidate",
     reason: "Restore service",
     exceptions: [],
-    retirement: "retained",
+    note: "published",
+    cleanup: "kept",
   };
   const result: DiscernResult = {
     ok: true,
     verb: "accept",
     data: { emergency },
   };
-  for (const retirement of ["retained", "retired"]) {
+  for (const cleanup of ["kept", "removed"]) {
     assertEquals(
       serializeResult({
         ...result,
-        data: { emergency: { ...emergency, retirement } },
+        data: { emergency: { ...emergency, cleanup } },
       }).ok,
       true,
     );
@@ -491,7 +502,8 @@ Deno.test("emergency outcomes preserve success only for complete independent lan
       "candidate_id",
       "reason",
       "exceptions",
-      "retirement",
+      "note",
+      "cleanup",
     ]
   ) {
     assertEquals(
@@ -503,15 +515,24 @@ Deno.test("emergency outcomes preserve success only for complete independent lan
       field,
     );
   }
-  for (const retirement of ["pending", "recovery", "unknown"]) {
+  for (const note of ["pending", "failed"]) {
     assertEquals(
       evaluateResultCompletion({
         ...result,
-        data: { emergency: { ...emergency, retirement } },
+        data: { emergency: { ...emergency, note } },
       }).ok,
       false,
+      note,
     );
   }
+  assertEquals(
+    evaluateResultCompletion({
+      ...result,
+      data: { emergency: { ...emergency, cleanup: "failed" } },
+    }).ok,
+    false,
+    "a failed cleanup is a partial emergency landing",
+  );
   for (
     const field of ["proof", "proof_line", "proof_note", "landing", "queue"]
   ) {
@@ -572,196 +593,4 @@ Deno.test("policy-created failures retain registered recovery across every effec
   };
   const evaluated = evaluateResultCompletion(result);
   assertEquals(evaluated.hints?.[0], result.hints?.[0]);
-});
-
-Deno.test("recovered exception prefixes retain their exact claim without ordinary authority or Proof", () => {
-  const exception = ExceptionClaimSchema.parse({
-    kind: "exception",
-    authorization_id: "11111111-1111-4111-a111-111111111111",
-    authorized_at: 1,
-    actual_trunk: "a".repeat(40),
-    source: {
-      effort_id: "orbit-repair",
-      branch: "refs/heads/orbit-repair",
-      head: "b".repeat(40),
-      tree: "c".repeat(40),
-    },
-    candidate_id: "22222222-2222-4222-a222-222222222222",
-    candidate_head: "b".repeat(40),
-    policy: "d".repeat(64),
-    reason: "Restore the service",
-    exceptions: [{
-      requirement: {
-        id: "audit",
-        context: "local",
-        kind: "job",
-        definition: "e".repeat(64),
-      },
-      state: "unrun",
-      evidence_id: null,
-    }],
-  });
-  const prefix = {
-    effort: exception.source.effort_id,
-    branch: exception.source.branch,
-    source_head: exception.source.head,
-    candidate_id: exception.candidate_id,
-    expected_trunk: exception.actual_trunk,
-    target: exception.candidate_head,
-    state: "landed",
-    landing_id: "33333333-3333-4333-a333-333333333333",
-    authority_id: null,
-    authority_settlement: "consumed",
-    pending: [],
-    retirement: "retained",
-    exception,
-  };
-  const resultFor = (row: unknown): DiscernResult => ({
-    ok: true,
-    verb: "accept",
-    data: { root: "/project", queue: [row], pending: [] },
-  });
-  assertEquals(evaluateResultCompletion(resultFor(prefix)).ok, true);
-  assertEquals(serializeResult(resultFor(prefix)).ok, true);
-  assertStringIncludes(
-    renderResultMarkdown(
-      serializeResult(resultFor(prefix)),
-      resultPresenterForVerb("accept"),
-    ),
-    "emergency exception, no passing Proof",
-  );
-  assertEquals(
-    evaluateResultCompletion({
-      ...resultFor(prefix),
-      ok: false,
-      error: "partial_acceptance",
-    }).ok,
-    false,
-  );
-  for (const key of Object.keys(ExceptionClaimSchema.shape)) {
-    if (key === "review") continue;
-    const broken = { ...exception };
-    Reflect.deleteProperty(broken, key);
-    assertEquals(
-      evaluateResultCompletion(resultFor({ ...prefix, exception: broken })).ok,
-      false,
-      key,
-    );
-  }
-  for (
-    const field of [
-      "effort",
-      "branch",
-      "source_head",
-      "candidate_id",
-      "expected_trunk",
-      "target",
-      "authority_settlement",
-    ]
-  ) {
-    assertEquals(
-      evaluateResultCompletion(resultFor({ ...prefix, [field]: "unrelated" }))
-        .ok,
-      false,
-      field,
-    );
-  }
-  for (
-    const field of [
-      "proof_line",
-      "proof_note",
-      "consent",
-      "variances",
-      "standard_approvals",
-      "authority_id",
-    ]
-  ) {
-    assertEquals(
-      evaluateResultCompletion(resultFor({ ...prefix, [field]: "unrelated" }))
-        .ok,
-      false,
-      field,
-    );
-  }
-  for (const exception of [undefined, null, {}, { kind: "future-orbit" }]) {
-    assertEquals(
-      evaluateResultCompletion(resultFor({ ...prefix, exception })).ok,
-      false,
-    );
-  }
-  const ordinary = {
-    ...prefix,
-    exception: undefined,
-    authority_id: "ordinary-authority",
-  };
-  assertEquals(evaluateResultCompletion(resultFor(ordinary)).ok, true);
-  assertEquals(
-    evaluateResultCompletion({
-      ok: true,
-      verb: "accept",
-      data: { queue: [prefix, ordinary], pending: [] },
-    }).ok,
-    true,
-  );
-});
-
-Deno.test("queue decisions and external observations require their exact completed outcomes", () => {
-  const control = {
-    action: "hold",
-    target: "effort-a",
-    expected_state: "reviewed",
-    before_order: [],
-    after_order: [],
-    affected_efforts: [],
-    state: "applied",
-  };
-  assertEquals(
-    evaluateResultCompletion({
-      ok: true,
-      verb: "accept",
-      data: { queue_control: control },
-    }).ok,
-    true,
-  );
-  for (const override of [{ state: "planned" }, { expected_state: "" }]) {
-    assertEquals(
-      evaluateResultCompletion({
-        ok: true,
-        verb: "accept",
-        data: { queue_control: { ...control, ...override } },
-      }).ok,
-      false,
-    );
-  }
-  const integration = {
-    state: "observed",
-    governed_landing_receipt: null,
-    candidate_id: "candidate",
-    proof_id: "proof",
-    target: "target",
-    observed_trunk: "trunk",
-    retirement: "retained",
-  };
-  assertEquals(
-    evaluateResultCompletion({
-      ok: true,
-      verb: "accept",
-      data: { external_integration: integration },
-    }).ok,
-    true,
-  );
-  for (
-    const override of [{ state: "planned" }, { proof_id: "" }, {
-      retirement: "recovery",
-    }, { governed_landing_receipt: "fabricated" }]
-  ) {
-    assertEquals(
-      evaluateResultCompletion({
-        ok: true,
-        verb: "accept",
-        data: { external_integration: { ...integration, ...override } },
-      }).ok,
-      false,
-    );
-  }
 });

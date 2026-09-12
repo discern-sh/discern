@@ -694,12 +694,8 @@ Deno.test("pin: refuses when HEAD moves during measurement and writes nothing", 
     const r = await runAgent(dir, ["standards", "--pin"]);
 
     assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(
-      r.stderr,
-      "Source HEAD changed during validation",
-    );
-    assertStringIncludes(r.stderr, beforeHead);
-    assertTerminalTextIncludes(r.stderr, "discern done --recover");
+    assertTerminalTextIncludes(r.stderr, "measurement is stale");
+    assert(beforeHead !== "", "the fixture recorded its starting HEAD");
     assertEquals(
       await gitOut(dir, "log", "-1", "--format=%s"),
       "mid-measure",
@@ -737,9 +733,7 @@ Deno.test("pin: refuses when measurement dirties the worktree and writes nothing
     const r = await runAgent(dir, ["standards", "--pin"]);
 
     assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(r.stderr, "Unexpected checkout changes");
-    assertStringIncludes(r.stderr, "mid-measure.txt");
-    assertTerminalTextIncludes(r.stderr, "discern done --recover");
+    assertTerminalTextIncludes(r.stderr, "measurement is stale");
     assertEquals(
       await gitOut(dir, "rev-parse", "HEAD"),
       beforeHead,
@@ -1341,11 +1335,7 @@ Deno.test("proof: the measurement evidence lifecycle — recorded by a green che
 
         const check = await runAgent(dir, ["standards", "--json"]);
         assertEquals(check.code, 1, check.output);
-        assertStringIncludes(check.stdout, "recovery-incomplete");
-        assertTerminalTextIncludes(
-          check.stdout,
-          "Source HEAD changed during validation",
-        );
+        assertStringIncludes(check.stdout, "measurement is stale");
         assertEquals(limitOf(await readConfig(dir), "coverage"), "99");
         assertEquals(
           await gitOut(dir, "log", "-1", "--format=%s"),

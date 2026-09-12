@@ -83,7 +83,7 @@ limit = 2
 
 Deno.test("E11 dirty deletion and rename retain public diagnostics without completion records", async () => {
   await withTempDir(async (root) => {
-    const path = await project(root, ["local"]);
+    const path = await project(root);
     await Deno.rename(`${path}/source`, `${path}/renamed source`);
     const records = (await observeCompletionRecords(path)).records;
     for (
@@ -110,7 +110,7 @@ Deno.test("E11 dirty deletion and rename retain public diagnostics without compl
 
 Deno.test("E12 detached standards measure their exact checkout without source claims or Proof", async () => {
   await withTempDir(async (root) => {
-    const path = await project(root, ["local"]);
+    const path = await project(root);
     const branch = await gitOut(path, "symbolic-ref", "HEAD");
     const head = await gitOut(path, "rev-parse", "HEAD");
     await git(path, "switch", "--detach", head);

@@ -5,16 +5,13 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-/** A configured authored effort with one shared producer and explicit required contexts. */
+/** A configured authored effort with one shared producer and a coverage standard. */
 export async function project(
   root: string,
-  contexts: readonly string[],
   extra = "",
   testRun = "printf t >> executions; printf 'DISCERN_METRIC coverage 93\\n'",
   testInputs: readonly string[] = ["**"],
   options: {
-    concurrency?: number;
-    lookahead?: number;
     environment?: readonly string[];
   } = {},
 ): Promise<string> {
@@ -25,14 +22,6 @@ export async function project(
 slug = 'sample'
 agents = []
 logbook = false
-[completion]
-${
-      options.concurrency === undefined
-        ? ""
-        : `concurrency = ${options.concurrency}`
-    }
-${options.lookahead === undefined ? "" : `lookahead = ${options.lookahead}`}
-required_contexts = ${JSON.stringify(contexts)}
 [jobs]
 test = { run = ${JSON.stringify(testRun)}, inputs = ${
       JSON.stringify(testInputs)

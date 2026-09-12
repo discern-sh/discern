@@ -23,7 +23,7 @@ const REPORTING_PRODUCER = [
 
 Deno.test("a static human done narrates counts and retains a reconnectable result", async () => {
   await withTempDir(async (root) => {
-    const path = await project(root, ["local"], "", REPORTING_PRODUCER);
+    const path = await project(root, "", REPORTING_PRODUCER);
     const run = await runAgent(path, ["done"]);
     assertEquals(run.code, 0, run.output);
     // The producer's own counts reached the static terminal as sentences.
@@ -89,7 +89,7 @@ Deno.test("losing a read-only observer leaves the executing gate running", async
       // observed state: no elapsed wait anywhere in the journey.
       using barrier = await shellBarrier(`${aux}/continue`);
       const gated = `${barrier.wait}; printf 'DISCERN_METRIC coverage 93\\n'`;
-      const path = await project(root, ["local"], "", gated);
+      const path = await project(root, "", gated);
       const child = new Deno.Command("deno", {
         args: engineRunArgs(["done"]),
         cwd: path,
@@ -166,7 +166,7 @@ Deno.test("a killed executor leaves its journal readable as stopped, not decided
       const blocking = `echo $$ > '${aux}/leader'; ` +
         `printf 'DISCERN_PROGRESS {"units":{"kind":"suites","completed":1,"total":null}}\\n'; ` +
         `tail -f /dev/null & echo $! > '${aux}/descendant'; wait`;
-      const path = await project(root, ["local"], "", blocking);
+      const path = await project(root, "", blocking);
       const child = new Deno.Command("deno", {
         args: engineRunArgs(["done"]),
         cwd: path,

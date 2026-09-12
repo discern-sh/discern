@@ -13,7 +13,6 @@ Deno.test("measurements retain receipts and account only for executing producer 
   await withTempDir(async (root) => {
     const path = await project(
       root,
-      ["local"],
       `
 [standards.magnitude]
 run = "printf 'DISCERN_METRIC magnitude 1\\n'"

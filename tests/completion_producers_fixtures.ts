@@ -15,6 +15,7 @@ import type {
   CompletionObservation,
   ValidationPlan,
 } from "../src/engine/completion/protocol.ts";
+import type { PublicationFence } from "../src/engine/completion/store.ts";
 import {
   type ObligationDeclaration,
   prepareValidationSnapshot,
@@ -50,7 +51,6 @@ export const ARTIFACT_RECIPE = ProducerDeclarationSchema.parse({
 export const ARTIFACT_EXTRACTOR =
   'read covered population; printf \'DISCERN_METRIC covered %s\nDISCERN_METRIC population %s\n\' "$covered" "$population"';
 export const CONDITIONS = [{
-  context: "local",
   seed: 42,
   environment: { MODE: "test" },
   identity: COMPLETION_DIGEST,
@@ -65,12 +65,11 @@ export const FILES = {
 };
 
 /** Declare a test obligation and two independent standards consuming one producer. */
-export function obligations(context = "local"): ObligationDeclaration[] {
+export function obligations(): ObligationDeclaration[] {
   return [
     {
       requirement: {
         id: "test",
-        context,
         kind: "job",
         definition: COMPLETION_DIGEST,
       },
@@ -79,7 +78,6 @@ export function obligations(context = "local"): ObligationDeclaration[] {
     {
       requirement: {
         id: "coverage",
-        context,
         kind: "standard",
         definition: COMPLETION_DIGEST,
       },
@@ -96,7 +94,6 @@ export function obligations(context = "local"): ObligationDeclaration[] {
     {
       requirement: {
         id: "gaps",
-        context,
         kind: "standard",
         definition: COMPLETION_DIGEST,
       },
@@ -153,7 +150,7 @@ export function observation(
   };
 }
 
-/** Construct matching environment and attempt claims without host effects. */
+/** Construct a matching attempt claim over the effort's own checkout, without host effects. */
 export function claimed(
   snapshot: ValidationSnapshot,
   plan: ValidationPlan,
@@ -161,10 +158,6 @@ export function claimed(
   rerunOf: string | null = null,
 ): ClaimedExecution {
   const attemptId = completionId(100 + sequence);
-  const environmentRecord = completionFixtures().environment;
-  if (environmentRecord.kind !== "environment") {
-    throw new Error("missing environment fixture");
-  }
   const subjects = [
     ...new Set(
       plan.producers.flatMap((producer) =>
@@ -181,32 +174,12 @@ export function claimed(
       ),
     ),
   ];
-  const environment = {
-    ...environmentRecord.data,
-    path: "/workspace",
-    release: {
-      kind: "released" as const,
-      id: completionId(30),
-      at: 10,
-      owner: "owner",
-      subject: COMPLETION_DIGEST,
-      retirement: false,
-    },
-    state: {
-      kind: "executing" as const,
-      attempt_id: attemptId,
-      candidate_id: snapshot.candidate_id,
-      release_id: completionId(30),
-      claim: COMPLETION_CLAIM,
-      phase: "validate" as const,
-    },
-  };
   return {
     candidate_id: snapshot.candidate_id,
     candidate: snapshot.candidate,
     signal: new AbortController().signal,
-    environment_id: completionId(3),
-    environment,
+    path: "/workspace",
+    seed: snapshot.conditions[0]?.seed ?? 42,
     fence: { attempt_id: attemptId, token: COMPLETION_CLAIM.token },
     attempt: {
       identity: {
@@ -217,7 +190,6 @@ export function claimed(
         rerun_of: rerunOf,
         started_at: 10,
       },
-      environment_id: completionId(3),
       subjects,
       mode: plan.demand.mode,
       purpose: plan.demand.kind === "diagnostic" || plan.demand.kind === "test"
@@ -267,7 +239,6 @@ export function assemblyRecord(
     candidate: snap.candidate,
     demand: {
       kind: "done",
-      context: "local",
       mode,
       requirements: snap.requirements,
     },
@@ -285,6 +256,13 @@ export function assemblyRecord(
   });
   if (record.kind !== "attempt") throw new Error("missing assembly attempt");
   return record;
+}
+
+/** The live publication fence of a recorded fixture attempt. */
+export function fenceOf(
+  record: Extract<CompletionRecord, { kind: "attempt" }>,
+): PublicationFence {
+  return { attempt_id: record.id, token: COMPLETION_CLAIM.token };
 }
 
 /** Supply complete metric protocol bytes to the controlled executor. */

@@ -10,27 +10,14 @@ import {
   recordTransitionAllowed,
 } from "../src/engine/completion/records.ts";
 import { parseCompletionRecord } from "../src/engine/completion/store.ts";
-import {
-  candidateRef,
-  newAttemptIdentity,
-} from "../src/engine/completion/identity.ts";
-import {
-  environmentAvailability,
-  EnvironmentSchema,
-} from "../src/engine/completion/environment.ts";
-import {
-  CompletionClaimSchema,
-  ExceptionClaimSchema,
-} from "../src/engine/completion/authority.ts";
-import { CANDIDATE_REF_PREFIX } from "../src/shared/git_conventions.ts";
+import { newAttemptIdentity } from "../src/engine/completion/identity.ts";
+import { ExceptionClaimSchema } from "../src/engine/completion/authority.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import {
-  COMPLETION_CLAIM,
   COMPLETION_CLOCK,
   COMPLETION_DIGEST,
   COMPLETION_EXECUTOR,
   COMPLETION_HEAD,
-  COMPLETION_RECOVERY,
   COMPLETION_REQUIREMENT,
   COMPLETION_SOURCE,
   completionFixtures,
@@ -107,7 +94,7 @@ Deno.test("completion families round trip, reject incomplete shapes, and discrim
   }
 });
 
-Deno.test("completion evidence cannot turn incomplete capture, substituted contexts, or mismatched ids into Proof", () => {
+Deno.test("completion evidence cannot turn incomplete capture, uncovered obligations, or mismatched ids into Proof", () => {
   const fixtures = completionFixtures();
   const proof = COMPLETION_FAMILIES.proof.schema.parse(fixtures.proof);
   const receipt = proof.data.receipts[0];
@@ -134,7 +121,7 @@ Deno.test("completion evidence cannot turn incomplete capture, substituted conte
         ...proof.data,
         requirements: [...proof.data.requirements, {
           ...COMPLETION_REQUIREMENT,
-          context: "ci",
+          kind: "job",
         }],
       },
       {
@@ -196,7 +183,7 @@ Deno.test("completion evidence cannot turn incomplete capture, substituted conte
       path,
     );
   }
-  for (const field of ["attempt_id", "candidate_id", "context"]) {
+  for (const field of ["attempt_id", "candidate_id"]) {
     assertEquals(
       CompletionRecordSchema.safeParse({
         ...evidence,
@@ -204,7 +191,7 @@ Deno.test("completion evidence cannot turn incomplete capture, substituted conte
           ...evidence.data,
           artifacts: evidence.data.artifacts.map((artifact) => ({
             ...artifact,
-            [field]: field === "context" ? "ci" : completionId(99),
+            [field]: completionId(99),
           })),
         },
       }).success,
@@ -213,27 +200,8 @@ Deno.test("completion evidence cannot turn incomplete capture, substituted conte
   }
 });
 
-Deno.test("completion authority and exception claims retain different obligations", () => {
-  const authority = COMPLETION_FAMILIES.authority.schema.parse(
-    completionFixtures().authority,
-  );
-  for (
-    const source of [
-      { source: "urgent", record_id: completionId(1), scopes: [] },
-      { source: "standing-grant", record_id: completionId(1), scopes: [] },
-      { source: "conversation", record_id: completionId(1), scopes: ["src"] },
-      { source: "effort-grant", scopes: [] },
-    ]
-  ) {
-    assertEquals(
-      CompletionRecordSchema.safeParse({
-        ...authority,
-        data: { ...authority.data, source },
-      }).success,
-      false,
-    );
-  }
-  const exception = ExceptionClaimSchema.parse({
+Deno.test("exception claims stay distinct from Proof and bind the approved trunk and repair exactly", () => {
+  const claim = ExceptionClaimSchema.parse({
     kind: "exception",
     authorization_id: completionId(80),
     authorized_at: 100,
@@ -249,81 +217,57 @@ Deno.test("completion authority and exception claims retain different obligation
       evidence_id: state === "unrun" ? null : completionId(3),
     })),
   });
-  assertEquals(CompletionClaimSchema.parse(exception).kind, "exception");
+  assertEquals(claim.kind, "exception");
   assertEquals(
-    CompletionClaimSchema.safeParse({ ...exception, kind: "normal" }).success,
+    ExceptionClaimSchema.safeParse({ ...claim, kind: "normal" }).success,
     false,
   );
-  const landing = COMPLETION_FAMILIES.landing.schema.parse(
-    completionFixtures().landing,
+  assertEquals(
+    ExceptionClaimSchema.safeParse({ ...claim, exceptions: [] }).success,
+    false,
+  );
+  const record = COMPLETION_FAMILIES.exception.schema.parse(
+    completionFixtures().exception,
   );
   assertEquals(
     CompletionRecordSchema.safeParse({
-      ...landing,
-      data: { ...landing.data, claim: exception },
+      ...record,
+      id: claim.authorization_id,
+      data: {
+        ...record.data,
+        claim,
+        expected_trunk: claim.actual_trunk,
+        target: claim.candidate_head,
+      },
     }).success,
     true,
   );
+  for (
+    const data of [
+      { ...record.data, claim, expected_trunk: "e".repeat(40) },
+      { ...record.data, claim, target: "e".repeat(40) },
+    ]
+  ) {
+    assertEquals(
+      CompletionRecordSchema.safeParse({
+        ...record,
+        id: claim.authorization_id,
+        data,
+      }).success,
+      false,
+    );
+  }
   assertEquals(
     CompletionRecordSchema.safeParse({
-      ...landing,
-      data: {
-        ...landing.data,
-        claim: { ...exception, actual_trunk: "e".repeat(40) },
-      },
+      ...record,
+      id: completionId(81),
     }).success,
     false,
+    "exception id must match the approved authorization",
   );
 });
 
-Deno.test("completion environment availability distinguishes held, active, expired, and incomplete recovery", () => {
-  const environment = COMPLETION_FAMILIES.environment.schema.parse(
-    completionFixtures().environment,
-  ).data;
-  assertEquals(environmentAvailability(environment, 100).kind, "available");
-  assertEquals(
-    environmentAvailability({ ...environment, release: { kind: "held" } }, 100),
-    { kind: "environment-unavailable", reason: "held" },
-  );
-  const executing = EnvironmentSchema.parse({
-    ...environment,
-    state: {
-      kind: "executing",
-      attempt_id: completionId(2),
-      candidate_id: completionId(1),
-      release_id: completionId(22),
-      claim: COMPLETION_CLAIM,
-      phase: "validate",
-    },
-  });
-  assertEquals(environmentAvailability(executing, 100), {
-    kind: "environment-unavailable",
-    reason: "busy",
-  });
-  assertEquals(environmentAvailability(executing, 200), {
-    kind: "recovery-incomplete",
-    reason: "claim-expired",
-  });
-  const recovery = EnvironmentSchema.parse({
-    ...environment,
-    state: {
-      kind: "recovery",
-      attempt_id: completionId(2),
-      recovery: COMPLETION_RECOVERY,
-    },
-  });
-  assertEquals(environmentAvailability(recovery, 900), {
-    kind: "recovery-incomplete",
-    reason: "recorded",
-  });
-  assertEquals(
-    EnvironmentSchema.safeParse({ ...executing, release: { kind: "held" } })
-      .success,
-    false,
-  );
-});
-
-Deno.test("completion identities use injected capabilities and immutable ref coordinates", () => {
+Deno.test("completion identities use injected capabilities and reject impossible coordinates", () => {
   const input = {
     candidate_id: completionId(1),
     executor: COMPLETION_EXECUTOR,
@@ -336,18 +280,13 @@ Deno.test("completion identities use injected capabilities and immutable ref coo
   });
   assertEquals(attempt.started_at, 100);
   assertEquals(attempt.id, completionId(30));
-  assertEquals(
-    candidateRef(input.candidate_id, attempt.id),
-    `${CANDIDATE_REF_PREFIX}/${completionId(1)}/${completionId(30)}`,
-  );
-  assertThrows(() => candidateRef("../../trunk", attempt.id), z.ZodError);
   assertThrows(
     () => newAttemptIdentity({ ...input, sequence: 0 }, COMPLETION_CLOCK),
     z.ZodError,
   );
 });
 
-Deno.test("completion lifetime rules preserve immutable history and separate landing from retirement", () => {
+Deno.test("completion lifetime rules preserve immutable history and bind attempt claims once", () => {
   for (const fixture of Object.values(completionFixtures())) {
     assertEquals(
       recordTransitionAllowed(fixture, { ...fixture, revision: 2 }),
@@ -362,31 +301,65 @@ Deno.test("completion lifetime rules preserve immutable history and separate lan
       false,
     );
   }
-  const landing = COMPLETION_FAMILIES.landing.schema.parse(
-    completionFixtures().landing,
+  const claimed = COMPLETION_FAMILIES.attempt.schema.parse(
+    completionFixtures().attempt,
   );
-  const landed = COMPLETION_FAMILIES.landing.schema.parse({
-    ...landing,
-    revision: 2,
+  assert(claimed.data.state.kind === "claimed");
+  const planning = COMPLETION_FAMILIES.attempt.schema.parse({
+    ...claimed,
     data: {
-      ...landing.data,
-      outcome: { kind: "landed", at: 101, transition_marker: completionId(8) },
-      authority_settlement: "consumed",
-      note: "recovery",
+      ...claimed.data,
+      subjects: [],
+      state: { kind: "planning", claim: claimed.data.state.claim },
     },
   });
-  assert(recordTransitionAllowed(landing, landed));
+  const bound = { ...claimed, revision: 2 };
+  assertEquals(recordTransitionAllowed(planning, bound), true);
   assertEquals(
-    recordTransitionAllowed(landed, { ...landing, revision: 3 }),
+    recordTransitionAllowed(bound, { ...planning, revision: 3 }),
     false,
+    "a bound claim never returns to planning",
   );
   assertEquals(
-    recordTransitionAllowed(landed, {
-      ...landed,
+    recordTransitionAllowed(bound, {
+      ...bound,
       revision: 3,
-      data: { ...landed.data, target: "e".repeat(40) },
+      data: {
+        ...bound.data,
+        state: {
+          kind: "claimed",
+          claim: {
+            ...claimed.data.state.claim,
+            token: completionId(77),
+          },
+        },
+      },
     }),
     false,
+    "a bound claim's token never changes",
+  );
+  assertEquals(
+    recordTransitionAllowed(bound, {
+      ...bound,
+      revision: 3,
+      data: { ...bound.data, subjects: [] },
+    }),
+    false,
+    "bound subjects never change again",
+  );
+  const finished = COMPLETION_FAMILIES.attempt.schema.parse({
+    ...claimed,
+    revision: 3,
+    data: {
+      ...claimed.data,
+      state: { kind: "finished", outcome: "passed", finished_at: 110 },
+    },
+  });
+  assertEquals(recordTransitionAllowed(bound, finished), true);
+  assertEquals(
+    recordTransitionAllowed(finished, { ...bound, revision: 4 }),
+    false,
+    "a finished attempt is terminal",
   );
 });
 
@@ -411,8 +384,6 @@ Deno.test("completion attempt subjects cover every applicability dimension and i
       ? value + 1
       : key === "producer"
       ? "jobs.build"
-      : key === "context"
-      ? "ci"
       : "e".repeat(64);
     const replacement = ApplicabilitySchema.parse({
       ...original,

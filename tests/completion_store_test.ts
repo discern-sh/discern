@@ -1,14 +1,10 @@
-import { z } from "@zod/zod";
-import { ExceptionClaimSchema } from "../src/engine/completion/exception_claim.ts";
 import { countedAdminQueries } from "./git_admin_observer.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
-import { RetirementEffectsSchema } from "../src/shared/accept_landing_state.ts";
 import { assert, assertEquals } from "@std/assert";
 import { dirname, join } from "@std/path";
 import {
   completionRecordPath,
   openCompletionRecordStore,
-  parseCompletionRecord,
   readCompletionRecord,
   writeCompletionRecord,
 } from "../src/engine/completion/store.ts";
@@ -27,7 +23,6 @@ import { git } from "./engine_helpers.ts";
 import {
   COMPLETION_CLAIM,
   COMPLETION_CLOCK,
-  COMPLETION_RECOVERY,
   completionFixtures,
   completionId,
 } from "./completion_fixtures.ts";
@@ -86,13 +81,6 @@ Deno.test("completion reads are effect-free and every family preserves newer and
               opaque: ["future bytes"],
             }),
             "newer",
-          ],
-          [
-            JSON.stringify({
-              ...fixture,
-              version: 1,
-            }),
-            "older",
           ],
           [JSON.stringify({ ...fixture, data: {} }), "invalid"],
           [JSON.stringify({ ...fixture, unknown_field: true }), "invalid"],
@@ -212,17 +200,17 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
     const recordedAttempt = COMPLETION_FAMILIES.attempt.schema.parse(
       fixtures.attempt,
     );
-    const recovery = CompletionRecordSchema.parse({
+    const settled = CompletionRecordSchema.parse({
       ...recordedAttempt,
       revision: 2,
       data: {
         ...recordedAttempt.data,
-        state: { kind: "recovery", recovery: COMPLETION_RECOVERY },
+        state: { kind: "finished", outcome: "cancelled", finished_at: 90 },
       },
     });
     const stopped = await writeCompletionRecord(
       root,
-      recovery,
+      settled,
       attempt.stamp,
       fence,
       COMPLETION_CLOCK,
@@ -236,7 +224,7 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
     assertEquals(
       (await writeCompletionRecord(
         root,
-        { ...recovery, revision: 3 },
+        { ...settled, revision: 3 },
         attempt.stamp,
         undefined,
         COMPLETION_CLOCK,
@@ -268,7 +256,7 @@ Deno.test("completion records survive linked checkout removal and are observed t
         cwd: main,
       })).success,
     );
-    const fixture = completionFixtures().retirement;
+    const fixture = completionFixtures().exception;
     const written = await writeCompletionRecord(
       linked,
       fixture,
@@ -383,7 +371,7 @@ Deno.test("one claimed attempt publishes every planned producer while preserving
 Deno.test("completion revisions retain history and refuse a newer historical document", async () => {
   await withTempDir(async (root) => {
     await initializeRepository(root);
-    const initial = completionFixtures().queue;
+    const initial = completionFixtures().exception;
     const first = await writeCompletionRecord(
       root,
       initial,
@@ -445,7 +433,7 @@ Deno.test("completion aliases share the publication lock before any family is cr
         await completionRecordPath(repository, fixture),
       );
     }
-    const fixture = completionFixtures().queue;
+    const fixture = completionFixtures().exception;
     const writes = await Promise.all([
       writeCompletionRecord(
         repository,
@@ -467,55 +455,6 @@ Deno.test("completion aliases share the publication lock before any family is cr
       1,
     );
   });
-});
-
-Deno.test("every recorded retirement effect is monotonic without changing ownership or landing", () => {
-  const fixture = completionFixtures().retirement;
-  assert(fixture.kind === "retirement");
-  const previous = {
-    ...fixture,
-    data: {
-      ...fixture.data,
-      effects: { worktree_removed: true, branch_deleted: true },
-    },
-  };
-  for (const field of Object.keys(RetirementEffectsSchema.shape)) {
-    const next = {
-      ...previous,
-      revision: previous.revision + 1,
-      data: {
-        ...previous.data,
-        effects: { ...previous.data.effects, [field]: false },
-      },
-    };
-    assertEquals(recordTransitionAllowed(previous, next), false, field);
-  }
-  assertEquals(
-    recordTransitionAllowed(previous, {
-      ...previous,
-      revision: previous.revision + 1,
-      data: { ...previous.data, ownership: "changed" },
-    }),
-    false,
-  );
-  assertEquals(
-    recordTransitionAllowed(previous, {
-      ...previous,
-      revision: previous.revision + 1,
-      data: {
-        ...previous.data,
-        outcome: {
-          kind: "recovery",
-          recovery: {
-            ...COMPLETION_RECOVERY,
-            retained_paths: [...COMPLETION_RECOVERY.retained_paths],
-            frozen_cleanup: [...COMPLETION_RECOVERY.frozen_cleanup],
-          },
-        },
-      },
-    }),
-    true,
-  );
 });
 
 Deno.test("completion inventory discovers its administration directory once across every family", async () => {
@@ -555,7 +494,7 @@ Deno.test("completion inventory discovers its administration directory once acro
 Deno.test("completion revision history adds no administration discovery to publication", async () => {
   await withTempDir(async (root) => {
     await initializeRepository(root);
-    const fixture = completionFixtures().queue;
+    const fixture = completionFixtures().exception;
     const initial = await countedAdminQueries(() =>
       writeCompletionRecord(root, fixture, null, undefined, COMPLETION_CLOCK)
     );
@@ -574,7 +513,7 @@ Deno.test("completion revision history adds no administration discovery to publi
     assertEquals(
       initial.queries,
       3,
-      "queue identity, acquisition identity, and one store resolution",
+      "lock identity, acquisition identity, and one store resolution",
     );
     assertEquals(revised.queries, initial.queries);
     const historic = await readCompletionRecord(root, fixture, 1);
@@ -595,7 +534,7 @@ Deno.test("a resolved completion store keeps reads fresh and later operations fo
     await Deno.symlink(first, alias);
     const store = await openCompletionRecordStore(alias);
     assert(store !== undefined);
-    const fixture = completionFixtures().queue;
+    const fixture = completionFixtures().exception;
     assertEquals((await store.read(fixture)).kind, "missing");
     const path = store.path(fixture);
     await Deno.mkdir(dirname(path), { recursive: true });
@@ -612,164 +551,57 @@ Deno.test("a resolved completion store keeps reads fresh and later operations fo
   });
 });
 
-Deno.test("reviewed version 2 records normalize without granting authority or rewriting observation", async () => {
-  await withTempDir(async (root) => {
-    await initializeRepository(root);
-    for (const fixture of Object.values(completionFixtures())) {
-      const raw = JSON.stringify({ ...fixture, version: 2 }, null, 2);
-      const path = await completionRecordPath(root, fixture);
-      assert(path !== undefined);
-      await Deno.mkdir(dirname(path), { recursive: true });
-      await Deno.writeTextFile(path, raw);
-      const observed = await readCompletionRecord(root, fixture);
-      assert(observed.kind === "recorded", JSON.stringify(observed));
-      assertEquals(observed.record, fixture);
-      assertEquals(await Deno.readTextFile(path), raw);
-      if (
-        COMPLETION_FAMILIES[fixture.kind].lifetime === "mutable" &&
-        fixture.kind !== "attempt"
-      ) {
-        assertEquals(
-          (await writeCompletionRecord(
-            root,
-            { ...fixture, revision: 2 },
-            observed.stamp,
-            undefined,
-            COMPLETION_CLOCK,
-          )).kind,
-          "written",
-        );
-        const archive = await completionRecordPath(root, fixture, 1);
-        assert(archive !== undefined);
-        assertEquals(await Deno.readTextFile(archive), raw);
-      }
-    }
-  });
-});
-
-Deno.test("completion version distinguishes the two strict-reader extensions from corruption", async () => {
-  assert(
-    ON_DISK_FORMATS.completionRecord.version > 2,
-    "strict schema extensions require an explicit compatibility revision",
-  );
-  const environment = COMPLETION_FAMILIES.environment.schema.parse(
-    completionFixtures().environment,
-  );
-  const extended = {
-    ...environment,
-    data: {
-      ...environment.data,
-      state: { kind: "idle" as const, returned_attempt_id: completionId(2) },
-    },
-  };
-  for (const value of [environment, extended]) {
-    const result = await parseCompletionRecord(
-      JSON.stringify({ ...value, version: 2 }),
-      value,
-    );
-    assert(result.kind === "recorded", JSON.stringify(result));
-    assertEquals(result.record.data, value.data);
-  }
-  assertEquals(
-    (await parseCompletionRecord(
-      JSON.stringify({ ...extended, version: 2, surprise: true }),
-      extended,
-    )).kind,
-    "invalid",
-  );
-});
-
-Deno.test("strict version-2 readers reject optional additions accepted by the reviewed compatibility reader", async () => {
-  const fixtures = completionFixtures();
-  assert(
-    fixtures.environment.kind === "environment" &&
-      fixtures.landing.kind === "landing" &&
-      fixtures.evidence.kind === "evidence",
-  );
-  // These are the two strict shapes from f6d709fc9; each changed without a version bump.
-  const oldIdle = z.strictObject({ kind: z.literal("idle") });
-  assert(oldIdle.safeParse({ kind: "idle" }).success);
-  const idle = { kind: "idle", returned_attempt_id: completionId(2) };
-  assertEquals(oldIdle.safeParse(idle).success, false);
-  const oldException = z.strictObject(
-    Object.fromEntries(
-      Object.entries(ExceptionClaimSchema.shape).filter(([key]) =>
-        key !== "review"
-      ),
-    ),
-  );
-  const landing = fixtures.landing;
-  const claim = {
-    kind: "exception",
-    authorization_id: completionId(80),
-    authorized_at: 100,
-    actual_trunk: landing.data.expected_trunk,
-    source: landing.data.source,
-    candidate_id: landing.data.candidate_id,
-    candidate_head: landing.data.target,
-    policy: landing.data.policy,
-    reason: "Recorded owner exception",
-    exceptions: [{
-      requirement: {
-        id: "coverage",
-        context: "local",
-        kind: "standard",
-        definition: "a".repeat(64),
-      },
-      state: "unrun",
-      evidence_id: null,
-    }],
-  };
-  assert(oldException.safeParse(claim).success);
-  const artifact = fixtures.evidence.data.artifacts[0];
-  assert(artifact !== undefined);
-  const extended = {
-    ...claim,
-    review: {
-      ...artifact,
-      candidate_id: landing.data.candidate_id,
-      context: "local",
-      path: "environment/emergency-review.json",
-    },
-  };
-  assertEquals(oldException.safeParse(extended).success, false);
-  for (const value of [claim, extended]) {
-    const raw = JSON.stringify({
-      ...landing,
-      version: 2,
-      data: { ...landing.data, claim: value },
+Deno.test("a recorded exception outcome is final and its published note never unpublishes", () => {
+  const fixture = completionFixtures().exception;
+  assert(fixture.kind === "exception");
+  const next = (
+    data: Partial<typeof fixture.data>,
+    revision = fixture.revision + 1,
+  ): CompletionRecord =>
+    CompletionRecordSchema.parse({
+      ...fixture,
+      revision,
+      data: { ...fixture.data, ...data },
     });
-    const observed = await parseCompletionRecord(raw, landing);
-    assert(observed.kind === "recorded", JSON.stringify(observed));
-    assert(observed.record.kind === "landing");
-    assertEquals(observed.record.data.claim.kind, "exception");
-  }
-});
-
-Deno.test("read-only environment enrollment and canonical storage agree on reviewed historical records", async () => {
-  const { enrolledEnvironments } = await import(
-    "../src/engine/execution/enrollment_read.ts"
+  const landed = next({ outcome: { kind: "landed", at: 120 } });
+  assertEquals(recordTransitionAllowed(fixture, landed), true);
+  assertEquals(
+    recordTransitionAllowed(fixture, next({ note: "published" })),
+    true,
   );
-  await withTempDir(async (root) => {
-    await initializeRepository(root);
-    const fixture = completionFixtures().environment;
-    const path = await completionRecordPath(root, fixture);
-    assert(path !== undefined);
-    await Deno.mkdir(dirname(path), { recursive: true });
-    for (
-      const version of [
-        ...ON_DISK_FORMATS.completionRecord.historicalVersions,
-        ON_DISK_FORMATS.completionRecord.version,
-      ]
-    ) {
-      const raw = JSON.stringify({ ...fixture, version });
-      await Deno.writeTextFile(path, raw);
-      const stored = await readCompletionRecord(root, fixture);
-      assertEquals(stored.kind, "recorded");
-      assertEquals((await enrolledEnvironments(root)).map((r) => r.id), [
-        fixture.id,
-      ]);
-      assertEquals(await Deno.readTextFile(path), raw);
-    }
-  });
+  assert(landed.kind === "exception");
+  for (
+    const settled of [
+      next(
+        {
+          outcome: { kind: "not-landed", at: 130, reason: "trunk moved" },
+        },
+        landed.revision + 1,
+      ),
+      next({ outcome: { kind: "planned" } }, landed.revision + 1),
+    ]
+  ) {
+    assertEquals(recordTransitionAllowed(landed, settled), false);
+  }
+  const published = next({ note: "published" });
+  assert(published.kind === "exception");
+  assertEquals(
+    recordTransitionAllowed(
+      published,
+      next({ note: "pending" }, published.revision + 1),
+    ),
+    false,
+  );
+  assertEquals(
+    recordTransitionAllowed(
+      fixture,
+      next({
+        claim: {
+          ...fixture.data.claim,
+          reason: "another justification",
+        },
+      }),
+    ),
+    false,
+  );
 });

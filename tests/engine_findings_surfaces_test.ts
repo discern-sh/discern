@@ -287,11 +287,9 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
     ]);
     assertEquals(acceptRun.code, 0, acceptRun.output);
     const accepted = parse(acceptRun.stdout, "accept");
-    assert(accepted.data !== undefined && "queue" in accepted.data);
-    const prefix = accepted.data.queue?.[0];
-    assertEquals(prefix?.state, "landed");
-    assert(prefix?.candidate_id !== null);
-    assertEquals(prefix?.convergence, "passed");
+    assert(accepted.data !== undefined && "landing" in accepted.data);
+    assertEquals(accepted.data.landing?.trunk_landed, true);
+    assertEquals(accepted.data.landing?.worktree_removed, true);
   });
 });
 

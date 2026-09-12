@@ -1,7 +1,4 @@
-import {
-  completeNoteAuthority,
-  completeNoteProof,
-} from "./completion_note_fixtures.ts";
+import { completeNoteProof } from "./completion_note_fixtures.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { recordCompleteGateFixture } from "./complete_gate_fixture.ts";
 import {
@@ -466,7 +463,6 @@ Deno.test("a fresh branch wait recovers accepted work after branch cleanup", asy
       completeNoteProof(tip, "agent/dep"),
       fakeEnv(),
       {
-        authority: completeNoteAuthority(completeNoteProof(tip, "agent/dep")),
         consent: { source: "effort-grant" },
         variances: [],
         standard_proposals: [],
@@ -594,9 +590,6 @@ Deno.test("every await condition resumes across the gap between bounded calls", 
             completeNoteProof(tip, "agent/dep"),
             fakeEnv(),
             {
-              authority: completeNoteAuthority(
-                completeNoteProof(tip, "agent/dep"),
-              ),
               consent: { source: "effort-grant" },
               variances: [],
               standard_proposals: [],
@@ -1140,7 +1133,7 @@ Deno.test("await resolves a managed detached checkout from its durable identity,
     await gitInit(dir);
     const dep = await addWorktree(dir, "dep");
     await commitFile(dep, "dep.txt", "work", "dep work");
-    // Candidate installation detaches HEAD; the effort's durable identity
+    // A detached HEAD hides the branch name; the effort's durable identity
     // still names its branch, so the watch resolves and its handle stays
     // readable by its own parser across detach, resume, and reattach.
     await git(dep, "checkout", "--detach");
@@ -1166,19 +1159,19 @@ Deno.test("await resolves a managed detached checkout from its durable identity,
   });
 });
 
-Deno.test("a green watch is not satisfied by a proof for a temporarily installed candidate", async () => {
+Deno.test("a green watch is not satisfied by a proof for a detached side commit", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     const dep = await addWorktree(dir, "dep");
     await commitFile(dep, "dep.txt", "authored", "dep work");
-    // Simulate temporary candidate installation: the checkout sits detached
-    // on a different composed commit that carries its own honored proof.
-    await git(dep, "checkout", "-b", "candidate-install");
-    await commitFile(dep, "candidate.txt", "composed", "installed candidate");
+    // The checkout sits detached on a different side commit that carries its
+    // own honored proof; the branch the watch names never gained it.
+    await git(dep, "checkout", "-b", "side-proof");
+    await commitFile(dep, "candidate.txt", "side work", "side commit");
     await writeHonoredProof(dep);
     await git(dep, "checkout", "--detach");
-    await git(dep, "branch", "-D", "candidate-install");
+    await git(dep, "branch", "-D", "side-proof");
     const watched = await awaitResult(dir, { green: "dep", timeoutSeconds: 0 });
     assert(watched.ok, JSON.stringify(watched));
     assert(watched.data !== undefined && "met" in watched.data);

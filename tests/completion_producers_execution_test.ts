@@ -8,6 +8,7 @@ import {
   claimed,
   COMPLETION_CLOCK,
   countedRuntime,
+  fenceOf,
   obligations,
   observation,
   PRODUCER_RECIPE,
@@ -25,7 +26,6 @@ Deno.test("dependency failure prevents its consumers from executing; diagnostic-
   });
   const plan = planValidation(snap, observation(), {
     kind: "done",
-    context: "local",
     mode: "strict",
     requirements: snap.requirements,
   });
@@ -49,7 +49,6 @@ Deno.test("dependency failure prevents its consumers from executing; diagnostic-
   });
   const test = planValidation(bare, observation(), {
     kind: "test",
-    context: "local",
     mode: "strict",
     producers: ["jobs.bare"],
     readings: "already-produced",
@@ -67,7 +66,7 @@ Deno.test("dependency failure prevents its consumers from executing; diagnostic-
   assert(failed.blockers.length > 0);
 });
 
-Deno.test("failed extraction and artifacts with another candidate or context fail required consumers", async () => {
+Deno.test("failed extraction and artifacts naming another candidate fail required consumers", async () => {
   const snap = await snapshot({
     obligations: obligations().map((o) => ({
       ...o,
@@ -77,22 +76,18 @@ Deno.test("failed extraction and artifacts with another candidate or context fai
   });
   const plan = planValidation(snap, observation(), {
     kind: "done",
-    context: "local",
     mode: "strict",
     requirements: snap.requirements,
   });
   const execution = claimed(snap, plan);
-  for (const context of ["local", "foreign"]) {
+  {
     const { runtime } = countedRuntime({
       produce: () =>
         Promise.resolve({
           ...captured(),
           artifacts: [{
             attempt_id: execution.attempt.identity.id,
-            candidate_id: context === "local"
-              ? "00000000-0000-4000-8000-000000000999"
-              : execution.candidate_id,
-            context,
+            candidate_id: "00000000-0000-4000-8000-000000000999",
             path: "out.txt",
             digest: "a".repeat(64),
             bytes: 1,
@@ -137,7 +132,6 @@ Deno.test("E09: extraction starts while an unrelated job is held open", async ()
       {
         requirement: {
           id: "unrelated",
-          context: "local",
           kind: "job",
           definition: "d".repeat(64),
         },
@@ -162,7 +156,6 @@ Deno.test("E09: extraction starts while an unrelated job is held open", async ()
   });
   const plan = planValidation(snap, observation(), {
     kind: "done",
-    context: "local",
     mode: "strict",
     requirements: snap.requirements,
   });
@@ -210,7 +203,6 @@ Deno.test("physical deduplication requires matching recipe identity; each protec
     });
     const plan = planValidation(snap, observation(), {
       kind: "done",
-      context: "local",
       mode: "strict",
       requirements: snap.requirements,
     });
@@ -229,14 +221,16 @@ Deno.test("physical deduplication requires matching recipe identity; each protec
     );
     assertEquals(result.evidence.length, 3);
     assertEquals(result.blockers.length, 1);
+    const assembly = assemblyRecord(snap);
     assertEquals(
       assembleCandidate(
         snap,
         snap.candidate_id,
         snap.candidate,
         snap.requirements,
-        [...recorded(execution, result.evidence), assemblyRecord(snap)],
+        [...recorded(execution, result.evidence), assembly],
         "strict",
+        fenceOf(assembly),
         new Set(),
         COMPLETION_CLOCK,
       ).kind,
@@ -258,7 +252,6 @@ Deno.test("E01 E05: failed, incomplete and malformed producer captures cannot sa
     const snap = await snapshot();
     const plan = planValidation(snap, observation(), {
       kind: "done",
-      context: "local",
       mode: "strict",
       requirements: snap.requirements,
     });
@@ -266,6 +259,7 @@ Deno.test("E01 E05: failed, incomplete and malformed producer captures cannot sa
       produce: () => Promise.resolve(capture),
     });
     const execution = claimed(snap, plan);
+    const assembly = assemblyRecord(snap);
     const result = await executeValidation(
       snap,
       plan,
@@ -294,9 +288,10 @@ Deno.test("E01 E05: failed, incomplete and malformed producer captures cannot sa
         snap.requirements,
         [
           ...recorded(execution, result.evidence, "failed"),
-          assemblyRecord(snap),
+          assembly,
         ],
         "strict",
+        fenceOf(assembly),
         new Set(),
         COMPLETION_CLOCK,
       ).kind,
@@ -309,7 +304,6 @@ Deno.test("claim mismatch is rejected before effects and candidate mutation stal
   const snap = await snapshot();
   const plan = planValidation(snap, observation(), {
     kind: "done",
-    context: "local",
     mode: "strict",
     requirements: snap.requirements,
   });

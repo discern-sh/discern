@@ -36,7 +36,6 @@ const FROZEN_V1_GIT_CONVENTIONS = {
     proof_notes_tracking_prefix: "refs/discern/remotes",
     proof_notes_tracking_reservation: "refs/discern/remotes/<remote>/notes*",
     drop_recovery_prefix: "refs/discern/recovery",
-    candidate_prefix: "refs/discern/candidates",
     acceptance_transaction_prefix:
       "refs/worktree/discern/acceptance-transactions",
   },
@@ -106,34 +105,16 @@ const FROZEN_V1_GIT_CONVENTIONS = {
 } as const;
 
 const FROZEN_V1_GIT_ADMIN_STATE = {
-  completionGrantClaims: [
-    "discern/completion/grant-claims",
-    "common",
-    "directory",
-    false,
-  ],
   completionRecords: [
     "discern/completion/records",
     "common",
     "directory",
     false,
   ],
-  completionPublication: [
-    "discern/completion/publication.json",
-    "common",
-    "file",
-    false,
-  ],
   completionArtifacts: [
     "discern/completion/artifacts",
     "common",
     "directory",
-    false,
-  ],
-  environmentProofs: [
-    "discern/completion/environment-proofs.json",
-    "common",
-    "file",
     false,
   ],
   resources: ["discern/resources", "common", "directory", false],
@@ -243,6 +224,7 @@ const FROZEN_V1_GIT_ADMIN_STATE = {
     "directory",
     false,
   ],
+  submission: ["discern/submission", "worktree", "file", false],
   acceptanceTransaction: [
     "discern/acceptance-transaction.json",
     "worktree",

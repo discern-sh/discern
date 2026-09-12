@@ -99,13 +99,14 @@ import { docsResult, mapResult } from "../src/commands/docs.ts";
 import { refreshResult } from "../src/engine/instructions.ts";
 import { tidyResult } from "../src/engine/tidy/tidy.ts";
 import {
-  acceptResult,
   type LifecycleContext,
   lifecycleContext,
   startResult,
   taskRenameResult,
   updateResult,
 } from "../src/engine/worktree/lifecycle.ts";
+import { acceptLandingResult } from "../src/engine/worktree/accept.ts";
+import { WorktreeResultError } from "../src/engine/worktree/git.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { Logger } from "../src/lib/log.ts";
 import { removeWorktreeSafely } from "../src/engine/worktree/git.ts";
@@ -1926,12 +1927,17 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
       wt,
       new Logger({ json: true, noColor: true }),
     );
-    const preview = await acceptResult(ctx, {
+    const refusal = await acceptLandingResult(ctx, {
       dryRun: true,
-      cliModel: TEST_CLI_MODEL,
+      confirmed: false,
+      variance: [],
+      approveStandard: [],
+    }).catch((error: unknown) => {
+      if (error instanceof WorktreeResultError) return error.result;
+      throw error;
     });
-    assertEquals(preview.dry_run, true);
-    expectFaithful("accept", preview, "accept dry-run");
+    assertEquals(refusal.ok, false);
+    expectFaithful("accept", refusal, "accept unproven refusal");
   });
 
   await withTempDir(async (dir) => {
@@ -1952,16 +1958,16 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
       wt,
       new Logger({ json: true, noColor: true }),
     );
-    const applied = await acceptResult(ctx, {
+    const applied = await acceptLandingResult(ctx, {
+      dryRun: false,
       confirmed: true,
-      cliModel: TEST_CLI_MODEL,
+      variance: [],
+      approveStandard: [],
     });
-    assertEquals(applied.ok, true);
-    const prefix = applied.data?.queue?.[0];
-    assertEquals(prefix?.state, "landed");
-    assertEquals(prefix?.convergence, "passed");
-    assertEquals(prefix?.retirement, "retired");
-    assertEquals(prefix?.retirement_effects, {
+    assertEquals(applied.ok, true, JSON.stringify(applied));
+    assertEquals(applied.data?.landing, {
+      recovery_performed: false,
+      trunk_landed: true,
       worktree_removed: true,
       branch_deleted: true,
     });

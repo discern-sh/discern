@@ -3,10 +3,7 @@ import { assert, assertEquals } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { git, runAgent } from "./engine_helpers.ts";
-import {
-  observedRecords,
-  observeQueue,
-} from "../src/engine/landing_queue/repository.ts";
+import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { completionMcpPeer } from "./completion_mcp_fixture.ts";
@@ -18,7 +15,7 @@ import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 Deno.test("ordinary completion refuses all uncommitted paths before producers; explicit standalone remains transient", async () => {
   await withTempDir(async (root) => {
-    const path = await project(root, ["local"]);
+    const path = await project(root);
     await Deno.writeTextFile(`${path}/source`, "uncommitted\n");
     await Deno.writeTextFile(`${path}/staged`, "staged\n");
     await git(path, "add", "staged");
@@ -56,12 +53,12 @@ Deno.test("ordinary completion refuses all uncommitted paths before producers; e
         assert(refused.output.includes(name), refused.output);
       }
       assertEquals(await pathExists(`${path}/executions`), false);
-      assertEquals(observedRecords(await observeQueue(root, "main")), []);
+      assertEquals((await observeCompletionRecords(root)).records, []);
     }
     const diagnostic = await runAgent(path, ["done", "--standalone", "--json"]);
     assertEquals(diagnostic.code, 0, diagnostic.output);
     assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
-    assertEquals(observedRecords(await observeQueue(root, "main")), []);
+    assertEquals((await observeCompletionRecords(root)).records, []);
   });
 });
 

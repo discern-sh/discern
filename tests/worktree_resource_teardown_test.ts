@@ -12,7 +12,7 @@ import {
 import { pinnedTerminal, withTempDir } from "./helpers.ts";
 
 /** Ledger cleanup is the sole resource-retirement boundary; names are immaterial. */
-Deno.test("environment resource teardown retains ownership replaced before or during destruction", async () => {
+Deno.test("worktree resource teardown retains ownership replaced before or during destruction", async () => {
   for (const timing of ["before", "during"] as const) {
     await withTempDir(async (root) => {
       const common = join(root, "admin");

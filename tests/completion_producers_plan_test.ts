@@ -28,7 +28,6 @@ Deno.test("E02 E03 E06: cold scope and build producers are demanded; valid repla
     });
     const plan = planValidation(snap, observation(), {
       kind: "done",
-      context: "local",
       mode: "strict",
       requirements: snap.requirements,
     });
@@ -100,7 +99,6 @@ Deno.test("selectors, consumer cycles, dependency cycles and ambiguous sources f
   assertThrows(() =>
     planValidation(snap, observation(), {
       kind: "done",
-      context: "local",
       mode: "strict",
       requirements: [],
     })
@@ -108,7 +106,6 @@ Deno.test("selectors, consumer cycles, dependency cycles and ambiguous sources f
   assertThrows(() =>
     planValidation(snap, observation(), {
       kind: "test",
-      context: "local",
       mode: "strict",
       producers: ["jobs.absent"],
       readings: "already-produced",
@@ -121,7 +118,6 @@ Deno.test("E11 E12 E17: test adds only supplied readings; prepare is measurement
   declarations.push({
     requirement: {
       id: "costly",
-      context: "local",
       kind: "standard",
       definition: "c".repeat(64),
     },
@@ -148,7 +144,6 @@ Deno.test("E11 E12 E17: test adds only supplied readings; prepare is measurement
   });
   const test = planValidation(snap, observation(), {
     kind: "test",
-    context: "local",
     mode: "strict",
     producers: ["jobs.test"],
     readings: "already-produced",
@@ -158,7 +153,6 @@ Deno.test("E11 E12 E17: test adds only supplied readings; prepare is measurement
   assertEquals(
     planValidation(snap, observation(), {
       kind: "prepare",
-      context: "local",
       mode: "strict",
       measurement: "none",
     }).producers,
@@ -167,7 +161,6 @@ Deno.test("E11 E12 E17: test adds only supplied readings; prepare is measurement
   for (const kind of ["standards", "pin", "proposal"] as const) {
     const demand = planValidation(snap, observation(), {
       kind,
-      context: "local",
       mode: "strict",
       requirements: snap.requirements.filter((r) => r.id === "costly"),
     });

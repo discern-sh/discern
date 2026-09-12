@@ -561,15 +561,16 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
     },
   },
   complete_validation: {
-    // Reads config only — a positive lookahead with no environment declared
-    // asks for early validation that can never run; the same suite under two
-    // names and a standard naming a missing producer fail the same check.
+    // Reads config only — a standard naming a missing producer fails, as does
+    // the same suite registered under two names.
     fail(root): Promise<EvalCtx> {
       return Promise.resolve({
         root,
         config: baseConfig({
           jobs: { test: "deno test" },
-          completion: { lookahead: 1 },
+          standards: {
+            coverage: { producer: "jobs.absent", direction: "up", limit: 90 },
+          },
         }),
       });
     },

@@ -14,8 +14,8 @@ import {
   claimed,
   COMPLETION_CLOCK,
   completionId,
-  CONDITIONS,
   countedRuntime,
+  fenceOf,
   FILES,
   obligations,
   observation,
@@ -24,10 +24,9 @@ import {
   snapshot,
 } from "./completion_producers_fixtures.ts";
 
-/** Execute and record one candidate context with the counted runtime. */
+/** Execute and record one candidate validation with the counted runtime. */
 async function passing(
   snap: Awaited<ReturnType<typeof snapshot>>,
-  context = "local",
   sequence = 1,
 ): Promise<
   {
@@ -39,7 +38,6 @@ async function passing(
 > {
   const plan = planValidation(snap, observation(), {
     kind: "done",
-    context,
     mode: "strict",
     requirements: snap.requirements,
   });
@@ -62,6 +60,7 @@ async function passing(
 Deno.test("E01: every nonpassing component state prevents aggregate Proof with a valid publication claim", async () => {
   const snap = await snapshot();
   const prior = await passing(snap);
+  const assembly = assemblyRecord(snap);
   const outcomes: Record<
     ComponentEvidence["outcome"]["kind"],
     ComponentEvidence["outcome"]
@@ -91,8 +90,9 @@ Deno.test("E01: every nonpassing component state prevents aggregate Proof with a
         snap.candidate_id,
         snap.candidate,
         snap.requirements,
-        [...records, assemblyRecord(snap)],
+        [...records, assembly],
         "strict",
+        fenceOf(assembly),
         new Set(),
         COMPLETION_CLOCK,
       ).kind,
@@ -107,37 +107,41 @@ Deno.test("E01: every nonpassing component state prevents aggregate Proof with a
       snap.requirements,
       prior.records,
       "strict",
+      fenceOf(assembly),
       new Set(),
       COMPLETION_CLOCK,
     ).kind,
     "incomplete",
+    "Proof publication requires the live assembly attempt on record",
   );
-  const older = assemblyRecord(snap);
-  const newer = CompletionRecordSchema.parse({
-    ...older,
+  const settled = CompletionRecordSchema.parse({
+    ...assembly,
     id: completionId(2000),
     data: {
-      ...older.data,
+      ...assembly.data,
       identity: {
-        ...older.data.identity,
+        ...assembly.data.identity,
         id: completionId(2000),
         sequence: 1000,
       },
       state: { kind: "finished", outcome: "failed", finished_at: 120 },
     },
   });
+  assert(settled.kind === "attempt");
   assertEquals(
     assembleCandidate(
       snap,
       snap.candidate_id,
       snap.candidate,
       snap.requirements,
-      [...prior.records, older, newer],
+      [...prior.records, assembly, settled],
       "strict",
+      fenceOf(settled),
       new Set(),
       COMPLETION_CLOCK,
     ).kind,
     "incomplete",
+    "a settled assembly attempt cannot publish Proof",
   );
 });
 
@@ -154,16 +158,6 @@ Deno.test("E04: every applicability dimension invalidates required consumer reus
         ...o,
         input: { producer: "jobs.novel" },
       })),
-    },
-    context: {
-      conditions: [{
-        ...CONDITIONS[0],
-        context: "ci",
-        seed: 42,
-        environment: { MODE: "test" },
-        identity: "a".repeat(64),
-      }],
-      obligations: obligations("ci"),
     },
     policy: { candidate: { ...baseline.candidate, policy: "c".repeat(64) } },
     protected_definitions: {
@@ -213,7 +207,6 @@ Deno.test("E04: every applicability dimension invalidates required consumer reus
     },
     environment: {
       conditions: [{
-        context: "local",
         seed: 42,
         environment: { MODE: "production" },
         identity: "a".repeat(64),
@@ -221,7 +214,6 @@ Deno.test("E04: every applicability dimension invalidates required consumer reus
     },
     seed: {
       conditions: [{
-        context: "local",
         seed: 43,
         environment: { MODE: "test" },
         identity: "a".repeat(64),
@@ -243,7 +235,6 @@ Deno.test("E04: every applicability dimension invalidates required consumer reus
     const changed = await snapshot(change);
     const plan = planValidation(changed, observation(prior.records), {
       kind: "done",
-      context: dimension === "context" ? "ci" : "local",
       mode: "strict",
       requirements: changed.requirements,
     });
@@ -304,17 +295,21 @@ Deno.test("E06: declared closure reuses across candidates; unknown closure stays
     const next = await snapshot({
       producers,
       candidate_id: completionId(55),
-      candidate: { ...baseline.candidate, head: "e".repeat(40) },
+      candidate: {
+        ...baseline.candidate,
+        head: "e".repeat(40),
+        source: { ...baseline.candidate.source, head: "e".repeat(40) },
+      },
     });
     const plan = planValidation(next, observation(prior.records), {
       kind: "done",
-      context: "local",
       mode: "strict",
       requirements: next.requirements,
     });
     assertEquals(plan.reused.length, declared ? 3 : 0);
     if (declared) {
-      const records = [...prior.records, assemblyRecord(next)];
+      const assembly = assemblyRecord(next);
+      const records = [...prior.records, assembly];
       const assembled = assembleCandidate(
         next,
         next.candidate_id,
@@ -322,6 +317,7 @@ Deno.test("E06: declared closure reuses across candidates; unknown closure stays
         next.requirements,
         records,
         "strict",
+        fenceOf(assembly),
         new Set(),
         COMPLETION_CLOCK,
       );
@@ -365,7 +361,6 @@ Deno.test("E10 V08: started/failed/report reruns supersede only matching subject
   const selected = snap.requirements.filter((r) => r.id === "coverage");
   const rerunPlan = planValidation(snap, observation(), {
     kind: "standards",
-    context: "local",
     mode: "report",
     requirements: selected,
   });
@@ -453,11 +448,10 @@ Deno.test("E10 V08: started/failed/report reruns supersede only matching subject
     if (failing === undefined) throw new Error("missing fixture");
     const diagnosticPlan = planValidation(snap, observation(records), {
       kind: "diagnostic",
-      context: "local",
       mode: "strict",
       failing_requirement: failing,
       source: snap.candidate.source,
-      base: snap.candidate.expected_predecessor.head,
+      base: snap.candidate.predecessor,
     });
     const diagnostic = claimed(snap, diagnosticPlan, 3);
     const diagnosticResult = await executeValidation(
@@ -467,6 +461,7 @@ Deno.test("E10 V08: started/failed/report reruns supersede only matching subject
       countedRuntime().runtime,
       COMPLETION_CLOCK,
     );
+    const assembly = assemblyRecord(snap);
     assertEquals(
       assembleCandidate(
         snap,
@@ -476,9 +471,10 @@ Deno.test("E10 V08: started/failed/report reruns supersede only matching subject
         [
           ...records,
           ...recorded(diagnostic, diagnosticResult.evidence),
-          assemblyRecord(snap),
+          assembly,
         ],
         "strict",
+        fenceOf(assembly),
         new Set(),
         COMPLETION_CLOCK,
       ).kind,
@@ -487,58 +483,51 @@ Deno.test("E10 V08: started/failed/report reruns supersede only matching subject
   }
 });
 
-Deno.test("E13: compatible partial contexts assemble; missing, substituted and report-only lanes do not", async () => {
-  const snap = await snapshot({
-    obligations: [...obligations(), ...obligations("ci")],
-    conditions: [...CONDITIONS, {
-      context: "ci",
-      seed: 42,
-      environment: { MODE: "test" },
-      identity: "a".repeat(64),
-    }],
-  });
+Deno.test("E13: complete receipts assemble; missing assemblers, substituted facts and report-only evidence do not", async () => {
+  const snap = await snapshot();
   const local = await passing(snap);
-  const ci = await passing(snap, "ci", 2);
-  const assemble = (records: typeof local.records) =>
+  const assembly = assemblyRecord(snap);
+  const assemble = (
+    records: typeof local.records,
+  ): ReturnType<typeof assembleCandidate> =>
     assembleCandidate(
       snap,
       snap.candidate_id,
       snap.candidate,
       snap.requirements,
-      [...records, assemblyRecord(snap)],
+      [...records, assembly],
       "strict",
+      fenceOf(assembly),
       new Set(),
       COMPLETION_CLOCK,
     );
-  assertEquals(assemble(local.records).kind, "incomplete");
-  assertEquals(assemble([...local.records, ...ci.records]).kind, "complete");
+  assertEquals(assemble(local.records).kind, "complete");
   assertEquals(
     assembleCandidate(
       snap,
       completionId(999),
       snap.candidate,
       snap.requirements,
-      [...local.records, ...ci.records],
+      [...local.records, assembly],
       "strict",
+      fenceOf(assembly),
     ).kind,
     "incomplete",
   );
-  for (const field of ["policy", "context"] as const) {
-    const wrong = ci.records.map((r) =>
-      r.kind !== "evidence" ? r : CompletionRecordSchema.parse({
-        ...r,
-        data: {
-          ...r.data,
-          applicability: {
-            ...r.data.applicability,
-            [field]: field === "context" ? "substitute" : "f".repeat(64),
-          },
+  const wrong = local.records.map((r) =>
+    r.kind !== "evidence" ? r : CompletionRecordSchema.parse({
+      ...r,
+      data: {
+        ...r.data,
+        applicability: {
+          ...r.data.applicability,
+          policy: "f".repeat(64),
         },
-      })
-    );
-    assertEquals(assemble([...local.records, ...wrong]).kind, "incomplete");
-  }
-  const report = ci.records.map((r) =>
+      },
+    })
+  );
+  assertEquals(assemble(wrong).kind, "incomplete");
+  const report = local.records.map((r) =>
     r.kind === "attempt" || r.kind === "evidence"
       ? CompletionRecordSchema.parse({
         ...r,
@@ -546,15 +535,17 @@ Deno.test("E13: compatible partial contexts assemble; missing, substituted and r
       })
       : r
   );
-  assertEquals(assemble([...local.records, ...report]).kind, "incomplete");
+  assertEquals(assemble(report).kind, "incomplete");
+  const reportAssembly = assemblyRecord(snap, "report");
   assertEquals(
     assembleCandidate(
       snap,
       snap.candidate_id,
       snap.candidate,
       snap.requirements,
-      [...local.records, ...report, assemblyRecord(snap, "report")],
+      [...report, reportAssembly],
       "report",
+      fenceOf(reportAssembly),
       new Set(),
       COMPLETION_CLOCK,
     ).kind,
@@ -599,7 +590,6 @@ Deno.test("explicit retry bounds all earlier terminal failures while retaining u
   for (const [index, id] of names.slice(0, 2).entries()) {
     const plan = planValidation(snap, observation(), {
       kind: "standards",
-      context: "local",
       mode: "strict",
       requirements: snap.requirements.filter((r) => r.id === id),
     });
@@ -668,8 +658,8 @@ Deno.test("evaluator audits only selectable newest evidence and never falls back
     await Deno.writeTextFile(`${root}/source`, "fixture");
     await gitInit(root);
     const snap = await snapshot();
-    const old = await passing(snap, "local", 1);
-    const latest = await passing(snap, "local", 2);
+    const old = await passing(snap, 1);
+    const latest = await passing(snap, 2);
     const records = [];
     for (const [name, run] of [["old", old], ["latest", latest]] as const) {
       const artifact = await retainArtifact(
@@ -677,7 +667,6 @@ Deno.test("evaluator audits only selectable newest evidence and never falls back
         {
           attempt_id: run.execution.attempt.identity.id,
           candidate_id: snap.candidate_id,
-          context: "local",
         },
         `${name}.txt`,
         new TextEncoder().encode(name),
@@ -710,7 +699,6 @@ Deno.test("evaluator audits only selectable newest evidence and never falls back
       assertEquals(reads.map((path) => path.split("/").at(-1)), ["latest.txt"]);
       const demand = {
         kind: "done" as const,
-        context: "local",
         mode: "strict" as const,
         requirements: snap.requirements,
       };
@@ -768,7 +756,7 @@ Deno.test("cancelled work cannot invent or erase producer failure, and completed
     planValidation(snap, observation([...failed, ...neutral]), demand).blockers
       .every((b) => b.kind === "validation-failed"),
   );
-  const completed = await passing(snap, "local", 3);
+  const completed = await passing(snap, 3);
   const interrupted = completed.records.map((record) =>
     record.kind !== "attempt" ? record : CompletionRecordSchema.parse({
       ...record,
@@ -860,7 +848,8 @@ Deno.test("cancelled work cannot invent or erase producer failure, and completed
 Deno.test("partial input observation cannot assemble the complete candidate Proof", async () => {
   const snap = await snapshot();
   const produced = await passing(snap);
-  const records = [...produced.records, assemblyRecord(snap)];
+  const assembly = assemblyRecord(snap);
+  const records = [...produced.records, assembly];
   assertEquals(
     assembleCandidate(
       snap,
@@ -869,6 +858,7 @@ Deno.test("partial input observation cannot assemble the complete candidate Proo
       snap.requirements,
       records,
       "strict",
+      fenceOf(assembly),
       new Set(),
       COMPLETION_CLOCK,
     ).kind,
@@ -883,6 +873,7 @@ Deno.test("partial input observation cannot assemble the complete candidate Proo
       snap.requirements,
       records,
       "strict",
+      fenceOf(assembly),
       new Set(),
       COMPLETION_CLOCK,
     ).kind,
@@ -893,7 +884,8 @@ Deno.test("partial input observation cannot assemble the complete candidate Proo
 Deno.test("evidence selection validates history once per bulk decision as obligations grow", async () => {
   const snap = await snapshot();
   const prior = await passing(snap);
-  const records = [...prior.records, assemblyRecord(snap)];
+  const assembly = assemblyRecord(snap);
+  const records = [...prior.records, assembly];
   // Repeated irrelevant history and obligations expose multiplicative work
   // without constructing repositories or invoking an engine or producer.
   for (const cardinality of [1, 4, 16]) {
@@ -905,7 +897,6 @@ Deno.test("evidence selection validates history once per bulk decision as obliga
     };
     const demand = {
       kind: "done",
-      context: "local",
       mode: "strict",
       requirements: snap.requirements,
     } as const;
@@ -928,6 +919,7 @@ Deno.test("evidence selection validates history once per bulk decision as obliga
             snap.requirements,
             records,
             "strict",
+            fenceOf(assembly),
             new Set(),
             COMPLETION_CLOCK,
           ),

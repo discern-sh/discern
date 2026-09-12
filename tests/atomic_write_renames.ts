@@ -11,30 +11,11 @@ export interface RegisteredRename {
 /** Every authored Deno rename whose purpose is not durable-state replacement. */
 export const REGISTERED_RENAMES = [
   {
-    path: "tests/completion_native_lifetime_test.ts",
-    enclosingFunction: "<module>",
-    reason:
-      "The parameterized uncertainty fixture parks an intact child inventory to verify recovery preserves missing receipts rather than recreating evidence of absence.",
-  },
-  {
-    path: "src/engine/execution/workspace.ts",
-    enclosingFunction: "restore",
-    reason:
-      "Git index restoration streams a verified payload into Git's exclusive index.lock and publishes that exact lock file; the small-file writer cannot preserve this lock protocol.",
-  },
-  {
     path: "tests/completion_public_diagnostics_test.ts",
     enclosingFunction:
       'Deno.test("E11 dirty deletion and rename retain public diagnostics without completion records")',
     reason:
       "The fixture renames an authored input to verify dirty diagnostics observe the new file and omit the deleted path without publishing Proof.",
-  },
-  {
-    path: "tests/engine_effort_grant_test.ts",
-    enclosingFunction:
-      'Deno.test("old one-shot claims can only settle their existing transaction")',
-    reason:
-      "The fixture moves a v1 standing grant into its claimed transaction path to exercise recovery without issuing current authority.",
   },
   {
     path: "scripts/build.ts",

@@ -4,13 +4,11 @@ import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut, runAgent } from "./engine_helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { observeCandidateInputs } from "../src/engine/validation/inputs.ts";
-import { observeValidationInputs } from "../src/engine/validation/runtime.ts";
 import {
-  observedRecords,
-  observeQueue,
-} from "../src/engine/landing_queue/repository.ts";
+  observeCompletionRecords,
+  observeValidationInputs,
+} from "../src/engine/validation/runtime.ts";
 import { observeCandidateValidation } from "../src/engine/validation/candidate_observation.ts";
-import { verifyComposition } from "../src/engine/landing_queue/composition.ts";
 
 Deno.test("candidate and live input identities agree for complete binary and executable files", async () => {
   await withTempDir(async (root) => {
@@ -43,27 +41,23 @@ Deno.test("candidate and live input identities agree for complete binary and exe
 
 Deno.test("read-only acceptance evaluator reuses real complete evidence after source checkout removal", async () => {
   await withTempDir(async (root) => {
-    const path = await project(root, ["local"]);
+    const path = await project(root);
     const done = await runAgent(path, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    let observation = await observeQueue(root, "main");
-    const records = observedRecords(observation);
+    const records = (await observeCompletionRecords(root)).records.flatMap((
+      { reading },
+    ) => reading.kind === "recorded" ? [reading.record] : []);
     const record = records.find((item) => item.kind === "candidate");
     const proof = records.find((item) => item.kind === "proof");
     assert(record?.kind === "candidate" && proof?.kind === "proof");
     await git(root, "worktree", "remove", path);
-    observation = await observeQueue(root, "main");
+    const observation = await observeCompletionRecords(root);
     const observed = await observeCandidateValidation({
       root,
       candidate_id: record.id,
       candidate: record.data,
       observation,
-      context: "local",
     });
-    assertEquals(
-      await verifyComposition(root, record.data, observed.recipe),
-      true,
-    );
     await observed.evaluator.observe(record.id);
     const plan = observed.evaluator.plan(
       observation,

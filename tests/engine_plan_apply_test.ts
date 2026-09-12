@@ -309,8 +309,11 @@ Deno.test("accept --dry-run, a JSON precondition refusal, and the applied --json
       async () => {
         const r = await runAgent(wt, ["accept", "--dry-run"]);
         assertEquals(r.code, 0, r.output);
-        assertTerminalTextIncludes(r.stdout, "not ready");
-        assertTerminalTextIncludes(r.stdout, "Read-only preview");
+        assertTerminalTextIncludes(r.stdout, "Acceptance plan");
+        assertTerminalTextIncludes(
+          r.stdout,
+          "Authority: conversation required on apply",
+        );
         assertStringIncludes(r.stdout, "agent/gradry");
         // The worktree must still exist — dry-run mutates nothing.
         assertEquals(
@@ -335,7 +338,7 @@ Deno.test("accept --dry-run, a JSON precondition refusal, and the applied --json
         assertEquals(obj.ok, false);
         assertEquals(obj.verb, "accept");
         // error is a machine-stable slug; the human sentence rides in `message`.
-        assertEquals(obj.error, "incomplete");
+        assertEquals(obj.error, "precondition_failed");
         assert(obj.message !== undefined);
         assertStringIncludes(obj.message, "uncommitted tracked changes");
 
@@ -359,11 +362,10 @@ Deno.test("accept --dry-run, a JSON precondition refusal, and the applied --json
         const obj = decodeCliResult(r.stdout, "accept"); // stdout must be ONLY the JSON object
         assertEquals(obj.ok, true);
         assert(obj.steps !== undefined);
-        assertResultDataKey(obj, "queue");
-        const prefix = obj.data.queue?.[0];
-        assertEquals(prefix?.state, "landed");
-        assertEquals(prefix?.authority_settlement, "consumed");
-        assertEquals(prefix?.retirement_effects, {
+        assertResultDataKey(obj, "landing");
+        assertEquals(obj.data.landing, {
+          recovery_performed: false,
+          trunk_landed: true,
           worktree_removed: true,
           branch_deleted: true,
         });

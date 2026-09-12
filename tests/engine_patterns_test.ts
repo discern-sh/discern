@@ -102,19 +102,17 @@ Deno.test("patterns: completion observations stay read-only across active and ar
       epoch: "configured",
       surface: "cli",
       observation: {
-        id: "landing-observed",
+        id: "proof-observed",
         at: 1782900000000,
         effort_id: "actual-source",
         source_head: "source-head",
         candidate_id: "candidate",
-        environment_id: null,
         attempt_id: "original-attempt",
         executor_operation: "cooperative-operation",
         fact: {
-          kind: "landing",
-          landing_id: "transaction",
-          outcome: "landed",
-          claim_kind: "normal",
+          kind: "proven",
+          proof_id: "original-attempt",
+          mode: "strict",
         },
       },
     };
@@ -139,7 +137,7 @@ Deno.test("patterns: completion observations stay read-only across active and ar
     assert(active.ok && archived.ok && repeated.ok);
     assertEquals(active.data?.completion, archived.data?.completion);
     assertEquals(active.data?.completion, repeated.data?.completion);
-    assertEquals(active.data?.completion?.landings, 1);
+    assertEquals(active.data?.completion?.proofs, 1);
     assertEquals(active.data?.completion?.efforts, 1);
     assertEquals(active.data?.completion?.producer_executions, null);
     assertEquals(active.data?.completion?.duplicate_observations, 1);

@@ -1,10 +1,7 @@
 /** Canonical complete note subjects for focused durable-reader and writer guards. */
-import {
-  CompleteProofEvidenceSchema,
-  type LandedAuthorityEvidence,
-} from "../src/shared/completion_proof.ts";
+import { CompleteProofEvidenceSchema } from "../src/shared/completion_proof.ts";
 import type { Proof } from "../src/shared/result_schemas.ts";
-import { completionFixtures, completionId } from "./completion_fixtures.ts";
+import { completionFixtures } from "./completion_fixtures.ts";
 
 /** A complete, settled fixture retains each component's producing attempt. */
 export function completeNoteProof(
@@ -53,28 +50,5 @@ export function completeNoteProof(
     line: `Proof for ${branch}`,
     markdown: `### Proof for ${branch}`,
     completion: complete,
-  };
-}
-
-/** A normal grant has only this exact source and this one consumed landing. */
-export function completeNoteAuthority(proof: Proof): LandedAuthorityEvidence {
-  const authority = completionFixtures().authority;
-  const complete = proof.completion;
-  if (authority.kind !== "authority" || complete === undefined) {
-    throw new Error("missing complete fixture");
-  }
-  const executor = complete.executors[0];
-  if (executor === undefined) throw new Error("missing executor");
-  return {
-    authority_id: authority.id,
-    landing_id: completionId(71),
-    executor,
-    authority: {
-      ...authority.data,
-      sources: [complete.candidate.source],
-      policy: complete.candidate.policy,
-      composition_procedure: complete.candidate.composition.procedure,
-      state: { kind: "consumed", landing_id: completionId(71), at: 101 },
-    },
   };
 }

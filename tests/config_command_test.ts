@@ -463,8 +463,6 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           "0.1",
           "--extract",
           "extract metrics",
-          "--contexts",
-          "local",
           "--inputs",
           "src/**",
           "--inputs",
@@ -497,7 +495,6 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           scale: 1000,
           margin: 0.1,
           extract: "extract metrics",
-          contexts: ["local"],
           inputs: ["src/**", "tests/**"],
           timeout: 60,
         });
@@ -806,10 +803,6 @@ Deno.test("record-setting command options stay in parity with their entry schema
       command: "set-scope",
       positional: ["paths"],
       commandOnly: ["dry_run"],
-    },
-    execution: {
-      command: null,
-      reason: "execution declarations use config set <dotted.key>",
     },
     generated: {
       command: null,
@@ -1658,7 +1651,6 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
     "generated",
     "checkpoints",
     "worktree.resources",
-    "execution",
   ]);
   const all = recordConfigPaths();
   for (const p of EXEMPT) {

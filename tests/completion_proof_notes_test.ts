@@ -12,15 +12,12 @@ import {
   readProofNoteAt,
   writeProofNote,
 } from "../src/engine/gate/proof_notes.ts";
-import {
-  completeNoteAuthority,
-  completeNoteProof,
-} from "./completion_note_fixtures.ts";
+import { completeNoteProof } from "./completion_note_fixtures.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 
-Deno.test("versioned Proof note retains candidate, receipts, executors and settled authority without altering the unsigned envelope", async () => {
+Deno.test("versioned Proof note retains candidate, receipts, executors and consent evidence without altering the unsigned envelope", async () => {
   await withTempDir(async (root) => {
     await Deno.writeTextFile(`${root}/source`, "authored\n");
     await gitInit(root);
@@ -30,7 +27,6 @@ Deno.test("versioned Proof note retains candidate, receipts, executors and settl
       consent: { source: "effort-grant" as const },
       variances: [],
       standard_proposals: [],
-      authority: completeNoteAuthority(proof),
     };
     assertEquals(
       (await writeProofNote(root, commit, proof, fakeEnv({}), acceptance))
@@ -60,10 +56,7 @@ Deno.test("versioned Proof note retains candidate, receipts, executors and settl
     assertEquals(
       (await writeProofNote(root, commit, proof, fakeEnv({}), {
         ...acceptance,
-        authority: {
-          ...acceptance.authority,
-          executor: { ...acceptance.authority.executor, started_at: 102 },
-        },
+        consent: { source: "conversation" as const },
       })).status,
       "record_failed",
     );
@@ -108,15 +101,12 @@ Deno.test("current note rejects incomplete and substituted facts; prelaunch note
     consent: { source: "effort-grant" as const },
     variances: [],
     standard_proposals: [],
-    authority: completeNoteAuthority(proof),
   };
   const payload = decodeWith(
     ProofNotePayloadSchema,
     canonicalProofNotePayload(proof, "a".repeat(40), acceptance),
   );
   const { completion, ...incomplete } = payload.proof;
-  const authority = payload.acceptance?.authority;
-  assert(authority !== undefined);
   for (
     const altered of [
       { ...payload, proof: incomplete },
@@ -139,7 +129,7 @@ Deno.test("current note rejects incomplete and substituted facts; prelaunch note
                 ...component.evidence,
                 applicability: {
                   ...component.evidence.applicability,
-                  context: "substituted",
+                  policy: "substituted",
                 },
               },
             })),
@@ -150,27 +140,8 @@ Deno.test("current note rejects incomplete and substituted facts; prelaunch note
       {
         ...payload,
         acceptance: {
-          ...payload.acceptance,
-          authority: {
-            ...authority,
-            authority: {
-              ...authority.authority,
-              sources: authority.authority.sources.map((source) => ({
-                ...source,
-                head: "b".repeat(40),
-              })),
-            },
-          },
-        },
-      },
-      {
-        ...payload,
-        acceptance: {
-          ...payload.acceptance,
-          authority: {
-            ...authority,
-            authority: { ...authority.authority, state: { kind: "granted" } },
-          },
+          ...acceptance,
+          consent: { source: "self-approval" },
         },
       },
     ]

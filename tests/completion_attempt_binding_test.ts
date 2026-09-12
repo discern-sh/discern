@@ -1,4 +1,4 @@
-/** Composition binds once; every fixed identity and ordinary claimed subject remains protected. */
+/** Demand binds once; every fixed identity and ordinary claimed subject remains protected. */
 import { assert, assertEquals } from "@std/assert";
 import {
   COMPLETION_FAMILIES,
@@ -14,20 +14,20 @@ import {
 import { withTempDir } from "./helpers.ts";
 import { git } from "./engine_helpers.ts";
 
-Deno.test("composition binding changes only subjects once under the identical claim", () => {
+Deno.test("demand binding changes only subjects once under the identical claim", () => {
   const original = COMPLETION_FAMILIES.attempt.schema.parse(
     completionFixtures().attempt,
   );
-  const composing = COMPLETION_FAMILIES.attempt.schema.parse({
+  const planning = COMPLETION_FAMILIES.attempt.schema.parse({
     ...original,
     data: {
       ...original.data,
       subjects: [],
-      state: { kind: "composing", claim: COMPLETION_CLAIM },
+      state: { kind: "planning", claim: COMPLETION_CLAIM },
     },
   });
-  const bound = { ...original, revision: composing.revision + 1 };
-  assert(recordTransitionAllowed(composing, bound));
+  const bound = { ...original, revision: planning.revision + 1 };
+  assert(recordTransitionAllowed(planning, bound));
   assertEquals(
     recordTransitionAllowed(original, {
       ...original,
@@ -38,13 +38,12 @@ Deno.test("composition binding changes only subjects once under the identical cl
   );
   assertEquals(
     recordTransitionAllowed(bound, {
-      ...composing,
+      ...planning,
       revision: bound.revision + 1,
     }),
     false,
   );
   const changed = [
-    { ...bound, data: { ...bound.data, environment_id: completionId(99) } },
     { ...bound, data: { ...bound.data, mode: "report" as const } },
     { ...bound, data: { ...bound.data, purpose: "diagnostic" as const } },
     {
@@ -82,39 +81,39 @@ Deno.test("composition binding changes only subjects once under the identical cl
     },
   ];
   for (const next of changed) {
-    assertEquals(recordTransitionAllowed(composing, next), false);
+    assertEquals(recordTransitionAllowed(planning, next), false);
   }
   assertEquals(
     COMPLETION_FAMILIES.attempt.schema.safeParse({
-      ...composing,
-      data: { ...composing.data, subjects: original.data.subjects },
+      ...planning,
+      data: { ...planning.data, subjects: original.data.subjects },
     }).success,
     false,
   );
 });
 
-Deno.test("composing claims cannot publish evidence or Proof", async () => {
+Deno.test("planning claims cannot publish evidence or Proof", async () => {
   await withTempDir(async (root) => {
     await git(root, "init", "-b", "main");
     const fixtures = completionFixtures();
     const original = COMPLETION_FAMILIES.attempt.schema.parse(fixtures.attempt);
-    const composing = COMPLETION_FAMILIES.attempt.schema.parse({
+    const planning = COMPLETION_FAMILIES.attempt.schema.parse({
       ...original,
       data: {
         ...original.data,
         subjects: [],
-        state: { kind: "composing", claim: COMPLETION_CLAIM },
+        state: { kind: "planning", claim: COMPLETION_CLAIM },
       },
     });
     const written = await writeCompletionRecord(
       root,
-      composing,
+      planning,
       null,
       undefined,
       COMPLETION_CLOCK,
     );
     assert(written.kind === "written");
-    const fence = { attempt_id: composing.id, token: COMPLETION_CLAIM.token };
+    const fence = { attempt_id: planning.id, token: COMPLETION_CLAIM.token };
     for (const kind of ["candidate", "evidence", "proof"] as const) {
       const result = await writeCompletionRecord(
         root,

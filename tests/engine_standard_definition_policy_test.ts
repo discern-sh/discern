@@ -253,7 +253,6 @@ Deno.test("Standard definition: every schema field has an explicit policy and re
       artifacts: "enforcement-meaning",
       environment: "enforcement-meaning",
       toolchain: "enforcement-meaning",
-      contexts: "enforcement-meaning",
       inputs: "enforcement-meaning",
       timeout: "execution-or-pinning",
     },
@@ -289,8 +288,6 @@ Deno.test("Standard definition: an equivalent shared producer keeps the held com
 /** A referenced producer with an explicit dependency and observed process facts. */
 function sharedStandard(): string[] {
   return [
-    "[completion]",
-    'required_contexts = ["local", "remote"]',
     "[jobs.build]",
     'run = "build-project"',
     'inputs = ["build/**"]',
@@ -320,11 +317,6 @@ for (
     ["needs", 'needs = ["jobs.build"]', "needs = []"],
     ["needs", 'run = "build-project"', 'run = "skip-build"'],
     ["needs", 'environment = ["BUILD_FLAGS"]', "environment = []"],
-    [
-      "contexts",
-      'required_contexts = ["local", "remote"]',
-      'required_contexts = ["local"]',
-    ],
   ] as const
 ) {
   Deno.test(`Standard definition: referenced ${field} fact cannot be weakened (${before})`, async () => {
@@ -351,10 +343,6 @@ Deno.test("Standard definition: added identities, wider inputs, context and alia
       'inputs = ["src/**", "tests/**"]',
       'inputs = ["src/**", "tests/**", "assets/**"]',
     )
-    .replace(
-      'required_contexts = ["local", "remote"]',
-      'required_contexts = ["local", "remote", "second"]',
-    )
     .replace("[jobs.instrumented]", '[jobs.instrumented]\nstage = "test"');
   await withVerification(baseline, branch, (verified) => {
     assertEquals(
@@ -363,36 +351,6 @@ Deno.test("Standard definition: added identities, wider inputs, context and alia
       JSON.stringify(verified.diagnostics),
     );
   });
-});
-
-Deno.test("Standard definition: an environment return contract cannot be widened or dropped", async () => {
-  const environment = [
-    "[execution.local]",
-    'kind = "borrowed"',
-    'prepare = "prepare-project"',
-    'restore = "restore-project"',
-    'inputs = ["runtime.lock"]',
-    'ignored = ["dist"]',
-    "reusable = true",
-    "resources = []",
-    "capacity = 1",
-  ];
-  const baseline = config([...qualityStandard(), ...environment]);
-  for (
-    const branch of [
-      config(qualityStandard()),
-      baseline.replace('ignored = ["dist"]', 'ignored = ["dist", "private"]'),
-      baseline.replace("restore-project", "skip-restore"),
-    ]
-  ) {
-    await withVerification(baseline, branch, (verified) => {
-      assertEquals(verified.blocking, true);
-      assertStringIncludes(
-        JSON.stringify(verified.diagnostics),
-        "execution.local",
-      );
-    });
-  }
 });
 
 Deno.test("proposal identity resolves the entire producer recipe and ignores selector aliases", async () => {
@@ -414,10 +372,6 @@ Deno.test("proposal identity resolves the entire producer recipe and ignores sel
       ["build-project", "changed-build"],
       ['environment = ["BUILD_FLAGS"]', 'environment = ["OTHER_FLAGS"]'],
       ['inputs = ["src/**", "tests/**"]', 'inputs = ["src/**"]'],
-      [
-        'required_contexts = ["local", "remote"]',
-        'required_contexts = ["local"]',
-      ],
     ] as const
   ) {
     assert(

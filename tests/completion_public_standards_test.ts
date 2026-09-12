@@ -10,11 +10,6 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
-import {
-  observedRecords,
-  requireQueue,
-} from "../src/engine/landing_queue/repository.ts";
-import { measurementCandidate } from "../src/engine/validation/measurement.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { project } from "./completion_public_fixture.ts";
 import { statIfExists } from "../src/shared/fs_presence.ts";
@@ -65,8 +60,6 @@ limit = 90
       "jobs.test": 1,
     });
     assertEquals(await Deno.readTextFile(`${path}/executions`), "bt");
-    const queue = await requireQueue(path);
-    assertEquals(queue.record.data.entries, []);
     const records = (await observeCompletionRecords(path)).records;
     assertEquals(
       records.filter((entry) => entry.selector.kind === "proof"),
@@ -102,7 +95,6 @@ limit = 90
       ["executed", "executed"],
     );
     assertEquals(await Deno.readTextFile(`${path}/executions`), "bt");
-    assertEquals((await requireQueue(path)).record.data.entries, []);
     assertEquals(
       (await observeCompletionRecords(path)).records.filter((entry) =>
         entry.selector.kind === "proof"
@@ -112,12 +104,11 @@ limit = 90
   });
 });
 
-Deno.test("public acceptance validates a released source after standalone measurement and retires it safely", async () => {
+Deno.test("public acceptance lands after standalone measurement without repeating a still-valid producer", async () => {
   await withTempDir(async (root) => {
     const lightCounter = `${root}/.git/light-runs`;
     const path = await project(
       root,
-      ["local"],
       `
 [standards.lightweight]
 run = ${
@@ -132,9 +123,8 @@ limit = 1
     for (
       const args of [
         ["standards", "lightweight"],
-        ["done", "--retain-checkout"],
+        ["done"],
         ["standards", "lightweight"],
-        ["done", "--release-checkout"],
       ]
     ) {
       const result = await runAgent(path, [...args, "--json"]);
@@ -142,44 +132,22 @@ limit = 1
     }
     const executions = await Deno.readTextFile(`${path}/executions`);
     assertEquals(executions.split("t").length - 1, 1);
-    assertEquals(executions.split("l").length - 1, 3);
-    assertEquals(await Deno.readTextFile(lightCounter), "lll");
-    const records = observedRecords(await observeCompletionRecords(path));
-    const queue = await requireQueue(path);
-    const candidate = records.find((record) =>
-      record.kind === "candidate" &&
-      record.id === queue.record.data.entries[0]?.candidate_id
-    );
-    assert(candidate?.kind === "candidate");
-    assertEquals(
-      records.filter((record) => record.kind === "candidate").length,
-      2,
-    );
-    for (const order of [records, [...records].reverse()]) {
-      assertEquals(
-        measurementCandidate(order, candidate.data)?.id,
-        candidate.id,
-      );
-      assertEquals(
-        measurementCandidate(order, {
-          ...candidate.data,
-          policy: "0".repeat(64),
-        }),
-        undefined,
-      );
-    }
+    const measured = await Deno.readTextFile(lightCounter);
     const accepted = await runAgent(path, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 0, accepted.output);
     const result = decodeCliResult(accepted.stdout, "accept");
-    assert(result.data !== undefined && "queue" in result.data);
-    assertEquals(result.data.queue?.map((row) => [row.state, row.retirement]), [
-      ["landed", "retired"],
-    ]);
+    assert(result.data !== undefined && "landing" in result.data);
+    assertEquals(result.data.landing, {
+      recovery_performed: false,
+      trunk_landed: true,
+      worktree_removed: true,
+      branch_deleted: true,
+    });
     assertEquals(await statIfExists(path), undefined);
     assertEquals(await Deno.readTextFile(`${root}/source`), "authored\n");
     assertEquals(
       await Deno.readTextFile(lightCounter),
-      "lll",
+      measured,
       "acceptance must not repeat a still-valid producer after historical measurements",
     );
   });

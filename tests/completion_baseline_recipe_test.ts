@@ -186,7 +186,6 @@ async function recipeObligations(): Promise<ObligationDeclaration[]> {
       requirement: {
         kind: "job",
         id: "test",
-        context: "local",
         definition: COMPLETION_DIGEST,
       },
       input: { producer: "jobs.test" },
@@ -195,7 +194,6 @@ async function recipeObligations(): Promise<ObligationDeclaration[]> {
       requirement: {
         kind: "standard",
         id: name,
-        context: "local",
         definition: COMPLETION_DIGEST,
       },
       input: name === "binary_size" ? { run: fixtureCommand("binary.ts") } : {
@@ -220,12 +218,15 @@ Deno.test("E08 E16: one demanded instrumented suite supplies every coverage cons
     await seedRecipe(root);
     const baseline = await snapshot();
     const declarations = await recipeObligations();
+    const head = await gitOut(root, "rev-parse", "HEAD");
+    const tree = await gitOut(root, "rev-parse", "HEAD^{tree}");
     const snap = await snapshot({
       candidate: {
         ...baseline.candidate,
         attempt_id: completionId(101),
-        head: await gitOut(root, "rev-parse", "HEAD"),
-        tree: await gitOut(root, "rev-parse", "HEAD^{tree}"),
+        head,
+        tree,
+        source: { ...baseline.candidate.source, head, tree },
       },
       producers: {
         "jobs.test": ProducerDeclarationSchema.parse({
@@ -258,21 +259,16 @@ Deno.test("E08 E16: one demanded instrumented suite supplies every coverage cons
     const observation = await evaluator.observe(snap.candidate_id);
     const plan = evaluator.plan(observation, {
       kind: "done",
-      context: "local",
       mode: "strict",
       requirements: snap.requirements,
     }, snap.candidate_id);
     assertEquals(plan.blockers, []);
     assertEquals(plan.producers.length, 2);
     const fake = claimed(snap, plan);
-    const execution = {
-      ...fake,
-      environment: { ...fake.environment, path: root },
-    };
+    const execution = { ...fake, path: root };
     for (
       const [kind, id, data] of [
         ["attempt", execution.attempt.identity.id, execution.attempt],
-        ["environment", execution.environment_id, execution.environment],
         ["candidate", snap.candidate_id, snap.candidate],
       ] as const
     ) {

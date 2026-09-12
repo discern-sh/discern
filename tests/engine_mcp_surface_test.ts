@@ -417,7 +417,11 @@ Deno.test("acceptance describes verified grants without requiring a new conversa
   );
   assertStringIncludes(
     accept.description,
-    "Each predecessor requires its own current evidence and authority",
+    "the call records the submission",
+  );
+  assertStringIncludes(
+    accept.description,
+    "A trunk that moved after the Proof refuses with the update route",
   );
   assertStringIncludes(
     accept.description,

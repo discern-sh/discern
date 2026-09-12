@@ -264,8 +264,27 @@ Deno.test("every retired top-level key is redirected to its successor", () => {
   }
 });
 
-Deno.test("the pre-v1 config contract carries no dead-position history", () => {
-  assertEquals(DEAD_CONFIG_POSITIONS, []);
+Deno.test("every registered dead config position refuses its exact section with the registered recovery", () => {
+  assert(
+    DEAD_CONFIG_POSITIONS.length > 0,
+    "rows exist only while an actual migration needs a targeted refusal",
+  );
+  for (const position of DEAD_CONFIG_POSITIONS) {
+    assertEquals(position.path, "", "launch dead positions are root sections");
+    const key = position.key;
+    assert(key !== undefined, "a root dead position names its key");
+    const parsed = parseConfig(position.example);
+    assertEquals(parsed.config, undefined, key);
+    const issue = parsed.issues.find((entry) =>
+      entry.path === key || entry.path.startsWith(`${key}.`)
+    );
+    assert(issue !== undefined, JSON.stringify(parsed.issues));
+    assertEquals(issue.message, position.message(key));
+    assert(
+      !/(?:upgrade|renam|became)/i.test(issue.message),
+      `dead-position recovery must describe only the current contract: ${issue.message}`,
+    );
+  }
 });
 
 Deno.test("dead-position matching: keyed rows win over a same-path wildcard, in table order", () => {

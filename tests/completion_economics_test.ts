@@ -21,7 +21,6 @@ function event(
     effort_id: "source",
     source_head: "source-head",
     candidate_id: "candidate",
-    environment_id: "environment",
     attempt_id: "attempt",
     executor_operation: "executor",
     fact,
@@ -54,14 +53,14 @@ Deno.test("completion economics keeps overlapping wall spans separate from work 
     intervals.slice(0, 3).map((interval, i) =>
       event(`span-${i}`, {
         kind: "timing",
-        category: i === 0 ? "execution" : "environment",
+        category: i === 0 ? "producer" : "validation",
         interval_id: `interval-${i}`,
         ...interval,
       })
     ),
   );
   assertEquals(ledger.observed_wall.elapsed_ms, 190);
-  assertEquals(ledger.timing.environment?.elapsed_ms, 160);
+  assertEquals(ledger.timing.validation?.elapsed_ms, 160);
 });
 
 Deno.test("completion economics counts receipts and reuse without inventing physical executions or failures", () => {
@@ -111,67 +110,24 @@ Deno.test("completion economics counts receipts and reuse without inventing phys
   assertEquals(result.candidates, 2);
 });
 
-Deno.test("completion economics deduplicates resumed landing and return observations independently of cleanup", () => {
-  const returning = event("return", {
-    kind: "restoration",
-    outcome: "recovery-incomplete",
+Deno.test("completion economics counts distinct strict Proofs and never counts report assemblies", () => {
+  const proven = event("proven", {
+    kind: "proven",
+    proof_id: "proof-a",
+    mode: "strict",
   });
-  const restored = event(
-    "return",
-    { kind: "restoration", outcome: "restored" },
-    { at: 1500 },
-  );
-  const landing = event("landing:2", {
-    kind: "landing",
-    landing_id: "transaction",
-    outcome: "landed",
-    claim_kind: "exception",
+  const repeated = event("proven-again", proven.fact, { at: 1500 });
+  const report = event("report", {
+    kind: "proven",
+    proof_id: "proof-b",
+    mode: "report",
   });
-  const later = event("landing:3", landing.fact, { at: 2000 });
-  const retirement = event("retired", {
-    kind: "retirement",
-    retirement_id: "cleanup",
-    outcome: "retired",
-  });
-  const unrelated = event("retained", {
-    kind: "retirement",
-    retirement_id: "historical-cleanup",
-    outcome: "retained",
-  });
-  const result = completionEconomics([
-    returning,
-    returning,
-    restored,
-    restored,
-    landing,
-    later,
-    retirement,
-    unrelated,
-  ]);
-  assertEquals(result.returns, { restored: 1 });
-  assertEquals(result.landings, 1);
-  assertEquals(result.emergency_landings, 1);
-  assertEquals(result.retirements, { retired: 1, retained: 1 });
-  assertEquals(result.component_receipts, {});
-  assertEquals(result.observed_wall.elapsed_ms, null);
-});
-
-Deno.test("completion economics never treats a whole-effort withdrawal rate as prediction accuracy", () => {
-  const withdrawals = [true, false].map((eligible_prediction, i) =>
-    event(`withdraw-${i}`, {
-      kind: "invalidated",
-      reason: "withdrawn",
-      affected_candidate_ids: ["a", "b"],
-      eligible_prediction,
-    }, { candidate_id: i === 0 ? "a" : "b" })
-  );
-  const result = completionEconomics([...withdrawals, ...withdrawals]);
-  assertEquals(result.invalidations, { withdrawn: 2 });
-  assertEquals(result.invalidated_predictions, 1);
-  assertEquals(result.withdrawals_after_prediction, 1);
-  assertEquals(result.withdrawals_without_prediction_evidence, 1);
-  assertEquals(result.prediction_denominator, null);
-  assertEquals(result.prediction_miss_rate, null);
+  const result = completionEconomics([proven, repeated, report]);
+  assertEquals(result.proofs, 1);
+  for (const observation of [proven, repeated, report]) {
+    assertEquals(completionObservationSchema.parse(observation), observation);
+  }
+  assertEquals(CompletionEconomicsSchema.parse(result), result);
 });
 
 Deno.test("completion economics preserves sparse and conflicting evidence as unknown", () => {
@@ -192,17 +148,9 @@ Deno.test("completion economics preserves sparse and conflicting evidence as unk
     outcome: "failed",
     duration_ms: 0,
   });
-  const result = completionEconomics([
-    first,
-    conflicting,
-    event("unknown-return", { kind: "restoration", outcome: "restored" }, {
-      environment_id: null,
-      attempt_id: null,
-    }),
-  ]);
+  const result = completionEconomics([first, conflicting]);
   assertEquals(result.conflicting_identities, 1);
   assertEquals(result.component_receipts, {});
-  assertEquals(result.unknown_return_identity, 1);
   assertEquals(completionEconomics([]).window, {
     first_at: null,
     last_at: null,
@@ -235,38 +183,6 @@ Deno.test("completion economics rejects contradictory immutable receipts across 
   }
 });
 
-Deno.test("completion economics retains distinct return executors without multiplying recovery outcomes", () => {
-  const first = event("return-first", {
-    kind: "restoration",
-    outcome: "recovery-incomplete",
-  });
-  const next = event("return-next", first.fact, {
-    at: 1100,
-    executor_operation: "recovery-caller",
-  });
-  const restored = event("return-restored", {
-    kind: "restoration",
-    outcome: "restored",
-  }, {
-    at: 1200,
-    executor_operation: "recovery-caller",
-  });
-  const result = completionEconomics([
-    first,
-    first,
-    next,
-    next,
-    restored,
-    restored,
-  ]);
-  assertEquals(result.executor_operations, 2);
-  assertEquals(result.returns, { restored: 1 });
-  assertEquals(result.observations, 3);
-  assertEquals(result.duplicate_observations, 3);
-  assertEquals(result.component_receipts, {});
-  assertEquals(result.observed_wall.elapsed_ms, null);
-});
-
 Deno.test("completion economics requires consumer identity before counting evidence uses", () => {
   const first = event("unidentified-use", {
     kind: "producer",
@@ -295,7 +211,7 @@ Deno.test("completion economics rejects one observation claiming inconsistent ex
   });
   const result = completionEconomics([first, {
     ...first,
-    environment_id: "another-environment",
+    source_head: "another-head",
   }]);
   assertEquals(result.conflicting_identities, 1);
   assertEquals(result.component_receipts, {});
@@ -370,93 +286,10 @@ Deno.test("native producer economics deduplicates starts, distinguishes extracto
   );
   const unknown = completionEconomics([{ ...start, attempt_id: null }, {
     ...finish,
-    environment_id: null,
+    attempt_id: null,
   }]);
   assertEquals(unknown.unknown_command_identity, 2);
   assertEquals(unknown.producer_executions, null);
-});
-
-Deno.test("prediction rates require observed eligible admission and resolved ordinary outcomes", () => {
-  const admitted = (id: string): CompletionEvent =>
-    event(`admit-${id}`, {
-      kind: "admitted",
-      proof_id: `proof-${id}`,
-      mode: "strict",
-      eligible_prediction: true,
-      expected_predecessor_candidate_id: "prefix",
-    }, { candidate_id: id, at: 1 });
-  const hit = event("land-hit", {
-    kind: "landing",
-    landing_id: "transaction",
-    outcome: "landed",
-    claim_kind: "normal",
-  }, { candidate_id: "hit", at: 3 });
-  const miss = event("miss", {
-    kind: "invalidated",
-    reason: "withdrawn",
-    affected_candidate_ids: ["miss", "pending"],
-    eligible_prediction: true,
-  }, { candidate_id: "miss", at: 4 });
-  const input = [
-    admitted("hit"),
-    admitted("miss"),
-    admitted("pending"),
-    hit,
-    hit,
-    miss,
-    miss,
-    event("withdraw-before", { kind: "withdrawn", admission: "before-green" }, {
-      candidate_id: null,
-    }),
-    event("old-miss", miss.fact, { candidate_id: "old" }),
-  ];
-  const result = completionEconomics(input);
-  assertEquals(result.eligible_predictions, 3);
-  assertEquals(result.prediction_denominator, 2);
-  assertEquals(result.prediction_miss_rate, 0.5);
-  assertEquals(result.successful_predictions, 1);
-  assertEquals(result.resolved_prediction_misses, 1);
-  assertEquals(result.unresolved_predictions, 1);
-  assertEquals(result.withdrawals_after_prediction, 2);
-  assertEquals(result.withdrawals_before_green, 1);
-  assertEquals(result.landings, 1);
-  assertEquals(result.invalidated_candidate_producer_work_ms, null);
-  assertEquals(completionEconomics([miss]).prediction_denominator, null);
-  for (const observation of input) {
-    assertEquals(completionObservationSchema.parse(observation), observation);
-  }
-  assertEquals(CompletionEconomicsSchema.parse(result), result);
-  const emergency = completionEconomics([
-    admitted("hit"),
-    event("emergency", {
-      ...hit.fact,
-      kind: "landing",
-      landing_id: "exception",
-      outcome: "landed",
-      claim_kind: "exception",
-    }, { candidate_id: "hit", at: 4 }),
-  ]);
-  assertEquals(emergency.prediction_denominator, 0);
-  assertEquals(emergency.prediction_miss_rate, null);
-  assertEquals(emergency.conflicting_prediction_outcomes, 1);
-  const contradiction = completionEconomics([
-    admitted("hit"),
-    hit,
-    event("invalidated-hit", miss.fact, { candidate_id: "hit", at: 5 }),
-  ]);
-  assertEquals(contradiction.prediction_denominator, 0);
-  const report = completionEconomics([
-    event("report", {
-      ...admitted("report").fact,
-      kind: "admitted",
-      proof_id: "report",
-      mode: "report",
-      eligible_prediction: true,
-      expected_predecessor_candidate_id: "prefix",
-    }),
-    hit,
-  ]);
-  assertEquals(report.eligible_predictions, 0);
 });
 
 Deno.test("completed validation summaries establish known reuse-only zero without rewriting older history", () => {
@@ -542,7 +375,7 @@ Deno.test("latency summaries keep their observations separate from overlapping p
     event("invalid-clock", {
       kind: "timing",
       interval_id: "c",
-      category: "approval-to-land",
+      category: "capacity-wait",
       started_at: 10,
       finished_at: 9,
     }),
@@ -556,11 +389,10 @@ Deno.test("latency summaries keep their observations separate from overlapping p
     max_ms: 100,
   });
   assertEquals(result.timing["validation-feedback"]?.elapsed_ms, 100);
-  assertEquals(result.latencies?.["approval-to-land"]?.median_ms, null);
+  assertEquals(result.latencies?.["capacity-wait"], undefined);
   const lines = completionEconomicsLines(result).join("\n");
   assert(lines.includes("0.07s median across 2 observations"));
   assert(lines.includes("Native producer executions: unknown"));
-  assert(lines.includes("denominator unknown"));
   assertEquals(CompletionEconomicsSchema.parse(result), result);
   assert(
     completionEconomicsLines({
