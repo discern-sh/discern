@@ -176,14 +176,14 @@ Ordinary acceptance fast-forwards the trunk and creates its marker under `refs/w
 
 ## Git refs
 
-| Ref or namespace                                                 | Writer                                              | Lifecycle                                                                 | Uninstall |
-| ---------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- | --------- |
-| `refs/heads/discern-setup`                                       | `setup begin`                                       | Landed or retained as an ordinary local branch.                           | Retained  |
-| `refs/heads/<repository.branch_prefix><worktree-id>`             | `start`                                             | Deleted only with positive lifecycle ownership evidence.                  | Retained  |
-| `refs/notes/discern`                                             | `accept`                                            | Durable local landing evidence.                                           | Retained  |
-| `refs/discern/remotes/<remote>/notes`                            | An ordinary user-owned fetch after discern wires it | Durable fetched landing evidence.                                         | Retained  |
-| `refs/discern/recovery/<timestamp>-<worktree-id>-<nonce>`        | `worktree drop`                                     | Bounded recovery evidence.                                                | Retained  |
-| `refs/worktree/discern/acceptance-transactions/<transaction-id>` | `accept`                                            | Temporary compare-and-swap recovery evidence.                             | Retained  |
+| Ref or namespace                                                 | Writer                                              | Lifecycle                                                | Uninstall |
+| ---------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------- | --------- |
+| `refs/heads/discern-setup`                                       | `setup begin`                                       | Landed or retained as an ordinary local branch.          | Retained  |
+| `refs/heads/<repository.branch_prefix><worktree-id>`             | `start`                                             | Deleted only with positive lifecycle ownership evidence. | Retained  |
+| `refs/notes/discern`                                             | `accept`                                            | Durable local landing evidence.                          | Retained  |
+| `refs/discern/remotes/<remote>/notes`                            | An ordinary user-owned fetch after discern wires it | Durable fetched landing evidence.                        | Retained  |
+| `refs/discern/recovery/<timestamp>-<worktree-id>-<nonce>`        | `worktree drop`                                     | Bounded recovery evidence.                               | Retained  |
+| `refs/worktree/discern/acceptance-transactions/<transaction-id>` | `accept`                                            | Temporary compare-and-swap recovery evidence.            | Retained  |
 
 Uninstall never deletes a ref. Its result can suggest exact `git update-ref -d '<ref>'` commands for retained private refs. Keep their recovery evidence unless you have established it is no longer needed. Ordinary local branches remain visible as branches and receive no automatic cleanup suggestion.
 

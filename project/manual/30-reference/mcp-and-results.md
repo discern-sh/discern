@@ -287,23 +287,18 @@ For `done`, inspect `data.completion` as well as the top-level verdict:
 
 Explicit CI reports use `data.mode: "report"` and report checkpoint review without answering questions. Their feedback does not provide landing Proof. `checkpoint_drops` preserves classified uncertainty about checkpoint enforcement.
 
-Ordinary acceptance returns `data.queue`, with one row per submission: the task the call was about always has a row, marked by `data.selected_effort`, and a preview also lists the other submissions with the single reason each waits. Inspect the selected row first; another task's row never reports on the task the call was about.
+Ordinary acceptance returns `data.queue` — the landing queue, a derived view over submissions. Each row is one unlanded submission: `pre-authorized` rows come first in grant order, then rows `awaiting-owner` in submission order. `discern status`, the desk, and a `dry_run: true` preview show the same rows in the same order, and a dry run changes nothing.
 
-The Markdown and MCP presentations open with that task's verdict in one line: `Selected effort`, the branch, and `landed` or `not landed`. One sentence per condition follows and, for a landed task, what happened to its worktree. Other submissions follow under their own headings, one sentence each. A dry run ends with `Read-only preview; nothing changed.` When the selected task did not land, `data.continuation` carries the command to run next.
+| Queue-row field                    | Contract                                                                                                                                                     |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `effort`, `branch`, `path`, `head` | Identify the submission: the task, its branch, its worktree path, and the exact submitted commit.                                                           |
+| `submitted_at`                     | When the submission was recorded.                                                                                                                           |
+| `authority`                        | `pre-authorized` — a recorded grant lands it once green without a further conversation — or `awaiting-owner`.                                                |
+| `authority_source`, `granted_at`   | Which grant pre-authorizes the row (`effort-grant` or `standing-grant`) and when it was recorded.                                                            |
+| `position`                         | 1-based place in the displayed landing order.                                                                                                                |
+| `readiness`, `reason`              | `ready`, or `waiting` with one full sentence naming the single reason — for example a trunk that moved after the Proof, or a branch that moved on after the submission. |
 
-| Queue-row field                   | Contract                                                                                                                                     |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `effort`, `branch`, `source_head` | Identify the submission: the task, its branch, and the exact submitted commit.                                                               |
-| `state`                           | `ready`, `pending`, or `landed`.                                                                                                             |
-| `relation`                        | `selected`, `ahead`, `behind`, or `other`: the row's place relative to the task the call was about.                                          |
-| `pending`                         | Conditions that still need attention: missing authority, a trunk that moved after the Proof, or a branch that moved on after the submission. |
-| `consent`                         | Permission source for the row, when available; `source` is `conversation`, `standing-grant`, or `effort-grant`.                              |
-| `note`                            | `pending`, `published`, or `recovery`, when recorded.                                                                                        |
-| `proof_line`                      | The row's consent-qualified Proof line, when available.                                                                                      |
-
-`data.pending` carries outstanding conditions for the call. `data.root` names the surviving checkout, including after removal of the invoking worktree. A landed row also says whether its worktree was removed or stayed and why. It may carry `proof_note`, `variances`, `standard_approvals`, and retained checkpoint review or drops. The published schema defines every optional field.
-
-When available, top-level `data.proof_line` is the final landing Proof line to relay. A single-row result may also expose `data.proof_note`. Older optional top-level fields, including `data.consent` and `data.landing`, remain in the schema; current ordinary acceptance uses the per-task queue account. See [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance) for recovery.
+After a landing, top-level fields carry the outcome. `data.landing` records the exact effects performed: the trunk transition and what happened to the worktree, branch, and resources. `data.consent` names the consent source, and `data.root` names the surviving checkout, including when acceptance removed the invoking worktree. `data.proof_line` is the final landing Proof line to relay verbatim; `data.proof` carries the pasteable landing record when available. `data.variances` and `data.standard_approvals` list what the landing carried, and `checkpoint_drops` preserves classified uncertainty about checkpoint enforcement. The published schema defines every optional field. See [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance) for recovery.
 
 #### Setup results
 
