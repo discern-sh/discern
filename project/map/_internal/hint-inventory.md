@@ -303,7 +303,7 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: —
-- Emitting context: Complete candidate validation or its execution environment has a pending obligation.
+- Emitting context: Complete candidate validation has a pending obligation.
 
 Rendered example:
 
@@ -538,7 +538,7 @@ Rendered example:
 
 Rendered example:
 
-> The emergency landing at 0123abcd4567 still has its skipped checks outstanding. Run discern done --rerun on the trunk, or on a change that contains it, in every required context; the emergency record stays in the history.
+> The emergency landing at 0123abcd4567 still has its skipped checks outstanding. Run discern done --rerun on the trunk, or on a change that contains it; the emergency record stays in the history.
 
 ## `ensure-main-worktree-first`
 

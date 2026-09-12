@@ -64,7 +64,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 18      | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 5       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 5       | —                | —                           |
-| [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 22      | —                | —                           |
+| [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 19      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 5       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 198     | "Advisory"       | node `hints`                |
@@ -1786,11 +1786,8 @@ The shipped capability modules whose importers are restricted: attributed commit
 Every authored Deno rename outside the atomic replacement capability, identified by source path and enclosing function with the reason its move semantics are intentional.
 
 - Source: `tests/atomic_write_renames.ts` — `REGISTERED_RENAMES`
-- Members: 22
-  - `tests/completion_native_lifetime_test.ts#<module>`
-  - `src/engine/execution/workspace.ts#restore`
+- Members: 19
   - `tests/completion_public_diagnostics_test.ts#Deno.test("E11 dirty deletion and rename retain public diagnostics without completion records")`
-  - `tests/engine_effort_grant_test.ts#Deno.test("old one-shot claims can only settle their existing transaction")`
   - `scripts/build.ts#stageBundledManual`
   - `scripts/cli_install.ts#writeExecutableSync`
   - `scripts/coverage_profiles.ts#pruneAndShardProfiles`
@@ -3727,14 +3724,10 @@ The numbered decision records in the map, including records later superseded.
   - `0376`
   - `0378`
   - `0379`
-  - `0380`
   - `0381`
-  - `0382`
   - `0383`
   - `0384`
   - `0385`
-  - `0386`
-  - `0387`
   - `0388`
   - `0389`
   - `0001`
@@ -3762,6 +3755,10 @@ The numbered decision records in the map, including records later superseded.
   - `0185`
   - `0227`
   - `0377`
+  - `0380`
+  - `0382`
+  - `0386`
+  - `0387`
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/adr_supersession_guard_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision-record page explains this project practice
 - Feature canon: described by the `adr-discipline` node
@@ -4540,9 +4537,9 @@ Every named production error discard, with its exact module, enclosing function,
   - `standard-proposal-store-decode-fallback`
   - `standard-proposal-transaction-decode-fallback`
   - `status-identity-settings-fallback`
-  - `submission-row-proof-unreadable`
   - `status-root-canonicalization-fallback`
   - `status-worktree-id-fallback`
+  - `submission-row-proof-unreadable`
   - `subprocess-bounded-child-kill`
   - `subprocess-command-probe-fallback`
   - `subprocess-input-abort`
