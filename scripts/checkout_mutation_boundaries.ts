@@ -9,7 +9,10 @@
  * `switch`, `reset`, `read-tree`, `restore`, `clean`, `worktree add`, and
  * `worktree remove` — must match one exact row in
  * `CHECKOUT_MUTATION_BOUNDARIES`, naming its allowance and reason, and every
- * row must still name an actual site. The command refuses drift before
+ * row must still name an actual site. Call sites are recognized by the
+ * callee's resolved runner identity — imported names and local re-bindings
+ * included — and exports that would launder a runner identity under an
+ * unrecognizable name are refused outright. The command refuses drift before
  * emitting the Standard.
  */
 
@@ -87,23 +90,57 @@ export function guardedCommandOf(
 /**
  * Callees that hand an argument list to a process: the shared Git runner, its
  * local wrappers, and every other runner-shaped name. A keyword list passed to
- * `new Set` or a schema builder is not an invocation. A wrapper named outside
- * this shape evades the census, so the registry reviewer keeps runner names
- * recognizable.
+ * `new Set` or a schema builder is not an invocation. Recognition follows the
+ * callee's resolved identity — the imported module's own export name and any
+ * local re-bindings of it — so renaming a runner at import or in a local
+ * binding cannot shed the shape. A wrapper FUNCTION named outside this shape
+ * still evades the census, so the registry reviewer keeps runner names
+ * recognizable, and {@link launderedRunnerExportsInSourceFile} refuses exports
+ * that would hand a runner identity across modules under an unrecognizable
+ * name.
  */
 const RUNNER_CALLEE = /git|run|exec|spawn|invoke/iu;
 
-/** The final identifier of a callee expression, when it has one. */
+/** Upper bound for identity-resolution hops through bindings and renames. */
+const RESOLUTION_DEPTH_LIMIT = 12;
+
+/**
+ * The name-shaped identity an expression finally resolves to. An identifier is
+ * followed through its import specifier to the imported module's own export
+ * name (so `import { runGit as dispatch }` resolves to `runGit`) and through
+ * local variable re-bindings to their initializers; a property access keeps
+ * its property name; an unresolvable identifier keeps its spelled text.
+ * Expressions without a name-shaped identity resolve to nothing.
+ */
+function resolvedRunnerName(node: Node, depth = 0): string | undefined {
+  if (depth > RESOLUTION_DEPTH_LIMIT) return undefined;
+  if (Node.isParenthesizedExpression(node)) {
+    return resolvedRunnerName(node.getExpression(), depth + 1);
+  }
+  if (Node.isPropertyAccessExpression(node)) return node.getName();
+  if (!Node.isIdentifier(node)) return undefined;
+  const declaration = node.getSymbol()?.getDeclarations()[0];
+  if (declaration !== undefined && Node.isImportSpecifier(declaration)) {
+    // An import specifier's name is the imported module's own export name;
+    // any `as` alias is a separate node, so a rename cannot shed the identity.
+    return declaration.getName();
+  }
+  if (declaration !== undefined && Node.isVariableDeclaration(declaration)) {
+    const initializer = declaration.getInitializer();
+    const resolved = initializer === undefined
+      ? undefined
+      : resolvedRunnerName(initializer, depth + 1);
+    if (resolved !== undefined) return resolved;
+  }
+  return node.getText();
+}
+
+/** The resolved runner identity of an invocation's callee, when it has one. */
 function calleeName(node: Node): string | undefined {
   const expression = Node.isCallExpression(node) || Node.isNewExpression(node)
     ? node.getExpression()
     : undefined;
-  if (expression === undefined) return undefined;
-  if (Node.isIdentifier(expression)) return expression.getText();
-  if (Node.isPropertyAccessExpression(expression)) {
-    return expression.getName();
-  }
-  return undefined;
+  return expression === undefined ? undefined : resolvedRunnerName(expression);
 }
 
 /** Array literals a process invocation hands to Git, following local aliases. */
@@ -182,6 +219,122 @@ export function checkoutMutationSitesInSource(
     skipAddingFilesFromTsConfig: true,
   });
   return sitesInSourceFile(path, project.createSourceFile(path, source));
+}
+
+/**
+ * Exports that would hand a runner identity to another module under a name the
+ * census cannot recognize. Call-site recognition follows imported names, so a
+ * rename at an export boundary — a re-export alias, an exported re-binding, or
+ * a default export — is the one laundering channel left inside the scanned
+ * universe; refusing it at the laundering site keeps the per-file identity
+ * resolution sound across the whole repository.
+ */
+function launderedRunnerExportsInSourceFile(
+  path: string,
+  sourceFile: SourceFile,
+): string[] {
+  const findings: string[] = [];
+  const finding = (node: Node, original: string, exported: string): void => {
+    const location = sourceFile.getLineAndColumnAtPos(node.getStart());
+    findings.push(
+      `runner identity '${original}' is exported as '${exported}' at ${path}:${location.line}:${location.column} — the checkout-mutation census recognizes runner call sites by name, so keep the exported name runner-recognizable`,
+    );
+  };
+  for (const declaration of sourceFile.getExportDeclarations()) {
+    if (declaration.isTypeOnly()) continue;
+    for (const specifier of declaration.getNamedExports()) {
+      if (specifier.isTypeOnly()) continue;
+      const exported = specifier.getAliasNode()?.getText() ??
+        specifier.getNameNode().getText();
+      if (RUNNER_CALLEE.test(exported)) continue;
+      let original: string | undefined;
+      if (declaration.getModuleSpecifier() === undefined) {
+        const target = specifier.getLocalTargetDeclarations()[0];
+        if (target !== undefined && Node.isVariableDeclaration(target)) {
+          const initializer = target.getInitializer();
+          original = initializer === undefined
+            ? undefined
+            : resolvedRunnerName(initializer);
+        }
+      }
+      original ??= specifier.getNameNode().getText();
+      if (RUNNER_CALLEE.test(original)) finding(specifier, original, exported);
+    }
+  }
+  for (const assignment of sourceFile.getExportAssignments()) {
+    const original = resolvedRunnerName(assignment.getExpression());
+    if (original !== undefined && RUNNER_CALLEE.test(original)) {
+      finding(assignment, original, "default");
+    }
+  }
+  for (const statement of sourceFile.getVariableStatements()) {
+    if (!statement.isExported()) continue;
+    for (const declaration of statement.getDeclarations()) {
+      const nameNode = declaration.getNameNode();
+      if (!Node.isIdentifier(nameNode)) continue;
+      const exported = nameNode.getText();
+      if (RUNNER_CALLEE.test(exported)) continue;
+      const initializer = declaration.getInitializer();
+      if (
+        initializer === undefined ||
+        (!Node.isIdentifier(initializer) &&
+          !Node.isPropertyAccessExpression(initializer) &&
+          !Node.isParenthesizedExpression(initializer))
+      ) {
+        // Only a direct re-binding renames an identity; a call result,
+        // literal, or expression constructs a new value instead.
+        continue;
+      }
+      const original = resolvedRunnerName(initializer);
+      if (original !== undefined && RUNNER_CALLEE.test(original)) {
+        finding(declaration, original, exported);
+      }
+    }
+  }
+  return findings;
+}
+
+/** Laundered runner exports in one parsed source string, for focused tests. */
+export function checkoutMutationLaunderingInSource(
+  source: string,
+  path = "fixture.ts",
+): string[] {
+  const project = new Project({
+    compilerOptions: { noLib: true },
+    useInMemoryFileSystem: true,
+    skipAddingFilesFromTsConfig: true,
+  });
+  return launderedRunnerExportsInSourceFile(
+    path,
+    project.createSourceFile(path, source),
+  );
+}
+
+/**
+ * Cheap textual pre-checks: only a source whose exports could rename a value —
+ * a named-export alias, a default export, or an exported bare re-binding —
+ * needs parsing for laundering.
+ */
+const LAUNDERING_PRECHECKS: readonly RegExp[] = [
+  /export\s*(?:type\s*)?\{[^}]*\bas\b[^}]*\}/u,
+  /export\s+default\b/u,
+  /export\s+(?:const|let|var)\s+[A-Za-z_$][\w$]*(?:\s*:[^=]*)?=\s*\(?\s*[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*\s*\)?\s*;/u,
+];
+
+/** Scan a declared source set for laundered runner exports. */
+export async function checkoutMutationLaunderingInFiles(
+  root: string,
+  files: readonly string[],
+): Promise<string[]> {
+  const findings: string[] = [];
+  for (const path of files) {
+    const source = await Deno.readTextFile(join(root, path));
+    if (!LAUNDERING_PRECHECKS.some((pattern) => pattern.test(source))) {
+      continue;
+    }
+    findings.push(...checkoutMutationLaunderingInSource(source, path));
+  }
+  return findings;
 }
 
 /** A cheap textual pre-check: a file without a guarded token has no site. */
@@ -274,18 +427,16 @@ export function checkoutMutationParityFindings(
   return findings.sort();
 }
 
-/** Scan and refuse registry drift before returning the live census. */
+/** Scan and refuse registry drift or laundering before returning the live census. */
 export async function validateCheckoutMutationBoundaries(
   root: string = REPO_ROOT,
 ): Promise<CheckoutMutationSite[]> {
-  const actual = await checkoutMutationSitesInFiles(
-    root,
-    await checkoutMutationFiles(root),
-  );
-  const findings = checkoutMutationParityFindings(
-    actual,
-    CHECKOUT_MUTATION_BOUNDARIES,
-  );
+  const files = await checkoutMutationFiles(root);
+  const actual = await checkoutMutationSitesInFiles(root, files);
+  const findings = [
+    ...(await checkoutMutationLaunderingInFiles(root, files)),
+    ...checkoutMutationParityFindings(actual, CHECKOUT_MUTATION_BOUNDARIES),
+  ];
   if (findings.length > 0) {
     throw new Error(
       "checkout-changing git invocations diverged from tests/checkout_mutation_surfaces.ts:\n  " +

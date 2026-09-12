@@ -7,9 +7,11 @@
  * independently.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   checkoutMutationFiles,
+  checkoutMutationLaunderingInFiles,
+  checkoutMutationLaunderingInSource,
   checkoutMutationParityFindings,
   checkoutMutationSitesInFiles,
   checkoutMutationSitesInSource,
@@ -76,6 +78,79 @@ Deno.test("the scanner follows aliases and leading global options", () => {
   assertEquals(
     sites.map((site) => `${site.enclosingFunction}:${site.command}`),
     ["install:switch", "install:worktree add", "install:reset"],
+  );
+});
+
+Deno.test("the scanner resolves runner identity through import aliases and local re-bindings", () => {
+  // The callee spelling carries no runner shape in either fixture: the runner
+  // arrives as an import alias, then travels through a local re-binding. Both
+  // argument lists must still enter the census.
+  const sites = checkoutMutationSitesInSource(
+    [
+      'import { runGit as dispatch } from "../shared/subprocess.ts";',
+      "const send = dispatch;",
+      "export async function relocate(dir: string, head: string) {",
+      '  await dispatch(["checkout", "--detach", head], { cwd: dir });',
+      '  await send(["reset", "--hard", head], { cwd: dir });',
+      "}",
+    ].join("\n"),
+    "aliased-runner.ts",
+  );
+  assertEquals(
+    sites.map((site) => `${site.enclosingFunction}:${site.command}`),
+    ["relocate:checkout", "relocate:reset"],
+  );
+});
+
+Deno.test("exports cannot launder a runner identity under an unrecognizable name", () => {
+  const laundering = [
+    'export { runGit as dispatch } from "../shared/subprocess.ts";',
+    [
+      'import { runGit } from "../shared/subprocess.ts";',
+      "const quiet = runGit;",
+      "export { quiet };",
+    ].join("\n"),
+    [
+      'import { runGit } from "../shared/subprocess.ts";',
+      "export const quiet = runGit;",
+    ].join("\n"),
+    [
+      'import { runGit } from "../shared/subprocess.ts";',
+      "export default runGit;",
+    ].join("\n"),
+  ];
+  for (const source of laundering) {
+    const findings = checkoutMutationLaunderingInSource(source, "laundered.ts");
+    assertEquals(findings.length, 1, source);
+    const found = findings[0];
+    assert(found !== undefined);
+    assertStringIncludes(found, "runner identity 'runGit'");
+    assertStringIncludes(found, "laundered.ts");
+  }
+  const benign = [
+    "declare function isObject(value: unknown): boolean;\n" +
+    "export { isObject as isJsonObject };",
+    "declare function buildPlugin(): unknown;\n" +
+    "export const plugin = buildPlugin();",
+    'export type { RunGitOptions as Options } from "../shared/subprocess.ts";',
+    'export { runGit } from "../shared/subprocess.ts";',
+  ];
+  for (const source of benign) {
+    assertEquals(
+      checkoutMutationLaunderingInSource(source, "benign.ts"),
+      [],
+      source,
+    );
+  }
+});
+
+Deno.test("no authored export launders a runner identity today", async () => {
+  assertEquals(
+    await checkoutMutationLaunderingInFiles(
+      REPO_ROOT,
+      await checkoutMutationFiles(),
+    ),
+    [],
   );
 });
 
