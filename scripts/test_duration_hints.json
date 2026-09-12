@@ -429,7 +429,6 @@
     "tests/hint_inventory_codegen_test.ts": 0.042,
     "tests/hint_surface_rendering_test.ts": 0.018,
     "tests/hints_registry_test.ts": 0.02,
-    "tests/homepage_candidate_context_test.ts": 0.002,
     "tests/host_metadata_ingress_test.ts": 0.092,
     "tests/human_number_test.ts": 0.001,
     "tests/human_output_grouping_test.ts": 0.268,
