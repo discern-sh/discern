@@ -23,7 +23,7 @@ External branch protections and deployment systems keep their own authority. A b
 ## Consequences
 
 - Owners have a supported urgent route with an inspectable cost.
-- Emergency integration may invalidate queued predictions.
+- Emergency integration moves the trunk under waiting submissions, which must update and re-prove.
 - Failure accounting and machine consumers must distinguish Proof from exception records.
 - Commercial signing and independent verification remain separate work. The record preserves the distinction they will need.
 

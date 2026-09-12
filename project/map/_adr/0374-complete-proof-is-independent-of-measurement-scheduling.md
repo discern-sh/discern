@@ -1,6 +1,6 @@
 # ADR 0374: Complete Proof is independent of measurement scheduling
 
-**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Amends [ADR 0003](0003-named-metric-standards.md), [ADR 0133](0133-standards-join-the-gate.md), and [ADR 0319](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md). Amended by [ADR 0389](0389-the-workspace-contract.md) on 2026-09-12: complete Proof now attests the invoked checkout's own committed tip rather than a composed integration candidate; the clean-tree rule and the shared producer stay unchanged.
+**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Amends [ADR 0003](0003-named-metric-standards.md), [ADR 0133](0133-standards-join-the-gate.md), and [ADR 0319](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md). Amended by [ADR 0389](0389-the-workspace-contract.md) on 2026-09-12: complete Proof now attests the invoked checkout's own committed tip rather than a composed integration candidate; the clean-tree rule and the shared producer stay unchanged, and the multi-context evidence model and queue admission retired with the borrowed machinery.
 
 ## Context
 
@@ -10,19 +10,19 @@ The project is prelaunch. The owner accepts semantic breaks and will migrate the
 
 ## Decision
 
-A passing Proof establishes every required gate and standard obligation for its exact integration candidate. Required evidence is measured or reused under a declared validity contract. Missing, stale, failed, or unmeasured required evidence prevents passing Proof.
+A passing Proof establishes every required gate and standard obligation for the exact commit it validates. Required evidence is measured or reused under a declared validity contract. Missing, stale, failed, or unmeasured required evidence prevents passing Proof.
 
 Measurement scheduling is separate from enforcement. Gate jobs and standards may share a producer. A standard can consume a producer's captured output or an explicitly declared artifact through a project extractor. The execution plan resolves demand before producers run, runs each demanded producer once per valid execution identity, and evaluates each consuming standard separately. An otherwise skipped scope producer runs when required evidence has no valid baseline.
 
-Reuse binds the relevant inputs, producer and extractor definitions, policy, toolchain, and execution conditions. Uncertainty causes execution. An arbitrary shell command gains no narrow cache key by inference. Different candidates may share eligible component evidence; each candidate still receives its own complete Proof.
+Reuse binds the relevant inputs, producer and extractor definitions, policy, toolchain, and execution conditions. Uncertainty causes execution. An arbitrary shell command gains no narrow cache key by inference. Different validated commits may share eligible component evidence; each still receives its own complete Proof.
 
 The protected definition includes facts that can weaken enforcement, including producer selection and input declarations. Required standards cannot become advisory through scheduling configuration. The existing on-demand deferral is removed at cutover. This decision does not require a new advisory-metrics subsystem.
 
-`done` remains the normal full-validation command and requires a clean, committed tree. Explicit `done --standalone` runs provide working-tree diagnostics without landing Proof. A clean run can select a predicted candidate before validation; queue admission adds no mandatory preliminary standalone gate. `test` remains a diagnostic surface, with shared execution evidence preventing unnecessary repetition where valid.
+`done` remains the normal full-validation command and requires a clean, committed tree. Explicit `done --standalone` runs provide working-tree diagnostics without landing Proof. `test` remains a diagnostic surface, with shared execution evidence preventing unnecessary repetition where valid.
 
-Local and CI execution use the same requirement evaluator. A report-only result cannot authorize local acceptance. External required contexts need explicit identity and evidence rules; a partial lane cannot present itself as aggregate completion.
+Local and CI execution use the same requirement evaluator. A report-only result cannot authorize local acceptance.
 
-Producer receipts describe immutable execution subjects independently of mutable queue eligibility. Queue supersession cannot manufacture a failed producer. A cancelled attempt without completed component evidence contributes no new verdict and cannot clear an earlier failure. Completed receipts retain their outcome; admission and complete Proof still require their own current checks.
+Producer receipts describe immutable execution subjects. A cancelled attempt without completed component evidence contributes no new verdict and cannot clear an earlier failure. Completed receipts retain their outcome; reuse and complete Proof still require their own current checks.
 
 ## Clean-tree amendment — 2026-09-09
 
