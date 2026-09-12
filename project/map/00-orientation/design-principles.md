@@ -71,7 +71,7 @@ The footprint consists of one committed root file, one visible folder, the agent
 
 Source revisions, composition, authority, validation evidence, and recovery state must be durable enough for a replacement session to continue an effort without the original conversation. A discern executor can perform recorded mechanical work. Any missing judgment or consent must be supplied before the affected action proceeds. No active executor means no progress.
 
-[ADR 0375](../_adr/0375-source-authority-survives-declared-composition.md) defines durable source authority and [ADR 0376](../_adr/0376-active-commands-advance-an-authorized-landing-queue.md) defines active-command coordination, both as amended by [ADR 0389](../_adr/0389-the-workspace-contract.md). A landing removes the effort's worktree; the submission record and the Proof note are the durable facts that outlive it.
+[ADR 0375](../_adr/0375-source-authority-survives-declared-composition.md) defines durable source authority, and [ADR 0389](../_adr/0389-the-workspace-contract.md) defines the active-command landing that consumes it. A landing removes the effort's worktree; the submission record and the Proof note are the durable facts that outlive it.
 
 ### 15. A checkout changes only under its own operation
 
