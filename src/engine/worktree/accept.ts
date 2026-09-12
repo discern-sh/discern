@@ -34,6 +34,7 @@ import {
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
+import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import {
   fire,
@@ -151,6 +152,10 @@ import {
   deleteAutomaticallyOwnedBranch,
 } from "./ownership.ts";
 import { type AcceptPlan, acceptPlanToEngine } from "./plan.ts";
+import {
+  removeIntegrationWorktree,
+  runIntegrationAttempt,
+} from "./integration_landing.ts";
 import { readResourceSpecs } from "./resources.ts";
 import { standardLimitApprovalRequests } from "./standard_approval.ts";
 import { strictVerdictCurrency } from "../completion/verdict.ts";
@@ -171,6 +176,9 @@ export interface AcceptRequest {
   readonly confirmed: boolean;
   readonly variance: readonly string[];
   readonly approveStandard: readonly string[];
+  /** The live command tree, required by the integration gate run when the
+   * trunk moved after the submission's Proof. */
+  readonly cliModel?: CliModelProvider;
   readonly signal?: AbortSignal;
 }
 
@@ -1035,10 +1043,14 @@ export function landingPlan(
   };
 }
 
-/** The read-only diagnosis an acceptance acts on. */
+/** The read-only diagnosis an acceptance acts on. A landing that will
+ * compose in an integration worktree skips the author-side currency checks:
+ * the frozen submission is re-proven on the combined tree, and the author's
+ * checkout may legitimately be behind or mid-edit. */
 async function buildAcceptPlan(
   effort: EffortCheckout,
   subject: LandingSubject,
+  direct: boolean,
 ): Promise<AcceptPlan> {
   if (subject.atHead) {
     if (
@@ -1049,6 +1061,8 @@ async function buildAcceptPlan(
         `This worktree is locked (git worktree lock), and acceptance removes the worktree after landing. Unlock it first (git worktree unlock ${effort.path}), then re-run discern accept.`,
       );
     }
+  }
+  if (subject.atHead && direct) {
     const merged = await assertResolvedTrunkMerged(effort.path, effort.trunk);
     if (merged.kind === "behind") refuseTrunkMoved(effort);
     if (merged.kind === "missing") {
@@ -1352,6 +1366,12 @@ export async function cleanUpEffort(
   effort: EffortCheckout,
   landed: string,
   progress: AcceptExecutionProgress,
+  /** The author-branch revision the landing consumed — the submitted head.
+   * For a direct landing it is the landed commit itself; for an integrated
+   * landing the trunk holds a composed commit while the branch may still sit
+   * exactly at its submission, which is equally "nothing beyond the
+   * landing". */
+  submittedHead: string = landed,
 ): Promise<CleanupDisposition> {
   const log = effort.ctx.log;
   const results = progress.steps;
@@ -1360,7 +1380,7 @@ export async function cleanUpEffort(
     { cwd: effort.mainRepo },
   );
   const tip = tipRun.success ? tipRun.stdout.trim() : "";
-  if (tip !== landed) return { kind: "later-commits" };
+  if (tip !== submittedHead) return { kind: "later-commits" };
   const status = await runGit(["status", "--porcelain", "-z"], {
     cwd: effort.path,
     quiesceDescendants: true,
@@ -1427,7 +1447,7 @@ export async function cleanUpEffort(
   const deletion = await deleteAutomaticallyOwnedBranch({
     repoRoot: effort.mainRepo,
     branch: effort.branch,
-    expectedCommit: landed,
+    expectedCommit: submittedHead,
     ownership,
     mergedInto: effort.trunk,
   });
@@ -1451,7 +1471,7 @@ export async function cleanUpEffort(
     throw new WorktreeGitError(
       `Landed ${effort.branch} at ${
         short(landed)
-      } on ${effort.trunk}, but Git could not delete the merged branch: ${deletion.reason}. Run discern worktree prune from ${effort.mainRepo}; to clean it by hand, run \`${verifyBranch}\` and, only if it still prints ${landed}, \`${deleteBranch}\`. Do not rerun acceptance or replay consent.`,
+      } on ${effort.trunk}, but Git could not delete the merged branch: ${deletion.reason}. Run discern worktree prune from ${effort.mainRepo}; to clean it by hand, run \`${verifyBranch}\` and, only if it still prints ${submittedHead}, \`${deleteBranch}\`. Do not rerun acceptance or replay consent.`,
     );
   }
   log.ok(`Deleted merged branch ${effort.branch}.`);
@@ -1789,6 +1809,453 @@ async function executeLanding(
   return proofLine === undefined ? { message } : { message, proofLine };
 }
 
+// ── the integrated landing ───────────────────────────────────────────────────
+
+/** The first paragraph of an integrated landing: what landed, as what, and
+ * what happened to the author's checkout. */
+function landedIntegratedMessage(
+  effort: EffortCheckout,
+  submittedHead: string,
+  landed: string,
+  disposition: CleanupDisposition,
+): string {
+  const lead = `Landed ${effort.branch}'s submission ${
+    short(submittedHead)
+  }, composed with ${effort.trunk} and proven as ${
+    short(landed)
+  }, on ${effort.trunk}`;
+  switch (disposition.kind) {
+    case "removed":
+      return `${lead}; its checkout, branch, and resources are gone.`;
+    case "resources-remain":
+      return `${lead}, but resource teardown failed for ${
+        disposition.failed.join(", ")
+      }: run discern worktree prune from ${effort.mainRepo} after fixing the failed destroy command. Its checkout and branch are gone.`;
+    case "later-commits":
+      return `${lead}; the branch holds later commits, so its checkout and branch stay. Run discern done, then discern accept from ${effort.path} for them.`;
+    case "uncommitted-changes":
+      return `${lead}; the checkout has uncommitted changes, so it and its branch stay. Commit them, then run discern done, then discern accept from ${effort.path}.`;
+  }
+}
+
+/** Append integration-cleanup failures as an ordinary failed step so the
+ * result's completion policy and prune guidance both see them. */
+function recordIntegrationCleanup(
+  progress: AcceptExecutionProgress,
+  mainRepo: string,
+  failures: readonly string[],
+): void {
+  progress.steps.push({
+    step: {
+      kind: "git",
+      label: BUILT_IN_STEP_LABELS.removeWorktree,
+      disposition: "run",
+      note: failures.length === 0
+        ? "removed the integration worktree, its resources, and its branch"
+        : `integration cleanup incomplete: ${failures.join("; ")}`,
+    },
+    outcome: failures.length === 0 ? "ok" : "failed",
+    ...(failures.length === 0 ? {} : {
+      advisory: {
+        kind: "acceptance-cleanup-incomplete" as const,
+        evidence: [...failures],
+        next_action:
+          `Run \`discern worktree prune\` from ${mainRepo} after fixing the reported cause; the recorded integration state names what remains.`,
+      },
+    }),
+  });
+}
+
+/** The author's route after a failed combined check or conflict. */
+function integrationAuthorRoute(effort: EffortCheckout): string {
+  return `Run discern update from ${effort.path}, resolve what it reports, commit, run discern done, then discern accept.`;
+}
+
+/**
+ * Land a submission the trunk overtook: compose the frozen snapshot with the
+ * trunk tip in a disposable integration worktree, prove the combined tree,
+ * recheck authority, and advance the trunk to that exact proven commit under
+ * the existing acceptance transaction. If the trunk moves during the checks,
+ * one recomposition runs against the new tip; a second movement stops with
+ * the explicit retry route. Conflicts and red checks clean up the copy and
+ * return to the author; the author's checkout and any work it gained during
+ * checking stay untouched and unlanded.
+ */
+async function executeIntegrationLanding(
+  effort: EffortCheckout,
+  subject: LandingSubject,
+  plan: AcceptPlan,
+  decision: LandingDecision,
+  progress: AcceptExecutionProgress,
+  enteredTip: string,
+  request: AcceptRequest,
+  env: Pick<typeof Deno.env, "get">,
+): Promise<{ readonly message: string; readonly proofLine?: string }> {
+  const { mainRepo, trunk } = effort;
+  const log = effort.ctx.log;
+  const frozen = subject.submission;
+  if (frozen === undefined) {
+    throw new WorktreeGitError(
+      `Only submitted work lands through an integration worktree, and ${effort.branch} has no recorded submission. Run discern accept from ${effort.path} to submit it, or land it directly once its Proof names the current trunk tip.`,
+    );
+  }
+  const cliModel = request.cliModel;
+  if (cliModel === undefined) {
+    throw new WorktreeGitError(
+      `The trunk moved after ${effort.branch}'s Proof, and this caller cannot run the combined check. Re-run discern accept from the command line or the MCP tools, or run discern update, discern done, then discern accept from ${effort.path}.`,
+    );
+  }
+  const ownership = classifyAutomaticBranchOwnership({
+    kind: "worktree",
+    branch: effort.branch,
+    id: effort.id,
+    settings: effort.settings,
+    source: "registered",
+  });
+  if (subject.atHead && !ownership.owned) {
+    throw new WorktreeGitError(
+      `discern can land branch '${effort.branch}', but it cannot automatically delete it because ${ownership.reason}. Rename it to '${
+        deriveIdentity(effort.id, effort.settings).branch
+      }' or land it outside discern; nothing was changed.`,
+    );
+  }
+  await assertMainCheckoutReady(effort);
+
+  let tip = enteredTip;
+  for (let attempt = 1;; attempt++) {
+    const composed = await runIntegrationAttempt({
+      effort,
+      submission: frozen,
+      expectedTrunk: tip,
+      log,
+      cliModel,
+      ...(request.signal === undefined ? {} : { signal: request.signal }),
+    });
+    const cleanupTail = (failures: readonly string[]): string =>
+      failures.length === 0
+        ? " The integration worktree was removed."
+        : ` Integration cleanup did not finish (${
+          failures.join("; ")
+        }); run discern worktree prune from ${mainRepo}.`;
+    if (composed.kind === "setup-failed") {
+      throw new WorktreeGitError(
+        `The integration worktree for ${effort.branch}'s submission could not be prepared: ${composed.reason}${
+          cleanupTail(composed.cleanupFailures)
+        } ${ACCEPT_NOTHING_LANDED}`,
+      );
+    }
+    if (composed.kind === "conflict") {
+      throw new WorktreeGitError(
+        `Landing ${effort.branch}'s submission ${
+          short(frozen.head)
+        } conflicts with ${trunk} in: ${composed.files.join(", ")}. ${
+          integrationAuthorRoute(effort)
+        }${cleanupTail(composed.cleanupFailures)} ${ACCEPT_NOTHING_LANDED}`,
+      );
+    }
+    if (composed.kind === "red") {
+      const gate = composed.result;
+      const failing = gate.data?.failed_stage ?? null;
+      const reproduce = (gate.diagnostics ?? [])
+        .map((diagnostic) => diagnostic.reproduce_cmd)
+        .filter((cmd): cmd is string => cmd !== undefined && cmd !== "");
+      const detail = gate.message ??
+        (failing === null
+          ? "the combined check did not complete"
+          : `the ${failing} stage failed`);
+      const refused: DiscernResult<AcceptData> = {
+        ok: false,
+        verb: "accept",
+        error: "gate_failed",
+        message: `The combined check for ${effort.branch}'s submission ${
+          short(frozen.head)
+        } with ${trunk} failed: ${detail}${
+          reproduce.length > 0
+            ? ` Reproduce with: ${[...new Set(reproduce)].join(" · ")}.`
+            : ""
+        } ${integrationAuthorRoute(effort)}${
+          cleanupTail(composed.cleanupFailures)
+        } ${ACCEPT_NOTHING_LANDED}`,
+        ...(gate.diagnostics === undefined
+          ? {}
+          : { diagnostics: gate.diagnostics }),
+      };
+      throw new WorktreeResultError(
+        refused.message ?? "The combined check failed.",
+        refused,
+      );
+    }
+
+    // Green. Recheck authority over the exact tree that lands before the
+    // trunk moves; a grant revoked during the checks refuses here.
+    // The classification covers the exact composed tree, so the
+    // submission-behind-HEAD narrowing does not apply here.
+    const authorityNow = await inspectLandingAuthority(effort.path, trunk, {
+      includeScopeEvidence: true,
+      classifyAt: composed.record.worktree.path,
+    });
+    let consent: LandingConsent | undefined = decision.consent.source ===
+        "conversation"
+      ? decision.consent
+      : availableLandingConsent(authorityNow, false);
+    if (consent === undefined) {
+      const failures = await removeIntegrationWorktree(
+        mainRepo,
+        composed.record,
+        log,
+      );
+      refusal(
+        AWAITING_CONSENT_SLUG,
+        acceptAwaitingConsentMessage(authorityNow, true) +
+          cleanupTail(failures),
+        {
+          hints: hintTexts([
+            fire(HINTS["accept-awaiting-confirmation"]),
+            fire(HINTS["accept-review-via-status"]),
+          ]),
+        },
+      );
+    }
+    log.heading("Acceptance plan");
+    log.detail(`Branch:        ${effort.branch}`);
+    log.detail(`Submission:    ${short(frozen.head)} (frozen)`);
+    log.detail(
+      `Into trunk:    ${mainRepo} (advance ${trunk} to composed ${
+        short(composed.head)
+      })`,
+    );
+    log.detail(
+      `Authority:     ${
+        landingAuthorityDetail(
+          authorityNow.kind === "authorized"
+            ? authorityNow
+            : decision.authority,
+          consent.source === "conversation",
+        )
+      }`,
+    );
+    for (const warning of authorityNow.warnings) log.warn(warning);
+
+    emitCompletionProgress({
+      phase: "operation",
+      state: "integration-land",
+      candidate_id: null,
+      reason: `Advancing ${trunk} to the proven combined commit ${
+        short(composed.head)
+      }.`,
+    });
+    const transition = await performAcceptanceTransition(effort.path, {
+      mainRepo,
+      trunk,
+      worktreeBranch: effort.branch,
+      expectedTrunk: tip,
+      target: composed.head,
+      effortClaim: consent.source === "effort-grant",
+      ...(authorityNow.effortGrant === undefined
+        ? {}
+        : { grantId: authorityNow.effortGrant.id }),
+      submissionId: frozen.id,
+      proof: { ...composed.proofPointer },
+      integration: {
+        worktree_id: composed.record.worktree.id,
+        worktree_branch: composed.record.worktree.branch,
+        worktree_path: composed.record.worktree.path,
+      },
+      consent,
+      variances: decision.variances,
+      standardProposals: decision.standardProposals,
+    });
+    if (transition.kind === "authority-changed") {
+      const detail = transition.claim.status === "invalid" ||
+          transition.claim.status === "newer" ||
+          transition.claim.status === "unavailable"
+        ? `: ${transition.claim.reason}`
+        : "";
+      const failures = await removeIntegrationWorktree(
+        mainRepo,
+        composed.record,
+        log,
+      );
+      throw new WorktreeGitError(
+        `Landing authority changed at the trunk boundary: the effort grant could not be claimed${detail}.${
+          cleanupTail(failures)
+        } ${ACCEPT_NOTHING_LANDED} Re-authorize it from the desk, then re-run \`discern accept\`.`,
+      );
+    }
+    const ff = transition.outcome;
+    const settlement = transition.effortSettlement;
+    const settlementWarning = settlement?.settled === false
+      ? settlement.disposition === "consume"
+        ? "discern could not remove the spent effort-grant claim. It cannot authorize another landing; worktree cleanup will reap it."
+        : "discern could not restore the effort grant cleanly. Inspect the grant in the desk and re-authorize this worktree before retrying."
+      : undefined;
+    if (settlementWarning !== undefined) {
+      log.warn(settlementWarning);
+      progress.authorityWarnings.push(settlementWarning);
+    }
+    if (ff.kind === "moved") {
+      const failures = await removeIntegrationWorktree(
+        mainRepo,
+        composed.record,
+        log,
+      );
+      const newTip = await trunkTip(effort);
+      if (attempt === 1 && newTip !== tip) {
+        log.warn(
+          `${trunk} moved again while the combined check ran; discarding the composition and recomposing once against ${
+            short(newTip)
+          }.`,
+        );
+        tip = newTip;
+        continue;
+      }
+      throw new WorktreeGitError(
+        `${trunk} moved again while this landing recomposed, so discern stopped after one bounded retry.${
+          cleanupTail(failures)
+        } ${ACCEPT_NOTHING_LANDED} Re-run \`discern accept\` to compose against the current trunk.`,
+      );
+    }
+    if (ff.kind !== "updated") {
+      const failures = await removeIntegrationWorktree(
+        mainRepo,
+        composed.record,
+        log,
+      );
+      if (ff.kind === "dirty") {
+        const statusCommand = commandEvidence([
+          "git",
+          "-C",
+          mainRepo,
+          "status",
+          "--short",
+        ]);
+        throw new WorktreeGitError(
+          `The main checkout at ${mainRepo} changed or could not be proved clean at the landing boundary, so discern refused before moving ${trunk}. Inspect it with \`${statusCommand}\`, preserve or clear the reported state, then re-run \`discern accept\`.${
+            cleanupTail(failures)
+          } Git said: ${ff.detail}`,
+        );
+      }
+      if (ff.kind === "checkout-failed" && !ff.rolledBack) {
+        progress.landing.trunk_landed = true;
+        throw new WorktreeGitError(
+          `discern atomically advanced ${trunk} to ${composed.head}, but Git could not converge the checked-out files and could not restore the old ref. Stop and inspect ${mainRepo} before doing more work. Git said: ${ff.detail}`,
+        );
+      }
+      throw new WorktreeGitError(
+        `The trunk transition was refused (${ff.kind}).${
+          cleanupTail(failures)
+        } ${ACCEPT_NOTHING_LANDED} Re-run \`discern accept\`. Git said: ${ff.detail}`,
+      );
+    }
+
+    progress.landing.trunk_landed = true;
+    log.ok(
+      `${trunk} advanced to the proven combined commit ${
+        short(composed.head)
+      } at ${mainRepo}.`,
+    );
+    progress.steps.push({
+      step: {
+        kind: "git",
+        label: BUILT_IN_STEP_LABELS.fastForwardTrunk,
+        disposition: "run",
+        note: `composed ${short(frozen.head)} with ${trunk} as ${
+          short(composed.head)
+        }`,
+      },
+      outcome: "ok",
+    });
+    const postTransitionStepStart = progress.steps.length;
+
+    let proofLine = composed.proof.line;
+    proofLine = renderLandingProofLine(proofLine, consent, {
+      ...(decision.standardProposals.length > 0
+        ? { proposals: decision.standardProposals }
+        : {}),
+      ...(decision.variances.length > 0 &&
+          composed.proof.checkpoints !== undefined
+        ? { checkpoints: composed.proof.checkpoints }
+        : {}),
+    });
+    progress.proofLine = proofLine;
+    progress.proofMarkdown = composed.proof.markdown;
+
+    // The trunk now names the proven combined commit; everything below fails
+    // open and never rolls the landing back.
+    const recording = await recordLandingProofNote({
+      mainRepo,
+      commit: composed.head,
+      mode: plan.proofNotes,
+      proof: composed.proof,
+      checkpointDrops: uniqueCheckpointDrops(
+        composed.proof.checkpoint_drops ?? [],
+      ),
+      consent,
+      variances: decision.variances,
+      standardProposals: decision.standardProposals,
+      log,
+      env,
+    });
+    progress.proofNote = recording.proofNote;
+    progress.steps.push(...recording.steps);
+    progress.convergenceHints.push(...recording.hints);
+
+    await convergeMainCheckout(effort, plan, progress, request.signal);
+
+    await clearSubmissionIfCurrent(effort.path, frozen.id);
+    try {
+      await clearEffortGrant(effort.path);
+    } catch (error) {
+      log.warn(
+        `Could not clear the consumed effort grant: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    // The author's normal cleanup rule, against the submitted revision: work
+    // the branch gained during checking stays intact and unlanded.
+    const disposition = await cleanUpEffort(
+      effort,
+      composed.head,
+      progress,
+      frozen.head,
+    );
+    emitCompletionProgress({
+      phase: "operation",
+      state: "integration-cleanup",
+      candidate_id: null,
+      reason:
+        "Removing the integration worktree, its resources, and its branch.",
+    });
+    const integrationCleanup = await removeIntegrationWorktree(
+      mainRepo,
+      composed.record,
+      log,
+    );
+    recordIntegrationCleanup(progress, mainRepo, integrationCleanup);
+    if (
+      cleanupKeepsCheckout(disposition) &&
+      progress.steps
+        .slice(postTransitionStepStart)
+        .every((entry) => entry.outcome !== "failed") &&
+      !(await clearCompletedAcceptanceJournal(effort.path, composed.head))
+    ) {
+      log.warn(
+        "Could not retire the completed landing's recovery journal; the next accept will verify it before landing new work.",
+      );
+    }
+    const message = landedIntegratedMessage(
+      effort,
+      frozen.head,
+      composed.head,
+      disposition,
+    );
+    log.heading("Acceptance complete.");
+    log.line(`  ${message}`);
+    return { message, proofLine };
+  }
+}
+
 // ── the verb ─────────────────────────────────────────────────────────────────
 
 /** Build the read-only preview for `--dry-run`. */
@@ -1799,6 +2266,7 @@ async function previewLanding(
   authority: LandingAuthorityResolution,
   confirmed: boolean,
   drops: CheckpointDrop[],
+  direct: boolean,
 ): Promise<DiscernResult<AcceptData>> {
   const enginePlan = acceptPlanToEngine(plan);
   const checkpointState = subject.atHead
@@ -1814,6 +2282,9 @@ async function previewLanding(
         ? ""
         : " (an earlier submission; the checkout and branch stay)"
     }`,
+    ...(direct ? [] : [
+      `Integrates:    the trunk moved after this Proof, so acceptance composes the submission with ${effort.trunk} in a disposable integration worktree, proves the combined tree, and lands that exact commit`,
+    ]),
     `Authority:     ${landingAuthorityDetail(authority, confirmed)}`,
     ...authority.warnings.map((warning) => `Authority warning: ${warning}`),
     ...(checkpointState !== undefined && checkpointState.stale.length > 0
@@ -2007,11 +2478,14 @@ async function landingResult(
       subject = { ...subject, submission: await submit(effort, subject) };
     }
     const tip = await trunkTip(effort);
-    if (candidatePredecessor(subject.complete.candidate) !== tip) {
-      refuseTrunkMoved(effort);
+    // Ancestry decides the shape, not queue length: the submission's honored
+    // Proof names the current tip → 1A's direct fast-forward; a moved trunk
+    // composes and re-proves in a disposable integration worktree.
+    const direct = candidatePredecessor(subject.complete.candidate) === tip;
+    if (direct) {
+      authority = subjectAuthority(authority, subject);
     }
-    authority = subjectAuthority(authority, subject);
-    const plan = await buildAcceptPlan(effort, subject);
+    const plan = await buildAcceptPlan(effort, subject, direct);
     if (request.dryRun) {
       return await previewLanding(
         effort,
@@ -2020,27 +2494,47 @@ async function landingResult(
         authority,
         request.confirmed,
         subject.drops,
+        direct,
       );
     }
     const decision = await decideLanding(effort, subject, authority, request);
+    // An owner explicitly accepting a proven but unsubmitted revision submits
+    // it through this route; the landing then consumes exactly that record.
+    if (
+      subject.submission === undefined ||
+      subject.submission.head !== subject.head
+    ) {
+      subject = { ...subject, submission: await submit(effort, subject) };
+    }
     const progress = freshAcceptExecutionProgress(
       recoverySteps,
       changedLandingScopes(decision.authority),
     );
     if (recoverySteps.length > 0) progress.landing.recovery_performed = true;
     try {
-      const landed = await executeLanding(
-        effort,
-        subject,
-        plan,
-        decision.authority,
-        decision.consent,
-        decision.variances,
-        decision.standardProposals,
-        progress,
-        request.signal,
-        env,
-      );
+      const landed = direct
+        ? await executeLanding(
+          effort,
+          subject,
+          plan,
+          decision.authority,
+          decision.consent,
+          decision.variances,
+          decision.standardProposals,
+          progress,
+          request.signal,
+          env,
+        )
+        : await executeIntegrationLanding(
+          effort,
+          subject,
+          plan,
+          decision,
+          progress,
+          tip,
+          request,
+          env,
+        );
       const result: DiscernResult<AcceptData> = appliedResult(
         "accept",
         progress.steps,

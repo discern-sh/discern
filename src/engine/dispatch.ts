@@ -1036,6 +1036,7 @@ export function attachEngineCommands(
             confirmed: o.confirmed ?? false,
             variance: o.variance ?? [],
             approveStandard: o.approveStandard ?? [],
+            cliModel,
           });
         },
         { json, verb: "accept" },

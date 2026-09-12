@@ -1394,6 +1394,7 @@ async function acceptToolResult(
       confirmed: opts.confirmed,
       variance: opts.variance ?? [],
       approveStandard: opts.approveStandard ?? [],
+      cliModel: opts.cliModel,
     });
   } catch (e) {
     const mapped = worktreeErrorResult("accept", e);

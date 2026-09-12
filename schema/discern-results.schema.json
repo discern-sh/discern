@@ -35869,6 +35869,12 @@
         },
         "reason": {
           "type": "string"
+        },
+        "integration": {
+          "type": "boolean"
+        },
+        "operation_handle": {
+          "type": "string"
         }
       },
       "required": [

@@ -1603,6 +1603,12 @@ export const SubmissionRowSchema = z.strictObject({
   readiness: z.enum(["ready", "waiting"]),
   /** One full sentence: why the submission waits. Absent when ready. */
   reason: z.string().optional(),
+  /** The trunk moved after its Proof, so its landing composes and checks the
+   * combined code in an integration worktree first. */
+  integration: z.boolean().optional(),
+  /** The running landing currently checking this submission; read it with
+   * `discern progress <handle>`. */
+  operation_handle: z.string().optional(),
 }).meta({
   id: "DiscernSubmissionRow",
   description:

@@ -323,6 +323,8 @@ export type DiscernSubmissionRow = {
   position: number;
   readiness: "ready" | "waiting";
   reason?: string;
+  integration?: boolean;
+  operation_handle?: string;
 };
 
 export type DiscernAuthorizedVariance = {

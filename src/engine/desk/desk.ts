@@ -580,6 +580,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       confirmed: opts.confirmed ?? false,
       variance: [],
       approveStandard: [],
+      ...(opts.cliModel === undefined ? {} : { cliModel: opts.cliModel }),
     }),
   update: (ctx, opts) =>
     withOperationLock(
@@ -2007,7 +2008,10 @@ async function dispatchAction(
       // The human just accepted the landing in this interaction, so pass
       // the consent attestation in — the desk's confirm IS the acceptance, and
       // accept must not double-refuse for a consent it already collected (ADR 0134).
-      await runtime.accept(ctx, { confirmed: true });
+      await runtime.accept(ctx, {
+        confirmed: true,
+        ...(cliModel === undefined ? {} : { cliModel }),
+      });
       await runtime.pause(out);
       return true;
     }

@@ -234,17 +234,16 @@ Deno.test("a pre-authorized effort lands its later green done with the grant con
         "the landing destroys the effort's resources",
       );
 
-      // The consumed grant authorizes nothing further, and alpha's row now
-      // waits on the moved trunk with the exact route named.
+      // The consumed grant authorizes nothing further. Alpha's row stays
+      // ready — a moved trunk no longer waits on the author, since one
+      // accept composes and checks it in an integration worktree — and the
+      // row says the composition is what its landing will do.
       const rows = await submissionRows(await Deno.realPath(dir), "main");
       assertEquals(rows.length, 1);
       assertEquals(rows[0]?.authority, "awaiting-owner");
-      assertEquals(rows[0]?.readiness, "waiting");
-      assertEquals(
-        rows[0]?.reason,
-        "The trunk moved after its Proof; run discern update, discern done, " +
-          "then discern accept from its worktree.",
-      );
+      assertEquals(rows[0]?.readiness, "ready");
+      assertEquals(rows[0]?.reason, undefined);
+      assertEquals(rows[0]?.integration, true);
     });
   });
 });
