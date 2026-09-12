@@ -178,7 +178,7 @@ export async function completeSourceTip<T>(
     if (unsupported !== undefined) return unsupported;
     const records = observedRecords(observation);
     const prior = recordedCandidate(records, {
-      source,
+      sources: [source],
       predecessor: trunkHead,
       policy,
       requirement_set: requirementSet,
@@ -238,7 +238,7 @@ export async function completeSourceTip<T>(
     };
     const candidate: Candidate = prior?.data ?? {
       attempt_id: reserved.attempt.identity.id,
-      source,
+      sources: [source],
       predecessor: trunkHead,
       head: source.head,
       tree: source.tree,

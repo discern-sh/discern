@@ -1135,7 +1135,7 @@ async function runCandidateGate(
           root,
           writeAuthority,
           true,
-          { ...treePin, head: complete.candidate.source.head },
+          { ...treePin, head: complete.candidate.head },
           proof,
           checkpointPreflight?.evidence,
           checkpointPreflight?.mode ?? "strict",

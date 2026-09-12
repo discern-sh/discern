@@ -1,5 +1,6 @@
 /** Public checkpoint review belongs to the proven candidate and survives checkout removal. */
 import { assert, assertEquals } from "@std/assert";
+import { candidateAuthor } from "../src/engine/completion/candidate.ts";
 import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { git, gitOut, runAgent } from "./engine_helpers.ts";
@@ -71,7 +72,7 @@ question = 'Does the source satisfy the requirement?'
     assert(candidate?.kind === "candidate");
     assertEquals(
       candidate.data.head,
-      candidate.data.source.head,
+      candidateAuthor(candidate.data).head,
       "a candidate is its source tip",
     );
     const proof = records.find((record) =>

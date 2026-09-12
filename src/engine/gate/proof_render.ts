@@ -25,6 +25,7 @@
  */
 
 import type { CompleteProofEvidence } from "../../shared/completion_proof.ts";
+import { candidateAuthor } from "../completion/candidate.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
   type GitCount,
@@ -575,9 +576,14 @@ export async function buildGateProof(
     return undefined;
   }
   const branchRun = await runGit(["branch", "--show-current"], { cwd: root });
-  const branch =
-    completion?.candidate.source.branch.slice("refs/heads/".length) ??
-      branchRun.stdout.trim();
+  // The Proof line names the authoring branch: an integrated candidate proves
+  // the author's submitted work composed with the trunk, never the integration
+  // copy as an effort of its own.
+  const branch = completion === undefined
+    ? branchRun.stdout.trim()
+    : candidateAuthor(completion.candidate).branch.slice(
+      "refs/heads/".length,
+    );
   if (
     completion === undefined &&
     (!branchRun.success || branch === "" || branch === trunk)

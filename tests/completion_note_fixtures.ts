@@ -1,5 +1,6 @@
 /** Canonical complete note subjects for focused durable-reader and writer guards. */
 import { CompleteProofEvidenceSchema } from "../src/shared/completion_proof.ts";
+import { candidateAuthor } from "../src/engine/completion/candidate.ts";
 import type { Proof } from "../src/shared/result_schemas.ts";
 import { completionFixtures } from "./completion_fixtures.ts";
 
@@ -24,11 +25,11 @@ export function completeNoteProof(
     candidate: {
       ...candidate.data,
       head: commit,
-      source: {
-        ...candidate.data.source,
+      sources: [{
+        ...candidateAuthor(candidate.data),
         head: commit,
         branch: `refs/heads/${branch}`,
-      },
+      }],
     },
     validation: { ...validation.data, head: commit, mode },
     components: [{ id: evidence.id, evidence: { ...evidence.data, mode } }],

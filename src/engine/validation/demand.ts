@@ -1,5 +1,5 @@
 /** One selection boundary for input observation and producer demand. */
-import type { Candidate } from "../completion/candidate.ts";
+import { type Candidate, candidateAuthor } from "../completion/candidate.ts";
 import type { Requirement } from "../completion/evidence.ts";
 import type { ValidationDemand } from "../completion/protocol.ts";
 import { requirementKey, type ResolvedProducer } from "./catalog.ts";
@@ -55,7 +55,7 @@ export function selectDemandObligations<
   } else if (demand.kind === "diagnostic") {
     if (
       JSON.stringify(demand.source) !==
-        JSON.stringify(candidate.source) ||
+        JSON.stringify(candidateAuthor(candidate)) ||
       demand.base !== candidate.predecessor
     ) {
       throw new Error(

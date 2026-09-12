@@ -13,6 +13,7 @@ import {
   readCompletionArtifact,
   saveCompletionArtifact,
 } from "../completion/artifacts.ts";
+import { candidateAuthor } from "../completion/candidate.ts";
 import { readCompleteProof } from "./completion_proof.ts";
 
 /** A presentation must reproduce the complete immutable claim, never replace it. */
@@ -25,7 +26,9 @@ function validatePresentation(
     JSON.stringify(proof.completion) !== JSON.stringify(complete) ||
     proof.head !== complete.candidate.head.slice(0, 12) ||
     proof.branch !==
-      complete.candidate.source.branch.slice("refs/heads/".length) ||
+      candidateAuthor(complete.candidate).branch.slice(
+        "refs/heads/".length,
+      ) ||
     (proof.mode ?? "strict") !== complete.validation.mode
   ) {
     throw new Error(

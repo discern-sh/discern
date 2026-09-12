@@ -29344,33 +29344,37 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "source": {
-                          "type": "object",
-                          "properties": {
-                            "effort_id": {
-                              "type": "string",
-                              "minLength": 1,
-                              "pattern": "^[A-Za-z0-9_-]+$"
+                        "sources": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "effort_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "pattern": "^[A-Za-z0-9_-]+$"
+                              },
+                              "branch": {
+                                "type": "string",
+                                "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
+                              },
+                              "head": {
+                                "type": "string",
+                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                              },
+                              "tree": {
+                                "type": "string",
+                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                              }
                             },
-                            "branch": {
-                              "type": "string",
-                              "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
-                            },
-                            "head": {
-                              "type": "string",
-                              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                            },
-                            "tree": {
-                              "type": "string",
-                              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                            }
-                          },
-                          "required": [
-                            "effort_id",
-                            "branch",
-                            "head",
-                            "tree"
-                          ]
+                            "required": [
+                              "effort_id",
+                              "branch",
+                              "head",
+                              "tree"
+                            ]
+                          }
                         },
                         "predecessor": {
                           "type": "string",
@@ -29391,11 +29395,23 @@
                         "requirement_set": {
                           "type": "string",
                           "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "integration": {
+                          "type": "object",
+                          "properties": {
+                            "procedure": {
+                              "type": "string",
+                              "const": "merge-trunk"
+                            }
+                          },
+                          "required": [
+                            "procedure"
+                          ]
                         }
                       },
                       "required": [
                         "attempt_id",
-                        "source",
+                        "sources",
                         "predecessor",
                         "head",
                         "tree",

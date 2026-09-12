@@ -8898,17 +8898,20 @@ export type DiscernAcceptResult = DiscernResultState & {
       candidate_id?: string;
       candidate?: {
         attempt_id: string;
-        source: {
+        sources: Array<{
           effort_id: string;
           branch: string;
           head: string;
           tree: string;
-        };
+        }>;
         predecessor: string;
         head: string;
         tree: string;
         policy: string;
         requirement_set: string;
+        integration?: {
+          procedure: "merge-trunk";
+        };
       };
       reason?: string;
       exceptions?: Array<{

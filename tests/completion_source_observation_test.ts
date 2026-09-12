@@ -1,5 +1,6 @@
 /** Source observation reads one mutable branch into immutable candidate coordinates. */
 import { assert, assertEquals, assertRejects } from "@std/assert";
+import { candidateAuthor } from "../src/engine/completion/candidate.ts";
 import {
   observeSource,
   predecessorPolicyIdentity,
@@ -83,7 +84,7 @@ Deno.test("recorded candidates match on every coordinate and select deterministi
   const fixture = completionFixtures().candidate;
   assert(fixture.kind === "candidate");
   const subject = {
-    source: fixture.data.source,
+    sources: fixture.data.sources,
     predecessor: fixture.data.predecessor,
     policy: fixture.data.policy,
     requirement_set: fixture.data.requirement_set,
@@ -101,7 +102,7 @@ Deno.test("recorded candidates match on every coordinate and select deterministi
   assertEquals(
     recordedCandidate([fixture], {
       ...subject,
-      source: { ...subject.source, head: "e".repeat(40) },
+      sources: [{ ...candidateAuthor(fixture.data), head: "e".repeat(40) }],
     }),
     undefined,
   );

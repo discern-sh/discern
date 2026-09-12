@@ -48,11 +48,16 @@ export const ON_DISK_FORMATS = {
     id: "completion-record",
     location: { kind: "git-admin", keys: ["completionRecords"] },
     version: 1,
+    // Reviewed 2026-09-12: the candidate gained its composition-input list
+    // (`sources` plus the optional `integration` procedure) and dropped the
+    // singular `source`. The store's reader migrates a stored singular-source
+    // candidate to the list shape in memory, so version 1 stands and no other
+    // family changed shape.
     schemaContract: {
       module: "src/engine/completion/records.ts",
       export: "CompletionRecordSchema",
       sha256:
-        "d36aaab1212bffb7f5cd9b01f2cf0a31dfc936cbcd7e95205c317c5b8771d8fc",
+        "d9ffaed759ba5ae3adba855d9d099ad9af6466f19ac845970cecfe506ae44111",
     },
     versionField: "version",
     reader: "src/engine/completion/store.ts#readCompletionRecord",

@@ -114,7 +114,12 @@ export async function measureDeclaredStandards(
       (await observeCompletionRecords(root)).records.flatMap(({ reading }) =>
         reading.kind === "recorded" ? [reading.record] : []
       ),
-      { source, predecessor, requirement_set: requirementSet, policy },
+      {
+        sources: [source],
+        predecessor,
+        requirement_set: requirementSet,
+        policy,
+      },
     );
     const candidateId = prior?.id ?? SYSTEM_SECURE_ENTROPY.uuid();
     const reserved = await reserveAttempt(root, {
@@ -126,7 +131,7 @@ export async function measureDeclaredStandards(
     });
     const candidate: Candidate = prior?.data ?? {
       attempt_id: reserved.attempt.identity.id,
-      source,
+      sources: [source],
       predecessor,
       head: source.head,
       tree: source.tree,

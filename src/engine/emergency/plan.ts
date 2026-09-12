@@ -159,7 +159,7 @@ export async function observeEmergencySubject(
   }
   const policy = await predecessorPolicyIdentity(root, trunkHead);
   const provisional: Candidate = {
-    source,
+    sources: [source],
     attempt_id: emergencyId(
       await sha256Hex(JSON.stringify([source, trunkHead, policy])),
     ),
@@ -184,7 +184,7 @@ export async function observeEmergencySubject(
     validation.snapshot.requirements,
   );
   const retained = recordedCandidate(records, {
-    source,
+    sources: [source],
     predecessor: trunkHead,
     policy,
     requirement_set: requirementSet,

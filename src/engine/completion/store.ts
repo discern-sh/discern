@@ -20,6 +20,7 @@ import {
   withCompletionPublication,
 } from "../operation_lock.ts";
 import { RecordIdSchema } from "./identity.ts";
+import { migrateLegacyCandidateData } from "./candidate.ts";
 import { applicabilitySubject } from "./evidence.ts";
 import {
   COMPLETION_FAMILIES,
@@ -54,7 +55,11 @@ export async function parseCompletionRecord(
       reason: "completion record needs its registered version",
     };
   }
-  const parsed = CompletionRecordSchema.safeParse(JSON.parse(raw));
+  // A stored singular-source candidate reads as the current sources list; the
+  // migration changes only the in-memory envelope, never the bytes.
+  const parsed = CompletionRecordSchema.safeParse(
+    migrateLegacyCandidateData(JSON.parse(raw)),
+  );
   if (!parsed.success) return { kind: "invalid", reason: parsed.error.message };
   if (parsed.data.kind !== selector.kind || parsed.data.id !== selector.id) {
     return {
