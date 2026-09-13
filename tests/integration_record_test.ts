@@ -189,3 +189,44 @@ Deno.test("the record outlives the branch: a refused deletion keeps the recovery
     assertEquals(await gitOut(dir, "branch", "--list", branch), "");
   });
 });
+Deno.test("removal recovers a copy whose .git marker an interrupted deletion stripped", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const root = await Deno.realPath(dir);
+    const branch = "integration/partial-1a2b3c";
+    const path = join(root, "..", "integration-partial-1a2b3c");
+    await git(dir, "worktree", "add", "-b", branch, path);
+    const entry: IntegrationLandingRecord = {
+      ...record("integration-partial-1a2b3c", 2 ** 22 - 7),
+      phase: "ready",
+      worktree: { id: "integration-partial-1a2b3c", branch, path },
+    };
+    await writeIntegrationLandingRecord(root, entry);
+
+    // An interrupted recursive deletion strips the marker first; the
+    // directory and Git's registration survive it.
+    await Deno.remove(join(path, ".git"));
+    const failures = await removeIntegrationWorktree(
+      root,
+      entry,
+      new Logger({ json: true, noColor: true }),
+    );
+    assertEquals(failures, []);
+    assertEquals(await listIntegrationLandingRecords(root), []);
+    assertEquals(await gitOut(dir, "branch", "--list", branch), "");
+    assert(
+      !(await gitOut(dir, "worktree", "list", "--porcelain")).includes(
+        "integration-partial-1a2b3c",
+      ),
+      "the stale registration must be retired",
+    );
+    let present = true;
+    try {
+      await Deno.stat(path);
+    } catch {
+      present = false;
+    }
+    assertEquals(present, false, "the partial directory must be removed");
+  });
+});

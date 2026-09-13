@@ -129,6 +129,7 @@ import {
   readySentinelPath,
   refMergedState,
   registeredWorktreeOwnershipEvidence,
+  registeredWorktreeRecord,
   removeWorktreeSafely,
   repoToplevel,
   resolveCommitRef,
@@ -3758,8 +3759,13 @@ export async function removeIntegrationWorktree(
   log: Logger,
 ): Promise<string[]> {
   const failures: string[] = [];
+  // Reported alongside failures but never gating the record: surviving
+  // resource ledger rows have their own recovery route (orphan GC), while
+  // the record accounts for the checkout and the branch.
+  const advisories: string[] = [];
   const dir = record.worktree.path;
-  if (await fileExists(join(dir, ".git"))) {
+  const gitMarker = await fileExists(join(dir, ".git"));
+  if (gitMarker) {
     try {
       const teardown = await teardownResources(
         await lifecycleContext(dir, log, dir),
@@ -3778,6 +3784,14 @@ export async function removeIntegrationWorktree(
         }`,
       );
     }
+  }
+  // An interrupted deletion can strip the .git marker while the directory
+  // and Git's registration survive; the verified removal path handles both,
+  // so its absence must never skip the removal itself.
+  if (
+    await pathExists(dir) ||
+    (await registeredWorktreeRecord(dir, mainRepo)) !== undefined
+  ) {
     try {
       await removeWorktreeSafely(dir, mainRepo);
     } catch (error) {
@@ -3785,6 +3799,24 @@ export async function removeIntegrationWorktree(
         `the integration worktree at ${dir} could not be removed: ${
           error instanceof Error ? error.message : String(error)
         }`,
+      );
+    }
+  }
+  if (!gitMarker) {
+    // Without the marker no teardown ran here; surviving ledger rows for
+    // this copy are named so the caller's report points at the route that
+    // reclaims them.
+    const commonGitDir = await resolveCommonGitDir(mainRepo);
+    const remaining = commonGitDir === undefined
+      ? []
+      : (await listEntries(commonGitDir)).filter((item) =>
+        item.entry.worktree_path === dir
+      );
+    if (remaining.length > 0) {
+      advisories.push(
+        `integration resources remain recorded for recovery (${
+          remaining.map((item) => item.entry.resource_name).join(", ")
+        }); discern worktree prune reclaims them`,
       );
     }
   }
@@ -3823,11 +3855,13 @@ export async function removeIntegrationWorktree(
     }
   }
   // The record outlives the branch, never the reverse: it is removed only
-  // once everything it accounts for is verifiably gone.
+  // once everything it accounts for is verifiably gone. Ledger advisories
+  // are reported without retaining it — the resource ledger is its own
+  // recovery record.
   if (failures.length === 0) {
     await removeIntegrationLandingRecord(mainRepo, record.worktree.id);
   }
-  return failures;
+  return [...failures, ...advisories];
 }
 
 /** Classify every recorded integration landing for the prune plan: a dead
