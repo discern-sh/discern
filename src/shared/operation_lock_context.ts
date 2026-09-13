@@ -11,10 +11,17 @@ import { z } from "@zod/zod";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
 import { decodeJson } from "./runtime_decode.ts";
 
+/** The one authority for concrete boundary names: the in-process type, the
+ * delegation encoder, and the child-process decoder all derive from it, so a
+ * new boundary cannot reach a child as an undecodable envelope. */
+export const OPERATION_LOCK_CONCRETE_BOUNDARIES = [
+  "acceptance",
+  "common",
+  "checkout",
+] as const;
+
 export type OperationLockConcreteBoundary =
-  | "acceptance"
-  | "common"
-  | "checkout";
+  (typeof OPERATION_LOCK_CONCRETE_BOUNDARIES)[number];
 
 /** One OS-backed lock lease that may be delegated to a child process. */
 export interface OperationLockLease {
@@ -38,7 +45,7 @@ interface DelegationEnvelope {
 }
 
 const OperationLockLeaseSchema = z.strictObject({
-  boundary: z.enum(["common", "checkout"]),
+  boundary: z.enum(OPERATION_LOCK_CONCRETE_BOUNDARIES),
   key: z.string().min(1),
   path: z.string().min(1),
   token: z.string().min(1),
