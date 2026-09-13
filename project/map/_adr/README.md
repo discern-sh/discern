@@ -371,6 +371,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0392 — Readiness connects questions to the practice](0392-readiness-connects-questions-to-the-practice.md)
 - [0393 — Merge observations connect conflict recurrence across surfaces](0393-merge-observations-connect-conflict-recurrence-across-surfaces.md)
 - [0394 — Separate operation ownership from publication](0394-separate-operation-ownership-from-publication.md)
+- [0395 — Integration judgments continue the retained landing](0395-integration-judgments-continue-the-retained-landing.md)
 
 <!-- END GENERATED: current ADR records -->
 

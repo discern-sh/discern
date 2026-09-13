@@ -104,11 +104,12 @@ A finished task enters the landing queue when its agent submits it with `discern
 
 Each line names the task's branch and, when it cannot land yet, the reason:
 
-| Why a task waits                           | What it means                                     | What happens next                                                        |
-| ------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------------ |
-| It is waiting for your decision            | The submission has Proof, and no grant covers it. | Approve it in conversation, pre-authorize it from the desk, or leave it. |
-| Its branch moved on after it was submitted | The agent committed more work after submitting.   | Its agent runs `discern done`, then `discern accept` for the new work.   |
-| A landing is checking it now               | Its combined code is being proven before landing. | Nothing; the line names the running landing's progress handle.           |
+| Why a task waits                           | What it means                                      | What happens next                                                        |
+| ------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------ |
+| It is waiting for your decision            | The submission has Proof, and no grant covers it.  | Approve it in conversation, pre-authorize it from the desk, or leave it. |
+| Its branch moved on after it was submitted | The agent committed more work after submitting.    | Its agent runs `discern done`, then `discern accept` for the new work.   |
+| A landing is checking it now               | Its combined code is being proven before landing.  | Nothing; the line names the running landing's progress handle.           |
+| Its combined result awaits a judgment      | A checkpoint question fired about the composition. | Its agent judges the question and continues with `discern accept --met`. |
 
 A submission the shared branch overtook does not wait on its author: its landing checks the combined version in a fresh integration worktree and lands the exact commit it proved, and its queue line says the composition is what landing will do. A task you pre-authorized lands with its agent's next `discern accept`. A task that failed its checks, or that its agent never submitted, is not in the list. Approving one task approves that task alone; if the help task depends on search, each needs its own permission.
 

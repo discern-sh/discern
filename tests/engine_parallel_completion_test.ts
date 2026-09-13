@@ -115,7 +115,14 @@ Deno.test("parallel completions that each flip their own brief land cleanly: no 
           ),
         );
         await git(wt, "add", "-A");
-        await git(wt, "commit", "-q", "-m", `complete: ${name}`, "--no-gpg-sign");
+        await git(
+          wt,
+          "commit",
+          "-q",
+          "-m",
+          `complete: ${name}`,
+          "--no-gpg-sign",
+        );
         return wt;
       };
       const alpha = await complete("alpha", "2a-first-task.md");

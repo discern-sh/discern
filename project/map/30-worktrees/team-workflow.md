@@ -43,7 +43,7 @@ The trunk is the single landing target. Build dependent phases by pulling branch
 - `discern update --from <source>` merges any ref or unambiguous worktree id or path into an existing worktree.
 - `discern accept` lands the composed result on the trunk once conversation consent or a recorded grant authorizes it ([ADR 0110](../_adr/0110-the-landing-model.md)).
 
-This pull-side composition keeps unfinished phases away from the shared landing branch. If another worktree moves the trunk first, the later acceptance leaves its worktree and resources intact and asks for `update → done → accept`.
+This pull-side composition keeps unfinished phases away from the shared landing branch. If another worktree moves the trunk first, the later acceptance composes and checks the combined code in an integration worktree itself; only a conflict, a red combined check, or a served checkpoint judgment routes back to the author, each with its own named continuation ([lifecycle](lifecycle.md)).
 
 ## Work across repositories
 

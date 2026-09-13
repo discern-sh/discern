@@ -1,0 +1,40 @@
+# ADR 0395: Integration judgments continue the retained landing
+
+**Status**: accepted on 2026-09-13. Amends [ADR 0391](0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md) (a judgment stop retains the composition instead of discarding it, and the variance interlock for integrated landings resolves at the copy) and extends the workspace contract of [ADR 0389](0389-the-workspace-contract.md) under its second allowance. Uses the format latitude of [ADR 0390](0390-public-contracts-preserve-behavior-and-independent-format-versions.md) for the integration-landing record's version advance.
+
+## Context
+
+Under ADR 0391 the combined check runs the full gate, and the gate's checkpoint preflight recomputes every governing subject on the combined tree. Checkpoint identity deliberately includes the complete before-and-after content of each matched file, so an independent landing that changed another row of the same watched file reopens the question even when this effort's own patch is byte-identical — matching patch text does not establish unchanged meaning when the surrounding context changed. That reopening was reported as `gate_failed`, the composition was discarded, and the author was routed through the full `update` → `done` → `accept` rebuild. In a parallel fleet, where shared planning and documentation files are edited routinely, the "exceptional" author return became the routine cost of landing second — a fresh author merge, a fresh author Proof, and a second combined check, all to obtain one recorded judgment that only the combined tree could be asked about anyway.
+
+The same wrong routing existed before acceptance was even reached: a clean branch with honored Proof that had fallen behind the trunk was told by status and the compiled instructions to run `update` and re-prove — the exact loop ADR 0391 built the integration worktree to remove — while the landing queue simultaneously reported the same submission ready to compose.
+
+## Decision
+
+**A checkpoint question fired by the combined result is a judgment stop, not a check failure, and it continues the same landing.** When the integration gate refuses with the declaration interlock — before any gate job has run — acceptance retains the composed copy instead of removing it: the integration-landing record moves to a new `awaiting-judgment` phase carrying the exact composed commit, the decision kind, and the awaiting checkpoint ids, and the call returns read-only with the served questions and the callable continuation. No lock is held while the answer waits; sibling completions and other landings proceed freely.
+
+**The answer is recorded through `accept` itself, against the copy's own open questions.** `accept --met <id>` (repeatable) and `accept --unmet <id> --why "<rationale>"` adopt the retained composition — after re-verifying the submission identity, the expected trunk, and that the copy is clean at the recorded composed commit — record the conclusions exactly as `done` records them, prove the composition, and land. Judgments bind to the composition that was served: a retained copy invalidated by a moved trunk, a replacement submission, or a changed tree is discarded, the declarations are refused unrecorded, and a fresh acceptance serves the question about the new composition. A conclusion whose subject is unchanged in the copy still carries, exactly as before; only genuinely changed subjects ask again.
+
+**The variance interlock for an integrated landing resolves at the copy, over the combined result's declarations.** A declared-unmet conclusion — carried from the author with an unchanged subject, or recorded through the continuation — retains the proven composition and serves the owner's exact decision (`accept --confirmed --variance <id>`, conversation-only, never a recorded grant); the second continuation call reuses the copy's green Proof rather than re-running jobs. Direct landings keep the author-side interlock unchanged, and a direct landing discards any retained composition it supersedes.
+
+**Retention is legible everywhere from the one record.** The queue row says which decision the submission waits on and names the continuation; the fleet labels the copy `awaiting_judgment`; `worktree prune` preserves a retained copy while its exact submission stands and reclaims it once the submission is gone or replaced. The record format advances to version 2 for the new phase and continuation block; the reader lifts version-1 records in memory so an earlier engine's interrupted landing stays recoverable.
+
+**Proven work routes to `accept`; `update` is the authoring verb.** One routing policy (`behindTrunkRoute`) decides the behind-trunk next step for status, hints, and the fleet: a clean HEAD with honored Proof goes to acceptance — trunk movement alone withdraws nothing and owes no author-side update or re-proof — while dirty or unproven work updates and proves in place. The update-behind operating policy carries this carve-out on both instruction surfaces, probe-enforced.
+
+The explicit *no*s:
+
+- **No conclusion is ever invented.** The continuation records the agent's judgment through the same open-question store and validation `done` uses; nothing auto-declares, no shared filename is exempt, and the subject identity that includes surrounding context is unchanged.
+- **No repair moves through the continuation.** A textual conflict, a red combined check, and a setup failure still clean up the copy and return to the author with the update route; only a missing judgment (or a missing owner variance over one) retains.
+- **No scheduling or reuse beyond the one retained landing.** The copy serves exactly the submission and trunk pair it composed; it is never adopted as an effort, never reused across submissions, and its retention ends with an answer, a supersession, or prune.
+
+## Consequences
+
+- An owner can approve several already-proven efforts at once: each agent submits, waits its turn, answers at most one served judgment about its own combined result, and lands — with one combined check per landed composition and no author-side rebuild for landing second.
+- A retained copy is a deliberate workspace with no live owner between calls. The record is the authority that distinguishes it from an interrupted landing; prune, status, and the queue all read it, and a submission dropped or replaced releases it.
+- The answer costs a second `accept` call and, for a declaration continuation, the one combined gate run the first call never got to start. Integration checks are not free — the change removes the author's retry loop, not the check.
+- `accept` gains two declaration inputs mirrored from `done`; the accepted-input surface widens (previously refused arguments now act), which old callers never sent and new callers reach only when a question was served.
+
+## Alternatives considered
+
+- **Reconstruct the composition on resume instead of retaining the worktree.** Rejected: a merge plus regeneration is not guaranteed byte-reproducible later, the agent needs the actual combined tree to judge the question against, and reconstruction would re-pay setup and the merge for every continuation. Retention keeps the judged subject and the answer on the same bytes.
+- **Answer through `done` inside the integration worktree.** Rejected: agents must never adopt an `integration/` worktree, and the judgment belongs to the landing that served it — `accept` already owns the submission identity, authority recheck, and settlement the continuation must re-verify.
+- **Exempt unchanged-patch files from reopening.** Rejected outright: subject identity including surrounding context is the checkpoint contract's point; weakening it would let a landing change a judged file's meaning without a judgment.
