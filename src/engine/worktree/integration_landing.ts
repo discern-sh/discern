@@ -34,11 +34,7 @@ import { emitCompletionProgress } from "../completion/events.ts";
 import type { SourceRevision } from "../completion/identity.ts";
 import { finishResult } from "../gate/finish.ts";
 import { withIntegrationCheckout } from "../operation_lock.ts";
-import {
-  localBranchExists,
-  removeWorktreeSafely,
-  WorktreeGitError,
-} from "./git.ts";
+import { localBranchExists, WorktreeGitError } from "./git.ts";
 import { generateWorktreeId, type IdentitySettings } from "./identity.ts";
 import {
   type IntegrationLandingRecord,
@@ -50,9 +46,8 @@ import {
   buildUpdatePlan,
   createAndSetupWorktree,
   lifecycleContext,
-  teardownResources,
+  removeIntegrationWorktree,
 } from "./lifecycle.ts";
-import { deleteAutomaticallyOwnedBranch } from "./ownership.ts";
 import type { Submission } from "./submission.ts";
 
 /** The author's effort as the integration phase needs it. */
@@ -142,78 +137,6 @@ async function copyAuthorDecisionState(
     await Deno.mkdir(dirname(target), { recursive: true });
     await Deno.copyFile(source, target);
   }
-}
-
-/** Remove the integration worktree, its resources, its branch, and its
- * record. Returns human-readable failures instead of throwing: on the red
- * routes the refusal must still reach the author, and after a landing the
- * trunk transition is already durable. Unfinished cleanup stays recorded for
- * `discern worktree prune`. */
-export async function removeIntegrationWorktree(
-  mainRepo: string,
-  record: Pick<IntegrationLandingRecord, "worktree">,
-  log: Logger,
-): Promise<string[]> {
-  const failures: string[] = [];
-  const dir = record.worktree.path;
-  if (await fileExists(join(dir, ".git"))) {
-    try {
-      const teardown = await teardownResources(
-        await lifecycleContext(dir, log, dir),
-      );
-      if (teardown.failed.length > 0) {
-        failures.push(
-          `integration resources remain recorded for recovery: ${
-            teardown.failed.join(", ")
-          }`,
-        );
-      }
-    } catch (error) {
-      failures.push(
-        `integration resource teardown could not run: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-    try {
-      await removeWorktreeSafely(dir, mainRepo);
-    } catch (error) {
-      failures.push(
-        `the integration worktree at ${dir} could not be removed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
-  if (failures.length === 0) {
-    const tip = await runGit(
-      [
-        "rev-parse",
-        "--verify",
-        `refs/heads/${record.worktree.branch}^{commit}`,
-      ],
-      { cwd: mainRepo },
-    );
-    if (tip.success) {
-      const deleted = await deleteAutomaticallyOwnedBranch({
-        repoRoot: mainRepo,
-        branch: record.worktree.branch,
-        expectedCommit: tip.stdout.trim(),
-        ownership: {
-          kind: "integration",
-          branch: record.worktree.branch,
-          recordedBranch: record.worktree.branch,
-        },
-      });
-      if (deleted.kind === "refused") {
-        failures.push(
-          `the integration worktree's branch ${record.worktree.branch} could not be deleted: ${deleted.reason}`,
-        );
-      }
-    }
-    await removeIntegrationLandingRecord(mainRepo, record.worktree.id);
-  }
-  return failures;
 }
 
 /** One phase sentence on every surface watching this landing. */

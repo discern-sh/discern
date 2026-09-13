@@ -165,10 +165,10 @@ import {
   emitOrRenderWorktreeResult,
   type LifecycleContext,
   lifecycleContext,
+  removeIntegrationWorktree,
 } from "./lifecycle.ts";
 import { classifyAutomaticBranchOwnership } from "./ownership.ts";
 import { type AcceptPlan, acceptPlanToEngine } from "./plan.ts";
-import { removeIntegrationWorktree } from "./integration_landing.ts";
 import { readResourceSpecs } from "./resources.ts";
 import { standardLimitApprovalRequests } from "./standard_approval.ts";
 import { strictVerdictCurrency } from "../completion/verdict.ts";
@@ -1044,8 +1044,12 @@ async function recoverInterruptedJournal(
             effort.path,
             interrupted.transaction.proof,
           );
-        } catch {
-          // discern-best-effort: accept-recovery-proof-pointer-fallback
+        } catch (error) {
+          effort.ctx.log.warn(
+            `Could not read the journal's recorded Proof presentation; falling back to the worktree's gate marker: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
           pointed = undefined;
         }
       }
@@ -1638,8 +1642,12 @@ async function landingTurnWaitBehind(
           `This call resumes automatically when its turn arrives; read that run with \`discern progress ${running.handle}\`.`,
       };
     }
-  } catch {
-    // discern-best-effort: accept-landing-wait-journal-fallback
+  } catch (error) {
+    effort.ctx.log.warn(
+      `Could not name the running landing this call waits behind; the wait continues with the plain sentence: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
   return landingTurnWait();
 }

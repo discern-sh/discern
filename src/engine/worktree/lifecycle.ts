@@ -209,10 +209,11 @@ import {
   WorktreeResourceError,
 } from "./resources.ts";
 import {
+  type IntegrationLandingRecord,
   integrationOwnerLiveness,
   listIntegrationLandingRecords,
+  removeIntegrationLandingRecord,
 } from "./integration_record.ts";
-import { removeIntegrationWorktree } from "./integration_landing.ts";
 import {
   pruneReappearedWorktreePaths,
   type ReappearedWorktreePathPruneResult,
@@ -3744,6 +3745,78 @@ async function buildPrunePlan(
     reclaimContained,
     integrations: await scanIntegrationLandings(ctx),
   };
+}
+
+/** Remove the integration worktree, its resources, its branch, and its
+ * record. Returns human-readable failures instead of throwing: on the red
+ * routes the refusal must still reach the author, and after a landing the
+ * trunk transition is already durable. Unfinished cleanup stays recorded for
+ * `discern worktree prune`. */
+export async function removeIntegrationWorktree(
+  mainRepo: string,
+  record: Pick<IntegrationLandingRecord, "worktree">,
+  log: Logger,
+): Promise<string[]> {
+  const failures: string[] = [];
+  const dir = record.worktree.path;
+  if (await fileExists(join(dir, ".git"))) {
+    try {
+      const teardown = await teardownResources(
+        await lifecycleContext(dir, log, dir),
+      );
+      if (teardown.failed.length > 0) {
+        failures.push(
+          `integration resources remain recorded for recovery: ${
+            teardown.failed.join(", ")
+          }`,
+        );
+      }
+    } catch (error) {
+      failures.push(
+        `integration resource teardown could not run: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    try {
+      await removeWorktreeSafely(dir, mainRepo);
+    } catch (error) {
+      failures.push(
+        `the integration worktree at ${dir} could not be removed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+  if (failures.length === 0) {
+    const tip = await runGit(
+      [
+        "rev-parse",
+        "--verify",
+        `refs/heads/${record.worktree.branch}^{commit}`,
+      ],
+      { cwd: mainRepo },
+    );
+    if (tip.success) {
+      const deleted = await deleteAutomaticallyOwnedBranch({
+        repoRoot: mainRepo,
+        branch: record.worktree.branch,
+        expectedCommit: tip.stdout.trim(),
+        ownership: {
+          kind: "integration",
+          branch: record.worktree.branch,
+          recordedBranch: record.worktree.branch,
+        },
+      });
+      if (deleted.kind === "refused") {
+        failures.push(
+          `the integration worktree's branch ${record.worktree.branch} could not be deleted: ${deleted.reason}`,
+        );
+      }
+    }
+    await removeIntegrationLandingRecord(mainRepo, record.worktree.id);
+  }
+  return failures;
 }
 
 /** Classify every recorded integration landing for the prune plan: a dead

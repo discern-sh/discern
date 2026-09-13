@@ -46,10 +46,8 @@ import { clearEffortGrant } from "./effort_grant_cleanup.ts";
 import { WorktreeGitError, WorktreeResultError } from "./git.ts";
 import { deriveIdentity } from "./identity.ts";
 import { inspectLandingAuthority } from "./landing_authority.ts";
-import {
-  removeIntegrationWorktree,
-  runIntegrationAttempt,
-} from "./integration_landing.ts";
+import { runIntegrationAttempt } from "./integration_landing.ts";
+import { removeIntegrationWorktree } from "./lifecycle.ts";
 import { classifyAutomaticBranchOwnership } from "./ownership.ts";
 import { clearSubmissionIfCurrent } from "./submission_writer.ts";
 import type {
