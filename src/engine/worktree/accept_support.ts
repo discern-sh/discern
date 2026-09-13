@@ -62,6 +62,44 @@ export function carriesDeclarations(
   return request.met.length > 0 || request.unmet !== undefined;
 }
 
+/** Whether this request carries any retained-composition continuation input
+ * (declarations or a served receipt). */
+export function carriesContinuation(
+  request: {
+    readonly met: readonly string[];
+    readonly unmet?: unknown;
+    readonly composition?: string;
+  },
+): boolean {
+  return carriesDeclarations(request) || request.composition !== undefined;
+}
+
+/** The read-only refusal when a receipt arrives with nothing to bind: a
+ * composition receipt travels with an answer or a variance decision.
+ * Undefined when the combination is fine. */
+export function unboundCompositionRefusal(
+  request: {
+    readonly met: readonly string[];
+    readonly unmet?: unknown;
+    readonly composition?: string;
+    readonly variance: readonly string[];
+  },
+): DiscernResult<AcceptData> | undefined {
+  if (
+    request.composition === undefined || carriesDeclarations(request) ||
+    request.variance.length > 0
+  ) {
+    return undefined;
+  }
+  return {
+    ok: false,
+    verb: "accept",
+    error: "invalid_arguments",
+    message:
+      "--composition binds an answer or a variance decision to the composition that served it; pass it with --met/--unmet or --confirmed --variance.",
+  };
+}
+
 /** The read-only refusal when declarations accompany a dry run: a preview
  * records nothing. Undefined when the combination is fine. */
 export function dryRunDeclarationsRefusal(

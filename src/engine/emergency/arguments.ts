@@ -1,6 +1,7 @@
 /** CLI and MCP validate the explicit emergency exchange through one argument contract. */
 import type { AcceptData } from "../../shared/result_schemas.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import type { AcceptRequest } from "../worktree/accept.ts";
 import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
 import type { EmergencyOptions } from "./action.ts";
 
@@ -116,6 +117,32 @@ export function acceptDeclarationArguments(
   return unmet !== undefined && why !== undefined
     ? { kind: "ok", unmet: { id: unmet, why } }
     : { kind: "ok" };
+}
+
+/** Assemble the ordinary landing request's field set from parsed CLI
+ * options — one builder, so the dispatcher stays a thin wire. */
+export function acceptRequestFields(
+  o: {
+    readonly target?: string | undefined;
+    readonly dryRun?: boolean | undefined;
+    readonly confirmed?: boolean | undefined;
+    readonly variance?: string[] | undefined;
+    readonly approveStandard?: string[] | undefined;
+    readonly met?: string[] | undefined;
+    readonly composition?: string | undefined;
+  },
+  unmet: { id: string; why: string } | undefined,
+): Omit<AcceptRequest, "cliModel" | "signal"> {
+  return {
+    ...(o.target === undefined ? {} : { target: o.target }),
+    dryRun: o.dryRun ?? false,
+    confirmed: o.confirmed ?? false,
+    variance: o.variance ?? [],
+    approveStandard: o.approveStandard ?? [],
+    met: o.met ?? [],
+    ...(unmet === undefined ? {} : { unmet }),
+    ...(o.composition === undefined ? {} : { composition: o.composition }),
+  };
 }
 
 /** Preparation, owner confirmation, and transition recovery are separate invocations. */

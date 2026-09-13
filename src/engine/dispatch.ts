@@ -1025,8 +1025,11 @@ export function attachEngineCommands(
       { collect: true },
     )
     .action(recordedExit("accept", async (o, action: string | undefined) => {
-      const { acceptDeclarationArguments, emergencyArguments } =
-        await loadModule(() => import("./emergency/arguments.ts"));
+      const {
+        acceptDeclarationArguments,
+        acceptRequestFields,
+        emergencyArguments,
+      } = await loadModule(() => import("./emergency/arguments.ts"));
       const parsed = emergencyArguments(action, o);
       if (parsed.kind === "refusal") throw new CliRefusal(parsed.result);
       const declarations = acceptDeclarationArguments(
@@ -1059,19 +1062,8 @@ export function attachEngineCommands(
             import("./worktree/accept.ts")
           );
           await acceptLanding(ctx, {
-            ...(o.target === undefined ? {} : { target: o.target }),
+            ...acceptRequestFields(o, declarations.unmet),
             json,
-            dryRun: o.dryRun ?? false,
-            confirmed: o.confirmed ?? false,
-            variance: o.variance ?? [],
-            approveStandard: o.approveStandard ?? [],
-            met: o.met ?? [],
-            ...(declarations.unmet === undefined
-              ? {}
-              : { unmet: declarations.unmet }),
-            ...(o.composition === undefined
-              ? {}
-              : { composition: o.composition }),
             cliModel,
           });
         },

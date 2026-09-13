@@ -108,7 +108,7 @@ import {
   ACCEPT_NOTHING_LANDED,
   acceptAwaitingConsentMessage,
   availableLandingConsent,
-  carriesDeclarations,
+  carriesContinuation,
   dryRunDeclarationsRefusal,
   landingAuthorityDetail,
   progressData,
@@ -116,6 +116,7 @@ import {
   short,
   throwPartialAcceptance,
   trunkTip,
+  unboundCompositionRefusal,
 } from "./accept_support.ts";
 import { walkQueue } from "./accept_walk.ts";
 import {
@@ -1814,10 +1815,7 @@ async function landEffortOnce(
     // Declarations answer a served integration question about a retained
     // composition; a direct landing has none, so consuming them silently
     // would record a judgment nothing served.
-    if (
-      direct && (carriesDeclarations(request) ||
-        request.composition !== undefined)
-    ) {
+    if (direct && carriesContinuation(request)) {
       refusal(
         "invalid_value",
         `This landing is direct — ${effort.branch}'s proven revision already contains the current ${effort.trunk} tip — so no integration judgment awaits an answer here. Re-run discern accept without --met/--unmet/--composition. ${ACCEPT_NOTHING_LANDED}`,
@@ -2041,20 +2039,9 @@ async function landingResult(
   env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
-  const declarationsRefusal = dryRunDeclarationsRefusal(request);
+  const declarationsRefusal = dryRunDeclarationsRefusal(request) ??
+    unboundCompositionRefusal(request);
   if (declarationsRefusal !== undefined) return declarationsRefusal;
-  if (
-    request.composition !== undefined && !carriesDeclarations(request) &&
-    request.variance.length === 0
-  ) {
-    return {
-      ok: false,
-      verb: "accept",
-      error: "invalid_arguments",
-      message:
-        "--composition binds an answer or a variance decision to the composition that served it; pass it with --met/--unmet or --confirmed --variance.",
-    };
-  }
   const effort = await effortCheckout(ctx, request.target);
   if (effort === undefined) {
     return await refuseFromMainCheckout(
