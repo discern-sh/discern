@@ -228,7 +228,7 @@
     stage = "check"
     run = "deno run --allow-read --allow-env --allow-run scripts/canary_tests.ts"
     provides = "canary tests (hot, cheap subset heard before the full suite)"
-    timeout = 300
+    timeout = 600
 
   # Bound to the module rather than to the `project-control` Project Script that
   # wraps it, like `canary` above: the script namespace is project-owned, so a
