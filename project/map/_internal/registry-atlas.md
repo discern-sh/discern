@@ -129,7 +129,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 23      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 22      | —                | —                           |
-| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 20      | —                | —                           |
+| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 21      | —                | —                           |
 | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                           | `tests/real_pty.ts#REAL_PTY_CONTRACTS`                                            | 8       | —                | —                           |
 | [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 48      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
@@ -4226,7 +4226,8 @@ Every genuine JavaScript timer interval in executable tests, with its exact modu
 Every elapsed shell wait in executable test source, with its exact enclosing scope, argument, occurrence count, and reviewed polling or timing contract.
 
 - Source: `tests/test_shell_wait_boundaries.ts` — `TEST_SHELL_WAIT_BOUNDARIES`
-- Members: 20
+- Members: 21
+  - `["tests/engine_integration_landing_test.ts","a sibling completes while an integration landing's resource teardown runs","0.1"]`
   - `["tests/engine_integration_landing_test.ts","a sibling completion publishes while an integration gate runs","0.1"]`
   - `["tests/engine_integration_recovery_test.ts","a running done in the author checkout is never deadlocked by acceptance","0.1"]`
   - `["tests/completion_public_done_test.ts","E09 public done releases an extractor while an unrelated check waits for it","0.02"]`
