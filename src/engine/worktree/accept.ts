@@ -353,6 +353,11 @@ function refuseReportOnlyProof(drops: readonly CheckpointDrop[]): never {
  */
 async function resolveSubject(
   effort: EffortCheckout,
+  /** The submission this call entered with, read before any wait. A waiting
+   * request keeps its identity: it lands exactly the revision it queued
+   * with, even when the author's branch moved on during the wait — the
+   * re-read decides settlement and current authority, never a new subject. */
+  entered?: Submission,
 ): Promise<LandingSubject | undefined> {
   const inspected = await inspectGateProof(effort.path);
   const inspectedDrops = uniqueCheckpointDrops([
@@ -391,7 +396,12 @@ async function resolveSubject(
       submission,
     };
   }
-  if (!effort.explicit || submission === undefined) return undefined;
+  if (
+    submission === undefined ||
+    (!effort.explicit && submission.id !== entered?.id)
+  ) {
+    return undefined;
+  }
   let complete: CompleteProofEvidence;
   let proof: Proof;
   try {
@@ -1668,6 +1678,9 @@ async function landEffortOnce(
   request: AcceptRequest,
   env: Pick<typeof Deno.env, "get">,
   operationHandle?: string,
+  /** The submission the caller entered with, preserving a waiting request's
+   * identity across the boundary wait. */
+  entered?: Submission,
 ): Promise<DiscernResult<AcceptData>> {
   {
     let authority = await inspectLandingAuthority(effort.path, effort.trunk, {
@@ -1684,7 +1697,7 @@ async function landEffortOnce(
         includeScopeEvidence: true,
       });
     }
-    const resolved = await resolveSubject(effort);
+    const resolved = await resolveSubject(effort, entered);
     if (resolved === undefined) refuseNothingProven(effort);
     let subject = resolved;
     if (!request.dryRun && !effort.explicit) {
@@ -1915,6 +1928,7 @@ async function landingResult(
       request,
       env,
       operationHandle,
+      preWait.status === "submitted" ? preWait.submission : undefined,
     );
     if (request.dryRun || !selected.ok || !effort.explicit) return selected;
     return await walkQueue(

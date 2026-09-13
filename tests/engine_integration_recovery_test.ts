@@ -470,3 +470,51 @@ Deno.test("a waiting accept whose submission a predecessor landed returns that s
     assertEquals(await gitOut(dir, "rev-parse", "main"), read.submission.head);
   });
 });
+Deno.test("a waiting acceptance lands the submission it entered with when the author commits during the wait", async () => {
+  await withTempDir(async (dir) => {
+    await fixture(dir);
+    const beta = await provenEffort(dir, "beta");
+    assertEquals((await runAgent(beta, ["accept", "--json"])).code, 1);
+    const entered = await readSubmission(await Deno.realPath(beta));
+    assert(entered.status === "submitted");
+    const betaPath = await Deno.realPath(beta);
+    const root = await Deno.realPath(dir);
+
+    let pending:
+      | ReturnType<typeof runAgent>
+      | undefined;
+    await withAcceptanceTransactionLock(root, async () => {
+      // The predecessor holds the boundary; beta's accept queues, and the
+      // author commits more work while it waits.
+      pending = runAgent(beta, ["accept", "--confirmed", "--json"]);
+      await waitUntil(async () => {
+        const reading = await readOperationJournal(betaPath);
+        return reading.kind === "found" &&
+          Object.values(reading.record.waits ?? {}).some((wait) =>
+            wait.kind === "landing-turn" && wait.state === "waiting"
+          );
+      }, "the second accept reports waiting behind the running landing");
+      await Deno.writeTextFile(join(beta, "later.txt"), "later\n");
+      await git(beta, "add", "-A");
+      await git(beta, "commit", "-q", "-m", "later work", "--no-gpg-sign");
+    });
+    assert(pending !== undefined);
+    const landed = await pending;
+    assertEquals(landed.code, 0, landed.output);
+    const result = decodeCliResult(landed.stdout, "accept");
+
+    // The waiting request kept its identity: exactly the entered submission
+    // landed, the later commit stayed on the branch, and the kept checkout
+    // is told its next step.
+    assertEquals(
+      await gitOut(dir, "rev-parse", "main"),
+      entered.submission.head,
+    );
+    assertStringIncludes(result.message ?? "", "holds later commits");
+    assert(await targetExists(betaPath));
+    assertStringIncludes(
+      await Deno.readTextFile(join(beta, "later.txt")),
+      "later",
+    );
+  });
+});
