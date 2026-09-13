@@ -1,10 +1,10 @@
 /**
  * The per-record completion pattern the delegate-work skill teaches, proven
- * end to end: each parallel effort records its completion by flipping the
- * status line of its OWN brief file, the shared index carries links but no
- * per-record status, and both efforts land through ordinary acceptance —
- * the second composed — with no conflict, no renewed checkpoint judgment,
- * and a current human-readable summary in the briefs themselves. The
+ * end to end: each parallel effort records its completion by moving its OWN
+ * brief into `_done/` with its status line flipped, the shared index is a
+ * dispatch plan that no completion edits, and both efforts land through
+ * ordinary acceptance — the second composed — with no conflict, no renewed
+ * checkpoint judgment, and the folder itself the at-a-glance tracker. The
  * contrast case shows the coordination defect the pattern removes: two
  * completions that must each edit the same shared index collide as a real
  * conflict the second author must resolve.
@@ -12,6 +12,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { listIntegrationLandingRecords } from "../src/engine/worktree/integration_record.ts";
 import {
   addWorktree,
@@ -69,12 +70,14 @@ async function fixture(dir: string, counter: string): Promise<void> {
   await Deno.writeTextFile(
     join(dir, "planning", "README.md"),
     [
-      "# The wave",
+      "# The wave — dispatch plan",
       "",
-      "- [2A — First task](2a-first-task.md)",
-      "- [2B — Second task](2b-second-task.md)",
+      "Keys, order, and landing rules; no per-brief status and no links.",
       "",
-      "Status lives in each brief's own first line.",
+      "- 2A — First task, lands first",
+      "- 2B — Second task, independent",
+      "",
+      "Open briefs sit beside this file; finished ones move into _done/.",
       "",
     ].join("\n"),
   );
@@ -95,7 +98,7 @@ async function producerRuns(counter: string): Promise<number> {
   }
 }
 
-Deno.test("parallel completions that each flip their own brief land cleanly: no conflict, no renewed judgment, both records and the summary current", async () => {
+Deno.test("parallel completions that each move their own brief into _done land cleanly: no conflict, no renewed judgment, the folder the at-a-glance tracker", async () => {
   await withTempDir(async (dir) => {
     await withTempDir(async (scratch) => {
       const counter = join(scratch, "producer-runs");
@@ -105,15 +108,18 @@ Deno.test("parallel completions that each flip their own brief land cleanly: no 
         brief: string,
       ): Promise<string> => {
         const wt = await addWorktree(dir, name);
-        const path = join(wt, "planning", brief);
-        const current = await Deno.readTextFile(path);
+        const from = join(wt, "planning", brief);
+        const done = join(wt, "planning", "_done");
+        await Deno.mkdir(done, { recursive: true });
+        const current = await Deno.readTextFile(from);
         await Deno.writeTextFile(
-          path,
+          join(done, brief),
           current.replace(
             "Status: pending",
             `Status: complete (2026-09-13) — landed as agent/${name}`,
           ),
         );
+        await Deno.remove(from);
         await git(wt, "add", "-A");
         await git(
           wt,
@@ -162,13 +168,23 @@ Deno.test("parallel completions that each flip their own brief land cleanly: no 
         [],
       );
 
-      // Both contributions and the human-readable summary are current: the
-      // briefs carry their own status, and the index needed no edit.
+      // Both contributions and the at-a-glance view are current: the folder
+      // is the tracker (nothing open remains at the top level, both briefs
+      // sit in _done/ with their provenance), and the dispatch plan needed
+      // no edit.
+      assertEquals(
+        await targetExists(join(dir, "planning", "2a-first-task.md")),
+        false,
+      );
+      assertEquals(
+        await targetExists(join(dir, "planning", "2b-second-task.md")),
+        false,
+      );
       const first = await Deno.readTextFile(
-        join(dir, "planning", "2a-first-task.md"),
+        join(dir, "planning", "_done", "2a-first-task.md"),
       );
       const second = await Deno.readTextFile(
-        join(dir, "planning", "2b-second-task.md"),
+        join(dir, "planning", "_done", "2b-second-task.md"),
       );
       assertStringIncludes(first, "Status: complete");
       assertStringIncludes(first, "landed as agent/alpha");
@@ -176,7 +192,7 @@ Deno.test("parallel completions that each flip their own brief land cleanly: no 
       assertStringIncludes(second, "landed as agent/beta");
       assertStringIncludes(
         await Deno.readTextFile(join(dir, "planning", "README.md")),
-        "Status lives in each brief's own first line.",
+        "finished ones move into _done/",
       );
     });
   });
@@ -205,11 +221,11 @@ Deno.test("the shared-index convention the pattern replaces really is the confli
       };
       const alpha = await completeWithIndexRow(
         "alpha",
-        "[2A — First task](2a-first-task.md)",
+        "- 2A — First task, lands first",
       );
       const beta = await completeWithIndexRow(
         "beta",
-        "[2B — Second task](2b-second-task.md)",
+        "- 2B — Second task, independent",
       );
       assertEquals(
         (await runAgent(alpha, ["done", "--met", "plan-review", "--json"]))
