@@ -234,6 +234,7 @@ for (
     "queue-command",
     "start-command",
     "prepare-command",
+    "scripts-command",
   ] as const
 ) {
   Deno.test(`CLI ${phase} cancellation settles the journal before process exit`, async () => {
@@ -254,6 +255,14 @@ for (
               : ""
           }`,
         );
+        if (phase === "scripts-command") {
+          await Deno.mkdir(`${root}/discern/scripts`, { recursive: true });
+          await Deno.writeTextFile(
+            `${root}/discern/scripts/hold`,
+            `#!/bin/sh\n${command}\n`,
+          );
+          await Deno.chmod(`${root}/discern/scripts/hold`, 0o755);
+        }
         await gitInit(root);
         const slotDir = `${root}/.git/${GIT_ADMIN_STATE.testSlots.path}`;
         await Deno.mkdir(slotDir, { recursive: true });
@@ -267,6 +276,8 @@ for (
           ? ["start", "--name", "cancelled", "--json"]
           : phase === "prepare-command"
           ? ["prepare", "--json"]
+          : phase === "scripts-command"
+          ? ["scripts", "hold"]
           : ["queue", "--", "sh", "-c", command];
         const child = new Deno.Command(Deno.execPath(), {
           args: engineRunArgs(args),

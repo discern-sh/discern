@@ -310,7 +310,9 @@ export async function runProjectScriptAt(
       cwd: root,
       clearEnv: true,
       delegateOperationLocks: false,
-      resumeAfterInterrupt: opts.resumeAfterInterrupt ?? false,
+      ...(opts.resumeAfterInterrupt === undefined
+        ? {}
+        : { resumeAfterInterrupt: opts.resumeAfterInterrupt }),
     });
     return child.status.code;
   }
