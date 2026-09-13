@@ -34,6 +34,10 @@ import type { LandingConsentSource } from "./consent.ts";
 import { MET_FLAG, UNMET_FLAG, WHY_FLAG } from "./declarations.ts";
 import { markdownCodeSpan } from "./markdown_code.ts";
 import {
+  type ProvenBehindAuthority,
+  provenBehindRouteText,
+} from "./proven_behind_route.ts";
+import {
   type CommandRef,
   discernCommand,
   extractCommandRefs,
@@ -751,69 +755,24 @@ export const HINTS = {
         : "";
       return `Run ${CMD.update} directly. This branch is ${behind} commit${
         behind === 1 ? "" : "s"
-      } behind ${trunk} with its work still in progress, and the command is ` +
-        `idempotent and checks its own git preconditions.${overlapNote} Prove ` +
-        `the finished tree with ${CMD.done}. Once a revision is proven, trunk ` +
-        `movement alone needs no further update: ${CMD.accept} composes and ` +
-        `checks the moved trunk itself.`;
+      } behind ${trunk} with its work still in progress, and the command is idempotent and checks its own git preconditions.${overlapNote} Prove the finished tree with ${CMD.done}. Once a revision is proven, trunk movement alone needs no further update: ${CMD.accept} composes and checks the moved trunk itself.`;
     },
   }),
 
-  /** The proven counterpart of the behind hint: honored Proof at a clean HEAD
-   * routes to acceptance even when the trunk moved on — `accept` composes and
-   * checks the combined code in a disposable integration worktree, so no
-   * author-side update or re-proof is owed for trunk movement alone. The
-   * authority variants mirror the up-to-date ready family. */
+  /** The proven counterpart of the behind hint: honored Proof at a clean
+   * HEAD routes to acceptance, which composes the moved trunk itself. */
   "status-proven-behind": defineHint<{
-    behind: GitCount;
     trunk: string;
-    branch: string;
-    authority:
-      | { kind: "effort-grant" }
-      | { kind: "standing-grant"; scopes: readonly string[] }
-      | { kind: "uncovered" }
-      | { kind: "review" };
+    authority: ProvenBehindAuthority;
   }>({
     id: "status-proven-behind",
     category: "next-step",
     audience: "agent",
     when: "`status` finds a clean branch with honored Proof behind the trunk.",
     family: "status-review-readiness",
-    example: {
-      behind: 2,
-      trunk: "main",
-      branch: "agent/hints",
-      authority: { kind: "review" },
-    },
-    template: ({ behind, trunk, branch, authority }): string => {
-      const fact =
-        `This clean HEAD is committed with honored Proof; ${trunk} ` +
-        `moved on beneath it (${behind} commit${behind === 1 ? "" : "s"}), ` +
-        `which withdraws nothing — no update or new Proof is owed for that.`;
-      const composes = `${CMD.accept} composes and checks the combined code ` +
-        `in a disposable integration worktree and lands the exact proven ` +
-        `result; a conflict, a failed combined check, or a renewed ` +
-        `checkpoint judgment names its own next step.`;
-      switch (authority.kind) {
-        case "effort-grant":
-          return `${fact} The owner pre-authorized this landing at the ` +
-            `desk: run ${CMD.accept} now. ${composes}`;
-        case "standing-grant":
-          return `${fact} The standing grant for ${
-            authority.scopes.join(", ")
-          } covers it: run ${CMD.accept} now. ${composes}`;
-        case "uncovered":
-          return `${fact} Report this branch to your owner in your own ` +
-            `words, end with the result's Proof line verbatim, then stop: ` +
-            `the recorded grant does not cover this landing. Inspect the raw ` +
-            `change with \`git diff ${trunk}...${branch}\`. When the owner ` +
-            `accepts it, run ${CMD.accept} directly. ${composes}`;
-        case "review":
-          return `${fact} Report this branch to your owner in your own ` +
-            `words, end with the result's Proof line verbatim, then wait. ` +
-            `When the owner accepts it, run ${CMD.accept} directly. ${composes}`;
-      }
-    },
+    example: { trunk: "main", authority: { kind: "review" } },
+    template: ({ trunk, authority }): string =>
+      provenBehindRouteText(trunk, authority, CMD.accept),
   }),
 
   "status-main-checkout-dirty": defineHint<{ trunk: string }>({
@@ -1095,19 +1054,13 @@ export const HINTS = {
         total === 1 ? "" : "s"
       } changing the same files: ${
         boundedNameSummary(total, pairs)
-      }. Both sides may merge cleanly and still conflict semantically. Each ` +
-      `later landing composes and re-checks the combined code itself; a real ` +
-      `conflict returns to that author with ${CMD.update} naming the shared ` +
-      `paths to resolve. While authoring, re-read the shared paths after ` +
-      `an update brings the other side in.`,
+      }. Both sides may merge cleanly and still conflict semantically. Each later landing composes and re-checks the combined code itself; a real conflict returns to that author with ${CMD.update} naming the shared paths to resolve. While authoring, re-read the shared paths after an update brings the other side in.`,
     interactiveTemplate: ({ total, pairs }): string =>
       `${total} worktree pair${
         total === 1 ? " is" : "s are"
       } changing the same files: ${
         boundedNameSummary(total, pairs)
-      }. ${OWNER_STATUS_VERBOSE} lists the shared paths. Later landings ` +
-      `compose and re-check the combined code; a real conflict returns to ` +
-      `its author to resolve.`,
+      }. ${OWNER_STATUS_VERBOSE} lists the shared paths. Later landings compose and re-check the combined code; a real conflict returns to its author to resolve.`,
   }),
 
   /** In-flight ADR number collisions — number-keyed where the fleet-collision
@@ -1946,19 +1899,6 @@ export const HINTS = {
       'Set [jobs].test = "<command>" in discern.toml to run tests. No test job is configured.',
   }),
 
-  "gate-trunk-advanced": defineHint({
-    id: "gate-trunk-advanced",
-    category: "next-step",
-    audience: "all",
-    when: "The trunk advances while the gate is running.",
-    example: undefined,
-    template: (): string =>
-      "The trunk advanced while the gate ran; the Proof still covers this " +
-      `exact HEAD. ${CMD.accept} composes and checks the moved trunk itself, ` +
-      `so landing needs no author-side update first. Use ${CMD.update} only ` +
-      "to continue authoring on the new trunk.",
-  }),
-
   "gate-test-run-queued": defineHint<{
     cap: number;
     inFlight: string | undefined;
@@ -2389,24 +2329,19 @@ export const HINTS = {
       `${WHY_FLAG}). Missing or stale: ${ids.join(", ")}.`,
   }),
 
-  /** The integration judgment continuation: the combined result fired a
-   * checkpoint question, the composition is retained, and the answer
-   * continues this landing in place — never an author-side rebuild. */
+  /** The integration judgment continuation — never an author-side rebuild. */
   "accept-integration-judgment": defineHint<{ ids: string[] }>({
     id: "accept-integration-judgment",
     category: "next-step",
     audience: "all",
     when:
-      "An integration landing's combined result fires a checkpoint question that needs a recorded conclusion.",
+      "An integration landing's combined result fires a checkpoint question.",
     family: "checkpoint-declaration",
     example: { ids: ["api-review"] },
     template: ({ ids }): string =>
-      `Judge each served question against the combined result, then continue ` +
-      `this landing from your own worktree: ${CMD.accept} ${MET_FLAG} when a ` +
-      `question is satisfied, or ${CMD.accept} ${UNMET_FLAG} with ` +
-      `${WHY_FLAG} when it is not. Awaiting: ${ids.join(", ")}. The retained ` +
-      `composition carries the answer — no author-side update or new Proof ` +
-      `is needed.`,
+      `Judge each served question against the combined result, then continue this landing from your own worktree: ${CMD.accept} ${MET_FLAG} when a question is satisfied, or ${CMD.accept} ${UNMET_FLAG} with ${WHY_FLAG} when it is not. Awaiting: ${
+        ids.join(", ")
+      }.`,
   }),
 
   "accept-requires-strict-proof": defineHint({
@@ -2438,29 +2373,6 @@ export const HINTS = {
           ...ids.map((id) => flag("variance", id)),
         )
       }. Recorded standing and effort grants never authorize a variance.`,
-  }),
-
-  "accept-authorize-standard-proposals": defineHint<
-    { branch: string; tokens: string[] }
-  >({
-    id: "accept-authorize-standard-proposals",
-    category: "next-step",
-    audience: "all",
-    when:
-      "An effort in the queue has current measured standard proposals awaiting the owner's exact approval.",
-    example: { branch: "agent/example", tokens: ["approval-token"] },
-    template: ({ branch, tokens }): string =>
-      `Relay the proposed values and reasons for ${
-        markdownCodeSpan(branch)
-      } to the owner. ` +
-      `After the owner approves that landing and every exact proposal, run ${
-        discernCommand(
-          "accept",
-          flag("confirmed"),
-          ...tokens.map((token) => flag("approve-standard", token)),
-        )
-      } ` +
-      "from that effort's worktree. Recorded grants cannot approve standard proposals.",
   }),
 
   "progress-handle-required": defineHint({

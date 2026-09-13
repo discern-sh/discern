@@ -1019,32 +1019,17 @@ export function attachEngineCommands(
       { collect: true },
     )
     .action(recordedExit("accept", async (o, action: string | undefined) => {
-      const { emergencyArguments } = await loadModule(() =>
-        import("./emergency/arguments.ts")
-      );
+      const { acceptDeclarationArguments, emergencyArguments } =
+        await loadModule(() => import("./emergency/arguments.ts"));
       const parsed = emergencyArguments(action, o);
       if (parsed.kind === "refusal") throw new CliRefusal(parsed.result);
-      if (
-        parsed.value.emergency !== undefined &&
-        (o.unmet !== undefined || o.why !== undefined)
-      ) {
-        throw new CliRefusal({
-          ok: false,
-          verb: "accept",
-          error: "invalid_arguments",
-          message:
-            "--unmet and --why answer an ordinary landing's served integration question; emergency preparation records met conclusions only.",
-        });
-      }
-      if ((o.unmet === undefined) !== (o.why === undefined)) {
-        throw new CliRefusal({
-          ok: false,
-          verb: "accept",
-          error: "invalid_arguments",
-          message: o.unmet === undefined
-            ? "--why belongs to --unmet <id>; pass both or neither."
-            : '--unmet <id> requires its rationale: pass --why "<rationale>".',
-        });
+      const declarations = acceptDeclarationArguments(
+        parsed.value.emergency !== undefined,
+        o.unmet,
+        o.why,
+      );
+      if (declarations.kind === "refusal") {
+        throw new CliRefusal(declarations.result);
       }
       const json = jsonFrom(o);
       return await runWorktreeOp(
@@ -1074,9 +1059,9 @@ export function attachEngineCommands(
             variance: o.variance ?? [],
             approveStandard: o.approveStandard ?? [],
             met: o.met ?? [],
-            ...(o.unmet !== undefined && o.why !== undefined
-              ? { unmet: { id: o.unmet, why: o.why } }
-              : {}),
+            ...(declarations.unmet === undefined
+              ? {}
+              : { unmet: declarations.unmet }),
             cliModel,
           });
         },

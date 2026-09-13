@@ -240,6 +240,28 @@ export async function retainIntegrationForJudgment(
   return retained;
 }
 
+/** Discard any composition retained for this author: a direct landing (or
+ * its refusal path) supersedes the judgment it was waiting on, so the copy
+ * is removed rather than left for prune. Failures are logged with the prune
+ * route; absence is already the settled state. */
+export async function discardSupersededComposition(
+  mainRepo: string,
+  authorWorktreePath: string,
+  log: Logger,
+): Promise<void> {
+  const retained = await retainedIntegrationJudgment(
+    mainRepo,
+    authorWorktreePath,
+  );
+  if (retained === undefined) return;
+  const failures = await removeIntegrationWorktree(mainRepo, retained, log);
+  for (const failure of failures) {
+    log.warn(
+      `Superseded-judgment cleanup: ${failure}. Run discern worktree prune from ${mainRepo}.`,
+    );
+  }
+}
+
 /** How the retained-composition adoption resolved for one attempt. */
 type RetainedAdoption =
   | { readonly kind: "adopted"; readonly record: IntegrationLandingRecord }

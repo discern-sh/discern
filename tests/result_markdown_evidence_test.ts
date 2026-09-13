@@ -112,7 +112,7 @@ Deno.test("standards reports every exact limit change", () => {
 });
 
 Deno.test("progress keeps failures after many producers and renders its retained recovery", () => {
-  const next = fire(HINTS["gate-trunk-advanced"]);
+  const next = fire(HINTS["accept-requires-strict-proof"]);
   const output = markdown("progress", {
     handle: "R1-TEST-TEST-00",
     operation: { verb: "done", path: "/workspace/orbit" },
@@ -200,7 +200,7 @@ Deno.test("every registered MCP presenter preserves envelope-level diagnostics a
     reproduce_cmd: "repair-orbit",
     output_path: "/tmp/orbit-diagnostic",
   };
-  const hint = fire(HINTS["gate-trunk-advanced"]);
+  const hint = fire(HINTS["accept-requires-strict-proof"]);
   for (const contract of MCP_RESULT_CONTRACTS) {
     const output = renderResultMarkdown({
       ok: false,
@@ -300,7 +300,7 @@ Deno.test("native retained step logs and bounded nesting remain readable", () =>
     }],
     waitedMs: 2300,
     message: "Native failure",
-    hints: hintTexts([fire(HINTS["gate-trunk-advanced"])]),
+    hints: hintTexts([fire(HINTS["accept-requires-strict-proof"])]),
   } satisfies DiscernResult;
   for (const result of [native, serializeResult(native)]) {
     const output = markdown("progress", { account: [], result });

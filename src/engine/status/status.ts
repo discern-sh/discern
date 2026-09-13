@@ -1215,9 +1215,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           : { kind: "review" as const };
         hints.push(
           fire(HINTS["status-proven-behind"], {
-            behind: g.behind_trunk,
             trunk: main,
-            branch: g.branch,
             authority: variant,
           }),
         );

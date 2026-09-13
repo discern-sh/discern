@@ -108,6 +108,8 @@ import {
   ACCEPT_NOTHING_LANDED,
   acceptAwaitingConsentMessage,
   availableLandingConsent,
+  carriesDeclarations,
+  dryRunDeclarationsRefusal,
   landingAuthorityDetail,
   progressData,
   refusal,
@@ -175,7 +177,7 @@ import { type AcceptPlan, acceptPlanToEngine } from "./plan.ts";
 import { readResourceSpecs } from "./resources.ts";
 import { standardLimitApprovalRequests } from "./standard_approval.ts";
 import { strictVerdictCurrency } from "../completion/verdict.ts";
-import { retainedIntegrationJudgment } from "./integration_record.ts";
+import { discardSupersededComposition } from "./integration_landing.ts";
 import {
   readSubmission,
   type Submission,
@@ -1808,7 +1810,7 @@ async function landEffortOnce(
     // Declarations answer a served integration question about a retained
     // composition; a direct landing has none, so consuming them silently
     // would record a judgment nothing served.
-    if (direct && (request.met.length > 0 || request.unmet !== undefined)) {
+    if (direct && carriesDeclarations(request)) {
       refusal(
         "invalid_value",
         `This landing is direct — ${effort.branch}'s proven revision already contains the current ${effort.trunk} tip — so no integration judgment awaits an answer here. Re-run discern accept without --met/--unmet. ${ACCEPT_NOTHING_LANDED}`,
@@ -1818,22 +1820,11 @@ async function landEffortOnce(
     // earlier submission: the judgment it awaited is moot, so the copy is
     // discarded rather than left for prune.
     if (direct && !request.dryRun) {
-      const retained = await retainedIntegrationJudgment(
+      await discardSupersededComposition(
         effort.mainRepo,
         effort.path,
+        effort.ctx.log,
       );
-      if (retained !== undefined) {
-        const failures = await removeIntegrationWorktree(
-          effort.mainRepo,
-          retained,
-          effort.ctx.log,
-        );
-        for (const failure of failures) {
-          effort.ctx.log.warn(
-            `Superseded-judgment cleanup: ${failure}. Run discern worktree prune from ${effort.mainRepo}.`,
-          );
-        }
-      }
     }
     if (direct && !predecessorCurrent) {
       // Check evidence is a tree property; standards ratchets are policy
@@ -2043,17 +2034,8 @@ async function landingResult(
   env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
-  if (
-    request.dryRun && (request.met.length > 0 || request.unmet !== undefined)
-  ) {
-    return {
-      ok: false,
-      verb: "accept",
-      error: "invalid_arguments",
-      message:
-        "A dry run records nothing, so --met/--unmet cannot accompany it. Preview without declarations, then answer the served question with an apply call.",
-    };
-  }
+  const declarationsRefusal = dryRunDeclarationsRefusal(request);
+  if (declarationsRefusal !== undefined) return declarationsRefusal;
   const effort = await effortCheckout(ctx, request.target);
   if (effort === undefined) {
     return await refuseFromMainCheckout(

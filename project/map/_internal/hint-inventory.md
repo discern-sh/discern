@@ -8,17 +8,6 @@ Entries follow id order. Emitting context states when an entry fires. Each examp
 
 Audience `all` renders on every surface. Audience `agent` marks an instruction only an agent can execute: the interactive terminal presentation drops it, while JSON, Markdown, and Model Context Protocol (MCP) results always carry it.
 
-## `accept-authorize-standard-proposals`
-
-- Category: `next-step`
-- Audience: `all`
-- Family: —
-- Emitting context: An effort in the queue has current measured standard proposals awaiting the owner's exact approval.
-
-Rendered example:
-
-> Relay the proposed values and reasons for `agent/example` to the owner. After the owner approves that landing and every exact proposal, run `discern accept --confirmed --approve-standard approval-token` from that effort's worktree. Recorded grants cannot approve standard proposals.
-
 ## `accept-authorize-variance`
 
 - Category: `next-step`
@@ -68,11 +57,11 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: `checkpoint-declaration`
-- Emitting context: An integration landing's combined result fires a checkpoint question that needs a recorded conclusion.
+- Emitting context: An integration landing's combined result fires a checkpoint question.
 
 Rendered example:
 
-> Judge each served question against the combined result, then continue this landing from your own worktree: `discern accept` --met when a question is satisfied, or `discern accept` --unmet with --why when it is not. Awaiting: api-review. The retained composition carries the answer — no author-side update or new Proof is needed.
+> Judge each served question against the combined result, then continue this landing from your own worktree: `discern accept` --met when a question is satisfied, or `discern accept` --unmet with --why when it is not. Awaiting: api-review.
 
 ## `accept-publish-proof-note`
 
@@ -1007,17 +996,6 @@ Rendered example:
 Rendered example:
 
 > The concurrent test-run cap is not enforced for this run: could not create the slot directory. The tests run uncapped.
-
-## `gate-trunk-advanced`
-
-- Category: `next-step`
-- Audience: `all`
-- Family: —
-- Emitting context: The trunk advances while the gate is running.
-
-Rendered example:
-
-> The trunk advanced while the gate ran; the Proof still covers this exact HEAD. `discern accept` composes and checks the moved trunk itself, so landing needs no author-side update first. Use `discern update` only to continue authoring on the new trunk.
 
 ## `gate-update-docs`
 
@@ -2050,7 +2028,7 @@ Rendered example:
 
 Rendered example:
 
-> This clean HEAD is committed with honored Proof; main moved on beneath it (2 commits), which withdraws nothing — no update or new Proof is owed for that. Report this branch to your owner in your own words, end with the result's Proof line verbatim, then wait. When the owner accepts it, run `discern accept` directly. `discern accept` composes and checks the combined code in a disposable integration worktree and lands the exact proven result; a conflict, a failed combined check, or a renewed checkpoint judgment names its own next step.
+> This clean HEAD is committed with honored Proof; main moved on beneath it, which withdraws nothing — no update or new Proof is owed for that. Report this branch to your owner in your own words, end with the result's Proof line verbatim, then wait. When the owner accepts it, run `discern accept` directly. `discern accept` composes and checks the combined code in a disposable integration worktree and lands the exact proven result; a conflict, a failed combined check, or a renewed checkpoint judgment names its own next step.
 
 ## `status-ready-for-review`
 

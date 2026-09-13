@@ -81,6 +81,39 @@ export function emergencyArguments(
   };
 }
 
+/** How the ordinary accept declaration flags resolved. */
+type AcceptDeclarationArguments =
+  | { readonly kind: "ok"; readonly unmet?: { id: string; why: string } }
+  | { readonly kind: "refusal"; readonly result: DiscernResult<AcceptData> };
+
+/** Validate the CLI's --unmet/--why pairing and their exclusion from the
+ * emergency exchange; emergency preparation records met conclusions only. */
+export function acceptDeclarationArguments(
+  emergency: boolean,
+  unmet: string | undefined,
+  why: string | undefined,
+): AcceptDeclarationArguments {
+  const refuse = (message: string): AcceptDeclarationArguments => ({
+    kind: "refusal",
+    result: { ok: false, verb: "accept", error: "invalid_arguments", message },
+  });
+  if (emergency && (unmet !== undefined || why !== undefined)) {
+    return refuse(
+      "--unmet and --why answer an ordinary landing's served integration question; emergency preparation records met conclusions only.",
+    );
+  }
+  if ((unmet === undefined) !== (why === undefined)) {
+    return refuse(
+      unmet === undefined
+        ? "--why belongs to --unmet <id>; pass both or neither."
+        : '--unmet <id> requires its rationale: pass --why "<rationale>".',
+    );
+  }
+  return unmet !== undefined && why !== undefined
+    ? { kind: "ok", unmet: { id: unmet, why } }
+    : { kind: "ok" };
+}
+
 /** Preparation, owner confirmation, and transition recovery are separate invocations. */
 export function emergencyOptionError(options: {
   readonly prepare?: boolean | undefined;

@@ -55,6 +55,32 @@ export function refusal(
   throw new WorktreeResultError(message, result);
 }
 
+/** Whether this request carries integration-judgment declarations. */
+export function carriesDeclarations(
+  request: { readonly met: readonly string[]; readonly unmet?: unknown },
+): boolean {
+  return request.met.length > 0 || request.unmet !== undefined;
+}
+
+/** The read-only refusal when declarations accompany a dry run: a preview
+ * records nothing. Undefined when the combination is fine. */
+export function dryRunDeclarationsRefusal(
+  request: {
+    readonly dryRun: boolean;
+    readonly met: readonly string[];
+    readonly unmet?: unknown;
+  },
+): DiscernResult<AcceptData> | undefined {
+  if (!request.dryRun || !carriesDeclarations(request)) return undefined;
+  return {
+    ok: false,
+    verb: "accept",
+    error: "invalid_arguments",
+    message:
+      "A dry run records nothing, so --met/--unmet cannot accompany it. Preview without declarations, then answer the served question with an apply call.",
+  };
+}
+
 /** The current trunk commit, read where the landing will advance it. */
 export async function trunkTip(effort: EffortCheckout): Promise<string> {
   const run = await runGit(

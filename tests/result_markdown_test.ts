@@ -366,7 +366,7 @@ Deno.test("Markdown orders state, evidence, boundary, and the immediate action a
     total: 1,
     names: ["unrelated-effort"],
   });
-  const immediate = fire(HINTS["gate-trunk-advanced"]);
+  const immediate = fire(HINTS["accept-requires-strict-proof"]);
   const later = fire(HINTS["failure-recovery"], { verb: "status" });
   const result = {
     ok: false,

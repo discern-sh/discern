@@ -1319,9 +1319,7 @@ Deno.test("status: one worktree's journey from dirty iteration to a landed proof
           branch: "agent/alpha",
         });
         assertHasHint(local, HINTS["status-proven-behind"], {
-          behind,
           trunk: "main",
-          branch: "agent/alpha",
           authority: { kind: "review" },
         });
         assertLacksHint(local, HINTS["status-branch-behind"], {
