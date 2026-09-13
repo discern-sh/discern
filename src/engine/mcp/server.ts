@@ -789,17 +789,12 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: AwaitOutputSchema,
     annotations: READ_ONLY,
     description:
-      "Block until a fleet condition holds, then return the observed state and " +
-      "the next step — one call instead of guessed polling while a sibling " +
-      "worktree finishes. Pass exactly ONE condition: `green` (a branch name) " +
-      "waits until that branch's worktree holds an honored gate Proof — a " +
-      "green `discern_done` on its current clean HEAD (the work landing on " +
-      "the selected project's configured trunk also satisfies it, since only a validated tree " +
-      "lands); `landed` (a branch name) waits until that branch's work — its " +
-      "latest observed tip after it has work — is reachable from the selected " +
-      "project's configured trunk; `trunk_moved` waits until that trunk moves. Conditions ground in git " +
-      "ancestry, gate Proofs, and landed Proof notes, never in recorded " +
-      "activity. If the bound expires, the result stays ok with data.met false. " +
+      "Wait for a condition in one blocking call; return its observed state and next step. " +
+      "Pass exactly one condition: `green` (branch) requires an honored gate Proof for " +
+      "its current clean HEAD, or its work landing on the selected project's configured trunk; " +
+      "`landed` (branch) requires its latest observed work tip to be reachable from that trunk; " +
+      "`trunk_moved` waits for that trunk to change. Conditions use Git ancestry and Proof, " +
+      "never activity records. If the bound expires, ok stays true and data.met is false. " +
       "Pass data.resume by itself on the next call: it preserves the original " +
       "branch transition or trunk baseline, so a condition crossed between calls is " +
       `not lost. ${AWAIT_WATCH_POLICY} ` +
