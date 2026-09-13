@@ -30,7 +30,8 @@ import { WorktreeGitError } from "../src/engine/worktree/git.ts";
 import { lifecycleContext } from "../src/engine/worktree/lifecycle.ts";
 import { Logger } from "../src/lib/log.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { withOperationLock } from "../src/engine/operation_lock.ts";
 import { waitForPendingCondition } from "./waiting.ts";
 
 const CONFIG = [
@@ -889,6 +890,15 @@ Deno.test("a sibling completes while an integration landing's resource teardown 
       const beta = await effortWithWork(dir, "beta", "beta.txt");
       assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
       assertEquals((await runAgent(beta, ["done", "--json"])).code, 0);
+      await withOperationLock(dir, { command: "refresh" }, async () => {
+        const heldMain = await runAgent(alpha, [
+          "accept",
+          "--confirmed",
+          "--json",
+        ]);
+        assertEquals(heldMain.code, 1, heldMain.output);
+        assertTerminalTextIncludes(heldMain.output, "checkout boundary");
+      });
       assertEquals(
         (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
         0,
@@ -905,14 +915,19 @@ Deno.test("a sibling completes while an integration landing's resource teardown 
         },
       );
 
-      // The trunk already carries the composed landing; a sibling created
-      // from it completes while the teardown holds — cleanup must not
-      // monopolize the publication boundary.
-      const gamma = await effortWithWork(dir, "gamma", "gamma.txt");
-      const sibling = await runAgent(gamma, ["done", "--json"]);
-      assertEquals(sibling.code, 0, sibling.output);
-
-      await Deno.writeTextFile(join(scratch, "release"), "go\n");
+      try {
+        // Sibling completion stays independent, but the main checkout is still
+        // owned by the landing until its convergence and cleanup have settled.
+        const gamma = await effortWithWork(dir, "gamma", "gamma.txt");
+        const sibling = await runAgent(gamma, ["done", "--json"]);
+        assertEquals(sibling.code, 0, sibling.output);
+        const mainWriter = await runAgent(dir, ["refresh", "--json"]);
+        assertEquals(mainWriter.code, 1, mainWriter.output);
+        assertTerminalTextIncludes(mainWriter.output, "Holder: accept");
+      } finally {
+        await Deno.writeTextFile(join(scratch, "release"), "go\n");
+        await landing;
+      }
       const landed = await landing;
       assertEquals(landed.code, 0, landed.output);
       await assertNoIntegrationRemains(dir);

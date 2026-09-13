@@ -22,7 +22,7 @@ Each live lease records its invocation identity and available journal handle. A 
 
 ## Consequences
 
-Unrelated worktrees can finish while lifecycle commands run. Competing lifecycle commands remain serialized, and writers or cleaners of the same subject remain excluded. Lifecycle parallelism can be considered separately after its shared bookkeeping has narrower transaction boundaries.
+Unrelated worktrees can finish while lifecycle commands run. Acceptance reserves the main checkout through its transition, convergence, and cleanup, so a main-checkout writer and a landing exclude each other while sibling completion remains independent. Competing lifecycle commands remain serialized, and writers or cleaners of the same subject remain excluded. Lifecycle parallelism can be considered separately after its shared bookkeeping has narrower transaction boundaries.
 
 The public execution interceptor owns observation enrollment. Command-policy and subprocess-boundary guards enroll future members; behavioral tests cover public renewal, MCP requests without progress tokens, cancellation, nested execution, sibling completion, and competing cleaners. Lease records add diagnostic metadata but retain operating-system lifetime and token-authenticated delegation.
 

@@ -173,8 +173,8 @@ const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 /**
  * Run one acceptance apply while holding the repository-wide acceptance policy.
  *
- * The shared capability acquires the common-repository lock before this
- * checkout's lock, so two linked worktrees cannot inspect one another's active
+ * The shared capability acquires the acceptance lock before this checkout's
+ * lock, so two linked worktrees cannot inspect one another's active
  * acceptance as interrupted state or overlap the shared trunk transition.
  * With `wait`, a contended boundary queues behind the running landing and
  * resumes on its own instead of refusing.

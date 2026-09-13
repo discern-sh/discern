@@ -79,7 +79,10 @@ import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { candidatePredecessor } from "../completion/candidate.ts";
 import { readCompleteProof } from "../gate/completion_proof.ts";
 import { observedGateOperation } from "../gate/observed_operation.ts";
-import { withLandingCommonPhase } from "../operation_lock.ts";
+import {
+  withLandingCommonPhase,
+  withWorktreeOwnership,
+} from "../operation_lock.ts";
 import { planStageJobs } from "../gate/plan.ts";
 import { renderProofLineCli } from "../gate/presentation.ts";
 import { inspectGateProof } from "../gate/proof.ts";
@@ -1735,7 +1738,7 @@ async function landEffortOnce(
    * it is the landing subject — the wait must not select a new one. */
   enteredSubject?: LandingSubject,
 ): Promise<DiscernResult<AcceptData>> {
-  {
+  const run = async (): Promise<DiscernResult<AcceptData>> => {
     let authority = await inspectLandingAuthority(effort.path, effort.trunk, {
       includeScopeEvidence: true,
     });
@@ -1934,7 +1937,10 @@ async function landEffortOnce(
       }
       throw error;
     }
-  }
+  };
+  return request.dryRun
+    ? await run()
+    : await withWorktreeOwnership(effort.mainRepo, run);
 }
 
 /** The settled result when a preceding landing already landed the submission

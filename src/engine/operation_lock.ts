@@ -502,8 +502,8 @@ async function acquireLock(
  * Run one classified operation while holding its policy boundary and proving
  * any registry-declared Git-write authority.
  *
- * Lock files contain no owner claim. Only the operating-system lock on an open
- * handle establishes ownership; an orphaned path is inert and reusable.
+ * Lock files carry diagnostic metadata. Only the operating-system lock on an
+ * open handle establishes ownership; an orphaned path is inert and reusable.
  */
 export async function withOperationLock<T>(
   cwd: string,
