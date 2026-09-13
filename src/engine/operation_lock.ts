@@ -374,24 +374,30 @@ async function acquireLock(
     if (!acquired && wait !== undefined) {
       // A waiting caller queues behind the holder instead of refusing. The
       // pause is unbounded by design — the holder's own budgets bound it —
-      // and the caller's signal remains the way out.
+      // and the caller's signal remains the way out. Cancellation is checked
+      // again after every acquisition attempt: an abort that arrives during
+      // the pause must refuse even when the very next attempt succeeds,
+      // because the caller has already stopped wanting the effects.
       wait.onContended?.(spec.boundary);
+      const cancelled = (): never => {
+        // The enclosing catch closes the handle exactly once, releasing any
+        // lock this attempt just took.
+        throw refusal(
+          invocation,
+          `The wait for the ${
+            boundaryName(spec.boundary)
+          } was cancelled while another discern operation held it. ` +
+            "This call made no change. Retry when ready.",
+        );
+      };
       while (!acquired) {
-        if (wait.signal?.aborted === true) {
-          // The enclosing catch closes the handle exactly once.
-          throw refusal(
-            invocation,
-            `The wait for the ${
-              boundaryName(spec.boundary)
-            } was cancelled while another discern operation held it. ` +
-              "This call made no change. Retry when ready.",
-          );
-        }
+        if (wait.signal?.aborted === true) cancelled();
         await new Promise<void>((resolve) =>
           SYSTEM_SCHEDULER.scheduleTimeout(resolve, 250)
         );
         acquired = await file.tryLock(true);
       }
+      if (wait.signal?.aborted === true) cancelled();
     }
   } catch (error) {
     file.close();

@@ -419,6 +419,45 @@ Deno.test("a cancelled landing wait refuses without running the operation", asyn
   });
 });
 
+Deno.test("cancellation during the wait's pause refuses even when the boundary frees immediately", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const running = withAcceptanceTransactionLock(
+      dir,
+      heldOperation(entered.resolve, release.promise),
+    );
+    await entered.promise;
+
+    const controller = new AbortController();
+    const contended = Promise.withResolvers<void>();
+    let ran = false;
+    const waiting = assertRejects(
+      () =>
+        withAcceptanceTransactionLock(dir, () => {
+          ran = true;
+          return Promise.resolve();
+        }, {
+          signal: controller.signal,
+          onContended: () => contended.resolve(),
+        }),
+      WorktreeResultError,
+    );
+    await contended.promise;
+    // The abort and the holder's release both land inside the wait's pause:
+    // the next acquisition attempt succeeds, and the post-acquisition
+    // recheck must still refuse the already-cancelled call instead of
+    // handing it the boundary.
+    controller.abort();
+    release.resolve();
+    await running;
+    const refusal = await waiting;
+    assertEquals(ran, false);
+    assertStringIncludes(refusal.message, "cancelled");
+  });
+});
+
 Deno.test("an orphaned lock path is not treated as ownership", async () => {
   await withTempDir(async (dir) => {
     await initializeRepo(dir);
