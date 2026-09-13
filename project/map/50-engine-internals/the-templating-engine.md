@@ -31,19 +31,7 @@ Variables work inside `{{#if}}` blocks, and `{{#if}}` may nest. Tag names are lo
 
 Every variable and predicate is built by `instructionContext(config)` in [`instruction_render.ts`](../../../src/engine/instruction_render.ts), a pure function of committed `discern.toml`:
 
-| Kind      | Name                       | Source                                                      |
-| --------- | -------------------------- | ----------------------------------------------------------- |
-| variable  | `branch_prefix`            | `[repository].branch_prefix`                                |
-| variable  | `main_branch`              | `[repository].trunk` (committed value)                      |
-| variable  | `map_dir`                  | `[map].dir`, normalized with its trailing slash             |
-| variable  | `todo_path`                | `[project].todo`                                            |
-| variable  | `skills_dir`               | `[skills].dir`                                              |
-| variable  | `scripts_dir`              | `[scripts].dir`                                             |
-| variable  | `instruction_sources`      | `[instructions].sources`, rendered as a code-formatted list |
-| variable  | `generated_agent_files`    | provider-registry outputs for the configured agents         |
-| variable  | `materialized_skills_dirs` | provider-registry skills dirs for the configured agents     |
-| predicate | `has_standards`            | any `[standards.*]` declared                                |
-| predicate | `has_worktree_resources`   | any `[worktree.resources.*]` declared                       |
+The context supplies configured paths, branch names, and predicates for relevant instructions. The worktree instructions name `[gate].concurrent_test_runs` when positive; zero removes the queue instruction. Compiled instructions describe the limit. Progress messages observe current capacity use at runtime.
 
 > **Invariant.** The context reads only values that stay constant between 2 runs on the same commit. It excludes Git branch and status, environment variables, the clock, randomness, absolute paths, and ignored or per-worktree files. The Gate checks agent-file currency ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)): `status` and `done` recompile in memory and compare to disk. Reading mutable state would make the file perpetually `stale` and fail the Gate. A determinism test and the currency test enforce this boundary.
 >

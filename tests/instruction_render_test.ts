@@ -41,6 +41,37 @@ async function scaffold(
   await Deno.writeTextFile(join(tmp, "instructions.md"), "# Mine\nA rule.\n");
 }
 
+Deno.test("queue instructions state the configured cap and disappear when uncapped", async () => {
+  for (const cap of [0, 1, 7]) {
+    await withTempDir(async (root) => {
+      await scaffold(root);
+      await Deno.writeTextFile(
+        join(root, "discern.toml"),
+        `\n[gate]\nconcurrent_test_runs = ${cap}\n`,
+        { append: true },
+      );
+      const body = (await renderAgentFiles(root)).get("AGENTS.md");
+      assert(body !== undefined);
+      assertEquals(
+        body.includes("Run tests through the configured queue"),
+        cap > 0,
+      );
+      if (cap > 0) {
+        assertStringIncludes(
+          body,
+          "\n- **Run tests through the configured queue.**",
+        );
+        assert(!body.split("\n").some((line) => /[\t ]$/u.test(line)));
+        assertStringIncludes(
+          body,
+          `${cap} concurrent test run${cap === 1 ? "" : "s"}`,
+        );
+        assertStringIncludes(body, "discern queue -- <command>");
+      }
+    });
+  }
+});
+
 Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENTS.md pointer", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
@@ -824,6 +855,10 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
     string,
     { toml: string; expect?: string; contextOnly?: boolean }
   > = {
+    concurrent_test_runs: {
+      toml: '[gate]\nconcurrent_test_runs = 7\n[project]\nagents = ["codex"]\n',
+      expect: "7 concurrent test runs",
+    },
     project_name: {
       toml: '[project]\nname = "ZZ Probe"\nagents = ["codex"]\n',
       expect: "ZZ Probe",
@@ -874,6 +909,14 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
     string,
     { toml: string; expect: boolean }
   > = {
+    has_test_run_cap: {
+      toml: "[gate]\nconcurrent_test_runs = 0\n",
+      expect: false,
+    },
+    single_test_run: {
+      toml: "[gate]\nconcurrent_test_runs = 7\n",
+      expect: false,
+    },
     has_standards: {
       toml: [
         "[standards.coverage]",
