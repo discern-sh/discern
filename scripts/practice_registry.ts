@@ -357,13 +357,18 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     obligation:
       "Finished work returns with evidence naming the exact committed tree; any later edit expires it.",
     body:
-      "A green gate over a clean, committed tree mints Proof: the pinned commit, the changed files, the check results, the held standards. Acceptance writes it to the landed commit as a durable note, so the evidence outlives the worktree.",
+      "A green gate over a clean committed tree records the tested result and its source inputs. When acceptance combines a submission with a moved trunk, it proves that combined tree and retains the submitted source in the record. The landed commit receives its own durable Proof note.",
     arc: "loop",
     upheld: {
       enforced: ["verb:done"],
       automated: ["config:repository"],
     },
-    mechanisms: ["proof", "proof-notes", "unchanged-tree-rerun"],
+    mechanisms: [
+      "proof",
+      "proof-notes",
+      "unchanged-tree-rerun",
+      "integration-landings",
+    ],
     yields: ["know-what-is-ready"],
     agentYields: ["prove-the-exact-tree"],
     holds: ["evidence"],
@@ -376,12 +381,18 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     obligation:
       "A green gate makes a change eligible; landing takes fresh consent or a recorded grant, checked against the changed paths.",
     body:
-      "Acceptance resolves its authority per invocation (a conversation attestation, a standing scope grant, or a one-shot effort grant) and refuses without one. What lands is the tree the gate validated, fast-forwarded onto the trunk.",
+      "Acceptance keeps the submitted revision fixed while waiting its turn. It checks authority over the actual landing diff and proves a needed combination with the current trunk before advancing it. In a selected queue walk, each later submission needs its own grant; consent for the selected work remains scoped to that work.",
     arc: "loop",
     upheld: {
       enforced: ["verb:accept", "config:acceptance"],
     },
-    mechanisms: ["accept", "consent-attestations"],
+    mechanisms: [
+      "accept",
+      "consent-attestations",
+      "integration-landings",
+      "landing-turn",
+      "landing-queue-walk",
+    ],
     yields: ["know-what-is-ready", "keep-control"],
     agentYields: ["land-only-with-release-authority"],
     holds: ["decisions"],

@@ -85,8 +85,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 39      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 53      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 141     | —                | —                           |
-| [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                    | `scripts/feature_registry.ts#HUMAN_BENEFIT_CANON`                                 | 45      | —                | —                           |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 144     | —                | —                           |
+| [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                    | `scripts/feature_registry.ts#HUMAN_BENEFIT_CANON`                                 | 46      | —                | —                           |
 | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                    | `scripts/feature_registry.ts#AGENT_BENEFIT_CANON`                                 | 24      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 52      | —                | node `published-contracts`  |
@@ -2598,7 +2598,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 141
+- Members: 144
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -2644,6 +2644,9 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `start`
   - `update`
   - `accept`
+  - `integration-landings`
+  - `landing-turn`
+  - `landing-queue-walk`
   - `compose-below-trunk`
   - `worktree-identity`
   - `worktree-resources`
@@ -2750,11 +2753,12 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
 The commercially ordered human transposition of the feature registry: human value and the reason it follows, with explicit feature and public-claim traceability.
 
 - Source: `scripts/feature_registry.ts` — `HUMAN_BENEFIT_CANON`
-- Members: 45
+- Members: 46
   - `shape-substantial-work`
   - `parallel-work-on-one-machine`
   - `wait-without-relay`
   - `compose-staged-work`
+  - `land-finished-work-as-the-project-moves`
   - `resume-later`
   - `reduce-routine-review`
   - `judgment-at-the-change`
@@ -3824,7 +3828,7 @@ The numbered decision records in the map, including records later superseded.
   - `0389`
   - `0390`
   - `0391`
-  - `0391`
+  - `0392`
   - `0001`
   - `0002`
   - `0004`

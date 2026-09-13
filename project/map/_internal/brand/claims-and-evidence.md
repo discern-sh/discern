@@ -173,7 +173,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “A discern Proof identifies the exact clean committed change that passed the project's declared Gate and held Standards, and separately carries current checkpoint declarations.”
-- **Mechanism:** the tree is pinned before evaluation and rechecked at stamping; the Proof also binds a declaration-evidence identity, so a later commit or changed declaration invalidates it.
+- **Mechanism:** the tested tree is pinned before evaluation and rechecked at stamping, with declaration evidence bound separately. Integrated landings record the submitted source and the tested combination; evidence for one result never covers later edits.
 - **Conditions:** Use “Proof” consistently, keep the claim scoped to the declared Gate over the exact tree, and describe checkpoint conclusions as declared rather than verified.
 - **Forbidden inference:** formal proof of universal correctness, security, absence of defects, production suitability, permission to land, or machine verification of an agent declaration.
 - **Primary source:** Proof implementation, glossary, Gate behavior, and DSSE-compatible note boundary.
@@ -181,6 +181,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
   - Guard: `tests/gate_proof_evidence_test.ts` — stales a recorded Proof when the tree or its declaration evidence changes.
   - Guard: `tests/engine_proof_render_test.ts` — pins the exact commit, branch, and conditions the Proof names.
   - Decision: `project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md` — binds Proof currency to declaration evidence.
+  - Decision: `project/map/_adr/0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md` — distinguishes submitted sources from the combined result proved at landing.
 
 ### `gate-grants-no-authority` — a passing Gate does not grant authority to land
 

@@ -6,7 +6,7 @@ _The practice, enumerated: the obligations discern holds for every change and fo
 
 The [Readiness Canon](brand/readiness-canon.md) connects the questions people ask before shipping to these obligations and their mechanisms. A project selects appropriate checks and judgments for the change it intends to make.
 
-12 tenets · 10 bundled skills claimed · 74 feature nodes cited · 7 of 8 human-benefit clusters yielded · 24 of 24 coding-agent outcomes enabled · 6 properties.
+12 tenets · 10 bundled skills claimed · 77 feature nodes cited · 7 of 8 human-benefit clusters yielded · 24 of 24 coding-agent outcomes enabled · 6 properties.
 
 ## The frame
 
@@ -101,11 +101,11 @@ Evidence is about one thing. Evidence that survives an edit is reassurance.
 
 > Finished work returns with evidence naming the exact committed tree; any later edit expires it.
 
-A green gate over a clean, committed tree mints Proof: the pinned commit, the changed files, the check results, the held standards. Acceptance writes it to the landed commit as a durable note, so the evidence outlives the worktree.
+A green gate over a clean committed tree records the tested result and its source inputs. When acceptance combines a submission with a moved trunk, it proves that combined tree and retains the submitted source in the record. The landed commit receives its own durable Proof note.
 
 - **Arc:** loop
 - **Upheld:** enforced via `done` · automated via `[repository]`
-- **Mechanisms:** Proof · Durable proof notes · Current green Proof composes; red reruns stay explicit.
+- **Mechanisms:** Proof · Durable proof notes · Current green Proof composes; red reruns stay explicit · Integration worktrees.
 - **Human value:** Know what is ready.
 - **Agent outcomes:** Prove the exact tree.
 - **Maintains:** its evidence.
@@ -116,11 +116,11 @@ Ready and permitted are different questions, and only one of them belongs to a m
 
 > A green gate makes a change eligible; landing takes fresh consent or a recorded grant, checked against the changed paths.
 
-Acceptance resolves its authority per invocation (a conversation attestation, a standing scope grant, or a one-shot effort grant) and refuses without one. What lands is the tree the gate validated, fast-forwarded onto the trunk.
+Acceptance keeps the submitted revision fixed while waiting its turn. It checks authority over the actual landing diff and proves a needed combination with the current trunk before advancing it. In a selected queue walk, each later submission needs its own grant; consent for the selected work remains scoped to that work.
 
 - **Arc:** loop
 - **Upheld:** enforced via `accept`, `[acceptance]`
-- **Mechanisms:** Accept · Landing authority is proved per invocation.
+- **Mechanisms:** Accept · Landing authority is proved per invocation · Integration worktrees · Waiting for a landing turn · Landing after a selected submission.
 - **Human value:** Know what is ready · Keep control of the project.
 - **Agent outcomes:** Land only with release authority.
 - **Maintains:** its decisions.

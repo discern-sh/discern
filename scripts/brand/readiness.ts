@@ -2,7 +2,7 @@
  * Readiness questions connect a person's concern to the practice that can
  * help answer it. They describe uses of existing features, not additional
  * runtime checks. Stable question ids serve both the canon and future
- * question-led discovery surfaces (ADR 0391).
+ * question-led discovery surfaces (ADR 0392).
  */
 import { renderMarkdownHtml } from "../../src/lib/markdown.ts";
 
@@ -142,7 +142,7 @@ export const READINESS_ROUTES = {
   accept: {
     invitation: "Keep the decision to land in the right hands.",
     how:
-      "Acceptance checks authority for the proposed landing and requires the owner's authorization for the current unmet checkpoint set; the recorded decision stays tied to the work.",
+      "Acceptance checks authority for the actual landing diff, including a combined result, and requires the owner's authorization for the current unmet checkpoint set. Waiting for a landing turn keeps the submitted revision fixed.",
     contribution: "Landing authority",
     doc: "project/manual/10-guides/finish-and-land-a-change.md",
     humanBenefit: "explicit-release-decision",
@@ -211,6 +211,15 @@ export const READINESS_ROUTES = {
     contribution: "Completion evidence",
     doc: "project/map/20-quality-gate/proof-notes.md",
     humanBenefit: "evidence-that-lasts",
+    agentBenefit: "prove-the-exact-tree",
+  },
+  "integration-landings": {
+    invitation: "Let finished work join a project that keeps moving.",
+    how:
+      "When other work lands first, discern combines the submitted change with the current trunk in an owned integration worktree and proves that result before landing. The resulting Proof keeps the submitted source and the tested combination distinct.",
+    contribution: "Completion evidence",
+    doc: "project/manual/10-guides/finish-and-land-a-change.md",
+    humanBenefit: "land-finished-work-as-the-project-moves",
     agentBenefit: "prove-the-exact-tree",
   },
 } as const satisfies Readonly<Record<string, ReadinessRoute>>;
@@ -313,7 +322,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "preserve-existing-workflows",
         question: "Do existing workflows still work?",
-        routes: ["gate", "scope-gates"],
+        routes: ["gate", "scope-gates", "integration-landings"],
         approach:
           "Run the project's workflow tests, including the checks selected for the affected parts of the project.",
       },
@@ -748,16 +757,26 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "run-the-relevant-checks",
         question: "Were the relevant checks actually run?",
-        routes: ["producer-evidence", "proof", "scope-gates"],
+        routes: [
+          "producer-evidence",
+          "proof",
+          "scope-gates",
+          "integration-landings",
+        ],
         approach:
           "Read the completion evidence for the declared checks and compare their scope with the concerns this change raises.",
       },
       {
         id: "bind-results-to-this-version",
         question: "Do their results belong to this version?",
-        routes: ["proof", "producer-evidence", "proof-notes"],
+        routes: [
+          "proof",
+          "producer-evidence",
+          "proof-notes",
+          "integration-landings",
+        ],
         approach:
-          "Check the commit and evidence identity; external exercises also need the tested version and environment recorded.",
+          "Check the tested commit and evidence identity. For an integrated landing, distinguish the submitted source from the combined result; external exercises also need their tested version and environment recorded.",
       },
       {
         id: "name-what-remains-unverified",

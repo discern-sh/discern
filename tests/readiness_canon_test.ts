@@ -1,7 +1,7 @@
 /**
  * The Readiness Canon routes every question to live product and benefit
  * identities. Its links must remain usable, and future questions must enter
- * the rendered reference without editing a second inventory (ADR 0391).
+ * the rendered reference without editing a second inventory (ADR 0392).
  */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join, resolve } from "@std/path";

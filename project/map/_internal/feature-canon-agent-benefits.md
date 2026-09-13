@@ -6,7 +6,7 @@ _discern's canonical account of what the product gives the coding agent operatin
 
 The [Readiness Canon](brand/readiness-canon.md) connects release questions to these outcomes and their existing feature mechanisms. Use its approaches to select work appropriate to the project and change.
 
-9 workflow clusters · 24 agent benefits · 127 direct feature roles · 11 supporting feature roles · 19 agent-only hints · 17 agent or shared claims carried.
+9 workflow clusters · 24 agent benefits · 130 direct feature roles · 11 supporting feature roles · 19 agent-only hints · 17 agent or shared claims carried.
 
 ## How to use this canon
 
@@ -115,9 +115,9 @@ A coding agent can distinguish iteration from completion and return Proof, judgm
 ### Prove the exact tree
 
 - **Agent value:** A coding agent can return one durable Proof bound to the clean committed tree the Gate judged, so completion cannot drift away from its evidence.
-- **Why it follows:** Done records the tree identity and verdict, Proof carries compact claims and notes, a current green Proof is reusable without work, and an unchanged red tree requires an explicit rerun before the Gate repeats.
+- **Why it follows:** Done records the tested tree and its source inputs. An integrated landing adds its composition marker while retaining the submitted source; Proof notes preserve the tested result after landing. Current green evidence can be reused, while an unchanged red tree needs an explicit rerun.
 - **Boundary:** Proof establishes the configured machine checks and recorded declarations for one tree; it is not release authority and says nothing about later edits.
-- **Direct product basis:** Proof · Durable proof notes · Current green Proof composes; red reruns stay explicit · Producer evidence on every validation result.
+- **Direct product basis:** Integration worktrees · Proof · Durable proof notes · Current green Proof composes; red reruns stay explicit · Producer evidence on every validation result.
 - **Agent hints:** `gate-relay-proof`.
 - **Public claims:** `proof-exact-tree` · `gate-grants-no-authority`.
 
@@ -149,10 +149,10 @@ A coding agent can preview effects, distinguish Proof from permission, and stop 
 
 ### Land only with release authority
 
-- **Agent value:** A coding agent can separate passing evidence, permission, and queue readiness, relay the required owner decision, and continue the exact selected source under applicable consent.
-- **Why it follows:** Preview and apply share the queue planner and authority evaluator. Continuations name the resolved effort, while reviewed plan changes and cleanup retain their own checked preconditions.
+- **Agent value:** A coding agent can submit its proven work, wait its landing turn, and let discern check it with a moved trunk under applicable consent. A conflict, failed check, or missing authority returns a concrete next action.
+- **Why it follows:** Acceptance freezes the submission, serializes landings, proves a needed combination in an owned worktree, and rechecks authority before moving the trunk. An explicitly selected queue walk records each attempt and stops at the first refusal.
 - **Boundary:** Authority is scoped and current: a prior grant, a sibling's authority, or a green result never covers an unmet checkpoint variance or newly uncovered path.
-- **Direct product basis:** Accept · Complete owner moments · File ownership.
+- **Direct product basis:** Waiting for a landing turn · Landing after a selected submission · Accept · Complete owner moments · File ownership.
 - **Agent hints:** `status-land-under-verified-authority` · `status-ready-uncovered-authority` · `gate-land-under-verified-authority` · `gate-relay-uncovered-authority` · `accept-relay-landing-proof` · `start-landing-authority`.
 
 ### Manage the installation lifecycle

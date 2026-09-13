@@ -334,7 +334,7 @@ export const CONSEQUENCE_CANON: readonly Consequence<ClaimSlug>[] = [
     headline:
       "The decisions that need you wait for you. Everything else keeps moving.",
     consequence:
-      "Nothing lands without recorded authority, and a dependent task blocks on the repository's own state rather than on a person relaying readiness. Work runs between the person's decisions: everything that needs them is still waiting when they return, and nothing has landed on an agent's say-so.",
+      "A dependent task waits on the project's own state, and an authorized landing can wait its turn, join a moved trunk, and return evidence for the combined result. Work can move between the person's decisions; conflicts, failed checks, and missing authority bring it back with a concrete question.",
     then: {
       statement: "Overnight runs become ordinary.",
       evidence: {
@@ -346,6 +346,7 @@ export const CONSEQUENCE_CANON: readonly Consequence<ClaimSlug>[] = [
     },
     segments: BOTH_SEGMENTS,
     restsOn: [
+      "land-finished-work-as-the-project-moves",
       "explicit-release-decision",
       "wait-without-relay",
       "unfinished-work-stays-isolated",

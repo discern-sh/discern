@@ -212,7 +212,7 @@ export function renderReadinessCanonDoc(
     "",
     "`scripts/brand/readiness.ts` owns the families, questions, approaches, feature routes, and feature introductions. `scripts/brand/docs/readiness.ts` renders the question and feature views here. Each question’s supporting-feature list uses the feature registry’s stable slugs; the feature canon keeps its mechanism account. Feature identities and names, human and agent benefits, and practice obligations remain in their own registries. The route names the benefit it introduces; its feature must occur in that benefit’s product basis, with the agent canon’s direct or supporting role retained. Practice connections derive from the tenets’ mechanism citations. Coverage runs from each question into the existing canons; unrelated features need no readiness question.",
     "",
-    "`tests/readiness_canon_test.ts` checks live routes, benefit support, documentation destinations, question identity, reverse feature connections, and future-member rendering. The brand codegen guard keeps this page current. [ADR 0391](../../_adr/0391-readiness-connects-questions-to-the-practice.md) records the ownership and voice decision.",
+    "`tests/readiness_canon_test.ts` checks live routes, benefit support, documentation destinations, question identity, reverse feature connections, and future-member rendering. The brand codegen guard keeps this page current. [ADR 0392](../../_adr/0392-readiness-connects-questions-to-the-practice.md) records the ownership and voice decision.",
     "",
   );
   return lines.join("\n");

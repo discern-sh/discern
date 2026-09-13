@@ -4,7 +4,7 @@
 
 _discern's internal account of what changes once the benefits hold. The [Human Benefit Canon](../feature-canon-human-benefits.md) and the [Agent Benefit Canon](../feature-canon-agent-benefits.md) reason forward from product facts to first-order value; a consequence reasons one step further, to what several benefits do together, over time, and in combination, for the person and for the coding agent. Each entry keeps two halves apart: the consequence is deductive on the benefits and the [`claims-and-evidence.md`](claims-and-evidence.md) claims it cites, and the predicted behavior after it carries dated evidence in the ledger's market classes, the same rule the [`demand-canon.md`](demand-canon.md) applies to a struggling moment._
 
-36 consequences · 26 for the person · 10 for the agent · 53 benefits and 20 claims cited · 1 shared hypothesis · behavior evidence: observational 19 · hypothesis 17.
+36 consequences · 26 for the person · 10 for the agent · 54 benefits and 20 claims cited · 1 shared hypothesis · behavior evidence: observational 19 · hypothesis 17.
 
 ## How to use this canon
 
@@ -123,11 +123,11 @@ _discern's internal account of what changes once the benefits hold. The [Human B
 
 ### The decisions that need you wait for you. Everything else keeps moving.
 
-- **Consequence:** Nothing lands without recorded authority, and a dependent task blocks on the repository's own state rather than on a person relaying readiness. Work runs between the person's decisions: everything that needs them is still waiting when they return, and nothing has landed on an agent's say-so.
+- **Consequence:** A dependent task waits on the project's own state, and an authorized landing can wait its turn, join a moved trunk, and return evidence for the combined result. Work can move between the person's decisions; conflicts, failed checks, and missing authority bring it back with a concrete question.
 - **Then:** Overnight runs become ordinary.
 - **Evidence:** observational — The founder's account records thirteen worktrees landing as one integration train overnight. (recorded 2026-09-04)
 - **Segments:** experienced engineers, new consequential builders
-- **Rests on:** Keep the final say over what ships · Stop playing messenger between your agents · Keep unfinished work away from the shared branch.
+- **Rests on:** Keep finished work moving as the project moves · Keep the final say over what ships · Stop playing messenger between your agents · Keep unfinished work away from the shared branch.
 - **Claims:** [`gate-grants-no-authority`](claims-and-evidence.md#gate-grants-no-authority--a-passing-gate-does-not-grant-authority-to-land) · [`no-checkout-collisions`](claims-and-evidence.md#no-checkout-collisions--parallel-efforts-cannot-overwrite-the-same-checkout)
 - **Boundary:** This consequence covers landing and waiting. What an agent may do inside its worktree, on the network, or on the machine stays with the provider's permission model; discern supplies no command filter and contains no process.
 

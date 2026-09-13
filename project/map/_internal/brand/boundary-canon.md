@@ -301,7 +301,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 **Stability:** edition\
 **Scope:** Git transport and landing in the local edition.
 
-**Qualification:** Proof fetch mode may add remote fetch configuration so another workflow can fetch Proof notes. It does not start that fetch or configure push.
+**Qualification:** A moved trunk is combined with the submission and checked in a discern-owned integration worktree before the local fast-forward. Proof fetch mode may add remote fetch configuration; it does not start a fetch or configure push.
 
 **Horizon:** A team edition may add a remote workflow, with its authority and transport boundaries stated separately.
 

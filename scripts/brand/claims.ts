@@ -352,7 +352,7 @@ export const CLAIMS = {
     strongestPublicForm:
       "A discern Proof identifies the exact clean committed change that passed the project's declared Gate and held Standards, and separately carries current checkpoint declarations.",
     mechanism:
-      "the tree is pinned before evaluation and rechecked at stamping; the Proof also binds a declaration-evidence identity, so a later commit or changed declaration invalidates it.",
+      "the tested tree is pinned before evaluation and rechecked at stamping, with declaration evidence bound separately. Integrated landings record the submitted source and the tested combination; evidence for one result never covers later edits.",
     conditions:
       "Use “Proof” consistently, keep the claim scoped to the declared Gate over the exact tree, and describe checkpoint conclusions as declared rather than verified.",
     forbiddenInference:
@@ -377,6 +377,13 @@ export const CLAIMS = {
         path:
           "project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md",
         summary: "binds Proof currency to declaration evidence",
+      },
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md",
+        summary:
+          "distinguishes submitted sources from the combined result proved at landing",
       },
     ],
   },

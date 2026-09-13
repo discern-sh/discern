@@ -6,7 +6,7 @@ _discern's internal commercial account of what the product gives people. It is d
 
 Start from a concern in the [Readiness Canon](brand/readiness-canon.md) when the reader recognizes a release question before they know the product. Its feature routes introduce the relevant human value here.
 
-8 clusters · 45 benefits · 141 of 141 feature nodes cited · 20 of 20 public claims carried.
+8 clusters · 46 benefits · 144 of 144 feature nodes cited · 20 of 20 public claims carried.
 
 ## How to use this canon
 
@@ -67,6 +67,12 @@ More of the backlog can move at once. The person spends less time running the wo
 - **Value:** A dependent task can build from a proven sibling commit while the earlier branch waits for acceptance. Several branches can be assembled and checked as one combined tree before anything reaches the trunk, while each landing decision remains separate.
 - **Mechanism:** `discern start` and `discern update` accept a source ref, so an integration effort can fork from one precise commit, pull in sibling branches, and run the ordinary Gate over their combined tree; only `discern accept` can move the trunk.
 - **Product basis:** Composing unlanded work · Update · The quality gate · Accept.
+
+### Keep finished work moving as the project moves
+
+- **Value:** Another task landing first does not have to send yours back through a routine handoff. discern can join the changes, check them together, and land the result while the author keeps working in the same place.
+- **Mechanism:** Acceptance retains the submitted revision, waits its turn, and creates an integration worktree when the trunk moved. The combined Gate and authority check precede landing; conflicts and failed checks return to the author.
+- **Product basis:** Integration worktrees · Waiting for a landing turn · Landing after a selected submission · Accept.
 
 ### Walk away mid-task and pick up where you left off
 
@@ -138,9 +144,9 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ### Get proof of what passed, tied to the commit it passed on
 
-- **Value:** A Proof names the commit, the size of the change, and the checks that passed. A later edit invalidates it, so the user can tell that the evidence belongs to the same work they are considering. While the tree stays unchanged, acceptance can reuse that result instead of repeating the full Gate.
-- **Mechanism:** The Gate pins a clean committed tree before evaluation and rechecks it when Proof is minted; any later commit or working-tree edit makes the recorded Proof stale, and `discern accept` reuses it only while it still matches the clean current `HEAD`.
-- **Product basis:** Proof · Accept.
+- **Value:** A Proof names the version checked and the evidence behind it. If other work lands first, discern checks the combined result before sharing it and retains the submitted version in that result's history. The person can see what passed for the work that actually joined the project.
+- **Mechanism:** The Gate pins and checks a committed tree. Acceptance freezes the submission before waiting, reuses its Proof for a direct landing, or obtains Proof for the combined tree in an integration worktree. The final record distinguishes the submitted source from the tested result.
+- **Product basis:** Integration worktrees · Proof · Accept.
 
 ### Keep the completion record with the code
 
@@ -151,7 +157,7 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Keep the final say over what ships
 
 - **Value:** Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared. They can hold or withdraw it and revise its order without discarding valid evidence.
-- **Mechanism:** `discern accept` resolves conversational consent, a standing scope grant, or a one-shot worktree grant against the changed paths at the landing boundary; a green Gate supplies no authority on its own.
+- **Mechanism:** `discern accept` checks conversational consent or a recorded grant against the actual landing diff, including a combined result. An explicitly selected queue walk checks each later submission's own authority; consent for the selected work never spreads to the rest.
 - **Product basis:** Landing authority is proved per invocation · Accept.
 
 ### Pre-approve routine changes within clear boundaries
@@ -163,7 +169,7 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Keep unfinished work away from the shared branch
 
 - **Value:** Each discern task can change, fail, and recover in its own checkout and branch. When discern lands that work, the shared branch moves only after the task is accepted.
-- **Mechanism:** `discern start` creates an isolated worktree from the trunk, and `discern accept` lands only the authorized branch after its exact tree has satisfied the acceptance conditions.
+- **Mechanism:** `discern start` creates an isolated worktree, and acceptance keeps any combined checking in its own integration copy. The trunk advances only to the exact authorized result whose checks passed.
 - **Product basis:** Isolated worktrees · Start · Accept.
 
 ### Preview changes and recover cleanly

@@ -119,7 +119,7 @@ Keep the workflows people count on.
 
 Run the project's workflow tests, including the checks selected for the affected parts of the project.
 
-**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`scope-gates`](../../20-quality-gate/README.md).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`scope-gates`](../../20-quality-gate/README.md) · [`integration-landings`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Have we checked the other places affected by this change?
 
@@ -133,11 +133,11 @@ Prove the cause, identify the defect class, and leave a practical guard that enr
 
 **Supporting features:** [`skill-cure-a-bug`](../../../manual/10-guides/create-and-manage-skills.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
-**For the person:** [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed) · [Run the checks relevant to this change](../feature-canon-human-benefits.md#run-the-checks-relevant-to-this-change) · [Catch related files before the change closes](../feature-canon-human-benefits.md#catch-related-files-before-the-change-closes) · [Remove the cause and guard every instance of the bug class](../feature-canon-human-benefits.md#remove-the-cause-and-guard-every-instance-of-the-bug-class).
+**For the person:** [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed) · [Run the checks relevant to this change](../feature-canon-human-benefits.md#run-the-checks-relevant-to-this-change) · [Keep finished work moving as the project moves](../feature-canon-human-benefits.md#keep-finished-work-moving-as-the-project-moves) · [Catch related files before the change closes](../feature-canon-human-benefits.md#catch-related-files-before-the-change-closes) · [Remove the cause and guard every instance of the bug class](../feature-canon-human-benefits.md#remove-the-cause-and-guard-every-instance-of-the-bug-class).
 
-**For the agent:** [Run the relevant Gate efficiently](../feature-canon-agent-benefits.md#run-the-relevant-gate-efficiently) · [See the change discern sees](../feature-canon-agent-benefits.md#see-the-change-discern-sees) · [Diagnose workflow friction locally](../feature-canon-agent-benefits.md#diagnose-workflow-friction-locally) · [Invoke curated project procedures](../feature-canon-agent-benefits.md#invoke-curated-project-procedures).
+**For the agent:** [Run the relevant Gate efficiently](../feature-canon-agent-benefits.md#run-the-relevant-gate-efficiently) · [See the change discern sees](../feature-canon-agent-benefits.md#see-the-change-discern-sees) · [Prove the exact tree](../feature-canon-agent-benefits.md#prove-the-exact-tree) · [Diagnose workflow friction locally](../feature-canon-agent-benefits.md#diagnose-workflow-friction-locally) · [Invoke curated project procedures](../feature-canon-agent-benefits.md#invoke-curated-project-procedures).
 
-**Practice connections:** [Done is deterministic](../practice-canon.md#4-done-is-deterministic) · [Cure the class](../practice-canon.md#9-cure-the-class).
+**Practice connections:** [Done is deterministic](../practice-canon.md#4-done-is-deterministic) · [Proof binds to the change](../practice-canon.md#6-proof-binds-to-the-change) · [You decide what lands](../practice-canon.md#7-you-decide-what-lands) · [Cure the class](../practice-canon.md#9-cure-the-class).
 
 ## Usability
 
@@ -539,13 +539,13 @@ Have something to stand behind when the work comes back.
 
 Read the completion evidence for the declared checks and compare their scope with the concerns this change raises.
 
-**Supporting features:** [`producer-evidence`](../../20-quality-gate/complete-evidence.md) · [`proof`](../../../manual/20-understand/proof.md) · [`scope-gates`](../../20-quality-gate/README.md).
+**Supporting features:** [`producer-evidence`](../../20-quality-gate/complete-evidence.md) · [`proof`](../../../manual/20-understand/proof.md) · [`scope-gates`](../../20-quality-gate/README.md) · [`integration-landings`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Do their results belong to this version?
 
-Check the commit and evidence identity; external exercises also need the tested version and environment recorded.
+Check the tested commit and evidence identity. For an integrated landing, distinguish the submitted source from the combined result; external exercises also need their tested version and environment recorded.
 
-**Supporting features:** [`proof`](../../../manual/20-understand/proof.md) · [`producer-evidence`](../../20-quality-gate/complete-evidence.md) · [`proof-notes`](../../20-quality-gate/proof-notes.md).
+**Supporting features:** [`proof`](../../../manual/20-understand/proof.md) · [`producer-evidence`](../../20-quality-gate/complete-evidence.md) · [`proof-notes`](../../20-quality-gate/proof-notes.md) · [`integration-landings`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### What remains unverified?
 
@@ -553,11 +553,11 @@ Compare the relevant questions with the evidence available and state the missing
 
 **Supporting features:** [`proof`](../../../manual/20-understand/proof.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
-**For the person:** [Review less, knowing what already passed](../feature-canon-human-benefits.md#review-less-knowing-what-already-passed) · [Get proof of what passed, tied to the commit it passed on](../feature-canon-human-benefits.md#get-proof-of-what-passed-tied-to-the-commit-it-passed-on) · [Run the checks relevant to this change](../feature-canon-human-benefits.md#run-the-checks-relevant-to-this-change) · [Keep the completion record with the code](../feature-canon-human-benefits.md#keep-the-completion-record-with-the-code) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens).
+**For the person:** [Review less, knowing what already passed](../feature-canon-human-benefits.md#review-less-knowing-what-already-passed) · [Get proof of what passed, tied to the commit it passed on](../feature-canon-human-benefits.md#get-proof-of-what-passed-tied-to-the-commit-it-passed-on) · [Run the checks relevant to this change](../feature-canon-human-benefits.md#run-the-checks-relevant-to-this-change) · [Keep finished work moving as the project moves](../feature-canon-human-benefits.md#keep-finished-work-moving-as-the-project-moves) · [Keep the completion record with the code](../feature-canon-human-benefits.md#keep-the-completion-record-with-the-code) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens).
 
 **For the agent:** [Prove the exact tree](../feature-canon-agent-benefits.md#prove-the-exact-tree) · [See the change discern sees](../feature-canon-agent-benefits.md#see-the-change-discern-sees) · [Carry judgment as judgment](../feature-canon-agent-benefits.md#carry-judgment-as-judgment).
 
-**Practice connections:** [Done is deterministic](../practice-canon.md#4-done-is-deterministic) · [Proof binds to the change](../practice-canon.md#6-proof-binds-to-the-change).
+**Practice connections:** [Done is deterministic](../practice-canon.md#4-done-is-deterministic) · [Proof binds to the change](../practice-canon.md#6-proof-binds-to-the-change) · [You decide what lands](../practice-canon.md#7-you-decide-what-lands).
 
 ## Authority
 
@@ -868,7 +868,7 @@ Proof binds the recorded completion evidence to the validated change, so a revie
 
 Keep the decision to land in the right hands.
 
-Acceptance checks authority for the proposed landing and requires the owner's authorization for the current unmet checkpoint set; the recorded decision stays tied to the work.
+Acceptance checks authority for the actual landing diff, including a combined result, and requires the owner's authorization for the current unmet checkpoint set. Waiting for a landing turn keeps the submitted revision fixed.
 
 **Contribution:** Landing authority. [Feature documentation](../../../manual/10-guides/finish-and-land-a-change.md).
 
@@ -1001,6 +1001,24 @@ After landing, a Proof note retains the structured completion record on the land
 
 **For the agent:** [Prove the exact tree](../feature-canon-agent-benefits.md#prove-the-exact-tree).
 
+### Integration worktrees
+
+Let finished work join a project that keeps moving.
+
+When other work lands first, discern combines the submitted change with the current trunk in an owned integration worktree and proves that result before landing. The resulting Proof keeps the submitted source and the tested combination distinct.
+
+**Contribution:** Completion evidence. [Feature documentation](../../../manual/10-guides/finish-and-land-a-change.md).
+
+| Readiness question                                                                   | Family     | Route      |
+| ------------------------------------------------------------------------------------ | ---------- | ---------- |
+| [Do existing workflows still work?](#do-existing-workflows-still-work)               | Regression | Also helps |
+| [Were the relevant checks actually run?](#were-the-relevant-checks-actually-run)     | Evidence   | Also helps |
+| [Do their results belong to this version?](#do-their-results-belong-to-this-version) | Evidence   | Also helps |
+
+**For the person:** [Keep finished work moving as the project moves](../feature-canon-human-benefits.md#keep-finished-work-moving-as-the-project-moves).
+
+**For the agent:** [Prove the exact tree](../feature-canon-agent-benefits.md#prove-the-exact-tree).
+
 ## From recognition to discovery
 
 A question can introduce discern before the visitor knows any product names. Let someone recognize a concern, see the human benefit, and follow it to the mechanism. Keep the question’s wording and destination tied to its stable registry identity when building a future discovery surface.
@@ -1011,4 +1029,4 @@ The question collection can support commissioning conversations, a change brief,
 
 `scripts/brand/readiness.ts` owns the families, questions, approaches, feature routes, and feature introductions. `scripts/brand/docs/readiness.ts` renders the question and feature views here. Each question’s supporting-feature list uses the feature registry’s stable slugs; the feature canon keeps its mechanism account. Feature identities and names, human and agent benefits, and practice obligations remain in their own registries. The route names the benefit it introduces; its feature must occur in that benefit’s product basis, with the agent canon’s direct or supporting role retained. Practice connections derive from the tenets’ mechanism citations. Coverage runs from each question into the existing canons; unrelated features need no readiness question.
 
-`tests/readiness_canon_test.ts` checks live routes, benefit support, documentation destinations, question identity, reverse feature connections, and future-member rendering. The brand codegen guard keeps this page current. [ADR 0391](../../_adr/0391-readiness-connects-questions-to-the-practice.md) records the ownership and voice decision.
+`tests/readiness_canon_test.ts` checks live routes, benefit support, documentation destinations, question identity, reverse feature connections, and future-member rendering. The brand codegen guard keeps this page current. [ADR 0392](../../_adr/0392-readiness-connects-questions-to-the-practice.md) records the ownership and voice decision.

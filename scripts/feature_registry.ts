@@ -480,13 +480,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "proof",
         title: "Proof",
         what:
-          "A green `discern done` over a clean, committed tree ahead of the trunk emits Proof: a review summary containing the branch and pinned `HEAD`, commits, changed files, check results, and held standards. `discern accept` can reuse it while that commit and worktree stand; a later commit invalidates it. The same green run fires a registered hint to exercise the real artifact along the changed paths before offering Proof.",
+          "A green `discern done` over a clean committed tree emits Proof: the tested commit and tree, source inputs, changed files, check results, and held Standards. An integrated landing retains the submitted source separately from the combined result it proved. Proof never covers later edits; the same green run serves a hint to exercise the real application before calling it finished.",
         why:
           "The owner reviews a verified claim that names the tree it vouches for.",
         plain: {
           title: "Evidence that every required check passed (Proof)",
           what:
-            "When `discern done` passes on clean, saved work that is ahead of the main shared version, it produces evidence that every required check passed, called Proof. Proof names the task, the exact saved point it checked (called `HEAD` by the version-history system), the saved changes, the changed files, the check results, and the quality rules still held. `discern accept` may reuse Proof while the same saved point and working copy stand; saving a later change makes it invalid. The same passing run also reminds the coding agent to try the real result along the routes the change touched before offering Proof.",
+            "When the project's full check passes on saved work with no pending edits, discern returns Proof: a record of the version checked, the work it came from, the changed files, the results, and the limits that held. When work is joined before sharing, the record names the submitted work and the checked result separately. Later edits need their own evidence.",
           why:
             "The person in charge reviews a verified claim that names the exact work it vouches for.",
         },
@@ -776,17 +776,64 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "accept",
         title: "Accept",
         what:
-          "`discern accept` lands one submitted, proven commit. From the effort's worktree it records the submission — the effort, its branch, and the exact revision — beside the effort grant, then lands under verified authority: conversation consent, a standing scope grant, or the recorded effort grant. The landing fast-forwards the trunk under the acceptance transaction, records the Proof note, converges the main checkout, and removes the worktree, branch, and resources when the branch holds nothing beyond the landed submission. `--dry-run` previews the landing queue, a derived view over submissions with pre-authorized rows first; `--target` with conversational consent lands a chosen effort from the main checkout. When the trunk moved after the Proof, `accept` refuses and names `discern update`, `discern done`, then `discern accept`.",
+          "`discern accept` freezes the submitted revision and its Proof, then lands under conversation consent, a standing scope grant, or a recorded effort grant. If the submission contains the current trunk, it lands directly; otherwise discern combines and proves it in an owned integration worktree. Acceptance rechecks authority, advances the trunk to the proven result, records its Proof note, and cleans up the effort when no newer work remains. `--dry-run` previews the queue; `--target` selects an effort and then considers the remaining submissions under their own grants.",
         why:
-          "Landing is one exact repository transaction over a submitted, proven commit; a green run its agent never submitted lands only by the owner's explicit act.",
+          "Finished work can land as the shared project moves, with evidence and authority checked for the result that becomes shared.",
         plain: {
           title: "Accept",
           what:
-            "`discern accept` shares one finished, checked task. The task's helper first records exactly which saved version it asks to share; sharing then happens only with your recorded permission or your agreement in the conversation. After sharing, the task's working copy and its supporting services are cleaned away unless newer work sits on them, and a preview shows every waiting request in the order it would land.",
+            "`discern accept` shares a finished task only with your permission or a grant you recorded. It keeps the saved version you submitted. If the shared project has moved, discern joins and checks the work in a temporary copy first. It then shares the checked result and cleans up, keeping the task's copy when newer work remains.",
           why:
-            "Only checked work you allowed becomes shared, and a checked version nobody asked to share waits for you.",
+            "The project can keep moving while finished work finds its way into the shared version.",
         },
         surfaces: ["verb:accept"],
+        children: [
+          {
+            id: "integration-landings",
+            title: "Integration worktrees",
+            what:
+              "When a submitted revision does not contain the current trunk, acceptance creates a disposable worktree with the project's setup and resources, merges the trunk, regenerates artifacts, and runs the Gate on the combined committed tree. Proof identifies the submitted source and the tested result separately. A conflict or failed combined check returns the author to update, resolve, commit, and prove the work before retrying.",
+            why:
+              "The combined result is checked before it becomes shared, while the author's worktree keeps its own revision.",
+            plain: {
+              title: "Checking the joined work in a temporary copy",
+              what:
+                "If the shared project moved while a task was being checked, discern makes a temporary copy and joins the changes there. It checks that result before sharing it. A conflict or failed check returns the problem to the task's coding agent to fix.",
+              why:
+                "Work is checked together before people build on it, and the task's own copy stays in place.",
+            },
+          },
+          {
+            id: "landing-turn",
+            title: "Waiting for a landing turn",
+            what:
+              "A second `accept` waits on the dedicated acceptance boundary and reports the current landing with its progress handle. The submitted revision is frozen before the wait, and the call resumes automatically when its turn arrives. Long integration checks leave the short completion-publication boundary available to sibling work.",
+            why:
+              "Concurrent acceptance calls take turns without making the person relay readiness or replace the work being accepted.",
+            plain: {
+              title: "Taking turns to share finished work",
+              what:
+                "When another task is being shared, the next request waits, says what it is waiting for, and continues when its turn comes. It keeps the saved version chosen before the wait, even if the task has newer work by then.",
+              why:
+                "Sharing requests can wait for each other while coding agents keep finishing their own work.",
+            },
+          },
+          {
+            id: "landing-queue-walk",
+            title: "Landing after a selected submission",
+            what:
+              "With `--target`, acceptance lands the selected submission first, then walks the remaining queue in its canonical order. Each later submission needs current Proof and its own standing or effort grant; the selected submission's conversation consent does not cover it. The walk stops at the first refusal or failure, and `data.landings` reports each attempt.",
+            why:
+              "An owner can start from the work they chose and let already-authorized submissions follow with an account of each result.",
+            plain: {
+              title: "Sharing the permitted work that follows",
+              what:
+                "After sharing the task selected with `--target`, discern considers the other waiting tasks in order. Each needs its own permission and current check results. The first problem stops the sequence, and the result says which tasks were shared.",
+              why:
+                "Work already allowed to join the project can follow the task you selected.",
+            },
+          },
+        ],
       },
       {
         id: "compose-below-trunk",
@@ -869,13 +916,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "worktree-prune",
         title: "Owned worktree reclamation",
         what:
-          "`discern worktree prune` reclaims merged worktrees, stale state, reappeared paths, and resources only when recorded identity proves discern ownership. Merge status alone grants nothing, and teardown succeeds only after both Git registration and the filesystem path are absent.",
+          "`discern worktree prune` reclaims merged worktrees, stale state, reappeared paths, and resources only when recorded identity proves discern ownership. It also reclaims an abandoned integration copy from its durable ownership record while preserving copies with a live owner. Teardown succeeds only after both Git registration and the filesystem path are absent.",
         why:
           "A crashed session can be cleaned up without treating unrelated branches or neighboring directories as disposable.",
         plain: {
           title: "Cleaning up only discern's leftovers",
           what:
-            "`discern worktree prune` removes working copies whose saved changes have joined the shared work, leftover records, returned paths, and supporting services only when discern's saved identity proves they belong to it. A safe-to-remove saved-change name is not enough, and cleanup succeeds only when both the copy and its registration are gone.",
+            "`discern worktree prune` removes finished or abandoned copies and their supporting services only when saved records prove discern owns them. This includes a temporary joining copy whose owning process has ended. Cleanup succeeds only when both the copy and its registration are gone.",
           why:
             "An interrupted session can be cleaned up without treating unrelated saved work or nearby directories as disposable.",
         },
@@ -2826,6 +2873,20 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         drawsOn: ["compose-below-trunk", "update", "gate", "accept"],
       },
       {
+        id: "land-finished-work-as-the-project-moves",
+        title: "Keep finished work moving as the project moves",
+        value:
+          "Another task landing first does not have to send yours back through a routine handoff. discern can join the changes, check them together, and land the result while the author keeps working in the same place.",
+        whyItFollows:
+          "Acceptance retains the submitted revision, waits its turn, and creates an integration worktree when the trunk moved. The combined Gate and authority check precede landing; conflicts and failed checks return to the author.",
+        drawsOn: [
+          "integration-landings",
+          "landing-turn",
+          "landing-queue-walk",
+          "accept",
+        ],
+      },
+      {
         id: "resume-later",
         title: "Walk away mid-task and pick up where you left off",
         value:
@@ -2987,10 +3048,10 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         id: "evidence-for-this-change",
         title: "Get proof of what passed, tied to the commit it passed on",
         value:
-          "A Proof names the commit, the size of the change, and the checks that passed. A later edit invalidates it, so the user can tell that the evidence belongs to the same work they are considering. While the tree stays unchanged, acceptance can reuse that result instead of repeating the full Gate.",
+          "A Proof names the version checked and the evidence behind it. If other work lands first, discern checks the combined result before sharing it and retains the submitted version in that result's history. The person can see what passed for the work that actually joined the project.",
         whyItFollows:
-          "The Gate pins a clean committed tree before evaluation and rechecks it when Proof is minted; any later commit or working-tree edit makes the recorded Proof stale, and `discern accept` reuses it only while it still matches the clean current `HEAD`.",
-        drawsOn: ["proof", "accept"],
+          "The Gate pins and checks a committed tree. Acceptance freezes the submission before waiting, reuses its Proof for a direct landing, or obtains Proof for the combined tree in an integration worktree. The final record distinguishes the submitted source from the tested result.",
+        drawsOn: ["integration-landings", "proof", "accept"],
         claims: ["proof-exact-tree"],
       },
       {
@@ -3008,7 +3069,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared. They can hold or withdraw it and revise its order without discarding valid evidence.",
         whyItFollows:
-          "`discern accept` resolves conversational consent, a standing scope grant, or a one-shot worktree grant against the changed paths at the landing boundary; a green Gate supplies no authority on its own.",
+          "`discern accept` checks conversational consent or a recorded grant against the actual landing diff, including a combined result. An explicitly selected queue walk checks each later submission's own authority; consent for the selected work never spreads to the rest.",
         drawsOn: ["consent-attestations", "accept"],
         claims: ["gate-grants-no-authority"],
       },
@@ -3027,7 +3088,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "Each discern task can change, fail, and recover in its own checkout and branch. When discern lands that work, the shared branch moves only after the task is accepted.",
         whyItFollows:
-          "`discern start` creates an isolated worktree from the trunk, and `discern accept` lands only the authorized branch after its exact tree has satisfied the acceptance conditions.",
+          "`discern start` creates an isolated worktree, and acceptance keeps any combined checking in its own integration copy. The trunk advances only to the exact authorized result whose checks passed.",
         drawsOn: ["worktrees", "start", "accept"],
         claims: ["isolated-worktrees"],
       },
@@ -3843,10 +3904,11 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can return one durable Proof bound to the clean committed tree the Gate judged, so completion cannot drift away from its evidence.",
         whyItFollows:
-          "Done records the tree identity and verdict, Proof carries compact claims and notes, a current green Proof is reusable without work, and an unchanged red tree requires an explicit rerun before the Gate repeats.",
+          "Done records the tested tree and its source inputs. An integrated landing adds its composition marker while retaining the submitted source; Proof notes preserve the tested result after landing. Current green evidence can be reused, while an unchanged red tree needs an explicit rerun.",
         boundary:
           "Proof establishes the configured machine checks and recorded declarations for one tree; it is not release authority and says nothing about later edits.",
         drawsOn: [
+          "integration-landings",
           "proof",
           "proof-notes",
           "unchanged-tree-rerun",
@@ -3921,12 +3983,18 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         id: "land-only-with-release-authority",
         title: "Land only with release authority",
         value:
-          "A coding agent can separate passing evidence, permission, and queue readiness, relay the required owner decision, and continue the exact selected source under applicable consent.",
+          "A coding agent can submit its proven work, wait its landing turn, and let discern check it with a moved trunk under applicable consent. A conflict, failed check, or missing authority returns a concrete next action.",
         whyItFollows:
-          "Preview and apply share the queue planner and authority evaluator. Continuations name the resolved effort, while reviewed plan changes and cleanup retain their own checked preconditions.",
+          "Acceptance freezes the submission, serializes landings, proves a needed combination in an owned worktree, and rechecks authority before moving the trunk. An explicitly selected queue walk records each attempt and stops at the first refusal.",
         boundary:
           "Authority is scoped and current: a prior grant, a sibling's authority, or a green result never covers an unmet checkpoint variance or newly uncovered path.",
-        drawsOn: ["accept", "relay-messages", "ownership-buckets"],
+        drawsOn: [
+          "landing-turn",
+          "landing-queue-walk",
+          "accept",
+          "relay-messages",
+          "ownership-buckets",
+        ],
         hints: [
           "status-land-under-verified-authority",
           "status-ready-uncovered-authority",

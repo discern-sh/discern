@@ -881,6 +881,12 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "The failure that needs the troubleshooting pointer supplies it directly.",
   "feature:proof-notes":
     "Acceptance writes the durable note automatically and `status` surfaces the landed evidence; no separate desk action exists to teach.",
+  "feature:integration-landings":
+    "The finish-and-land guide teaches this automatic acceptance path; progress reports the combined check, and conflicts supply the author's next action.",
+  "feature:landing-turn":
+    "Acceptance announces the current landing and its progress handle while waiting; the explanation arrives when the wait applies.",
+  "feature:landing-queue-walk":
+    "The finish-and-land guide and acceptance reference teach this advanced command-line selection; the desk curriculum teaches reviewing the selected task.",
   "feature:unchanged-tree-rerun":
     "The Proof tip covers the review result; reuse remains an internal optimization.",
   "feature:checkpoint-ci-report":

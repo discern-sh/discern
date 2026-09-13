@@ -1,4 +1,4 @@
-# ADR 0391: Readiness connects questions to the practice
+# ADR 0392: Readiness connects questions to the practice
 
 **Status**: accepted on 2026-09-13
 
