@@ -1,3 +1,4 @@
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { superviseSpawn } from "../src/engine/owned_child.ts";
 import { KILL_GRACE_MS } from "../src/engine/process_signals.ts";
 import { ManualScheduler } from "./manual_scheduler.ts";
@@ -38,6 +39,7 @@ async function runDriver(
     args: [
       "run",
       "--allow-run",
+      `--allow-env=${DISCERN_ENVIRONMENT_VARIABLES.operationLockDelegation}`,
       DRIVER,
       signal,
       ...(ignore ? ["ignore"] : []),
