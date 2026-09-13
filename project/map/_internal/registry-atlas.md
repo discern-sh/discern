@@ -105,7 +105,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
 | [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 52      | —                | node `bundled-docs`         |
-| [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations)                               | `scripts/manual_benefits.ts#MANUAL_BENEFIT_OBLIGATIONS`                           | 21      | —                | —                           |
+| [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations)                               | `scripts/manual_benefits.ts#MANUAL_BENEFIT_OBLIGATIONS`                           | 22      | —                | —                           |
 | [`manual-benefit-exclusions`](#manual-benefit-exclusions--manual-benefit-exclusions)                                  | `scripts/manual_benefits.ts#MANUAL_BENEFIT_EXCLUSIONS`                            | 24      | —                | —                           |
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
@@ -3367,11 +3367,12 @@ The explicit page-id owner for each normalized manual search name that would oth
 The selected Human Benefit ids and the stable published manual page ids required to explain them.
 
 - Source: `scripts/manual_benefits.ts` — `MANUAL_BENEFIT_OBLIGATIONS`
-- Members: 21
+- Members: 22
   - `shape-substantial-work`
   - `parallel-work-on-one-machine`
   - `wait-without-relay`
   - `compose-staged-work`
+  - `land-finished-work-as-the-project-moves`
   - `resume-later`
   - `reduce-routine-review`
   - `judgment-at-the-change`

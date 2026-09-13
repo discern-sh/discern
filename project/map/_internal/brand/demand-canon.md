@@ -4,7 +4,7 @@
 
 _discern's internal account of the demand its benefits answer. It is the market-side counterpart of the [Human Benefit Canon](../feature-canon-human-benefits.md): where a benefit reasons forward from product facts to human value, a demand entry reasons backward from a struggling moment somebody is hypothesized to be in. Demand claims are empirical, so every entry carries dated evidence in the market classes of the [`claims-and-evidence.md`](claims-and-evidence.md) ledger, and nothing here is stronger than its class. The [`audiences.md`](../../_private/brand/audiences.md) document holds the by-person account of the same ground._
 
-8 territories · 41 entries · 44 of 46 benefits answered · 1 supply-push record · 1 recorded gap · 3 corpora · evidence: corroborated 7 · observational 1 · hypothesis 33.
+8 territories · 41 entries · 45 of 46 benefits answered · 1 supply-push record · 1 recorded gap · 3 corpora · evidence: corroborated 7 · observational 1 · hypothesis 33.
 
 ## How to use this canon
 
@@ -71,7 +71,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Forces:** push
 - **Segments:** experienced engineers
 - **Evidence:** corroborated — This is the founder's own experience of building discern, and independent public accounts describe the same thing: planning, review, and status become the limiting work as more agents run at once. (recorded 2026-09-01) · corpus [`operating-layer`](#operating-layer)
-- **Answered by:** Stop playing messenger between your agents · Start the next task before the last one lands.
+- **Answered by:** Stop playing messenger between your agents · Start the next task before the last one lands · Keep finished work moving as the project moves.
 
 ### Coming back cold to a half-finished task
 

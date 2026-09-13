@@ -32,6 +32,7 @@ export const MANUAL_BENEFIT_OBLIGATIONS: Readonly<
   "parallel-work-on-one-machine": ["guide-coordinate-parallel-tasks"],
   "wait-without-relay": ["guide-wait-for-another-task"],
   "compose-staged-work": ["guide-coordinate-parallel-tasks"],
+  "land-finished-work-as-the-project-moves": ["guide-finish-and-land-a-change"],
   "resume-later": ["guide-recover-an-interrupted-task"],
   "reduce-routine-review": ["explanation-proof"],
   "judgment-at-the-change": ["explanation-checkpoints"],

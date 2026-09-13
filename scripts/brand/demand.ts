@@ -191,6 +191,20 @@ const FROM_DISCOURSE: DemandEvidence = {
   date: RECORDED,
 };
 
+const FOUNDER_RELEASE_PRACTICE: DemandEvidence = {
+  class: "observational",
+  source:
+    "The founder's account of leading a software engineering team and preparing discern for launch prompted the Readiness Canon: the release questions remain important as agents carry implementation.",
+  date: "2026-09-13",
+};
+
+const NEW_BUILDER_READINESS: DemandEvidence = {
+  class: "hypothesis",
+  source:
+    "The Readiness Canon translates the founder's release questions into an invitation for new builders; this audience interpretation needs external validation.",
+  date: "2026-09-13",
+};
+
 /**
  * The recorded public corpora, each named once and cited by id from the
  * evidence rows below. The guard holds every corpus to at least three
@@ -377,7 +391,13 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         forces: ["push"],
         segments: ["experienced engineers"],
         evidence: [OPERATING_LAYER_CORROBORATION],
-        answer: { benefits: ["wait-without-relay", "compose-staged-work"] },
+        answer: {
+          benefits: [
+            "wait-without-relay",
+            "compose-staged-work",
+            "land-finished-work-as-the-project-moves",
+          ],
+        },
       },
       {
         id: "abandoned-session-amnesia",
@@ -537,12 +557,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
           "The project depends on the person remembering which concerns deserve attention for each change.",
         forces: ["push", "pull"],
         segments: ["experienced engineers"],
-        evidence: [{
-          class: "observational",
-          source:
-            "The founder's account of leading a software engineering team and preparing discern for launch prompted the Readiness Canon: the release questions remain important as agents carry implementation.",
-          date: "2026-09-13",
-        }],
+        evidence: [FOUNDER_RELEASE_PRACTICE],
         answer: {
           benefits: [
             "judgment-at-the-change",
@@ -563,12 +578,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
           "Turning a successful demonstration into a release requires finding the relevant concerns before choosing how to investigate them.",
         forces: ["pull"],
         segments: ["new consequential builders"],
-        evidence: [{
-          class: "hypothesis",
-          source:
-            "The Readiness Canon translates the founder's release questions into an invitation for new builders; this audience interpretation needs external validation.",
-          date: "2026-09-13",
-        }],
+        evidence: [NEW_BUILDER_READINESS],
         answer: { benefits: ["agent-commissioning", "judgment-at-the-change"] },
       },
       {

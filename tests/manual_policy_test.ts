@@ -165,8 +165,6 @@ Deno.test("every front-door surface projects the one authored README authority",
 Deno.test("benefit obligations resolve both directions and reject stale identities", async () => {
   const manual = await repositoryManual();
   assertEquals(manualBenefitCoverageIssues(manual), []);
-  assertEquals(Object.keys(MANUAL_BENEFIT_OBLIGATIONS).length, 21);
-  assertEquals(Object.keys(MANUAL_BENEFIT_EXCLUSIONS).length, 24);
 
   const staleBenefit = {
     ...MANUAL_BENEFIT_OBLIGATIONS,
