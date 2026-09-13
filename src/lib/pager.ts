@@ -1,3 +1,4 @@
+import { assertOutsideCommonPublication } from "../shared/operation_execution_boundary.ts";
 /**
  * External pager boundary shared by interactive reading surfaces.
  *
@@ -29,6 +30,7 @@ export async function pageThrough(
   text: string,
   pager: string | undefined = Deno.env.get("PAGER")?.trim(),
 ): Promise<PagerResult> {
+  await assertOutsideCommonPublication();
   const command = pager ? "sh" : "less";
   const args = pager ? ["-c", pager] : ["-R"];
   const displayedCommand = commandEvidence([command, ...args]);

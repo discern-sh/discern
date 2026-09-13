@@ -17,6 +17,7 @@
  * without inverting the shared→engine layering.
  */
 
+import { AsyncLocalStorage } from "./module_loading.ts";
 import { type FiredHint, firedHintsFromTexts } from "./hints.ts";
 import type { DiscernResult } from "./result.ts";
 import { evaluateResultCompletion } from "./result_completion.ts";
@@ -28,6 +29,17 @@ export interface ObservedResult {
 }
 
 let observed: ObservedResult | undefined;
+const resultObservers = new AsyncLocalStorage<
+  (result: DiscernResult) => void
+>();
+
+/** Observe results in this invocation without consuming the logbook mailbox. */
+export async function withResultObserver<T>(
+  observer: (result: DiscernResult) => void,
+  run: () => Promise<T>,
+): Promise<T> {
+  return await resultObservers.run(observer, run);
+}
 
 /** Report an invocation's final result envelope (latest call wins). */
 export function observeResult(
@@ -57,6 +69,7 @@ export function observeResult(
     result,
     hintIds: [...new Set(resolvedHints.map((hint) => hint.id))],
   };
+  resultObservers.getStore()?.(result);
   return result;
 }
 

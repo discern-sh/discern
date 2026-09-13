@@ -1149,7 +1149,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   },
   "operation-lock-delegation-decode-fallback": {
     path: "src/shared/operation_lock_context.ts",
-    enclosingFunction: "inheritedOperationLockLease",
+    enclosingFunction: "inheritedOperationLockLeases",
     operation: "reject malformed inherited operation-lock delegation state",
     kind: "direct",
     shape: "sync",

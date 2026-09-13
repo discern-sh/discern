@@ -248,7 +248,9 @@ function includesCommon(boundary: OperationLockBoundary): boolean {
 
 /** Whether one boundary contains a checkout-local lock. */
 function includesCheckout(boundary: OperationLockBoundary): boolean {
-  return boundary === "checkout" || boundary === "common-and-checkout";
+  return boundary === "checkout" || boundary === "common-and-checkout" ||
+    boundary === "lifecycle-and-checkout" ||
+    boundary === "acceptance-and-checkout";
 }
 
 /** Whether one invocation belongs to an ancestor's recorded child chain. */
@@ -298,7 +300,11 @@ function completionSupersedesBegin(
   ) {
     return false;
   }
-  if (includesCommon(startedBoundary) && includesCommon(completedBoundary)) {
+  if (
+    (includesCommon(startedBoundary) && includesCommon(completedBoundary)) ||
+    (["lifecycle", "lifecycle-and-checkout"].includes(startedBoundary) &&
+      ["lifecycle", "lifecycle-and-checkout"].includes(completedBoundary))
+  ) {
     return true;
   }
   return includesCheckout(startedBoundary) &&

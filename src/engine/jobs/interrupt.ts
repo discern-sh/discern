@@ -18,6 +18,7 @@
  * completion owns the wider checkout lifetime through source return and
  * durable settlement. Nested owners share this same watcher.
  */
+import { runWithOperationSignal } from "../../shared/operation_signal.ts";
 
 import { INTERRUPT_SIGNALS, reraiseInterrupt } from "../process_signals.ts";
 
@@ -111,7 +112,10 @@ export async function withTrackedRun<T>(
 ): Promise<T> {
   const tracked = beginTrackedRun(external);
   try {
-    return await operation(tracked.signal);
+    return await runWithOperationSignal(
+      tracked.signal,
+      () => operation(tracked.signal),
+    );
   } finally {
     tracked.release();
   }

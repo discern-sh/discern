@@ -25,8 +25,10 @@
  *  - an orphan whose identity is currently owned by a LIVE worktree is kept;
  *  - deletion is compare-and-swap, so a reused key's fresh entry is never dropped.
  */
+import { currentOperationSignal } from "../../shared/operation_signal.ts";
+import { withResourceOwnership } from "../operation_lock.ts";
 
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { z } from "@zod/zod";
 import type { Logger } from "../../lib/log.ts";
@@ -50,7 +52,12 @@ import {
 import { expandTokens, WORKTREE_TOKENS } from "./tokens.ts";
 import type { TokenResolver, WorktreeToken } from "./tokens.ts";
 import { runShellRouted } from "./shell.ts";
-import { gitKeyIsLive, WorktreeGitError, writeWorktreeEnvVar } from "./git.ts";
+import {
+  gitKeyIsLive,
+  resolveCommonGitDir,
+  WorktreeGitError,
+  writeWorktreeEnvVar,
+} from "./git.ts";
 import { type Clock, SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 
@@ -378,6 +385,7 @@ async function runWithRetries(
   scheduler: Scheduler,
   signal?: AbortSignal,
 ): Promise<boolean> {
+  signal ??= currentOperationSignal();
   if (command.trim() === "") {
     return true;
   }
@@ -441,117 +449,126 @@ export async function createResources(
       continue; // an inert resource — nothing to manage
     }
     const path = entryPath(commonGitDir, gitKey, spec.name);
-    const existingText = await readTextIfExists(path);
-    const existingRead = await inspectResourceEntry(path);
-    if (existingRead.status === "newer") {
-      throw new WorktreeResourceError(
-        spec.name,
-        "create",
-        `${existingRead.reason} Resource setup left the standing evidence unchanged.`,
-      );
-    }
-    const existing = existingRead.status === "recorded"
-      ? existingRead.entry
-      : undefined;
-    if (existingText !== undefined && existingRead.status === "malformed") {
-      throw new WorktreeResourceError(
-        spec.name,
-        "create",
-        `Worktree resource '${spec.name}' has unreadable ownership evidence at ${path}. ` +
-          `Restore a valid ledger entry or prove and remove the stale file before retrying setup.`,
-      );
-    }
-    if (existing?.phase === "ready") {
-      ctx.log.info(
-        `Worktree resource '${spec.name}' already provisioned — skipping create.`,
-      );
-      continue;
-    }
-    if (existing?.phase === "intent") {
-      ctx.log.warn(
-        `Worktree resource '${spec.name}' has uncertain create intent — cleaning it before retry.`,
-      );
-      if (
-        !(await cleanupUncertainIntent(
-          path,
-          existing,
-          ctx.cwd,
-          ctx.log,
-          scheduler,
-        ))
-      ) {
-        throw new WorktreeResourceError(
-          spec.name,
-          "create",
-          `Worktree resource '${spec.name}' may have been partially created, and its frozen cleanup could not prove a safe reset. ` +
-            `Repair or remove the external resource, then reconcile its ledger evidence before retrying setup.`,
-        );
-      }
-    }
-    const resolver = buildTokenResolver(
-      identity,
-      settings,
-      ctx.config,
-      ctx.cwd,
-      spec.name,
-    );
-    const resourceIdentity = resourceForId(
-      settings.slug,
-      identity.id,
-      spec.name,
-    );
-
-    const intent: ResourceEntry = {
-      schema: RESOURCE_LEDGER_SCHEMA,
-      phase: "intent",
-      seq: idx,
-      project_slug: ctx.config.project.slug,
-      git_key: gitKey,
-      worktree_id: identity.id,
-      worktree_handle: worktreeBase(settings.slug, identity.id),
-      worktree_path: worktreePath,
-      resource_name: spec.name,
-      resource_identity: resourceIdentity,
-      destroy_command: await expandTokens(spec.destroy, resolver),
-      token_map: await captureTokenMap([spec.create, spec.destroy], resolver),
-      retries: spec.retries,
-      gc: spec.gc,
-      created_at: wallTimeIso(clock.wallNow()),
-    };
-    await writeEntry(commonGitDir, intent);
-
-    if (spec.create !== "") {
-      ctx.log.info(`Creating worktree resource '${spec.name}'…`);
-      const ok = await runWithRetries(
-        await expandTokens(spec.create, resolver),
-        ctx.cwd,
-        resourceCommandEnv(
-          spec.name,
-          resourceIdentity,
-          worktreeBase(settings.slug, identity.id),
-        ),
-        spec.retries,
-        ctx.log,
-        scheduler,
-      );
-      if (!ok) {
-        if (spec.required) {
+    await withResourceOwnership(
+      resourcesDir(commonGitDir),
+      resourceForId(settings.slug, identity.id, spec.name),
+      async () => {
+        const existingText = await readTextIfExists(path);
+        const existingRead = await inspectResourceEntry(path);
+        if (existingRead.status === "newer") {
           throw new WorktreeResourceError(
             spec.name,
             "create",
-            `Creating required worktree resource '${spec.name}' failed. Fix its ` +
-              `configured create command or prerequisites, then re-run ` +
-              `\`discern worktree setup\`.`,
+            `${existingRead.reason} Resource setup left the standing evidence unchanged.`,
           );
         }
-        ctx.log.warn(
-          `Worktree resource '${spec.name}' create failed (required = false) — continuing.`,
+        const existing = existingRead.status === "recorded"
+          ? existingRead.entry
+          : undefined;
+        if (existingText !== undefined && existingRead.status === "malformed") {
+          throw new WorktreeResourceError(
+            spec.name,
+            "create",
+            `Worktree resource '${spec.name}' has unreadable ownership evidence at ${path}. ` +
+              `Restore a valid ledger entry or prove and remove the stale file before retrying setup.`,
+          );
+        }
+        if (existing?.phase === "ready") {
+          ctx.log.info(
+            `Worktree resource '${spec.name}' already provisioned — skipping create.`,
+          );
+          return;
+        }
+        if (existing?.phase === "intent") {
+          ctx.log.warn(
+            `Worktree resource '${spec.name}' has uncertain create intent — cleaning it before retry.`,
+          );
+          if (
+            !(await cleanupUncertainIntent(
+              path,
+              existing,
+              ctx.cwd,
+              ctx.log,
+              scheduler,
+            ))
+          ) {
+            throw new WorktreeResourceError(
+              spec.name,
+              "create",
+              `Worktree resource '${spec.name}' may have been partially created, and its frozen cleanup could not prove a safe reset. ` +
+                `Repair or remove the external resource, then reconcile its ledger evidence before retrying setup.`,
+            );
+          }
+        }
+        const resolver = buildTokenResolver(
+          identity,
+          settings,
+          ctx.config,
+          ctx.cwd,
+          spec.name,
         );
-        failed.push(spec.name);
-        continue;
-      }
-    }
-    await markResourceReady(path, commonGitDir, intent);
+        const resourceIdentity = resourceForId(
+          settings.slug,
+          identity.id,
+          spec.name,
+        );
+
+        const intent: ResourceEntry = {
+          schema: RESOURCE_LEDGER_SCHEMA,
+          phase: "intent",
+          seq: idx,
+          project_slug: ctx.config.project.slug,
+          git_key: gitKey,
+          worktree_id: identity.id,
+          worktree_handle: worktreeBase(settings.slug, identity.id),
+          worktree_path: worktreePath,
+          resource_name: spec.name,
+          resource_identity: resourceIdentity,
+          destroy_command: await expandTokens(spec.destroy, resolver),
+          token_map: await captureTokenMap(
+            [spec.create, spec.destroy],
+            resolver,
+          ),
+          retries: spec.retries,
+          gc: spec.gc,
+          created_at: wallTimeIso(clock.wallNow()),
+        };
+        await writeEntry(commonGitDir, intent);
+
+        if (spec.create !== "") {
+          ctx.log.info(`Creating worktree resource '${spec.name}'…`);
+          const ok = await runWithRetries(
+            await expandTokens(spec.create, resolver),
+            ctx.cwd,
+            resourceCommandEnv(
+              spec.name,
+              resourceIdentity,
+              worktreeBase(settings.slug, identity.id),
+            ),
+            spec.retries,
+            ctx.log,
+            scheduler,
+          );
+          if (!ok) {
+            if (spec.required) {
+              throw new WorktreeResourceError(
+                spec.name,
+                "create",
+                `Creating required worktree resource '${spec.name}' failed. Fix its ` +
+                  `configured create command or prerequisites, then re-run ` +
+                  `\`discern worktree setup\`.`,
+              );
+            }
+            ctx.log.warn(
+              `Worktree resource '${spec.name}' create failed (required = false) — continuing.`,
+            );
+            failed.push(spec.name);
+            return;
+          }
+        }
+        await markResourceReady(path, commonGitDir, intent);
+      },
+    );
   }
   return { failed };
 }
@@ -710,11 +727,19 @@ async function destroyRecordedEntry(
   scheduler: Scheduler,
   signal?: AbortSignal,
 ): Promise<boolean> {
-  if (signal?.aborted || !sameEntry(entry, await readEntry(path))) return false;
-  if (!(await runDestroyEntry(entry, cwd, log, scheduler, signal))) {
-    return false;
-  }
-  return await deleteEntryCAS(path, entry);
+  return await withResourceOwnership(
+    dirname(path),
+    entry.resource_identity,
+    async () => {
+      if (
+        signal?.aborted || !sameEntry(entry, await readEntry(path))
+      ) return false;
+      if (!(await runDestroyEntry(entry, cwd, log, scheduler, signal))) {
+        return false;
+      }
+      return await deleteEntryCAS(path, entry);
+    },
+  );
 }
 
 /**
@@ -772,39 +797,52 @@ export async function ensureResources(
   settings: IdentitySettings,
   options: { readonly required?: boolean } = {},
 ): Promise<void> {
-  const scheduler = ctx.scheduler ?? SYSTEM_SCHEDULER;
   const specs = readResourceSpecs(ctx.config).filter((s) => s.ensure !== "");
+  if (specs.length === 0) return;
+  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+  if (commonGitDir === undefined) {
+    throw new WorktreeGitError(
+      "Resource convergence requires the repository's ownership ledger.",
+    );
+  }
+  const scheduler = ctx.scheduler ?? SYSTEM_SCHEDULER;
   for (const spec of specs) {
-    const resolver = buildTokenResolver(
-      identity,
-      settings,
-      ctx.config,
-      ctx.cwd,
-      spec.name,
-    );
-    ctx.log.info(`Ensuring worktree resource '${spec.name}'…`);
-    const ok = await runWithRetries(
-      await expandTokens(spec.ensure, resolver),
-      ctx.cwd,
-      resourceCommandEnv(
-        spec.name,
-        resourceForId(settings.slug, identity.id, spec.name),
-        worktreeBase(settings.slug, identity.id),
-      ),
-      spec.retries,
-      ctx.log,
-      scheduler,
-    );
-    if (!ok) {
-      if (options.required) {
-        throw new WorktreeGitError(
-          `Required resource '${spec.name}' did not converge; preserve its ownership and repair its ensure command.`,
+    await withResourceOwnership(
+      resourcesDir(commonGitDir),
+      resourceForId(settings.slug, identity.id, spec.name),
+      async () => {
+        const resolver = buildTokenResolver(
+          identity,
+          settings,
+          ctx.config,
+          ctx.cwd,
+          spec.name,
         );
-      }
-      ctx.log.warn(
-        `Worktree resource '${spec.name}' ensure reported an error — continuing.`,
-      );
-    }
+        ctx.log.info(`Ensuring worktree resource '${spec.name}'…`);
+        const ok = await runWithRetries(
+          await expandTokens(spec.ensure, resolver),
+          ctx.cwd,
+          resourceCommandEnv(
+            spec.name,
+            resourceForId(settings.slug, identity.id, spec.name),
+            worktreeBase(settings.slug, identity.id),
+          ),
+          spec.retries,
+          ctx.log,
+          scheduler,
+        );
+        if (!ok) {
+          if (options.required) {
+            throw new WorktreeGitError(
+              `Required resource '${spec.name}' did not converge; preserve its ownership and repair its ensure command.`,
+            );
+          }
+          ctx.log.warn(
+            `Worktree resource '${spec.name}' ensure reported an error — continuing.`,
+          );
+        }
+      },
+    );
   }
 }
 
@@ -989,35 +1027,41 @@ export async function gcPlannedOrphanResources(
 ): Promise<GcResult> {
   const result: GcResult = { reclaimed: [], kept: p.kept, failed: false };
   for (const { path, entry } of p.reclaimable) {
-    const label =
-      `${entry.resource_name} (${entry.resource_identity}) from removed worktree ${entry.git_key}`;
-    // Re-validate against disk right before destroying (see the doc comment): the
-    // git_key must still be dead, the on-disk entry must still be the one we read,
-    // AND no live worktree may now own this handle — else a concurrent create
-    // recycled the key or the handle, and this is a live tenant.
-    if (
-      await gitKeyIsLive(p.commonGitDir, entry.git_key) ||
-      !sameEntry(entry, await readEntry(path)) ||
-      (p.recheckIdentityLive !== undefined &&
-        await p.recheckIdentityLive(entry.resource_identity))
-    ) {
-      result.kept++;
-      continue;
-    }
-    p.log.line(`  reclaiming ${label}…`);
-    if (
-      await destroyRecordedEntry(
-        path,
-        entry,
-        p.cwd,
-        p.log,
-        p.scheduler ?? SYSTEM_SCHEDULER,
-      )
-    ) {
-      result.reclaimed.push(entry.resource_identity);
-    } else {
-      result.failed = true; // keep the entry for a later retry
-    }
+    await withResourceOwnership(
+      dirname(path),
+      entry.resource_identity,
+      async () => {
+        const label =
+          `${entry.resource_name} (${entry.resource_identity}) from removed worktree ${entry.git_key}`;
+        // Re-validate against disk right before destroying (see the doc comment): the
+        // git_key must still be dead, the on-disk entry must still be the one we read,
+        // AND no live worktree may now own this handle — else a concurrent create
+        // recycled the key or the handle, and this is a live tenant.
+        if (
+          await gitKeyIsLive(p.commonGitDir, entry.git_key) ||
+          !sameEntry(entry, await readEntry(path)) ||
+          (p.recheckIdentityLive !== undefined &&
+            await p.recheckIdentityLive(entry.resource_identity))
+        ) {
+          result.kept++;
+          return;
+        }
+        p.log.line(`  reclaiming ${label}…`);
+        if (
+          await destroyRecordedEntry(
+            path,
+            entry,
+            p.cwd,
+            p.log,
+            p.scheduler ?? SYSTEM_SCHEDULER,
+          )
+        ) {
+          result.reclaimed.push(entry.resource_identity);
+        } else {
+          result.failed = true; // keep the entry for a later retry
+        }
+      },
+    );
   }
   return result;
 }

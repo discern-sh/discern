@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
@@ -78,4 +78,88 @@ Deno.test("worktree resource teardown retains ownership replaced before or durin
       }
     });
   }
+});
+
+import { shellBarrier } from "./shell_barrier.ts";
+import { waitForPendingCondition } from "./waiting.ts";
+import { pathExists } from "../src/shared/fs_presence.ts";
+import { OperationLockError } from "../src/engine/operation_lock.ts";
+
+Deno.test("resource ownership excludes concurrent cleaners across recycled Git keys while unrelated cleanup proceeds", async () => {
+  await withTempDir(async (root) => {
+    const common = join(root, "admin");
+    using barrier = await shellBarrier(join(root, "release"));
+    const entry: ResourceEntry = {
+      schema: ON_DISK_FORMATS.resourceLedger.version,
+      phase: "ready",
+      seq: 0,
+      project_slug: "sample",
+      git_key: "first",
+      worktree_id: "first",
+      worktree_handle: "sample-first",
+      worktree_path: root,
+      resource_name: "device",
+      resource_identity: "owned-device",
+      destroy_command: `echo destroyed >> '${root}/effects'; ${barrier.wait}`,
+      token_map: {},
+      retries: 0,
+      gc: true,
+      created_at: "2026-09-13T00:00:00Z",
+    };
+    await writeEntry(common, entry);
+    const planned = await entriesForWorktree(common, "first");
+    const context = {
+      config: parseConfigOrThrow(""),
+      cwd: root,
+      log: new Logger({
+        json: true,
+        noColor: true,
+        terminal: pinnedTerminal(),
+      }),
+    };
+    const holder = destroyResources(context, planned);
+    try {
+      await waitForPendingCondition(
+        holder,
+        () => pathExists(join(root, "effects")),
+        "resource destroy to enter",
+      );
+      await assertRejects(
+        () => destroyResources(context, planned),
+        OperationLockError,
+        "resource boundary",
+      );
+      await writeEntry(common, { ...entry, git_key: "recycled" });
+      await assertRejects(
+        () =>
+          entriesForWorktree(common, "recycled").then((entries) =>
+            destroyResources(context, entries)
+          ),
+        OperationLockError,
+        "resource boundary",
+      );
+      await writeEntry(common, {
+        ...entry,
+        git_key: "independent",
+        resource_identity: "another-device",
+        destroy_command: "true",
+      });
+      assertEquals(
+        (await destroyResources(
+          context,
+          await entriesForWorktree(common, "independent"),
+        )).destroyed,
+        ["device"],
+      );
+      assertEquals(
+        await Deno.readTextFile(join(root, "effects")),
+        "destroyed\n",
+      );
+      assertEquals((await entriesForWorktree(common, "first")).length, 1);
+    } finally {
+      await barrier.release();
+      assertEquals((await holder).destroyed, ["device"]);
+    }
+    assertEquals((await entriesForWorktree(common, "recycled")).length, 1);
+  });
 });

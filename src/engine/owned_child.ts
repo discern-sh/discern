@@ -15,6 +15,8 @@
  * group that discern can stop as one tree. The logger-routed setup runner
  * (worktree/shell.ts) supervises its piped children through the same core.
  */
+import { currentOperationSignal } from "../shared/operation_signal.ts";
+import { assertOutsideCommonPublication } from "../shared/operation_execution_boundary.ts";
 
 import {
   INTERRUPT_SIGNALS,
@@ -113,7 +115,8 @@ export async function superviseSpawn<T>(
   settle: (child: Deno.ChildProcess, interrupted: AbortSignal) => Promise<T>,
   opts: SuperviseOptions,
 ): Promise<SupervisedRun<T>> {
-  opts.signal?.throwIfAborted();
+  const signal = opts.signal ?? currentOperationSignal();
+  signal?.throwIfAborted();
   const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
   let child: Deno.ChildProcess | undefined;
   let interruptedBy: Deno.Signal | null = null;
@@ -136,7 +139,7 @@ export async function superviseSpawn<T>(
     );
     interruptController.abort();
   };
-  opts.signal?.addEventListener("abort", cancel, { once: true });
+  signal?.addEventListener("abort", cancel, { once: true });
   const handlers = new Map<Deno.Signal, () => void>();
   for (const signal of INTERRUPT_SIGNALS) {
     const handler = (): void => {
@@ -153,12 +156,12 @@ export async function superviseSpawn<T>(
 
   let value: T;
   try {
-    opts.signal?.throwIfAborted();
+    signal?.throwIfAborted();
     child = spawn();
     // A signal that arrived between listener install and the spawn found no
     // child to hit — deliver it now.
     if (interruptedBy !== null) signalChild(interruptedBy);
-    else if (opts.signal?.aborted) cancel();
+    else if (signal?.aborted) cancel();
     value = await settle(child, interruptController.signal);
   } catch (error) {
     if (child !== undefined) {
@@ -167,7 +170,7 @@ export async function superviseSpawn<T>(
     }
     throw error;
   } finally {
-    opts.signal?.removeEventListener("abort", cancel);
+    signal?.removeEventListener("abort", cancel);
     if (killTimer !== undefined) scheduler.cancelTimeout(killTimer);
     // A non-interactive shell can exit from SIGINT while a background child
     // remains in the group with SIGINT ignored. The leader is reaped now, so
@@ -184,7 +187,10 @@ export async function superviseSpawn<T>(
     }
   }
 
-  if (interruptedBy !== null && !(opts.resumeAfterInterrupt ?? false)) {
+  if (
+    interruptedBy !== null &&
+    !(opts.resumeAfterInterrupt ?? (currentOperationSignal() !== undefined))
+  ) {
     reraiseInterrupt(interruptedBy);
   }
   return { value, interruptedBy };
@@ -195,6 +201,7 @@ export async function runOwnedChild(
   command: string,
   opts: OwnedChildOptions = {},
 ): Promise<OwnedChildResult> {
+  await assertOutsideCommonPublication();
   // A detached POSIX child leads a process group, which makes descendants
   // reachable through a negative PID. An interactive child must remain in the
   // terminal's foreground group or terminal reads can suspend it with SIGTTIN.
@@ -221,7 +228,8 @@ export async function runOwnedChild(
     (child) => child.status,
     {
       isolatedGroup,
-      resumeAfterInterrupt: opts.resumeAfterInterrupt ?? false,
+      resumeAfterInterrupt: opts.resumeAfterInterrupt ??
+        (currentOperationSignal() !== undefined),
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     },
   );

@@ -33,6 +33,8 @@ export interface SubprocessSpawnBoundary {
   readonly may: readonly SpawnBinary[];
   /** Shared implementation or an exception counted by the Standard. */
   readonly role: SpawnBoundaryRole;
+  /** Engine project execution must refuse common ownership; bounded helpers and external tooling declare their separate role. */
+  readonly publication?: "forbidden" | "bounded-helper" | "repository-tooling";
 }
 
 /** Every direct production-and-tooling subprocess constructor. */
@@ -40,6 +42,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/binary_size.ts",
     enclosingFunction: "buildTarget",
+    publication: "repository-tooling",
     operation: "compile the release binary before measuring its size",
     reason:
       "the build process needs Deno-specific permissions and captures the compiler result directly",
@@ -49,6 +52,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/build.ts",
     enclosingFunction: "compileTarget",
+    publication: "repository-tooling",
     operation: "compile one release target",
     reason:
       "the release builder streams a Deno compile with target-specific permissions and environment",
@@ -58,6 +62,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/build.ts",
     enclosingFunction: "verifyDarwinSignature",
+    publication: "repository-tooling",
     operation: "verify a macOS release signature",
     reason:
       "codesign is a platform-specific release verifier with its own captured diagnostic contract",
@@ -67,6 +72,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/canon_editor/guards.ts",
     enclosingFunction: "runGuardFile",
+    publication: "repository-tooling",
     operation: "run one Canon Editor guard test",
     reason:
       "Canon Editor launches the Deno test entrypoint with editor-owned output and timeout handling",
@@ -76,6 +82,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/canon_editor/guards.ts",
     enclosingFunction: "metricProbe",
+    publication: "repository-tooling",
     operation: "measure a Canon Editor Standard probe",
     reason:
       "the editor invokes the source CLI in a fresh Deno process and consumes its machine result",
@@ -85,6 +92,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/canon_editor/locate.ts",
     enclosingFunction: "openUrl",
+    publication: "repository-tooling",
     operation: "open the Canon Editor URL in the platform browser",
     reason:
       "the platform opener is an operating-system handoff that deliberately outlives the helper",
@@ -94,6 +102,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/canon_editor/locate.ts",
     enclosingFunction: "openInIde",
+    publication: "repository-tooling",
     operation: "open a registry location in the maintainer IDE",
     reason:
       "the IDE launcher is a local graphical handoff with product-specific arguments",
@@ -103,6 +112,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/canon_editor/pipeline.ts",
     enclosingFunction: "spawnSnapshot",
+    publication: "repository-tooling",
     operation: "render a fresh Canon Editor snapshot",
     reason:
       "the editor isolates registry evaluation in a new Deno process before accepting its JSON snapshot",
@@ -112,6 +122,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/canon_editor/pipeline.ts",
     enclosingFunction: "formatTs",
+    publication: "repository-tooling",
     operation: "format an edited TypeScript registry",
     reason:
       "the transactional editor runs Deno fmt against a staged file and owns rollback of its bytes",
@@ -121,6 +132,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/canon_editor/pipeline.ts",
     enclosingFunction: "mapProseGate",
+    publication: "repository-tooling",
     operation: "run the Map prose gate for an editor transaction",
     reason:
       "the editor invokes the repository Map prose task with transaction-specific environment and diagnostics",
@@ -130,6 +142,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/cli_install.ts",
     enclosingFunction: "capture",
+    publication: "repository-tooling",
     operation: "capture an installer or CLI command",
     reason:
       "the install helper accepts a caller-selected executable and exact Deno command options",
@@ -139,6 +152,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/coverage.ts",
     enclosingFunction: "denoCommand",
+    publication: "repository-tooling",
     operation: "run a Deno coverage subprocess",
     reason:
       "coverage owns profile directories, command permissions, and raw subprocess output for its report pipeline",
@@ -148,6 +162,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/release_smoke.ts",
     enclosingFunction: "run",
+    publication: "repository-tooling",
     operation: "smoke-test a staged release command",
     reason:
       "the release smoke harness runs a caller-selected binary with isolated environment and captured bytes",
@@ -157,6 +172,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/site_local_design_system.ts",
     enclosingFunction: "capturedCommand",
+    publication: "repository-tooling",
     operation: "run a local design-system helper command",
     reason:
       "the site helper launches a Deno task with repository-tooling permissions and returns its exact capture",
@@ -166,6 +182,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/use_compiled_build.ts",
     enclosingFunction: "buildHostBinary",
+    publication: "repository-tooling",
     operation: "compile the host development binary",
     reason:
       "the development installer drives Deno compile with the complete binary permission contract",
@@ -175,6 +192,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/vale_toolchain.ts",
     enclosingFunction: "runExactVale",
+    publication: "repository-tooling",
     operation: "run the content-verified Vale executable",
     reason:
       "the provisioner must invoke the exact cached binary and preserve Vale-specific environment and output",
@@ -184,6 +202,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/vale_toolchain.ts",
     enclosingFunction: "extractVale",
+    publication: "repository-tooling",
     operation: "extract a verified Vale release archive",
     reason:
       "tar is a platform tool applied to a verified archive with extraction-specific arguments and diagnostics",
@@ -193,6 +212,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "site/dev.ts",
     enclosingFunction: "runSiteBuild",
+    publication: "repository-tooling",
     operation: "rebuild the development site",
     reason:
       "the development server starts the site build in a fresh Deno process and publishes its captured failure",
@@ -202,6 +222,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "site/page-src/format-generated.ts",
     enclosingFunction: "formatGeneratedText",
+    publication: "repository-tooling",
     operation: "format generated site text",
     reason:
       "the site generator invokes Deno fmt as a byte-transform protocol over piped standard input and output",
@@ -211,6 +232,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "site/specimens.ts",
     enclosingFunction: "buildSpecimenPreview",
+    publication: "repository-tooling",
     operation: "build one isolated site specimen",
     reason:
       "the specimen server launches the site builder with route-specific environment and captured diagnostics",
@@ -220,6 +242,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/shared/subprocess.ts",
     enclosingFunction: "runGit",
+    publication: "bounded-helper",
     operation: "run an ordinary Git command",
     reason:
       "this constructor is the shared Git capability that centralizes binary resolution, capture, bounds, and failure data",
@@ -229,6 +252,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/shared/subprocess.ts",
     enclosingFunction: "runShell",
+    publication: "forbidden",
     operation: "run a buffered shell command",
     reason:
       "this constructor is the shared buffered-shell capability and owns its output and failure conventions",
@@ -238,6 +262,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/shared/subprocess.ts",
     enclosingFunction: "commandExists",
+    publication: "bounded-helper",
     operation: "probe whether one command resolves",
     reason:
       "this constructor is the shared command-existence capability built on the canonical shell convention",
@@ -247,6 +272,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/shared/discern_commit.ts",
     enclosingFunction: "commitDiscernChanges",
+    publication: "forbidden",
     operation: "create an attributed discern commit",
     reason:
       "commit authority requires pathspec-limited input and descendant quiescence that the generic Git runner refuses",
@@ -256,6 +282,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/shared/deno_metadata.ts",
     enclosingFunction: "denoMetadata",
+    publication: "bounded-helper",
     operation: "read Deno resolver and type metadata",
     reason:
       "repository tooling consumes the exact Deno info and types protocols from bounded read-only queries",
@@ -265,6 +292,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/lib/pager.ts",
     enclosingFunction: "pageThrough",
+    publication: "forbidden",
     operation: "run the selected external pager",
     reason:
       "the explicitly selected pager inherits the terminal and may be a user-selected executable rather than a buffered command",
@@ -274,6 +302,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/lib/open_browser.ts",
     enclosingFunction: "runBrowserCommand",
+    publication: "bounded-helper",
     operation: "hand a documentation URL to the platform browser",
     reason:
       "the operating-system launcher is a foreground handoff whose browser deliberately outlives the CLI",
@@ -283,6 +312,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/engine/owned_child.ts",
     enclosingFunction: "runOwnedChild",
+    publication: "forbidden",
     operation: "run an operator-selected supervised child",
     reason:
       "owned children require interactive streams, detached groups, cancellation, and reaping beyond buffered-shell semantics",
@@ -292,6 +322,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/engine/jobs/command.ts",
     enclosingFunction: "spawnJob",
+    publication: "forbidden",
     operation: "run a Gate job",
     reason:
       "Gate jobs require live prefixed streaming, cancellation, output bounds, and detached process-group supervision",
@@ -301,6 +332,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/engine/worktree/shell.ts",
     enclosingFunction: "runShellRouted",
+    publication: "forbidden",
     operation: "run a worktree lifecycle command",
     reason:
       "lifecycle commands reserve machine stdout and require owned-child supervision plus logger-routed diagnostics",
@@ -310,6 +342,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "src/engine/mcp/version_check.ts",
     enclosingFunction: "captureVersionCommand",
+    publication: "bounded-helper",
     operation:
       "resolve and probe the installed discern executable for the MCP version handshake",
     reason:

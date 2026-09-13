@@ -521,7 +521,7 @@ Deno.test("pre-repository common publication excludes common writers without mas
     try {
       await assertRejects(
         () =>
-          withOperationLock(dir, { command: "setup begin" }, async () => {}),
+          withOperationLock(dir, { command: "patterns seal" }, async () => {}),
         OperationLockError,
         "common repository boundary",
       );
@@ -549,7 +549,7 @@ Deno.test("setup begin writers serialize before a project root exists", async ()
     await assertRejects(
       () => withOperationLock(dir, { command: "setup begin" }, async () => {}),
       OperationLockError,
-      "common repository boundary",
+      "lifecycle boundary",
     );
 
     release.resolve();

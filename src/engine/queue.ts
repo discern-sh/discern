@@ -1,3 +1,4 @@
+import { currentOperationSignal } from "../shared/operation_signal.ts";
 /**
  * `discern queue` command wrapping.
  *
@@ -147,7 +148,9 @@ async function runQueueChild(
       args,
       env: { [TEST_RUN_SLOT_ENV]: TEST_RUN_SLOT_VALUE },
     });
-    if (child.status.signal !== null) {
+    if (
+      child.status.signal !== null && currentOperationSignal() === undefined
+    ) {
       reraiseInterrupt(child.status.signal);
     }
     return child.status.code;

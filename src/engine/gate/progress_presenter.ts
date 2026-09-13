@@ -15,7 +15,6 @@ import {
   completionFailureSentence,
   completionProgressSentence,
 } from "../completion/progress_prose.ts";
-import type { GateTtyProgress } from "./gate_tty.ts";
 import type { ProgressWait } from "../../shared/result_schemas.ts";
 import { progressWaitSentence, readWait } from "../completion/progress_wait.ts";
 
@@ -92,9 +91,17 @@ export function gateProgressPresenterSlot(
   };
 }
 
+/** Live terminal capabilities consumed by the shared operation presenter. */
+export interface CompletionProgressTarget {
+  /** Pin a durable sentence into the frame's scrollback. */
+  note(text: string, tone?: "success" | "warning" | "failure"): void;
+  /** Replace the frame's transient progress line. */
+  transient(text: string): void;
+}
+
 /** How one presenter reaches the terminal: a live frame or a static writer. */
 export interface GateProgressPresenterTarget {
-  readonly live?: Pick<GateTtyProgress, "note" | "transient">;
+  readonly live?: CompletionProgressTarget;
   /** Static human runs append whole lines through the run's own sink. */
   readonly write?: (line: string) => void;
   /**
@@ -231,7 +238,7 @@ export function createGateProgressPresenter(
 export function registerGateProgressPresenter(
   slot: GateProgressPresenterSlot,
   outputKind: string,
-  live: Pick<GateTtyProgress, "note" | "transient"> | undefined,
+  live: CompletionProgressTarget | undefined,
   write: ((bytes: Uint8Array) => void) | undefined,
 ): void {
   if (outputKind === "quiet-result") return;

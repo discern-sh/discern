@@ -1,3 +1,4 @@
+import { assertOutsideCommonPublication } from "./operation_execution_boundary.ts";
 /**
  * The single source of truth for discern-authored commit sites (ADR 0203) and the only
  * production boundary allowed to invoke `git commit` for them.
@@ -599,6 +600,7 @@ export function discernCommitMessage<Values>(
 export async function commitDiscernChanges(
   options: DiscernCommitOptions,
 ): Promise<DiscernCommitResult> {
+  await assertOutsideCommonPublication();
   if (!authoredCommitSites.has(options.site)) {
     return {
       success: false,

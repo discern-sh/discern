@@ -1,15 +1,15 @@
 /**
  * Shared exclusion and Git-write capability for classified discern operations.
  *
- * A common-repository lock is always acquired before a checkout lock. Nested
- * calls may reuse a lock already held by their async call chain, but may not
- * widen from checkout-only to common or acquire a second checkout. The explicit
- * setup probe alone adds its newly created checkout under the same common lock. That rule,
- * plus non-blocking OS locks, prevents nested deadlock while preserving
- * parallelism across linked worktrees. While the lock is held, every classified
- * discern-owned Git writer also proves its broad Git-admin boundary before its
- * command body runs; commands with exact effect plans supplement that probe.
+ * Publication protects short shared-state transitions. Lifecycle and acceptance
+ * serializers retain their own transaction ordering while project commands run
+ * under worktree and resource leases. Ordinary checkout writers share the path
+ * reservation that a lifecycle holds from before creation through removal.
+ * Nested calls reuse authenticated leases; explicit owned-worktree scopes alone
+ * may enter a second checkout. Git writers separately prove administrative
+ * write access before executing their planned effects.
  */
+import { runGit } from "../shared/subprocess.ts";
 
 import { dirname, join, resolve } from "@std/path";
 import { AsyncLocalStorage } from "../shared/module_loading.ts";
@@ -29,10 +29,12 @@ import { findRoot } from "../shared/env.ts";
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import {
   currentOperationLocks,
+  currentOperationOwner,
   type HeldOperationLocks,
   inheritedOperationLockLease,
   type OperationLockConcreteBoundary,
   type OperationLockLease,
+  recordedOperationOwner,
   runWithOperationLocks,
 } from "../shared/operation_lock_context.ts";
 import type { DiscernResult } from "../shared/result.ts";
@@ -47,6 +49,7 @@ import {
   SYSTEM_SECURE_ENTROPY,
 } from "../shared/entropy.ts";
 import {
+  discoverGit,
   invalidateGitDiscovery,
   withGitDiscoveryScope,
 } from "../shared/git_discovery.ts";
@@ -64,8 +67,11 @@ export interface OperationInvocation extends OperationInvocationFacts {
 export class OperationLockError extends Error {
   readonly result: DiscernResult;
 
-  constructor(result: DiscernResult) {
-    super(result.message ?? "The operation lock could not be acquired.");
+  constructor(result: DiscernResult, options?: ErrorOptions) {
+    super(
+      result.message ?? "The operation lock could not be acquired.",
+      options,
+    );
     this.name = "OperationLockError";
     this.result = result;
   }
@@ -106,6 +112,10 @@ function concreteBoundaries(
       return ["checkout"];
     case "common":
       return ["common"];
+    case "lifecycle":
+      return ["lifecycle"];
+    case "lifecycle-and-checkout":
+      return ["lifecycle", "checkout"];
     case "common-and-checkout":
     case "phased":
       return ["common", "checkout"];
@@ -133,6 +143,10 @@ function boundaryName(boundary: OperationLockConcreteBoundary): string {
     ? "common repository boundary"
     : boundary === "acceptance"
     ? "acceptance boundary"
+    : boundary === "lifecycle"
+    ? "lifecycle boundary"
+    : boundary === "resource"
+    ? "resource boundary"
     : "checkout boundary";
 }
 
@@ -149,6 +163,15 @@ async function resolveLockSpecs(
     );
     if (anchor === undefined) return undefined;
     const adminDirectory = await Deno.realPath(dirname(dirname(anchor)));
+    if (concrete === "checkout") {
+      const toplevel = await discoverGit(
+        cwd,
+        { kind: "toplevel" },
+        (directory, args) => runGit(args, { cwd: directory }),
+      );
+      if (!toplevel.success || toplevel.stdout.trim() === "") return undefined;
+      specs.push(await worktreeLockSpec(toplevel.stdout.trim()));
+    }
     specs.push(await hostLockSpec(concrete, `git-admin:${adminDirectory}`));
   }
   return specs;
@@ -185,11 +208,12 @@ async function resolvePreRepositoryLockSpecs(
   } catch {
     canonicalRoot = resolve(root);
   }
-  return await Promise.all(
-    concreteBoundaries(boundary).map((concrete) =>
-      hostLockSpec(concrete, `project-root:${canonicalRoot}`)
-    ),
-  );
+  const specs: LockSpec[] = [];
+  for (const concrete of concreteBoundaries(boundary)) {
+    if (concrete === "checkout") specs.push(await worktreeLockSpec(root));
+    specs.push(await hostLockSpec(concrete, `project-root:${canonicalRoot}`));
+  }
+  return specs;
 }
 
 /** Derive the broad real Git-admin surfaces for one classified invocation. */
@@ -338,7 +362,7 @@ async function acquireLock(
     const inherited = inheritedOperationLockLease(spec.key, spec.path);
     if (inherited !== undefined) {
       const record = await readTextIfExists(spec.path);
-      const token = record?.match(/^discern-operation-lock-v1 ([^\n]+)\n?$/)
+      const token = record?.match(/^discern-operation-lock-v1 ([^\n]+)(?:\n|$)/)
         ?.[1];
       const recordedToken = token === "" ? undefined : token;
       if (recordedToken === inherited.token) {
@@ -408,13 +432,21 @@ async function acquireLock(
     throw error;
   }
   if (!acquired) {
+    const record = await readTextIfExists(spec.path);
+    const holder = recordedOperationOwner(record);
     file.close();
+    const identity = "unavailable" in holder
+      ? `${holder.unavailable} Let the active caller finish or cancel it through its calling surface.`
+      : `Holder: ${holder.command} in ${holder.path}, started ${holder.started} (operation ${holder.id}). ` +
+        (holder.handle === undefined
+          ? "Cancel through its calling surface if needed."
+          : `Inspect it with \`discern progress ${holder.handle}\`; cancel through its calling surface if needed.`);
     throw refusal(
       invocation,
       `Another discern operation holds the ${
         boundaryName(spec.boundary)
       } for ${cwd}. ` +
-        "This call made no change. Retry after that operation finishes.",
+        `This call made no change. Retry after that operation finishes. ${identity}`,
     );
   }
   let previousContents: Uint8Array;
@@ -435,12 +467,17 @@ async function acquireLock(
     key: spec.key,
     path: spec.path,
     token: entropy.uuid(),
+    ...(currentOperationOwner() === undefined
+      ? {}
+      : { owner: currentOperationOwner() }),
   };
   try {
     await replaceLockRecord(
       file,
       new TextEncoder().encode(
-        `discern-operation-lock-v1 ${lease.token}\n`,
+        `discern-operation-lock-v1 ${lease.token}\n${
+          lease.owner === undefined ? "" : JSON.stringify(lease.owner) + "\n"
+        }`,
       ),
     );
   } catch (error) {
@@ -522,9 +559,8 @@ export async function withAcceptanceRecoveryBoundary<T>(
 }
 
 /** One short transactional phase of a landing: the common publication
- * boundary joins for the freeze, transition, and cleanup effects — bounded
- * exactly like an ordinary completion publication — and releases before any
- * long check runs. Reentrant while a phase is already held. */
+ * boundary encloses shared publication and transition effects. Project commands,
+ * resource cleanup, and capacity admission belong outside it. Reentrant while a phase is already held. */
 export async function withLandingCommonPhase<T>(
   cwd: string,
   operation: () => Promise<T>,
@@ -731,61 +767,35 @@ export async function withCompletionCheckout<T>(
   );
 }
 
-/** One worktree discern just created, entered under the parent operation's
- * already-held common transaction. The second checkout is acquired
- * non-blockingly and cannot widen into another repository. */
-async function withOwnedSecondaryCheckout<T>(
-  parent: string,
-  secondary: string,
-  refusedAs: OperationInvocation,
-  operation: () => Promise<T>,
-): Promise<T> {
-  const parentSpecs = await resolveLockSpecs(parent, "common-and-checkout");
-  const secondarySpecs = await resolveLockSpecs(
-    secondary,
-    "common-and-checkout",
-  );
-  const common = parentSpecs?.find((spec) => spec.boundary === "common");
-  const checkout = secondarySpecs?.find((spec) => spec.boundary === "checkout");
-  const held = currentOperationLocks();
-  if (
-    common === undefined || checkout === undefined ||
-    parentSpecs?.some((spec) => !held?.leases.has(spec.key)) ||
-    secondarySpecs?.find((spec) => spec.boundary === "common")?.key !==
-      common.key ||
-    parentSpecs?.some((spec) => spec.key === checkout.key)
-  ) {
-    throw refusal(
-      refusedAs,
-      "A worktree discern created runs only under its parent operation's live common and checkout transaction in the same repository.",
-    );
-  }
-  return await withPolicyLock(
-    secondary,
-    { command: "done" },
-    {
-      effects: ["discern-checkout-mutation", "project-command"],
-      lock: "checkout",
-      preview: "required",
-      gitWriteAuthority: "opaque",
-    },
-    operation,
-    SYSTEM_SECURE_ENTROPY,
-    { serializer: common.key, checkout: checkout.key },
-  );
-}
-
-/** A newly created setup probe runs under its parent's already-held common transaction. */
+/** A setup probe retains its parent's checkout and its own lifecycle reservation,
+ * with no common publication lease during setup, checks, or cleanup. */
 export async function withSetupProbeCheckout<T>(
   parent: string,
   probe: string,
   operation: () => Promise<T>,
 ): Promise<T> {
-  return await withOwnedSecondaryCheckout(
-    parent,
+  const parentSpecs = await resolveLockSpecs(parent, "checkout");
+  const held = currentOperationLocks();
+  if (
+    parentSpecs === undefined ||
+    parentSpecs.some((spec) => !held?.leases.has(spec.key))
+  ) {
+    throw refusal(
+      { command: "setup done" },
+      "A setup probe requires its parent operation's live checkout ownership.",
+    );
+  }
+  const parentCommon = (await resolveLockSpecs(parent, "common"))?.[0];
+  const probeCommon = (await resolveLockSpecs(probe, "common"))?.[0];
+  if (parentCommon === undefined || parentCommon.key !== probeCommon?.key) {
+    throw refusal(
+      { command: "setup done" },
+      "A setup probe must belong to its parent's repository.",
+    );
+  }
+  return await withWorktreeOwnership(
     probe,
-    { command: "setup done" },
-    operation,
+    () => withCompletionCheckout(probe, operation),
   );
 }
 
@@ -875,6 +885,7 @@ async function withPolicyLock<T>(
   },
   waitForPublication = false,
   wait?: OperationLockWait,
+  reservations?: LockSpec[],
 ): Promise<T> {
   if (policy.lock === "none") return await operation();
   if (policy.lock === "phased") {
@@ -888,7 +899,7 @@ async function withPolicyLock<T>(
     return await operation(commonGitDirectory);
   }
 
-  let specs = await resolveLockSpecs(cwd, policy.lock);
+  let specs = reservations ?? await resolveLockSpecs(cwd, policy.lock);
   if (specs === undefined) {
     const projectRoot = await findRoot(cwd);
     if (projectRoot === undefined && policy.lockWithoutProject !== true) {
@@ -919,7 +930,8 @@ async function withPolicyLock<T>(
   );
   if (
     heldCheckout && acquiringCommon && held?.completionExecution !== true &&
-    held?.boundaries.has("acceptance") !== true
+    held?.boundaries.has("acceptance") !== true &&
+    held?.boundaries.has("lifecycle") !== true
   ) {
     throw refusal(
       invocation,
@@ -947,9 +959,16 @@ async function withPolicyLock<T>(
   const serializedSecondary = secondaryCheckout !== undefined &&
     held?.leases.has(secondaryCheckout.serializer) === true &&
     missing.every((spec) =>
-      spec.boundary === "checkout" && spec.key === secondaryCheckout.checkout
+      spec.boundary === "worktree" ||
+      (spec.boundary === "checkout" && spec.key === secondaryCheckout.checkout)
     );
-  if (heldCheckout && acquiringCheckout && !serializedSecondary) {
+  const reservedSecondary = specs.some((spec) =>
+    spec.boundary === "worktree" && held?.worktrees?.has(spec.key)
+  );
+  if (
+    heldCheckout && acquiringCheckout && !serializedSecondary &&
+    !reservedSecondary
+  ) {
     throw refusal(
       invocation,
       "discern refused a nested operation that would hold two checkout boundaries. " +
@@ -984,6 +1003,7 @@ async function withPolicyLock<T>(
     const next: HeldOperationLocks = {
       leases,
       boundaries,
+      ...(held?.worktrees === undefined ? {} : { worktrees: held.worktrees }),
       ...(held?.completionExecution === true
         ? { completionExecution: true }
         : {}),
@@ -1000,4 +1020,91 @@ async function withPolicyLock<T>(
   } finally {
     await releaseLocks(acquiredLocks);
   }
+}
+
+/** Canonicalize existing ancestors so a reservation survives creation and removal. */
+async function canonicalReservationPath(path: string): Promise<string> {
+  try {
+    return await Deno.realPath(path);
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    const absolute = resolve(path);
+    const parent = dirname(absolute);
+    if (parent === absolute) throw error;
+    return join(
+      await canonicalReservationPath(parent),
+      absolute.slice(parent.length + (parent.endsWith("/") ? 0 : 1)),
+    );
+  }
+}
+
+/** Resolve the stable path lease shared by writers and lifecycle owners. */
+async function worktreeLockSpec(path: string): Promise<LockSpec> {
+  return await hostLockSpec("worktree", await canonicalReservationPath(path));
+}
+
+/** Own a target from before registration through setup, validation, and removal.
+ * Ordinary checkout writers acquire the same reservation before their admin lock. */
+export async function withWorktreeOwnership<T>(
+  path: string | readonly string[],
+  run: () => Promise<T>,
+): Promise<T> {
+  if (typeof path !== "string") {
+    const [first, ...rest] = [...new Set(path)].sort();
+    return first === undefined
+      ? await run()
+      : await withWorktreeOwnership(first, () =>
+        withWorktreeOwnership(rest, run));
+  }
+  const spec = await worktreeLockSpec(path);
+  return await withReservation(path, spec, async () => {
+    const held = currentOperationLocks();
+    if (held === undefined) {
+      throw new Error("Worktree reservation was not acquired.");
+    }
+    return await runWithOperationLocks({
+      ...held,
+      completionExecution: true,
+      worktrees: new Set([...(held.worktrees ?? []), spec.key]),
+    }, run);
+  });
+}
+
+/** External resource ownership spans the check, command, and ledger settlement.
+ * The external identity, independent of a recycled Git key, is the subject. */
+export async function withResourceOwnership<T>(
+  directory: string,
+  identity: string,
+  run: () => Promise<T>,
+): Promise<T> {
+  const canonical = await canonicalReservationPath(directory);
+  return await withReservation(
+    directory,
+    await hostLockSpec("resource", `${canonical}\0${identity}`),
+    run,
+  );
+}
+
+/** Apply the shared OS-lease lifetime to one explicitly selected subject. */
+async function withReservation<T>(
+  path: string,
+  spec: LockSpec,
+  run: () => Promise<T>,
+): Promise<T> {
+  return await withPolicyLock(
+    path,
+    { command: currentOperationOwner()?.command ?? "worktree" },
+    {
+      effects: ["external-setup"],
+      lock: "checkout",
+      preview: "required",
+      gitWriteAuthority: "opaque",
+    },
+    run,
+    SYSTEM_SECURE_ENTROPY,
+    undefined,
+    false,
+    undefined,
+    [spec],
+  );
 }

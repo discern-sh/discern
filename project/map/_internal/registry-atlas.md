@@ -110,7 +110,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 382     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 383     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 25      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -144,7 +144,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 3       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 131     | —                | node `canonical-sets`       |
 
-131 sets · 185 guard tests · 72 committed artifacts.
+131 sets · 186 guard tests · 72 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -286,6 +286,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/manual_surface_parity_test.ts`              | [`manual-pages`](#manual-pages--published-manual-pages), [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/on_disk_formats_test.ts`                    | [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/operation_effects_test.ts`                  | [`operation-effects`](#operation-effects--operation-effects), [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `tests/operation_execution_guard_test.ts`          | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/paths_literal_ban_test.ts`                  | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/paths_registry_test.ts`                     | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/paths_sentinel_render_test.ts`              | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -3478,7 +3479,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 382
+- Members: 383
   - `0003`
   - `0005`
   - `0006`
@@ -3830,6 +3831,7 @@ The numbered decision records in the map, including records later superseded.
   - `0390`
   - `0391`
   - `0392`
+  - `0393`
   - `0001`
   - `0002`
   - `0004`
@@ -4119,7 +4121,7 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `src/engine/jobs/command.ts#spawnJob`
   - `src/engine/worktree/shell.ts#runShellRouted`
   - `src/engine/mcp/version_check.ts#captureVersionCommand`
-- Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/engine_child_lineage_guard_test.ts`, `tests/engine_interrupt_surfaces_test.ts`
+- Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/operation_execution_guard_test.ts`, `tests/engine_child_lineage_guard_test.ts`, `tests/engine_interrupt_surfaces_test.ts`
 - Glossary: not enrolled — the interruption-safety reference owns this subprocess contract
 - Feature canon: described by the `interruption-safety` node
 

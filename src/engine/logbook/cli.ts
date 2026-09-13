@@ -310,14 +310,31 @@ async function runClassifiedCliOperation(
     readonly hasOperands?: boolean;
   },
 ): Promise<number> {
-  const { OperationLockError, withOperationLock } = await loadModule(() =>
+  const { OperationLockError } = await loadModule(() =>
     import(
       "../operation_lock.ts"
     )
   );
+  const { executeOperation } = await loadModule(() =>
+    import("../operation_execution.ts")
+  );
+  const { gateProgressPresenterSlot, registerGateProgressPresenter } =
+    await loadModule(() => import("../gate/progress_presenter.ts"));
+  const announcement = gateProgressPresenterSlot("coordination");
+  registerGateProgressPresenter(
+    announcement,
+    Deno.args.some((flag) => flag === "--json" || flag === "--markdown")
+      ? "quiet-result"
+      : "static",
+    undefined,
+    undefined,
+  );
+  let deferredAnnouncement:
+    | Parameters<typeof announcement.observe>[0]
+    | undefined;
   const resultVerb = operationResultVerbResolver(verb);
   try {
-    return (await withOperationLock(
+    return (await executeOperation(
       Deno.cwd(),
       {
         command: verb,
@@ -329,7 +346,36 @@ async function runClassifiedCliOperation(
           : { hasOperands: options.hasOperands }),
         ...(options.dryRun ? { dryRun: true } : {}),
       },
-      async () => (await body()) ?? 0,
+      async () => {
+        try {
+          return (await body()) ?? 0;
+        } catch (error) {
+          if (error instanceof CliRefusal) return await routeCliRefusal(error);
+          throw error;
+        }
+      },
+      (code, rendered) =>
+        rendered ??
+          (code === 0 ? { ok: true, verb: resultVerb ?? verb } : {
+            ok: false,
+            verb: resultVerb ?? verb,
+            error: "precondition_failed",
+            message:
+              `The command exited with status ${code}. Read its output before retrying.`,
+          }),
+      undefined,
+      (fact) => {
+        if (
+          fact.kind === "progress" &&
+          fact.progress.operation_handle !== undefined
+        ) {
+          if (verb === "queue") deferredAnnouncement = fact;
+          else announcement.observe(fact);
+        } else if (fact.kind === "wait" && deferredAnnouncement !== undefined) {
+          announcement.observe(deferredAnnouncement);
+          deferredAnnouncement = undefined;
+        }
+      },
     ));
   } catch (error) {
     if (error instanceof CliRefusal) {

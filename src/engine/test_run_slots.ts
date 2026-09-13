@@ -7,6 +7,8 @@
  * logbook-backed queue decoration stay here so every surface contends for the
  * same resource with the same policy.
  */
+import { currentOperationSignal } from "../shared/operation_signal.ts";
+import { assertOutsideCommonPublication } from "../shared/operation_execution_boundary.ts";
 
 import { join } from "@std/path";
 import type { DiscernConfig } from "../shared/config_schema.ts";
@@ -278,6 +280,8 @@ export function buildTestRunSlotAcquirer(
       signal?: AbortSignal,
       waitingFor = "tests and measurements",
     ): Promise<TestRunSlotHold | undefined> {
+      await assertOutsideCommonPublication();
+      signal ??= currentOperationSignal();
       // Presence means a capped acquisition was in play. Immediate admission
       // and fail-open record zero because neither enters the retry wait.
       waitedMs ??= 0;

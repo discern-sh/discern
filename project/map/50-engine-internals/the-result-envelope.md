@@ -39,6 +39,8 @@ Configured job, scope, standard, resource, command, and path identifiers stay ou
 
 ## The serialized envelope
 
+Effectful CLI and MCP calls enter the shared [execution boundary](operation-effects-and-locks.md#execution-is-observable-before-it-waits) before acquiring locks. Its operation journal retains waits and the final result independently of transport progress notifications. Nested gate cores share that journal while their presenters retain ownership of producer and coordination facts.
+
 Long-operation progress keeps each wait's lifecycle independent of the latest producer event. [`progress_wait.ts`](../../../src/engine/completion/progress_wait.ts) owns the observation scope and its shared sentences; capacity acquisition, condition watches, and short shared-state waits close through that scope. The operation record retains those observations for reconnect readers. They carry no scheduling or completion authority, and recorded process liveness alone cannot prove that work advances. [`active_wait_progress_test.ts`](../../../tests/active_wait_progress_test.ts) exercises overlapping waits under unrelated names while other work finishes.
 
 Status reuses progress's current-state summary for the calling checkout's live operation. It does not reconstruct that state from the latest producer event, which may describe unrelated work finishing during a wait.

@@ -3,6 +3,7 @@
  * lifecycle facts and child text to the package-owned activity-log bracket.
  */
 
+import type { CompletionProgressTarget } from "./progress_presenter.ts";
 import {
   type ActivityLogController,
   type SpinnerScheduler,
@@ -56,12 +57,9 @@ export function renderGateTtyTable(
 }
 
 /** Live Gate producer consumed by the job scheduler and child-output path. */
-export interface GateTtyProgress extends JobRunObserver, JobOutputObserver {
+export interface GateTtyProgress
+  extends JobRunObserver, JobOutputObserver, CompletionProgressTarget {
   replaceGroups(groups: readonly JobGroup[]): void;
-  /** Pin one durable progress sentence into the frame's scrollback. */
-  note(text: string, tone?: "success" | "warning" | "failure"): void;
-  /** Show the latest transient progress line in the frame's bounded tail. */
-  transient(text: string): void;
   /** Collapse the transient tail to the stable job summary and restore the cursor. */
   complete(steps: readonly StepResult[]): Promise<void>;
   /** Release an incomplete frame after an unexpected product-layer failure. */

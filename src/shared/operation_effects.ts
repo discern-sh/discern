@@ -27,6 +27,8 @@ export const OPERATION_LOCK_BOUNDARIES = [
   // The driver acquires concrete locks for each effect phase.
   "phased",
   "checkout",
+  "lifecycle",
+  "lifecycle-and-checkout",
   "common",
   "common-and-checkout",
   // The landing serializer plus the author's checkout; the short common
@@ -238,7 +240,7 @@ export const OPERATION_EFFECTS = {
       "discern-git-mutation",
       "external-setup",
     ],
-    "common-and-checkout",
+    "lifecycle-and-checkout",
     "required",
     { gitWriteAuthority: "boundary-plus-effect-plan" },
   ),
@@ -249,7 +251,7 @@ export const OPERATION_EFFECTS = {
       "discern-git-mutation",
       "external-setup",
     ],
-    "common-and-checkout",
+    "lifecycle-and-checkout",
     "required",
     {
       lockWithoutProject: true,
@@ -264,7 +266,7 @@ export const OPERATION_EFFECTS = {
       "project-command",
       "external-setup",
     ],
-    "common-and-checkout",
+    "lifecycle-and-checkout",
     "disclose",
     { gitWriteAuthority: "boundary-plus-effect-plan" },
   ),
@@ -300,7 +302,7 @@ export const OPERATION_EFFECTS = {
       "project-command",
       "external-setup",
     ],
-    "common",
+    "lifecycle",
     "required",
     { gitWriteAuthority: "boundary-plus-effect-plan" },
   ),
@@ -319,7 +321,7 @@ export const OPERATION_EFFECTS = {
       "discern-git-mutation",
       "external-setup",
     ],
-    "common-and-checkout",
+    "lifecycle-and-checkout",
     "required",
   ),
   update: policy(
@@ -341,12 +343,12 @@ export const OPERATION_EFFECTS = {
   worktree: OBSERVATION,
   "worktree drop": policy(
     ["discern-common-mutation", "discern-git-mutation", "external-setup"],
-    "common",
+    "lifecycle",
     "required",
   ),
   "worktree park": policy(
     ["discern-common-mutation", "discern-git-mutation", "external-setup"],
-    "common",
+    "lifecycle",
     "required",
   ),
   "worktree ensure": policy(
@@ -389,7 +391,7 @@ export const OPERATION_EFFECTS = {
   ),
   "worktree prune": policy(
     ["discern-common-mutation", "discern-git-mutation", "external-setup"],
-    "common",
+    "lifecycle",
     "required",
   ),
   "worktree setup": policy(

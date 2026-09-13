@@ -168,7 +168,8 @@ import {
   OPERATING_POLICIES,
   worktreeContinuityPolicy,
 } from "../../shared/operating_policies.ts";
-import { OperationLockError, withOperationLock } from "../operation_lock.ts";
+import { OperationLockError } from "../operation_lock.ts";
+import { executeOperation } from "../operation_execution.ts";
 import { DISCERN_MCP_SERVER } from "../../lib/providers.ts";
 
 const SERVER_NAME = "discern";
@@ -1776,20 +1777,22 @@ async function runVerb(
     const command = verbOf(tool.name);
     const { flags } = mcpCallFacts(command, args, cliModel);
     return {
-      result: await withOperationLock(
+      result: await executeOperation(
         root,
         {
           command,
           ...(flags === undefined ? {} : { flags }),
           ...(args.dry_run === true ? { dryRun: true } : {}),
         },
-        () =>
+        (operationSignal) =>
           tool.run(
             root,
             args,
-            signal ?? new AbortController().signal,
+            operationSignal,
             { awaitCallProfile, cliModel },
           ),
+        (value) => value,
+        signal,
       ),
     };
   } catch (e) {

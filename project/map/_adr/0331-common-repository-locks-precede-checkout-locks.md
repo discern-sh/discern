@@ -2,6 +2,8 @@
 
 **Status**: accepted. Applies the operation policy in [ADR 0330](0330-every-command-path-declares-its-operation-effects.md) to the acceptance transaction from [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md) and the linked-worktree model in [ADR 0011](0011-adopt-worktree-workflow.md).
 
+> Amended by [ADR 0393](0393-separate-operation-ownership-from-publication.md): lifecycle ownership and target reservations remain held during execution while common publication is limited to short shared-state transitions.
+
 ## Context
 
 Acceptance used a lock stored in one linked worktree's Git administration directory. Separate worktrees therefore held separate locks while they could move the same trunk ref and update the same main checkout. A second acceptance could also inspect the first process's journal during its active transition and mistake in-flight state for interruption evidence.

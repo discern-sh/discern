@@ -21,6 +21,9 @@
  * stops and reaps its whole tree — then re-raises — instead of orphaning it
  * against a half-created worktree.
  */
+import { currentOperationSignal } from "../../shared/operation_signal.ts";
+import { emitCompletionProgress } from "../completion/events.ts";
+import { assertOutsideCommonPublication } from "../../shared/operation_execution_boundary.ts";
 
 import { byteWriter } from "../output.ts";
 import type { Logger } from "../../lib/log.ts";
@@ -167,6 +170,7 @@ export async function runShellRouted(
     signal?: AbortSignal;
   },
 ): Promise<number> {
+  await assertOutsideCommonPublication();
   if (command.trim() === "") {
     return 0;
   }
@@ -182,6 +186,13 @@ export async function runShellRouted(
     PATH: await selfShimPath(cwd, env?.PATH),
     ...spawnedByEnv(),
   };
+  emitCompletionProgress({
+    phase: "operation",
+    state: "worktree-command",
+    candidate_id: null,
+    reason: `Running a worktree command in ${cwd}.`,
+    next: "The operation continues after the command exits.",
+  });
   try {
     const run = await superviseSpawn(
       () =>
@@ -200,7 +211,8 @@ export async function runShellRouted(
           : await settleCaptured(child, interrupted, scheduler),
       {
         isolatedGroup,
-        resumeAfterInterrupt: opts.signal !== undefined,
+        resumeAfterInterrupt: opts.signal !== undefined ||
+          currentOperationSignal() !== undefined,
         scheduler,
         ...(opts.signal === undefined ? {} : { signal: opts.signal }),
       },

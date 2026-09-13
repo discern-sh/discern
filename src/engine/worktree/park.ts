@@ -1,4 +1,5 @@
 /** Branch-preserving Park plan and apply core. */
+import { withWorktreeOwnership } from "../operation_lock.ts";
 
 import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { fileExists } from "../../shared/fs_presence.ts";
@@ -149,88 +150,92 @@ export async function worktreeParkResult(
   if (dryRun) {
     return previewResult("worktree park", parkPlanToEngine(prepared.plan));
   }
-  const beforeApply = await buildParkPlan(ctx, prepared.plan.targetPath);
-  if (!sameParkSubject(prepared.plan, beforeApply.plan)) {
-    throw new WorktreeGitError(
-      "Task changed after the Park plan was built. Nothing was removed. Review a refreshed plan, then re-run.",
-    );
-  }
-  const record: ParkedTaskMetadata = {
-    schema_version: PARKED_TASK_METADATA_SCHEMA_VERSION,
-    id: prepared.plan.id,
-    branch: prepared.plan.branch,
-    head: prepared.plan.head,
-    parked_at: wallTimeIso(SYSTEM_CLOCK.wallNow()),
-    task: prepared.task,
-  };
-  try {
-    await writeParkedTaskMetadata(ctx.root, record);
-  } catch (error) {
-    throw new WorktreeGitError(
-      `Park stopped before cleanup because task metadata could not be retained: ${
-        error instanceof Error ? error.message : String(error)
-      } Run \`discern doctor\`, then re-run \`discern worktree park ${prepared.plan.id}\`.`,
-      { cause: error },
-    );
-  }
+  return await withWorktreeOwnership(prepared.plan.targetPath, async () => {
+    const beforeApply = await buildParkPlan(ctx, prepared.plan.targetPath);
+    if (!sameParkSubject(prepared.plan, beforeApply.plan)) {
+      throw new WorktreeGitError(
+        "Task changed after the Park plan was built. Nothing was removed. Review a refreshed plan, then re-run.",
+      );
+    }
+    const record: ParkedTaskMetadata = {
+      schema_version: PARKED_TASK_METADATA_SCHEMA_VERSION,
+      id: prepared.plan.id,
+      branch: prepared.plan.branch,
+      head: prepared.plan.head,
+      parked_at: wallTimeIso(SYSTEM_CLOCK.wallNow()),
+      task: prepared.task,
+    };
+    try {
+      await writeParkedTaskMetadata(ctx.root, record);
+    } catch (error) {
+      throw new WorktreeGitError(
+        `Park stopped before cleanup because task metadata could not be retained: ${
+          error instanceof Error ? error.message : String(error)
+        } Run \`discern doctor\`, then re-run \`discern worktree park ${prepared.plan.id}\`.`,
+        { cause: error },
+      );
+    }
 
-  const { destroyed, failed } = await destroyResources(
-    { config: ctx.config, log: ctx.log, cwd: prepared.plan.targetPath },
-    prepared.plan.entries,
-  );
-  if (failed.length > 0) {
-    throw new WorktreeGitError(
-      `Park stopped because resource cleanup failed for ${
-        failed.join(", ")
-      }. The checkout and branch remain. Fix the failed destroy command above, then re-run \`discern worktree park ${prepared.plan.id}\`.`,
+    const { destroyed, failed } = await destroyResources(
+      { config: ctx.config, log: ctx.log, cwd: prepared.plan.targetPath },
+      prepared.plan.entries,
     );
-  }
-  const afterTeardown = await buildParkPlan(ctx, prepared.plan.targetPath);
-  if (!sameParkSubjectAfterTeardown(prepared.plan, afterTeardown.plan)) {
-    throw new WorktreeGitError(
-      `Task changed during resource cleanup. The checkout and branch remain; resources ${
-        destroyed.length === 0 ? "were unchanged" : "were removed"
-      }. Run \`discern worktree setup\` in ${prepared.plan.targetPath}, review the refreshed state, then re-run Park.`,
-    );
-  }
-  await removeWorktreeSafely(prepared.plan.targetPath, ctx.root);
-  const steps: StepResult[] = [
-    {
-      step: {
-        kind: "task-metadata",
-        label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
-        disposition: "run",
-        note: `retained for ${prepared.plan.branch}`,
+    if (failed.length > 0) {
+      throw new WorktreeGitError(
+        `Park stopped because resource cleanup failed for ${
+          failed.join(", ")
+        }. The checkout and branch remain. Fix the failed destroy command above, then re-run \`discern worktree park ${prepared.plan.id}\`.`,
+      );
+    }
+    const afterTeardown = await buildParkPlan(ctx, prepared.plan.targetPath);
+    if (!sameParkSubjectAfterTeardown(prepared.plan, afterTeardown.plan)) {
+      throw new WorktreeGitError(
+        `Task changed during resource cleanup. The checkout and branch remain; resources ${
+          destroyed.length === 0 ? "were unchanged" : "were removed"
+        }. Run \`discern worktree setup\` in ${prepared.plan.targetPath}, review the refreshed state, then re-run Park.`,
+      );
+    }
+    await removeWorktreeSafely(prepared.plan.targetPath, ctx.root);
+    const steps: StepResult[] = [
+      {
+        step: {
+          kind: "task-metadata",
+          label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
+          disposition: "run",
+          note: `retained for ${prepared.plan.branch}`,
+        },
+        outcome: "ok",
       },
-      outcome: "ok",
-    },
-    ...prepared.plan.entries.map((item): StepResult => ({
-      step: {
-        kind: "resource-destroy",
-        label: verbatimStepLabel(item.entry.resource_name),
-        disposition: "run",
-        note: item.entry.resource_identity,
+      ...prepared.plan.entries.map((item): StepResult => ({
+        step: {
+          kind: "resource-destroy",
+          label: verbatimStepLabel(item.entry.resource_name),
+          disposition: "run",
+          note: item.entry.resource_identity,
+        },
+        outcome: destroyed.includes(item.entry.resource_name)
+          ? "ok"
+          : "skipped",
+      })),
+      {
+        step: {
+          kind: "git",
+          label: BUILT_IN_STEP_LABELS.removeWorktree,
+          disposition: "run",
+          note: prepared.plan.targetPath,
+        },
+        outcome: "ok",
       },
-      outcome: destroyed.includes(item.entry.resource_name) ? "ok" : "skipped",
-    })),
-    {
-      step: {
-        kind: "git",
-        label: BUILT_IN_STEP_LABELS.removeWorktree,
-        disposition: "run",
-        note: prepared.plan.targetPath,
+      {
+        step: {
+          kind: "git",
+          label: BUILT_IN_STEP_LABELS.deleteBranch,
+          disposition: "skip",
+          note: `${prepared.plan.branch} retained for resume`,
+        },
+        outcome: "skipped",
       },
-      outcome: "ok",
-    },
-    {
-      step: {
-        kind: "git",
-        label: BUILT_IN_STEP_LABELS.deleteBranch,
-        disposition: "skip",
-        note: `${prepared.plan.branch} retained for resume`,
-      },
-      outcome: "skipped",
-    },
-  ];
-  return appliedResult("worktree park", steps);
+    ];
+    return appliedResult("worktree park", steps);
+  });
 }

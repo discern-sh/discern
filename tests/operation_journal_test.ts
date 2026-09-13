@@ -5,6 +5,7 @@ import {
   emitCompletionEvent,
   emitCompletionFailure,
   emitCompletionProgress,
+  withCompletionObserver,
 } from "../src/engine/completion/events.ts";
 import {
   normalizeOperationHandle,
@@ -39,9 +40,27 @@ Deno.test("a journalled operation retains facts, timings, and its final result",
     const result = await withOperationJournal(
       root,
       { verb: "done", path: root, branch: "agent/sample" },
-      (handle) => {
+      async (handle) => {
         assert(handle !== undefined);
         assertEquals(normalizeOperationHandle(handle), handle);
+        const nesting: string[] = [];
+        await withCompletionObserver((fact) => {
+          if (fact.kind === "progress") nesting.push(fact.progress.reason);
+        }, () =>
+          withOperationJournal(
+            root,
+            { verb: "standards", path: root },
+            (childHandle) => {
+              assertEquals(childHandle, handle);
+              return Promise.resolve({ ok: true, verb: "standards" } as const);
+            },
+            { result: (value) => value },
+          ));
+        assertEquals(nesting, [
+          "standards is running within done.",
+          "done is continuing after standards.",
+        ]);
+
         emitCompletionProgress({
           phase: "producer",
           state: "running",
@@ -87,7 +106,7 @@ Deno.test("a journalled operation retains facts, timings, and its final result",
             finished_at: 9,
           },
         });
-        return Promise.resolve(envelope(true, "Gate passed."));
+        return envelope(true, "Gate passed.");
       },
       { result: (value) => value },
     );

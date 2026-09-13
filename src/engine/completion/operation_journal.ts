@@ -732,11 +732,13 @@ function foundReading(
 }
 
 /** One journal covers one operation; a nested wrapped call joins its parent. */
-const JOURNAL_SCOPE = new AsyncLocalStorage<true>();
+const JOURNAL_SCOPE = new AsyncLocalStorage<
+  { readonly handle: string; readonly verb: string }
+>();
 
 /** Whether the current call runs inside a journalled operation already. */
 export function insideOperationJournal(): boolean {
-  return JOURNAL_SCOPE.getStore() === true;
+  return JOURNAL_SCOPE.getStore() !== undefined;
 }
 
 /**
@@ -755,47 +757,70 @@ export async function withOperationJournal<T>(
     readonly signal?: AbortSignal;
     /** Project the run's value onto the result envelope the journal retains. */
     readonly result: (value: T) => DiscernResult;
+    /** A child joins the authenticated live lease owner's journal without becoming a writer. */
+    readonly parent?: { readonly handle: string; readonly verb: string };
   },
 ): Promise<T> {
-  if (insideOperationJournal()) return await run(undefined);
+  const parent = JOURNAL_SCOPE.getStore() ?? options.parent;
+  if (parent !== undefined) {
+    emitCompletionProgress({
+      phase: "operation",
+      state: "nested-operation",
+      candidate_id: null,
+      reason: `${header.verb} is running within ${parent.verb}.`,
+    });
+    try {
+      return await JOURNAL_SCOPE.run(parent, () => run(parent.handle));
+    } finally {
+      emitCompletionProgress({
+        phase: "operation",
+        state: "continuing",
+        candidate_id: null,
+        reason: `${parent.verb} is continuing after ${header.verb}.`,
+      });
+    }
+  }
   // Every store failure is classified inside the store lock, so an open that
   // cannot proceed returns no journal rather than throwing.
   const open = await openOperationJournal(root, header, options);
   if (open === undefined) return await run(undefined);
-  return await JOURNAL_SCOPE.run(true, async () => {
-    try {
-      const value = await withCompletionObserver(
-        (fact) => open.observe(fact),
-        async () => {
-          emitCompletionProgress({
-            phase: "operation",
-            state: "started",
-            candidate_id: null,
-            reason:
-              `${header.verb} is running. If this call is lost, \`discern progress ${open.handle}\` reads it back.`,
-            operation_handle: open.handle,
-          });
-          return await run(open.handle);
-        },
-      );
-      const result = options.result(value);
-      // A cancelled run may still return an ordinary unsuccessful envelope;
-      // the executor's own cancellation, not the envelope shape, decides.
-      const cancelled = options.signal?.aborted === true;
-      const awaited = header.verb === "await"
-        ? AwaitDataSchema.safeParse(result.data)
-        : undefined;
-      const completed = result.ok &&
-        !(cancelled && awaited?.success === true && !awaited.data.met);
-      await open.finish(
-        completed ? "completed" : cancelled ? "cancelled" : "failed",
-        result,
-      );
-      return value;
-    } catch (error) {
-      const cancelled = options.signal?.aborted === true;
-      await open.finish(cancelled ? "cancelled" : "failed");
-      throw error;
-    }
-  });
+  return await JOURNAL_SCOPE.run(
+    { handle: open.handle, verb: header.verb },
+    async () => {
+      try {
+        const value = await withCompletionObserver(
+          (fact) => open.observe(fact),
+          async () => {
+            emitCompletionProgress({
+              phase: "operation",
+              state: "started",
+              candidate_id: null,
+              reason:
+                `${header.verb} is running. If this call is lost, \`discern progress ${open.handle}\` reads it back.`,
+              operation_handle: open.handle,
+            });
+            return await run(open.handle);
+          },
+        );
+        const result = options.result(value);
+        // A cancelled run may still return an ordinary unsuccessful envelope;
+        // the executor's own cancellation, not the envelope shape, decides.
+        const cancelled = options.signal?.aborted === true;
+        const awaited = header.verb === "await"
+          ? AwaitDataSchema.safeParse(result.data)
+          : undefined;
+        const completed = result.ok &&
+          !(cancelled && awaited?.success === true && !awaited.data.met);
+        await open.finish(
+          completed ? "completed" : cancelled ? "cancelled" : "failed",
+          result,
+        );
+        return value;
+      } catch (error) {
+        const cancelled = options.signal?.aborted === true;
+        await open.finish(cancelled ? "cancelled" : "failed");
+        throw error;
+      }
+    },
+  );
 }

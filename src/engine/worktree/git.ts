@@ -15,6 +15,7 @@
  * (default `main`); `git` from `GIT_BIN` (default `git`). Path identity throughout
  * uses real (canonical) paths so a symlinked checkout compares correctly.
  */
+import { withWorktreeOwnership } from "../operation_lock.ts";
 
 import {
   basename,
@@ -2495,226 +2496,234 @@ export async function removeWorktreeSafely(
   cwd: string = Deno.cwd(),
   scheduler: Scheduler = SYSTEM_SCHEDULER,
 ): Promise<WorktreeRemovalResult> {
-  const mainFirst = await firstWorktreePath(cwd);
-  if (mainFirst === undefined || mainFirst === "") {
-    throw new WorktreeGitError(
-      "Worktree removal needs a Git repository, but this directory is outside one. " +
-        "Move into the project's main checkout, then re-run.",
-    );
-  }
-  const mainRepo = await realPathOr(mainFirst);
-  const commonGitDir = await commonGitDirFrom(mainRepo);
-  const requested = isAbsolute(target) ? target : resolve(cwd, target);
-  const requestedObservation = await observePath(requested);
-  if (requestedObservation.kind === "unavailable") {
-    throw new WorktreeGitError(
-      `discern could not inspect the worktree target '${requested}': ` +
-        `${requestedObservation.reason}. Fix its permissions, then re-run.`,
-    );
-  }
-  if (
-    requestedObservation.kind === "present" &&
-    requestedObservation.stat.isSymlink
-  ) {
-    throw new WorktreeGitError(
-      `The worktree target '${requested}' is a symlink, so discern left it ` +
-        "untouched. Pass the real linked-worktree path from `git worktree list`.",
-    );
-  }
-  const canonical = await canonicalizeMaybeMissing(requested);
-  await assertRemovalTargetIsNarrow(canonical, mainRepo, commonGitDir);
-
-  if (canonical === mainRepo) {
-    throw new WorktreeGitError(
-      `'${canonical}' is the main checkout, which worktree removal never deletes. ` +
-        `Pass a worktree path instead; use \`git worktree list\` to find one.`,
-    );
-  }
-
-  // Registered as a current worktree of this repo?
-  const registration = await observeWorktreeRegistration(canonical, cwd);
-  if (registration.kind === "unavailable") {
-    throw new WorktreeGitError(
-      `discern could not verify Git's worktree registration for '${canonical}': ` +
-        `${registration.reason}. Nothing was removed; fix Git, then re-run.`,
-    );
-  }
-  const record = registration.kind === "registered"
-    ? registration.record
-    : undefined;
-  const registered = record !== undefined;
-
-  // A locked worktree is git's deliberate refusal, not an obstacle to route
-  // around: honor it before touching anything.
-  if (record?.locked === true) {
-    throw lockedWorktreeRefusal(canonical);
-  }
-
-  const gitlinked = await gitlinksInto(canonical, commonGitDir);
-
-  // Already gone and not registered → nothing to do (idempotent).
-  const initialPath = await observePath(canonical);
-  if (initialPath.kind === "unavailable") {
-    throw new WorktreeGitError(
-      `discern could not inspect '${canonical}': ${initialPath.reason}. Nothing ` +
-        "was removed; fix its permissions, then re-run.",
-    );
-  }
-  if (initialPath.kind === "absent" && !registered) {
-    return {
-      path: canonical,
-      pathAbsent: true,
-      gitRegistrationAbsent: true,
-      branch: "",
-      head: "",
-    };
-  }
-
-  // Safety gate: only a worktree (registered or gitlinked orphan) of this repo,
-  // computed before removal so the rm -rf fallback stays authorised mid-race.
-  if (!registered && !gitlinked) {
-    throw new WorktreeGitError(
-      `'${canonical}' is not a worktree of this repository, so discern left it ` +
-        `untouched. Pass a path from \`git worktree list\`, then re-run.`,
-    );
-  }
-
-  // `git worktree remove --force`, retrying only the transient ENOTEMPTY race.
-  let removed = false;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const run = await git(["worktree", "remove", "--force", canonical], cwd);
-    if (run.success) {
-      removed = true;
-      break;
-    }
-    const err = run.stderr;
-    if (err.includes("Directory not empty") || err.includes("ENOTEMPTY")) {
-      await delay(500, scheduler);
-      continue;
-    }
-    break; // any other error → the fallback (after the lock re-check below)
-  }
-
-  if (!removed) {
-    // Re-check the lock: a lock applied since the first look is exactly the
-    // failure git just refused on, and the fallback must not defeat it.
-    if ((await registeredWorktreeRecord(canonical, cwd))?.locked === true) {
-      throw lockedWorktreeRefusal(canonical);
-    }
-    const current = await observePath(canonical);
-    if (current.kind === "unavailable") {
-      throw new WorktreeGitError(
-        `The worktree at '${canonical}' could not be inspected after Git's ` +
-          `removal failed: ${current.reason}. Git and the branch were retained; ` +
-          "fix the path permissions, then re-run.",
-      );
-    }
-    if (current.kind === "present") {
+  return await withWorktreeOwnership(
+    isAbsolute(target) ? target : resolve(cwd, target),
+    async () => {
+      const mainFirst = await firstWorktreePath(cwd);
+      if (mainFirst === undefined || mainFirst === "") {
+        throw new WorktreeGitError(
+          "Worktree removal needs a Git repository, but this directory is outside one. " +
+            "Move into the project's main checkout, then re-run.",
+        );
+      }
+      const mainRepo = await realPathOr(mainFirst);
+      const commonGitDir = await commonGitDirFrom(mainRepo);
+      const requested = isAbsolute(target) ? target : resolve(cwd, target);
+      const requestedObservation = await observePath(requested);
+      if (requestedObservation.kind === "unavailable") {
+        throw new WorktreeGitError(
+          `discern could not inspect the worktree target '${requested}': ` +
+            `${requestedObservation.reason}. Fix its permissions, then re-run.`,
+        );
+      }
       if (
-        initialPath.kind !== "present" ||
-        !sameFilesystemObject(initialPath.stat, current.stat)
+        requestedObservation.kind === "present" &&
+        requestedObservation.stat.isSymlink
       ) {
         throw new WorktreeGitError(
-          `The worktree path '${canonical}' was replaced during teardown, so ` +
-            "discern left the replacement untouched. Git and the branch were retained; " +
-            "review the path and `git worktree list`, then re-run.",
+          `The worktree target '${requested}' is a symlink, so discern left it ` +
+            "untouched. Pass the real linked-worktree path from `git worktree list`.",
         );
       }
-      if (!current.stat.isDirectory || current.stat.isSymlink) {
+      const canonical = await canonicalizeMaybeMissing(requested);
+      await assertRemovalTargetIsNarrow(canonical, mainRepo, commonGitDir);
+
+      if (canonical === mainRepo) {
         throw new WorktreeGitError(
-          `The worktree path '${canonical}' is no longer the plain directory ` +
-            "discern identified, so it was left untouched. Review the path, then re-run.",
+          `'${canonical}' is the main checkout, which worktree removal never deletes. ` +
+            `Pass a worktree path instead; use \`git worktree list\` to find one.`,
         );
       }
-      try {
-        await Deno.remove(canonical, { recursive: true });
-      } catch (error) {
+
+      // Registered as a current worktree of this repo?
+      const registration = await observeWorktreeRegistration(canonical, cwd);
+      if (registration.kind === "unavailable") {
         throw new WorktreeGitError(
-          `The worktree at '${canonical}' could not be removed: ${
-            error instanceof Error ? error.message : String(error)
-          }. Git and the branch were retained where possible. Fix the path ` +
-            "permissions or stop its writer, then re-run.",
-          { cause: error },
+          `discern could not verify Git's worktree registration for '${canonical}': ` +
+            `${registration.reason}. Nothing was removed; fix Git, then re-run.`,
         );
       }
-    }
-  }
+      const record = registration.kind === "registered"
+        ? registration.record
+        : undefined;
+      const registered = record !== undefined;
 
-  let afterGit = await observeWorktreeRegistration(canonical, cwd);
-  if (afterGit.kind === "unavailable") {
-    throw new WorktreeGitError(
-      `The worktree path '${canonical}' was processed, but discern could not ` +
-        `verify Git's registry: ${afterGit.reason}. The branch was retained. ` +
-        "Run `git worktree list`, repair Git if needed, then re-run.",
-    );
-  }
-  if (afterGit.kind === "registered") {
-    const afterPath = await observePath(canonical);
-    if (afterPath.kind !== "absent") {
-      throw new WorktreeGitError(
-        `The worktree at '${canonical}' is still registered by Git, so teardown ` +
-          `did not complete. The path and branch were retained where possible. ` +
-          "Review `git worktree list`, then re-run the lifecycle command.",
-      );
-    }
-    await removeExactWorktreeRegistration(commonGitDir, afterGit.record);
-    afterGit = await observeWorktreeRegistration(canonical, cwd);
-  }
-  if (afterGit.kind !== "absent") {
-    throw new WorktreeGitError(
-      `The worktree at '${canonical}' is still registered by Git after bounded ` +
-        "recovery. The branch was retained. Run `git worktree repair`, then re-run.",
-    );
-  }
+      // A locked worktree is git's deliberate refusal, not an obstacle to route
+      // around: honor it before touching anything.
+      if (record?.locked === true) {
+        throw lockedWorktreeRefusal(canonical);
+      }
 
-  const afterPath = await observePath(canonical);
-  if (afterPath.kind === "unavailable") {
-    throw new WorktreeGitError(
-      `Git no longer registers '${canonical}', but discern could not verify the ` +
-        `retired path is absent: ${afterPath.reason}. The branch was retained; fix ` +
-        "the path permissions, then re-run `discern worktree prune --dry-run`.",
-    );
-  }
-  if (afterPath.kind === "present") {
-    throw new WorktreeGitError(
-      `Git no longer registers '${canonical}', but the retired path exists again. ` +
-        "discern left the replacement untouched and retained the branch. Stop the " +
-        "program writing there, inspect the path, then re-run `discern worktree prune --dry-run`.",
-    );
-  }
-  // Advisory evidence cannot roll a completed filesystem removal back. Store
-  // failures leave cleanup successful and only lose later reappearance notice.
-  await recordRetiredWorktreePath(mainRepo, canonical);
+      const gitlinked = await gitlinksInto(canonical, commonGitDir);
 
-  // Evidence writing is itself asynchronous and may give a late writer time to
-  // recreate the name. Success is issued only after a final strict filesystem
-  // and Git-registry observation at the actual return boundary.
-  const finalPath = await observePath(canonical);
-  const finalGit = await observeWorktreeRegistration(canonical, cwd);
-  if (finalPath.kind !== "absent" || finalGit.kind !== "absent") {
-    const pathState = finalPath.kind === "present"
-      ? "the retired path exists again"
-      : finalPath.kind === "unavailable"
-      ? `the retired path could not be inspected (${finalPath.reason})`
-      : "the retired path is absent";
-    const gitState = finalGit.kind === "registered"
-      ? "Git still registers it"
-      : finalGit.kind === "unavailable"
-      ? `Git's registry could not be read (${finalGit.reason})`
-      : "Git's registration is absent";
-    throw new WorktreeGitError(
-      `Worktree teardown did not complete for '${canonical}': ${pathState}; ` +
-        `${gitState}. The branch was retained. Stop any writer, review ` +
-        "`git worktree list`, then re-run the lifecycle command.",
-    );
-  }
-  return {
-    path: canonical,
-    pathAbsent: true,
-    gitRegistrationAbsent: true,
-    branch: record?.branch ?? "",
-    head: record?.head ?? "",
-  };
+      // Already gone and not registered → nothing to do (idempotent).
+      const initialPath = await observePath(canonical);
+      if (initialPath.kind === "unavailable") {
+        throw new WorktreeGitError(
+          `discern could not inspect '${canonical}': ${initialPath.reason}. Nothing ` +
+            "was removed; fix its permissions, then re-run.",
+        );
+      }
+      if (initialPath.kind === "absent" && !registered) {
+        return {
+          path: canonical,
+          pathAbsent: true,
+          gitRegistrationAbsent: true,
+          branch: "",
+          head: "",
+        };
+      }
+
+      // Safety gate: only a worktree (registered or gitlinked orphan) of this repo,
+      // computed before removal so the rm -rf fallback stays authorised mid-race.
+      if (!registered && !gitlinked) {
+        throw new WorktreeGitError(
+          `'${canonical}' is not a worktree of this repository, so discern left it ` +
+            `untouched. Pass a path from \`git worktree list\`, then re-run.`,
+        );
+      }
+
+      // `git worktree remove --force`, retrying only the transient ENOTEMPTY race.
+      let removed = false;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const run = await git(
+          ["worktree", "remove", "--force", canonical],
+          cwd,
+        );
+        if (run.success) {
+          removed = true;
+          break;
+        }
+        const err = run.stderr;
+        if (err.includes("Directory not empty") || err.includes("ENOTEMPTY")) {
+          await delay(500, scheduler);
+          continue;
+        }
+        break; // any other error → the fallback (after the lock re-check below)
+      }
+
+      if (!removed) {
+        // Re-check the lock: a lock applied since the first look is exactly the
+        // failure git just refused on, and the fallback must not defeat it.
+        if ((await registeredWorktreeRecord(canonical, cwd))?.locked === true) {
+          throw lockedWorktreeRefusal(canonical);
+        }
+        const current = await observePath(canonical);
+        if (current.kind === "unavailable") {
+          throw new WorktreeGitError(
+            `The worktree at '${canonical}' could not be inspected after Git's ` +
+              `removal failed: ${current.reason}. Git and the branch were retained; ` +
+              "fix the path permissions, then re-run.",
+          );
+        }
+        if (current.kind === "present") {
+          if (
+            initialPath.kind !== "present" ||
+            !sameFilesystemObject(initialPath.stat, current.stat)
+          ) {
+            throw new WorktreeGitError(
+              `The worktree path '${canonical}' was replaced during teardown, so ` +
+                "discern left the replacement untouched. Git and the branch were retained; " +
+                "review the path and `git worktree list`, then re-run.",
+            );
+          }
+          if (!current.stat.isDirectory || current.stat.isSymlink) {
+            throw new WorktreeGitError(
+              `The worktree path '${canonical}' is no longer the plain directory ` +
+                "discern identified, so it was left untouched. Review the path, then re-run.",
+            );
+          }
+          try {
+            await Deno.remove(canonical, { recursive: true });
+          } catch (error) {
+            throw new WorktreeGitError(
+              `The worktree at '${canonical}' could not be removed: ${
+                error instanceof Error ? error.message : String(error)
+              }. Git and the branch were retained where possible. Fix the path ` +
+                "permissions or stop its writer, then re-run.",
+              { cause: error },
+            );
+          }
+        }
+      }
+
+      let afterGit = await observeWorktreeRegistration(canonical, cwd);
+      if (afterGit.kind === "unavailable") {
+        throw new WorktreeGitError(
+          `The worktree path '${canonical}' was processed, but discern could not ` +
+            `verify Git's registry: ${afterGit.reason}. The branch was retained. ` +
+            "Run `git worktree list`, repair Git if needed, then re-run.",
+        );
+      }
+      if (afterGit.kind === "registered") {
+        const afterPath = await observePath(canonical);
+        if (afterPath.kind !== "absent") {
+          throw new WorktreeGitError(
+            `The worktree at '${canonical}' is still registered by Git, so teardown ` +
+              `did not complete. The path and branch were retained where possible. ` +
+              "Review `git worktree list`, then re-run the lifecycle command.",
+          );
+        }
+        await removeExactWorktreeRegistration(commonGitDir, afterGit.record);
+        afterGit = await observeWorktreeRegistration(canonical, cwd);
+      }
+      if (afterGit.kind !== "absent") {
+        throw new WorktreeGitError(
+          `The worktree at '${canonical}' is still registered by Git after bounded ` +
+            "recovery. The branch was retained. Run `git worktree repair`, then re-run.",
+        );
+      }
+
+      const afterPath = await observePath(canonical);
+      if (afterPath.kind === "unavailable") {
+        throw new WorktreeGitError(
+          `Git no longer registers '${canonical}', but discern could not verify the ` +
+            `retired path is absent: ${afterPath.reason}. The branch was retained; fix ` +
+            "the path permissions, then re-run `discern worktree prune --dry-run`.",
+        );
+      }
+      if (afterPath.kind === "present") {
+        throw new WorktreeGitError(
+          `Git no longer registers '${canonical}', but the retired path exists again. ` +
+            "discern left the replacement untouched and retained the branch. Stop the " +
+            "program writing there, inspect the path, then re-run `discern worktree prune --dry-run`.",
+        );
+      }
+      // Advisory evidence cannot roll a completed filesystem removal back. Store
+      // failures leave cleanup successful and only lose later reappearance notice.
+      await recordRetiredWorktreePath(mainRepo, canonical);
+
+      // Evidence writing is itself asynchronous and may give a late writer time to
+      // recreate the name. Success is issued only after a final strict filesystem
+      // and Git-registry observation at the actual return boundary.
+      const finalPath = await observePath(canonical);
+      const finalGit = await observeWorktreeRegistration(canonical, cwd);
+      if (finalPath.kind !== "absent" || finalGit.kind !== "absent") {
+        const pathState = finalPath.kind === "present"
+          ? "the retired path exists again"
+          : finalPath.kind === "unavailable"
+          ? `the retired path could not be inspected (${finalPath.reason})`
+          : "the retired path is absent";
+        const gitState = finalGit.kind === "registered"
+          ? "Git still registers it"
+          : finalGit.kind === "unavailable"
+          ? `Git's registry could not be read (${finalGit.reason})`
+          : "Git's registration is absent";
+        throw new WorktreeGitError(
+          `Worktree teardown did not complete for '${canonical}': ${pathState}; ` +
+            `${gitState}. The branch was retained. Stop any writer, review ` +
+            "`git worktree list`, then re-run the lifecycle command.",
+        );
+      }
+      return {
+        path: canonical,
+        pathAbsent: true,
+        gitRegistrationAbsent: true,
+        branch: record?.branch ?? "",
+        head: record?.head ?? "",
+      };
+    },
+  );
 }
 
 /** Sleep for `ms` milliseconds. */

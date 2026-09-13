@@ -277,3 +277,30 @@ Deno.test("every MCP tool resolves to the same command-path policy", () => {
     [],
   );
 });
+
+/** Arbitrary project execution may retain subject ownership, never publication ownership. */
+function publicationExecutionViolations(
+  policies: Readonly<Record<string, OperationEffectPolicy>>,
+): string[] {
+  return Object.entries(policies).filter(([, policy]) =>
+    (policy.lock === "common" || policy.lock === "common-and-checkout") &&
+    policy.effects.some((effect) =>
+      effect === "project-command" || effect === "external-setup"
+    )
+  ).map(([path]) => path).sort();
+}
+
+Deno.test("every operation policy keeps project execution outside common publication", () => {
+  assertEquals(publicationExecutionViolations(OPERATION_EFFECTS), []);
+  assertEquals(
+    publicationExecutionViolations({
+      unrelated: {
+        effects: ["project-command"],
+        lock: "common",
+        preview: "disclose",
+        gitWriteAuthority: "opaque",
+      },
+    }),
+    ["unrelated"],
+  );
+});

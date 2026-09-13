@@ -1,3 +1,4 @@
+import { assertOutsideCommonPublication } from "./operation_execution_boundary.ts";
 /**
  * Shared subprocess mechanics for the ordinary Git commands and
  * operator-supplied shell commands the engine drives.
@@ -889,6 +890,7 @@ export async function runShell(
   command: string,
   opts: { cwd: string; env?: Record<string, string> },
 ): Promise<ShellResult> {
+  await assertOutsideCommonPublication();
   try {
     const output = await new Deno.Command("sh", {
       args: ["-c", shellCommand(command)],

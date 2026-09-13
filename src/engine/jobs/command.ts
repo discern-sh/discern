@@ -9,6 +9,8 @@
  * grandchildren a shell command may fork. If the group signal is unavailable it
  * falls back to killing the direct child.
  */
+import { currentOperationSignal } from "../../shared/operation_signal.ts";
+import { assertOutsideCommonPublication } from "../../shared/operation_execution_boundary.ts";
 
 import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { colorResolvedEnv } from "../../shared/color_env.ts";
@@ -271,6 +273,7 @@ export async function spawnJob(
   job: Job,
   opts: SpawnOptions,
 ): Promise<SpawnedJob> {
+  await assertOutsideCommonPublication();
   const command = shellCommand(job.command);
   const clock = opts.clock ?? SYSTEM_CLOCK;
   const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
@@ -340,7 +343,7 @@ export async function spawnJob(
       }
     }, KILLED_PIPE_GRACE_MS);
   };
-  const signal = opts.signal;
+  const signal = opts.signal ?? currentOperationSignal();
   if (signal) {
     if (signal.aborted) {
       onAbort();
