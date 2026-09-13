@@ -112,6 +112,7 @@ export async function walkQueue(
                 confirmed: false,
                 variance: [],
                 approveStandard: [],
+                met: [],
                 target: next.path,
                 ...(request.cliModel === undefined
                   ? {}

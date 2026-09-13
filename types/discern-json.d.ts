@@ -8103,6 +8103,7 @@ export type DiscernStatusResult = DiscernResultState & {
       integration?: {
         owner: "live" | "interrupted";
         for_branch: string;
+        awaiting_judgment?: boolean;
       };
       gate_proof?: {
         status:

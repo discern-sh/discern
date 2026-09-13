@@ -74,6 +74,12 @@ export interface SubmissionFacts {
   readonly verdict: "current" | "superseded" | "unavailable";
   /** A live landing is checking this submission's combined code now. */
   readonly checking?: { readonly handle?: string };
+  /** A retained composition awaits a checkpoint decision for this
+   * submission: the served questions' ids and which decision continues. */
+  readonly judgment?: {
+    readonly decision: "declaration" | "variance";
+    readonly awaiting: readonly string[];
+  };
 }
 
 /** Derive one row's readiness, single waiting reason, and optional
@@ -90,6 +96,20 @@ export function submissionReadiness(
         ? "A running landing is checking its combined code now."
         : `A running landing is checking its combined code now; read it with discern progress ${facts.checking.handle}.`,
       ...(facts.trunkCurrent ? {} : { integration: true }),
+    };
+  }
+  if (facts.judgment !== undefined) {
+    const ids = facts.judgment.awaiting.join(", ");
+    return {
+      readiness: "waiting",
+      reason: facts.judgment.decision === "declaration"
+        ? `Its retained composition fired checkpoint question${
+          facts.judgment.awaiting.length === 1 ? "" : "s"
+        } (${ids}); judge the combined result and continue with discern accept --met <id> (or --unmet <id> --why "<rationale>") from its worktree.`
+        : `Its retained composition carries declared-unmet checkpoint${
+          facts.judgment.awaiting.length === 1 ? "" : "s"
+        } (${ids}); the owner's decision continues it: discern accept --confirmed --variance <id> from its worktree.`,
+      integration: true,
     };
   }
   if (!facts.branchCurrent && facts.provenBranchHead !== undefined) {
@@ -170,6 +190,7 @@ async function submissionRow(
   path: string,
   submission: Submission,
   checking?: { readonly handle?: string },
+  judgment?: SubmissionFacts["judgment"],
 ): Promise<Omit<SubmissionRow, "position"> | undefined> {
   if (await commitIsMerged(root, submission.head, trunk)) return undefined;
   let trunkCurrent = false;
@@ -239,6 +260,7 @@ async function submissionRow(
       proofReadable,
       verdict,
       ...(checking === undefined ? {} : { checking }),
+      ...(judgment === undefined ? {} : { judgment }),
     }),
   };
 }
@@ -257,19 +279,30 @@ export async function submissionRows(
   const trunkTip = tipRun.stdout.trim();
   // The submissions being checked right now, from the recorded integration
   // landings whose owning process still runs — the one authority the queue,
-  // status, and the landing walk share.
+  // status, and the landing walk share. A retained awaiting-judgment
+  // composition (no live owner by design) names the decision that continues
+  // its landing instead.
   const checking = new Map<string, { readonly handle?: string }>();
+  const judgments = new Map<string, SubmissionFacts["judgment"]>();
   for (const entry of await listIntegrationLandingRecords(root)) {
     if (entry.reading.status !== "recorded") continue;
     const record = entry.reading.record;
-    if (await integrationOwnerLiveness(root, record) !== "running") {
+    if (await integrationOwnerLiveness(root, record) === "running") {
+      checking.set(record.landing.submission_id, {
+        ...(record.operation.operation_handle === undefined
+          ? {}
+          : { handle: record.operation.operation_handle }),
+      });
       continue;
     }
-    checking.set(record.landing.submission_id, {
-      ...(record.operation.operation_handle === undefined
-        ? {}
-        : { handle: record.operation.operation_handle }),
-    });
+    if (
+      record.phase === "awaiting-judgment" && record.continuation !== undefined
+    ) {
+      judgments.set(record.landing.submission_id, {
+        decision: record.continuation.decision,
+        awaiting: record.continuation.awaiting,
+      });
+    }
   }
   const rows: Omit<SubmissionRow, "position">[] = [];
   for (const registration of await listRegisteredWorktrees(root)) {
@@ -283,6 +316,7 @@ export async function submissionRows(
       registration.path,
       read.submission,
       checking.get(read.submission.id),
+      judgments.get(read.submission.id),
     );
     if (row !== undefined) rows.push(row);
   }

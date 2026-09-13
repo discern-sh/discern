@@ -562,6 +562,7 @@ Deno.test("a caller without the live command tree refuses the composed landing w
         confirmed: true,
         variance: [],
         approveStandard: [],
+        met: [],
       });
       assertEquals(result.ok, false, JSON.stringify(result));
       message = result.message ?? "";

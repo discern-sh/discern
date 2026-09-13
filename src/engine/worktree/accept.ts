@@ -43,7 +43,6 @@ import {
   hintTexts,
   mergeHintTexts,
 } from "../../shared/hints.ts";
-import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import {
   appliedResult,
   BUILT_IN_STEP_LABELS,
@@ -75,7 +74,6 @@ import {
   declarationIsCurrent,
   readOpenQuestions,
 } from "../checkpoints/open_questions.ts";
-import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { candidatePredecessor } from "../completion/candidate.ts";
 import { readCompleteProof } from "../gate/completion_proof.ts";
 import { observedGateOperation } from "../gate/observed_operation.ts";
@@ -126,6 +124,7 @@ import {
   type AcceptanceCheckpointState,
   inspectAcceptanceCheckpoints,
   resolveVarianceInterlock,
+  serveUnmetConclusion,
   type StandingUnmetConclusion,
   varianceBinding,
 } from "./acceptance_checkpoints.ts";
@@ -176,6 +175,7 @@ import { type AcceptPlan, acceptPlanToEngine } from "./plan.ts";
 import { readResourceSpecs } from "./resources.ts";
 import { standardLimitApprovalRequests } from "./standard_approval.ts";
 import { strictVerdictCurrency } from "../completion/verdict.ts";
+import { retainedIntegrationJudgment } from "./integration_record.ts";
 import {
   readSubmission,
   type Submission,
@@ -197,6 +197,14 @@ export interface AcceptRequest {
   readonly confirmed: boolean;
   readonly variance: readonly string[];
   readonly approveStandard: readonly string[];
+  /** Checkpoint ids whose served integration question this call declares
+   * met — the continuation of a landing whose combined result awaits a
+   * judgment. Refused when no retained composition awaits one. */
+  readonly met: readonly string[];
+  /** The one served integration question this call declares unmet, with its
+   * required rationale — the gate still proves the composition, and the
+   * owner then decides the declared-unmet landing. */
+  readonly unmet?: { readonly id: string; readonly why: string };
   /** The live command tree, required by the integration gate run when the
    * trunk moved after the submission's Proof. */
   readonly cliModel?: CliModelProvider;
@@ -656,20 +664,6 @@ function refuseDeclarationsStale(ids: readonly string[]): never {
       ]),
     },
   );
-}
-
-/** One declared-unmet conclusion's serving text in the variance refusal. */
-function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
-  const evidence = checkpointServingText(unmet);
-  return [
-    `${unmet.id} — declared unmet at ${unmet.declaredAt}`,
-    `  Question: ${unmet.question.trim()}`,
-    ...(evidence.questionSource === undefined ? [] : [evidence.questionSource]),
-    `  Changed: ${evidence.matched}`,
-    ...evidence.related,
-    `  Rationale: ${markdownCodeSpan(unmet.why)}`,
-    ...evidence.notes,
-  ].join("\n");
 }
 
 /** Serve the owner's one complete variance decision over every unmet checkpoint. */
@@ -1225,6 +1219,8 @@ async function executeLanding(
   readonly proofLine?: string;
   readonly landedCommit: string;
   readonly integrated: boolean;
+  /** Direct landings carry exactly the author-decided variances. */
+  readonly variances: readonly AuthorizedVarianceData[];
 }> {
   const { mainRepo, trunk } = effort;
   const log = effort.ctx.log;
@@ -1519,6 +1515,7 @@ async function executeLanding(
     message,
     landedCommit: subject.head,
     integrated: false,
+    variances,
     ...(proofLine === undefined ? {} : { proofLine }),
   };
 }
@@ -1599,16 +1596,24 @@ export interface LandingDecision {
  * Decide the landing: the checkpoint contract first (a missing or stale
  * declaration routes back to `done`; a declared-unmet conclusion serves the
  * owner's one complete decision), then exact standard approvals, then consent.
+ *
+ * The checkpoint interlock here governs DIRECT landings, whose author state
+ * is exactly what lands. An integration landing re-validates the copied
+ * conclusions on the combined tree and resolves its own variance interlock
+ * over that exact subject after the combined check — author-side staleness
+ * or conclusions never gate it here, and `--variance` ids bind to the
+ * combined result's declarations, not the author's.
  */
 async function decideLanding(
   effort: EffortCheckout,
   subject: LandingSubject,
   authority: LandingAuthorityResolution,
   request: AcceptRequest,
+  direct: boolean,
 ): Promise<LandingDecision> {
   let drops = [...subject.drops];
   let variances: AuthorizedVarianceData[] = [];
-  if (subject.atHead) {
+  if (subject.atHead && direct) {
     const checkpointState = await inspectAcceptanceCheckpoints(
       effort.path,
       effort.ctx.config,
@@ -1622,7 +1627,7 @@ async function decideLanding(
       confirmed: request.confirmed,
       varianceIds: request.variance,
     });
-  } else {
+  } else if (!subject.atHead) {
     refuseMovedOnDecisions(effort, subject);
   }
   const standardProposals = await enforceStandardLimitApprovals(
@@ -1800,6 +1805,36 @@ async function landEffortOnce(
     const direct = predecessorCurrent ||
       (subject.atHead &&
         await commitIsAncestorOf(effort.mainRepo, tip, subject.head));
+    // Declarations answer a served integration question about a retained
+    // composition; a direct landing has none, so consuming them silently
+    // would record a judgment nothing served.
+    if (direct && (request.met.length > 0 || request.unmet !== undefined)) {
+      refusal(
+        "invalid_value",
+        `This landing is direct — ${effort.branch}'s proven revision already contains the current ${effort.trunk} tip — so no integration judgment awaits an answer here. Re-run discern accept without --met/--unmet. ${ACCEPT_NOTHING_LANDED}`,
+      );
+    }
+    // A direct landing supersedes any composition retained for this author's
+    // earlier submission: the judgment it awaited is moot, so the copy is
+    // discarded rather than left for prune.
+    if (direct && !request.dryRun) {
+      const retained = await retainedIntegrationJudgment(
+        effort.mainRepo,
+        effort.path,
+      );
+      if (retained !== undefined) {
+        const failures = await removeIntegrationWorktree(
+          effort.mainRepo,
+          retained,
+          effort.ctx.log,
+        );
+        for (const failure of failures) {
+          effort.ctx.log.warn(
+            `Superseded-judgment cleanup: ${failure}. Run discern worktree prune from ${effort.mainRepo}.`,
+          );
+        }
+      }
+    }
     if (direct && !predecessorCurrent) {
       // Check evidence is a tree property; standards ratchets are policy
       // relative to the trunk that now governs. Re-verify never-loosen
@@ -1823,7 +1858,13 @@ async function landEffortOnce(
         direct,
       );
     }
-    const decision = await decideLanding(effort, subject, authority, request);
+    const decision = await decideLanding(
+      effort,
+      subject,
+      authority,
+      request,
+      direct,
+    );
     // An owner explicitly accepting a proven but unsubmitted revision submits
     // it through this route; the landing then consumes exactly that record.
     if (
@@ -1888,9 +1929,9 @@ async function landEffortOnce(
         ...(decision.drops.length === 0
           ? {}
           : { checkpoint_drops: [...decision.drops] }),
-        ...(decision.variances.length === 0
+        ...(landed.variances.length === 0
           ? {}
-          : { variances: decision.variances.map((v) => ({ ...v })) }),
+          : { variances: landed.variances.map((v) => ({ ...v })) }),
         ...(decision.standardProposals.length === 0 ? {} : {
           standard_approvals: decision.standardProposals.map(
             cloneStandardLimitProposal,
@@ -2002,6 +2043,17 @@ async function landingResult(
   env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
+  if (
+    request.dryRun && (request.met.length > 0 || request.unmet !== undefined)
+  ) {
+    return {
+      ok: false,
+      verb: "accept",
+      error: "invalid_arguments",
+      message:
+        "A dry run records nothing, so --met/--unmet cannot accompany it. Preview without declarations, then answer the served question with an apply call.",
+    };
+  }
   const effort = await effortCheckout(ctx, request.target);
   if (effort === undefined) {
     return await refuseFromMainCheckout(

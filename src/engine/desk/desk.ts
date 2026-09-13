@@ -573,6 +573,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       confirmed: false,
       variance: [],
       approveStandard: [],
+      met: [],
     }),
   accept: (ctx, opts) =>
     acceptLanding(ctx, {
@@ -580,6 +581,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       confirmed: opts.confirmed ?? false,
       variance: [],
       approveStandard: [],
+      met: [],
       ...(opts.cliModel === undefined ? {} : { cliModel: opts.cliModel }),
     }),
   update: (ctx, opts) =>

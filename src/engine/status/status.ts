@@ -555,7 +555,10 @@ export async function statusResult(
       }),
     );
     // Integration copies are discern-owned, never efforts an agent may
-    // adopt; the recorded landing is the authority, not the branch name.
+    // adopt; the recorded landing is the authority, not the branch name. A
+    // retained awaiting-judgment copy has no live owner by design — it waits
+    // for its served checkpoint decision, and prune preserves it while its
+    // submission stands.
     for (const record of await listIntegrationLandingRecords(root)) {
       if (record.reading.status !== "recorded") continue;
       const owned = record.reading.record;
@@ -566,6 +569,9 @@ export async function statusResult(
           ? "live"
           : "interrupted",
         for_branch: owned.landing.branch,
+        ...(owned.phase === "awaiting-judgment"
+          ? { awaiting_judgment: true }
+          : {}),
       };
     }
     // The containment fact, carried as advisory colour: a row whose committed

@@ -36,8 +36,11 @@ export function emergencyArguments(
     action === undefined &&
     (fields.reason !== undefined || fields.confirmation !== undefined ||
       fields.recover !== undefined || fields.prepare !== undefined ||
-      fields.preparation !== undefined || fields.met !== undefined)
+      fields.preparation !== undefined)
   ) {
+    // `met` stays out of this refusal: an ordinary landing accepts it as the
+    // integration-judgment continuation, while emergency preparation keeps
+    // its own pairing rule below.
     message =
       "Emergency fields require the explicit accept emergency action (MCP action: emergency). Prepare that plan before requesting approval.";
   }

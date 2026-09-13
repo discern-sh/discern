@@ -191,7 +191,9 @@ export const ON_DISK_FORMATS = {
   integrationLanding: {
     id: "integration-landing",
     location: { kind: "git-admin", keys: ["integrationLandings"] },
-    version: 1,
+    // Version 2 added the awaiting-judgment phase and its continuation block;
+    // the reader lifts version-1 records (no judgment retention) in memory.
+    version: 2,
     versionField: "version",
     reader:
       "src/engine/worktree/integration_record.ts#parseIntegrationLandingRecord",

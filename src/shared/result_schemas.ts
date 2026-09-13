@@ -1937,12 +1937,17 @@ const statusFleetEntrySchema = z.strictObject({
   landing_authority: LandingAuthorityDataSchema.optional(),
   /** Present when this checkout is a landing's own integration worktree —
    * discern-owned, never an effort an agent may adopt. `live` while its
-   * landing runs; `interrupted` when the owner is gone and
-   * `discern worktree prune` reclaims it. */
+   * landing runs; `interrupted` when the owner is gone — then
+   * `discern worktree prune` reclaims it, unless `awaiting_judgment` marks
+   * it as deliberately retained for a served checkpoint decision that
+   * `discern accept` continues from the author's worktree. */
   integration: z.strictObject({
     owner: z.enum(["live", "interrupted"]),
     /** The authoring branch whose submission the landing composes. */
     for_branch: z.string(),
+    /** The copy is retained for a served checkpoint decision; it is not
+     * reclaimable while its submission stands. */
+    awaiting_judgment: z.boolean().optional(),
   }).optional(),
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;

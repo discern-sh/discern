@@ -1932,6 +1932,7 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
       confirmed: false,
       variance: [],
       approveStandard: [],
+      met: [],
     }).catch((error: unknown) => {
       if (error instanceof WorktreeResultError) return error.result;
       throw error;
@@ -1963,6 +1964,7 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
       confirmed: true,
       variance: [],
       approveStandard: [],
+      met: [],
     });
     assertEquals(applied.ok, true, JSON.stringify(applied));
     assertEquals(applied.data?.landing, {

@@ -2389,6 +2389,26 @@ export const HINTS = {
       `${WHY_FLAG}). Missing or stale: ${ids.join(", ")}.`,
   }),
 
+  /** The integration judgment continuation: the combined result fired a
+   * checkpoint question, the composition is retained, and the answer
+   * continues this landing in place — never an author-side rebuild. */
+  "accept-integration-judgment": defineHint<{ ids: string[] }>({
+    id: "accept-integration-judgment",
+    category: "next-step",
+    audience: "all",
+    when:
+      "An integration landing's combined result fires a checkpoint question that needs a recorded conclusion.",
+    family: "checkpoint-declaration",
+    example: { ids: ["api-review"] },
+    template: ({ ids }): string =>
+      `Judge each served question against the combined result, then continue ` +
+      `this landing from your own worktree: ${CMD.accept} ${MET_FLAG} when a ` +
+      `question is satisfied, or ${CMD.accept} ${UNMET_FLAG} with ` +
+      `${WHY_FLAG} when it is not. Awaiting: ${ids.join(", ")}. The retained ` +
+      `composition carries the answer — no author-side update or new Proof ` +
+      `is needed.`,
+  }),
+
   "accept-requires-strict-proof": defineHint({
     id: "accept-requires-strict-proof",
     category: "next-step",

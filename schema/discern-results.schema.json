@@ -26712,6 +26712,9 @@
                           },
                           "for_branch": {
                             "type": "string"
+                          },
+                          "awaiting_judgment": {
+                            "type": "boolean"
                           }
                         },
                         "required": [

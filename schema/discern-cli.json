@@ -6418,8 +6418,36 @@
           "spellings": [
             "--met"
           ],
-          "description": "Emergency preparation only: record a satisfied served checkpoint question (repeatable).",
+          "description": "Record a satisfied served checkpoint question (repeatable): the continuation of a landing whose combined result awaits your judgment, or emergency preparation with accept emergency --prepare.",
           "type_definition": "<id:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--unmet"
+          ],
+          "description": "Declare one served integration checkpoint question not satisfied (requires --why). The retained composition is still proved; the owner then decides the declared-unmet landing.",
+          "type_definition": "<id:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--why"
+          ],
+          "description": "The required one-paragraph rationale for --unmet.",
+          "type_definition": "<rationale:string>",
           "arity": 1,
           "value_types": [
             "string"

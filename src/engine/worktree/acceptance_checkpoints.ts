@@ -23,6 +23,7 @@
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import type { AuthorizedVarianceData } from "../../shared/result_schemas.ts";
 import {
   type CheckpointDrop,
@@ -34,6 +35,7 @@ import {
   readOpenQuestions,
 } from "../checkpoints/open_questions.ts";
 import { loadGoverningPolicy } from "../checkpoints/policy.ts";
+import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import type { RelatedCheckpointPath } from "../checkpoints/types.ts";
 
 /** One standing declared-unmet conclusion, with everything the owner's
@@ -151,6 +153,22 @@ export async function inspectAcceptanceCheckpoints(
   state.met.sort();
   state.unmet.sort((a, b) => a.id.localeCompare(b.id));
   return state;
+}
+
+/** One declared-unmet conclusion's serving text in a variance refusal —
+ * shared by the direct landing's decision moment and the integration
+ * landing's combined-result decision moment. */
+export function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
+  const evidence = checkpointServingText(unmet);
+  return [
+    `${unmet.id} — declared unmet at ${unmet.declaredAt}`,
+    `  Question: ${unmet.question.trim()}`,
+    ...(evidence.questionSource === undefined ? [] : [evidence.questionSource]),
+    `  Changed: ${evidence.matched}`,
+    ...evidence.related,
+    `  Rationale: ${markdownCodeSpan(unmet.why)}`,
+    ...evidence.notes,
+  ].join("\n");
 }
 
 /** Project a standing conclusion onto its authorized-variance binding. */

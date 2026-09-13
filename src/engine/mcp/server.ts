@@ -1094,25 +1094,28 @@ export const TOOLS: McpTool[] = orderTools([
       "consent or machine-verified authority; without either, the call records " +
       "the submission, re-serves the review moment, and lands nothing. Landing " +
       "fast-forwards the trunk to the exact proven commit, records its Proof " +
-      "note, converges the main checkout, and removes the worktree, its branch, " +
-      "and its resources when the branch holds nothing beyond the landed commit. " +
+      "note, converges the main checkout, and removes the worktree, branch, and " +
+      "resources once nothing beyond the landed commit remains. " +
       "A trunk that moved after the Proof is composed and re-proven in a " +
-      "disposable integration worktree, then landed as that exact commit; a " +
+      "disposable integration worktree, then landed as that commit; a " +
       "conflict or red combined check returns to the author, nothing changed. " +
+      "A checkpoint question about the combined result stops read-only and " +
+      "retains the composition: answer with met (or unmet with why) to " +
+      "continue the same landing — no author-side update is owed. " +
       "A second accept waits its turn. With target, the remaining queue lands " +
-      "after the selected submission, each under its own recorded grant, " +
-      "stopping at the first refusal; data.landings reports each attempt. " +
+      "after the selected submission under recorded grants, stopping at the " +
+      "first refusal; data.landings reports each attempt. " +
       "Recorded grants never cover a checkpoint variance or standard proposal. " +
-      "Set dry_run to inspect the landing plan and the queue without changing anything. " +
+      "Set dry_run to preview the landing plan and queue. " +
       "After success, report what landed and any unresolved cleanup in your own " +
-      "words, then end with data.proof_line verbatim; the full review page remains " +
-      "available through `discern status --verbose`. " +
+      "words, ending with data.proof_line verbatim; the full page stays " +
+      "available via `discern status --verbose`. " +
       "Use action: emergency with a reason for an explicit exception against actual trunk. " +
-      "For checkpoints, use prepare: true and met for satisfied served questions; pass the returned preparation receipt to the read-only plan. " +
-      "Emergency preview lists failed, unrun, and stale obligations; fresh owner approval must name " +
-      "its current confirmation token and set confirmed. No ordinary grant authorizes emergency integration. " +
-      "The exception stays durable and outstanding validation stays visible; no passing Proof is issued. " +
-      "Use recover with the emergency landing id for interrupted transitions. Neither route pushes or deploys.",
+      "prepare: true with met records served judgments; pass its receipt to the read-only plan. " +
+      "The preview lists failed, unrun, and stale obligations; owner approval " +
+      "names its current confirmation token with confirmed; no ordinary grant covers it. " +
+      "The exception stays durable, outstanding validation visible; no passing Proof is issued. " +
+      "Use recover with the emergency landing id for interrupted transitions. Neither route pushes.",
     inputSchema: {
       target: z.string().optional().describe(
         "Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with confirmed.",
@@ -1130,7 +1133,20 @@ export const TOOLS: McpTool[] = orderTools([
         "Emergency preparation receipt for this exact repair and trunk; it conveys no owner approval.",
       ),
       met: z.array(z.string()).optional().describe(
-        "Emergency preparation only: satisfied checkpoint questions already served to the agent.",
+        "Satisfied served checkpoint questions (repeatable): the continuation " +
+          "of a landing whose combined result awaits your judgment, or " +
+          "emergency preparation with prepare: true. Refused when nothing " +
+          "served a question.",
+      ),
+      unmet: z.strictObject({
+        id: z.string().describe("The served checkpoint id declared unmet."),
+        why: z.string().describe(
+          "The required rationale: one paragraph, 1-500 characters.",
+        ),
+      }).optional().describe(
+        "Declare ONE served integration checkpoint question not satisfied. " +
+          "The retained composition is still proved; landing then needs the " +
+          "owner's variance decision.",
       ),
       confirmation: z.string().optional().describe(
         "The owner's currently approved emergency preview token. Requires confirmed; changed subjects need a new review.",
@@ -1179,6 +1195,17 @@ export const TOOLS: McpTool[] = orderTools([
         dryRun: args.dry_run === true,
       });
       if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
+      if (parsed.value.emergency !== undefined && args.unmet !== undefined) {
+        return Promise.resolve(
+          {
+            ok: false,
+            verb: "accept",
+            error: "invalid_arguments",
+            message:
+              "unmet answers an ordinary landing's served integration question; emergency preparation records met conclusions only.",
+          } satisfies DiscernResult,
+        );
+      }
       return acceptToolResult(root, {
         ...(parsed.value.emergency === undefined
           ? {}
@@ -1192,6 +1219,10 @@ export const TOOLS: McpTool[] = orderTools([
         ...(args.approve_standard === undefined
           ? {}
           : { approveStandard: args.approve_standard }),
+        ...(parsed.value.emergency !== undefined || args.met === undefined
+          ? {}
+          : { met: args.met }),
+        ...(args.unmet === undefined ? {} : { unmet: args.unmet }),
       });
     },
   }),
@@ -1378,6 +1409,8 @@ async function acceptToolResult(
     confirmed: boolean;
     variance?: string[];
     approveStandard?: string[];
+    met?: string[];
+    unmet?: { id: string; why: string };
     cliModel: CliModelProvider;
   },
 ): Promise<DiscernResult> {
@@ -1399,6 +1432,8 @@ async function acceptToolResult(
       confirmed: opts.confirmed,
       variance: opts.variance ?? [],
       approveStandard: opts.approveStandard ?? [],
+      met: opts.met ?? [],
+      ...(opts.unmet === undefined ? {} : { unmet: opts.unmet }),
       cliModel: opts.cliModel,
     });
   } catch (e) {

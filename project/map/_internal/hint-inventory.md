@@ -63,6 +63,17 @@ Rendered example:
 
 > Run `discern done` — it serves each checkpoint's question and evidence and records your conclusion (--met, or --unmet with --why). Missing or stale: api-review.
 
+## `accept-integration-judgment`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `checkpoint-declaration`
+- Emitting context: An integration landing's combined result fires a checkpoint question that needs a recorded conclusion.
+
+Rendered example:
+
+> Judge each served question against the combined result, then continue this landing from your own worktree: `discern accept` --met when a question is satisfied, or `discern accept` --unmet with --why when it is not. Awaiting: api-review. The retained composition carries the answer — no author-side update or new Proof is needed.
+
 ## `accept-publish-proof-note`
 
 - Category: `owner-attention`

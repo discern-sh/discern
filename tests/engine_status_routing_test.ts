@@ -19,6 +19,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
 
 const CONFIG = [
@@ -96,8 +97,7 @@ async function behindFixture(
 async function statusHints(wt: string): Promise<string[]> {
   const status = await runAgent(wt, ["status", "--json"]);
   assertEquals(status.code, 0, status.output);
-  const parsed = JSON.parse(status.stdout) as { hints?: string[] };
-  return parsed.hints ?? [];
+  return [...(decodeCliResult(status.stdout, "status").hints ?? [])];
 }
 
 Deno.test("a proven branch behind the trunk routes to accept, never into author-side update work", async () => {

@@ -966,8 +966,20 @@ export function attachEngineCommands(
     )
     .option(
       "--met <id:string>",
-      "Emergency preparation only: record a satisfied served checkpoint question (repeatable).",
+      "Record a satisfied served checkpoint question (repeatable): the " +
+        "continuation of a landing whose combined result awaits your " +
+        "judgment, or emergency preparation with accept emergency --prepare.",
       { collect: true },
+    )
+    .option(
+      "--unmet <id:string>",
+      "Declare one served integration checkpoint question not satisfied " +
+        "(requires --why). The retained composition is still proved; the " +
+        "owner then decides the declared-unmet landing.",
+    )
+    .option(
+      "--why <rationale:string>",
+      "The required one-paragraph rationale for --unmet.",
     )
     .option(
       "--reason <text:string>",
@@ -1012,6 +1024,28 @@ export function attachEngineCommands(
       );
       const parsed = emergencyArguments(action, o);
       if (parsed.kind === "refusal") throw new CliRefusal(parsed.result);
+      if (
+        parsed.value.emergency !== undefined &&
+        (o.unmet !== undefined || o.why !== undefined)
+      ) {
+        throw new CliRefusal({
+          ok: false,
+          verb: "accept",
+          error: "invalid_arguments",
+          message:
+            "--unmet and --why answer an ordinary landing's served integration question; emergency preparation records met conclusions only.",
+        });
+      }
+      if ((o.unmet === undefined) !== (o.why === undefined)) {
+        throw new CliRefusal({
+          ok: false,
+          verb: "accept",
+          error: "invalid_arguments",
+          message: o.unmet === undefined
+            ? "--why belongs to --unmet <id>; pass both or neither."
+            : '--unmet <id> requires its rationale: pass --why "<rationale>".',
+        });
+      }
       const json = jsonFrom(o);
       return await runWorktreeOp(
         async (ctx) => {
@@ -1039,6 +1073,10 @@ export function attachEngineCommands(
             confirmed: o.confirmed ?? false,
             variance: o.variance ?? [],
             approveStandard: o.approveStandard ?? [],
+            met: o.met ?? [],
+            ...(o.unmet !== undefined && o.why !== undefined
+              ? { unmet: { id: o.unmet, why: o.why } }
+              : {}),
             cliModel,
           });
         },

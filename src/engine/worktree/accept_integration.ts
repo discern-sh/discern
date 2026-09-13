@@ -13,13 +13,22 @@ import {
   AWAITING_CONSENT_SLUG,
   type LandingConsent,
 } from "../../shared/consent.ts";
+import {
+  AWAITING_DECLARATION_SLUG,
+  AWAITING_VARIANCE_SLUG,
+} from "../../shared/declarations.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
 import {
   BUILT_IN_STEP_LABELS,
   type DiscernResult,
 } from "../../shared/result.ts";
-import type { AcceptData } from "../../shared/result_schemas.ts";
+import type {
+  AcceptData,
+  AuthorizedVarianceData,
+  ServedCheckpointData,
+} from "../../shared/result_schemas.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
+import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { renderLandingProofLine } from "../gate/proof_render.ts";
 import { convergeMainCheckout } from "./accept_convergence.ts";
 import {
@@ -39,6 +48,11 @@ import {
   trunkTip,
 } from "./accept_support.ts";
 import {
+  resolveVarianceInterlock,
+  serveUnmetConclusion,
+  type StandingUnmetConclusion,
+} from "./acceptance_checkpoints.ts";
+import {
   clearCompletedAcceptanceJournal,
   performAcceptanceTransition,
 } from "./acceptance_transaction.ts";
@@ -47,7 +61,11 @@ import { withLandingCommonPhase } from "../operation_lock.ts";
 import { WorktreeGitError, WorktreeResultError } from "./git.ts";
 import { deriveIdentity } from "./identity.ts";
 import { inspectLandingAuthority } from "./landing_authority.ts";
-import { runIntegrationAttempt } from "./integration_landing.ts";
+import {
+  type IntegrationDeclarations,
+  retainIntegrationForJudgment,
+  runIntegrationAttempt,
+} from "./integration_landing.ts";
 import { removeIntegrationWorktree } from "./lifecycle.ts";
 import { classifyAutomaticBranchOwnership } from "./ownership.ts";
 import { clearSubmissionIfCurrent } from "./submission_writer.ts";
@@ -120,6 +138,116 @@ function integrationAuthorRoute(effort: EffortCheckout): string {
   return `Run discern update from ${effort.path}, resolve what it reports, commit, run discern done, then discern accept.`;
 }
 
+/** One served checkpoint question's text in the integration judgment
+ * refusal: id, evidence, and the question — the same fragments the gate's
+ * own serving uses, with wire-shaped related evidence mapped back. */
+function serveIntegrationQuestion(served: ServedCheckpointData): string {
+  const evidence = checkpointServingText({
+    matched: served.matched,
+    related: (served.related ?? []).map((relation) => ({
+      kind: relation.kind,
+      forPath: relation.for_path,
+      path: relation.path,
+    })),
+    ...(served.question_file === undefined
+      ? {}
+      : { questionFile: served.question_file }),
+    ...(served.teach === undefined ? {} : { teach: served.teach }),
+    ...(served.reference === undefined ? {} : { reference: served.reference }),
+  });
+  return [
+    `${served.id} — changed: ${evidence.matched}`,
+    ...evidence.related,
+    `  Question: ${served.question.trim()}`,
+    ...(evidence.questionSource === undefined ? [] : [evidence.questionSource]),
+    ...evidence.notes,
+  ].join("\n");
+}
+
+/** Refuse with the served integration questions and their callable
+ * continuation. The composition is already retained; this is a judgment
+ * stop — distinguishable from an executed check that failed — and no lock
+ * is held while the answer is awaited. */
+function refuseAwaitingIntegrationJudgment(
+  effort: EffortCheckout,
+  submittedHead: string,
+  composedHead: string | undefined,
+  copyPath: string,
+  served: readonly ServedCheckpointData[],
+  checkpoints: AcceptData["checkpoint_preparation"],
+): never {
+  const ids = served.map((entry) => entry.id);
+  const heading = `Landing ${effort.branch}'s submission ${
+    short(submittedHead)
+  }, composed with ${effort.trunk}${
+    composedHead === undefined ? "" : ` as ${short(composedHead)}`
+  }, fired ${served.length} checkpoint question${
+    served.length === 1 ? "" : "s"
+  } that need${
+    served.length === 1 ? "s" : ""
+  } your judgment about the combined result before its check can run:`;
+  refusal(
+    AWAITING_DECLARATION_SLUG,
+    `${heading}\n\n${
+      served.map(serveIntegrationQuestion).join("\n\n")
+    }\n\nJudge each question against the combined result — readable at ` +
+      `${copyPath} (discern's integration worktree: inspect it read-only, ` +
+      "never adopt or edit it) — then continue this landing from your own " +
+      "worktree: `discern accept --met <id>` (repeatable) when a question " +
+      'is satisfied, or `discern accept --unmet <id> --why "<rationale>"` ' +
+      "(one per invocation) when it is not; the owner then decides that " +
+      "declared-unmet landing. The composition is retained for your answer. " +
+      "No gate job ran, your worktree needs no update or new Proof for " +
+      `this, and other landings can proceed meanwhile. ${ACCEPT_NOTHING_LANDED}`,
+    {
+      hints: hintTexts([
+        fire(HINTS["accept-integration-judgment"], { ids }),
+      ]),
+      ...(checkpoints === undefined
+        ? {}
+        : { data: { checkpoint_preparation: checkpoints } }),
+    },
+  );
+}
+
+/** Serve the owner's variance decision over the combined result's
+ * declared-unmet conclusions; the proven composition stays retained. */
+function refuseAwaitingIntegrationVariance(
+  unmet: readonly StandingUnmetConclusion[],
+  missing: readonly string[],
+  confirmed: boolean,
+): never {
+  const ids = unmet.map((entry) => entry.id);
+  const decision = confirmed
+    ? `The landing decision must also cover every declared-unmet checkpoint of the combined result; missing: ${
+      missing.join(", ")
+    }.`
+    : `Landing is the owner's decision, and ${
+      unmet.length === 1
+        ? "one declared-unmet conclusion about the combined result additionally requires"
+        : `${unmet.length} declared-unmet conclusions about the combined result additionally require`
+    } the owner to authorize a variance.`;
+  const command = `discern accept --confirmed ${
+    ids.map((id) => `--variance ${id}`).join(" ")
+  }`;
+  refusal(
+    AWAITING_VARIANCE_SLUG,
+    `${decision}\n\n${
+      unmet.map(serveUnmetConclusion).join("\n\n")
+    }\n\nRelay each question and rationale to the owner. Once the owner ` +
+      `accepts this landing AND each named variance in the current ` +
+      `conversation, re-run \`${command}\` from your worktree — the proven ` +
+      `composition is retained and continues without re-running its check. ` +
+      `Recorded standing and effort grants never authorize a variance. ${ACCEPT_NOTHING_LANDED}`,
+    {
+      hints: hintTexts([
+        fire(HINTS["accept-authorize-variance"], { ids }),
+        fire(HINTS["accept-review-via-status"]),
+      ]),
+    },
+  );
+}
+
 /**
  * Land a submission the trunk overtook: compose the frozen snapshot with the
  * trunk tip in a disposable integration worktree, prove the combined tree,
@@ -145,6 +273,9 @@ export async function executeIntegrationLanding(
   readonly proofLine?: string;
   readonly landedCommit: string;
   readonly integrated: boolean;
+  /** The variances this landing actually carried — resolved against the
+   * combined result's declarations, not the author's. */
+  readonly variances: readonly AuthorizedVarianceData[];
 }> {
   const { mainRepo, trunk } = effort;
   const log = effort.ctx.log;
@@ -176,6 +307,17 @@ export async function executeIntegrationLanding(
   }
   await assertMainCheckoutReady(effort);
 
+  // Conclusions this call carries for a retained composition's served
+  // questions. They bind to the composition the agent was served, so a
+  // recomposition (bounded trunk-movement retry) never consumes them.
+  const declarations: IntegrationDeclarations | undefined =
+    request.met.length > 0 || request.unmet !== undefined
+      ? {
+        met: request.met,
+        ...(request.unmet === undefined ? {} : { unmet: request.unmet }),
+      }
+      : undefined;
+
   let tip = enteredTip;
   for (let attempt = 1;; attempt++) {
     const composed = await runIntegrationAttempt({
@@ -184,6 +326,7 @@ export async function executeIntegrationLanding(
       expectedTrunk: tip,
       log,
       cliModel,
+      ...(attempt === 1 && declarations !== undefined ? { declarations } : {}),
       ...(operationHandle === undefined ? {} : { operationHandle }),
       ...(request.signal === undefined ? {} : { signal: request.signal }),
     });
@@ -198,6 +341,30 @@ export async function executeIntegrationLanding(
         `The integration worktree for ${effort.branch}'s submission could not be prepared: ${composed.reason}${
           cleanupTail(composed.cleanupFailures)
         } ${ACCEPT_NOTHING_LANDED}`,
+      );
+    }
+    if (composed.kind === "invalid-declarations") {
+      refusal(
+        "invalid_value",
+        `${composed.reason} ${ACCEPT_NOTHING_LANDED}`,
+      );
+    }
+    if (composed.kind === "judgment-stale") {
+      refusal(
+        "precondition_failed",
+        `The judgment this call carries no longer has its composition: ${composed.reason}.${
+          cleanupTail(composed.cleanupFailures)
+        } Re-run discern accept from ${effort.path} without declarations — it composes against the current trunk and serves any renewed question about that exact result. ${ACCEPT_NOTHING_LANDED}`,
+      );
+    }
+    if (composed.kind === "awaiting-judgment") {
+      refuseAwaitingIntegrationJudgment(
+        effort,
+        frozen.head,
+        composed.record.continuation?.composed_head,
+        composed.record.worktree.path,
+        composed.served?.outstanding ?? [],
+        composed.served,
       );
     }
     if (composed.kind === "conflict") {
@@ -247,7 +414,80 @@ export async function executeIntegrationLanding(
       );
     }
 
-    // Green. Only the transition core runs under the common publication
+    // Green. Judgments bind to the combined subject: the copy's own
+    // checkpoint state decides the variance interlock, so a declared-unmet
+    // conclusion about the combined result — carried from the author with an
+    // unchanged subject, or recorded through this landing's continuation —
+    // still needs the owner's exact decision, and recorded grants never
+    // cover it. An authorized set replaces the author-derived one; a missing
+    // decision retains the proven composition and stops read-only.
+    const interlock = resolveVarianceInterlock(composed.checkpointState, {
+      confirmed: request.confirmed,
+      varianceIds: request.variance,
+    });
+    let variancesNow: AuthorizedVarianceData[];
+    if (interlock.kind === "authorized") {
+      variancesNow = interlock.variances;
+    } else {
+      const unmetIds = composed.checkpointState.unmet.map((entry) => entry.id);
+      if (interlock.kind === "declarations-stale") {
+        // The gate just enforced current conclusions, so a stale reading here
+        // is a conservative stop: retain the composition and re-serve.
+        if (unmetIds.length + interlock.ids.length > 0) {
+          await retainIntegrationForJudgment(mainRepo, composed.record, {
+            composedHead: composed.head,
+            decision: "declaration",
+            awaiting: [...new Set([...interlock.ids, ...unmetIds])].sort(),
+          });
+        }
+        refusal(
+          AWAITING_DECLARATION_SLUG,
+          `Landing needs a current conclusion for every governing checkpoint of the combined result, and ${
+            interlock.ids.length === 1
+              ? "one is"
+              : `${interlock.ids.length} are`
+          } missing or no longer current: ${
+            interlock.ids.join(", ")
+          }. Re-run discern accept from ${effort.path}; it serves each question about the retained composition. ${ACCEPT_NOTHING_LANDED}`,
+        );
+      }
+      if (interlock.kind === "invalid-variances") {
+        if (unmetIds.length > 0) {
+          await retainIntegrationForJudgment(mainRepo, composed.record, {
+            composedHead: composed.head,
+            decision: "variance",
+            awaiting: unmetIds,
+          });
+          refusal(
+            "invalid_value",
+            `${interlock.message} The proven composition is retained. ${ACCEPT_NOTHING_LANDED}`,
+          );
+        }
+        const failures = await removeIntegrationWorktree(
+          mainRepo,
+          composed.record,
+          log,
+        );
+        refusal(
+          "invalid_value",
+          `${interlock.message}${
+            cleanupTail(failures)
+          } ${ACCEPT_NOTHING_LANDED}`,
+        );
+      }
+      await retainIntegrationForJudgment(mainRepo, composed.record, {
+        composedHead: composed.head,
+        decision: "variance",
+        awaiting: interlock.unmet.map((entry) => entry.id),
+      });
+      refuseAwaitingIntegrationVariance(
+        interlock.unmet,
+        interlock.missing,
+        interlock.confirmed,
+      );
+    }
+
+    // Only the transition core runs under the common publication
     // boundary — the authority recheck, consent resolution, and the trunk
     // compare-and-swap with its journal and claim. Proof-note recording,
     // convergence, and every cleanup (including external resource teardown)
@@ -326,7 +566,7 @@ export async function executeIntegrationLanding(
           worktree_path: composed.record.worktree.path,
         },
         consent,
-        variances: decision.variances,
+        variances: variancesNow,
         standardProposals: decision.standardProposals,
       });
       return { kind: "transitioned", authorityNow, consent, transition };
@@ -457,7 +697,7 @@ export async function executeIntegrationLanding(
       ...(decision.standardProposals.length > 0
         ? { proposals: decision.standardProposals }
         : {}),
-      ...(decision.variances.length > 0 &&
+      ...(variancesNow.length > 0 &&
           composed.proof.checkpoints !== undefined
         ? { checkpoints: composed.proof.checkpoints }
         : {}),
@@ -476,7 +716,7 @@ export async function executeIntegrationLanding(
         composed.proof.checkpoint_drops ?? [],
       ),
       consent,
-      variances: decision.variances,
+      variances: variancesNow,
       standardProposals: decision.standardProposals,
       log,
       env,
@@ -542,6 +782,7 @@ export async function executeIntegrationLanding(
       ...(proofLine === undefined ? {} : { proofLine }),
       landedCommit: composed.head,
       integrated: true,
+      variances: variancesNow,
     };
   }
 }

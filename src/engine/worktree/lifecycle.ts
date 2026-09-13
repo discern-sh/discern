@@ -46,7 +46,9 @@ import {
   pathExists,
   readTextIfExists,
   realPathIfExists,
+  targetExists,
 } from "../../shared/fs_presence.ts";
+import { readSubmission } from "./submission.ts";
 import {
   generatedGroupForPath,
   type ResolvedGeneratedGroup,
@@ -3947,6 +3949,40 @@ async function scanIntegrationLandings(
     const record = entry.reading.record;
     const liveness = await integrationOwnerLiveness(ctx.root, record);
     if (liveness === "gone") {
+      // A retained awaiting-judgment composition has no live owner by
+      // design: it waits for its served checkpoint decision through
+      // `discern accept`. It is preserved while the exact submission it
+      // composes still stands, and reclaimed once that submission is gone
+      // or replaced (acceptance discards a stale copy itself when the
+      // trunk moves on).
+      if (record.phase === "awaiting-judgment") {
+        const submission = await targetExists(record.landing.worktree_path)
+          ? await readSubmission(record.landing.worktree_path)
+          : { status: "missing" as const };
+        if (
+          submission.status === "submitted" &&
+          submission.submission.id === record.landing.submission_id
+        ) {
+          items.push({
+            worktreeId: record.worktree.id,
+            branch: record.worktree.branch,
+            path: record.worktree.path,
+            disposition: "live",
+            reason:
+              `it awaits an integration judgment for ${record.landing.branch} — continue with discern accept from ${record.landing.worktree_path}; it is reclaimed once its submission is replaced or gone`,
+          });
+          continue;
+        }
+        items.push({
+          worktreeId: record.worktree.id,
+          branch: record.worktree.branch,
+          path: record.worktree.path,
+          disposition: "reclaim",
+          reason:
+            "the submission its retained judgment was awaiting is gone or replaced",
+        });
+        continue;
+      }
       items.push({
         worktreeId: record.worktree.id,
         branch: record.worktree.branch,

@@ -55,11 +55,38 @@ export const IntegrationLandingInputSchema = z.strictObject({
   expected_trunk: ObjectIdSchema,
 });
 
+/** The retained-composition facts an awaiting-judgment record carries: the
+ * exact composed commit the served questions are about, which decision the
+ * continuation waits for, and the checkpoint ids awaiting it. */
+export const IntegrationContinuationSchema = z.strictObject({
+  /** The composed commit at the retained copy's HEAD — the judged subject's
+   * revision; a copy found at any other commit is stale and discarded. */
+  composed_head: ObjectIdSchema,
+  /** `declaration`: served questions await the agent's conclusions
+   * (`accept --met` / `--unmet`). `variance`: declared-unmet conclusions
+   * await the owner's decision (`accept --confirmed --variance`). */
+  decision: z.enum(["declaration", "variance"]),
+  /** The checkpoint ids the continuation waits on. */
+  awaiting: z.array(z.string().min(1)).min(1),
+  retained_at: z.string().refine(
+    (value) => !Number.isNaN(Date.parse(value)),
+    "integration continuation time must be ISO-8601",
+  ),
+});
+export type IntegrationContinuation = z.infer<
+  typeof IntegrationContinuationSchema
+>;
+
 export const IntegrationLandingRecordSchema = z.strictObject({
   version: z.literal(ON_DISK_FORMATS.integrationLanding.version),
   id: RecordIdSchema,
-  /** `intent` precedes every setup effect; `ready` follows completed setup. */
-  phase: z.enum(["intent", "ready"]),
+  /** `intent` precedes every setup effect; `ready` follows completed setup;
+   * `awaiting-judgment` retains the composed copy, with no live owner, until
+   * its served checkpoint decision is answered through `accept` — the next
+   * acceptance for the same submission adopts it, and anything that
+   * invalidates the composition (a moved trunk, a replacement submission)
+   * discards it. */
+  phase: z.enum(["intent", "ready", "awaiting-judgment"]),
   created_at: z.string().refine(
     (value) => !Number.isNaN(Date.parse(value)),
     "integration record time must be ISO-8601",
@@ -75,10 +102,46 @@ export const IntegrationLandingRecordSchema = z.strictObject({
     branch: z.string().min(1),
     path: z.string().min(1),
   }),
-});
+  /** Present exactly while `phase` is `awaiting-judgment`. */
+  continuation: IntegrationContinuationSchema.optional(),
+}).refine(
+  (record) =>
+    (record.phase === "awaiting-judgment") ===
+      (record.continuation !== undefined),
+  "an awaiting-judgment record carries its continuation, and no other phase does",
+);
 export type IntegrationLandingRecord = z.infer<
   typeof IntegrationLandingRecordSchema
 >;
+
+/** The predecessor stored version this reader lifts in memory: the shape
+ * before judgment retention existed. */
+const LIFTED_INTEGRATION_LANDING_VERSION =
+  ON_DISK_FORMATS.integrationLanding.version - 1;
+
+/** The predecessor stored shape: no judgment retention. Read for
+ * compatibility with records an earlier engine left behind (an interrupted
+ * landing), lifted to the current in-memory envelope only — bytes on disk
+ * stay untouched. */
+const IntegrationLandingRecordV1Schema = z.strictObject({
+  version: z.literal(LIFTED_INTEGRATION_LANDING_VERSION),
+  id: RecordIdSchema,
+  phase: z.enum(["intent", "ready"]),
+  created_at: z.string().refine(
+    (value) => !Number.isNaN(Date.parse(value)),
+    "integration record time must be ISO-8601",
+  ),
+  operation: z.strictObject({
+    pid: z.number().int().positive(),
+    operation_handle: z.string().optional(),
+  }),
+  landing: IntegrationLandingInputSchema,
+  worktree: z.strictObject({
+    id: z.string().min(1),
+    branch: z.string().min(1),
+    path: z.string().min(1),
+  }),
+});
 
 export type IntegrationLandingRead =
   | { readonly status: "recorded"; readonly record: IntegrationLandingRecord }
@@ -104,6 +167,22 @@ export function parseIntegrationLandingRecord(
       status: "newer",
       reason: newerOnDiskFormatMessage("integrationLanding", version.found),
     };
+  }
+  // Version 1 records (no judgment retention) stay readable: the envelope is
+  // lifted in memory only, so an earlier engine's interrupted landing remains
+  // recoverable and prunable after an upgrade.
+  if (
+    version.status === "older" &&
+    version.found === LIFTED_INTEGRATION_LANDING_VERSION
+  ) {
+    const v1 = IntegrationLandingRecordV1Schema.safeParse(value);
+    if (v1.success) {
+      const lifted = IntegrationLandingRecordSchema.safeParse({
+        ...v1.data,
+        version: ON_DISK_FORMATS.integrationLanding.version,
+      });
+      if (lifted.success) return { status: "recorded", record: lifted.data };
+    }
   }
   const parsed = IntegrationLandingRecordSchema.safeParse(value);
   if (version.status !== "current" || !parsed.success) {
@@ -210,6 +289,37 @@ export async function integrationOwnerLiveness(
   // certain — corrupt, newer, invalid — keeps the copy protected.
   if (reading.kind === "missing") return "gone";
   return process;
+}
+
+/** The retained awaiting-judgment composition for one author worktree, when
+ * one exists. Adoption is the caller's decision: it re-validates the
+ * submission identity, the expected trunk, and the copy's exact state before
+ * reusing anything. Paths compare canonically so a symlinked temp root and
+ * its physical spelling name the same worktree. */
+export async function retainedIntegrationJudgment(
+  root: string,
+  authorWorktreePath: string,
+): Promise<IntegrationLandingRecord | undefined> {
+  const canonical = async (path: string): Promise<string> => {
+    try {
+      return await Deno.realPath(path);
+    } catch {
+      return path;
+    }
+  };
+  const author = await canonical(authorWorktreePath);
+  for (const entry of await listIntegrationLandingRecords(root)) {
+    if (entry.reading.status !== "recorded") continue;
+    const record = entry.reading.record;
+    if (
+      record.phase === "awaiting-judgment" &&
+      (record.landing.worktree_path === authorWorktreePath ||
+        await canonical(record.landing.worktree_path) === author)
+    ) {
+      return record;
+    }
+  }
+  return undefined;
 }
 
 /** The recorded integration landing that owns `path`, when one is recorded. */
