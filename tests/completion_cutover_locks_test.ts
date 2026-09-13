@@ -1,4 +1,5 @@
 /** Native checkout exclusion stays held while unrelated common publication can proceed. */
+import { currentOperationLocks } from "../src/shared/operation_lock_context.ts";
 import { assertEquals, assertRejects } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { fromFileUrl, join } from "@std/path";
@@ -152,20 +153,48 @@ Deno.test("setup probes require the exact parent transaction and keep both check
       () => withSetupProbeCheckout(root, probe, () => Promise.resolve()),
       OperationLockError,
     );
-    await withOperationLock(root, { command: "setup done" }, async () => {
-      await assertRejects(
-        () => withCompletionCheckout(probe, () => Promise.resolve()),
-        OperationLockError,
+    const release = Promise.withResolvers<void>();
+    let ready = false;
+    const running = withOperationLock(
+      root,
+      { command: "setup done" },
+      async () => {
+        await assertRejects(
+          () => withCompletionCheckout(probe, () => Promise.resolve()),
+          OperationLockError,
+        );
+        await assertRejects(
+          () => withSetupProbeCheckout(root, root, () => Promise.resolve()),
+          OperationLockError,
+        );
+        await withSetupProbeCheckout(root, probe, async () => {
+          await withCompletionCheckout(probe, () => Promise.resolve());
+          await withCompletionCheckout(root, () => Promise.resolve());
+          assertEquals(
+            currentOperationLocks()?.boundaries.has("common"),
+            false,
+          );
+          ready = true;
+          await release.promise;
+        });
+      },
+    );
+    try {
+      await waitForPendingCondition(
+        running,
+        () => ready,
+        "setup probe to own both checkouts",
       );
-      await assertRejects(
-        () => withSetupProbeCheckout(root, root, () => Promise.resolve()),
-        OperationLockError,
-      );
-      await withSetupProbeCheckout(root, probe, async () => {
-        await withCompletionCheckout(probe, () => Promise.resolve());
-        await withCompletionCheckout(root, () => Promise.resolve());
-      });
-    });
+      for (const checkout of [root, probe]) {
+        await assertRejects(
+          () => withCompletionCheckout(checkout, () => Promise.resolve()),
+          OperationLockError,
+        );
+      }
+    } finally {
+      release.resolve();
+      await running;
+    }
   });
 });
 

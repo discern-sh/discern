@@ -785,6 +785,13 @@ export async function withSetupProbeCheckout<T>(
       "A setup probe requires its parent operation's live checkout ownership.",
     );
   }
+  const probeReservation = await worktreeLockSpec(probe);
+  if (parentSpecs.some((spec) => spec.key === probeReservation.key)) {
+    throw refusal(
+      { command: "setup done" },
+      "A setup probe must use a distinct checkout from its parent.",
+    );
+  }
   const parentCommon = (await resolveLockSpecs(parent, "common"))?.[0];
   const probeCommon = (await resolveLockSpecs(probe, "common"))?.[0];
   if (parentCommon === undefined || parentCommon.key !== probeCommon?.key) {
@@ -1027,7 +1034,18 @@ async function canonicalReservationPath(path: string): Promise<string> {
   try {
     return await Deno.realPath(path);
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (!(error instanceof Deno.errors.NotFound)) {
+      throw new OperationLockError({
+        ok: false,
+        verb: currentOperationOwner()?.command ?? "worktree",
+        error: "precondition_failed",
+        message:
+          `discern could not inspect ${path} to establish operation ownership. ` +
+          `The boundary was not acquired. Restore access and retry. ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+      }, { cause: error });
+    }
     const absolute = resolve(path);
     const parent = dirname(absolute);
     if (parent === absolute) throw error;
