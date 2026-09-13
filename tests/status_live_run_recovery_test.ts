@@ -11,7 +11,7 @@ const running = {
   verb: "done",
   branch: "refs/heads/agent/mine",
   handle: "R1-live",
-  latest: "Running the test stage.",
+  latest: "`done` on agent/mine is running test.",
 };
 
 Deno.test("status leads with the running operation and reconnects through its handle", () => {
@@ -24,11 +24,17 @@ Deno.test("status leads with the running operation and reconnects through its ha
   assert(message !== undefined);
   assert(
     message.startsWith(
-      "`done` on agent/mine is still running: Running the test stage.",
+      running.latest,
     ),
     message,
   );
   assert(message.includes("discern progress R1-live"), message);
+  const unobserved = completionStatusPresentation({ data: {}, hints: [] }, [], {
+    verb: running.verb,
+    branch: running.branch,
+    handle: running.handle,
+  });
+  assert(unobserved.message?.includes("no current activity was recorded"));
   assertEquals(
     completionStatusPresentation({ data: {}, hints: [] }, [], undefined)
       .message,

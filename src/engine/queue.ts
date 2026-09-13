@@ -16,6 +16,8 @@ import { recordedRun } from "./logbook/cli.ts";
 import { reraiseInterrupt } from "./process_signals.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { writeStderr } from "./output.ts";
+import { withCompletionObserver } from "./completion/events.ts";
+import { progressWaitSentence } from "./completion/progress_wait.ts";
 import { EXIT_EXECUTABLE_NOT_FOUND, EXIT_USAGE } from "../shared/exit_codes.ts";
 import {
   buildTestRunSlotAcquirer,
@@ -115,7 +117,7 @@ function errorMessage(error: unknown): string {
 
 /** Print queue and fail-open events on the wrapper's stderr side channel. */
 function writeSlotEvent(event: TestRunSlotEvent): void {
-  if (event.kind !== "acquired") {
+  if (event.kind === "unavailable") {
     writeStderr(`${event.hint.text}\n`);
   }
 }
@@ -135,7 +137,11 @@ async function runQueueChild(
     ? undefined
     : buildTestRunSlotAcquirer(root, await loadConfig(root));
   observeAcquirer?.(acquirer);
-  const hold = await acquirer?.acquire(writeSlotEvent);
+  const hold = await withCompletionObserver((fact) => {
+    if (fact.kind === "wait") {
+      writeStderr(`${progressWaitSentence(fact.wait)}\n`);
+    }
+  }, async () => await acquirer?.acquire(writeSlotEvent, undefined, command));
   try {
     const child = await runOwnedChild(command, {
       args,

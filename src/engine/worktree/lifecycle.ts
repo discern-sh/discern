@@ -9,11 +9,12 @@
  * expansion (see ./resources.ts). They are created once at setup (a `required`
  * create is fatal — a broken setup must be loud), destroyed once at teardown
  * (best-effort — a hiccup must never strand a worktree; a later prune is the
- * backstop), and reclaimed by prune when a worktree vanishes without a clean
- * teardown. [worktree.setup].steps run once at creation, stopping at the first
- * failure; [repository].ensure re-runs checkout-generic convergence on every
- * pass and after landing, while [worktree.setup].ensure re-runs only in linked
- * worktrees for identity-dependent convergence.
+ * backstop), torn down by prune before it removes a live checkout, and reclaimed
+ * by prune when a worktree vanishes without a clean teardown.
+ * [worktree.setup].steps run once at creation, stopping at the first failure;
+ * [repository].ensure re-runs checkout-generic convergence on every pass and
+ * after landing, while [worktree.setup].ensure re-runs only in linked worktrees
+ * for identity-dependent convergence.
  */
 
 import {
@@ -139,6 +140,7 @@ import {
   updateMain,
   WorktreeGitError,
   worktreeGitKey,
+  worktreeRemovalCandidateChanged,
   WorktreeResultError,
   worktreeSetupComplete,
   writeWorktreeEnvVar,
@@ -203,6 +205,7 @@ import {
   listEntries,
   readResourceSpecs,
   recordResourceEnv,
+  sameLedgerItems,
   WorktreeResourceError,
 } from "./resources.ts";
 import {
@@ -3713,6 +3716,16 @@ async function buildPrunePlan(
     mainBranch: trunk,
     identitySettings: await loadIdentitySettings(ctx.root),
   });
+  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+  const worktreeResourceTeardowns = await Promise.all(
+    gitScan.worktreesToRemove.map(async (worktree) => {
+      const gitKey = await worktreeGitKey(worktree.path);
+      const entries = commonGitDir !== undefined && gitKey !== undefined
+        ? await entriesForWorktree(commonGitDir, gitKey)
+        : [];
+      return { worktreePath: worktree.path, gitKey, entries };
+    }),
+  );
   const orphanScan = await scanOrphanWorktreesForSweep({
     mainBranch: trunk,
     identitySettings: await loadIdentitySettings(ctx.root),
@@ -3722,6 +3735,7 @@ async function buildPrunePlan(
   const resources = await planResourceReclaims(ctx);
   return {
     gitScan,
+    worktreeResourceTeardowns,
     orphanScan,
     reappearedPathScan,
     resourceReclaims: resources.reclaimable,
@@ -3989,7 +4003,91 @@ export async function worktreePrune(
 
   // Apply: run the real removals, narrating exactly as before.
   ctx.log.heading("Pruning owned merged worktrees and branches…");
-  let prune = await pruneGitWorktrees(plan.gitScan, ctx.log);
+  const worktreeResourceSteps: StepResult[] = [];
+  const teardownsByPath = new Map(
+    plan.worktreeResourceTeardowns.map((teardown) => [
+      teardown.worktreePath,
+      teardown,
+    ]),
+  );
+  let prune = await pruneGitWorktrees(
+    plan.gitScan,
+    ctx.log,
+    async (candidate): Promise<void> => {
+      const teardown = teardownsByPath.get(candidate.path);
+      if (teardown === undefined) {
+        throw new WorktreeGitError(
+          "its planned resource teardown is unavailable",
+        );
+      }
+      const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+      const currentGitKey = await worktreeGitKey(candidate.path);
+      if (
+        commonGitDir === undefined || currentGitKey === undefined ||
+        currentGitKey !== teardown.gitKey
+      ) {
+        throw new WorktreeGitError(
+          "its Git resource identity changed after the plan was built",
+        );
+      }
+      const currentEntries = await entriesForWorktree(
+        commonGitDir,
+        currentGitKey,
+      );
+      if (!sameLedgerItems(teardown.entries, currentEntries)) {
+        throw new WorktreeGitError(
+          "its recorded resources changed after the plan was built",
+        );
+      }
+
+      if (teardown.entries.length > 0) {
+        ctx.log.line(`Tearing down resources for ${candidate.path}...`);
+        const { destroyed, failed } = await destroyResources(
+          { config: ctx.config, log: ctx.log, cwd: candidate.path },
+          teardown.entries,
+        );
+        for (const item of teardown.entries) {
+          worktreeResourceSteps.push({
+            step: {
+              kind: "resource-destroy",
+              label: verbatimStepLabel(item.entry.resource_identity),
+              disposition: "run",
+              note: `tear down before removing ${candidate.path}`,
+              group: "Resources",
+            },
+            outcome: failed.includes(item.entry.resource_name)
+              ? "failed"
+              : destroyed.includes(item.entry.resource_name)
+              ? "ok"
+              : "skipped",
+          });
+        }
+        if (failed.length > 0) {
+          throw new WorktreeGitError(
+            `resource cleanup failed for ${
+              failed.join(", ")
+            }; the checkout is kept`,
+          );
+        }
+      }
+      if (
+        (await entriesForWorktree(commonGitDir, currentGitKey)).length > 0
+      ) {
+        throw new WorktreeGitError(
+          "its recorded resources changed during teardown; the checkout is kept",
+        );
+      }
+      const changed = await worktreeRemovalCandidateChanged(
+        plan.gitScan,
+        candidate,
+      );
+      if (changed !== undefined) {
+        throw new WorktreeGitError(
+          `candidate changed during resource teardown (${changed}); the checkout is kept`,
+        );
+      }
+    },
+  );
 
   ctx.log.heading("Reclaiming orphaned worktree directories…");
   const sweep = await sweepOrphanWorktrees(plan.orphanScan, ctx.log);
@@ -4068,7 +4166,16 @@ export async function worktreePrune(
     ctx,
     appliedResult(
       "worktree prune",
-      pruneResults(prune, sweep, reappeared, gc, plan, reclaim, integrations),
+      pruneResults(
+        prune,
+        sweep,
+        reappeared,
+        gc,
+        plan,
+        reclaim,
+        integrations,
+        worktreeResourceSteps,
+      ),
     ),
     json,
   );
@@ -4320,6 +4427,7 @@ function pruneResults(
   plan: PrunePlan,
   reclaim: ContainedReclaimResult,
   integrations: { reclaimed: string[]; failures: string[] },
+  worktreeResourceSteps: StepResult[],
 ): StepResult[] {
   const step = (
     kind: StepResult["step"]["kind"],
@@ -4372,6 +4480,7 @@ function pruneResults(
       outcome: "skipped",
     }));
   return [
+    ...worktreeResourceSteps,
     ...integrations.reclaimed.map((path) =>
       step(
         "git",

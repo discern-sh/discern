@@ -44,6 +44,7 @@ export function createProducerProgressObserver(input: {
         const merged: ProducerWork = {
           ...previous,
           producer: event.label,
+          state: "running",
           ...(report.units === undefined ? {} : { units: report.units }),
           ...(report.results === undefined ? {} : { results: report.results }),
           ...(report.active === undefined ? {} : { active: report.active }),

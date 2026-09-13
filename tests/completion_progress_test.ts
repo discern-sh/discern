@@ -5,6 +5,7 @@ import {
   emitCompletionProgress,
   emitComponentUse,
   withCompletionObserver,
+  withExecutionQueueTiming,
 } from "../src/engine/completion/events.ts";
 import { completionFixtures } from "./completion_fixtures.ts";
 import { COMPLETION_FAMILIES } from "../src/engine/completion/records.ts";
@@ -139,7 +140,7 @@ Deno.test("completion progress failures cannot replace a result or an operation 
     Promise.reject(new Error("observer unavailable"));
   const emit = (): void =>
     emitCompletionProgress({
-      phase: "queue",
+      phase: "operation",
       state: "waiting",
       candidate_id: null,
       reason: "Waiting for current execution.",
@@ -181,7 +182,7 @@ Deno.test("MCP progress coalesces unchanged observations but reports every trans
     },
     () => {
       const waiting = {
-        phase: "queue" as const,
+        phase: "operation" as const,
         state: "waiting",
         candidate_id: "candidate",
         reason: "Waiting for a completion slot.",
@@ -202,4 +203,64 @@ Deno.test("MCP progress coalesces unchanged observations but reports every trans
     ["waiting", "running", "waiting"],
   );
   assertEquals(notes.map((note) => note.params.progress), [1, 2, 3]);
+});
+
+Deno.test("capacity telemetry distinguishes immediate acquisition, contention, and interrupted waiting", async () => {
+  const fixtures = completionFixtures();
+  const attempt = COMPLETION_FAMILIES.attempt.schema.parse(fixtures.attempt);
+  const candidate = COMPLETION_FAMILIES.candidate.schema.parse(
+    fixtures.candidate,
+  );
+  if (attempt.data.state.kind !== "claimed") {
+    throw new Error("Fixture needs a claim");
+  }
+  const execution = {
+    attempt: attempt.data,
+    candidate: candidate.data,
+    candidate_id: candidate.id,
+    path: "/workspace",
+    seed: 42,
+    fence: { attempt_id: attempt.id, token: attempt.data.state.claim.token },
+    signal: new AbortController().signal,
+  };
+  for (const mode of ["immediate", "queued", "cancelled"] as const) {
+    let now = 1000;
+    const events: CompletionEvent[] = [];
+    await withCompletionObserver((fact) => {
+      if (fact.kind === "event") events.push(fact.event);
+    }, async () => {
+      const operation = () =>
+        withExecutionQueueTiming(execution, "future-slot", {
+          wallNow: () => now,
+          monotonicNow: () => now,
+        }, (onQueued) => {
+          now = 1002;
+          if (mode !== "immediate") {
+            onQueued();
+            now = 3302;
+            onQueued();
+          }
+          return mode === "cancelled"
+            ? Promise.reject(new Error("cancelled queue"))
+            : Promise.resolve("acquired");
+        });
+      if (mode === "cancelled") {
+        await assertRejects(operation, Error, "cancelled queue");
+      } else assertEquals(await operation(), "acquired");
+    });
+    const timings = events.flatMap((event) =>
+      event.fact.kind === "timing" ? [event.fact] : []
+    );
+    assertEquals(
+      timings.filter((timing) => timing.category === "capacity-acquisition")
+        .length,
+      1,
+    );
+    assertEquals(
+      timings.filter((timing) => timing.category === "capacity-wait").map((
+        timing,
+      ) => [timing.started_at, timing.finished_at]),
+      mode === "immediate" ? [] : [[1002, 3302]],
+    );
+  }
 });

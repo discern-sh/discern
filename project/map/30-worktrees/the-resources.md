@@ -54,11 +54,11 @@ Every `create`, `ensure`, and `destroy` invocation (including orphan garbage col
 | Session start                 | Runs `ensure` when configured.                                  |
 | Normal work                   | Reuses the same resource handle.                                |
 | `accept`, `drop`, or teardown | Runs the frozen `destroy` command in reverse order.             |
-| `worktree prune`              | Reclaims ready or non-ready orphans with safe frozen cleanup.   |
+| `worktree prune`              | Tears down live removals; reclaims pre-existing orphans.        |
 
 discern writes complete ownership, the worktree handle, expanded tokens, and the frozen destroy action before `create`. A crash or failed command therefore leaves visible `intent`; only a successful create records readiness. Re-entry cleans that uncertain state before retrying. If no safe destroy action exists or cleanup fails, setup refuses rather than possibly repeating a non-idempotent create. A non-required first failure stays visible in the setup result and continues; a required failure stops setup.
 
-Teardown is best-effort. A failed `destroy` leaves its ledger entry in place so a later prune can retry. Use `gc = false` for data-loss-sensitive resources that require explicit teardown.
+Teardown is best-effort. A failed `destroy` leaves its ledger entry in place so a later prune can retry. Use `gc = false` for data-loss-sensitive resources that require explicit teardown. When prune selects a live checkout for removal, its plan includes every recorded resource regardless of `gc`; apply destroys them from the checkout in reverse order and keeps the checkout if any destroy fails. Orphan garbage collection applies `gc` only after a checkout has already vanished.
 
 ## Understand the ledger
 

@@ -9,7 +9,8 @@ import {
   emitCompletionProgress,
   emitComponentUse,
   executionEvent,
-  withExecutionTiming,
+  type ProducerWork,
+  withExecutionQueueTiming,
 } from "../completion/events.ts";
 import type { EnvReader } from "../../shared/env.ts";
 /** Public commands demand one canonical producer graph and project its actual executions. */
@@ -29,7 +30,10 @@ import type {
 } from "../completion/protocol.ts";
 import type { JobResult } from "../jobs/types.ts";
 import type { RunOptions } from "../jobs/runner.ts";
-import { completionBlockerAccount } from "../completion/progress_prose.ts";
+import {
+  completionBlockerAccount,
+  producerWorkSentence,
+} from "../completion/progress_prose.ts";
 import {
   composeJobOutputObservers,
   createProducerProgressObserver,
@@ -357,21 +361,24 @@ export async function executePublicValidation(input: {
           label: producerLabel(selector),
         });
         input.onProgress?.({ producer: selector, state: "finished", result });
+        const work: ProducerWork = {
+          producer: producerLabel(selector),
+          state: result.cancelled === true
+            ? "cancelled"
+            : result.status === "ok"
+            ? "passed"
+            : "failed",
+          active: [],
+          ...(result.outputPath === undefined
+            ? {}
+            : { output_path: result.outputPath }),
+        };
         emitCompletionProgress({
           phase: "producer",
           state: "finished",
           candidate_id: input.claimed.candidate_id,
-          reason: result.cancelled === true
-            ? `${producerLabel(selector)} was cancelled.`
-            : result.status === "ok"
-            ? `${producerLabel(selector)} passed.`
-            : `${producerLabel(selector)} failed.`,
-          work: {
-            producer: producerLabel(selector),
-            ...(result.outputPath === undefined
-              ? {}
-              : { output_path: result.outputPath }),
-          },
+          reason: producerWorkSentence(work),
+          work,
         });
         if (config.gate.fail_fast && !measurementReport && result.code !== 0) {
           abort.abort();
@@ -384,6 +391,7 @@ export async function executePublicValidation(input: {
     needed: boolean,
     claimed: ValidationSubject,
     run: () => Promise<T>,
+    waitingFor: string,
   ): Promise<T> => {
     if (!needed || slots === undefined) return await run();
     slotUsers++;
@@ -391,21 +399,11 @@ export async function executePublicValidation(input: {
       acquiring ??= (async () => {
         // A wait is announced only when a slot is actually unavailable; an
         // immediate acquisition says nothing, so a quiet host reads quiet.
-        hold = await withExecutionTiming(
+        hold = await withExecutionQueueTiming(
           claimed,
-          "capacity-wait",
           `${claimed.attempt.identity.id}:slot:${++slotAcquisitions}`,
           SYSTEM_CLOCK,
-          () =>
-            slots.acquire(out, claimed.signal, () =>
-              emitCompletionProgress({
-                phase: "queue",
-                state: "waiting",
-                candidate_id: claimed.candidate_id,
-                reason:
-                  "Waiting for test-run capacity; independent checks can continue.",
-                next: "The producer starts when a test-run slot frees.",
-              })),
+          (queued) => slots.acquire(out, claimed.signal, queued, waitingFor),
         );
       })();
       await acquiring;
@@ -424,7 +422,7 @@ export async function executePublicValidation(input: {
     extract: (
       ...args: Parameters<typeof runtime.extract>
     ): ReturnType<typeof runtime.extract> =>
-      withSlot(true, args[2], () => runtime.extract(...args)),
+      withSlot(true, args[2], () => runtime.extract(...args), "measurements"),
     onCapture: async (
       producer: ProducerDemand,
       capture: import("./execute.ts").ProducerCapture,
@@ -449,9 +447,16 @@ export async function executePublicValidation(input: {
             state: "running",
             candidate_id: claimed.candidate_id,
             reason: `Running ${producerLabel(producer.selector)}.`,
+            work: {
+              producer: producerLabel(producer.selector),
+              state: "running",
+            },
           });
           return runtime.produce(producer, claimed);
         },
+        producerLabel(producer.selector) === "test"
+          ? "tests"
+          : producerLabel(producer.selector),
       );
       return conditionsArtifact === undefined ? captured : {
         ...captured,

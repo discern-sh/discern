@@ -3056,7 +3056,7 @@ function shortBranchName(ref: string): string {
  * Why a linked worktree must be KEPT rather than removed — empty means it is
  * removable (clean, with its branch or detached HEAD fully merged). The single
  * eligibility predicate for worktree removal: the prune scan classifies with
- * it, and {@link removalCandidateChanged} re-runs it per candidate at apply
+ * it, and {@link worktreeRemovalCandidateChanged} re-runs it per candidate at apply
  * time, so the two can never drift apart.
  */
 async function worktreeKeepReasons(
@@ -3463,7 +3463,7 @@ export function renderGitWorktreePruneScan(
  * {@link staleMetadataStillMatches}. Returns `undefined` when the removal is
  * still safe, otherwise why the candidate must now be kept.
  */
-async function removalCandidateChanged(
+export async function worktreeRemovalCandidateChanged(
   scan: GitWorktreePruneScan,
   candidate: WorktreeRemovalCandidate,
 ): Promise<string | undefined> {
@@ -3534,11 +3534,13 @@ async function removalCandidateChanged(
  * Apply a git-worktree prune scan. This consumes the scan built earlier rather
  * than discovering a fresh candidate set, but re-validates every destructive
  * candidate against live state first: a worktree that gained work while the
- * plan waited for confirmation is skipped, never force-removed.
+ * plan waited for confirmation is skipped, never force-removed. A caller may
+ * prepare the removal after that check and before the checkout disappears.
  */
 export async function pruneGitWorktrees(
   scan: GitWorktreePruneScan,
   log: Logger,
+  prepareRemoval?: (candidate: WorktreeRemovalCandidate) => Promise<void>,
 ): Promise<PruneResult> {
   renderGitWorktreePruneScan(scan, log);
 
@@ -3580,15 +3582,16 @@ export async function pruneGitWorktrees(
     log.line("No worktrees to remove.");
   } else {
     for (const candidate of scan.worktreesToRemove) {
-      const changed = await removalCandidateChanged(scan, candidate);
+      const changed = await worktreeRemovalCandidateChanged(scan, candidate);
       if (changed !== undefined) {
         log.warn(
           `Skipped ${candidate.path}: candidate changed since the plan was built (${changed}).`,
         );
         continue;
       }
-      log.line(`Removing ${candidate.path}...`);
       try {
+        await prepareRemoval?.(candidate);
+        log.line(`Removing ${candidate.path}...`);
         await removeWorktreeSafely(candidate.path, scan.repoRoot);
         removed.push(candidate.path);
         if (candidate.branch !== "") {

@@ -78,6 +78,7 @@ Deno.test("a finished operation reconnects to its retained result and failures",
     );
     const byHandle = await operationProgressResult(root, {
       handle: read.data?.handle ?? "",
+      now: () => read.data?.observed_at ?? 0,
     });
     assert(byHandle.ok);
     assertEquals(byHandle.data, read.data);
@@ -117,7 +118,7 @@ Deno.test("an interrupted operation reports its executor gone, not a verdict", a
       read.message ?? "",
       "stopped without finishing and its recording process is gone",
     );
-    assertStringIncludes(read.message ?? "", "run the command again");
+    assertStringIncludes(read.message ?? "", "Run the command again");
   });
 });
 
@@ -173,7 +174,14 @@ Deno.test("reconnect refusals name the exact condition without touching anything
     });
     assert(running.ok);
     assertEquals(running.data?.executor, "running");
-    assertStringIncludes(running.message ?? "", "is still running");
+    assertStringIncludes(
+      running.message ?? "",
+      "no current check or active wait",
+    );
+    assertStringIncludes(
+      running.message ?? "",
+      "does not establish advancing work",
+    );
     // Another checkout of the same repository has no operation of its own:
     // the refusal names the handle to ask for instead of substituting it.
     await withTempDir(async (sibling) => {
@@ -326,7 +334,7 @@ Deno.test("the human progress entrypoint prints the reading's sentences and a re
     );
     assertStringIncludes(
       printed,
-      "Running test: 4 of 4 suites done, no failures so far.",
+      "Recorded progress for test: 4 of 4 suites done, no failures.",
     );
     lines.length = 0;
     assertEquals(

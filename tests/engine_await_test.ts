@@ -864,12 +864,9 @@ Deno.test("await uses the longest reliable call for every caller profile", async
     assertEquals(capped.data?.timeout_basis, "strict-client");
     assertEquals(capped.data?.requested_timeout_s, 300);
     assertEquals(capped.data?.retry_after_s, AWAIT_STRICT_CALL_SECONDS);
-    assert(
-      capped.hints?.some((hint) =>
-        hint.includes("--resume") && !hint.includes("--green")
-      ) === true,
-      "the retry continues the original pins instead of starting a fresh wait",
-    );
+    assertEquals(capped.hints, []);
+    assert(capped.data?.resume !== undefined);
+    assert(AWAIT_HANDLE_PATTERN.test(capped.data.resume));
 
     // A short explicit bound remains caller-owned. A zero-second probe gets the
     // profile maximum for its continuation rather than recommending zero again.
@@ -896,6 +893,12 @@ Deno.test("await uses the longest reliable call for every caller profile", async
     assertEquals(probe.data?.timeout_basis, "explicit");
     assertEquals(probe.data?.retry_after_s, AWAIT_LONG_CALL_SECONDS);
     assertEquals(probe.data?.retry_basis, "long-client");
+    assert(
+      probe.hints?.some((hint) =>
+        hint.includes("--resume") && !hint.includes("--green")
+      ) === true,
+      "the retry continues the original pins instead of starting a fresh wait",
+    );
 
     // The direct CLI has no MCP transport deadline, so an explicit longer
     // caller bound stays exact.

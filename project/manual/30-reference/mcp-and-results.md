@@ -191,8 +191,16 @@ Every `done`, `test`, `standards`, and `accept` run, and every `discern_await` c
 
 `discern progress [handle]`, or `discern_progress` with `handle` and `path`, reads that operation back at any time. Reading changes nothing. With no handle it reads the most recently started operation of the calling checkout; another checkout's operation is refused by name. Records are kept for up to 7 days in a store shared by every worktree of the repository, with a bounded capacity that evicts finished `await` records first and keeps a running operation while anything finished can go.
 
+Active waits stay visible when independent checks finish. The current state explains what cannot start, why it is waiting, elapsed waiting, and what happens next. Capacity waits include the configured concurrent-run limit and the latest observed use. A live process alone does not establish advancing work. Older records without wait facts cannot supply this information.
+
+When your agent returns to a checkout with an operation still running, `discern_status` includes the same current-state summary and the command to read it back. A queued operation therefore remains visible through status as well as progress.
+
+An active `await` records its target, requested condition, latest observation, and continuation. If the call stops, the agent can use that continuation to preserve the original watch. The agent should read the original call's progress before starting another watch. An elapsed observation window means the condition remains unmet; it does not mean the awaited work succeeded. Explicit cancellation ends automatic waiting.
+
 | Field                                            | Contract                                                                                                                                                                                       |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data.waits`                                     | Independently identified waits, including their state, reason, elapsed time, next action, and available capacity or condition details. Finished waits retain history.                          |
+| `data.observed_at`, `data.last_activity_at`      | When this reading was made and when the operation last recorded progress. These timestamps do not supply a completion estimate.                                                                |
 | `data.handle`, `data.operation`                  | The handle and the operation's `verb`, `path`, `branch`, `started_at`, and `finished_at` when it ended.                                                                                        |
 | `data.executor`                                  | `running`, `gone`, or `unknown`: whether a process with the recorded id still exists. `executor_reason` explains an unknown probe.                                                             |
 | `data.outcome`                                   | `completed`, `failed`, or `cancelled` once the executor closed the record. A gone executor with no outcome stopped without finishing.                                                          |

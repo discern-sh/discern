@@ -155,11 +155,14 @@ export function instructionContext(config: DiscernConfig): InstructionContext {
       skills_dir: config.skills.dir,
       scripts_dir: config.scripts.dir,
       main_branch: config.repository.trunk,
+      concurrent_test_runs: String(config.gate.concurrent_test_runs),
       instruction_sources: codeList(config.instructions.sources),
       generated_agent_files: codeList(agentFiles),
       materialized_skills_dirs: codeList(skillsDirsForAgents(agents)),
     },
     preds: {
+      has_test_run_cap: config.gate.concurrent_test_runs > 0,
+      single_test_run: config.gate.concurrent_test_runs === 1,
       has_standards: Object.keys(config.standards).length > 0,
       // Checkpoint conduct is taught only where a checkpoint can fire —
       // activation by presence, like the standards section (ADR 0101). The

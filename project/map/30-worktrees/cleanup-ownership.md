@@ -16,6 +16,8 @@ _Merge status limits data loss. Recorded identity grants cleanup authority. Succ
 
 Automatic cleanup starts from positive evidence attached to one discern lifecycle. A prune candidate needs a plain `discern/worktree-ready` marker in its own Git worktree metadata. Its branch must be the configured prefix followed by the id encoded in that same metadata. Setup uses only its dedicated `discern-setup` branch, inside the setup lifecycle.
 
+Prune carries the candidate's complete resource-ledger snapshot in the same plan. Apply rechecks that snapshot, destroys every recorded resource before removing the checkout, then rechecks the checkout. A changed resource inventory or failed destroy keeps the checkout, including when a resource opts out of orphan garbage collection with `gc = false`.
+
 A fully merged branch is not owned merely because deletion would preserve its commits. A similar name, a configured-prefix name without identity evidence, a checkout-local identity override, or a directory beneath the worktree parent also grants nothing. Prune can show such refs as Git context, but its actionable plan keeps them. Dry-run and apply use the same ownership rule, and apply checks the evidence again before acting.
 
 An explicit `discern worktree drop <worktree>` can select a foreign checkout by exact id, path, local branch, or full local ref. It keeps a branch that discern cannot prove it owns. Merge status, cleanliness, containment, locks, and current worktree use remain independent safety checks; none can replace ownership.

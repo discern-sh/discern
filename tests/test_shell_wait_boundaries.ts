@@ -100,7 +100,7 @@ export const TEST_SHELL_WAIT_BOUNDARIES = [
   {
     path: "tests/engine_queue_test.ts",
     enclosing:
-      "a gate queued behind a wrapped sibling names queue on its wait line",
+      "a queued gate shows capacity now and retains other operation activity as history",
     argument: "0.05",
     count: 1,
     classification: "condition-poll",

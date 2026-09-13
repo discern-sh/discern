@@ -40,7 +40,7 @@ limit = 2
     const measured = await withCompletionObserver((fact) => {
       if (
         fact.kind === "event" && fact.event.fact.kind === "timing" &&
-        fact.event.fact.category === "capacity-wait"
+        fact.event.fact.category === "capacity-acquisition"
       ) slotTimings++;
     }, () =>
       measureDeclaredStandards(

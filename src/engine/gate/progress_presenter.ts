@@ -16,6 +16,8 @@ import {
   completionProgressSentence,
 } from "../completion/progress_prose.ts";
 import type { GateTtyProgress } from "./gate_tty.ts";
+import type { ProgressWait } from "../../shared/result_schemas.ts";
+import { progressWaitSentence, readWait } from "../completion/progress_wait.ts";
 
 /**
  * Static output cannot replace a line, so a producer's counts are rationed:
@@ -110,6 +112,7 @@ export function createGateProgressPresenter(
 ): GateProgressPresenter {
   let lastDurable = "";
   let lastTransient = "";
+  const waits = new Map<string, ProgressWait>();
   const durable = (text: string, tone?: "warning" | "failure"): void => {
     if (text === lastDurable) return;
     lastDurable = text;
@@ -117,6 +120,11 @@ export function createGateProgressPresenter(
     else target.write?.(`${text}\n`);
   };
   const transient = (text: string): void => {
+    text = [...waits.values()].map((wait) =>
+      progressWaitSentence(readWait(wait, SYSTEM_CLOCK.wallNow(), true))
+    ).concat(
+      text,
+    ).join(" ");
     if (text === lastTransient) return;
     lastTransient = text;
     if (target.live !== undefined) target.live.transient(text);
@@ -162,6 +170,18 @@ export function createGateProgressPresenter(
   return {
     observe(fact: CompletionObservationFact): void {
       if (scope !== "all" && completionFactOwner(fact) !== scope) return;
+      if (fact.kind === "wait") {
+        if (fact.wait.state === "waiting") waits.set(fact.wait.id, fact.wait);
+        else waits.delete(fact.wait.id);
+        if (target.live !== undefined) {
+          transient(
+            fact.wait.state === "waiting"
+              ? ""
+              : progressWaitSentence(fact.wait),
+          );
+        } else durable(progressWaitSentence(fact.wait));
+        return;
+      }
       if (fact.kind === "failure") {
         durable(completionFailureSentence(fact.failure), "failure");
         return;

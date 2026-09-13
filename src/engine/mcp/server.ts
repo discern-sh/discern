@@ -789,31 +789,28 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: AwaitOutputSchema,
     annotations: READ_ONLY,
     description:
-      "Block until a fleet condition holds, then return the observed state and " +
-      "the next step — one call instead of guessed polling while a sibling " +
-      "worktree finishes. Pass exactly ONE condition: `green` (a branch name) " +
-      "waits until that branch's worktree holds an honored gate Proof — a " +
-      "green `discern_done` on its current clean HEAD (the work landing on " +
-      "the selected project's configured trunk also satisfies it, since only a validated tree " +
-      "lands); `landed` (a branch name) waits until that branch's work — its " +
-      "latest observed tip after it has work — is reachable from the selected " +
-      "project's configured trunk; `trunk_moved` waits until that trunk moves. Conditions ground in git " +
-      "ancestry, gate Proofs, and landed Proof notes, never in recorded " +
-      "activity. If the bound expires, the result stays ok with data.met false. " +
-      "Pass data.resume by itself on the next call: it preserves the original " +
-      "branch transition or trunk baseline, so a condition crossed between calls is " +
-      `not lost. ${AWAIT_WATCH_POLICY} ` +
-      `Omit timeout to hold one call for up to ${AWAIT_LONG_CALL_SECONDS}s on ` +
-      "a known configurable client, or " +
-      `${AWAIT_STRICT_CALL_SECONDS}s on a strict or unknown client. A larger ` +
-      "request is sliced to that transport-safe bound and reported in " +
-      "data.requested_timeout_s. The condition returns as soon as it holds. " +
-      "On success the hint chooses `discern_start` from the main checkout or " +
-      "`discern_update` from an existing worktree, including the green " +
-      "result's immutable commit as `from` when composing below the trunk. " +
-      "Two handles have different jobs: a progress handle (`R1-…`), announced " +
-      "while the call runs, reads back what this call recorded after a lost " +
-      "call; only `data.resume` (`C1-…`) resumes the wait itself.",
+      "Use this when your work depends on another task or new changes on the trunk. " +
+      "Wait in one blocking call instead of repeatedly polling status or asking the " +
+      "owner for updates. This tool does not run checks or land changes.\n\n" +
+      "Pass one condition: `green` waits for the target's `discern_done` gate to pass " +
+      "with valid Proof for its current checkout, or for its work to land on the trunk; " +
+      "`landed` waits for the branch's latest changes to land on the trunk; " +
+      "`trunk_moved` waits for the trunk to change from where this watch started.\n\n" +
+      "Omit `timeout` for the longest supported wait: up to " +
+      `${AWAIT_LONG_CALL_SECONDS}s when the client supports long calls, or ` +
+      `${AWAIT_STRICT_CALL_SECONDS}s when its limit is short or unknown. ` +
+      "The call returns as soon as the condition holds. Larger requests are shortened " +
+      "to the supported duration and recorded in `data.requested_timeout_s`.\n\n" +
+      "If the wait times out, `ok` stays true and `data.met` is false. " +
+      "The returned `data.resume` (`C1-…`) preserves the original watch so changes " +
+      "between calls are not missed.\n\n" +
+      `${AWAIT_WATCH_POLICY}\n\n` +
+      "If a call is lost, use its progress handle (`R1-…`) with `discern_progress` " +
+      "to read the target, elapsed wait, and latest observation. Do not start another " +
+      "watch while the original is running. The progress handle only reads; " +
+      "`data.resume` continues the watch.\n\n" +
+      "When the condition holds, follow the returned `discern_start` or `discern_update` " +
+      "hint to bring the changes into your task.",
     inputSchema: {
       green: z.string().optional().describe(
         "Sibling selected by worktree id, path, local branch, or full local " +
@@ -874,7 +871,10 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: ProgressOutputSchema,
     annotations: READ_ONLY,
     description:
-      "Read a long operation back after a lost call, read-only. Every " +
+      "Read a long operation's current state or retained result, read-only. Active waits " +
+      "remain visible alongside independent checks: report what is waiting, elapsed time, " +
+      "the latest observed capacity use and configured limit when available, and whether " +
+      "resumption is automatic. A live process alone does not establish advancing work. Every " +
       "discern_done, discern_test, discern_standards, discern_accept, and " +
       "discern_await call announces a progress handle (`R1-…`) as its first " +
       "progress fact and records the same facts in a journal. Pass that " +
@@ -1555,6 +1555,7 @@ export function renderMcpResult(result: DiscernResult): ToolResult {
       text: renderResultMarkdown(
         serialized,
         resultPresenterForVerb(completed.verb),
+        resultPresenterForVerb,
       ),
     }],
     structuredContent: serialized,

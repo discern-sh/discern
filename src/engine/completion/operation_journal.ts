@@ -17,9 +17,11 @@ import { join } from "@std/path";
 import { z } from "@zod/zod";
 import { decodeJson } from "../../shared/runtime_decode.ts";
 import {
+  AwaitDataSchema,
   ProgressFactSchema,
   ProgressFailureSchema,
   ProgressTimingSchema,
+  ProgressWaitSchema,
   ProgressWorkSchema,
 } from "../../shared/result_schemas.ts";
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
@@ -103,6 +105,8 @@ const OperationJournalRecordSchema = z.object({
     finished_at: z.number().optional(),
   }),
   progress: ProgressFactSchema.optional(),
+  waits: z.record(z.string(), ProgressWaitSchema).optional(),
+  last_activity_at: z.number().optional(),
   producers: z.record(z.string(), ProgressWorkSchema).optional(),
   failures: z.array(ProgressFailureSchema).optional(),
   timings: z.array(ProgressTimingSchema).optional(),
@@ -291,10 +295,16 @@ function mergeWork(
   previous: JournalledProducerWork | undefined,
   work: ProducerWork,
 ): JournalledProducerWork {
+  const retained = work.state === "running" && previous?.state !== "running"
+    ? undefined
+    : previous;
   return {
-    ...previous,
+    ...retained,
     ...work,
-    ...(work.partial === true || previous?.partial === true
+    ...(work.state !== undefined && work.state !== "running"
+      ? { active: [] }
+      : {}),
+    ...(work.partial === true || retained?.partial === true
       ? { partial: true }
       : {}),
   };
@@ -408,7 +418,16 @@ export async function openOperationJournal(
   return {
     handle: store.handle,
     observe(fact): Promise<void> {
-      if (fact.kind === "progress") {
+      current = { ...current, last_activity_at: clock.wallNow() };
+      if (fact.kind === "wait") {
+        const waits = { ...current.waits, [fact.wait.id]: fact.wait };
+        // Evict finished history first; an active wait cannot disappear under load.
+        for (const wait of Object.values(waits)) {
+          if (Object.keys(waits).length <= TIMINGS_LIMIT) break;
+          if (wait.state !== "waiting") delete waits[wait.id];
+        }
+        current = { ...current, waits };
+      } else if (fact.kind === "progress") {
         const work = fact.progress.work;
         const producers = work === undefined ? current.producers : {
           ...current.producers,
@@ -507,6 +526,7 @@ export type ExecutorLiveness = "running" | "gone" | "unknown";
 export type OperationJournalReading =
   | {
     readonly kind: "found";
+    readonly record_path: string;
     readonly handle: string;
     readonly record: OperationJournalRecord;
     readonly executor: ExecutorLiveness;
@@ -619,7 +639,7 @@ export async function readOperationJournal(
       if (text === undefined) return { kind: "missing" } as const;
       const parsed = parseRecord(text);
       return parsed.status === "recorded"
-        ? foundReading(parsed.record)
+        ? foundReading(parsed.record, directory)
         : parsed.status === "newer"
         ? { kind: "newer", reason: parsed.reason } as const
         : { kind: "corrupt", reason: parsed.reason } as const;
@@ -669,7 +689,7 @@ export async function readOperationJournal(
         newest = parsed.record;
       }
     }
-    if (newest !== undefined) return foundReading(newest);
+    if (newest !== undefined) return foundReading(newest, directory);
     if (newestAnywhere !== undefined) {
       const { handle, verb, branch, path, started_at } =
         newestAnywhere.operation;
@@ -696,12 +716,14 @@ export async function readOperationJournal(
 /** Project one parsed record into the found reading with a live executor probe. */
 function foundReading(
   record: OperationJournalRecord,
+  directory: string,
 ): Extract<OperationJournalReading, { kind: "found" }> {
   const probe = record.operation.finished_at !== undefined
     ? { state: "gone" as const }
     : executorLiveness(record.operation.pid);
   return {
     kind: "found",
+    record_path: join(directory, `${record.operation.handle}${RECORD_SUFFIX}`),
     handle: record.operation.handle,
     record,
     executor: probe.state,
@@ -760,8 +782,13 @@ export async function withOperationJournal<T>(
       // A cancelled run may still return an ordinary unsuccessful envelope;
       // the executor's own cancellation, not the envelope shape, decides.
       const cancelled = options.signal?.aborted === true;
+      const awaited = header.verb === "await"
+        ? AwaitDataSchema.safeParse(result.data)
+        : undefined;
+      const completed = result.ok &&
+        !(cancelled && awaited?.success === true && !awaited.data.met);
       await open.finish(
-        result.ok ? "completed" : cancelled ? "cancelled" : "failed",
+        completed ? "completed" : cancelled ? "cancelled" : "failed",
         result,
       );
       return value;

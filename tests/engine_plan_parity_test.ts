@@ -1146,9 +1146,8 @@ Deno.test("control: an applied effect absent from the plan fails the subset guar
 
 Deno.test("parity: worktree prune apply consumes the built scan instead of re-scanning", async () => {
   const lifecycle = await Deno.readTextFile("src/engine/worktree/lifecycle.ts");
-  assertStringIncludes(
-    lifecycle,
-    "pruneGitWorktrees(plan.gitScan",
+  assert(
+    /pruneGitWorktrees\(\s*plan\.gitScan,/.test(lifecycle),
     "prune apply must consume the git scan stored in its plan",
   );
   assertStringIncludes(
@@ -1160,6 +1159,11 @@ Deno.test("parity: worktree prune apply consumes the built scan instead of re-sc
     lifecycle,
     "plan.resourceReclaims",
     "prune apply must consume the resource reclaim entries stored in its plan",
+  );
+  assertStringIncludes(
+    lifecycle,
+    "plan.worktreeResourceTeardowns",
+    "prune apply must consume the planned teardown for resources owned by worktrees it removes",
   );
   assert(
     !lifecycle.includes("pruneGitWorktrees({"),

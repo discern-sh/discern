@@ -18,6 +18,8 @@ The MCP call-duration policy covers the same native set in [`src/shared/mcp_time
 
 An agent consuming a discern result can treat top-level `ok` as the truth of that verb's completion contract. It does not need to inspect incidental lists or parse prose to discover a required failure. A successful degradation appears only in typed `advisories`, with evidence and a next action; a false result can still contain completed effects and the exact safe recovery. Terminal, JSON, Markdown, and MCP preserve that same verdict ([ADR 0349](../_adr/0349-top-level-success-follows-completion-policies.md)).
 
+Markdown is sufficient to read a result and take its next action when a client withholds structured content. Requested indexes, search results, query findings, and verbose execution models retain their entries; required plan effects, setup blockers, checkpoint questions, and pinned limit changes retain their details. Routine diagnostic summaries point to complete evidence when available. Recovered operations render their retained result through the same registered presenter, including recovery and authority boundaries ([progress and reconnect](../70-reference/progress-and-reconnect.md)).
+
 Each native provider also declares a compact mark and horizontal logo lockup with first-party provenance. The parity guard checks the directory in both directions, so missing and unregistered scalable vector graphics (SVG) files fail. Each vector file contains its own assets, so the site does not depend on a vendor asset host.
 
 Each provider page lists the files discern writes or co-manages, what stays with the user, and the provider-specific gotchas.

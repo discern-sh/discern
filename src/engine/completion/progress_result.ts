@@ -13,6 +13,12 @@ import {
   interactiveHintTexts,
 } from "../../shared/hints.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import {
+  AwaitDataSchema,
+  type ProgressWait,
+} from "../../shared/result_schemas.ts";
+import { progressWaitSentence, readWait } from "./progress_wait.ts";
 import { colorEnabled, makeOut } from "../output.ts";
 import {
   completionFailureSentence,
@@ -34,6 +40,8 @@ import {
 /** What one reconnect read returns about the selected operation. */
 export interface OperationProgressData {
   readonly handle: string;
+  /** Read-only route to the complete retained facts and result. */
+  readonly record_path: string;
   /** The journalled operation's own verb, path, and branch. */
   readonly operation: {
     readonly verb: string;
@@ -49,6 +57,9 @@ export interface OperationProgressData {
   readonly executor: ExecutorLiveness;
   /** Why the liveness check could not run, when `executor` is unknown. */
   readonly executor_reason?: string;
+  readonly observed_at?: number;
+  readonly last_activity_at?: number;
+  readonly waits?: readonly ProgressWait[];
   /** How the executor closed the operation; absent while it has not. */
   readonly outcome?: OperationOutcome;
   /** The latest progress fact, exactly as live observers received it. */
@@ -96,19 +107,50 @@ function retainedDiagnostics(
  * operation — what its retained result diagnosed, so a failed gate read back
  * after a lost call says why it failed.
  */
-function accountOf(record: OperationJournalRecord): string[] {
-  const sentences: string[] = [];
-  if (record.progress !== undefined) {
-    sentences.push(completionProgressSentence(record.progress));
-  }
-  for (const work of Object.values(record.producers ?? {})) {
-    if (work.units !== undefined || work.results !== undefined) {
-      sentences.push(producerWorkSentence(work));
-    }
-  }
+function accountOf(
+  record: OperationJournalRecord,
+  waits: readonly ProgressWait[],
+  live: boolean,
+): string[] {
+  const sentences = waits.filter((wait) => wait.state === "waiting").map((
+    wait,
+  ) => progressWaitSentence(wait, live));
   for (const failure of record.failures ?? []) {
     sentences.push(completionFailureSentence(failure));
   }
+  for (const work of Object.values(record.producers ?? {})) {
+    if (work.state === "running" || work.state === "failed") {
+      sentences.push(producerWorkSentence(work));
+    }
+  }
+  const latestProducer = record.progress?.work?.producer;
+  if (
+    record.progress !== undefined &&
+    !(record.progress.phase === "operation" &&
+      record.progress.state === "started")
+  ) {
+    const work = latestProducer === undefined
+      ? undefined
+      : record.producers?.[latestProducer];
+    sentences.push(
+      completionProgressSentence(
+        work === undefined ? record.progress : {
+          ...record.progress,
+          reason: producerWorkSentence(work),
+        },
+      ),
+    );
+  }
+  for (const work of Object.values(record.producers ?? {})) {
+    if (work.producer !== latestProducer) {
+      sentences.push(producerWorkSentence(work));
+    }
+  }
+  sentences.push(
+    ...waits.filter((wait) => wait.state !== "waiting").map((wait) =>
+      progressWaitSentence(wait, live)
+    ),
+  );
   const diagnostics = retainedDiagnostics(record.result);
   for (
     const { tool, message } of diagnostics.slice(0, RETAINED_DIAGNOSTICS_LIMIT)
@@ -122,7 +164,7 @@ function accountOf(record: OperationJournalRecord): string[] {
       } more diagnostics are in the retained result.`,
     );
   }
-  return sentences;
+  return [...new Set(sentences)];
 }
 
 /** Compose the first paragraph: the operation, what happened, the next command. */
@@ -130,12 +172,20 @@ function progressMessage(
   record: OperationJournalRecord,
   executor: ExecutorLiveness,
   executorReason: string | undefined,
+  waits: readonly ProgressWait[],
 ): string {
   const name = record.operation.branch === undefined
     ? `\`${record.operation.verb}\``
     : `\`${record.operation.verb}\` on ${record.operation.branch}`;
   if (record.outcome === "completed" || record.outcome === "failed") {
-    const verdict = record.outcome === "completed"
+    const awaited = record.operation.verb === "await"
+      ? AwaitDataSchema.safeParse(
+        (record.result as { data?: unknown } | undefined)?.data,
+      )
+      : undefined;
+    const verdict = awaited?.success === true && !awaited.data.met
+      ? "finished its observation window; the condition is still unmet"
+      : record.outcome === "completed"
       ? "finished and succeeded"
       : "finished with a failing result";
     const stored = record.result as { message?: string } | undefined;
@@ -143,7 +193,7 @@ function progressMessage(
     const retained = record.result === undefined
       ? "No result was retained for it; run the command again to see one."
       : record.result_truncated !== true
-      ? "The retained result is included; nothing needs to run again to read it."
+      ? "Its result was retained; reading it does not rerun the operation."
       : record.result_path === undefined
       ? `Only a reduced account of its result could be retained; the complete envelope was too large to keep inline${
         record.result_retention_error === undefined
@@ -157,13 +207,32 @@ function progressMessage(
     return `${name} was cancelled before finishing. The facts below are what it had established.`;
   }
   if (executor === "running") {
-    return `${name} is still running. The facts below are the latest it recorded.`;
+    const active = waits.filter((wait) => wait.state === "waiting");
+    if (active.length > 0) {
+      return `${name} is waiting. ${
+        active.map((wait) => progressWaitSentence(wait)).join(" ")
+      }`;
+    }
+    const running = Object.values(record.producers ?? {}).filter((work) =>
+      work.state === "running"
+    );
+    if (running.length > 0) {
+      return `${name} is running ${
+        running.map((work) => work.producer).join(", ")
+      }. The facts below are the latest it recorded.`;
+    }
+    return `The recording process for ${name} is present, but no current check or active wait is recorded. This does not establish advancing work. The facts below are its latest observations.`;
   }
   if (executor === "unknown") {
     const why = executorReason === undefined ? "" : ` (${executorReason})`;
     return `${name} has not finished, and whether its recording process is still running could not be checked from here${why}. The facts below are the last it recorded.`;
   }
-  return `${name} stopped without finishing and its recording process is gone. The facts below are the last it recorded; run the command again to continue.`;
+  const resume = waits.find((wait) => wait.condition?.resume !== undefined)
+    ?.condition?.resume;
+  const next = resume === undefined
+    ? "Run the command again to continue."
+    : `Resume the original watch with \`discern await --resume ${resume}\`.`;
+  return `${name} stopped without finishing and its recording process is gone. The facts below are the last it recorded. ${next}`;
 }
 
 /**
@@ -172,7 +241,7 @@ function progressMessage(
  */
 export async function operationProgressResult(
   root: string,
-  opts: { readonly handle?: string } = {},
+  opts: { readonly handle?: string; readonly now?: () => number } = {},
 ): Promise<DiscernResult<OperationProgressData>> {
   const reading = await readOperationJournal(root, opts.handle);
   switch (reading.kind) {
@@ -254,11 +323,17 @@ export async function operationProgressResult(
       };
   }
   const record = reading.record;
+  const now = (opts.now ?? SYSTEM_CLOCK.wallNow)();
+  const live = record.outcome === undefined && reading.executor === "running";
+  const waits = Object.values(record.waits ?? {}).map((wait) =>
+    readWait(wait, now, live)
+  );
   const producers = record.producers === undefined
     ? undefined
     : Object.values(record.producers);
   const data: OperationProgressData = {
     handle: reading.handle,
+    record_path: reading.record_path,
     operation: {
       verb: record.operation.verb,
       path: record.operation.path,
@@ -271,6 +346,11 @@ export async function operationProgressResult(
         : { finished_at: record.operation.finished_at }),
     },
     executor: reading.executor,
+    observed_at: now,
+    ...(record.last_activity_at === undefined
+      ? {}
+      : { last_activity_at: record.last_activity_at }),
+    ...(waits.length === 0 ? {} : { waits }),
     ...(reading.executor_reason === undefined
       ? {}
       : { executor_reason: reading.executor_reason }),
@@ -291,7 +371,7 @@ export async function operationProgressResult(
     ...(record.result_retention_error === undefined
       ? {}
       : { result_retention_error: record.result_retention_error }),
-    account: accountOf(record),
+    account: accountOf(record, waits, live),
   };
   return {
     ok: true,
@@ -301,6 +381,7 @@ export async function operationProgressResult(
       record,
       reading.executor,
       reading.executor_reason,
+      waits,
     ),
   };
 }
@@ -335,6 +416,11 @@ export async function runProgress(
   }
   out.info(result.message ?? "");
   for (const sentence of result.data?.account ?? []) out.info(sentence);
+  if (result.data !== undefined) {
+    out.info(
+      `Complete recorded facts and retained result: ${result.data.record_path}.`,
+    );
+  }
   if (result.data?.result_path !== undefined) {
     out.info(`Complete result retained at ${result.data.result_path}.`);
   }

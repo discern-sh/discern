@@ -1,10 +1,11 @@
 /**
  * End-to-end coverage for the per-worktree resource lifecycle, driven through the
  * CLI exactly as a real install runs it: `discern worktree setup` creates the
- * declared resources and records their handles; `discern worktree prune` reclaims
- * the resources of a worktree that vanished without a clean teardown. The
- * fine-grained GC guards are unit-tested in `worktree_resources_test.ts`; this
- * pins the wiring — that the verbs, the ledger, and runtime discovery line up.
+ * declared resources and records their handles; `discern worktree prune` tears
+ * resources down before removing a live candidate and reclaims resources whose
+ * worktree vanished without a clean teardown. The fine-grained GC guards are
+ * unit-tested in `worktree_resources_test.ts`; this pins the wiring — that the
+ * verbs, the ledger, and runtime discovery line up.
  *
  * Guards: claim:isolated-worktrees
  */
@@ -55,12 +56,13 @@ async function declareResource(
   wt: string,
   markers: string,
   body: string,
+  name = "thing",
 ): Promise<void> {
   const path = join(wt, "discern.toml");
   const cfg = await Deno.readTextFile(path);
   await writeDiscernToml(
     path,
-    `${cfg}\n[worktree.resources.thing]\n${
+    `${cfg}\n[worktree.resources.${name}]\n${
       body.replaceAll("@MARKERS@", markers)
     }\n`,
   );
@@ -357,6 +359,126 @@ Deno.test("worktree prune reclaims a vanished worktree's resource (GC), and --dr
     assert(
       await targetExists(join(markers, `${handle}.gone`)),
       `prune did not reclaim the orphan\n${prune.output}`,
+    );
+  });
+});
+
+Deno.test("worktree prune tears down every removed worktree resource in the same pass", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "prune-resources");
+    const markers = join(dir, "markers");
+    await declareResource(
+      wt,
+      markers,
+      [
+        'create  = "mkdir -p @MARKERS@ && touch @MARKERS@/@resource@.live"',
+        'destroy = "rm -f @MARKERS@/@resource@.live && touch @MARKERS@/@resource@.gone && echo cache >> @MARKERS@/destroy-order"',
+      ].join("\n"),
+      "cache",
+    );
+    await declareResource(
+      wt,
+      markers,
+      [
+        'create  = "mkdir -p @MARKERS@ && touch @MARKERS@/@resource@.live"',
+        'destroy = "rm -f @MARKERS@/@resource@.live && touch @MARKERS@/@resource@.gone && echo emulator >> @MARKERS@/destroy-order"',
+        "gc      = false",
+      ].join("\n"),
+      "emulator",
+    );
+    const setup = await runAgent(wt, ["worktree", "setup"]);
+    assertEquals(setup.code, 0, setup.output);
+    const cache = (await runAgent(wt, [
+      "identity",
+      "--resource",
+      "cache",
+    ])).stdout.trim();
+    const emulator = (await runAgent(wt, [
+      "identity",
+      "--resource",
+      "emulator",
+    ])).stdout.trim();
+    await commitCurrentWorktree(wt);
+    await git(
+      dir,
+      "merge",
+      "--no-ff",
+      "-m",
+      "merge prune resource fixture",
+      "agent/prune-resources",
+    );
+
+    const dry = await runAgent(dir, ["worktree", "prune", "--dry-run"]);
+    assertEquals(dry.code, 0, dry.output);
+    assertStringIncludes(dry.output, cache);
+    assertStringIncludes(dry.output, emulator);
+    assert(await targetExists(join(markers, `${cache}.live`)));
+    assert(await targetExists(join(markers, `${emulator}.live`)));
+
+    const prune = await runAgent(dir, [
+      "worktree",
+      "prune",
+      "--yes",
+      "--json",
+    ]);
+    assertEquals(prune.code, 0, prune.output);
+    const result = decodeCliResult(prune.stdout, "worktree prune");
+    assertEquals(
+      result.steps?.filter((step) => step.kind === "resource-destroy").map(
+        (step) => [step.label, step.outcome],
+      ),
+      [[emulator, "ok"], [cache, "ok"]],
+    );
+    assertEquals(await targetExists(wt), false, prune.output);
+    assertEquals(await targetExists(join(markers, `${cache}.live`)), false);
+    assertEquals(
+      await targetExists(join(markers, `${emulator}.live`)),
+      false,
+    );
+    assert(await targetExists(join(markers, `${cache}.gone`)));
+    assert(await targetExists(join(markers, `${emulator}.gone`)));
+    assertEquals(
+      await Deno.readTextFile(join(markers, "destroy-order")),
+      "emulator\ncache\n",
+    );
+
+    const after = await runAgent(dir, ["worktree", "prune", "--dry-run"]);
+    assertEquals(after.code, 0, after.output);
+    assertEquals(after.output.includes(cache), false, after.output);
+    assertEquals(after.output.includes(emulator), false, after.output);
+  });
+});
+
+Deno.test("worktree prune keeps a checkout when its teardown-only resource cannot be destroyed", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "prune-failed-resource");
+    await declareResource(
+      wt,
+      join(dir, "markers"),
+      [
+        'create  = "true"',
+        'destroy = "false"',
+        "gc      = false",
+      ].join("\n"),
+    );
+    const setup = await runAgent(wt, ["worktree", "setup"]);
+    assertEquals(setup.code, 0, setup.output);
+    await commitCurrentWorktree(wt);
+    await git(
+      dir,
+      "merge",
+      "--no-ff",
+      "-m",
+      "merge failed resource fixture",
+      "agent/prune-failed-resource",
+    );
+
+    const prune = await runAgent(dir, ["worktree", "prune", "--yes"]);
+    assertEquals(prune.code, 1, prune.output);
+    assertTerminalTextIncludes(prune.output, "resource cleanup failed");
+    assert(
+      await targetExists(wt),
+      `a failed teardown must retain its owning checkout\n${prune.output}`,
     );
   });
 });

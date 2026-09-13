@@ -25,10 +25,9 @@
  * backoff's worst-case wake latency (~2s) is noise against the minutes-scale
  * runs the cap exists for.
  *
- * The logbook decorates the wait line (what is in flight, a typical duration)
+ * The logbook decorates retained wait history (other activity and past duration)
  * but never decides it: the lock files are the only authority on whether a run
- * may proceed, and a logbook-off install keeps the whole feature minus the
- * estimate.
+ * may proceed, and a logbook-off install keeps the feature minus that context.
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
@@ -65,6 +64,7 @@ export interface TestRunSlots {
     out: Out,
     signal?: AbortSignal,
     onQueued?: () => void,
+    waitingFor?: string,
   ): Promise<TestRunSlotHold | undefined>;
 }
 
@@ -115,17 +115,21 @@ export function buildTestRunSlots(
       out: Out,
       signal?: AbortSignal,
       onQueued?: () => void,
+      waitingFor?: string,
     ): Promise<TestRunSlotHold | undefined> {
-      return await acquirer.acquire((event: TestRunSlotEvent): void => {
-        if (event.kind === "queued") {
-          waits.push(event.hint);
-          out.info(event.hint.text);
-          onQueued?.();
-        } else if (event.kind === "unavailable") {
-          waits.push(event.hint);
-          out.warn(event.hint.text);
-        }
-      }, signal);
+      return await acquirer.acquire(
+        (event: TestRunSlotEvent): void => {
+          if (event.kind === "queued") {
+            waits.push(event.hint);
+            onQueued?.();
+          } else if (event.kind === "unavailable") {
+            waits.push(event.hint);
+            out.warn(event.hint.text);
+          }
+        },
+        signal,
+        waitingFor,
+      );
     },
   };
 }
