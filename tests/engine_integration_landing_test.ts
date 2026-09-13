@@ -722,3 +722,45 @@ Deno.test("a moved trunk the submission already contains lands directly, without
     await assertNoIntegrationRemains(dir);
   });
 });
+Deno.test("an ancestry-direct landing re-verifies never-loosen against the trunk that now governs", async () => {
+  await withTempDir(async (dir) => {
+    const config = (limit: number): string =>
+      `${CONFIG}[standards.score]\ndirection = "up"\nlimit = ${limit}\nrun = "echo DISCERN_METRIC score 100"\n`;
+    await integrationFixture(dir, config(50));
+
+    // One branch raises the floor to 90 and then uses 60 at its tip; the
+    // tip proves green against the trunk's 50.
+    const wt = await effortWithWork(dir, "chain", "chain.txt");
+    await writeConfig(wt, config(90));
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "raise floor to 90", "--no-gpg-sign");
+    const intermediate = await gitOut(wt, "rev-parse", "HEAD");
+    await writeConfig(wt, config(60));
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "use floor 60", "--no-gpg-sign");
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
+
+    // A sibling lands the 90-floor commit, so 90 now governs the trunk.
+    const raised = await addWorktree(dir, "raised");
+    await git(raised, "merge", "--ff-only", intermediate);
+    assertEquals((await runAgent(raised, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(raised, ["accept", "--confirmed", "--json"])).code,
+      0,
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), intermediate);
+
+    // The tip contains the trunk, so the shape is direct — but landing it
+    // would loosen 90 to 60 without a proposal, and the recheck refuses.
+    const refused = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    const result = decodeCliResult(refused.stdout, "accept");
+    assertStringIncludes(
+      result.message ?? "",
+      "The trunk's standards policy moved past this Proof",
+    );
+    assertStringIncludes(result.message ?? "", "discern standards propose");
+    assertEquals(await gitOut(dir, "rev-parse", "main"), intermediate);
+    await assertNoIntegrationRemains(dir);
+  });
+});

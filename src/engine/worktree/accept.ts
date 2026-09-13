@@ -84,6 +84,7 @@ import { renderProofLineCli } from "../gate/presentation.ts";
 import { inspectGateProof } from "../gate/proof.ts";
 import { readProofPresentation } from "../gate/proof_presentation.ts";
 import { renderLandingProofLine } from "../gate/proof_render.ts";
+import { verifyTrunkLimits } from "../gate/standard_limits.ts";
 import { buildStandardPlan } from "../gate/standard_plan.ts";
 import {
   cloneStandardLimitProposal,
@@ -562,6 +563,47 @@ function changedLandingScopes(
     for (const scope of classification.scopes) scopes.add(scope);
   }
   return [...scopes].sort();
+}
+
+/**
+ * The never-loosen recheck for an ancestry-direct landing: the Proof's
+ * predecessor sits behind the trunk, so the standards comparison it ran is
+ * against a superseded baseline. Verify the landing tree's limits against
+ * the trunk that now governs, with no proposal credit — an intended limit
+ * change goes through `done`, whose proposal and exact-approval machinery
+ * owns that decision.
+ */
+async function refuseWhenTrunkPolicyMoved(
+  effort: EffortCheckout,
+  tip: string,
+): Promise<void> {
+  const verification = await verifyTrunkLimits(
+    effort.path,
+    tip,
+    buildStandardPlan(effort.ctx.config).standards,
+    new Map(),
+    effort.ctx.config,
+  );
+  if (
+    !verification.blocking &&
+    verification.summary.status !== "loosened" &&
+    verification.summary.status !== "proposed"
+  ) {
+    return;
+  }
+  const detail = verification.diagnostics[0]?.message ??
+    "a protected standard limit would loosen relative to the current trunk";
+  const result: DiscernResult<AcceptData> = {
+    ok: false,
+    verb: "accept",
+    error: "precondition_failed",
+    message:
+      `The trunk's standards policy moved past this Proof, and the submitted tree loosens it: ${detail} Run discern update from ${effort.path}, resolve, then discern done — record an intended limit change with discern standards propose and land it with exact owner approval — then discern accept. ${ACCEPT_NOTHING_LANDED}`,
+    ...(verification.diagnostics.length === 0
+      ? {}
+      : { diagnostics: verification.diagnostics }),
+  };
+  throw new WorktreeResultError(result.message ?? "", result);
 }
 
 /**
@@ -1681,6 +1723,9 @@ async function landEffortOnce(
   /** The submission the caller entered with, preserving a waiting request's
    * identity across the boundary wait. */
   entered?: Submission,
+  /** The complete subject the caller resolved before waiting. When present
+   * it is the landing subject — the wait must not select a new one. */
+  enteredSubject?: LandingSubject,
 ): Promise<DiscernResult<AcceptData>> {
   {
     let authority = await inspectLandingAuthority(effort.path, effort.trunk, {
@@ -1697,9 +1742,37 @@ async function landEffortOnce(
         includeScopeEvidence: true,
       });
     }
-    const resolved = await resolveSubject(effort, entered);
+    const resolved = enteredSubject ?? await resolveSubject(effort, entered);
     if (resolved === undefined) refuseNothingProven(effort);
     let subject = resolved;
+    if (enteredSubject !== undefined) {
+      // The branch may have moved during the wait; the entered revision must
+      // still be reachable through it — the same containment rule the
+      // recorded-submission route enforces — and `atHead` is recomputed so
+      // every downstream authority and cleanup rule sees work the author
+      // added during the wait as exactly that.
+      const branchTip = await runGit(
+        ["rev-parse", "--verify", `refs/heads/${effort.branch}^{commit}`],
+        { cwd: effort.path },
+      );
+      const tipSha = branchTip.success ? branchTip.stdout.trim() : "";
+      if (
+        tipSha !== enteredSubject.head &&
+        (tipSha === "" ||
+          !(await commitIsAncestorOf(
+            effort.mainRepo,
+            enteredSubject.head,
+            tipSha,
+          )))
+      ) {
+        throw new WorktreeGitError(
+          `${effort.branch} no longer contains the revision this acceptance entered with (${
+            short(enteredSubject.head)
+          }). Run discern done from ${effort.path}, then discern accept for the current work.`,
+        );
+      }
+      subject = { ...enteredSubject, atHead: tipSha === enteredSubject.head };
+    }
     if (!request.dryRun && !effort.explicit) {
       subject = { ...subject, submission: await submit(effort, subject) };
     }
@@ -1708,9 +1781,22 @@ async function landEffortOnce(
     // already contains the current tip lands directly — its Proof proved
     // this exact tree — while a trunk the submission does not contain
     // composes and re-proves in a disposable integration worktree. The
-    // predecessor equality is the common fast case of the same rule.
-    const direct = candidatePredecessor(subject.complete.candidate) === tip ||
-      await commitIsAncestorOf(effort.mainRepo, tip, subject.head);
+    // predecessor equality is the common fast case of the same rule; a
+    // behind-HEAD submission the trunk overtook composes instead, so the
+    // combined gate re-verifies exactly the tree that lands.
+    const predecessorCurrent =
+      candidatePredecessor(subject.complete.candidate) === tip;
+    const direct = predecessorCurrent ||
+      (subject.atHead &&
+        await commitIsAncestorOf(effort.mainRepo, tip, subject.head));
+    if (direct && !predecessorCurrent) {
+      // Check evidence is a tree property; standards ratchets are policy
+      // relative to the trunk that now governs. Re-verify never-loosen
+      // against the current tip before any direct transaction — a loosening
+      // (proposed or not) routes through `done`, where the proposal and
+      // exact-approval machinery lives.
+      await refuseWhenTrunkPolicyMoved(effort, tip);
+    }
     if (direct) {
       authority = subjectAuthority(authority, subject);
     }
@@ -1915,6 +2001,15 @@ async function landingResult(
   const preWait = request.dryRun
     ? { status: "missing" as const }
     : await readSubmission(effort.path);
+  // The complete subject this call enters with — head, evidence, Proof —
+  // frozen before any wait. A waiting request lands exactly this revision;
+  // the post-wait re-reads decide settlement and current authority, never a
+  // new subject. First acceptances have no submission record yet, so the
+  // subject itself is the identity that must survive the wait.
+  const enteredSubject = request.dryRun ? undefined : await resolveSubject(
+    effort,
+    preWait.status === "submitted" ? preWait.submission : undefined,
+  );
   const body = async (): Promise<DiscernResult<AcceptData>> => {
     const settled = await settledByPredecessor(effort, preWait);
     if (settled !== undefined) return settled;
@@ -1929,6 +2024,7 @@ async function landingResult(
       env,
       operationHandle,
       preWait.status === "submitted" ? preWait.submission : undefined,
+      enteredSubject,
     );
     if (request.dryRun || !selected.ok || !effort.explicit) return selected;
     return await walkQueue(
