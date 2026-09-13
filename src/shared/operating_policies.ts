@@ -95,14 +95,14 @@ export const OPERATING_POLICIES = [
     id: "update-behind",
     statement:
       "When behind mid-work, use discern_update; do not pre-check or " +
-      "hand-merge. A proven revision needs no update: discern_accept " +
-      "composes the moved trunk itself.",
+      "hand-merge. A proven revision needs no update: acceptance composes " +
+      "the moved trunk itself.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [
       /discern_update/,
       /behind/i,
       /proven[^.\n]{0,80}(?:no update|needs no update|requires no update)|(?:no update|needs no update|requires no update)[^.\n]{0,80}proven/i,
-      /discern_accept[^.\n]{0,80}composes/i,
+      /(?:discern_accept|acceptance)[^.\n]{0,80}composes/i,
     ],
   },
   {

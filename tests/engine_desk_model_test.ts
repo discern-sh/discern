@@ -175,10 +175,12 @@ const STATUS_KIND_CASES = [
   },
   {
     // Behind is paused, not attention: status has already established that no
-    // live, stale, dirty, or failed condition outranks its deterministic Update.
+    // live, stale, dirty, or failed condition outranks its deterministic
+    // Update. Only UNPROVEN work classifies behind — honored Proof routes to
+    // acceptance, which composes the moved trunk itself.
     kind: "behind",
     state: "paused",
-    over: { ahead: 2, behind: 1, gate_proof: { status: "honored" } },
+    over: { ahead: 2, behind: 1 },
   },
   {
     kind: "ready",
@@ -339,10 +341,17 @@ Deno.test("status precedence boundaries remain identical in the Desk", () => {
       state: "paused",
     },
     {
-      name: "branch lag blocks otherwise honored readiness",
-      over: { ahead: 2, behind: 1, gate_proof: { status: "honored" } },
+      name: "branch lag pauses unproven work",
+      over: { ahead: 2, behind: 1 },
       kind: "behind",
       state: "paused",
+    },
+    {
+      name:
+        "honored Proof outranks branch lag: acceptance composes the moved trunk",
+      over: { ahead: 2, behind: 1, gate_proof: { status: "honored" } },
+      kind: "ready",
+      state: "ready_to_review",
     },
   ];
   for (const testCase of cases) {
@@ -974,12 +983,23 @@ Deno.test("landing authority stays editable while final checks run", () => {
   assertEquals(offer(granted, "revoke_grant").availability, "enabled");
 });
 
-Deno.test("a clean branch behind main disables Accept and recommends Update", () => {
+Deno.test("a proven branch behind main keeps Accept enabled and recommended: the landing composes the moved trunk", () => {
   const decision = decide({
     clean: true,
     ahead: 2,
     behind: 1,
     gate_proof: { status: "honored" },
+  });
+  assertEquals(offer(decision, "accept").availability, "enabled");
+  assertEquals(offer(decision, "update").availability, "enabled");
+  assertEquals(decision.recommendedAction, "accept");
+});
+
+Deno.test("an unproven branch behind main disables Accept and recommends Update", () => {
+  const decision = decide({
+    clean: true,
+    ahead: 2,
+    behind: 1,
   });
   const accept = offer(decision, "accept");
   assertEquals(accept.availability, "disabled");

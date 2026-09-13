@@ -702,13 +702,24 @@ function runningReason(
     : undefined;
 }
 
-/** Shared clean, committed, ahead-of-trunk preconditions for review actions. */
-function committedWorkReason(facts: DeskActionFacts): string | undefined {
+/** Shared clean, committed, ahead-of-trunk preconditions for review actions.
+ * `provenBehindLands` is Accept's routing rule: honored Proof makes a moved
+ * trunk composable by the landing itself, so behind stops only unproven work
+ * (done must still start up to date). */
+function committedWorkReason(
+  facts: DeskActionFacts,
+  provenBehindLands = false,
+): string | undefined {
   const { entry } = facts;
   if (entry.behind === UNKNOWN_GIT_COUNT || entry.ahead === UNKNOWN_GIT_COUNT) {
     return `Git divergence from ${facts.trunk} is unknown.`;
   }
-  if (entry.behind !== undefined && isPositiveGitCount(entry.behind)) {
+  const behindBlocks = !provenBehindLands ||
+    entry.gate_proof?.status !== "honored";
+  if (
+    behindBlocks && entry.behind !== undefined &&
+    isPositiveGitCount(entry.behind)
+  ) {
     return `${plural(entry.behind, "commit")} behind ${facts.trunk}.`;
   }
   if (entry.clean !== true) {
@@ -867,7 +878,7 @@ export const DESK_ACTION_REGISTRY = {
       healthyActionAvailability(
         facts.entry,
         "The task is not healthy enough to land. Follow its recovery steps first.",
-        committedWorkReason(facts),
+        committedWorkReason(facts, true),
       ),
     recommended: (facts: DeskActionFacts): boolean =>
       facts.entry.running === undefined && facts.collisions.length === 0 &&

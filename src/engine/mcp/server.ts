@@ -1093,9 +1093,9 @@ export const TOOLS: McpTool[] = orderTools([
       "selected project's configured trunk. Land only with explicit owner " +
       "consent or machine-verified authority; without either, the call records " +
       "the submission, re-serves the review moment, and lands nothing. Landing " +
-      "fast-forwards the trunk to the exact proven commit, records its Proof " +
-      "note, converges the main checkout, and removes the worktree, branch, and " +
-      "resources once nothing beyond the landed commit remains. " +
+      "fast-forwards the trunk to the proven commit, records its Proof note, " +
+      "converges the main checkout, and removes the worktree, branch, and " +
+      "resources once nothing beyond it remains. " +
       "A trunk that moved after the Proof is composed and re-proven in a " +
       "disposable integration worktree, then landed as that commit; a " +
       "conflict or red combined check returns to the author, nothing changed. " +
@@ -1108,8 +1108,8 @@ export const TOOLS: McpTool[] = orderTools([
       "Recorded grants never cover a checkpoint variance or standard proposal. " +
       "Set dry_run to preview the landing plan and queue. " +
       "After success, report what landed and any unresolved cleanup in your own " +
-      "words, ending with data.proof_line verbatim; the full page stays " +
-      "available via `discern status --verbose`. " +
+      "words, ending with data.proof_line verbatim; the full review page " +
+      "remains available through `discern status --verbose`. " +
       "Use action: emergency with a reason for an explicit exception against actual trunk. " +
       "prepare: true with met records served judgments; pass its receipt to the read-only plan. " +
       "The preview lists failed, unrun, and stale obligations; owner approval " +
