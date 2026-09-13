@@ -54,6 +54,8 @@ Each submission needs its own current authority. A caller's `--confirmed` applie
 
 `accept --dry-run` shows the landing queue, each submission with honored Proof that has not landed with pre-authorized ones first, and the selected effort's recorded authority and pending decisions, without changing anything. Ordinary grants cannot approve a checkpoint variance, a standard proposal, an emergency exception, a push, or a deployment. An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry completes or rolls it back.
 
+A queue row keeps its submitted revision when the branch advances. If the clean branch tip already has complete, valid Proof, recovery names that proven revision and routes to `accept` from its worktree to replace the submission. A new author gate is needed only when current evidence does not support that route. Status, Desk, and acceptance previews share this [queue derivation](../../../src/engine/worktree/submissions_view.ts).
+
 ## Approve a Standard limit proposal
 
 `discern accept` checks standard limit proposals before applying landing authority. The live worktree proposal record must equal the proposal set in the honored Proof. A mismatch, stale record, reason change, or revocation refuses without moving the trunk.
