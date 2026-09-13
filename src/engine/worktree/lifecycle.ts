@@ -3768,6 +3768,10 @@ export async function removeIntegrationWorktree(
   );
 }
 
+/** The locked body of the removal above: teardown when the marker exists,
+ * verified removal whenever the directory or registration survives, ledger
+ * notes when no teardown could run, and the record retired only once the
+ * branch is verifiably gone. */
 async function removeIntegrationWorktreeLocked(
   mainRepo: string,
   record: Pick<IntegrationLandingRecord, "worktree">,

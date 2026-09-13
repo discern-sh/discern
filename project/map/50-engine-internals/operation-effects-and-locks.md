@@ -55,12 +55,12 @@ Observations, dry runs, and file-only writers do not probe Git. Project-authored
 
 ## Lock boundaries follow shared state
 
-| Boundary            | Scope                                                                                               |
-| ------------------- | --------------------------------------------------------------------------------------------------- |
-| None                | Observations, dry runs, and inactive forms of mixed commands remain concurrent.                     |
-| Checkout            | Writers in one checkout exclude another discern writer there; separate worktrees remain concurrent. |
-| Common repository   | Linked worktrees exclude operations that share refs, the main checkout, or common Git-admin state.  |
-| Common and checkout | The operation acquires the common boundary first, then the selected checkout boundary.              |
+| Boundary                | Scope                                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| None                    | Observations, dry runs, and inactive forms of mixed commands remain concurrent.                                                 |
+| Checkout                | Writers in one checkout exclude another discern writer there; separate worktrees remain concurrent.                             |
+| Common repository       | Linked worktrees exclude operations that share refs, the main checkout, or common Git-admin state.                              |
+| Common and checkout     | The operation acquires the common boundary first, then the selected checkout boundary.                                          |
 | Acceptance and checkout | A landing serializes on the dedicated acceptance boundary, then its author checkout; the common boundary joins per short phase. |
 
 [`withOperationLock`](../../../src/engine/operation_lock.ts) resolves common or checkout identity from Git administration, hashes that identity into discern's fixed POSIX runtime namespace, and uses a non-blocking operating-system file lock there. The namespace does not follow caller-controlled temporary-directory variables, so parent and child processes cannot resolve different locks for the same Git boundary. Lock setup therefore consumes no repository-write authority; the separate real-operation probe proves it only for classified Git writers after exclusion is held. A standing path becomes inert when its process releases the file lock. A conflict refuses before the command body, names the held boundary, states that the call made no change, and routes the caller to retry after the active operation finishes.
