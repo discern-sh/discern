@@ -12,6 +12,10 @@
 
 import { runGit } from "../../shared/subprocess.ts";
 import { readCompleteProof } from "../gate/completion_proof.ts";
+import {
+  gateProofHasCompleteEvidence,
+  inspectGateProof,
+} from "../gate/proof.ts";
 import { candidatePredecessor } from "../completion/candidate.ts";
 import { strictVerdictCurrency } from "../completion/verdict.ts";
 import {
@@ -29,6 +33,7 @@ import {
   listIntegrationLandingRecords,
 } from "./integration_record.ts";
 import { readSubmission, type Submission } from "./submission.ts";
+import { short } from "./accept_support.ts";
 
 export type SubmissionAuthority = "pre-authorized" | "awaiting-owner";
 
@@ -43,7 +48,7 @@ export interface SubmissionRow {
   readonly authority_source?: "effort-grant" | "standing-grant";
   readonly granted_at?: string;
   readonly readiness: "ready" | "waiting";
-  /** One full sentence: why the submission waits. Absent when ready. */
+  /** Why the submission waits and its next action. Absent when ready. */
   readonly reason?: string;
   /** The trunk moved after its Proof, so acceptance composes and checks it in
    * an integration worktree before landing. */
@@ -61,6 +66,8 @@ export interface SubmissionFacts {
   readonly trunkCurrent: boolean;
   /** The branch tip is the submitted revision. */
   readonly branchCurrent: boolean;
+  /** The current clean branch tip has complete, valid Proof. */
+  readonly provenBranchHead?: string;
   /** The submission's complete Proof reads from the store. */
   readonly proofReadable: boolean;
   /** The store's newest strict verdict over the submitted revision. */
@@ -82,6 +89,16 @@ export function submissionReadiness(
       reason: facts.checking.handle === undefined
         ? "A running landing is checking its combined code now."
         : `A running landing is checking its combined code now; read it with discern progress ${facts.checking.handle}.`,
+      ...(facts.trunkCurrent ? {} : { integration: true }),
+    };
+  }
+  if (!facts.branchCurrent && facts.provenBranchHead !== undefined) {
+    return {
+      readiness: "waiting",
+      reason:
+        `This submission names a different commit; the branch has valid Proof at ${
+          short(facts.provenBranchHead)
+        }. Run discern accept from its worktree to submit the proven revision.`,
       ...(facts.trunkCurrent ? {} : { integration: true }),
     };
   }
@@ -174,6 +191,14 @@ async function submissionRow(
     { cwd: root },
   );
   const branchCurrent = tip.success && tip.stdout.trim() === submission.head;
+  const branchProof = branchCurrent ? undefined : await inspectGateProof(path);
+  const provenBranchHead = branchProof !== undefined &&
+      gateProofHasCompleteEvidence(branchProof) &&
+      branchProof.proof_data.completion !== undefined &&
+      branchProof.proof_data.branch === submission.branch &&
+      tip.success && branchProof.head === tip.stdout.trim()
+    ? branchProof.head
+    : undefined;
   const verdict = proofReadable
     ? (await strictVerdictCurrency(root, submission.head)).kind
     : "current" as const;
@@ -210,6 +235,7 @@ async function submissionRow(
     ...submissionReadiness({
       trunkCurrent,
       branchCurrent,
+      ...(provenBranchHead === undefined ? {} : { provenBranchHead }),
       proofReadable,
       verdict,
       ...(checking === undefined ? {} : { checking }),
