@@ -58,7 +58,7 @@ export const IntegrationLandingInputSchema = z.strictObject({
 /** The retained-composition facts an awaiting-judgment record carries: the
  * exact composed commit the served questions are about, which decision the
  * continuation waits for, and the checkpoint ids awaiting it. */
-export const IntegrationContinuationSchema = z.strictObject({
+const IntegrationContinuationSchema = z.strictObject({
   /** The composed commit at the retained copy's HEAD — the judged subject's
    * revision; a copy found at any other commit is stale and discarded. */
   composed_head: ObjectIdSchema,
@@ -73,9 +73,6 @@ export const IntegrationContinuationSchema = z.strictObject({
     "integration continuation time must be ISO-8601",
   ),
 });
-export type IntegrationContinuation = z.infer<
-  typeof IntegrationContinuationSchema
->;
 
 export const IntegrationLandingRecordSchema = z.strictObject({
   version: z.literal(ON_DISK_FORMATS.integrationLanding.version),
