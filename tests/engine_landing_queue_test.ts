@@ -354,6 +354,88 @@ Deno.test("a branch that moved on lands exactly its proven submission and keeps 
   });
 });
 
+Deno.test("queue recovery follows current branch Proof across older submission states", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, CONFIG);
+    await gitInit(dir);
+    const wt = await effortWithWork(dir, "revised", "work.txt");
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
+    assertEquals((await runAgent(wt, ["accept", "--json"])).code, 1);
+    const submitted = await readSubmission(wt);
+    assert(submitted.status === "submitted");
+
+    await Deno.writeTextFile(join(wt, "work.txt"), "updated work\n");
+    await git(wt, "add", "-A");
+    // A rewritten source also differs from the submission, without ancestry.
+    await git(
+      wt,
+      "commit",
+      "--amend",
+      "-q",
+      "-m",
+      "revise work",
+      "--no-gpg-sign",
+    );
+    const head = await gitOut(wt, "rev-parse", "HEAD");
+    const root = await Deno.realPath(dir);
+    assertStringIncludes(
+      (await submissionRows(root, "main"))[0]?.reason ?? "",
+      "discern done",
+    );
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
+
+    // Trunk movement after Proof needs integration, not another author gate.
+    await Deno.writeTextFile(join(dir, "trunk.txt"), "later trunk work\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "advance trunk", "--no-gpg-sign");
+    const row = (await submissionRows(root, "main"))[0];
+    assert(row !== undefined);
+    assertEquals(row.head, submitted.submission.head);
+    assertEquals(row.authority, "awaiting-owner");
+    assertEquals(row.readiness, "waiting");
+    assertStringIncludes(row.reason ?? "", head.slice(0, 12));
+    assertStringIncludes(row.reason ?? "", "discern accept");
+    assert(!(row.reason ?? "").includes("discern done"));
+
+    for (
+      const args of [
+        ["status", "--json"],
+        ["accept", "--dry-run", "--json"],
+        ["accept", "--target", "agent/revised", "--dry-run", "--json"],
+      ]
+    ) {
+      const view = await runAgent(dir, args);
+      assertEquals(view.code, 0, view.output);
+      assertStringIncludes(view.stdout, row.reason ?? "");
+    }
+    assertEquals(await readSubmission(wt), submitted);
+
+    // Losing the earlier Proof must not hide the valid current Proof.
+    await recordSubmission(wt, {
+      ...submitted.submission,
+      proof: {
+        ...submitted.submission.proof,
+        proof_id: crypto.randomUUID(),
+      },
+    });
+    const unreadableSubmission = await readSubmission(wt);
+    const unreadableRow = (await submissionRows(root, "main"))[0];
+    assertEquals(unreadableRow?.reason, row.reason);
+    assertEquals(unreadableRow?.head, row.head);
+    assertEquals(await readSubmission(wt), unreadableSubmission);
+    await recordSubmission(wt, submitted.submission);
+    assertEquals(await readSubmission(wt), submitted);
+
+    // An uncommitted change removes the basis for the shorter recovery.
+    await Deno.writeTextFile(join(wt, "work.txt"), "unfinished work\n");
+    assertStringIncludes(
+      (await submissionRows(root, "main"))[0]?.reason ?? "",
+      "discern done",
+    );
+  });
+});
+
 Deno.test("an effort grant never covers a declared-unmet variance", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
