@@ -2006,11 +2006,20 @@ async function landingResult(
   // frozen before any wait. A waiting request lands exactly this revision;
   // the post-wait re-reads decide settlement and current authority, never a
   // new subject. First acceptances have no submission record yet, so the
-  // subject itself is the identity that must survive the wait.
-  const enteredSubject = request.dryRun ? undefined : await resolveSubject(
-    effort,
-    preWait.status === "submitted" ? preWait.submission : undefined,
-  );
+  // subject itself is the identity that must survive the wait. While an
+  // interrupted acceptance is pending, its stores are mid-transaction and
+  // recovery owns them — resolution then waits for the boundary, exactly as
+  // before the freeze existed.
+  const interruptedAtEntry = request.dryRun
+    ? undefined
+    : await inspectInterruptedAcceptance(effort.path, effort.trunk);
+  const enteredSubject = request.dryRun || (interruptedAtEntry !== undefined &&
+      interruptedAtEntry.kind !== "none")
+    ? undefined
+    : await resolveSubject(
+      effort,
+      preWait.status === "submitted" ? preWait.submission : undefined,
+    );
   const body = async (): Promise<DiscernResult<AcceptData>> => {
     const settled = await settledByPredecessor(effort, preWait);
     if (settled !== undefined) return settled;
