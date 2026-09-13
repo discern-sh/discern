@@ -813,7 +813,9 @@ export const TOOLS: McpTool[] = orderTools([
       "result's immutable commit as `from` when composing below the trunk. " +
       "Two handles have different jobs: a progress handle (`R1-…`), announced " +
       "while the call runs, reads back what this call recorded after a lost " +
-      "call; only `data.resume` (`C1-…`) resumes the wait itself.",
+      "call, including its target, unmet condition, elapsed wait, and latest observation. " +
+      "Only `data.resume` (`C1-…`) resumes the watch. Read progress first after a lost call; " +
+      "do not start a duplicate watch while the original call is still waiting.",
     inputSchema: {
       green: z.string().optional().describe(
         "Sibling selected by worktree id, path, local branch, or full local " +
@@ -874,7 +876,10 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: ProgressOutputSchema,
     annotations: READ_ONLY,
     description:
-      "Read a long operation back after a lost call, read-only. Every " +
+      "Read a long operation's current state or retained result, read-only. Active waits " +
+      "remain visible alongside independent checks: report what is waiting, elapsed time, " +
+      "the latest observed capacity use and configured limit when available, and whether " +
+      "resumption is automatic. A live process alone does not establish advancing work. Every " +
       "discern_done, discern_test, discern_standards, discern_accept, and " +
       "discern_await call announces a progress handle (`R1-…`) as its first " +
       "progress fact and records the same facts in a journal. Pass that " +

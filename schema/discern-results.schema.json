@@ -16005,6 +16005,176 @@
                 "executor_reason": {
                   "type": "string"
                 },
+                "observed_at": {
+                  "type": "number"
+                },
+                "last_activity_at": {
+                  "type": "number"
+                },
+                "waits": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "waiting",
+                          "resumed",
+                          "unmet",
+                          "cancelled",
+                          "failed",
+                          "unavailable"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "next": {
+                        "type": "string"
+                      },
+                      "started_at": {
+                        "type": "number"
+                      },
+                      "updated_at": {
+                        "type": "number"
+                      },
+                      "elapsed_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "finished_at": {
+                        "type": "number"
+                      },
+                      "capacity": {
+                        "type": "object",
+                        "properties": {
+                          "in_use": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "limit": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "in_use",
+                          "limit"
+                        ]
+                      },
+                      "condition": {
+                        "type": "object",
+                        "properties": {
+                          "condition": {
+                            "type": "string",
+                            "enum": [
+                              "green",
+                              "landed",
+                              "trunk-moved"
+                            ]
+                          },
+                          "branch": {
+                            "type": "string"
+                          },
+                          "trunk": {
+                            "type": "string"
+                          },
+                          "observed": {
+                            "type": "object",
+                            "properties": {
+                              "proof_status": {
+                                "type": "string",
+                                "enum": [
+                                  "honored",
+                                  "report_only",
+                                  "missing",
+                                  "stale",
+                                  "dirty",
+                                  "unavailable",
+                                  "read_failed",
+                                  "no-worktree"
+                                ]
+                              },
+                              "worktree": {
+                                "type": "string"
+                              },
+                              "tip": {
+                                "type": "string"
+                              },
+                              "landed": {
+                                "type": "boolean"
+                              },
+                              "trunk_start": {
+                                "type": "string"
+                              },
+                              "trunk_head": {
+                                "type": "string"
+                              },
+                              "behind": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "string",
+                                    "const": "unknown"
+                                  }
+                                ]
+                              },
+                              "incoming_overlap": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "overlap_total": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          },
+                          "timeout_s": {
+                            "type": "number"
+                          },
+                          "resume": {
+                            "type": "string",
+                            "minLength": 15,
+                            "maxLength": 15,
+                            "pattern": "^C1-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{2}$"
+                          }
+                        },
+                        "required": [
+                          "condition",
+                          "trunk",
+                          "observed",
+                          "timeout_s"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "state",
+                      "reason",
+                      "next",
+                      "started_at",
+                      "updated_at",
+                      "elapsed_ms"
+                    ]
+                  }
+                },
                 "outcome": {
                   "type": "string",
                   "enum": [

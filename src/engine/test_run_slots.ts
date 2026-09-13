@@ -18,6 +18,7 @@ import { compactDuration } from "./output.ts";
 import { resolveCommonGitDir } from "./worktree/git.ts";
 import { readFleetLogbookActivity } from "./logbook/read.ts";
 import { configEpoch } from "./logbook/epoch.ts";
+import { withProgressWait } from "./completion/progress_wait.ts";
 import { type Clock, SYSTEM_CLOCK } from "../shared/clock.ts";
 import {
   type JitterFn,
@@ -71,6 +72,7 @@ export interface TestRunSlotAcquirer {
   acquire(
     onEvent: (event: TestRunSlotEvent) => void,
     signal?: AbortSignal,
+    waitingFor?: string,
   ): Promise<TestRunSlotHold | undefined>;
 }
 
@@ -274,6 +276,7 @@ export function buildTestRunSlotAcquirer(
     async acquire(
       onEvent: (event: TestRunSlotEvent) => void,
       signal?: AbortSignal,
+      waitingFor = "tests and measurements",
     ): Promise<TestRunSlotHold | undefined> {
       // Presence means a capped acquisition was in play. Immediate admission
       // and fail-open record zero because neither enters the retry wait.
@@ -296,39 +299,61 @@ export function buildTestRunSlotAcquirer(
       if (probe.kind === "unavailable") {
         return failOpen(probe.reason, onEvent);
       }
-      onEvent({
-        kind: "queued",
-        hint: fire(HINTS["gate-test-run-queued"], {
-          cap,
-          logbookOff: !cfg.project.logbook,
-          ...(cfg.project.logbook
-            ? await waitDecoration(root, cfg)
-            : NO_DECORATION),
-        }),
-      });
-      const waitStarted = clock.monotonicNow();
-      const finishWait = (): void => {
-        waitedMs = (waitedMs ?? 0) + clock.monotonicNow() - waitStarted;
-      };
-      let interval = POLL_INITIAL_MS;
-      while (true) {
-        await abortableDelay(jitter(interval), scheduler, signal);
-        if (signal?.aborted === true) {
-          finishWait();
-          return undefined;
+      return await withProgressWait(async (wait) => {
+        const details = {
+          kind: "test-capacity",
+          reason:
+            `Waiting to start ${waitingFor}: the project's shared test capacity is in use.`,
+          next:
+            "This work will start automatically when capacity becomes available. No action is needed.",
+          capacity: { in_use: cap, limit: cap },
+        };
+        wait.update(details);
+        onEvent({
+          kind: "queued",
+          hint: fire(HINTS["gate-test-run-queued"], {
+            cap,
+            logbookOff: !cfg.project.logbook,
+            ...(cfg.project.logbook
+              ? await waitDecoration(root, cfg)
+              : NO_DECORATION),
+          }),
+        });
+        const waitStarted = clock.monotonicNow();
+        const finishWait = (): void => {
+          waitedMs = (waitedMs ?? 0) + clock.monotonicNow() - waitStarted;
+        };
+        let interval = POLL_INITIAL_MS;
+        while (true) {
+          await abortableDelay(jitter(interval), scheduler, signal);
+          if (signal?.aborted === true) {
+            finishWait();
+            return undefined;
+          }
+          probe = await probeSlots(dir, cap);
+          if (probe.kind === "acquired") {
+            finishWait();
+            wait.end(
+              "resumed",
+              `Capacity is available; ${waitingFor} can now start.`,
+              "The operation continues automatically.",
+            );
+            onEvent({ kind: "acquired" });
+            return makeHold(probe.file);
+          }
+          if (probe.kind === "unavailable") {
+            finishWait();
+            wait.end(
+              "unavailable",
+              "Waiting ended because the shared capacity limit could not be enforced.",
+              "The operation continues without the limit; see its capacity warning.",
+            );
+            return failOpen(probe.reason, onEvent);
+          }
+          wait.update(details);
+          interval = Math.min(POLL_CAP_MS, interval * POLL_FACTOR);
         }
-        probe = await probeSlots(dir, cap);
-        if (probe.kind === "acquired") {
-          finishWait();
-          onEvent({ kind: "acquired" });
-          return makeHold(probe.file);
-        }
-        if (probe.kind === "unavailable") {
-          finishWait();
-          return failOpen(probe.reason, onEvent);
-        }
-        interval = Math.min(POLL_CAP_MS, interval * POLL_FACTOR);
-      }
+      }, { clock, ...(signal === undefined ? {} : { signal }) });
     },
   };
 }

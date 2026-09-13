@@ -984,7 +984,7 @@ Rendered example:
 
 Rendered example:
 
-> Tests queued: 1 of 1 concurrent test runs in use across this repository's checkouts ([gate].concurrent_test_runs); the tests start the moment a slot frees. In flight: done on agent/fix-upload-retry, typically ~3m.
+> This run waited for shared test capacity: 1 of 1 concurrent runs were in use when it entered the wait ([gate].concurrent_test_runs). Other operations active at that time: done on agent/fix-upload-retry; historical duration for the first operation's command: ~3m. These observations do not establish queue order or an estimated start time.
 
 ## `gate-test-slots-unavailable`
 

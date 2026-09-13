@@ -1,5 +1,8 @@
 /** Invocation-scoped advisory facts; observers have no validation or publication capability. */
-import type { ProgressWork } from "../../shared/result_schemas.ts";
+import type {
+  ProgressWait,
+  ProgressWork,
+} from "../../shared/result_schemas.ts";
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
 import type { Clock } from "../../shared/clock.ts";
 import type { CompletionEvent, ValidationSubject } from "./protocol.ts";
@@ -33,8 +36,8 @@ export interface CompletionFailure {
 
 /** The next piece of work or the exact reason it is pending, without output-log payloads. */
 export interface CompletionProgress {
-  /** `queue` is the test-run slot queue a producer may wait in. */
-  readonly phase: "producer" | "queue" | "pending" | "operation";
+  /** Active waits use their own lifecycle, independent of the latest progress. */
+  readonly phase: "producer" | "pending" | "operation";
   readonly state: string;
   readonly candidate_id: string | null;
   readonly reason: string;
@@ -49,6 +52,7 @@ export interface CompletionProgress {
   readonly attempt_id?: string;
 }
 export type CompletionObservationFact =
+  | { readonly kind: "wait"; readonly wait: ProgressWait }
   | { readonly kind: "event"; readonly event: CompletionEvent }
   | { readonly kind: "progress"; readonly progress: CompletionProgress }
   | { readonly kind: "failure"; readonly failure: CompletionFailure };
@@ -97,6 +101,10 @@ function emit(fact: CompletionObservationFact): void {
 /** Expose the current phase or pending reason without starting any work. */
 export function emitCompletionProgress(progress: CompletionProgress): void {
   emit({ kind: "progress", progress });
+}
+/** Publish a complete snapshot of one independently identified wait. */
+export function emitCompletionWait(wait: ProgressWait): void {
+  emit({ kind: "wait", wait });
 }
 /** Report a failure the moment it is known, ahead of the producer's verdict. */
 export function emitCompletionFailure(failure: CompletionFailure): void {

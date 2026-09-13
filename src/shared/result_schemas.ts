@@ -3520,6 +3520,42 @@ export const ProgressWorkSchema = z.object({
 
 export type ProgressWork = z.infer<typeof ProgressWorkSchema>;
 
+/** A wait ends independently of other work in the same operation. */
+export const PROGRESS_WAIT_STATES = [
+  "waiting",
+  "resumed",
+  "unmet",
+  "cancelled",
+  "failed",
+  "unavailable",
+] as const;
+
+/** Persisted observation, never a lock, queue position, or completion authority. */
+export const ProgressWaitSchema = z.object({
+  id: z.string(),
+  kind: z.string(),
+  state: z.enum(PROGRESS_WAIT_STATES),
+  reason: z.string(),
+  next: z.string(),
+  started_at: z.number(),
+  updated_at: z.number(),
+  elapsed_ms: z.number().nonnegative(),
+  finished_at: z.number().optional(),
+  capacity: z.object({
+    in_use: z.number().int().nonnegative(),
+    limit: z.number().int().positive(),
+  }).optional(),
+  condition: AwaitDataSchema.pick({
+    condition: true,
+    branch: true,
+    trunk: true,
+    observed: true,
+    timeout_s: true,
+    resume: true,
+  }).optional(),
+});
+export type ProgressWait = z.infer<typeof ProgressWaitSchema>;
+
 /** One failure a producer established while it was still running. */
 export const ProgressFailureSchema = z.object({
   producer: z.string(),
@@ -3566,6 +3602,9 @@ export const ProgressDataSchema = z.object({
   }),
   executor: z.enum(["running", "gone", "unknown"]),
   executor_reason: z.string().optional(),
+  observed_at: z.number().optional(),
+  last_activity_at: z.number().optional(),
+  waits: z.array(ProgressWaitSchema).optional(),
   outcome: z.enum(["completed", "failed", "cancelled"]).optional(),
   progress: ProgressFactSchema.optional(),
   producers: z.array(ProgressWorkSchema).optional(),

@@ -34,6 +34,14 @@
  */
 
 import { join } from "@std/path";
+import {
+  awaitConditionDescription,
+  awaitObservationSentence,
+} from "../../shared/await_prose.ts";
+import {
+  type ProgressWaitScope,
+  withProgressWait,
+} from "../completion/progress_wait.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import {
@@ -47,6 +55,7 @@ import {
   type CommandRef,
   discernCommand,
   flag,
+  renderCommandRefsCli,
 } from "../../shared/command_reference.ts";
 import {
   failureRecoveryHintTexts,
@@ -83,6 +92,7 @@ import {
 import { logbookDir } from "../logbook/store.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { observedGateOperation } from "../gate/observed_operation.ts";
+import { createGateProgressPresenter } from "../gate/progress_presenter.ts";
 import {
   AWAIT_CALL_SECONDS,
   type AwaitCallProfile,
@@ -795,6 +805,26 @@ export async function awaitResult(
     );
 
   let last: Evaluation = { met: false, observed: {} };
+  let activeWait: ProgressWaitScope | undefined;
+  const describeWait = (): void => {
+    const watch = {
+      condition,
+      ...(branch === undefined ? {} : { branch }),
+      trunk,
+      observed: last.observed,
+      timeout_s: timeoutSeconds,
+      ...(resumeHandle === undefined ? {} : { resume: resumeHandle }),
+    };
+    activeWait?.update({
+      kind: "condition",
+      condition: watch,
+      reason: `Waiting for ${awaitConditionDescription(watch)}. ${
+        awaitObservationSentence(watch)
+      }`,
+      next:
+        `This call checks automatically for up to ${timeoutSeconds} s. If its observation window ends first, resume the same watch using the returned continuation. No action is needed while this call is waiting.`,
+    });
+  };
   const evaluate = async (): Promise<boolean> => {
     last = await evaluateCondition(root, condition, {
       branch,
@@ -804,6 +834,7 @@ export async function awaitResult(
       branchState,
       recoveredLanding,
     });
+    if (!last.met) describeWait();
     return last.met;
   };
 
@@ -830,20 +861,41 @@ export async function awaitResult(
       );
     }
     resumeHandle = initialSave.handle;
-    outcome = await waitForWakes(
-      evaluate,
-      await existingPaths([
-        join(commonGitDir, "refs", "heads"),
-        join(commonGitDir, "refs", "notes"),
-        join(commonGitDir, "packed-refs"),
-        ...(cfg.project.logbook ? [logbookDir(commonGitDir)] : []),
-      ]),
-      startMs + timeoutSeconds * 1000,
-      opts.pollIntervalMs ?? AWAIT_POLL_INTERVAL_MS,
-      clock,
-      scheduler,
-      signal,
-    );
+    const continuation = initialSave.handle;
+    outcome = await withProgressWait(async (wait) => {
+      activeWait = wait;
+      describeWait();
+      const settled = await waitForWakes(
+        evaluate,
+        await existingPaths([
+          join(commonGitDir, "refs", "heads"),
+          join(commonGitDir, "refs", "notes"),
+          join(commonGitDir, "packed-refs"),
+          ...(cfg.project.logbook ? [logbookDir(commonGitDir)] : []),
+        ]),
+        startMs + timeoutSeconds * 1000,
+        opts.pollIntervalMs ?? AWAIT_POLL_INTERVAL_MS,
+        clock,
+        scheduler,
+        signal,
+      );
+      if (signal?.aborted !== true) {
+        wait.end(
+          settled === "met" ? "resumed" : "unmet",
+          settled === "met"
+            ? "The awaited condition is now met."
+            : "The observation window ended; the condition is still unmet.",
+          settled === "met"
+            ? "Read the result for the next action."
+            : `Resume this watch with \`${
+              renderCommandRefsCli(
+                retryCommand(continuation, timing.retrySeconds),
+              )
+            }\`.`,
+        );
+      }
+      return settled;
+    }, { clock, ...(signal === undefined ? {} : { signal }) });
   }
   const waitedMs = Math.round(clock.monotonicNow() - startMs);
 
@@ -921,6 +973,7 @@ export async function awaitResult(
     );
   }
   const resume = finalSave.handle;
+  const cancelled = signal?.aborted === true;
   const hints: FiredHint[] = [
     fire(HINTS["await-not-yet"], {
       summary: notYetSummary(condition, branch, trunk, last.observed),
@@ -931,13 +984,19 @@ export async function awaitResult(
   return {
     ok: true,
     verb: "await",
+    ...(cancelled
+      ? {
+        message:
+          "The watch was cancelled before its condition was met. It will not resume automatically; its continuation remains available.",
+      }
+      : {}),
     data: {
       ...base,
       resume,
       retry_after_s: timing.retrySeconds,
       retry_basis: timing.retryBasis,
     },
-    hints: hintTexts(hints),
+    hints: cancelled ? [] : hintTexts(hints),
   };
 }
 
@@ -1148,20 +1207,27 @@ export async function runAwait(
   opts: RunAwaitOptions,
   signal?: AbortSignal,
 ): Promise<number> {
+  const out = makeOut(colorEnabled());
   // The wait is a journalled operation like every other long verb, so a
   // closed terminal can read it back through its progress handle.
   const result = await observedGateOperation(
     root,
     "await",
     signal,
-    () => awaitResult(root, opts, signal),
+    (presenter) => {
+      if (opts.json !== true) {
+        presenter.set(createGateProgressPresenter({
+          write: (line): void => out.info(line.trimEnd()),
+        }));
+      }
+      return awaitResult(root, opts, signal);
+    },
     (value) => value,
   );
   observeResult(result);
   if (opts.json === true) {
     emitResult(result);
   } else {
-    const out = makeOut(colorEnabled());
     if (!result.ok) {
       out.error(result.message ?? "await refused.");
       const hints = interactiveHintTexts(result.hints);

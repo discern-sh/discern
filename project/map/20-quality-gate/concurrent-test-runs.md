@@ -33,6 +33,8 @@ Gate verbs acquire automatically. `[gate].concurrent_test_runs` is the capacity 
 discern queue -- <command> [args...]
 ```
 
+Compiled worktree instructions name the configured positive limit and require this wrapper for direct test commands. A zero limit omits that instruction.
+
 `queue` holds a slot for the child's lifetime and preserves its arguments, streams, interrupts, and status. A missing or zero cap touches no slot files. Unusable slots warn once, then run uncapped.
 
 Nested gate and queue processes inherit an internal marker when an ancestor accounted for the cap, including after fail-open. A marked process skips another acquisition and passes the marker onward, so every nesting direction consumes one slot. This provides cooperative back-pressure. It cannot enforce a security boundary ([ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).[^raw-test-task]
@@ -41,15 +43,18 @@ Nested gate and queue processes inherit an internal marker when an ancestor acco
 
 ## What a queued run looks like
 
-A waiting run names the slot holder:
+A waiting run names the work that cannot start and the observed capacity use:
 
 ```text
-Tests queued: 1 of 1 concurrent test runs in use across this repository's
-checkouts ([gate].concurrent_test_runs); the tests start the moment a slot
-frees. In flight: queue on agent/profile-tests, typically ~3m.
+Waiting to start tests: the project's shared test capacity is in use.
+At the latest capacity check, 1 of 1 concurrent run was in progress.
+Waiting so far: 4 min 12 s. This work will start automatically when
+capacity becomes available. No action is needed.
 ```
 
-The [Logbook](../70-reference/the-logbook.md) begins an unmarked `queue` before admission and completes it after the child. Marker bypass writes no duplicate. Recording off omits the holder and estimate. Result `hints[]` carries the notice over JSON and Model Context Protocol.
+Active waits persist independently of other checks finishing. `discern progress` reports elapsed waiting from the saved observation; admission, cancellation, and failure close the matching wait. Live observations refresh at most every 30 seconds while capacity remains unavailable. Immediate admission emits no wait.
+
+The [Logbook](../70-reference/the-logbook.md) begins an unmarked `queue` before admission and completes it after the child. Marker bypass writes no duplicate. Result `hints[]` can retain other operations active at queue entry and their historical durations. Those operations may themselves be waiting. These facts establish neither slot ownership nor queue order nor an estimated start time. Recording off omits that context.
 
 Timing stays split:
 

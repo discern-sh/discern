@@ -4233,7 +4233,7 @@ Every elapsed shell wait in executable test source, with its exact enclosing sco
   - `["tests/engine_gate_timeout_test.ts","timeout override: 0 disables the bound for that job alone","2"]`
   - `["tests/engine_queue_test.ts","queue serializes two wrapped commands at cap 1 and narrates only on stderr","0.4"]`
   - `["tests/engine_queue_test.ts","queue nesting takes one slot total at cap 1","0.05"]`
-  - `["tests/engine_queue_test.ts","a gate queued behind a wrapped sibling names queue on its wait line","0.05"]`
+  - `["tests/engine_queue_test.ts","a queued gate shows capacity now and retains other operation activity as history","0.05"]`
   - `["tests/engine_worktree_probe_test.ts","probeWorktreeViability: a command-owned late writer cannot follow a successful teardown","0.01"]`
   - `["tests/engine_worktree_probe_test.ts","probeWorktreeViability: a backgrounded Git hook is quiesced before teardown","0.01"]`
   - `["tests/jobs_runner_test.ts","runParallel: observer sees starts up front and settlements in real completion order","0.01"]`

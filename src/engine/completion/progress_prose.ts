@@ -84,7 +84,9 @@ export function producerWorkSentence(work: ProducerWorkFacts): string {
   }
   if (work.elapsed_ms !== undefined) {
     account.push(
-      `Producer elapsed: ${Math.round(work.elapsed_ms / 100) / 10} s.`,
+      `Elapsed for ${work.producer}: ${
+        Math.round(work.elapsed_ms / 100) / 10
+      } s.`,
     );
   }
   if (work.output_path !== undefined) {

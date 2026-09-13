@@ -391,6 +391,7 @@ export async function executePublicValidation(input: {
     needed: boolean,
     claimed: ValidationSubject,
     run: () => Promise<T>,
+    waitingFor: string,
   ): Promise<T> => {
     if (!needed || slots === undefined) return await run();
     slotUsers++;
@@ -402,18 +403,7 @@ export async function executePublicValidation(input: {
           claimed,
           `${claimed.attempt.identity.id}:slot:${++slotAcquisitions}`,
           SYSTEM_CLOCK,
-          (queued) =>
-            slots.acquire(out, claimed.signal, () => {
-              queued();
-              emitCompletionProgress({
-                phase: "queue",
-                state: "waiting",
-                candidate_id: claimed.candidate_id,
-                reason:
-                  "Waiting for test-run capacity; independent checks can continue.",
-                next: "The producer starts when a test-run slot frees.",
-              });
-            }),
+          (queued) => slots.acquire(out, claimed.signal, queued, waitingFor),
         );
       })();
       await acquiring;
@@ -432,7 +422,7 @@ export async function executePublicValidation(input: {
     extract: (
       ...args: Parameters<typeof runtime.extract>
     ): ReturnType<typeof runtime.extract> =>
-      withSlot(true, args[2], () => runtime.extract(...args)),
+      withSlot(true, args[2], () => runtime.extract(...args), "measurements"),
     onCapture: async (
       producer: ProducerDemand,
       capture: import("./execute.ts").ProducerCapture,
@@ -464,6 +454,9 @@ export async function executePublicValidation(input: {
           });
           return runtime.produce(producer, claimed);
         },
+        producerLabel(producer.selector) === "test"
+          ? "tests"
+          : producerLabel(producer.selector),
       );
       return conditionsArtifact === undefined ? captured : {
         ...captured,

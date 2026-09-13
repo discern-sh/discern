@@ -16,7 +16,11 @@ import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
 import { renderProviderTrustMarkdown } from "./provider_trust.ts";
-import { ProviderTrustDataSchema } from "./result_schemas.ts";
+import { AwaitDataSchema, ProviderTrustDataSchema } from "./result_schemas.ts";
+import {
+  awaitConditionDescription,
+  awaitObservationSentence,
+} from "./await_prose.ts";
 import { sampleDiagnostics } from "./diagnostic_summary.ts";
 import {
   boolean,
@@ -1542,6 +1546,10 @@ const presentProgress: ResultMarkdownPresenter = (result) => {
       0,
     );
   const retained = object(data.result);
+  const waits = records(data.waits);
+  const resume = waits.map((wait) => text(object(wait.condition)?.resume)).find(
+    (value) => value !== undefined,
+  );
   return {
     state: defaultState(result, "No long operation is recorded here."),
     evidence: unique([
@@ -1551,8 +1559,23 @@ const presentProgress: ResultMarkdownPresenter = (result) => {
       text(operation?.path) === undefined
         ? undefined
         : `Checkout: ${code(operation?.path)}.`,
-      ...strings(data.account),
-      waitMs < MIN_CAPACITY_WAIT_NOTICE_MS
+      ...strings(data.account).filter((line) =>
+        !(text(result.message) ?? "").includes(line)
+      ),
+      number(data.observed_at) === undefined ||
+        number(data.last_activity_at) === undefined
+        ? undefined
+        : `Latest progress observation: ${
+          duration(
+            Math.max(
+              0,
+              (number(data.observed_at) ?? 0) -
+                (number(data.last_activity_at) ?? 0),
+            ),
+          )
+        } ago.`,
+      waitMs < MIN_CAPACITY_WAIT_NOTICE_MS ||
+        waits.some((wait) => wait.kind === "test-capacity")
         ? undefined
         : `Waited ${
           duration(waitMs)
@@ -1572,7 +1595,11 @@ const presentProgress: ResultMarkdownPresenter = (result) => {
         ? retained
         : undefined,
     action: text(data.outcome) === undefined && text(data.executor) === "gone"
-      ? ["Run the command again to continue."]
+      ? [
+        resume === undefined
+          ? "Run the command again to continue."
+          : `Resume the original watch with \`discern await --resume ${resume}\`.`,
+      ]
       : [],
   };
 };
@@ -1648,15 +1675,43 @@ const presentAwait: ResultMarkdownPresenter = (result) => {
   const met = boolean(data.met) === true;
   const condition = text(data.condition) ?? "condition";
   const branch = text(data.branch);
+  const parsed = AwaitDataSchema.safeParse(data);
   return {
     state: defaultState(
       result,
-      `${branch === undefined ? "The watched target" : code(branch)} ${
-        met ? "met" : "has not met"
-      } the ${code(condition)} condition.`,
+      parsed.success
+        ? (met
+          ? "The awaited condition is met."
+          : "The observation window ended; the condition is still unmet.")
+        : `${branch === undefined ? "The watched target" : code(branch)} ${
+          met ? "met" : "has not met"
+        } the ${code(condition)} condition.`,
     ),
     evidence: unique([
+      ...(parsed.success
+        ? [
+          `Requested condition: ${awaitConditionDescription(parsed.data)}.`,
+          awaitObservationSentence(parsed.data),
+        ]
+        : []),
       `Waited ${duration(number(data.elapsed_ms) ?? 0)}.`,
+      text(data.trunk) === undefined
+        ? undefined
+        : `Shared branch: ${code(data.trunk)}.`,
+      text(observed.tip) === undefined
+        ? undefined
+        : `Observed task revision: ${code(observed.tip)}.`,
+      text(observed.trunk_start) === undefined
+        ? undefined
+        : `Shared-branch revision at watch start: ${
+          code(observed.trunk_start)
+        }.`,
+      text(observed.trunk_head) === undefined
+        ? undefined
+        : `Latest shared-branch revision: ${code(observed.trunk_head)}.`,
+      number(data.timeout_s) === undefined
+        ? undefined
+        : `This observation window: ${number(data.timeout_s)} s.`,
       text(observed.proof_status) === undefined
         ? undefined
         : `Proof status: ${code(observed.proof_status)}.`,

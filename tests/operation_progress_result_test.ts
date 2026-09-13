@@ -78,6 +78,7 @@ Deno.test("a finished operation reconnects to its retained result and failures",
     );
     const byHandle = await operationProgressResult(root, {
       handle: read.data?.handle ?? "",
+      now: () => read.data?.observed_at ?? 0,
     });
     assert(byHandle.ok);
     assertEquals(byHandle.data, read.data);
@@ -117,7 +118,7 @@ Deno.test("an interrupted operation reports its executor gone, not a verdict", a
       read.message ?? "",
       "stopped without finishing and its recording process is gone",
     );
-    assertStringIncludes(read.message ?? "", "run the command again");
+    assertStringIncludes(read.message ?? "", "Run the command again");
   });
 });
 

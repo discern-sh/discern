@@ -1895,19 +1895,20 @@ export const HINTS = {
       logbookOff: false,
     },
     template: ({ cap, inFlight, typical, logbookOff }): string => {
-      const queued = `Tests queued: ${cap} of ${cap} concurrent test runs ` +
-        `in use across this repository's checkouts ` +
-        `([gate].concurrent_test_runs); the tests start the moment a slot ` +
-        `frees.`;
+      const queued =
+        `This run waited for shared test capacity: ${cap} of ${cap} concurrent runs ` +
+        `were in use when it entered the wait ` +
+        `([gate].concurrent_test_runs).`;
       const flight = inFlight === undefined
         ? ""
-        : ` In flight: ${inFlight}${
-          typical === undefined ? "" : `, typically ~${typical}`
+        : ` Other operations active at that time: ${inFlight}${
+          typical === undefined
+            ? ""
+            : `; historical duration for the first operation's command: ~${typical}`
         }.`;
       const estimate = logbookOff
-        ? " The logbook is off ([project].logbook = false), so there is no " +
-          "wait estimate."
-        : "";
+        ? " Other operation activity was not recorded ([project].logbook = false)."
+        : " These observations do not establish queue order or an estimated start time.";
       return `${queued}${flight}${estimate}`;
     },
   }),

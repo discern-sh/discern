@@ -17,9 +17,11 @@ import { join } from "@std/path";
 import { z } from "@zod/zod";
 import { decodeJson } from "../../shared/runtime_decode.ts";
 import {
+  AwaitDataSchema,
   ProgressFactSchema,
   ProgressFailureSchema,
   ProgressTimingSchema,
+  ProgressWaitSchema,
   ProgressWorkSchema,
 } from "../../shared/result_schemas.ts";
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
@@ -103,6 +105,8 @@ const OperationJournalRecordSchema = z.object({
     finished_at: z.number().optional(),
   }),
   progress: ProgressFactSchema.optional(),
+  waits: z.record(z.string(), ProgressWaitSchema).optional(),
+  last_activity_at: z.number().optional(),
   producers: z.record(z.string(), ProgressWorkSchema).optional(),
   failures: z.array(ProgressFailureSchema).optional(),
   timings: z.array(ProgressTimingSchema).optional(),
@@ -414,7 +418,16 @@ export async function openOperationJournal(
   return {
     handle: store.handle,
     observe(fact): Promise<void> {
-      if (fact.kind === "progress") {
+      current = { ...current, last_activity_at: clock.wallNow() };
+      if (fact.kind === "wait") {
+        const waits = { ...current.waits, [fact.wait.id]: fact.wait };
+        // Evict finished history first; an active wait cannot disappear under load.
+        for (const wait of Object.values(waits)) {
+          if (Object.keys(waits).length <= TIMINGS_LIMIT) break;
+          if (wait.state !== "waiting") delete waits[wait.id];
+        }
+        current = { ...current, waits };
+      } else if (fact.kind === "progress") {
         const work = fact.progress.work;
         const producers = work === undefined ? current.producers : {
           ...current.producers,
@@ -767,8 +780,13 @@ export async function withOperationJournal<T>(
       // A cancelled run may still return an ordinary unsuccessful envelope;
       // the executor's own cancellation, not the envelope shape, decides.
       const cancelled = options.signal?.aborted === true;
+      const awaited = header.verb === "await"
+        ? AwaitDataSchema.safeParse(result.data)
+        : undefined;
+      const completed = result.ok &&
+        !(cancelled && awaited?.success === true && !awaited.data.met);
       await open.finish(
-        result.ok ? "completed" : cancelled ? "cancelled" : "failed",
+        completed ? "completed" : cancelled ? "cancelled" : "failed",
         result,
       );
       return value;

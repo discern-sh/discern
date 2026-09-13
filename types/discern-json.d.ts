@@ -5058,6 +5058,55 @@ export type DiscernProgressResult = DiscernResultState & {
     };
     executor: "running" | "gone" | "unknown";
     executor_reason?: string;
+    observed_at?: number;
+    last_activity_at?: number;
+    waits?: Array<{
+      id: string;
+      kind: string;
+      state:
+        | "waiting"
+        | "resumed"
+        | "unmet"
+        | "cancelled"
+        | "failed"
+        | "unavailable";
+      reason: string;
+      next: string;
+      started_at: number;
+      updated_at: number;
+      elapsed_ms: number;
+      finished_at?: number;
+      capacity?: {
+        in_use: number;
+        limit: number;
+      };
+      condition?: {
+        condition: "green" | "landed" | "trunk-moved";
+        branch?: string;
+        trunk: string;
+        observed: {
+          proof_status?:
+            | "honored"
+            | "report_only"
+            | "missing"
+            | "stale"
+            | "dirty"
+            | "unavailable"
+            | "read_failed"
+            | "no-worktree";
+          worktree?: string;
+          tip?: string;
+          landed?: boolean;
+          trunk_start?: string;
+          trunk_head?: string;
+          behind?: number | "unknown";
+          incoming_overlap?: Array<string>;
+          overlap_total?: number;
+        };
+        timeout_s: number;
+        resume?: string;
+      };
+    }>;
     outcome?: "completed" | "failed" | "cancelled";
     progress?: {
       phase: "producer" | "queue" | "pending" | "operation";

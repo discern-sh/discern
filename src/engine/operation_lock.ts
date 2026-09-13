@@ -16,7 +16,7 @@ import { AsyncLocalStorage } from "../shared/module_loading.ts";
 import { withTrackedRun } from "./jobs/interrupt.ts";
 import { SYSTEM_CLOCK } from "../shared/clock.ts";
 import { SYSTEM_SCHEDULER } from "../shared/scheduler.ts";
-import { emitCompletionProgress } from "./completion/events.ts";
+import { withProgressWait } from "./completion/progress_wait.ts";
 import { bestEffort } from "../shared/best_effort.ts";
 import {
   type OperationEffectPolicy,
@@ -336,20 +336,31 @@ async function acquireLock(
   }
   try {
     if (!acquired && waitForPublication) {
-      emitCompletionProgress({
-        phase: "queue",
-        state: "publication-wait",
-        candidate_id: null,
-        reason: "Waiting for another short repository publication to finish.",
-        next: "This run continues once that publication finishes.",
-      });
-      const deadline = SYSTEM_CLOCK.monotonicNow() + 10_000;
-      while (!acquired && SYSTEM_CLOCK.monotonicNow() < deadline) {
-        await new Promise<void>((resolve) =>
-          SYSTEM_SCHEDULER.scheduleTimeout(resolve, 25)
+      await withProgressWait(async (wait) => {
+        wait.update({
+          kind: "repository-update",
+          reason:
+            "Waiting for another operation to finish updating shared repository state.",
+          next:
+            "This run retries automatically for up to 10 s, then reports whether a retry is needed.",
+        });
+        const deadline = SYSTEM_CLOCK.monotonicNow() + 10_000;
+        while (!acquired && SYSTEM_CLOCK.monotonicNow() < deadline) {
+          await new Promise<void>((resolve) =>
+            SYSTEM_SCHEDULER.scheduleTimeout(resolve, 25)
+          );
+          acquired = await file.tryLock(true);
+        }
+        wait.end(
+          acquired ? "resumed" : "unmet",
+          acquired
+            ? "The shared repository state is available; this operation can continue."
+            : "The other operation is still updating shared repository state.",
+          acquired
+            ? "No action is needed."
+            : "This call could not continue. Retry after the other operation finishes.",
         );
-        acquired = await file.tryLock(true);
-      }
+      });
     }
   } catch (error) {
     file.close();

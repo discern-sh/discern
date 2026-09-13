@@ -133,7 +133,7 @@ Deno.test("a journal outlives its executor and reports the process gone", async 
     await journal.observe({
       kind: "progress",
       progress: {
-        phase: "queue",
+        phase: "operation",
         state: "waiting",
         candidate_id: null,
         reason:

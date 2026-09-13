@@ -29,7 +29,7 @@ import { logbookEventSchema } from "../src/engine/logbook/schema.ts";
 import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
 import { TEST_PROCESS_TIMEOUT_MS, waitUntil } from "./waiting.ts";
 
-const QUEUED_TEXT = "Tests queued";
+const QUEUED_TEXT = "shared test capacity";
 const UNAVAILABLE_TEXT = "The concurrent test-run cap is not enforced";
 
 Deno.test("queue routing consumes required global-option values before its delimiter", () => {
@@ -494,7 +494,7 @@ Deno.test("queue around a capped gate takes one slot total at cap 1", async () =
   });
 });
 
-Deno.test("a gate queued behind a wrapped sibling names queue on its wait line", async () => {
+Deno.test("a queued gate shows capacity now and retains other operation activity as history", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -549,7 +549,7 @@ Deno.test("a gate queued behind a wrapped sibling names queue on its wait line",
       );
       assertStringIncludes(
         gate.stdoutSoFar(),
-        "In flight: queue on agent/queue-visible-holder",
+        "1 of 1 concurrent run",
       );
       await Deno.writeTextFile(release, "go");
       const [holderResult, gateResult] = await Promise.all([
@@ -558,6 +558,10 @@ Deno.test("a gate queued behind a wrapped sibling names queue on its wait line",
       ]);
       assertEquals(holderResult.code, 0, holderResult.output);
       assertEquals(gateResult.code, 0, gateResult.output);
+      assertTerminalTextIncludes(
+        gateResult.output,
+        "Other operations active at that time: queue on agent/queue-visible-holder",
+      );
     } finally {
       await Deno.writeTextFile(release, "go").catch(() => {});
       await holder.result;

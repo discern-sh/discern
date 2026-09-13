@@ -140,7 +140,7 @@ Deno.test("completion progress failures cannot replace a result or an operation 
     Promise.reject(new Error("observer unavailable"));
   const emit = (): void =>
     emitCompletionProgress({
-      phase: "queue",
+      phase: "operation",
       state: "waiting",
       candidate_id: null,
       reason: "Waiting for current execution.",
@@ -182,7 +182,7 @@ Deno.test("MCP progress coalesces unchanged observations but reports every trans
     },
     () => {
       const waiting = {
-        phase: "queue" as const,
+        phase: "operation" as const,
         state: "waiting",
         candidate_id: "candidate",
         reason: "Waiting for a completion slot.",

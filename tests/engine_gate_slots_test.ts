@@ -56,7 +56,7 @@ import {
   decodeWith,
 } from "./decode_cli_result.ts";
 
-const QUEUED_TEXT = "Tests queued";
+const QUEUED_TEXT = "shared test capacity";
 const SLOT_LOCK_HOLDER = fromFileUrl(
   new URL("fixtures/slot_lock_holder.ts", import.meta.url),
 );
