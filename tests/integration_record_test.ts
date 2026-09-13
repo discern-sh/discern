@@ -18,7 +18,10 @@ import {
 import { classifyAutomaticBranchOwnership } from "../src/engine/worktree/ownership.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { withTempDir } from "./helpers.ts";
-import { gitInit, scaffoldEngine } from "./engine_helpers.ts";
+import { git, gitInit, gitOut, scaffoldEngine } from "./engine_helpers.ts";
+import { removeIntegrationWorktree } from "../src/engine/worktree/lifecycle.ts";
+import { Logger } from "../src/lib/log.ts";
+import { join } from "@std/path";
 import { completionId } from "./completion_fixtures.ts";
 
 /** One valid record whose owner is this test process (live by construction). */
@@ -113,4 +116,41 @@ Deno.test("integration branch ownership comes from the recorded copy, not the na
   });
   assert(!mismatched.owned);
   assertStringIncludes(mismatched.reason, "integration/amber-cove-1a2b3c-9f");
+});
+Deno.test("the record outlives the branch: a refused deletion keeps the recovery record", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const root = await Deno.realPath(dir);
+    const branch = "integration/locked-1a2b3c";
+    await git(dir, "branch", branch);
+    const entry: IntegrationLandingRecord = {
+      ...record("integration-locked-1a2b3c"),
+      phase: "ready",
+      worktree: {
+        id: "integration-locked-1a2b3c",
+        branch,
+        path: join(root, "..", "integration-locked-1a2b3c"),
+      },
+    };
+    await writeIntegrationLandingRecord(root, entry);
+    const log = new Logger({ json: true, noColor: true });
+
+    // A stale ref lock makes the owned deletion refuse; the record must
+    // survive as prune's only ownership evidence for the branch.
+    const lock = join(root, ".git", "refs", "heads", `${branch}.lock`);
+    await Deno.writeTextFile(lock, "stale test lock\n");
+    const failures = await removeIntegrationWorktree(root, entry, log);
+    assertEquals(failures.length, 1, failures.join("; "));
+    assertStringIncludes(failures[0] ?? "", "could not be deleted");
+    assertEquals((await listIntegrationLandingRecords(root)).length, 1);
+    assert((await gitOut(dir, "branch", "--list", branch)) !== "");
+
+    // Clearing the cause lets the same route finish: branch and record go
+    // together, in that order.
+    await Deno.remove(lock);
+    assertEquals(await removeIntegrationWorktree(root, entry, log), []);
+    assertEquals(await listIntegrationLandingRecords(root), []);
+    assertEquals(await gitOut(dir, "branch", "--list", branch), "");
+  });
 });

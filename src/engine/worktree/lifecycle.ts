@@ -3813,7 +3813,18 @@ export async function removeIntegrationWorktree(
           `the integration worktree's branch ${record.worktree.branch} could not be deleted: ${deleted.reason}`,
         );
       }
+    } else if (await localBranchExists(mainRepo, record.worktree.branch)) {
+      // The branch exists but its tip could not be read: uncertainty, not
+      // absence. Keep the record — it is the only ownership evidence prune
+      // has for reclaiming the branch later.
+      failures.push(
+        `the integration worktree's branch ${record.worktree.branch} could not be read for deletion; run discern worktree prune from ${mainRepo} after the repository is readable`,
+      );
     }
+  }
+  // The record outlives the branch, never the reverse: it is removed only
+  // once everything it accounts for is verifiably gone.
+  if (failures.length === 0) {
     await removeIntegrationLandingRecord(mainRepo, record.worktree.id);
   }
   return failures;

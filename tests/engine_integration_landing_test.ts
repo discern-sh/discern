@@ -646,3 +646,48 @@ Deno.test("a main checkout that turns dirty during the combined check refuses at
     await assertNoIntegrationRemains(dir);
   });
 });
+Deno.test("an integration setup failure cleans up its branch and record under integration ownership", async () => {
+  await withTempDir(async (dir) => {
+    // The setup step fails only inside an integration copy, so the author
+    // worktrees prepare normally while the composed landing cannot.
+    await integrationFixture(
+      dir,
+      `${CONFIG}[worktree.setup]\nsteps = ["sh fail-in-integration.sh"]\n`,
+    );
+    await Deno.writeTextFile(
+      join(dir, "fail-in-integration.sh"),
+      [
+        "#!/bin/sh",
+        'case "$(pwd)" in',
+        "  *integration*) exit 1 ;;",
+        "esac",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "wire setup step", "--no-gpg-sign");
+
+    const alpha = await effortWithWork(dir, "alpha", "alpha.txt");
+    const beta = await effortWithWork(dir, "beta", "beta.txt");
+    assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+    assertEquals((await runAgent(beta, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+      0,
+    );
+
+    const refused = await runAgent(beta, ["accept", "--confirmed", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    const result = decodeCliResult(refused.stdout, "accept");
+    assertStringIncludes(result.message ?? "", "could not be prepared");
+    assertStringIncludes(
+      result.message ?? "",
+      "The integration worktree was removed.",
+    );
+    // Nothing leaks: no integration/ branch survives without its record,
+    // and the submission stays ready to retry after the owner repairs setup.
+    assertEquals((await readSubmission(beta)).status, "submitted");
+    await assertNoIntegrationRemains(dir);
+  });
+});

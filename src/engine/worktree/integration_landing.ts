@@ -38,7 +38,6 @@ import { localBranchExists, WorktreeGitError } from "./git.ts";
 import { generateWorktreeId, type IdentitySettings } from "./identity.ts";
 import {
   type IntegrationLandingRecord,
-  removeIntegrationLandingRecord,
   writeIntegrationLandingRecord,
 } from "./integration_record.ts";
 import {
@@ -238,12 +237,21 @@ export async function runIntegrationAttempt(input: {
       },
     );
   } catch (error) {
-    // The creation core already discarded the partial worktree.
-    await removeIntegrationLandingRecord(effort.mainRepo, minted.id);
+    // The creation core discards the partial checkout, but its rollback
+    // deletes branches under authoring ownership and refuses the
+    // integration/ namespace. Finish the cleanup under integration
+    // ownership; the record is removed only once everything it accounts
+    // for is verifiably gone, so a leftover branch stays reclaimable by
+    // `discern worktree prune`.
+    const cleanupFailures = await removeIntegrationWorktree(
+      effort.mainRepo,
+      record,
+      log,
+    );
     return {
       kind: "setup-failed",
       reason: error instanceof Error ? error.message : String(error),
-      cleanupFailures: [],
+      cleanupFailures,
     };
   }
   await writeIntegrationLandingRecord(effort.mainRepo, {
