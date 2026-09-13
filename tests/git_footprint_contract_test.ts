@@ -119,6 +119,12 @@ const FROZEN_V1_GIT_ADMIN_STATE = {
     false,
   ],
   resources: ["discern/resources", "common", "directory", false],
+  integrationLandings: [
+    "discern/integration-landings",
+    "common",
+    "directory",
+    false,
+  ],
   logbook: ["discern/logbook", "common", "directory", false],
   logbookArchives: [
     "discern/logbook-archives",
