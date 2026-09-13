@@ -136,8 +136,9 @@ Deno.test("automatic branch deletion and worktree removal stay enrolled in their
     ),
     {
       "src/commands/setup_accept.ts": 1,
-      "src/engine/worktree/accept.ts": 1,
+      "src/engine/worktree/accept_cleanup.ts": 1,
       "src/engine/worktree/git.ts": 1,
+      "src/engine/worktree/integration_landing.ts": 1,
       "src/engine/worktree/landed_branches.ts": 1,
       "src/engine/worktree/lifecycle.ts": 2,
     },
@@ -149,8 +150,9 @@ Deno.test("automatic branch deletion and worktree removal stay enrolled in their
       "src/engine/worktree/git.ts",
     ),
     {
-      "src/engine/worktree/accept.ts": 1,
+      "src/engine/worktree/accept_cleanup.ts": 1,
       "src/engine/worktree/git.ts": 2,
+      "src/engine/worktree/integration_landing.ts": 1,
       "src/engine/worktree/lifecycle.ts": 3,
       "src/engine/worktree/park.ts": 1,
     },
