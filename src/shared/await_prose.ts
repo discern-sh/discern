@@ -1,5 +1,41 @@
 /** Plain-language descriptions derived from the await condition and its observations. */
 import type { AwaitData } from "./result_schemas.ts";
+import {
+  code,
+  number,
+  object,
+  text,
+  unique,
+} from "./result_markdown_values.ts";
+
+/** Keep the watch's target and revision context visible, including older partial records. */
+export function awaitContextLines(
+  data: Record<string, unknown>,
+  condition?: AwaitData,
+): string[] {
+  const observed = object(data.observed) ?? {};
+  return unique([
+    ...(condition === undefined ? [] : [
+      `Requested condition: ${awaitConditionDescription(condition)}.`,
+      awaitObservationSentence(condition),
+    ]),
+    text(data.trunk) === undefined
+      ? undefined
+      : `Shared branch: ${code(data.trunk)}.`,
+    text(observed.tip) === undefined
+      ? undefined
+      : `Observed task revision: ${code(observed.tip)}.`,
+    text(observed.trunk_start) === undefined
+      ? undefined
+      : `Shared-branch revision at watch start: ${code(observed.trunk_start)}.`,
+    text(observed.trunk_head) === undefined
+      ? undefined
+      : `Latest shared-branch revision: ${code(observed.trunk_head)}.`,
+    number(data.timeout_s) === undefined
+      ? undefined
+      : `This observation window: ${number(data.timeout_s)} s.`,
+  ]);
+}
 
 /** Explain the requested transition without requiring knowledge of condition codes. */
 export function awaitConditionDescription(

@@ -11,7 +11,7 @@ Keep one worktree for the whole effort, through review feedback and resumed sess
 - **Move your own file operations.** `discern_start` creates a worktree from `{{main_branch}}` with branch prefix `{{branch_prefix}}` and re-aims discern's tools. Your shell and editor must also use the returned path. If you can't change your working root, prefix shell commands with `cd <path> &&` and target file operations explicitly.
 - **Update through `discern_update`.** Call it when behind `{{main_branch}}`; it checks its own preconditions, so no Git pre-check or hand-merge is needed. Re-read affected files named in its overlap report before continuing.
 - **Wait through `discern_await`.** Use one longest-safe call when work depends on a sibling effort or the trunk, and follow its continuation or recovery instructions.{{#if has_test_run_cap}}
-- **Run tests through the configured queue.** This project allows {{concurrent_test_runs}} concurrent test run{{#if single_test_run}}{{else}}s{{/if}} across its checkouts (`[gate].concurrent_test_runs`). Run direct test commands through `discern queue -- <command>`.{{/if}}
+- **Use the test queue.** Limit: {{concurrent_test_runs}} concurrent test run{{#if single_test_run}}{{else}}s{{/if}} across checkouts (`[gate].concurrent_test_runs`). Run direct tests through `discern queue -- <command>`.{{/if}}
 
 ### Finishing an effort
 

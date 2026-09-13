@@ -53,13 +53,13 @@ Deno.test("queue instructions state the configured cap and disappear when uncapp
       const body = (await renderAgentFiles(root)).get("AGENTS.md");
       assert(body !== undefined);
       assertEquals(
-        body.includes("Run tests through the configured queue"),
+        body.includes("Use the test queue"),
         cap > 0,
       );
       if (cap > 0) {
         assertStringIncludes(
           body,
-          "\n- **Run tests through the configured queue.**",
+          "\n- **Use the test queue.**",
         );
         assert(!body.split("\n").some((line) => /[\t ]$/u.test(line)));
         assertStringIncludes(

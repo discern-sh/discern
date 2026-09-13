@@ -17,10 +17,7 @@ import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
 import { renderProviderTrustMarkdown } from "./provider_trust.ts";
 import { AwaitDataSchema, ProviderTrustDataSchema } from "./result_schemas.ts";
-import {
-  awaitConditionDescription,
-  awaitObservationSentence,
-} from "./await_prose.ts";
+import { awaitContextLines } from "./await_prose.ts";
 import { sampleDiagnostics } from "./diagnostic_summary.ts";
 import {
   boolean,
@@ -1688,30 +1685,8 @@ const presentAwait: ResultMarkdownPresenter = (result) => {
         } the ${code(condition)} condition.`,
     ),
     evidence: unique([
-      ...(parsed.success
-        ? [
-          `Requested condition: ${awaitConditionDescription(parsed.data)}.`,
-          awaitObservationSentence(parsed.data),
-        ]
-        : []),
+      ...awaitContextLines(data, parsed.success ? parsed.data : undefined),
       `Waited ${duration(number(data.elapsed_ms) ?? 0)}.`,
-      text(data.trunk) === undefined
-        ? undefined
-        : `Shared branch: ${code(data.trunk)}.`,
-      text(observed.tip) === undefined
-        ? undefined
-        : `Observed task revision: ${code(observed.tip)}.`,
-      text(observed.trunk_start) === undefined
-        ? undefined
-        : `Shared-branch revision at watch start: ${
-          code(observed.trunk_start)
-        }.`,
-      text(observed.trunk_head) === undefined
-        ? undefined
-        : `Latest shared-branch revision: ${code(observed.trunk_head)}.`,
-      number(data.timeout_s) === undefined
-        ? undefined
-        : `This observation window: ${number(data.timeout_s)} s.`,
       text(observed.proof_status) === undefined
         ? undefined
         : `Proof status: ${code(observed.proof_status)}.`,
