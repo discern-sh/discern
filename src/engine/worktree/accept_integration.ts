@@ -150,7 +150,7 @@ export async function executeIntegrationLanding(
   const frozen = subject.submission;
   if (frozen === undefined) {
     throw new WorktreeGitError(
-      `Only submitted work lands through an integration worktree, and ${effort.branch} has no recorded submission. Run discern accept from ${effort.path} to submit it, or land it directly once its Proof names the current trunk tip.`,
+      `Only submitted work lands through an integration worktree, and ${effort.branch} has no recorded submission. Run discern accept from ${effort.path} to submit it, or land it directly once its proven revision contains the current trunk tip.`,
     );
   }
   const cliModel = request.cliModel;

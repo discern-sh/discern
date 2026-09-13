@@ -15,6 +15,7 @@ import { readCompleteProof } from "../gate/completion_proof.ts";
 import { candidatePredecessor } from "../completion/candidate.ts";
 import { strictVerdictCurrency } from "../completion/verdict.ts";
 import {
+  commitIsAncestorOf,
   commitIsMerged,
   integrationBranch,
   listRegisteredWorktrees,
@@ -159,8 +160,11 @@ async function submissionRow(
   try {
     const complete = await readCompleteProof(root, submission.proof);
     proofReadable = complete.candidate.head === submission.head;
+    // Ancestry, the landing's own rule: a submission that already contains
+    // the trunk tip lands directly, so its row carries no composition mark.
     trunkCurrent = proofReadable &&
-      candidatePredecessor(complete.candidate) === trunkTip;
+      (candidatePredecessor(complete.candidate) === trunkTip ||
+        await commitIsAncestorOf(root, trunkTip, submission.head));
   } catch {
     // discern-best-effort: submission-row-proof-unreadable
     proofReadable = false;

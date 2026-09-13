@@ -1158,6 +1158,10 @@ async function executeLanding(
   variances: readonly AuthorizedVarianceData[],
   standardProposals: readonly StandardLimitProposalData[],
   progress: AcceptExecutionProgress,
+  /** The trunk tip the landing decision read: the compare-and-swap base.
+   * For an ancestry-direct landing it sits ahead of the Proof predecessor
+   * and behind (or at) the submitted head. */
+  expectedTrunk: string,
   signal: AbortSignal | undefined,
   env: Pick<typeof Deno.env, "get">,
 ): Promise<{
@@ -1267,7 +1271,6 @@ async function executeLanding(
       `Branch '${effort.branch}' moved while this acceptance was running, so the tree that would land is not the tree its Proof vouches for. ${ACCEPT_NOTHING_LANDED} Re-run \`discern done\` on the final commit from ${effort.path}, then \`discern accept\` again.`,
     );
   }
-  const expectedTrunk = candidatePredecessor(subject.complete.candidate);
   let proofLine = subject.proofLine;
   if (proofLine !== undefined) {
     proofLine = renderLandingProofLine(proofLine, consent, {
@@ -1688,10 +1691,13 @@ async function landEffortOnce(
       subject = { ...subject, submission: await submit(effort, subject) };
     }
     const tip = await trunkTip(effort);
-    // Ancestry decides the shape, not queue length: the submission's honored
-    // Proof names the current tip → 1A's direct fast-forward; a moved trunk
-    // composes and re-proves in a disposable integration worktree.
-    const direct = candidatePredecessor(subject.complete.candidate) === tip;
+    // Ancestry decides the shape, not queue length: a submission that
+    // already contains the current tip lands directly — its Proof proved
+    // this exact tree — while a trunk the submission does not contain
+    // composes and re-proves in a disposable integration worktree. The
+    // predecessor equality is the common fast case of the same rule.
+    const direct = candidatePredecessor(subject.complete.candidate) === tip ||
+      await commitIsAncestorOf(effort.mainRepo, tip, subject.head);
     if (direct) {
       authority = subjectAuthority(authority, subject);
     }
@@ -1732,6 +1738,7 @@ async function landEffortOnce(
           decision.variances,
           decision.standardProposals,
           progress,
+          tip,
           request.signal,
           env,
         )

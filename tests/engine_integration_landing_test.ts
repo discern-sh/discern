@@ -691,3 +691,34 @@ Deno.test("an integration setup failure cleans up its branch and record under in
     await assertNoIntegrationRemains(dir);
   });
 });
+Deno.test("a moved trunk the submission already contains lands directly, without an integration worktree", async () => {
+  await withTempDir(async (dir) => {
+    await integrationFixture(dir);
+    const wt = await effortWithWork(dir, "stacked", "first.txt");
+    const first = await gitOut(wt, "rev-parse", "HEAD");
+    await Deno.writeTextFile(join(wt, "second.txt"), "second\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "second", "--no-gpg-sign");
+    const submitted = await gitOut(wt, "rev-parse", "HEAD");
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
+
+    // The trunk advances to the submission's own first commit: the Proof
+    // predecessor is stale, but the proven tree already contains the tip.
+    await git(dir, "merge", "--ff-only", first);
+
+    const landed = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(landed.code, 0, landed.output);
+    const result = decodeCliResult(landed.stdout, "accept");
+    assert(result.data !== undefined && !("issues" in result.data));
+    // Ancestry selects the direct fast path: the exact submitted commit
+    // lands with no composition and no integration worktree ever created.
+    assertEquals(result.data.landings?.[0]?.integrated, undefined);
+    assertEquals(result.data.landings?.[0]?.landed_commit, submitted);
+    assert(
+      !(result.message ?? "").includes("composed"),
+      result.message ?? "",
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), submitted);
+    await assertNoIntegrationRemains(dir);
+  });
+});
