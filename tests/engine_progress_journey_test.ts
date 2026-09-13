@@ -132,12 +132,11 @@ Deno.test("losing a read-only observer leaves the executing gate running", async
           during.data?.handle,
           orientation.output,
         );
-        assert(
-          (oriented.message ?? "").startsWith(
-            "`done` on agent/public-done is still running",
-          ),
-          oriented.message,
-        );
+        assert("operation" in oriented.data);
+        const latest = oriented.data.operation?.latest;
+        assert(latest !== undefined);
+        assertStringIncludes(latest, "`done` on agent/public-done");
+        assert((oriented.message ?? "").startsWith(latest), oriented.message);
         assert(
           (oriented.hints ?? []).every((hint) =>
             !hint.includes("Run `discern done`")

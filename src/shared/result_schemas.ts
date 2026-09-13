@@ -2069,7 +2069,7 @@ export const StatusDataSchema = z.strictObject({
   queue: z.array(SubmissionRowSchema).optional(),
   /** The calling checkout's most recently started long operation while it
    * is still running: the verb, the effort, the handle that reads it back,
-   * and the latest sentence it recorded. Absent once it finishes. */
+   * and the current-state summary from progress. Absent once it finishes. */
   operation: z.strictObject({
     verb: z.string(),
     branch: z.string().optional(),

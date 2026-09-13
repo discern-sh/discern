@@ -28,6 +28,8 @@ import { withTempDir } from "./temp_dir.ts";
 import { buildTestRunSlotAcquirer } from "../src/engine/test_run_slots.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { waitForPendingCondition } from "./waiting.ts";
+import { callingCheckoutRunningOperation } from "../src/engine/status/running_operation.ts";
+import { completionStatusPresentation } from "../src/engine/status/completion_recovery.ts";
 
 Deno.test("independent waits survive producer completion and close only their own lifecycle", async () => {
   await withTempDir(async (root) => {
@@ -110,6 +112,24 @@ Deno.test("independent waits survive producer completion and close only their ow
         assertStringIncludes(markdown, text);
       }
       assertStringIncludes(read.message ?? "", "waiting");
+      const status = await callingCheckoutRunningOperation(root);
+      assert(status !== undefined);
+      const presented = completionStatusPresentation(
+        { data: {}, hints: [] },
+        [],
+        status,
+      );
+      const statusMarkdown = renderMcpResult({
+        ok: true,
+        verb: "status",
+        steps: [],
+        data: { operation: status },
+        message: presented.message ?? "",
+      }).content[0]?.text ?? "";
+      for (const text of ["Index is waiting", "2 of 2", "catalog revision"]) {
+        assertStringIncludes(status.latest ?? "", text);
+        assertStringIncludes(statusMarkdown, text);
+      }
       releaseFirst.resolve();
       await firstEnded.promise;
       assertStringIncludes(messages.at(-1) ?? "", "catalog revision");

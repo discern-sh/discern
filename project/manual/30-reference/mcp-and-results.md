@@ -193,6 +193,8 @@ Every `done`, `test`, `standards`, and `accept` run, and every `discern_await` c
 
 Active waits stay visible when independent checks finish. The current state explains what cannot start, why it is waiting, elapsed waiting, and what happens next. Capacity waits include the configured concurrent-run limit and the latest observed use. A live process alone does not establish advancing work. Older records without wait facts cannot supply this information.
 
+When your agent returns to a checkout with an operation still running, `discern_status` includes the same current-state summary and the command to read it back. A queued operation therefore remains visible through status as well as progress.
+
 An active `await` records its target, requested condition, latest observation, and continuation. If the call stops, the agent can use that continuation to preserve the original watch. The agent should read the original call's progress before starting another watch. An elapsed observation window means the condition remains unmet; it does not mean the awaited work succeeded. Explicit cancellation ends automatic waiting.
 
 | Field                                            | Contract                                                                                                                                                                                       |

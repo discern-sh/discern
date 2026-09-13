@@ -174,7 +174,14 @@ Deno.test("reconnect refusals name the exact condition without touching anything
     });
     assert(running.ok);
     assertEquals(running.data?.executor, "running");
-    assertStringIncludes(running.message ?? "", "is still running");
+    assertStringIncludes(
+      running.message ?? "",
+      "no current check or active wait",
+    );
+    assertStringIncludes(
+      running.message ?? "",
+      "does not establish advancing work",
+    );
     // Another checkout of the same repository has no operation of its own:
     // the refusal names the handle to ask for instead of substituting it.
     await withTempDir(async (sibling) => {

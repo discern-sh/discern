@@ -44,12 +44,12 @@ export function completionStatusPresentation(
   // resumed session needs to hear: it must not be told to start another.
   const message = running === undefined
     ? undefined
-    : `\`${running.verb}\` on ${
-      running.branch === undefined
-        ? "this checkout"
-        : displayBranch(running.branch)
-    } is still running${
-      running.latest === undefined ? "." : `: ${running.latest}`
+    : `${
+      running.latest ?? `\`${running.verb}\` on ${
+        running.branch === undefined
+          ? "this checkout"
+          : displayBranch(running.branch)
+      } has not finished; no current activity was recorded.`
     } Read it back with discern progress ${running.handle}; it needs no new command while it runs.`;
   return { hints, ...(message === undefined ? {} : { message }) };
 }
