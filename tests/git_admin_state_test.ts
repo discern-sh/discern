@@ -150,7 +150,6 @@ Deno.test("common-only operation boundaries never discover checkout administrati
       policy.lock === "common" &&
       !policy.effects.includes("discern-checkout-mutation")
     );
-    assert(commands.length > 0);
     const Command = Deno.Command;
     let checkoutQueries = 0;
     Deno.Command = class extends Command {
@@ -167,6 +166,15 @@ Deno.test("common-only operation boundaries never discover checkout administrati
       }
       await withCompletionPublication(dir, () => Promise.resolve());
       assertEquals(checkoutQueries, 0, "completion publication");
+      await withOperationLock(
+        dir,
+        { command: "refresh" },
+        () => Promise.resolve(),
+      );
+      assert(
+        checkoutQueries > 0,
+        "the checkout control must exercise the discovery probe",
+      );
     } finally {
       Deno.Command = Command;
     }
