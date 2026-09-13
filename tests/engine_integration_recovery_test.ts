@@ -518,3 +518,39 @@ Deno.test("a waiting acceptance lands the submission it entered with when the au
     );
   });
 });
+Deno.test("a first acceptance freezes its proven revision before waiting to submit", async () => {
+  await withTempDir(async (dir) => {
+    await fixture(dir);
+    const beta = await provenEffort(dir, "beta");
+    const entered = await gitOut(beta, "rev-parse", "HEAD");
+    // No submission exists yet: the first accept must freeze the subject
+    // itself before its wait.
+    assertEquals((await readSubmission(beta)).status, "missing");
+    const betaPath = await Deno.realPath(beta);
+    const root = await Deno.realPath(dir);
+
+    let pending:
+      | ReturnType<typeof runAgent>
+      | undefined;
+    await withAcceptanceTransactionLock(root, async () => {
+      pending = runAgent(beta, ["accept", "--confirmed", "--json"]);
+      await waitUntil(async () => {
+        const reading = await readOperationJournal(betaPath);
+        return reading.kind === "found" &&
+          Object.values(reading.record.waits ?? {}).some((wait) =>
+            wait.kind === "landing-turn" && wait.state === "waiting"
+          );
+      }, "the first accept reports waiting behind the running landing");
+      await Deno.writeTextFile(join(beta, "later.txt"), "later\n");
+      await git(beta, "add", "-A");
+      await git(beta, "commit", "-q", "-m", "later work", "--no-gpg-sign");
+    });
+    assert(pending !== undefined);
+    const landed = await pending;
+    assertEquals(landed.code, 0, landed.output);
+    const result = decodeCliResult(landed.stdout, "accept");
+    assertEquals(await gitOut(dir, "rev-parse", "main"), entered);
+    assertStringIncludes(result.message ?? "", "holds later commits");
+    assert(await targetExists(betaPath));
+  });
+});
