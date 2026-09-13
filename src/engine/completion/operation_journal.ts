@@ -763,22 +763,17 @@ export async function withOperationJournal<T>(
 ): Promise<T> {
   const parent = JOURNAL_SCOPE.getStore() ?? options.parent;
   if (parent !== undefined) {
-    emitCompletionProgress({
-      phase: "operation",
-      state: "nested-operation",
-      candidate_id: null,
-      reason: `${header.verb} is running within ${parent.verb}.`,
-    });
-    try {
-      return await JOURNAL_SCOPE.run(parent, () => run(parent.handle));
-    } finally {
+    if (header.verb !== parent.verb) {
       emitCompletionProgress({
         phase: "operation",
-        state: "continuing",
+        state: "nested-operation",
         candidate_id: null,
-        reason: `${parent.verb} is continuing after ${header.verb}.`,
+        reason: `${header.verb} is running within ${parent.verb}.`,
       });
     }
+    // The child's last fact may require owner action. Preserve it until the
+    // parent emits its next real phase instead of replacing it on return.
+    return await JOURNAL_SCOPE.run(parent, () => run(parent.handle));
   }
   // Every store failure is classified inside the store lock, so an open that
   // cannot proceed returns no journal rather than throwing.

@@ -180,13 +180,14 @@ Deno.test("a nested operation presents each fact exactly once between its outer 
       },
       (value) => value,
     );
-    assertEquals(outer.length, 2, JSON.stringify(outer));
+    assertEquals(outer.length, 3, JSON.stringify(outer));
     assert(
       outer[0]?.startsWith(
         "accept is running. If this call is lost, `discern progress R1-",
       ),
     );
-    assertEquals(outer[1], PENDING);
+    assertEquals(outer[1], "done is running within accept.");
+    assertEquals(outer[2], PENDING);
     assertEquals(inner, [COUNTS, FAILURE_SENTENCE]);
     // One journal covers the whole acceptance: the nested run opened none of
     // its own, and the producer's failure reached the shared record.

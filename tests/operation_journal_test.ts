@@ -58,7 +58,6 @@ Deno.test("a journalled operation retains facts, timings, and its final result",
           ));
         assertEquals(nesting, [
           "standards is running within done.",
-          "done is continuing after standards.",
         ]);
 
         emitCompletionProgress({
