@@ -36,6 +36,11 @@ import { GLOSSARY, phrasePatternSource } from "./glossary_registry.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { CLAIMS, type ClaimSlug } from "./brand/claims.ts";
 import { annotateProse } from "./canon_editor/annotation.ts";
+import {
+  canonLink,
+  READINESS_ROUTES,
+  readinessForFeature,
+} from "./brand/readiness.ts";
 
 // discern-canon-section: feature
 
@@ -2447,6 +2452,25 @@ function featureProse(node: FeatureNode, field: string, text: string): string {
   return annotateProse(text, { registry: "feature", entry: node.id, field });
 }
 
+/** Feature entries inherit their question wording and selection from Readiness. */
+function renderFeatureReadiness(node: FeatureNode): string | undefined {
+  const route = Object.entries(READINESS_ROUTES).find(([id]) => id === node.id)
+    ?.[1];
+  if (route === undefined) return undefined;
+  const lead = readinessForFeature(node.id).find(({ question }) =>
+    question.id === route.leadQuestion
+  );
+  if (lead === undefined) {
+    throw new Error(
+      `Readiness lead question does not reach feature: ${node.id}`,
+    );
+  }
+  const page = "brand/readiness-canon.md";
+  return `**Readiness:** ${canonLink(page, lead.question.question)} · ${
+    canonLink(page, node.title, "How this feature helps")
+  }.`;
+}
+
 /** Render one node as a bullet at the given indent depth. */
 function renderNode(node: FeatureNode, depth: number): string[] {
   const indent = "  ".repeat(depth);
@@ -2459,6 +2483,8 @@ function renderNode(node: FeatureNode, depth: number): string[] {
       featureProse(node, "what", node.what)
     }${why}`,
   ];
+  const readiness = renderFeatureReadiness(node);
+  if (readiness !== undefined) lines.push(`${indent}  - ${readiness}`);
   for (const child of node.children ?? []) {
     lines.push(...renderNode(child, depth + 1));
   }
@@ -2544,7 +2570,7 @@ export function renderFeatureCanonDoc(): string {
     "",
     "_Every product feature and benefit, enumerated once, at every resolution. Creative and technical work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same tree appears in [plain language](feature-canon-plain.md); the [Human Benefit Canon](feature-canon-human-benefits.md) composes commercial human value, and the [Agent Benefit Canon](feature-canon-agent-benefits.md) composes coding-agent outcomes._",
     "",
-    "The [Readiness Canon](brand/readiness-canon.md) approaches these mechanisms through the questions people ask before shipping, with routes back to the features and benefits that help answer them.",
+    "The [Readiness Canon](brand/readiness-canon.md) approaches these mechanisms through the questions people ask before shipping, with routes back to the features and benefits that help answer them. Connected features below link to a representative question and their full Readiness account.",
     "",
     `${FEATURE_CANON.length} pillars · ${flattened.length} nodes · ${benefits.length} benefit statements · ${AGENT_BENEFIT_CANON.length} agent-benefit clusters · ${claims.length} closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.`,
     "",
@@ -2565,6 +2591,8 @@ export function renderFeatureCanonDoc(): string {
     if (pillar.why !== undefined) {
       lines.push(`*${featureProse(pillar, "why", pillar.why)}*`, "");
     }
+    const readiness = renderFeatureReadiness(pillar);
+    if (readiness !== undefined) lines.push(readiness, "");
     for (const child of pillar.children ?? []) {
       lines.push(...renderNode(child, 0));
     }

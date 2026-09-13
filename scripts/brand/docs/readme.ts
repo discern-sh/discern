@@ -59,7 +59,7 @@ export const READING_PATHS = [
     intro: "Read:",
     steps: [
       "`positioning.md` for the ambition Readiness serves;",
-      "the relevant families in `readiness-canon.md`, following their feature and benefit links;",
+      "the relevant families or the feature connections in `readiness-canon.md`, following their documentation and benefit links;",
       "`messaging.md` and the `discern-brand-voice` skill for public expression;",
       "the linked product documentation when configuring the practice or verifying a mechanism.",
     ],

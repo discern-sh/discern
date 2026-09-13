@@ -90,7 +90,7 @@ Do **not** load the complete product canon as a style model. Consult product sou
 Read:
 
 1. `positioning.md` for the ambition Readiness serves;
-2. the relevant families in `readiness-canon.md`, following their feature and benefit links;
+2. the relevant families or the feature connections in `readiness-canon.md`, following their documentation and benefit links;
 3. `messaging.md` and the `discern-brand-voice` skill for public expression;
 4. the linked product documentation when configuring the practice or verifying a mechanism.
 

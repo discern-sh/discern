@@ -4,14 +4,7 @@
  * runtime checks. Stable question ids serve both the canon and future
  * question-led discovery surfaces (ADR 0391).
  */
-import { relative } from "@std/path/posix";
 import { renderMarkdownHtml } from "../../src/lib/markdown.ts";
-import {
-  allAgentBenefitEntries,
-  allFeatureNodes,
-  allHumanBenefitEntries,
-} from "../feature_registry.ts";
-import { PRACTICE_CANON } from "../practice_registry.ts";
 
 /** The contribution a feature makes; these are routes, not result states. */
 export type ReadinessContribution =
@@ -25,7 +18,13 @@ export type ReadinessContribution =
 
 interface ReadinessRoute {
   readonly contribution: ReadinessContribution;
-  /** Repository-relative documentation destination; never a guessed site URL. */
+  /** One representative question, selected from this feature's relationships. */
+  readonly leadQuestion: string;
+  /** Brand register: the reason someone would want this feature in the work. */
+  readonly invitation: string;
+  /** The concrete part this feature plays in answering its linked questions. */
+  readonly how: string;
+  /** Repository-relative documentation link, including a section anchor when useful. */
   readonly doc: string;
   readonly humanBenefit: string;
   readonly agentBenefit: string;
@@ -34,88 +33,216 @@ interface ReadinessRoute {
 /** Keys are feature-canon identities. Titles and benefit prose stay there. */
 export const READINESS_ROUTES = {
   gate: {
+    leadQuestion: "meet-acceptance-criteria",
+    invitation: "Make done mean something you can rely on.",
+    how:
+      "The Gate runs the checks the project declares before recording completion, giving testable acceptance criteria a repeatable place in the work.",
     contribution: "Project checks",
     doc: "project/manual/10-guides/finish-and-land-a-change.md",
     humanBenefit: "project-defined-completion",
     agentBenefit: "run-the-relevant-gate-efficiently",
   },
   checkpoints: {
+    leadQuestion: "complete-without-explanation",
+    invitation:
+      "Bring your judgment into the change while it can still shape the work.",
+    how:
+      "A project checkpoint pairs a relevant change with a written review question and records the agent's conclusion, including any unmet condition that needs an owner decision.",
     contribution: "Declared judgment",
     doc: "project/manual/20-understand/checkpoints.md",
     humanBenefit: "judgment-at-the-change",
     agentBenefit: "carry-judgment-as-judgment",
   },
   coupling: {
+    leadQuestion: "check-related-places",
+    invitation: "Follow the change beyond the files already in front of you.",
+    how:
+      "Coupling uses Git history to name files that habitually change together, giving the agent concrete companions to investigate while the change is open.",
     contribution: "Advisory evidence",
     doc: "project/map/20-quality-gate/coupling.md",
     humanBenefit: "catch-related-files",
     agentBenefit: "diagnose-workflow-friction-locally",
   },
   "skill-cure-a-bug": {
+    leadQuestion: "guard-against-recurrence",
+    invitation: "Let this fix outlast this defect.",
+    how:
+      "The skill teaches the agent to prove the cause, find the defect class, and leave a guard that covers future instances.",
     contribution: "Taught method",
     doc: "project/manual/10-guides/create-and-manage-skills.md",
     humanBenefit: "remove-bug-class",
     agentBenefit: "invoke-curated-project-procedures",
   },
   "skill-write-it-once": {
+    leadQuestion: "keep-one-source-of-truth",
+    invitation: "Make the next change easier to get right.",
+    how:
+      "The skill teaches one authority per fact, guards that include future members, and effects planned before execution; the agent applies those methods to shared data, retries, and interrupted work.",
     contribution: "Taught method",
     doc: "project/manual/10-guides/create-and-manage-skills.md",
     humanBenefit: "reuse-engineering-discipline",
     agentBenefit: "invoke-curated-project-procedures",
   },
   standards: {
+    leadQuestion: "hold-memory-use",
+    invitation: "Keep the gains you worked for.",
+    how:
+      "A project supplies a repeatable measurement and a defensible limit; Standards hold that limit against regressions in memory, calls, cost, or another property the measurement represents.",
     contribution: "Project checks",
     doc: "project/manual/20-understand/standards.md",
     humanBenefit: "retain-measured-gains",
     agentBenefit: "retain-earned-quality",
   },
   "skill-clear-the-decks": {
+    leadQuestion: "remove-temporary-scaffolding",
+    invitation: "Leave room for the next idea.",
+    how:
+      "The cleanup skill teaches the agent to find accumulated clutter, prove each removal safe, and retain a measured limit where recurring clutter can be counted.",
     contribution: "Taught method",
     doc: "project/manual/10-guides/create-and-manage-skills.md",
     humanBenefit: "keep-clutter-down",
     agentBenefit: "invoke-curated-project-procedures",
   },
   "adr-discipline": {
+    leadQuestion: "record-important-decisions",
+    invitation: "Keep the reason within reach of the next decision.",
+    how:
+      "Decision records preserve significant choices, alternatives, and reasons in the project, with an index that later maintainers and agents can follow.",
     contribution: "Project knowledge",
     doc: "project/manual/20-understand/instructions-skills-and-map.md",
     humanBenefit: "preserve-decision-reasons",
     agentBenefit: "recover-the-project-mental-model",
   },
   map: {
+    leadQuestion: "make-the-next-change-understandable",
+    invitation: "Give the next person somewhere useful to start.",
+    how:
+      "The Map holds the project's account of boundaries, workflows, and where to begin, so review and support preparation can start from retained understanding.",
     contribution: "Project knowledge",
     doc: "project/manual/20-understand/instructions-skills-and-map.md",
     humanBenefit: "inspect-agent-understanding",
     agentBenefit: "recover-the-project-mental-model",
   },
   instructions: {
+    leadQuestion: "respect-project-boundaries",
+    invitation: "Let your expectations reach every agent who joins the work.",
+    how:
+      "Project instructions carry architectural boundaries and supported-environment policies into the compiled instructions each coding agent receives.",
     contribution: "Project knowledge",
     doc: "project/manual/10-guides/write-project-instructions.md",
     humanBenefit: "teach-project-once",
     agentBenefit: "inherit-current-agent-instructions",
   },
   "skill-delegate-work": {
+    leadQuestion: "solve-the-requested-problem",
+    invitation: "Give ambition a brief someone can finish.",
+    how:
+      "The delegation skill teaches complete task briefs with intended outcomes, scope, and acceptance criteria, followed by review of what returns.",
     contribution: "Taught method",
     doc: "project/manual/10-guides/delegate-work.md",
     humanBenefit: "shape-substantial-work",
     agentBenefit: "invoke-curated-project-procedures",
   },
   proof: {
+    leadQuestion: "bind-results-to-this-version",
+    invitation: "Know what stands behind the work that comes back.",
+    how:
+      "Proof binds the recorded completion evidence to the validated change, so a reviewer can compare what was established with the questions the release still raises.",
     contribution: "Completion evidence",
     doc: "project/manual/20-understand/proof.md",
     humanBenefit: "evidence-for-this-change",
     agentBenefit: "prove-the-exact-tree",
   },
   accept: {
+    leadQuestion: "authorize-the-exception",
+    invitation: "Keep the decision to land in the right hands.",
+    how:
+      "Acceptance checks authority for the proposed landing and requires the owner's authorization for the current unmet checkpoint set; the recorded decision stays tied to the work.",
     contribution: "Landing authority",
     doc: "project/manual/10-guides/finish-and-land-a-change.md",
     humanBenefit: "explicit-release-decision",
     agentBenefit: "land-only-with-release-authority",
   },
   "scope-gates": {
+    leadQuestion: "preserve-existing-workflows",
+    invitation:
+      "Give each part of the project the attention its changes deserve.",
+    how:
+      "Scopes connect changed paths to project-defined checks, letting a workflow's regression checks run when its part of the repository changes.",
     contribution: "Project checks",
     doc: "project/map/20-quality-gate/README.md",
     humanBenefit: "run-relevant-checks",
     agentBenefit: "see-the-change-discern-sees",
+  },
+  "jobs-table": {
+    leadQuestion: "keep-secrets-out-of-diagnostics",
+    invitation: "Put the checks your project needs into its everyday practice.",
+    how:
+      "Declared jobs give the project's tests, analysis, and specialist tools a shared command table, including checks for sensitive output or release configuration.",
+    contribution: "Project checks",
+    doc: "project/manual/30-reference/config-reference.md#jobs",
+    humanBenefit: "project-defined-completion",
+    agentBenefit: "run-the-relevant-gate-efficiently",
+  },
+  "job-test": {
+    leadQuestion: "open-older-saved-data",
+    invitation: "Keep yesterday's workflows working in tomorrow's release.",
+    how:
+      "The test job runs the suite the project supplies: saved-data fixtures, client contracts, input boundaries, failure cases, and recovery exercises can all become repeatable checks.",
+    contribution: "Project checks",
+    doc: "project/manual/10-guides/finish-and-land-a-change.md",
+    humanBenefit: "project-defined-completion",
+    agentBenefit: "run-the-relevant-gate-efficiently",
+  },
+  "generated-artifact-declarations": {
+    leadQuestion: "keep-one-source-of-truth",
+    invitation: "Change the source and bring its copies with it.",
+    how:
+      "Generated artifact declarations name which committed files a generator owns and how to regenerate them, keeping derived files connected to the source the project chose.",
+    contribution: "Project checks",
+    doc: "project/manual/30-reference/config-reference.md#generatedname",
+    humanBenefit: "catch-documentation-breakage",
+    agentBenefit: "use-a-fast-inner-loop",
+  },
+  "producer-evidence": {
+    leadQuestion: "run-the-relevant-checks",
+    invitation: "See the checks behind the confidence.",
+    how:
+      "Validation results name the producers executed or reused, their input binding, and the reason for reuse, so a reviewer can see how the current result obtained its evidence.",
+    contribution: "Completion evidence",
+    doc: "project/map/20-quality-gate/complete-evidence.md",
+    humanBenefit: "reduce-routine-review",
+    agentBenefit: "prove-the-exact-tree",
+  },
+  "map-freshness": {
+    leadQuestion: "keep-privacy-commitments-current",
+    invitation: "Find the explanation that needs another look.",
+    how:
+      "File-linked freshness shows which source files a Map page covers and when they changed, helping an agent find accounts of data behavior, support, or recovery that need review.",
+    contribution: "Advisory evidence",
+    doc: "project/manual/20-understand/instructions-skills-and-map.md",
+    humanBenefit: "inspect-agent-understanding",
+    agentBenefit: "recover-the-project-mental-model",
+  },
+  "impact": {
+    leadQuestion: "stay-within-agreed-scope",
+    invitation: "See which parts of the project your change reaches.",
+    how:
+      "Impact names the configured scopes touched by the change, giving the agent a concrete starting point for comparing repository changes with the agreed brief.",
+    contribution: "Advisory evidence",
+    doc: "project/map/20-quality-gate/README.md",
+    humanBenefit: "run-relevant-checks",
+    agentBenefit: "see-the-change-discern-sees",
+  },
+  "proof-notes": {
+    leadQuestion: "bind-results-to-this-version",
+    invitation: "Keep the evidence with the code people will build on.",
+    how:
+      "After landing, a Proof note retains the structured completion record on the landed trunk commit, making the evidence findable beyond the session that produced it.",
+    contribution: "Completion evidence",
+    doc: "project/map/20-quality-gate/proof-notes.md",
+    humanBenefit: "evidence-that-lasts",
+    agentBenefit: "prove-the-exact-tree",
   },
 } as const satisfies Readonly<Record<string, ReadinessRoute>>;
 
@@ -160,14 +287,14 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "meet-acceptance-criteria",
         question: "Are the acceptance criteria met?",
-        routes: ["gate", "checkpoints"],
+        routes: ["gate", "job-test", "checkpoints"],
         approach:
           "Turn testable criteria into project checks and exercise the criteria that need judgment against the result.",
       },
       {
         id: "stay-within-agreed-scope",
         question: "Did anything outside the agreed scope change?",
-        routes: ["checkpoints", "skill-delegate-work"],
+        routes: ["impact", "checkpoints", "skill-delegate-work"],
         approach:
           "Compare the changed work with the brief; record and resolve any expansion of scope.",
       },
@@ -185,14 +312,14 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
         id: "handle-input-extremes",
         question:
           "What happens with empty, invalid, or unusually large inputs?",
-        routes: ["gate"],
+        routes: ["job-test"],
         approach:
           "Add representative boundary cases to the project's tests and include those tests in its declared checks.",
       },
       {
         id: "recover-after-failure",
         question: "Do failures leave the system in a recoverable state?",
-        routes: ["skill-write-it-once", "gate"],
+        routes: ["skill-write-it-once", "job-test"],
         approach:
           "Plan the operation's effects, interrupt it at meaningful boundaries, and test the recovery path.",
       },
@@ -200,7 +327,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
         id: "retry-without-duplicate-effects",
         question:
           "Does retrying repeat an action that should happen only once?",
-        routes: ["skill-write-it-once", "gate"],
+        routes: ["skill-write-it-once", "job-test"],
         approach:
           "Define what a repeat should do and test retries after success, partial completion, and uncertain outcomes.",
       },
@@ -217,7 +344,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "preserve-existing-workflows",
         question: "Do existing workflows still work?",
-        routes: ["gate", "scope-gates"],
+        routes: ["job-test", "scope-gates"],
         approach:
           "Run the project's workflow tests, including the checks selected for the affected parts of the project.",
       },
@@ -231,7 +358,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "guard-against-recurrence",
         question: "Is there a guard against this defect returning?",
-        routes: ["skill-cure-a-bug", "gate"],
+        routes: ["skill-cure-a-bug", "job-test"],
         approach:
           "Prove the cause, identify the defect class, and leave a practical guard that enrolls future members.",
       },
@@ -255,14 +382,14 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "make-interface-states-useful",
         question: "Are loading, empty, and error states useful?",
-        routes: ["checkpoints", "gate"],
+        routes: ["checkpoints", "job-test"],
         approach:
           "Exercise each state in the working interface; keep repeatable behavior checks in the test suite.",
       },
       {
         id: "recover-from-a-mistake",
         question: "Can they recover from a mistake?",
-        routes: ["checkpoints", "gate"],
+        routes: ["checkpoints", "job-test"],
         approach:
           "Try cancellation, correction, and undo where they apply, and review whether the next action is understandable.",
       },
@@ -279,7 +406,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "complete-with-a-keyboard",
         question: "Can the workflow be completed with a keyboard?",
-        routes: ["checkpoints", "gate"],
+        routes: ["checkpoints", "job-test"],
         approach:
           "Exercise the full keyboard path, including focus and recovery, and automate the interactions the project can test reliably.",
       },
@@ -294,7 +421,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
         id: "communicate-beyond-color",
         question:
           "Is essential information available without relying on color?",
-        routes: ["checkpoints", "gate"],
+        routes: ["checkpoints", "jobs-table"],
         approach:
           "Review labels, symbols, and state changes; use configured analysis for the properties a tool can check.",
       },
@@ -311,21 +438,21 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "work-on-supported-environments",
         question: "Does this work on the devices and browsers we support?",
-        routes: ["gate", "instructions"],
+        routes: ["job-test", "instructions"],
         approach:
           "Record the supported environments and run the project's checks on them, identifying any device checks still needed.",
       },
       {
         id: "preserve-existing-api-clients",
         question: "Can existing clients still use the API?",
-        routes: ["gate", "checkpoints"],
+        routes: ["job-test", "checkpoints"],
         approach:
           "Test the supported client contracts and review any intended break against the project's compatibility policy.",
       },
       {
         id: "open-older-saved-data",
         question: "Will older saved data still open?",
-        routes: ["gate"],
+        routes: ["job-test"],
         approach:
           "Keep representative saved records from supported versions and exercise them through the current reader or migration.",
       },
@@ -342,21 +469,21 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "avoid-data-loss-or-duplication",
         question: "Could this lose or duplicate data?",
-        routes: ["skill-write-it-once", "gate"],
+        routes: ["skill-write-it-once", "job-test"],
         approach:
           "State the data invariants before planning writes, then test conflicting, repeated, and interrupted operations.",
       },
       {
         id: "preserve-records-through-migration",
         question: "Does the migration preserve existing records?",
-        routes: ["gate", "checkpoints"],
+        routes: ["job-test", "checkpoints"],
         approach:
           "Exercise the migration on representative records and inspect the preservation properties the automated checks do not establish.",
       },
       {
         id: "survive-partial-completion",
         question: "What happens if the operation stops halfway?",
-        routes: ["skill-write-it-once", "gate"],
+        routes: ["skill-write-it-once", "job-test"],
         approach:
           "Identify durable boundaries and test interruption and recovery at each meaningful stage.",
       },
@@ -373,21 +500,21 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "enforce-permissions-at-the-boundary",
         question: "Are permissions enforced at the right boundary?",
-        routes: ["checkpoints", "gate"],
+        routes: ["checkpoints", "job-test"],
         approach:
           "Review where access decisions happen and run project tests that attempt the protected operations directly.",
       },
       {
         id: "isolate-account-data",
         question: "Can one account access another account’s data?",
-        routes: ["gate", "checkpoints"],
+        routes: ["job-test", "checkpoints"],
         approach:
           "Exercise cross-account requests using realistic identities and review the data boundary those tests cover.",
       },
       {
         id: "keep-secrets-out-of-diagnostics",
         question: "Could secrets appear in logs or error messages?",
-        routes: ["gate", "checkpoints"],
+        routes: ["jobs-table", "job-test", "checkpoints"],
         approach:
           "Inspect failure output and configure secret detection or output assertions suited to the project's data paths.",
       },
@@ -411,14 +538,14 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "honor-deletion-expectations",
         question: "Does deletion remove what users expect it to remove?",
-        routes: ["gate", "checkpoints"],
+        routes: ["job-test", "checkpoints"],
         approach:
           "Test the deletion path across relevant stores and review retention and recovery behavior against the user-facing promise.",
       },
       {
         id: "keep-privacy-commitments-current",
         question: "Have the stated privacy commitments remained accurate?",
-        routes: ["checkpoints", "map"],
+        routes: ["checkpoints", "map-freshness", "map"],
         approach:
           "Compare changed data behavior with published commitments and update the affected explanations.",
       },
@@ -466,14 +593,14 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "respect-project-boundaries",
         question: "Does this respect the project’s boundaries?",
-        routes: ["instructions", "checkpoints", "gate"],
+        routes: ["instructions", "checkpoints", "job-test"],
         approach:
           "Carry the boundaries in project instructions, test mechanical rules, and review decisions that need architectural judgment.",
       },
       {
         id: "keep-one-source-of-truth",
         question: "Have we introduced a second source of truth?",
-        routes: ["skill-write-it-once"],
+        routes: ["skill-write-it-once", "generated-artifact-declarations"],
         approach:
           "Identify the authority for each shared fact and bind its consumers through derivation, generation, or a guard.",
       },
@@ -497,7 +624,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "make-the-next-change-understandable",
         question: "Can the next person understand and change this?",
-        routes: ["map", "checkpoints"],
+        routes: ["map", "map-freshness", "checkpoints"],
         approach:
           "Keep the project's explanation current and review whether someone can locate the relevant behavior and decisions.",
       },
@@ -542,7 +669,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "handle-dependency-unavailability",
         question: "What happens if the service or package becomes unavailable?",
-        routes: ["gate", "checkpoints"],
+        routes: ["job-test", "checkpoints"],
         approach:
           "Exercise the relevant unavailable-service or failed-install scenario and review fallback and recovery choices.",
       },
@@ -559,7 +686,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "deploy-with-current-configuration",
         question: "Can this be deployed with the current configuration?",
-        routes: ["gate", "checkpoints"],
+        routes: ["jobs-table", "checkpoints"],
         approach:
           "Configure checks against the intended release environment and review the configuration and prerequisites they depend on.",
       },
@@ -573,7 +700,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "roll-back-without-data-damage",
         question: "Can we roll back without damaging data?",
-        routes: ["gate", "checkpoints"],
+        routes: ["job-test", "checkpoints"],
         approach:
           "Exercise the proposed rollback with representative data and review changes whose effects cannot be reversed.",
       },
@@ -590,21 +717,21 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "notice-runtime-failure",
         question: "Will we know when this fails?",
-        routes: ["gate", "checkpoints"],
+        routes: ["job-test", "checkpoints"],
         approach:
           "Exercise failure scenarios and check the project's monitoring and alerts with the people who will respond.",
       },
       {
         id: "make-diagnostics-actionable",
         question: "Will the diagnostic tell us what to do?",
-        routes: ["checkpoints", "gate"],
+        routes: ["checkpoints", "job-test"],
         approach:
           "Review the diagnostic beside a real failure and test stable details such as the failure location and recovery action.",
       },
       {
         id: "exercise-operational-recovery",
         question: "Has recovery been exercised?",
-        routes: ["gate", "map"],
+        routes: ["job-test", "map"],
         approach:
           "Rehearse the recovery procedure, preserve the evidence, and keep the operational instructions aligned with what worked.",
       },
@@ -635,7 +762,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "prepare-support-for-the-change",
         question: "Can support answer the questions this change will create?",
-        routes: ["checkpoints", "map"],
+        routes: ["checkpoints", "map", "map-freshness"],
         approach:
           "Walk through likely user questions and review the support material with the people who will use it.",
       },
@@ -652,14 +779,14 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "run-the-relevant-checks",
         question: "Were the relevant checks actually run?",
-        routes: ["proof", "scope-gates"],
+        routes: ["producer-evidence", "proof", "scope-gates"],
         approach:
           "Read the completion evidence for the declared checks and compare their scope with the concerns this change raises.",
       },
       {
         id: "bind-results-to-this-version",
         question: "Do their results belong to this version?",
-        routes: ["proof"],
+        routes: ["proof", "producer-evidence", "proof-notes"],
         approach:
           "Check the commit and evidence identity; external exercises also need the tested version and environment recorded.",
       },
@@ -712,158 +839,33 @@ export function allReadinessQuestions(
   return families.flatMap((family) => family.questions);
 }
 
+/** The same question-to-feature relationship, read from the feature end. */
+export function readinessForFeature(
+  featureId: string,
+  families: readonly ReadinessFamily[] = READINESS_CANON,
+): readonly {
+  family: ReadinessFamily;
+  question: ReadinessQuestion;
+  primary: boolean;
+}[] {
+  return families.flatMap((family) =>
+    family.questions.flatMap((question) =>
+      question.routes.some((route) => route === featureId)
+        ? [{ family, question, primary: question.routes[0] === featureId }]
+        : []
+    )
+  );
+}
+
 /** A title becomes a link using the same heading renderer as the map. */
-function canonLink(page: string, heading: string, label = heading): string {
+export function canonLink(
+  page: string,
+  heading: string,
+  label = heading,
+): string {
   const id = renderMarkdownHtml(`### ${heading}`).headings[0]?.id;
   if (id === undefined) {
     throw new Error(`No readiness citation heading: ${heading}`);
   }
   return `[${label}](${page}#${id})`;
-}
-
-/** Fail at generation when a route outlives the canon member it cites. */
-function requiredTitle(
-  titles: ReadonlyMap<string, string>,
-  id: string,
-): string {
-  const title = titles.get(id);
-  if (title === undefined) {
-    throw new Error(`Readiness cites unknown canon member: ${id}`);
-  }
-  return title;
-}
-
-/** The brand registry stamps provenance and resolves the shared claim tokens. */
-export function renderReadinessCanonDoc(
-  families: readonly ReadinessFamily[] = READINESS_CANON,
-): string {
-  const features = new Map(
-    allFeatureNodes().map(({ node }) => [node.id, node.title]),
-  );
-  const human = new Map(
-    allHumanBenefitEntries().map(({ entry }) => [entry.id, entry.title]),
-  );
-  const agent = new Map(
-    allAgentBenefitEntries().map(({ entry }) => [entry.id, entry.title]),
-  );
-  const lines = [
-    "# Readiness canon",
-    "",
-    "People start depending on your software, and the next release matters in a new way. Will their work still open? Can they recover from a mistake? Have we checked the other places this change reaches?",
-    "",
-    "These questions belong to engineering practice whether a team or a coding agent carries the implementation. discern gives them a home in the project: checks that run, judgments that get asked, methods agents inherit, and evidence that returns with the work. The person can bring more of their experience to more of what gets built.",
-    "",
-    "Readiness is the practical expression of Consequential Code. It asks whether a change is fit for its intended next step, what supports that conclusion, and what still needs attention. The {{doc:positioning}} keeps the larger ambition; this canon connects recognizable questions to the practice that helps answer them.",
-    "",
-    "## How to use the questions",
-    "",
-    "Start with the purpose and the people the change serves. Select the concerns it raises, then follow a question to its documentation and a practical way to investigate it. The first feature in each route is its discovery destination. The family’s benefit and practice links come from those features’ existing canon entries.",
-    "",
-    "Intent frames the effort. The concern families explore its consequences. Evidence qualifies the answers. Authority identifies who can permit the next action or accept an exception. Ready for review, landing, and deployment may call for different evidence. A small copy edit and a data migration deserve different attention; uncertainty about applicability is itself something to resolve.",
-    "",
-    "This is a reference for choosing and connecting the work. Reading the canon does not configure a project. During commissioning or a later improvement, the agent can turn selected concerns into project tests, Standards, instructions, Skills, or checkpoints. Use a machine check for a decidable condition, a taught method for recurring work, and a checkpoint for a judgment a matching change should prompt.",
-    "",
-    "## What supports an answer",
-    "",
-    "Project commands supply machine results. Checkpoints carry agent judgments as declarations, informed where appropriate by human review or a device exercise. Advisory findings guide investigation; Skills teach the method. Proof binds the recorded completion evidence to the change, and acceptance checks landing authority. A question can draw on several of these contributions.",
-    "",
-    "The project supplies its domain tests, specialist tools, and review criteria. Coupling finds habitual companions in repository history; it does not establish every semantic dependency. A declaration records a judgment rather than verifying its truth. Permission authorizes an action and leaves an accepted exception visible. These distinctions apply throughout the canon; public copy introduces them through the mechanism that earns its promise.",
-    "",
-    "**Claim basis:** {{claim:installs-a-practice}} · {{claim:one-instruction-source}} · {{claim:proof-exact-tree}} · {{claim:standards-cannot-loosen}} · {{claim:gate-grants-no-authority}}. The {{doc:claims-and-evidence}} and {{doc:boundary-canon}} retain their claim-level qualifications.",
-    "",
-    "## Find the question that matters to your change",
-    "",
-    "| Family | What it helps you build toward |",
-    "| --- | --- |",
-    ...families.map((family) =>
-      `| ${canonLink("", family.title)} | ${family.promise} |`
-    ),
-    "",
-  ];
-  for (const family of families) {
-    lines.push(
-      `## ${family.title}`,
-      "",
-      family.promise,
-      "",
-      `**Where it applies:** ${family.applies}`,
-      "",
-    );
-    const routeIds = [
-      ...new Set(family.questions.flatMap((question) => question.routes)),
-    ];
-    for (const question of family.questions) {
-      lines.push(
-        `### ${question.question}`,
-        "",
-        question.approach,
-        "",
-        `**Start here:** ${
-          question.routes.map((id) => {
-            const route = READINESS_ROUTES[id];
-            const path = relative("project/map/_internal/brand", route.doc);
-            return `[${
-              requiredTitle(features, id)
-            }](${path}) (${route.contribution.toLowerCase()})`;
-          }).join(" · ")
-        }.`,
-        "",
-      );
-    }
-    const humanIds = [
-      ...new Set(routeIds.map((id) => READINESS_ROUTES[id].humanBenefit)),
-    ];
-    const agentIds = [
-      ...new Set(routeIds.map((id) => READINESS_ROUTES[id].agentBenefit)),
-    ];
-    lines.push(
-      `**For the person:** ${
-        humanIds.map((id) =>
-          canonLink(
-            "../feature-canon-human-benefits.md",
-            requiredTitle(human, id),
-          )
-        ).join(" · ")
-      }.`,
-      "",
-      `**For the agent:** ${
-        agentIds.map((id) =>
-          canonLink(
-            "../feature-canon-agent-benefits.md",
-            requiredTitle(agent, id),
-          )
-        ).join(" · ")
-      }.`,
-      "",
-    );
-    const tenets = PRACTICE_CANON.flatMap((tenet, index) =>
-      tenet.mechanisms.some((id) => routeIds.some((route) => route === id))
-        ? [
-          canonLink(
-            "../practice-canon.md",
-            `${index + 1}. ${tenet.title}`,
-            tenet.title,
-          ),
-        ]
-        : []
-    );
-    if (tenets.length > 0) {
-      lines.push(`**Practice connections:** ${tenets.join(" · ")}.`, "");
-    }
-  }
-  lines.push(
-    "## From recognition to discovery",
-    "",
-    "A question can introduce discern before the visitor knows any product names. Let someone recognize a concern, see the human benefit, and follow it to the mechanism. Keep the question’s wording and destination tied to its stable registry identity when building a future discovery surface.",
-    "",
-    "The question collection can support commissioning conversations, a change brief, review, or a question-led page. These are uses of this reference; a readiness report, automatic question selection, and an interactive landing page remain product or design work to evaluate separately. The project backlog records those explorations.",
-    "",
-    "## Ownership and traceability",
-    "",
-    "`scripts/brand/readiness.ts` owns the families, questions, approaches, and feature routes. Feature identities and names, human and agent benefits, and practice obligations remain in their own registries. The route names the benefit it introduces; its feature must occur in that benefit’s product basis. Practice connections derive from the tenets’ mechanism citations. Coverage runs from each question into the existing canons; unrelated features need no readiness question.",
-    "",
-    "`tests/readiness_canon_test.ts` checks live routes, benefit support, documentation destinations, question identity, and future-member rendering. The brand codegen guard keeps this page current. [ADR 0391](../../_adr/0391-readiness-connects-questions-to-the-practice.md) records the ownership and voice decision.",
-    "",
-  );
-  return lines.join("\n");
 }

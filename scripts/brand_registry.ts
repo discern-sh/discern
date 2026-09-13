@@ -36,7 +36,7 @@ import { renderBoundaryCanonDoc } from "./brand/boundaries.ts";
 import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
 import { renderConsequenceCanonDoc } from "./brand/consequences.ts";
 import { renderDemandCanonDoc } from "./brand/demand.ts";
-import { renderReadinessCanonDoc } from "./brand/readiness.ts";
+import { renderReadinessCanonDoc } from "./brand/docs/readiness.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
 import { renderCopyPatternsDoc } from "./brand/patterns.ts";
 import { renderPositioningDoc } from "./brand/docs/positioning.ts";

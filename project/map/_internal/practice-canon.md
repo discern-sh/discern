@@ -6,7 +6,7 @@ _The practice, enumerated: the obligations discern holds for every change and fo
 
 The [Readiness Canon](brand/readiness-canon.md) connects the questions people ask before shipping to these obligations and their mechanisms. A project selects appropriate checks and judgments for the change it intends to make.
 
-12 tenets · 10 bundled skills claimed · 74 feature nodes cited · 7 of 8 human-benefit clusters yielded · 24 of 24 coding-agent outcomes enabled · 6 properties.
+12 tenets · 10 bundled skills claimed · 75 feature nodes cited · 7 of 8 human-benefit clusters yielded · 24 of 24 coding-agent outcomes enabled · 6 properties.
 
 ## The frame
 
@@ -75,7 +75,7 @@ The gate runs the project's full declared check: the jobs by stage, the scope ga
 
 - **Arc:** loop
 - **Upheld:** enforced via `done`, `[jobs]`, `[gate]` · automated via `prepare`
-- **Mechanisms:** The quality gate · Declared jobs · The staged pipeline · Scopes · Checkpoints · Normalized diagnostics · The fast inner loop.
+- **Mechanisms:** The quality gate · Declared jobs · test · The staged pipeline · Scopes · Checkpoints · Normalized diagnostics · The fast inner loop.
 - **Human value:** Know what is ready.
 - **Agent outcomes:** See the change discern sees · Run the relevant Gate efficiently · Use a fast inner loop · Carry judgment as judgment.
 - **Maintains:** its checks.
