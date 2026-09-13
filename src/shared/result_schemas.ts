@@ -1663,8 +1663,6 @@ export const IntegrationJudgmentSchema = z.strictObject({
     "receipt a continuation must name, the decision kind that continues it, " +
     "and the checkpoint ids awaiting that decision.",
 });
-export type IntegrationJudgmentData = z.infer<typeof IntegrationJudgmentSchema>;
-
 export const AcceptDataSchema = z.strictObject({
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),
   /** Present on a judgment or variance stop over a retained composition. */
