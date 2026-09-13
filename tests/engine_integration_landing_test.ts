@@ -652,13 +652,26 @@ Deno.test("an integration setup failure cleans up its branch and record under in
     // worktrees prepare normally while the composed landing cannot.
     await integrationFixture(
       dir,
-      `${CONFIG}[worktree.setup]\nsteps = ["sh fail-in-integration.sh"]\n`,
+      `${CONFIG}[worktree.setup]\nsteps = ["sh fail-in-integration.sh"]\n[worktree.resources.state]\ncreate = "true"\ndestroy = "sh fail-destroy-in-integration.sh @worktree@"\n`,
     );
     await Deno.writeTextFile(
       join(dir, "fail-in-integration.sh"),
       [
         "#!/bin/sh",
         'case "$(pwd)" in',
+        "  *integration*) exit 1 ;;",
+        "esac",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    // The resource's destroy fails only for the integration copy, so its
+    // ledger row survives the rollback and the refusal must name it.
+    await Deno.writeTextFile(
+      join(dir, "fail-destroy-in-integration.sh"),
+      [
+        "#!/bin/sh",
+        'case "$1" in',
         "  *integration*) exit 1 ;;",
         "esac",
         "exit 0",
@@ -683,8 +696,9 @@ Deno.test("an integration setup failure cleans up its branch and record under in
     assertStringIncludes(result.message ?? "", "could not be prepared");
     assertStringIncludes(
       result.message ?? "",
-      "The integration worktree was removed.",
+      "resources remain recorded for recovery (state)",
     );
+    assertStringIncludes(result.message ?? "", "discern worktree prune");
     // Nothing leaks: no integration/ branch survives without its record,
     // and the submission stays ready to retry after the owner repairs setup.
     assertEquals((await readSubmission(beta)).status, "submitted");
