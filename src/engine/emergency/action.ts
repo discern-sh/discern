@@ -31,15 +31,17 @@ import {
 import { worktreePathForEffortBranch } from "../worktree/target_resolution.ts";
 import {
   type AcceptExecutionProgress,
-  assertMainCheckoutReady,
-  type CleanupDisposition,
-  cleanUpEffort,
   convergeMainCheckout,
   type EffortCheckout,
   effortCheckout,
   freshAcceptExecutionProgress,
   landingPlan,
 } from "../worktree/accept.ts";
+import {
+  assertMainCheckoutReady,
+  type CleanupDisposition,
+  cleanUpEffort,
+} from "../worktree/accept_cleanup.ts";
 import {
   ignoredFileDriftDisabled,
   inspectIgnoredFileChanges,
