@@ -129,7 +129,7 @@ Deno.test("a retained Proof presentation's embedded singular candidate migrates 
     kind: "candidate",
     id: completionId(1),
     revision: 1,
-    data: JSON.parse(JSON.stringify(candidate)),
+    data: structuredClone(candidate),
   }) as { data: Record<string, unknown> };
   assertEquals(
     JSON.stringify(migrated.completion.candidate),
