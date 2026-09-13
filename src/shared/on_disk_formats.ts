@@ -285,7 +285,11 @@ export const ON_DISK_FORMATS = {
     version: 1,
     versionField: "version",
     reader: "src/engine/logbook/schema.ts#parseLogbookLine",
-    writers: ["src/shared/result_capture.ts", "src/engine/logbook/record.ts"],
+    writers: [
+      "src/shared/merge_observation.ts",
+      "src/shared/result_capture.ts",
+      "src/engine/logbook/record.ts",
+    ],
     newerVersionPolicy: "observe",
   },
   proofNote: {
