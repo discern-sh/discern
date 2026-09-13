@@ -1334,6 +1334,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         banner: true,
       },
       {
+        path: "project/map/_internal/brand/readiness-canon.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
         path: "project/map/_internal/brand/messaging.md",
         kind: "generated-file",
         banner: true,
@@ -1506,6 +1511,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       return [
         ...demand.DEMAND_CANON.map((territory) => territory.id),
         ...demand.allDemandEntries().map(({ entry }) => entry.id),
+      ];
+    },
+  },
+  {
+    id: "readiness-canon",
+    title: "Readiness canon",
+    what:
+      "Readiness families and questions with stable discovery identities, practical approaches, and feature routes tied to the existing human and agent benefits; practice connections derive from the tenets' mechanism citations.",
+    source: {
+      kind: "module",
+      module: "scripts/brand/readiness.ts",
+      exportName: "READINESS_CANON",
+    },
+    guards: ["tests/readiness_canon_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the internal readiness reference connects ordinary questions to existing product terms",
+      },
+      featureCanon: {
+        absent:
+          "readiness questions route to existing features and introduce no runtime capability",
+      },
+    },
+    members: async () => {
+      const readiness = await import("./brand/readiness.ts");
+      return [
+        ...readiness.READINESS_CANON.map((family) => family.id),
+        ...readiness.allReadinessQuestions().map((question) => question.id),
       ];
     },
   },

@@ -527,6 +527,51 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         },
       },
       {
+        id: "release-questions-live-with-the-person",
+        title: "The release questions still live with you",
+        situation:
+          "The implementation can move through coding agents, while the questions the person once brought to an engineering team's release still need a place in the work.",
+        alternative:
+          "Reconstruct the release review from experience and ask each question again as the work comes back.",
+        cost:
+          "The project depends on the person remembering which concerns deserve attention for each change.",
+        forces: ["push", "pull"],
+        segments: ["experienced engineers"],
+        evidence: [{
+          class: "observational",
+          source:
+            "The founder's account of leading a software engineering team and preparing discern for launch prompted the Readiness Canon: the release questions remain important as agents carry implementation.",
+          date: "2026-09-13",
+        }],
+        answer: {
+          benefits: [
+            "judgment-at-the-change",
+            "teach-project-once",
+            "catch-related-files",
+            "project-defined-completion",
+          ],
+        },
+      },
+      {
+        id: "discover-what-ready-requires",
+        title: "The app works. What should I ask before people depend on it?",
+        situation:
+          "A builder has a working application and people who want to use it, but has not yet established the questions and evidence that should accompany a release.",
+        alternative:
+          "Ask the coding agent for a general review or piece together a checklist from unfamiliar engineering advice.",
+        cost:
+          "Turning a successful demonstration into a release requires finding the relevant concerns before choosing how to investigate them.",
+        forces: ["pull"],
+        segments: ["new consequential builders"],
+        evidence: [{
+          class: "hypothesis",
+          source:
+            "The Readiness Canon translates the founder's release questions into an invitation for new builders; this audience interpretation needs external validation.",
+          date: "2026-09-13",
+        }],
+        answer: { benefits: ["agent-commissioning", "judgment-at-the-change"] },
+      },
+      {
         id: "what-was-checked-when",
         title: "No record of what was verified for this commit",
         situation:
@@ -1017,8 +1062,6 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
  * it should shrink as evidence arrives.
  */
 export const SUPPLY_PUSH_RECORDS: Readonly<Record<string, string>> = {
-  "judgment-at-the-change":
-    "Built ahead of an identified struggle: checkpoints landed with their engine waves, and the demand account for judgment stops is authored with the launch story once the built-in set ships.",
   "export-project-briefing":
     "Built ahead of an identified struggle: ordered briefing export serves discern's own onboarding flow, and no independent struggling moment is hypothesized for it yet.",
 };

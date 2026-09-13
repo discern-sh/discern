@@ -207,6 +207,19 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 - fear about bugs, firing, or reputational ruin;
 - universal reliability or security guarantees.
 
+### Give your project the questions you ask before you ship
+
+**Human truth:** The software is becoming something people depend on. The builder wants the care they bring to a release to reach every change that leads up to it.
+
+**Promise:** discern gives that care a place in the project: checks that run, judgments that get asked, and evidence that comes back with the work.
+
+**Good expressions:**
+
+- Give your project the questions you ask before you ship.
+- The care you bring to a release can reach every agent who works on it.
+
+Start with a question from [`readiness-canon.md`](readiness-canon.md) that the reader recognizes. Show the benefit, then follow its route to the feature that helps answer it. An experienced engineer should recognize their accumulated judgment; a new builder should see a way to take their software further. Keep the headline alive and let the supporting explanation make the mechanism clear. ‘Ready is the Gate's question; shipping is yours’ keeps its place in the right-limits territory.
+
 ### A practice the project retains
 
 **Human truth:** Repeated prompts and personal memory are weak places to store a project's standards.

@@ -2,6 +2,8 @@
 
 # Feature canon
 
+The [Readiness Canon](brand/readiness-canon.md) approaches these mechanisms through the questions people ask before shipping, with routes back to the features and benefits that help answer them.
+
 _Every product feature and benefit, enumerated once, at every resolution. Creative and technical work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same tree appears in [plain language](feature-canon-plain.md); the [Human Benefit Canon](feature-canon-human-benefits.md) composes commercial human value, and the [Agent Benefit Canon](feature-canon-agent-benefits.md) composes coding-agent outcomes._
 
 10 pillars · 141 nodes · 11 benefit statements · 9 agent-benefit clusters · 81 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.

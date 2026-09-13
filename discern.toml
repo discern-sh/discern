@@ -326,6 +326,7 @@
     "${map.dir}_internal/feature-canon-human-benefits.md",
     "${map.dir}_internal/feature-canon-agent-benefits.md",
     "${map.dir}_internal/brand/consequence-canon.md",
+    "${map.dir}_internal/brand/readiness-canon.md",
     "${map.dir}_internal/practice-canon.md",
   ]
   neutral = true
@@ -357,6 +358,7 @@
     "${map.dir}_internal/feature-canon.md",
     "${map.dir}_internal/feature-canon-agent-benefits.md",
     "${map.dir}_internal/brand/consequence-canon.md",
+    "${map.dir}_internal/brand/readiness-canon.md",
     "${map.dir}_internal/brand/boundary-canon.md",
     "${map.dir}_internal/brand/claims-and-evidence.md",
     "${map.dir}_internal/brand/register-bridge.md",
@@ -436,6 +438,7 @@
     "${map.dir}_internal/brand/boundary-canon.md",
     "${map.dir}_internal/brand/claims-and-evidence.md",
     "${map.dir}_internal/brand/consequence-canon.md",
+    "${map.dir}_internal/brand/readiness-canon.md",
     "${map.dir}_internal/brand/copy-patterns.md",
     "${map.dir}_internal/brand/demand-canon.md",
     "${map.dir}_internal/brand/messaging.md",

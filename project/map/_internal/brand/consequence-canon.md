@@ -4,7 +4,7 @@
 
 _discern's internal account of what changes once the benefits hold. The [Human Benefit Canon](../feature-canon-human-benefits.md) and the [Agent Benefit Canon](../feature-canon-agent-benefits.md) reason forward from product facts to first-order value; a consequence reasons one step further, to what several benefits do together, over time, and in combination, for the person and for the coding agent. Each entry keeps two halves apart: the consequence is deductive on the benefits and the [`claims-and-evidence.md`](claims-and-evidence.md) claims it cites, and the predicted behavior after it carries dated evidence in the ledger's market classes, the same rule the [`demand-canon.md`](demand-canon.md) applies to a struggling moment._
 
-35 consequences · 25 for the person · 10 for the agent · 53 benefits and 20 claims cited · 1 shared hypothesis · behavior evidence: observational 19 · hypothesis 16.
+36 consequences · 26 for the person · 10 for the agent · 53 benefits and 20 claims cited · 1 shared hypothesis · behavior evidence: observational 19 · hypothesis 17.
 
 ## How to use this canon
 
@@ -18,6 +18,7 @@ _discern's internal account of what changes once the benefits hold. The [Human B
 
 | Consequence                                                                | For    | Behavior evidence |
 | -------------------------------------------------------------------------- | ------ | ----------------- |
+| The care you bring to a release becomes part of the project                | person | hypothesis        |
 | Confidence moves out of the conversation and into the change               | person | hypothesis        |
 | When failing is cheap, you start the work you used to talk yourself out of | person | observational     |
 | Your job moves up a level                                                  | person | observational     |
@@ -55,6 +56,17 @@ _discern's internal account of what changes once the benefits hold. The [Human B
 | What nobody wrote down is still on record                                  | agent  | hypothesis        |
 
 ## For the person
+
+### The care you bring to a release becomes part of the project
+
+- **Consequence:** When release questions become shared instructions, project checks, and change-triggered judgments, future agents encounter the expectations in the work itself. Completion evidence gives the person an account of what passed and what was declared for the change they are considering.
+- **Then:** The person takes on a larger release because more of their established practice can travel with the delegated work.
+- **Evidence:** hypothesis — The founder's Readiness account motivates this consequence; its effect on the size of work people undertake has not been measured. (recorded 2026-09-13)
+- **Segments:** experienced engineers, new consequential builders
+- **Rests on:** Teach the project once · Ask the judgment questions when the change happens · Know when the project's own checks have passed · Get proof of what passed, tied to the commit it passed on.
+- **Claims:** [`installs-a-practice`](claims-and-evidence.md#installs-a-practice--discern-installs-an-engineering-practice-into-a-project) · [`one-instruction-source`](claims-and-evidence.md#one-instruction-source--every-configured-provider-receives-the-same-project-instructions) · [`proof-exact-tree`](claims-and-evidence.md#proof-exact-tree--proof-covers-the-exact-committed-tree-that-passed)
+- **Boundary:** The project retains the expectations people and agents establish. Evidence covers the declared checks and judgments for a change; choosing relevant questions and exercising the result still requires judgment.
+- **Note:** [`readiness-canon.md`](readiness-canon.md) connects the release questions to the existing features and benefits that carry them.
 
 ### Confidence moves out of the conversation and into the change
 

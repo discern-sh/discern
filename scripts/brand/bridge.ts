@@ -15,6 +15,21 @@ export const CONCEPT_MAP_HEADING = "Core concept map";
 /** The core concept map: one row per product concept, in table order. */
 export const CONCEPTS = [
   {
+    id: "readiness",
+    name: "Readiness",
+    productRole:
+      "A question-led account of fitness for an intended next step, connected to project checks, declared judgments, taught methods, evidence, and authority.",
+    humanSituation:
+      "The software is about to enter people's lives, and the builder wants it to hold up to what they will ask of it.",
+    brandInterpretation:
+      "Give the project a way to carry the care you bring to what ships.",
+    plainFirstUse:
+      "“The questions you want answered before people depend on the next release.”",
+    prominence: "Yes, through a recognizable question or desired future.",
+    doNotImply:
+      "A new automatic assessment engine, a universal checklist, or a replacement for human and agent judgment.",
+  },
+  {
     id: "practice",
     name: "Practice",
     productRole:
@@ -471,6 +486,8 @@ export function renderBridgeDoc(): string {
     "**Purpose:** Convert product truth into human meaning without letting the product canon dictate the brand's surface style.",
     "",
     "## The register firewall",
+    "",
+    "A brand line gives someone a reason to want the product. Preserve that invitation when tracing it to product truth: explain the mechanism in the supporting copy and place its relevant limit where the reader needs it. Replacing a strong headline with a contract sentence loses the communication job. Readiness follows the same rule: lead with a recognizable question and the future it serves; keep the evidence distinctions in the account of how the project answers it.",
     "",
     "Every public claim should be traceable backwards:",
     "",

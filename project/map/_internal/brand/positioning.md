@@ -114,6 +114,14 @@ It contains a social desire:
 
 The platform should always feel aspirational. It must not rely on threats about bugs, job loss, angry customers, or model failure to make the reader care.
 
+## Readiness gives the ambition a way forward
+
+The questions an engineering team asks before a release still matter when coding agents carry the work. Will existing workflows hold up? Can someone recover from a mistake? Is the important decision recorded where the next person can find it? More people can now build software worth asking these questions about.
+
+Readiness is the practical expression of Consequential Code. discern gives a project a way to carry those questions through the work: tests and Standards for what can be checked, checkpoints for judgments that deserve attention, and a retained practice every agent inherits. The experience a person once brought to a release can reach further into the project and into its next change.
+
+The [`readiness-canon.md`](readiness-canon.md) connects each question to the features and benefits that help answer it. It gives public storytelling a recognizable starting point: something the reader already wants their software to be ready for. Consequential Code remains the worldview; the engineering practice remains the category.
+
 ## The organizing idea
 
 discern is named for what it does: it keeps the distinctions that matter (task from task, judgment from verification, readiness from permission, provider from practice) while the project stays connected across them. [`messaging.md`](messaging.md) holds the full account and its copy-ready forms.

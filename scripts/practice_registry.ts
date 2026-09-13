@@ -854,6 +854,8 @@ export function renderPracticeCanonDoc(): string {
     "",
     "# Practice canon",
     "",
+    "The [Readiness Canon](brand/readiness-canon.md) connects the questions people ask before shipping to these obligations and their mechanisms. A project selects appropriate checks and judgments for the change it intends to make.",
+    "",
     "_The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the outcomes they produce. The [feature canon](feature-canon.md) owns the mechanism account, the [Human Benefit Canon](feature-canon-human-benefits.md) owns the human value, and the [Agent Benefit Canon](feature-canon-agent-benefits.md) owns coding-agent outcomes; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._",
     "",
     `${PRACTICE_CANON.length} tenets · ${claimedSkills.size} bundled skills claimed · ${citedNodes.size} feature nodes cited · ${yieldedClusters.size} of ${HUMAN_BENEFIT_CANON.length} human-benefit clusters yielded · ${yieldedAgentBenefits.size} of ${agentBenefitEntries.length} coding-agent outcomes enabled · ${PRACTICE_PROPERTIES.length} properties.`,

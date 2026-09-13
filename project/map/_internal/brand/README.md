@@ -38,6 +38,8 @@ The line speaks to each primary audience:
 
 The public brand should make that seriousness feel like an earned privilege: more ambition, greater reach, more confidence, and more pride. It should never make seriousness feel joyless, corporate, punitive, or fear-driven.
 
+Readiness gives that ambition a practical expression. The [`readiness-canon.md`](readiness-canon.md) starts with the questions people ask before putting software into other people's hands and connects them to the practice, features, and benefits that help answer them. It supports commissioning and question-led discovery while the brand keeps its energy and invitation.
+
 ## Document map
 
 | Document                                                                                          | Status          | Job                                                                                                                                                                                                       | Stays private?          |
@@ -45,6 +47,7 @@ The public brand should make that seriousness feel like an earned privilege: mor
 | [`positioning.md`](positioning.md)                                                                | Canonical       | Defines why discern exists, who it serves, the market boundary, and the strategic choices that govern the brand.                                                                                          |                         |
 | [`audiences.md`](../../_private/brand/audiences.md)                                               | Canonical       | Defines audience circumstances, desires, objections, knowledge levels, and message translations.                                                                                                          | private overlay (local) |
 | [`demand-canon.md`](demand-canon.md)                                                              | Canonical       | States the struggling moments the benefits answer — evidence-tagged, with current alternatives and forces — and holds two-way coverage against the Human Benefit Canon.                                   |                         |
+| [`readiness-canon.md`](readiness-canon.md)                                                        | Canonical       | Connects the questions people ask before shipping to discern's features, benefits, and practice, with practical routes for answering them and stable identities for question-led discovery.               |                         |
 | [`consequence-canon.md`](consequence-canon.md)                                                    | Canonical       | States what changes for the person and the coding agent once the benefits hold: second-order consequences, each deductive on cited benefits and claims and evidence-classed for the behavior it predicts. |                         |
 | [`boundary-canon.md`](boundary-canon.md)                                                          | Canonical       | Defines discern's behavioral refusals, mistaken-identity discriminators, and checkable structural absences from one evidence-backed boundary registry.                                                    |                         |
 | [`messaging.md`](messaging.md)                                                                    | Canonical       | Turns the positioning into the grid, message territories, ledger-backed fact lines, descriptions, heroes, CTAs, proof order, and the line tests.                                                          |                         |
@@ -74,12 +77,24 @@ Read, in order:
 2. `audiences.md`
 3. the relevant territory and entries from `demand-canon.md`
 4. the relevant entries from `consequence-canon.md` when the surface argues what changes over time
-5. `messaging.md`
-6. the `discern-brand-voice` skill
-7. the relevant section of `website-brief.md`
-8. only the relevant claims from `claims-and-evidence.md`
+5. the relevant questions in `readiness-canon.md` when the surface begins with a concern the reader recognizes
+6. `messaging.md`
+7. the `discern-brand-voice` skill
+8. the relevant section of `website-brief.md`
+9. only the relevant claims from `claims-and-evidence.md`
 
 Do **not** load the complete product canon as a style model. Consult product sources only to verify a claim or mechanism.
+
+### Readiness, commissioning, or question-led discovery
+
+Read:
+
+1. `positioning.md` for the ambition Readiness serves;
+2. the relevant families in `readiness-canon.md`, following their feature and benefit links;
+3. `messaging.md` and the `discern-brand-voice` skill for public expression;
+4. the linked product documentation when configuring the practice or verifying a mechanism.
+
+The questions introduce the product through something the reader recognizes. Keep their public expression inviting; the mechanism account carries the evidence distinctions.
 
 ### Manifesto, founder philosophy, or extended visual work
 

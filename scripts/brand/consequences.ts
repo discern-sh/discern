@@ -144,6 +144,39 @@ const NEW_BUILDERS: readonly [HumanBenefitAudience] = [
 /** The canon, in reading order: the person's consequences, then the agent's. */
 export const CONSEQUENCE_CANON: readonly Consequence<ClaimSlug>[] = [
   {
+    id: "release-judgment-reaches-future-work",
+    audience: "person",
+    headline: "The care you bring to a release becomes part of the project",
+    consequence:
+      "When release questions become shared instructions, project checks, and change-triggered judgments, future agents encounter the expectations in the work itself. Completion evidence gives the person an account of what passed and what was declared for the change they are considering.",
+    then: {
+      statement:
+        "The person takes on a larger release because more of their established practice can travel with the delegated work.",
+      evidence: {
+        class: "hypothesis",
+        source:
+          "The founder's Readiness account motivates this consequence; its effect on the size of work people undertake has not been measured.",
+        date: "2026-09-13",
+      },
+    },
+    segments: BOTH_SEGMENTS,
+    restsOn: [
+      "teach-project-once",
+      "judgment-at-the-change",
+      "project-defined-completion",
+      "evidence-for-this-change",
+    ],
+    claims: [
+      "installs-a-practice",
+      "one-instruction-source",
+      "proof-exact-tree",
+    ],
+    boundary:
+      "The project retains the expectations people and agents establish. Evidence covers the declared checks and judgments for a change; choosing relevant questions and exercising the result still requires judgment.",
+    note:
+      "{{doc:readiness-canon}} connects the release questions to the existing features and benefits that carry them.",
+  },
+  {
     id: "evidence-outlives-the-agent",
     audience: "person",
     headline: "Confidence moves out of the conversation and into the change",

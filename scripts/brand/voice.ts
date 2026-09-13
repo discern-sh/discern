@@ -32,6 +32,11 @@ export const BRAND_FOUNDATION_READING_STEPS = [
     instruction:
       "the relevant entries from `consequence-canon.md` when the surface argues what changes over time",
   },
+  {
+    id: "readiness-canon",
+    instruction:
+      "the relevant questions in `readiness-canon.md` when the surface begins with a concern the reader recognizes",
+  },
   { id: "messaging", instruction: "`messaging.md`" },
 ] as const;
 

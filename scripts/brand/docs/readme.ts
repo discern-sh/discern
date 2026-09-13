@@ -54,6 +54,19 @@ export const READING_PATHS = [
       "Do **not** load the complete product canon as a style model. Consult product sources only to verify a claim or mechanism.",
   },
   {
+    id: "readiness-discovery",
+    heading: "Readiness, commissioning, or question-led discovery",
+    intro: "Read:",
+    steps: [
+      "`positioning.md` for the ambition Readiness serves;",
+      "the relevant families in `readiness-canon.md`, following their feature and benefit links;",
+      "`messaging.md` and the `discern-brand-voice` skill for public expression;",
+      "the linked product documentation when configuring the practice or verifying a mechanism.",
+    ],
+    note:
+      "The questions introduce the product through something the reader recognizes. Keep their public expression inviting; the mechanism account carries the evidence distinctions.",
+  },
+  {
     id: "manifesto-founder-visual",
     heading: "Manifesto, founder philosophy, or extended visual work",
     intro: "Read, in order:",
@@ -309,6 +322,8 @@ export function renderReadmeDoc(
     ]),
     "",
     "The public brand should make that seriousness feel like an earned privilege: more ambition, greater reach, more confidence, and more pride. It should never make seriousness feel joyless, corporate, punitive, or fear-driven.",
+    "",
+    "Readiness gives that ambition a practical expression. The {{doc:readiness-canon}} starts with the questions people ask before putting software into other people's hands and connects them to the practice, features, and benefits that help answer them. It supports commissioning and question-led discovery while the brand keeps its energy and invitation.",
     "",
     "## Document map",
     "",

@@ -36,6 +36,7 @@ import { renderBoundaryCanonDoc } from "./brand/boundaries.ts";
 import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
 import { renderConsequenceCanonDoc } from "./brand/consequences.ts";
 import { renderDemandCanonDoc } from "./brand/demand.ts";
+import { renderReadinessCanonDoc } from "./brand/readiness.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
 import { renderCopyPatternsDoc } from "./brand/patterns.ts";
 import { renderPositioningDoc } from "./brand/docs/positioning.ts";
@@ -80,6 +81,14 @@ export const BRAND_DOCUMENTS = [
     job:
       "States the struggling moments the benefits answer — evidence-tagged, with current alternatives and forces — and holds two-way coverage against the Human Benefit Canon.",
     mode: { kind: "generated", render: renderDemandCanonDoc },
+  },
+  {
+    id: "readiness-canon",
+    file: "readiness-canon.md",
+    status: "Canonical",
+    job:
+      "Connects the questions people ask before shipping to discern's features, benefits, and practice, with practical routes for answering them and stable identities for question-led discovery.",
+    mode: { kind: "generated", render: renderReadinessCanonDoc },
   },
   {
     id: "consequence-canon",

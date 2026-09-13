@@ -26,10 +26,11 @@ Read only the context the surface requires:
 2. `audiences.md`
 3. the relevant territory and entries from `demand-canon.md`
 4. the relevant entries from `consequence-canon.md` when the surface argues what changes over time
-5. `messaging.md`
-6. the relevant section of `website-brief.md`
-7. relevant claim slugs from `claims-and-evidence.md`
-8. `register-bridge.md` when product concepts must enter
+5. the relevant questions in `readiness-canon.md` when the surface begins with a concern the reader recognizes
+6. `messaging.md`
+7. the relevant section of `website-brief.md`
+8. relevant claim slugs from `claims-and-evidence.md`
+9. `register-bridge.md` when product concepts must enter
 
 For manifesto, founder philosophy, motion, or extended visual work, also read `visual-identity.md` and `launch-narrative.md`. Treat the metaphysical interpretation as the founder's account. Do not assign it to the reader.
 

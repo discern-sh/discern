@@ -4,7 +4,7 @@
 
 _discern's internal account of the demand its benefits answer. It is the market-side counterpart of the [Human Benefit Canon](../feature-canon-human-benefits.md): where a benefit reasons forward from product facts to human value, a demand entry reasons backward from a struggling moment somebody is hypothesized to be in. Demand claims are empirical, so every entry carries dated evidence in the market classes of the [`claims-and-evidence.md`](claims-and-evidence.md) ledger, and nothing here is stronger than its class. The [`audiences.md`](../../_private/brand/audiences.md) document holds the by-person account of the same ground._
 
-8 territories · 39 entries · 43 of 45 benefits answered · 2 supply-push records · 1 recorded gap · 3 corpora · evidence: corroborated 7 · hypothesis 32.
+8 territories · 41 entries · 44 of 45 benefits answered · 1 supply-push record · 1 recorded gap · 3 corpora · evidence: corroborated 7 · observational 1 · hypothesis 33.
 
 ## How to use this canon
 
@@ -164,6 +164,26 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Segments:** experienced engineers, new consequential builders
 - **Evidence:** corroborated — This is the founder's own experience of building a visionOS app with agents, and public issue reports separate an agent's completion message from evidence that the checks ran. (recorded 2026-09-01) · corpus [`readiness`](#readiness)
 - **Answered by:** Know when the project's own checks have passed · Get proof of what passed, tied to the commit it passed on.
+
+### The release questions still live with you
+
+- **Situation:** The implementation can move through coding agents, while the questions the person once brought to an engineering team's release still need a place in the work.
+- **Today's alternative:** Reconstruct the release review from experience and ask each question again as the work comes back.
+- **Cost:** The project depends on the person remembering which concerns deserve attention for each change.
+- **Forces:** push, pull
+- **Segments:** experienced engineers
+- **Evidence:** observational — The founder's account of leading a software engineering team and preparing discern for launch prompted the Readiness Canon: the release questions remain important as agents carry implementation. (recorded 2026-09-13)
+- **Answered by:** Ask the judgment questions when the change happens · Teach the project once · Catch related files before the change closes · Know when the project's own checks have passed.
+
+### The app works. What should I ask before people depend on it?
+
+- **Situation:** A builder has a working application and people who want to use it, but has not yet established the questions and evidence that should accompany a release.
+- **Today's alternative:** Ask the coding agent for a general review or piece together a checklist from unfamiliar engineering advice.
+- **Cost:** Turning a successful demonstration into a release requires finding the relevant concerns before choosing how to investigate them.
+- **Forces:** pull
+- **Segments:** new consequential builders
+- **Evidence:** hypothesis — The Readiness Canon translates the founder's release questions into an invitation for new builders; this audience interpretation needs external validation. (recorded 2026-09-13)
+- **Answered by:** Have your agent set up the practice for this project · Ask the judgment questions when the change happens.
 
 ### No record of what was verified for this commit
 
@@ -518,7 +538,6 @@ Every benefit in the Human Benefit Canon is answered by at least one entry or re
 
 ### Supply-push records
 
-- `judgment-at-the-change` — Built ahead of an identified struggle: checkpoints landed with their engine waves, and the demand account for judgment stops is authored with the launch story once the built-in set ships.
 - `export-project-briefing` — Built ahead of an identified struggle: ordered briefing export serves discern's own onboarding flow, and no independent struggling moment is hypothesized for it yet.
 
 ### Recorded gaps

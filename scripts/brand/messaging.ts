@@ -346,6 +346,26 @@ export const PILLARS = [
     ],
   },
   {
+    id: "readiness-for-real-use",
+    title: "Give your project the questions you ask before you ship",
+    humanTruth:
+      "The software is becoming something people depend on. The builder wants the care they bring to a release to reach every change that leads up to it.",
+    promise:
+      "discern gives that care a place in the project: checks that run, judgments that get asked, and evidence that comes back with the work.",
+    goodExpressions: [
+      "Give your project the questions you ask before you ship.",
+      "The care you bring to a release can reach every agent who works on it.",
+    ],
+    note:
+      "Start with a question from {{doc:readiness-canon}} that the reader recognizes. Show the benefit, then follow its route to the feature that helps answer it. An experienced engineer should recognize their accumulated judgment; a new builder should see a way to take their software further. Keep the headline alive and let the supporting explanation make the mechanism clear. ‘Ready is the Gate's question; shipping is yours’ keeps its place in the right-limits territory.",
+    claims: [
+      "installs-a-practice",
+      "one-instruction-source",
+      "proof-exact-tree",
+      "gate-grants-no-authority",
+    ],
+  },
+  {
     id: "practice-retained",
     title: "A practice the project retains",
     humanTruth:
