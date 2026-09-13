@@ -421,6 +421,76 @@ Deno.test("a composition that changed while its judgment waited is discarded: th
   });
 });
 
+Deno.test("prune preserves a retained composition while its submission stands and reclaims it once the effort is gone", async () => {
+  await withTempDir(async (dir) => {
+    await withTempDir(async (scratch) => {
+      const counter = join(scratch, "producer-runs");
+      await judgmentFixture(dir, counter);
+      const alpha = await effortFlippingRow(dir, "alpha");
+      const beta = await effortFlippingRow(dir, "beta");
+      assertEquals(
+        (await runAgent(alpha, ["done", "--met", "record-review", "--json"]))
+          .code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(beta, ["done", "--met", "record-review", "--json"]))
+          .code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(beta, ["accept", "--confirmed", "--json"])).code,
+        1,
+      );
+      const retained = await retainedRecord(dir);
+      assert(retained !== undefined);
+
+      // The retained composition is deliberate state, not an interrupted
+      // landing: prune preserves it while the exact submission it composes
+      // still stands — and the author, whose commits necessarily ride inside
+      // the retained integration branch, is never offered as a spent
+      // contained stage because of it.
+      const kept = await runAgent(dir, ["worktree", "prune", "--json"]);
+      assertEquals(kept.code, 0, kept.output);
+      const keptResult = decodeCliResult(kept.stdout, "worktree prune");
+      assert(
+        (keptResult.steps ?? []).every((step) =>
+          !(step.note ?? "").includes("contained in integration/")
+        ),
+        kept.stdout,
+      );
+      assert(await targetExists(retained.worktreePath));
+      const preserved = await retainedRecord(dir);
+      assert(preserved !== undefined);
+
+      // Once the effort is gone — its worktree dropped, submission and all —
+      // nothing can answer the question, and prune reclaims the copy.
+      const betaBranch = await gitOut(beta, "branch", "--show-current");
+      const dropped = await runAgent(dir, [
+        "worktree",
+        "drop",
+        betaBranch,
+        "--force",
+        "--json",
+      ]);
+      assertEquals(dropped.code, 0, dropped.output);
+      const reclaimed = await runAgent(dir, [
+        "worktree",
+        "prune",
+        "--yes",
+        "--json",
+      ]);
+      assertEquals(reclaimed.code, 0, reclaimed.output);
+      assertEquals(await targetExists(retained.worktreePath), false);
+      await assertNoIntegrationRemains(dir);
+    });
+  });
+});
+
 Deno.test("declarations without an awaited integration judgment are refused, and a direct landing never consumes them", async () => {
   await withTempDir(async (dir) => {
     await withTempDir(async (scratch) => {

@@ -26,6 +26,7 @@
  * gets the full feature through the weaker git-derived quiet period.
  */
 
+import { INTEGRATION_BRANCH_NAMESPACE } from "../../shared/git_conventions.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
   type GitCount,
@@ -190,7 +191,11 @@ function strictContainers(
 ): string[] {
   return [...containing].filter((candidate) => {
     const candidateTip = tips.get(candidate);
+    // An integration/ branch is discern's own ephemeral landing copy — a
+    // retained composition necessarily contains its author's commits, and
+    // that never makes the author a spent train stage.
     return candidate !== branch && candidate !== trunk &&
+      !candidate.startsWith(INTEGRATION_BRANCH_NAMESPACE) &&
       candidateTip !== undefined && candidateTip !== tip;
   });
 }
