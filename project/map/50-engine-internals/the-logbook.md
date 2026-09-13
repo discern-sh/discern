@@ -30,6 +30,14 @@ Patterns retains order, families, its advisory boundary, evidence, actions, quie
 
 At 39, 80, 104, and wider widths in every mode, safe text shows controls. Components add no payload, prompt, output, or network access; the metadata-only, offline contract remains unchanged.
 
+## Merge evidence
+
+The shared update core observes actual merge outcomes before regeneration or integration cleanup. Its callers supply the originating effort and route, so acceptance's disposable checkout retains the author's identity. The invocation accumulator carries the observation to the CLI or MCP recorder independently of the command's final outcome.
+
+[`merge_observation.ts`](../../../src/shared/merge_observation.ts) owns the bounded metadata schema; the local-format registry owns its version. Missing revisions, omitted paths, and omitted attempts cannot imply successful merges. An unknown nested evidence version leaves the surrounding verb event readable.
+
+[`merge_conflicts.ts`](../../../src/engine/logbook/merge_conflicts.ts) owns recurrence and retry accounting. Patterns and Improvement consume its project finding. Update and acceptance recovery additionally use the same calculation with the current executor observation, before the invocation is logged. The bounded history reader and the advisory-only result channel remain shared ([ADR 0393](../_adr/0393-merge-observations-connect-conflict-recurrence-across-surfaces.md)).
+
 ## Validation evidence
 
 `done` samples after fix/build and before check/test; standalone `test` samples before its test group. A shared registry selects planned jobs by stage, automatically enrolling future jobs.
@@ -50,7 +58,7 @@ The view never rewrites JSON Lines. Adding an exact catalog name improves new an
 
 ## Finding routing
 
-[`routing.ts`](../../../src/engine/logbook/routing.ts) is the single policy seam. Every detector finding reaches `patterns`. An inline detector also reaches one working command according to its scope: `branch` to `done`, `session` to `status`, and `project` to `improvement`. Batch detectors have no working route.
+[`routing.ts`](../../../src/engine/logbook/routing.ts) owns the default routing policy. Every detector finding reaches `patterns`. An inline detector also reaches a working command according to its scope: `branch` to `done`, `session` to `status`, and `project` to `improvement`. Batch detectors have no working route. Merge-conflict recovery additionally projects the recurrence finding for a currently conflicting path through the shared update core.
 
 `tip-adoption` is a batch, project-scoped behavior detector. It derives measured tips and their invited verbs from [`TIPS`](../../../src/shared/tips.ts). Each recorded showing opens one episode for that tip. Any analyzable run of an invited verb can resolve it, including a run on another surface, branch, or session. A repeated showing resolves it as not followed. History ends and missing setup fields censor it. Config epoch, writer release, and the dominant MCP-client release must match by setup equality. Interleaved runs from another setup do not break later re-entry. Each tip clears 3 resolved episodes on its own, so adding more declarations cannot pool sparse evidence into a finding ([ADR 0236](../_adr/0236-tip-adoption-clears-evidence-per-tip-across-setups.md)).
 

@@ -12,8 +12,18 @@ import {
 import type { PatternsFinding } from "../../shared/patterns_vocabulary.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
-import { buildStreamFacts, DETECTORS, runDetector } from "./detectors.ts";
+import {
+  buildStreamFacts,
+  DETECTORS,
+  runDetector,
+  type StreamFacts,
+} from "./detectors.ts";
 import { readRecentLogbookStream } from "./read.ts";
+import type { MergeAttempt } from "../../shared/merge_observation.ts";
+import {
+  mergeConflictOutcome,
+  recurringMergeConflicts,
+} from "./merge_conflicts.ts";
 import {
   type FindingRoutes,
   routeDetectorReports,
@@ -34,6 +44,31 @@ export const PROOF_EVIDENCE_MARGIN = 1;
 /** Status keeps its logbook additions short beside live repository advice. */
 const STATUS_FINDING_CAP = 3;
 
+/** Include the current observed failure without waiting for invocation completion. */
+export async function mergeConflictHints(
+  root: string,
+  config: DiscernConfig,
+  current: MergeAttempt,
+): Promise<FiredHint[]> {
+  if (current.outcome !== "conflict") return [];
+  return await withInlineFacts(root, config, [], (facts) => {
+    const report = mergeConflictOutcome(facts.verbs, current);
+    if (report.considered < recurringMergeConflicts.threshold) return [];
+    const paths = new Set(
+      current.conflicts.filter((entry) => !entry.generated)
+        .map((entry) => entry.path),
+    );
+    return report.findings.filter((finding) =>
+      finding.subject !== undefined && paths.has(finding.subject)
+    ).slice(0, 1).map((finding) =>
+      fire(HINTS["logbook-merge-conflict-finding"], {
+        observed: finding.observed,
+        next: finding.next_step ?? recurringMergeConflicts.next_step,
+      })
+    );
+  });
+}
+
 /** Empty routes for a disabled, absent, or unreadable logbook. */
 function emptyRoutes(): FindingRoutes {
   return routeDetectorReports([]);
@@ -48,13 +83,27 @@ export async function inlineFindingRoutes(
   root: string,
   config: DiscernConfig,
 ): Promise<FindingRoutes> {
+  return await withInlineFacts(root, config, emptyRoutes(), (facts) => {
+    const reports = DETECTORS.filter((detector) => detector.tier === "inline")
+      .map((detector) => runDetector(detector, facts));
+    return routeDetectorReports(reports);
+  });
+}
+
+/** Every unsolicited reader shares the same bounded, non-interfering history read. */
+async function withInlineFacts<T>(
+  root: string,
+  config: DiscernConfig,
+  fallback: T,
+  read: (facts: StreamFacts) => T,
+): Promise<T> {
   if (!config.project.logbook) {
-    return emptyRoutes();
+    return fallback;
   }
   try {
     const commonGitDir = await resolveCommonGitDir(root);
     if (commonGitDir === undefined) {
-      return emptyRoutes();
+      return fallback;
     }
     const stream = await readRecentLogbookStream(
       commonGitDir,
@@ -65,11 +114,9 @@ export async function inlineFindingRoutes(
       config.repository.trunk,
       resolveConfiguredAgents(config),
     );
-    const reports = DETECTORS.filter((detector) => detector.tier === "inline")
-      .map((detector) => runDetector(detector, facts));
-    return routeDetectorReports(reports);
+    return read(facts);
   } catch {
-    return emptyRoutes();
+    return fallback;
   }
 }
 

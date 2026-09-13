@@ -201,13 +201,18 @@ export async function executeIntegrationLanding(
       );
     }
     if (composed.kind === "conflict") {
-      throw new WorktreeGitError(
-        `Landing ${effort.branch}'s submission ${
-          short(frozen.head)
-        } conflicts with ${trunk} in: ${composed.files.join(", ")}. ${
-          integrationAuthorRoute(effort)
-        }${cleanupTail(composed.cleanupFailures)} ${ACCEPT_NOTHING_LANDED}`,
-      );
+      const message = `Landing ${effort.branch}'s submission ${
+        short(frozen.head)
+      } conflicts with ${trunk} in: ${composed.files.join(", ")}. ${
+        integrationAuthorRoute(effort)
+      }${cleanupTail(composed.cleanupFailures)} ${ACCEPT_NOTHING_LANDED}`;
+      throw new WorktreeResultError(message, {
+        ok: false,
+        verb: "accept",
+        error: "precondition_failed",
+        message,
+        hints: hintTexts(composed.hints),
+      });
     }
     if (composed.kind === "red") {
       const gate = composed.result;

@@ -276,6 +276,22 @@ export const ON_DISK_FORMATS = {
     ],
     newerVersionPolicy: "observe",
   },
+  logbookMergeActivity: {
+    id: "logbook-merge-activity",
+    location: {
+      kind: "git-admin",
+      keys: ["logbook", "logbookArchives", "logbookRecovery"],
+    },
+    version: 1,
+    versionField: "version",
+    reader: "src/engine/logbook/schema.ts#parseLogbookLine",
+    writers: [
+      "src/shared/merge_observation.ts",
+      "src/shared/result_capture.ts",
+      "src/engine/logbook/record.ts",
+    ],
+    newerVersionPolicy: "observe",
+  },
   proofNote: {
     id: "proof-note",
     location: { kind: "git-note", ref: PROOF_NOTES_REF },

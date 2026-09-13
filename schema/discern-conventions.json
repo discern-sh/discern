@@ -653,6 +653,18 @@
         ]
       }
     },
+    "logbook-merge-activity": {
+      "version_field": "version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "logbook",
+          "logbookArchives",
+          "logbookRecovery"
+        ]
+      }
+    },
     "proof-note": {
       "version": 1,
       "version_field": "payloadType",

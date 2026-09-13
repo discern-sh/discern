@@ -1096,6 +1096,17 @@ Rendered example:
 
 > Fix each failed convergence step named in the diagnostics, then run its reproduce command again in the checkout where that step ran.
 
+## `logbook-merge-conflict-finding`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `logbook-inline-finding`
+- Emitting context: An update or acceptance conflicts in a file with repeated local merge evidence.
+
+Rendered example:
+
+> A shared file conflicted across several efforts. Inspect whether independent entries can generate the shared artifact.
+
 ## `logbook-proof-finding`
 
 - Category: `next-step`

@@ -80,6 +80,7 @@ import {
   type VerbEvent,
 } from "./schema.ts";
 import { byBranch } from "./read.ts";
+import { recurringMergeConflicts } from "./merge_conflicts.ts";
 import {
   CANARY_REVIEW_FAILURE_RUNS,
   recordedJobOutcome,
@@ -4785,6 +4786,7 @@ export const DETECTORS: readonly Detector[] = [
   cycleTime,
   giantCommitLanding,
   updateFriction,
+  recurringMergeConflicts,
   standardTrajectory,
   redRateHistory,
   checkpointDead,

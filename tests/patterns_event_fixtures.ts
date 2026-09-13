@@ -6,6 +6,24 @@ import {
   type LogbookEvent,
   type VerbEvent,
 } from "../src/engine/logbook/schema.ts";
+import type { MergeAttempt } from "../src/shared/merge_observation.ts";
+
+/** Complete observations with independent revisions and unrelated authored filenames. */
+export function mergeAttempt(
+  index: number,
+  overrides: Partial<MergeAttempt> = {},
+): MergeAttempt {
+  return {
+    effort: `agent/effort-${index % 2}`,
+    route: "update",
+    head: index.toString(16).padStart(40, "0"),
+    incoming: "f".repeat(40),
+    outcome: "conflict",
+    conflicts: [{ path: "records/pending.md", generated: false }],
+    paths_omitted: 0,
+    ...overrides,
+  };
+}
 
 /** A deterministic timestamp `n` hours after the fixture epoch. */
 export function t(hours: number): string {

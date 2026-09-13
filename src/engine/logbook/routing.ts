@@ -1,9 +1,10 @@
 /**
- * The finding-routing policy fixed by ADR 0160. Every detector finding reaches
+ * The default finding-routing policy from ADR 0160. Every detector finding reaches
  * `patterns`. A finding may also reach one working surface when its detector is
  * inline: branch -> `done`, session -> `status`, project -> `improvement`.
  * Batch findings stop at `patterns`, which is the only verb allowed to pay for
- * longitudinal analysis.
+ * longitudinal analysis. Merge-conflict recovery additionally projects the
+ * same recurrence calculation for its current observed failure (ADR 0393).
  *
  * Keep this module pure. Readers run detectors and gather their own bounded
  * event window; this seam only decides where the resulting evidence belongs.

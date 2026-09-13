@@ -68,7 +68,9 @@ import { resolveCommonGitDir } from "../worktree/git.ts";
 import {
   type CheckpointObservations,
   takeCheckpointActivity,
+  takeMergeActivity,
 } from "../../shared/result_capture.ts";
+import type { MergeActivity } from "../../shared/merge_observation.ts";
 import { changedSections, type ConfigEpoch, configEpoch } from "./epoch.ts";
 import { setActiveInvocationId } from "../../shared/invocation_context.ts";
 import type {
@@ -138,6 +140,8 @@ export interface FinishReport {
    * invocation ({@link CheckpointObservations}); the recorder falls back to
    * draining the accumulator itself for direct callers. */
   checkpoints?: CheckpointObservations | undefined;
+  /** Merge outcomes captured before cleanup or subsequent gate work. */
+  merges?: MergeActivity | undefined;
 }
 
 /** What an interceptor knows when an invocation starts. */
@@ -657,6 +661,7 @@ export function beginRecording(
         // observation can never attach to a later invocation's event.
         const checkpointActivity = report.checkpoints ??
           takeCheckpointActivity();
+        const merges = report.merges ?? takeMergeActivity();
         // Preserve append order even when a very short verb finishes before its
         // concurrent context gather. A swallowed begin failure still lets the
         // completion append proceed.
@@ -733,6 +738,7 @@ export function beginRecording(
             ? { standards: lifted.standards }
             : {}),
           ...(lifted.update !== undefined ? { update: lifted.update } : {}),
+          ...(merges === undefined ? {} : { merges }),
           ...(lifted.consent !== undefined ? { consent: lifted.consent } : {}),
           ...(lifted.landing !== undefined ? { landing: lifted.landing } : {}),
           ...(checkpointActivity !== undefined

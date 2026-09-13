@@ -58,9 +58,10 @@ Setting `[project].logbook = false` stops new evidence for every feature below. 
 - fleet activity times that include verb runs, so a long test run does not appear dormant
 - configuration-change attribution and each standard's limit history: the `config-change` and `pin` events
 - `tip-adoption` counts: whether each shown tip's invited verb ran before that tip appeared again
-- advisory findings on `status`, the `done` Proof, and `improvement`
+- advisory findings during work and merge-conflict recovery
 - wait estimates when concurrent test runs queue, and contention readings
 - the in-flight check on the contained-worktree offer; an installation with recording off uses a one-hour inactivity period
+- recurring `discern update` and `discern accept` merge-conflict detection and mitigation
 - observed checkpoint economics (`discern checkpoints`)
 - Logbook storage checks in `discern doctor`
 
@@ -216,6 +217,7 @@ Invocation `surface` is `cli` or `mcp`. Completion `outcome` is `ok`, `failed`, 
 | `scopes`        | the configured scopes touched                                           |
 | `steps`         | per-step labels, stages, outcomes, timings                              |
 | `validation`    | versioned validation-start and execution evidence                       |
+| `merges`        | [versioned merge observations](#recurring-merge-conflicts)              |
 | `diagnostics`   | tool, rule id, file path at most                                        |
 | `hint_ids`      | stable ids of advice delivered with the result                          |
 | `tip_ids`       | stable ids of desk tips shown during the run                            |

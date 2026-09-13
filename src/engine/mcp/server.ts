@@ -64,6 +64,7 @@ import { projectStatusData } from "../../shared/result_wire.ts";
 import {
   observeResult,
   takeCheckpointActivity,
+  takeMergeActivity,
   takeObservedResult,
   takeShownTipIds,
   takeSupplementalHintIds,
@@ -1851,6 +1852,7 @@ async function completeToolCall(
   // Checkpoint observations belong to THIS call's recording; the take also
   // guarantees nothing can leak into the next call on this long-lived server.
   const checkpointActivity = takeCheckpointActivity();
+  const merges = takeMergeActivity();
   const recording = pending.recording;
   if (recording !== undefined) {
     const { flags, target } = mcpCallFacts(
@@ -1873,6 +1875,7 @@ async function completeToolCall(
       ...(checkpointActivity !== undefined
         ? { checkpoints: checkpointActivity }
         : {}),
+      ...(merges === undefined ? {} : { merges }),
       ...(pending.crash !== undefined ? { crash: pending.crash } : {}),
     });
   }
@@ -2094,6 +2097,7 @@ export async function runTool(
   takeSupplementalHintIds();
   takeShownTipIds();
   takeCheckpointActivity();
+  takeMergeActivity();
   // If the binary on disk changed since this server started, every result needs
   // the restart hint — including dispatch refusals.
   const stale = versionMismatchHint(

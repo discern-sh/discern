@@ -2,6 +2,7 @@ import {
   canaryMiss,
   detector,
   failedValidationCycle,
+  mergeAttempt,
   redDone,
   repeatedGreenRuns,
   run,
@@ -1492,6 +1493,27 @@ const FIXTURES: Record<string, DetectorFixtures> = {
         update: { behind: 1, files: 2, overlap: 0 },
       })),
     ),
+  },
+  "recurring-merge-conflicts": {
+    firing: run([1, 2, 3].map((i) => ({
+      verb: "update",
+      merges: { version: 1, attempts: [mergeAttempt(i)], omitted: 0 },
+    }))),
+    quiet: run([1, 2, 3].map((i) => ({
+      verb: "update",
+      merges: {
+        version: 1,
+        attempts: [mergeAttempt(i, {
+          outcome: "merged",
+          conflicts: [],
+        })],
+        omitted: 0,
+      },
+    }))),
+    sparse: run([1, 2].map((i) => ({
+      verb: "update",
+      merges: { version: 1, attempts: [mergeAttempt(i)], omitted: 0 },
+    }))),
   },
   "standard-trajectory": {
     firing: run(

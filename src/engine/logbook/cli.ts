@@ -25,6 +25,7 @@ import { loadModule } from "../../shared/module_loading.ts";
 import {
   observeResult,
   takeCheckpointActivity,
+  takeMergeActivity,
   takeObservedResult,
   takeShownTipIds,
   takeSupplementalHintIds,
@@ -422,6 +423,7 @@ export async function recordedRun(
   takeSupplementalHintIds();
   takeShownTipIds();
   takeCheckpointActivity();
+  takeMergeActivity();
   // The recorder reaches the git/config machinery; load it only when a verb
   // actually runs, keeping this wrapper's static graph routing-thin (a bare
   // `--help` builds the whole CLI tree through recordedExit without it).
@@ -459,6 +461,7 @@ export async function recordedRun(
     const supplementalHintIds = takeSupplementalHintIds();
     const tipIds = takeShownTipIds();
     const checkpointActivity = takeCheckpointActivity();
+    const merges = takeMergeActivity();
     const target = takeVerbTarget() ?? opts.target;
     // A preview leaves the envelope's own dry_run mark; the argv flag is the
     // fallback for human-mode previews. The `scripts` namespace is excluded from
@@ -487,6 +490,7 @@ export async function recordedRun(
       ...(checkpointActivity !== undefined
         ? { checkpoints: checkpointActivity }
         : {}),
+      ...(merges === undefined ? {} : { merges }),
       ...(observedDryRun ? { dryRun: true } : {}),
       ...(flags !== undefined ? { flags } : {}),
       ...(target !== undefined ? { target } : {}),

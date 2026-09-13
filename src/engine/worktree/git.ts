@@ -968,6 +968,9 @@ export type UpdateOutcome =
   | {
     kind: "conflict";
     files: string[];
+    /** Pre-merge revisions survive abort and integration cleanup. */
+    before: string;
+    main: string;
     /** Conflicted paths the caller declared safe to replace and regenerate. */
     resolvable: string[];
     aborted: boolean;
@@ -1114,7 +1117,11 @@ export async function updateMain(
   const currentBranch = currentBranchRun.success
     ? currentBranchRun.stdout.trim()
     : "HEAD";
-  const merge = await git(discernMergeArgs(currentBranch, source), cwd);
+  // Use the observed incoming revision even if another landing advances its ref.
+  const merge = await git(
+    discernMergeArgs(currentBranch, anchors.main || source),
+    cwd,
+  );
   if (merge.success) {
     const after = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
     return {
@@ -1162,6 +1169,8 @@ export async function updateMain(
     return {
       kind: "conflict",
       files,
+      before: anchors.before,
+      main: anchors.main,
       resolvable,
       aborted: abort.success,
       resolutionFailure: resolution.reason,
@@ -1171,7 +1180,14 @@ export async function updateMain(
   // VERIFY the abort: reporting a clean tree while MERGE_HEAD persists would
   // strand the caller inside a half-merge it was told doesn't exist.
   const abort = await git(["merge", "--abort"], cwd);
-  return { kind: "conflict", files, resolvable, aborted: abort.success };
+  return {
+    kind: "conflict",
+    files,
+    resolvable,
+    aborted: abort.success,
+    before: anchors.before,
+    main: anchors.main,
+  };
 }
 
 /** A path as a literal Git pathspec, so punctuation can never become pathspec magic. */

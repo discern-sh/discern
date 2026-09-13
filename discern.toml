@@ -55,7 +55,7 @@
   #   - each worktree's last action and work in flight
   #   - fleet activity times that include verb runs
   #   - configuration-change attribution and each standard's limit history
-  #   - advisory findings on `status`, the `done` Proof, and `improvement`
+  #   - advisory findings during work and merge-conflict recovery
   #   - wait estimates when concurrent test runs queue
   #   - the in-flight check on the contained-worktree offer
   #   - observed checkpoint economics (`discern checkpoints`)
