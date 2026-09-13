@@ -21,6 +21,7 @@ import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { fileExists } from "../../shared/fs_presence.ts";
 import { INTEGRATION_BRANCH_NAMESPACE } from "../../shared/git_conventions.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { GateData, Proof } from "../../shared/result_schemas.ts";
@@ -346,11 +347,15 @@ export async function runIntegrationAttempt(input: {
       await buildUpdatePlan(intCtx),
     );
     if (updated.kind !== "applied") {
-      const status = await runGit(["status", "--porcelain"], {
+      const status = await runGit(["status", "--porcelain", "-z"], {
         cwd: minted.dir,
       });
-      const dirtyDetail = status.success && status.stdout.trim() !== ""
-        ? ` (changed: ${status.stdout.trim().split("\n").join(", ")})`
+      const entries = status.success ? parsePorcelainZ(status.stdout) : [];
+      const dirtyDetail = entries.length > 0
+        ? ` (changed: ${
+          entries.map((entry) => `${entry.status.trim()} ${entry.path}`)
+            .join(", ")
+        })`
         : "";
       const cleanupFailures = await removeIntegrationWorktree(
         effort.mainRepo,
