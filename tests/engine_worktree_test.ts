@@ -1018,6 +1018,11 @@ Deno.test("completion: main moving during validation prevents admission and acce
       ].join("\n"),
     );
     await gitInit(dir);
+    assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
+    await git(dir, "add", "-A");
+    if ((await gitOut(dir, "status", "--porcelain")) !== "") {
+      await git(dir, "commit", "-q", "-m", "converge", "--no-gpg-sign");
+    }
     const wt = await addWorktree(dir, "race");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
@@ -1025,7 +1030,10 @@ Deno.test("completion: main moving during validation prevents admission and acce
     const branchHead = await gitOut(wt, "rev-parse", "HEAD");
 
     // The Proof binds the predecessor pinned at run start; a producer that
-    // moves the trunk mid-run leaves a green Proof that can never land.
+    // moves the trunk mid-run leaves a green Proof whose predecessor is
+    // stale. Acceptance composes instead of landing it directly, and a
+    // trunk that keeps moving — this job moves it on every check — stops
+    // the landing after the one bounded recompose.
     const done = await runAgent(wt, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
     assertEquals(
@@ -1033,24 +1041,26 @@ Deno.test("completion: main moving during validation prevents admission and acce
       "race-main",
       "the declared producer really moved trunk",
     );
-    const trunkAfterRace = await gitOut(dir, "rev-parse", "main");
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 1, r.output);
     const refused = decodeCliResult(r.stdout, "accept");
     assertEquals(refused.ok, false);
     assertStringIncludes(
       refused.message ?? "",
-      "The trunk moved after agent/race's Proof; run discern update, " +
-        "discern done, then discern accept.",
+      "moved again while this landing recomposed",
+    );
+    assertStringIncludes(
+      refused.message ?? "",
+      "Re-run `discern accept` to compose against the current trunk.",
     );
     assertEquals(
-      await gitOut(dir, "rev-parse", "main"),
-      trunkAfterRace,
-      `the refusal must not move the trunk\n${r.output}`,
+      (await gitOut(dir, "log", "--format=%s", "main")).includes("feature"),
+      false,
+      `the stopped landing must not land the submission\n${r.output}`,
     );
     assert(
       await targetExists(wt),
-      `post-gate trunk-race refusal must leave the worktree intact\n${r.output}`,
+      `post-gate trunk-race stop must leave the worktree intact\n${r.output}`,
     );
     assertEquals(await gitOut(wt, "rev-parse", "HEAD"), branchHead);
   });
