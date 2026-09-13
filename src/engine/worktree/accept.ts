@@ -59,6 +59,10 @@ import {
 } from "../../shared/result.ts";
 import { observeCheckpointActivity } from "../../shared/result_capture.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
+import {
+  type WaitDetails,
+  withProgressWait,
+} from "../completion/progress_wait.ts";
 import { readOperationJournal } from "../completion/operation_journal.ts";
 import {
   type AcceptData,
@@ -2466,9 +2470,20 @@ async function decideLanding(
 /** Name the landing this call queues behind, from the operation journal, and
  * report the wait as progress. Advisory: an unreadable journal degrades to the
  * plain sentence, never to a refusal. */
-async function reportLandingWait(effort: EffortCheckout): Promise<void> {
-  let behind = "another landing";
-  let next = "This call resumes automatically when its turn arrives.";
+/** The landing-turn wait before the journal names the holder. */
+function landingTurnWait(): WaitDetails {
+  return {
+    kind: "landing-turn",
+    reason: "Waiting behind another landing for the landing boundary.",
+    next: "This call resumes automatically when its turn arrives.",
+  };
+}
+
+/** Refresh the landing-turn wait with the running landing's identity and
+ * reconnect handle, read from the operation journal. */
+async function landingTurnWaitBehind(
+  effort: EffortCheckout,
+): Promise<WaitDetails> {
   try {
     const reading = await readOperationJournal(effort.mainRepo);
     const running = reading.kind === "found"
@@ -2477,22 +2492,19 @@ async function reportLandingWait(effort: EffortCheckout): Promise<void> {
       ? reading.newest
       : undefined;
     if (running !== undefined) {
-      behind = `\`${running.verb}\` on ${running.branch ?? running.path}`;
-      next =
-        `This call resumes automatically when its turn arrives; read that run with \`discern progress ${running.handle}\`.`;
+      return {
+        kind: "landing-turn",
+        reason: `Waiting behind \`${running.verb}\` on ${
+          running.branch ?? running.path
+        } for the landing boundary.`,
+        next:
+          `This call resumes automatically when its turn arrives; read that run with \`discern progress ${running.handle}\`.`,
+      };
     }
   } catch {
     // discern-best-effort: accept-landing-wait-journal-fallback
   }
-  const reason = `Waiting behind ${behind} for the landing boundary.`;
-  effort.ctx.log.info(reason);
-  emitCompletionProgress({
-    phase: "queue",
-    state: "landing-wait",
-    candidate_id: null,
-    reason,
-    next,
-  });
+  return landingTurnWait();
 }
 
 /**
@@ -2904,17 +2916,31 @@ async function landingResult(
   };
   if (request.dryRun) return await body();
   // A second accept waits its turn behind a running landing and resumes on
-  // its own against the resulting trunk; the caller's signal cancels the wait.
-  return await withAcceptanceTransactionLock(effort.path, body, {
-    ...(request.signal === undefined ? {} : { signal: request.signal }),
-    onContended: () => {
-      detachPromise(
-        "accept-landing-wait-report",
-        () => reportLandingWait(effort),
-        globalThis.reportError,
-      );
-    },
-  });
+  // its own against the resulting trunk; the caller's signal cancels the
+  // wait. The pause reports through the shared wait lifecycle, refreshed
+  // with the running landing's reconnect handle once the journal names it.
+  return await withProgressWait(
+    (turn) =>
+      withAcceptanceTransactionLock(effort.path, async () => {
+        turn.end(
+          "resumed",
+          "The landing boundary is available; this landing continues.",
+          "No action is needed.",
+        );
+        return await body();
+      }, {
+        ...(request.signal === undefined ? {} : { signal: request.signal }),
+        onContended: () => {
+          turn.update(landingTurnWait());
+          detachPromise(
+            "accept-landing-wait-report",
+            async () => turn.update(await landingTurnWaitBehind(effort)),
+            globalThis.reportError,
+          );
+        },
+      }),
+    request.signal === undefined ? {} : { signal: request.signal },
+  );
 }
 
 /**

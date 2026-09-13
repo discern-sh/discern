@@ -47,7 +47,7 @@ function defineBestEffortBoundaries<
 export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "accept-landing-wait-journal-fallback": {
     path: "src/engine/worktree/accept.ts",
-    enclosingFunction: "reportLandingWait",
+    enclosingFunction: "landingTurnWaitBehind",
     operation: "name the running landing a waiting accept queues behind",
     kind: "direct",
     shape: "async",

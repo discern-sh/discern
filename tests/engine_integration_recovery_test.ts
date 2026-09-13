@@ -436,12 +436,14 @@ Deno.test("a waiting accept whose submission a predecessor landed returns that s
     await withAcceptanceTransactionLock(root, async () => {
       // The predecessor holds the landing boundary; beta's accept queues.
       waiting = runAgent(beta, ["accept", "--confirmed", "--json"]);
-      // The waiter's own journal records the landing-wait progress fact —
+      // The waiter's own journal records the landing-turn wait lifecycle —
       // the positive condition that it reached the boundary.
       await waitUntil(async () => {
         const reading = await readOperationJournal(betaPath);
         return reading.kind === "found" &&
-          reading.record.progress?.state === "landing-wait";
+          Object.values(reading.record.waits ?? {}).some((wait) =>
+            wait.kind === "landing-turn" && wait.state === "waiting"
+          );
       }, "the second accept reports waiting behind the running landing");
       // Land its exact submission the way a queue walk's direct path does.
       const landed = await fastForwardCheckedOutBranch(

@@ -45,7 +45,8 @@ export const DETACHED_PROMISE_BOUNDARIES = defineDetachedPromiseBoundaries({
     path: "src/engine/worktree/accept.ts",
     enclosingFunction: "onContended",
     operation: "name and report the landing this waiting accept queues behind",
-    lifecycleOwner: "the waiting acceptance's own operation journal and log",
+    lifecycleOwner:
+      "the waiting acceptance's own wait lifecycle in its operation journal",
     rejectionPolicy: {
       kind: "report",
       authority: "globalThis.reportError",
