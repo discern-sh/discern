@@ -25,6 +25,10 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { acceptLandingResult } from "../src/engine/worktree/accept.ts";
+import { WorktreeGitError } from "../src/engine/worktree/git.ts";
+import { lifecycleContext } from "../src/engine/worktree/lifecycle.ts";
+import { Logger } from "../src/lib/log.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
 import { waitForPendingCondition } from "./waiting.ts";
@@ -524,6 +528,119 @@ Deno.test("a trunk that keeps moving stops the landing after one bounded recompo
     assertStringIncludes(
       result.message ?? "",
       "Re-run `discern accept` to compose against the current trunk.",
+    );
+    assertEquals((await readSubmission(beta)).status, "submitted");
+    await assertNoIntegrationRemains(dir);
+  });
+});
+Deno.test("a caller without the live command tree refuses the composed landing with the re-run routes", async () => {
+  await withTempDir(async (dir) => {
+    await integrationFixture(dir);
+    const alpha = await effortWithWork(dir, "alpha", "alpha.txt");
+    const beta = await effortWithWork(dir, "beta", "beta.txt");
+    assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+    assertEquals((await runAgent(beta, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+      0,
+    );
+    const tip = await gitOut(dir, "rev-parse", "main");
+
+    // The CLI and MCP surfaces carry the live command tree; a caller that
+    // cannot run the combined check is told both exact routes and changes
+    // nothing.
+    const ctx = await lifecycleContext(
+      await Deno.realPath(beta),
+      new Logger({ json: true, noColor: true }),
+    );
+    let message = "";
+    try {
+      const result = await acceptLandingResult(ctx, {
+        dryRun: false,
+        confirmed: true,
+        variance: [],
+        approveStandard: [],
+      });
+      assertEquals(result.ok, false, JSON.stringify(result));
+      message = result.message ?? "";
+    } catch (error) {
+      assert(error instanceof WorktreeGitError, String(error));
+      message = error.message;
+    }
+    assertStringIncludes(message, "cannot run the combined check");
+    assertStringIncludes(
+      message,
+      "Re-run discern accept from the command line or the MCP tools",
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), tip);
+    assertEquals((await readSubmission(beta)).status, "submitted");
+    await assertNoIntegrationRemains(dir);
+  });
+});
+
+Deno.test("a main checkout that turns dirty during the combined check refuses at the boundary and lands nothing", async () => {
+  await withTempDir(async (dir) => {
+    // The gate job dirties a tracked file in the MAIN checkout from inside
+    // the integration copy — a deterministic stand-in for a person editing
+    // the main checkout while the combined check runs.
+    await integrationFixture(
+      dir,
+      CONFIG.replace('lint = ":"', 'lint = "sh dirty-main.sh"'),
+    );
+    await Deno.writeTextFile(
+      join(dir, "dirty-main.sh"),
+      [
+        "#!/bin/sh",
+        'case "$(pwd)" in',
+        `  *integration*) printf "drift\\n" >> "${await Deno.realPath(
+          dir,
+        )}/tracked.txt" ;;`,
+        "esac",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    await Deno.writeTextFile(join(dir, "tracked.txt"), "base\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "wire dirty gate", "--no-gpg-sign");
+    assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
+    await git(dir, "add", "-A");
+    if ((await gitOut(dir, "status", "--porcelain")) !== "") {
+      await git(dir, "commit", "-q", "-m", "converge", "--no-gpg-sign");
+    }
+
+    const alpha = await effortWithWork(dir, "alpha", "alpha.txt");
+    const beta = await effortWithWork(dir, "beta", "beta.txt");
+    assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+    assertEquals((await runAgent(beta, ["done", "--json"])).code, 0);
+    const betaHead = await gitOut(beta, "rev-parse", "HEAD");
+    assertEquals(
+      (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+      0,
+    );
+
+    const refused = await runAgent(beta, ["accept", "--confirmed", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    const result = decodeCliResult(refused.stdout, "accept");
+    assertStringIncludes(
+      result.message ?? "",
+      "could not be proved clean at the landing boundary",
+    );
+    assertStringIncludes(result.message ?? "", "status");
+
+    // Nothing landed; the owner's uncommitted main-checkout state is
+    // preserved for them, and the submission stays ready to retry.
+    const tip = await gitOut(dir, "rev-parse", "main");
+    const merged = await runAgent(dir, ["--json", "status"]);
+    assertEquals(merged.code, 0, merged.output);
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "tracked.txt")),
+      "drift",
+    );
+    assertEquals(
+      (await gitOut(dir, "log", "--format=%H", "main")).includes(betaHead),
+      false,
+      `the refusal must not land the submission at ${tip}`,
     );
     assertEquals((await readSubmission(beta)).status, "submitted");
     await assertNoIntegrationRemains(dir);
