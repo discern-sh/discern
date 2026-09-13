@@ -41,21 +41,6 @@ function defineDetachedPromiseBoundaries<
 
 /** Every production promise deliberately transferred to a longer-lived owner. */
 export const DETACHED_PROMISE_BOUNDARIES = defineDetachedPromiseBoundaries({
-  "accept-landing-wait-report": {
-    path: "src/engine/worktree/accept.ts",
-    enclosingFunction: "onContended",
-    operation: "name and report the landing this waiting accept queues behind",
-    lifecycleOwner:
-      "the waiting acceptance's own wait lifecycle in its operation journal",
-    rejectionPolicy: {
-      kind: "report",
-      authority: "globalThis.reportError",
-    },
-    cancellationOwnership:
-      "the report is one bounded read-and-emit; the waiting acceptance itself owns the wait and its cancellation",
-    reason:
-      "the lock layer's contention callback is synchronous, while naming the running landing needs an advisory journal read that must not delay or fail the wait",
-  },
   "canon-editor-guard-run": {
     path: "scripts/canon_editor/server.ts",
     enclosingFunction: "runGuards",

@@ -34,7 +34,6 @@ import {
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
-import { detachPromise } from "../../shared/promise_effects.ts";
 import { targetExists } from "../../shared/fs_presence.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import {
@@ -1924,8 +1923,10 @@ async function landingResult(
   if (request.dryRun) return await body();
   // A second accept waits its turn behind a running landing and resumes on
   // its own against the resulting trunk; the caller's signal cancels the
-  // wait. The pause reports through the shared wait lifecycle, refreshed
-  // with the running landing's reconnect handle once the journal names it.
+  // wait. The journal is read before the boundary so a contended call can
+  // name the landing it queues behind — with its reconnect handle — from a
+  // synchronous contention callback.
+  const turnDetails = await landingTurnWaitBehind(effort);
   return await withProgressWait(
     (turn) =>
       withAcceptanceTransactionLock(effort.path, async () => {
@@ -1937,14 +1938,7 @@ async function landingResult(
         return await body();
       }, {
         ...(request.signal === undefined ? {} : { signal: request.signal }),
-        onContended: () => {
-          turn.update(landingTurnWait());
-          detachPromise(
-            "accept-landing-wait-report",
-            async () => turn.update(await landingTurnWaitBehind(effort)),
-            globalThis.reportError,
-          );
-        },
+        onContended: () => turn.update(turnDetails),
       }),
     request.signal === undefined ? {} : { signal: request.signal },
   );
