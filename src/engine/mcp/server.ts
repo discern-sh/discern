@@ -1148,6 +1148,12 @@ export const TOOLS: McpTool[] = orderTools([
           "The retained composition is still proved; landing then needs the " +
           "owner's variance decision.",
       ),
+      composition: z.string().optional().describe(
+        "The served composition receipt an answer or resumed variance " +
+          "decision binds to; the judgment refusal serves it (also in " +
+          "data.integration_judgment.composition). A replaced composition " +
+          "refuses the receipt and re-serves its own question.",
+      ),
       confirmation: z.string().optional().describe(
         "The owner's currently approved emergency preview token. Requires confirmed; changed subjects need a new review.",
       ),
@@ -1195,14 +1201,17 @@ export const TOOLS: McpTool[] = orderTools([
         dryRun: args.dry_run === true,
       });
       if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
-      if (parsed.value.emergency !== undefined && args.unmet !== undefined) {
+      if (
+        parsed.value.emergency !== undefined &&
+        (args.unmet !== undefined || args.composition !== undefined)
+      ) {
         return Promise.resolve(
           {
             ok: false,
             verb: "accept",
             error: "invalid_arguments",
             message:
-              "unmet answers an ordinary landing's served integration question; emergency preparation records met conclusions only.",
+              "unmet and composition answer an ordinary landing's served integration question; emergency preparation records met conclusions only.",
           } satisfies DiscernResult,
         );
       }
@@ -1223,6 +1232,9 @@ export const TOOLS: McpTool[] = orderTools([
           ? {}
           : { met: args.met }),
         ...(args.unmet === undefined ? {} : { unmet: args.unmet }),
+        ...(args.composition === undefined
+          ? {}
+          : { composition: args.composition }),
       });
     },
   }),
@@ -1411,6 +1423,7 @@ async function acceptToolResult(
     approveStandard?: string[];
     met?: string[];
     unmet?: { id: string; why: string };
+    composition?: string;
     cliModel: CliModelProvider;
   },
 ): Promise<DiscernResult> {
@@ -1434,6 +1447,9 @@ async function acceptToolResult(
       approveStandard: opts.approveStandard ?? [],
       met: opts.met ?? [],
       ...(opts.unmet === undefined ? {} : { unmet: opts.unmet }),
+      ...(opts.composition === undefined
+        ? {}
+        : { composition: opts.composition }),
       cliModel: opts.cliModel,
     });
   } catch (e) {

@@ -1648,8 +1648,27 @@ export const LandingOutcomeSchema = z.strictObject({
 });
 export type LandingOutcomeData = z.infer<typeof LandingOutcomeSchema>;
 
+/** The served decision moment of a retained integration composition: which
+ * composition (the receipt a continuation must name), which decision kind
+ * continues it, and the checkpoint ids awaiting that decision. */
+export const IntegrationJudgmentSchema = z.strictObject({
+  /** The retained composition's receipt — pass it back as `composition`. */
+  composition: z.string(),
+  decision: z.enum(["declaration", "variance"]),
+  awaiting: z.array(z.string()),
+}).meta({
+  id: "DiscernIntegrationJudgment",
+  description:
+    "The served decision moment of a retained integration composition: the " +
+    "receipt a continuation must name, the decision kind that continues it, " +
+    "and the checkpoint ids awaiting that decision.",
+});
+export type IntegrationJudgmentData = z.infer<typeof IntegrationJudgmentSchema>;
+
 export const AcceptDataSchema = z.strictObject({
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),
+  /** Present on a judgment or variance stop over a retained composition. */
+  integration_judgment: IntegrationJudgmentSchema.optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   emergency: EmergencyDataSchema.optional(),
   /** The landing queue: every unlanded submission, in landing order. */

@@ -105,10 +105,10 @@ export function submissionReadiness(
       reason: facts.judgment.decision === "declaration"
         ? `Its retained composition fired checkpoint question${
           facts.judgment.awaiting.length === 1 ? "" : "s"
-        } (${ids}); judge the combined result and continue with discern accept --met <id> (or --unmet <id> --why "<rationale>") from its worktree.`
+        } (${ids}); run discern accept from its worktree to be served the question and the receipt-bound continuation.`
         : `Its retained composition carries declared-unmet checkpoint${
           facts.judgment.awaiting.length === 1 ? "" : "s"
-        } (${ids}); the owner's decision continues it: discern accept --confirmed --variance <id> from its worktree.`,
+        } (${ids}); run discern accept from its worktree to be served the owner's decision moment and its receipt-bound continuation.`,
       integration: true,
     };
   }

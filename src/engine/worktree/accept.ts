@@ -207,6 +207,10 @@ export interface AcceptRequest {
    * required rationale — the gate still proves the composition, and the
    * owner then decides the declared-unmet landing. */
   readonly unmet?: { readonly id: string; readonly why: string };
+  /** The served composition receipt this call's answer or variance decision
+   * binds to — required with declarations, and with a variance decision
+   * resumed onto a retained composition. */
+  readonly composition?: string;
   /** The live command tree, required by the integration gate run when the
    * trunk moved after the submission's Proof. */
   readonly cliModel?: CliModelProvider;
@@ -1810,10 +1814,13 @@ async function landEffortOnce(
     // Declarations answer a served integration question about a retained
     // composition; a direct landing has none, so consuming them silently
     // would record a judgment nothing served.
-    if (direct && carriesDeclarations(request)) {
+    if (
+      direct && (carriesDeclarations(request) ||
+        request.composition !== undefined)
+    ) {
       refusal(
         "invalid_value",
-        `This landing is direct — ${effort.branch}'s proven revision already contains the current ${effort.trunk} tip — so no integration judgment awaits an answer here. Re-run discern accept without --met/--unmet. ${ACCEPT_NOTHING_LANDED}`,
+        `This landing is direct — ${effort.branch}'s proven revision already contains the current ${effort.trunk} tip — so no integration judgment awaits an answer here. Re-run discern accept without --met/--unmet/--composition. ${ACCEPT_NOTHING_LANDED}`,
       );
     }
     // A direct landing supersedes any composition retained for this author's
@@ -2036,6 +2043,18 @@ async function landingResult(
   await assertProjectRootIsRepoToplevel(ctx, "accept");
   const declarationsRefusal = dryRunDeclarationsRefusal(request);
   if (declarationsRefusal !== undefined) return declarationsRefusal;
+  if (
+    request.composition !== undefined && !carriesDeclarations(request) &&
+    request.variance.length === 0
+  ) {
+    return {
+      ok: false,
+      verb: "accept",
+      error: "invalid_arguments",
+      message:
+        "--composition binds an answer or a variance decision to the composition that served it; pass it with --met/--unmet or --confirmed --variance.",
+    };
+  }
   const effort = await effortCheckout(ctx, request.target);
   if (effort === undefined) {
     return await refuseFromMainCheckout(

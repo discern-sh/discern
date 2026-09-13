@@ -982,6 +982,12 @@ export function attachEngineCommands(
       "The required one-paragraph rationale for --unmet.",
     )
     .option(
+      "--composition <receipt:string>",
+      "The served composition receipt an answer or resumed variance " +
+        "decision binds to; the judgment refusal serves it. A replaced " +
+        "composition refuses the receipt and re-serves its own question.",
+    )
+    .option(
       "--reason <text:string>",
       "Emergency only: explain why integration must precede validation.",
     )
@@ -1027,6 +1033,7 @@ export function attachEngineCommands(
         parsed.value.emergency !== undefined,
         o.unmet,
         o.why,
+        o.composition,
       );
       if (declarations.kind === "refusal") {
         throw new CliRefusal(declarations.result);
@@ -1062,6 +1069,9 @@ export function attachEngineCommands(
             ...(declarations.unmet === undefined
               ? {}
               : { unmet: declarations.unmet }),
+            ...(o.composition === undefined
+              ? {}
+              : { composition: o.composition }),
             cliModel,
           });
         },

@@ -3959,9 +3959,13 @@ async function scanIntegrationLandings(
         const submission = await targetExists(record.landing.worktree_path)
           ? await readSubmission(record.landing.worktree_path)
           : { status: "missing" as const };
+        const answerable = await fileExists(
+          join(record.worktree.path, ".git"),
+        );
         if (
           submission.status === "submitted" &&
-          submission.submission.id === record.landing.submission_id
+          submission.submission.id === record.landing.submission_id &&
+          answerable
         ) {
           items.push({
             worktreeId: record.worktree.id,
@@ -3978,8 +3982,9 @@ async function scanIntegrationLandings(
           branch: record.worktree.branch,
           path: record.worktree.path,
           disposition: "reclaim",
-          reason:
-            "the submission its retained judgment was awaiting is gone or replaced",
+          reason: answerable
+            ? "the submission its retained judgment was awaiting is gone or replaced"
+            : "its retained composition is no longer present, so nothing can answer it; only cleanup remains",
         });
         continue;
       }
@@ -4047,7 +4052,17 @@ async function reclaimIntegrationLandings(
       entry.reading.record,
       ctx.log,
     );
-    if (failures.length === 0) {
+    // The record's survival is the verdict: it is removed only once
+    // everything it accounts for is verifiably gone, while the return also
+    // carries advisory resource-ledger notes whose recovery is the ledger's
+    // own (orphan GC ran in this same prune).
+    const settled = !(await listIntegrationLandingRecords(ctx.root)).some(
+      (remaining) => remaining.worktreeId === item.worktreeId,
+    );
+    if (settled) {
+      for (const note of failures) {
+        ctx.log.warn(`Reclaim of ${item.path}: ${note}`);
+      }
       ctx.log.ok(`Reclaimed interrupted integration worktree ${item.path}.`);
       outcome.reclaimed.push(item.path);
     } else {

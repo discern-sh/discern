@@ -21,7 +21,11 @@ import {
   removeIfExists,
 } from "../../shared/atomic_write.ts";
 import { CompletionProofPointerSchema } from "../../shared/completion_proof.ts";
-import { readDirIfExists, readTextIfExists } from "../../shared/fs_presence.ts";
+import {
+  fileExists,
+  readDirIfExists,
+  readTextIfExists,
+} from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import {
   inspectOnDiskRecordVersion,
@@ -305,6 +309,7 @@ export async function retainedIntegrationJudgment(
     }
   };
   const author = await canonical(authorWorktreePath);
+  const matches: IntegrationLandingRecord[] = [];
   for (const entry of await listIntegrationLandingRecords(root)) {
     if (entry.reading.status !== "recorded") continue;
     const record = entry.reading.record;
@@ -313,10 +318,30 @@ export async function retainedIntegrationJudgment(
       (record.landing.worktree_path === authorWorktreePath ||
         await canonical(record.landing.worktree_path) === author)
     ) {
-      return record;
+      matches.push(record);
     }
   }
-  return undefined;
+  if (matches.length <= 1) return matches[0];
+  // Replacement never proceeds past a surviving record, so a duplicate is
+  // damage left by an earlier engine; resolve it deterministically toward
+  // the record that can still be answered: a present copy first, then the
+  // newest retention.
+  const present = new Map<string, boolean>();
+  for (const record of matches) {
+    present.set(
+      record.id,
+      await fileExists(join(record.worktree.path, ".git")),
+    );
+  }
+  const retainedAt = (record: IntegrationLandingRecord): number => {
+    const at = Date.parse(record.continuation?.retained_at ?? "");
+    return Number.isFinite(at) ? at : 0;
+  };
+  return [...matches].sort((a, b) =>
+    Number(present.get(b.id) ?? false) - Number(present.get(a.id) ?? false) ||
+    retainedAt(b) - retainedAt(a) ||
+    a.id.localeCompare(b.id)
+  )[0];
 }
 
 /** The recorded integration landing that owns `path`, when one is recorded. */

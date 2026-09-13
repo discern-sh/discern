@@ -92,14 +92,18 @@ export function acceptDeclarationArguments(
   emergency: boolean,
   unmet: string | undefined,
   why: string | undefined,
+  composition?: string,
 ): AcceptDeclarationArguments {
   const refuse = (message: string): AcceptDeclarationArguments => ({
     kind: "refusal",
     result: { ok: false, verb: "accept", error: "invalid_arguments", message },
   });
-  if (emergency && (unmet !== undefined || why !== undefined)) {
+  if (
+    emergency &&
+    (unmet !== undefined || why !== undefined || composition !== undefined)
+  ) {
     return refuse(
-      "--unmet and --why answer an ordinary landing's served integration question; emergency preparation records met conclusions only.",
+      "--unmet, --why, and --composition answer an ordinary landing's served integration question; emergency preparation records met conclusions only.",
     );
   }
   if ((unmet === undefined) !== (why === undefined)) {

@@ -125,6 +125,7 @@ async function assertNoIntegrationRemains(dir: string): Promise<void> {
 /** The one retained awaiting-judgment record, when exactly one exists. */
 async function retainedRecord(dir: string): Promise<
   | {
+    readonly id: string;
     readonly phase: string;
     readonly worktreePath: string;
     readonly submissionId: string;
@@ -144,6 +145,7 @@ async function retainedRecord(dir: string): Promise<
   const record = awaiting[0];
   if (awaiting.length !== 1 || record === undefined) return undefined;
   return {
+    id: record.id,
     phase: record.phase,
     worktreePath: record.worktree.path,
     submissionId: record.landing.submission_id,
@@ -190,6 +192,20 @@ Deno.test("a renewed integration judgment is served, answered with accept --met,
       assertStringIncludes(refusal.message, QUESTION);
       assertStringIncludes(refusal.message, "discern accept --met");
       assertStringIncludes(refusal.message, "record-review");
+      const servedRecord = await retainedRecord(dir);
+      assert(servedRecord !== undefined);
+      // The serving carries the composition receipt, in the message's exact
+      // continuation commands and machine-readably in the data block.
+      assertStringIncludes(
+        refusal.message,
+        `--composition ${servedRecord.id}`,
+      );
+      assert(refusal.data !== undefined && !("issues" in refusal.data));
+      assertEquals(refusal.data.integration_judgment, {
+        composition: servedRecord.id,
+        decision: "declaration",
+        awaiting: ["record-review"],
+      });
 
       // Nothing landed and the author's checkout is untouched; the frozen
       // submission still stands; the composition is retained for the answer.
@@ -205,7 +221,9 @@ Deno.test("a renewed integration judgment is served, answered with accept --met,
       // before any job, exactly as `done` serves it.
       assertEquals(await producerRuns(counter), authorRunsAfterProofs);
 
-      // The queue names the awaited judgment and its continuation.
+      // The queue names the awaited judgment and routes through the serving
+      // moment — an arriving agent has not been served, so it never suggests
+      // answering blind.
       const rows = await submissionRows(await Deno.realPath(dir), "main");
       assertEquals(rows.length, 1);
       const row = rows[0];
@@ -213,7 +231,25 @@ Deno.test("a renewed integration judgment is served, answered with accept --met,
       assertEquals(row.readiness, "waiting");
       assert(row.reason !== undefined);
       assertStringIncludes(row.reason, "record-review");
-      assertStringIncludes(row.reason, "discern accept --met");
+      assertStringIncludes(
+        row.reason,
+        "run discern accept from its worktree to be served",
+      );
+
+      // An answer without its receipt is refused unrecorded: answers bind to
+      // the composition that served them.
+      const unbound = await runAgent(beta, [
+        "accept",
+        "--met",
+        "record-review",
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(unbound.code, 1, unbound.output);
+      const unboundResult = decodeCliResult(unbound.stdout, "accept");
+      assertEquals(unboundResult.error, "invalid_value");
+      assert(unboundResult.message !== undefined);
+      assertStringIncludes(unboundResult.message, "--composition");
 
       // The judgment answered in place continues the landing: the retained
       // composition is proven and lands, with no author-side update, no new
@@ -222,6 +258,8 @@ Deno.test("a renewed integration judgment is served, answered with accept --met,
         "accept",
         "--met",
         "record-review",
+        "--composition",
+        servedRecord.id,
         "--confirmed",
         "--json",
       ]);
@@ -278,6 +316,9 @@ Deno.test("an unmet integration judgment routes to the owner's variance, and the
         1,
       );
 
+      const servedRecord = await retainedRecord(dir);
+      assert(servedRecord !== undefined);
+
       // The agent judges the combined result and concludes the question does
       // not hold: the gate still proves the composition, and the landing then
       // waits for the owner's variance — recorded grants never cover it.
@@ -287,6 +328,8 @@ Deno.test("an unmet integration judgment routes to the owner's variance, and the
         "record-review",
         "--why",
         "The combined record reorders rows; a follow-up restores the index.",
+        "--composition",
+        servedRecord.id,
         "--confirmed",
         "--json",
       ]);
@@ -297,17 +340,44 @@ Deno.test("an unmet integration judgment routes to the owner's variance, and the
       assertStringIncludes(varianceStop.message, "record-review");
       assertStringIncludes(
         varianceStop.message,
-        "--confirmed --variance record-review",
+        `--confirmed --variance record-review --composition ${servedRecord.id}`,
       );
+      assert(
+        varianceStop.data !== undefined && !("issues" in varianceStop.data),
+      );
+      assertEquals(varianceStop.data.integration_judgment, {
+        composition: servedRecord.id,
+        decision: "variance",
+        awaiting: ["record-review"],
+      });
       const retained = await retainedRecord(dir);
       assert(retained !== undefined, "the proven composition is retained");
 
-      // The owner's complete decision lands the retained composition.
+      // The owner's decision binds through the served receipt: without it,
+      // the confirmation cannot be shown to cover THIS composition, and the
+      // decision moment is re-served instead of inherited.
+      const unbound = await runAgent(beta, [
+        "accept",
+        "--confirmed",
+        "--variance",
+        "record-review",
+        "--json",
+      ]);
+      assertEquals(unbound.code, 1, unbound.output);
+      const unboundResult = decodeCliResult(unbound.stdout, "accept");
+      assertEquals(unboundResult.error, "awaiting_variance");
+      assert(unboundResult.message !== undefined);
+      assertStringIncludes(unboundResult.message, "--composition");
+
+      // The owner's complete, receipt-bound decision lands the retained
+      // composition.
       const landed = await runAgent(beta, [
         "accept",
         "--confirmed",
         "--variance",
         "record-review",
+        "--composition",
+        servedRecord.id,
         "--json",
       ]);
       assertEquals(landed.code, 0, landed.output);
@@ -373,6 +443,8 @@ Deno.test("a composition that changed while its judgment waited is discarded: th
         "accept",
         "--met",
         "record-review",
+        "--composition",
+        firstRetained.id,
         "--confirmed",
         "--json",
       ]);
@@ -397,12 +469,31 @@ Deno.test("a composition that changed while its judgment waited is discarded: th
       const secondRetained = await retainedRecord(dir);
       assert(secondRetained !== undefined);
       assert(secondRetained.worktreePath !== firstRetained.worktreePath);
+      assert(secondRetained.id !== firstRetained.id);
+
+      // The discarded composition's receipt never answers the new one.
+      const transferred = await runAgent(beta, [
+        "accept",
+        "--met",
+        "record-review",
+        "--composition",
+        firstRetained.id,
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(transferred.code, 1, transferred.output);
+      const transferredResult = decodeCliResult(transferred.stdout, "accept");
+      assertEquals(transferredResult.error, "precondition_failed");
+      assert(transferredResult.message !== undefined);
+      assertStringIncludes(transferredResult.message, "no longer retained");
 
       // Answering the freshly served question lands the current composition.
       const landed = await runAgent(beta, [
         "accept",
         "--met",
         "record-review",
+        "--composition",
+        secondRetained.id,
         "--confirmed",
         "--json",
       ]);
@@ -514,7 +605,33 @@ Deno.test("declarations without an awaited integration judgment are refused, and
       assertEquals(result.error, "invalid_value");
       assert(result.message !== undefined);
       assertStringIncludes(result.message, "no integration judgment");
-      // The refusal changed nothing: the ordinary direct landing follows.
+      // A bare receipt is refused the same way, and a receipt without any
+      // decision to bind is an argument error before anything runs.
+      assertEquals(
+        (await runAgent(alpha, [
+          "accept",
+          "--met",
+          "record-review",
+          "--composition",
+          "0000",
+          "--confirmed",
+          "--json",
+        ])).code,
+        1,
+      );
+      const dangling = await runAgent(alpha, [
+        "accept",
+        "--composition",
+        "0000",
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(dangling.code, 1, dangling.output);
+      assertEquals(
+        decodeCliResult(dangling.stdout, "accept").error,
+        "invalid_arguments",
+      );
+      // The refusals changed nothing: the ordinary direct landing follows.
       assertEquals(
         (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
         0,
@@ -580,6 +697,245 @@ Deno.test("a replacement submission supersedes the retained composition: the aut
       assertStringIncludes(record, "- alpha: complete");
       assertStringIncludes(record, "- beta: complete");
       assert(await targetExists(join(dir, "beta-extra.txt")));
+    });
+  });
+});
+
+Deno.test("an answer served by one composition never approves its replacement: the receipt refuses, and the replacement's own serving continues", async () => {
+  await withTempDir(async (dir) => {
+    await withTempDir(async (scratch) => {
+      const counter = join(scratch, "producer-runs");
+      await judgmentFixture(dir, counter);
+      const alpha = await effortFlippingRow(dir, "alpha");
+      const beta = await effortFlippingRow(dir, "beta");
+      assertEquals(
+        (await runAgent(alpha, ["done", "--met", "record-review", "--json"]))
+          .code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(beta, ["done", "--met", "record-review", "--json"]))
+          .code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(beta, ["accept", "--confirmed", "--json"])).code,
+        1,
+        "beta's first composition is served and retained",
+      );
+      const reviewed = await retainedRecord(dir);
+      assert(reviewed !== undefined);
+
+      // While the answer is being prepared, a sibling materially changes the
+      // judged file and lands, and a second call for the same effort (a
+      // retry, or another session) replaces the stale composition — the SAME
+      // checkpoint id now asks about materially different content.
+      const gamma = await addWorktree(dir, "gamma");
+      const gammaRecord = join(gamma, "notes", "index.md");
+      await Deno.writeTextFile(
+        gammaRecord,
+        (await Deno.readTextFile(gammaRecord)).replace(
+          "- alpha: complete",
+          "- alpha: deferred pending removal",
+        ),
+      );
+      await git(gamma, "add", "-A");
+      await git(gamma, "commit", "-q", "-m", "revise", "--no-gpg-sign");
+      assertEquals(
+        (await runAgent(gamma, ["done", "--met", "record-review", "--json"]))
+          .code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(gamma, ["accept", "--confirmed", "--json"])).code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(beta, ["accept", "--confirmed", "--json"])).code,
+        1,
+        "the replacement composition is served and retained",
+      );
+      const replacement = await retainedRecord(dir);
+      assert(replacement !== undefined);
+      assert(replacement.id !== reviewed.id);
+
+      // The answer prepared for the first composition arrives — with its
+      // receipt, and without one. Neither records anything or lands.
+      const trunkBefore = await gitOut(dir, "rev-parse", "main");
+      const stale = await runAgent(beta, [
+        "accept",
+        "--met",
+        "record-review",
+        "--composition",
+        reviewed.id,
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(stale.code, 1, stale.output);
+      assertEquals(
+        decodeCliResult(stale.stdout, "accept").error,
+        "precondition_failed",
+      );
+      const unreceipted = await runAgent(beta, [
+        "accept",
+        "--met",
+        "record-review",
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(unreceipted.code, 1, unreceipted.output);
+      assertEquals(
+        decodeCliResult(unreceipted.stdout, "accept").error,
+        "invalid_value",
+      );
+      assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+      const still = await retainedRecord(dir);
+      assert(still !== undefined);
+      assertEquals(still.id, replacement.id);
+
+      // Judging the replacement itself — with its own receipt — lands it.
+      const landed = await runAgent(beta, [
+        "accept",
+        "--met",
+        "record-review",
+        "--composition",
+        replacement.id,
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(landed.code, 0, landed.output);
+      await assertNoIntegrationRemains(dir);
+    });
+  });
+});
+
+Deno.test("a superseded composition whose cleanup fails blocks replacement: one continuation, the failures reported, prune reclaiming what nothing can answer", async () => {
+  await withTempDir(async (dir) => {
+    await withTempDir(async (scratch) => {
+      const counter = join(scratch, "producer-runs");
+      await judgmentFixture(dir, counter);
+      // One per-worktree resource whose destroy fails while the flag file
+      // exists — the deterministic stand-in for external teardown failure.
+      await writeConfig(
+        dir,
+        config() +
+          [
+            "[worktree.resources.thing]",
+            'create = ":"',
+            `destroy = 'sh -c "test ! -f ${scratch}/fail"'`,
+            "",
+          ].join("\n"),
+      );
+      assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
+      await git(dir, "add", "-A");
+      if ((await gitOut(dir, "status", "--porcelain")) !== "") {
+        await git(dir, "commit", "-q", "-m", "resource", "--no-gpg-sign");
+      }
+      const alpha = await effortFlippingRow(dir, "alpha");
+      const beta = await effortFlippingRow(dir, "beta");
+      assertEquals(
+        (await runAgent(alpha, ["done", "--met", "record-review", "--json"]))
+          .code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(beta, ["done", "--met", "record-review", "--json"]))
+          .code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+        0,
+      );
+      assertEquals(
+        (await runAgent(beta, ["accept", "--confirmed", "--json"])).code,
+        1,
+        "beta's composition is served and retained",
+      );
+      const retained = await retainedRecord(dir);
+      assert(retained !== undefined);
+
+      // Another landing supersedes the retained composition; its teardown is
+      // then made to fail.
+      const gamma = await addWorktree(dir, "gamma");
+      await Deno.writeTextFile(join(gamma, "gamma.txt"), "gamma\n");
+      await git(gamma, "add", "-A");
+      await git(gamma, "commit", "-q", "-m", "gamma", "--no-gpg-sign");
+      assertEquals((await runAgent(gamma, ["done", "--json"])).code, 0);
+      assertEquals(
+        (await runAgent(gamma, ["accept", "--confirmed", "--json"])).code,
+        0,
+      );
+      await Deno.writeTextFile(join(scratch, "fail"), "block teardown\n");
+
+      // Replacement waits for settled cleanup: the failure is the result,
+      // and no second retained composition appears.
+      const blocked = await runAgent(beta, ["accept", "--confirmed", "--json"]);
+      assertEquals(blocked.code, 1, blocked.output);
+      const blockedResult = decodeCliResult(blocked.stdout, "accept");
+      assertEquals(blockedResult.error, "precondition_failed", blocked.output);
+      assert(blockedResult.message !== undefined);
+      assertStringIncludes(blockedResult.message, "cleanup did not finish");
+      assertStringIncludes(blockedResult.message, "discern worktree prune");
+      const records = (await listIntegrationLandingRecords(
+        await Deno.realPath(dir),
+      )).filter((entry) => entry.reading.status === "recorded");
+      assertEquals(records.length, 1, blocked.output);
+      const survivor = records[0];
+      assert(
+        survivor !== undefined && survivor.reading.status === "recorded" &&
+          survivor.reading.record.id === retained.id,
+        "the superseded record stays the single continuation",
+      );
+
+      // Its copy is already gone, so nothing can answer it: once the owner
+      // fixes the destroy command, prune reclaims it even though the
+      // submission still stands.
+      await Deno.remove(join(scratch, "fail"));
+      const pruned = await runAgent(dir, [
+        "worktree",
+        "prune",
+        "--yes",
+        "--json",
+      ]);
+      assertEquals(pruned.code, 0, pruned.output);
+      assertEquals(
+        (await listIntegrationLandingRecords(await Deno.realPath(dir)))
+          .length,
+        0,
+        pruned.output,
+      );
+
+      // With the store settled and teardown healthy again, acceptance serves
+      // a fresh composition and its answer lands.
+      const reserved = await runAgent(beta, [
+        "accept",
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(reserved.code, 1, reserved.output);
+      assertEquals(
+        decodeCliResult(reserved.stdout, "accept").error,
+        "awaiting_declaration",
+      );
+      const fresh = await retainedRecord(dir);
+      assert(fresh !== undefined);
+      assert(fresh.id !== retained.id);
+      const landed = await runAgent(beta, [
+        "accept",
+        "--met",
+        "record-review",
+        "--composition",
+        fresh.id,
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(landed.code, 0, landed.output);
+      await assertNoIntegrationRemains(dir);
     });
   });
 });

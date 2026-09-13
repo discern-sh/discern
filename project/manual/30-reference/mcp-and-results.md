@@ -120,28 +120,28 @@ Model Context Protocol (MCP) lets a coding agent call discern directly. The tool
 
 The input object is strict: undeclared keys are rejected. Optional keys by tool are:
 
-| Tool                        | Accepted input keys                                                                                                                                               |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern_status`            | `all`, `local`, `verbose`, `path`                                                                                                                                 |
-| `discern_start`             | `name`, `title`, `brief`, `from`, `path`, `dry_run`                                                                                                               |
-| `discern_prepare`           | `path`                                                                                                                                                            |
-| `discern_done`              | `dry_run`, `ci`, `rerun`, `met`, `unmet`, `path`, `standalone`, `policy_base`                                                                                     |
-| `discern_update`            | `from`, `dry_run`, `path`                                                                                                                                         |
-| `discern_await`             | `green`, `landed`, `trunk_moved`, `resume`, `timeout`, `path`                                                                                                     |
-| `discern_progress`          | `handle`, `path`                                                                                                                                                  |
-| `discern_accept`            | `action`, `target`, `prepare`, `preparation`, `met`, `unmet`, `reason`, `confirmation`, `recover`, `dry_run`, `confirmed`, `variance`, `approve_standard`, `path` |
-| `discern_test`              | `path`                                                                                                                                                            |
-| `discern_standards`         | `dry_run`, `force`, `pin`, `names`, `path`                                                                                                                        |
-| `discern_standards_propose` | `name`, `reason`, `dry_run`, `path`                                                                                                                               |
-| `discern_impact`            | `path`                                                                                                                                                            |
-| `discern_coupling`          | `file`, `with`, `path`                                                                                                                                            |
-| `discern_patterns`          | `stats`, `all`, `logbook_file`, `path`                                                                                                                            |
-| `discern_checkpoints`       | `path`                                                                                                                                                            |
-| `discern_refresh`           | `dry_run`, `path`                                                                                                                                                 |
-| `discern_map`               | `target`, `search`, `path`                                                                                                                                        |
-| `discern_docs`              | `target`, `search`                                                                                                                                                |
-| `discern_doctor`            | `verbose`, `path`                                                                                                                                                 |
-| `discern_improvement`       | `category`, `min_score`, `path`                                                                                                                                   |
+| Tool                        | Accepted input keys                                                                                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern_status`            | `all`, `local`, `verbose`, `path`                                                                                                                                                |
+| `discern_start`             | `name`, `title`, `brief`, `from`, `path`, `dry_run`                                                                                                                              |
+| `discern_prepare`           | `path`                                                                                                                                                                           |
+| `discern_done`              | `dry_run`, `ci`, `rerun`, `met`, `unmet`, `path`, `standalone`, `policy_base`                                                                                                    |
+| `discern_update`            | `from`, `dry_run`, `path`                                                                                                                                                        |
+| `discern_await`             | `green`, `landed`, `trunk_moved`, `resume`, `timeout`, `path`                                                                                                                    |
+| `discern_progress`          | `handle`, `path`                                                                                                                                                                 |
+| `discern_accept`            | `action`, `target`, `prepare`, `preparation`, `met`, `unmet`, `composition`, `reason`, `confirmation`, `recover`, `dry_run`, `confirmed`, `variance`, `approve_standard`, `path` |
+| `discern_test`              | `path`                                                                                                                                                                           |
+| `discern_standards`         | `dry_run`, `force`, `pin`, `names`, `path`                                                                                                                                       |
+| `discern_standards_propose` | `name`, `reason`, `dry_run`, `path`                                                                                                                                              |
+| `discern_impact`            | `path`                                                                                                                                                                           |
+| `discern_coupling`          | `file`, `with`, `path`                                                                                                                                                           |
+| `discern_patterns`          | `stats`, `all`, `logbook_file`, `path`                                                                                                                                           |
+| `discern_checkpoints`       | `path`                                                                                                                                                                           |
+| `discern_refresh`           | `dry_run`, `path`                                                                                                                                                                |
+| `discern_map`               | `target`, `search`, `path`                                                                                                                                                       |
+| `discern_docs`              | `target`, `search`                                                                                                                                                               |
+| `discern_doctor`            | `verbose`, `path`                                                                                                                                                                |
+| `discern_improvement`       | `category`, `min_score`, `path`                                                                                                                                                  |
 
 #### Completion options
 
@@ -149,7 +149,7 @@ Ordinary completion requires a clean, committed tree and proves its `HEAD`. `sta
 
 #### Acceptance options
 
-Your agent omits `action` for ordinary acceptance. From the effort's worktree, the call records the effort's submission, the exact `HEAD` and its Proof, and lands it when authority is verified. Without authority it refuses read-only, the submission waits in the landing queue for you, and the agent relays the Proof line. The `target` selects a task by id, path, branch, or full local ref; the main checkout requires one. Consent covers only that submitted commit. `confirmed: true` records consent given in the current conversation; `variance` and `approve_standard` each require it. `dry_run: true` shows the landing queue and the selected task's verdict without changing anything. When the trunk moved after the task's Proof, the call composes and checks the combined code in an integration worktree and lands the exact proven result. A conflict or failed combined check returns to the author; a checkpoint question about the combined result retains the composition and is answered through `met` (or `unmet` with its rationale) on a follow-up call, continuing the same landing.
+Your agent omits `action` for ordinary acceptance. From the effort's worktree, the call records the effort's submission, the exact `HEAD` and its Proof, and lands it when authority is verified. Without authority it refuses read-only, the submission waits in the landing queue for you, and the agent relays the Proof line. The `target` selects a task by id, path, branch, or full local ref; the main checkout requires one. Consent covers only that submitted commit. `confirmed: true` records consent given in the current conversation; `variance` and `approve_standard` each require it. `dry_run: true` shows the landing queue and the selected task's verdict without changing anything. When the trunk moved after the task's Proof, the call composes and checks the combined code in an integration worktree and lands the exact proven result. A conflict or failed combined check returns to the author; a checkpoint question about the combined result retains the composition and is answered through `met` (or `unmet` with its rationale) on a follow-up call, continuing the same landing. The refusal serves a `composition` receipt that the answer — and a variance decision over the combined result — must name, so a decision never drifts onto a composition it was not served for.
 
 #### Emergency integration
 

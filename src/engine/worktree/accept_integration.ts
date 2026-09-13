@@ -66,6 +66,7 @@ import {
   retainIntegrationForJudgment,
   runIntegrationAttempt,
 } from "./integration_landing.ts";
+import { retainedIntegrationJudgment } from "./integration_record.ts";
 import { removeIntegrationWorktree } from "./lifecycle.ts";
 import { classifyAutomaticBranchOwnership } from "./ownership.ts";
 import { clearSubmissionIfCurrent } from "./submission_writer.ts";
@@ -173,6 +174,7 @@ function refuseAwaitingIntegrationJudgment(
   submittedHead: string,
   composedHead: string | undefined,
   copyPath: string,
+  receipt: string,
   served: readonly ServedCheckpointData[],
   checkpoints: AcceptData["checkpoint_preparation"],
 ): never {
@@ -193,19 +195,29 @@ function refuseAwaitingIntegrationJudgment(
     }\n\nJudge each question against the combined result — readable at ` +
       `${copyPath} (discern's integration worktree: inspect it read-only, ` +
       "never adopt or edit it) — then continue this landing from your own " +
-      "worktree: `discern accept --met <id>` (repeatable) when a question " +
-      'is satisfied, or `discern accept --unmet <id> --why "<rationale>"` ' +
-      "(one per invocation) when it is not; the owner then decides that " +
-      "declared-unmet landing. The composition is retained for your answer. " +
-      "No gate job ran, your worktree needs no update or new Proof for " +
-      `this, and other landings can proceed meanwhile. ${ACCEPT_NOTHING_LANDED}`,
+      `worktree: \`discern accept --met <id> --composition ${receipt}\` ` +
+      "(--met repeatable) when a question is satisfied, or `discern accept " +
+      `--unmet <id> --why "<rationale>" --composition ${receipt}\` (one ` +
+      "unmet per invocation) when it is not; the owner then decides that " +
+      "declared-unmet landing. The receipt binds your answer to this exact " +
+      "composition — a replaced composition refuses it and serves its own " +
+      "question. The composition is retained for your answer. No gate job " +
+      "ran, your worktree needs no update or new Proof for this, and other " +
+      `landings can proceed meanwhile. ${ACCEPT_NOTHING_LANDED}`,
     {
       hints: hintTexts([
         fire(HINTS["accept-integration-judgment"], { ids }),
       ]),
-      ...(checkpoints === undefined
-        ? {}
-        : { data: { checkpoint_preparation: checkpoints } }),
+      data: {
+        ...(checkpoints === undefined
+          ? {}
+          : { checkpoint_preparation: checkpoints }),
+        integration_judgment: {
+          composition: receipt,
+          decision: "declaration",
+          awaiting: ids,
+        },
+      },
     },
   );
 }
@@ -216,9 +228,15 @@ function refuseAwaitingIntegrationVariance(
   unmet: readonly StandingUnmetConclusion[],
   missing: readonly string[],
   confirmed: boolean,
+  receipt: string,
+  /** The confirmation arrived without the served receipt, so it cannot be
+   * shown to cover THIS composition's decision moment. */
+  unboundDecision = false,
 ): never {
   const ids = unmet.map((entry) => entry.id);
-  const decision = confirmed
+  const decision = unboundDecision
+    ? "A variance decision binds to the composition it was served for: pass the served receipt (--composition) with the owner's acceptance, so the decision cannot drift onto a different composition. The current decision moment is served below."
+    : confirmed
     ? `The landing decision must also cover every declared-unmet checkpoint of the combined result; missing: ${
       missing.join(", ")
     }.`
@@ -229,7 +247,7 @@ function refuseAwaitingIntegrationVariance(
     } the owner to authorize a variance.`;
   const command = `discern accept --confirmed ${
     ids.map((id) => `--variance ${id}`).join(" ")
-  }`;
+  } --composition ${receipt}`;
   refusal(
     AWAITING_VARIANCE_SLUG,
     `${decision}\n\n${
@@ -237,13 +255,21 @@ function refuseAwaitingIntegrationVariance(
     }\n\nRelay each question and rationale to the owner. Once the owner ` +
       `accepts this landing AND each named variance in the current ` +
       `conversation, re-run \`${command}\` from your worktree — the proven ` +
-      `composition is retained and continues without re-running its check. ` +
+      `composition is retained and continues without re-running its check, ` +
+      `and the receipt binds the decision to it. ` +
       `Recorded standing and effort grants never authorize a variance. ${ACCEPT_NOTHING_LANDED}`,
     {
       hints: hintTexts([
         fire(HINTS["accept-authorize-variance"], { ids }),
         fire(HINTS["accept-review-via-status"]),
       ]),
+      data: {
+        integration_judgment: {
+          composition: receipt,
+          decision: "variance",
+          awaiting: ids,
+        },
+      },
     },
   );
 }
@@ -317,6 +343,25 @@ export async function executeIntegrationLanding(
         ...(request.unmet === undefined ? {} : { unmet: request.unmet }),
       }
       : undefined;
+  // A receipt names a retained composition; before composing anything,
+  // verify one is retained and it is the one named — a receipt for a
+  // replaced or completed composition refuses read-only, and the current
+  // state is re-served by a plain accept, never shortcut.
+  if (request.composition !== undefined) {
+    const retained = await retainedIntegrationJudgment(mainRepo, effort.path);
+    if (retained === undefined) {
+      refusal(
+        "precondition_failed",
+        `--composition names no retained composition for ${effort.branch} — it was answered, replaced, or reclaimed. Re-run discern accept without --composition to compose against the current trunk and be served any question about that exact result. ${ACCEPT_NOTHING_LANDED}`,
+      );
+    }
+    if (retained.id !== request.composition) {
+      refusal(
+        "precondition_failed",
+        `--composition names a composition that is no longer retained for ${effort.branch}; its decision does not transfer. Re-run discern accept without --composition to be served the current composition's decision moment. ${ACCEPT_NOTHING_LANDED}`,
+      );
+    }
+  }
 
   let tip = enteredTip;
   for (let attempt = 1;; attempt++) {
@@ -327,6 +372,9 @@ export async function executeIntegrationLanding(
       log,
       cliModel,
       ...(attempt === 1 && declarations !== undefined ? { declarations } : {}),
+      ...(attempt === 1 && request.composition !== undefined
+        ? { composition: request.composition }
+        : {}),
       ...(operationHandle === undefined ? {} : { operationHandle }),
       ...(request.signal === undefined ? {} : { signal: request.signal }),
     });
@@ -349,6 +397,14 @@ export async function executeIntegrationLanding(
         `${composed.reason} ${ACCEPT_NOTHING_LANDED}`,
       );
     }
+    if (composed.kind === "cleanup-blocked") {
+      refusal(
+        "precondition_failed",
+        `${effort.branch}'s retained composition is superseded (${composed.staleReason}), but its cleanup did not finish: ${
+          composed.cleanupFailures.join("; ")
+        }. Nothing replaces it while its record stands — fix the reported cause and re-run discern accept (the cleanup is retried), or run discern worktree prune from ${mainRepo}. ${ACCEPT_NOTHING_LANDED}`,
+      );
+    }
     if (composed.kind === "judgment-stale") {
       refusal(
         "precondition_failed",
@@ -363,6 +419,7 @@ export async function executeIntegrationLanding(
         frozen.head,
         composed.record.continuation?.composed_head,
         composed.record.worktree.path,
+        composed.record.id,
         composed.served?.outstanding ?? [],
         composed.served,
       );
@@ -421,8 +478,15 @@ export async function executeIntegrationLanding(
     // still needs the owner's exact decision, and recorded grants never
     // cover it. An authorized set replaces the author-derived one; a missing
     // decision retains the proven composition and stops read-only.
+    // A variance decision resumed onto a retained composition binds through
+    // its receipt: without the match, the confirmation was given over a
+    // different served moment, so the current composition's decision is
+    // (re-)served instead of inheriting it.
+    const varianceReceiptOk = !composed.resumed ||
+      request.variance.length === 0 ||
+      request.composition === composed.record.id;
     const interlock = resolveVarianceInterlock(composed.checkpointState, {
-      confirmed: request.confirmed,
+      confirmed: request.confirmed && varianceReceiptOk,
       varianceIds: request.variance,
     });
     let variancesNow: AuthorizedVarianceData[];
@@ -484,6 +548,8 @@ export async function executeIntegrationLanding(
         interlock.unmet,
         interlock.missing,
         interlock.confirmed,
+        composed.record.id,
+        request.confirmed && !varianceReceiptOk,
       );
     }
 

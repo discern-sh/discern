@@ -29428,6 +29428,9 @@
                     }
                   }
                 },
+                "integration_judgment": {
+                  "$ref": "#/$defs/DiscernIntegrationJudgment"
+                },
                 "emergency_validation": {
                   "type": "array",
                   "items": {
@@ -36107,6 +36110,34 @@
         "readiness"
       ],
       "description": "One landing-queue row derived from an effort's submission record: the branch, the exact submitted commit, whether a recorded grant covers it, and the one sentence that says why it waits."
+    },
+    "DiscernIntegrationJudgment": {
+      "title": "DiscernIntegrationJudgment",
+      "type": "object",
+      "properties": {
+        "composition": {
+          "type": "string"
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "declaration",
+            "variance"
+          ]
+        },
+        "awaiting": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "composition",
+        "decision",
+        "awaiting"
+      ],
+      "description": "The served decision moment of a retained integration composition: the receipt a continuation must name, the decision kind that continues it, and the checkpoint ids awaiting that decision."
     },
     "DiscernLandingOutcome": {
       "title": "DiscernLandingOutcome",

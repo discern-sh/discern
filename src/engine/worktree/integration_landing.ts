@@ -125,6 +125,13 @@ export type IntegrationAttempt =
     readonly reason: string;
   }
   | {
+    /** A superseded composition's cleanup did not finish; its record stays
+     * the single continuation, and nothing was composed or recorded. */
+    readonly kind: "cleanup-blocked";
+    readonly staleReason: string;
+    readonly cleanupFailures: readonly string[];
+  }
+  | {
     readonly kind: "green";
     readonly record: IntegrationLandingRecord;
     readonly head: string;
@@ -136,6 +143,9 @@ export type IntegrationAttempt =
     /** The copy's acceptance-side checkpoint state — current conclusions and
      * their bindings on the combined tree — for the variance interlock. */
     readonly checkpointState: AcceptanceCheckpointState;
+    /** The composition was adopted from a retained record rather than
+     * freshly composed; receipt-bound decisions require the match. */
+    readonly resumed: boolean;
   };
 
 /** Mint a free integration worktree identity beside the authoring worktrees:
@@ -270,6 +280,13 @@ type RetainedAdoption =
     readonly reason: string;
   }
   | {
+    /** A superseded copy's cleanup did not finish, so its record survives;
+     * nothing replaces it until the cleanup settles. */
+    readonly kind: "cleanup-blocked";
+    readonly staleReason: string;
+    readonly cleanupFailures: readonly string[];
+  }
+  | {
     readonly kind: "fresh";
     readonly cleanupFailures: readonly string[];
     readonly staleReason?: string;
@@ -288,6 +305,8 @@ async function adoptRetainedComposition(input: {
   readonly expectedTrunk: string;
   readonly log: Logger;
   readonly declarations?: IntegrationDeclarations;
+  /** The served composition receipt the caller answers. */
+  readonly composition?: string;
   readonly operationHandle?: string;
 }): Promise<RetainedAdoption> {
   const { effort, submission, log } = input;
@@ -325,9 +344,26 @@ async function adoptRetainedComposition(input: {
     }
   }
   if (stale === undefined && continuation !== undefined) {
-    // Declarations answer exactly the served questions; an unknown id is an
-    // error served read-only, with the composition kept for a corrected call.
+    // Declarations answer exactly the served questions of the composition
+    // that served them: the receipt binds the answer, and an unknown id is
+    // an error served read-only, with the composition kept for a corrected
+    // call. A mismatched receipt never reveals the current one — the current
+    // composition's question must be served afresh, not shortcut.
     if (input.declarations !== undefined) {
+      if (input.composition === undefined) {
+        return {
+          kind: "invalid-declarations",
+          reason:
+            "an answer binds to the composition that served it: pass --composition with the receipt from the served refusal, or re-run discern accept to be served the current composition's question. The retained composition is unchanged.",
+        };
+      }
+      if (input.composition !== retained.id) {
+        return {
+          kind: "invalid-declarations",
+          reason:
+            "the composition this answer was served for has been replaced; its judgment does not transfer. Re-run discern accept to be served the current composition's question. The retained composition is unchanged.",
+        };
+      }
       const known = new Set(continuation.awaiting);
       const requested = [
         ...input.declarations.met,
@@ -376,6 +412,26 @@ async function adoptRetainedComposition(input: {
     retained,
     log,
   );
+  // Replacement waits for settled cleanup: while the superseded record
+  // survives, minting another composition would leave two retained records
+  // for one submission — an ambiguous continuation — so the failure is the
+  // result, not a footnote.
+  const survivor = await retainedIntegrationJudgment(
+    effort.mainRepo,
+    effort.path,
+  );
+  if (survivor !== undefined && survivor.id === retained.id) {
+    return {
+      kind: "cleanup-blocked",
+      staleReason: stale ?? "the retained composition was superseded",
+      cleanupFailures,
+    };
+  }
+  for (const failure of cleanupFailures) {
+    log.warn(
+      `Superseded-composition cleanup: ${failure}. Run discern worktree prune from ${effort.mainRepo} to reclaim what remains.`,
+    );
+  }
   return {
     kind: "fresh",
     cleanupFailures,
@@ -403,6 +459,8 @@ export async function runIntegrationAttempt(input: {
   /** Conclusions for the retained composition's served questions; refused
    * unless a matching retained composition exists. */
   readonly declarations?: IntegrationDeclarations;
+  /** The served composition receipt a continuation names. */
+  readonly composition?: string;
   readonly operationHandle?: string;
   readonly signal?: AbortSignal;
 }): Promise<IntegrationAttempt> {
@@ -410,6 +468,13 @@ export async function runIntegrationAttempt(input: {
   const adoption = await adoptRetainedComposition(input);
   if (adoption.kind === "invalid-declarations") {
     return { kind: "invalid-declarations", reason: adoption.reason };
+  }
+  if (adoption.kind === "cleanup-blocked") {
+    return {
+      kind: "cleanup-blocked",
+      staleReason: adoption.staleReason,
+      cleanupFailures: adoption.cleanupFailures,
+    };
   }
   if (adoption.kind === "adopted") {
     return await proveComposition(input, adoption.record, true);
@@ -687,6 +752,7 @@ async function proveComposition(
       proof,
       proofPointer: pointerIds,
       checkpointState: await inspectAcceptanceCheckpoints(dir, intCtx.config),
+      resumed,
     };
   });
 }

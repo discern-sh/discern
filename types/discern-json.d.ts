@@ -327,6 +327,12 @@ export type DiscernSubmissionRow = {
   operation_handle?: string;
 };
 
+export type DiscernIntegrationJudgment = {
+  composition: string;
+  decision: "declaration" | "variance";
+  awaiting: Array<string>;
+};
+
 export type DiscernLandingOutcome = {
   effort: string;
   branch: string;
@@ -8949,6 +8955,7 @@ export type DiscernAcceptResult = DiscernResultState & {
       >;
       advisories?: Array<string>;
     };
+    integration_judgment?: DiscernIntegrationJudgment;
     emergency_validation?: Array<{
       landing_id: string;
       head: string;
