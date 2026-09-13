@@ -165,6 +165,7 @@ Deno.test("a submission the trunk overtook lands through one accept, composed an
 Deno.test("ancestry selects the direct fast path regardless of queue length", async () => {
   await withTempDir(async (dir) => {
     await integrationFixture(dir);
+    // Git registration is serialized by the fixture helper; authoring can overlap.
     // Several submissions wait; the selected one is at the trunk tip.
     const efforts = await Promise.all(
       ["one", "two", "three"].map(

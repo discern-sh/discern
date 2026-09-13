@@ -823,9 +823,43 @@ export async function git(dir: string, ...args: string[]): Promise<void> {
     stdout: "null",
     stderr: "piped",
   });
-  const { success, stderr } = await c.output();
+  const { success, stderr } = args[0] === "worktree" && args[1] === "add"
+    ? await withFixtureWorktreeCreation(
+      await Deno.realPath(
+        await gitOut(
+          dir,
+          "rev-parse",
+          "--path-format=absolute",
+          "--git-common-dir",
+        ),
+      ),
+      () => c.output(),
+    )
+    : await c.output();
   if (!success) {
     throw new Error(`git ${args.join(" ")} failed: ${DECODER.decode(stderr)}`);
+  }
+}
+
+const fixtureWorktreeCreations = new Map<string, Promise<void>>();
+
+/** Serialize fixture creation by canonical Git common directory. Tests of the
+ * product's concurrency continue to use the public engine, outside this helper. */
+export async function withFixtureWorktreeCreation<T>(
+  common: string,
+  create: () => Promise<T>,
+): Promise<T> {
+  const preceding = fixtureWorktreeCreations.get(common) ?? Promise.resolve();
+  const release = Promise.withResolvers<void>();
+  fixtureWorktreeCreations.set(common, release.promise);
+  await preceding;
+  try {
+    return await create();
+  } finally {
+    release.resolve();
+    if (fixtureWorktreeCreations.get(common) === release.promise) {
+      fixtureWorktreeCreations.delete(common);
+    }
   }
 }
 
