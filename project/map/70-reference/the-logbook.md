@@ -31,7 +31,7 @@ Setting `[project].logbook = false` stops new evidence for every feature below. 
 - fleet activity times that include verb runs, so a long test run does not appear dormant
 - configuration-change attribution and each standard's limit history: the `config-change` and `pin` events
 - `tip-adoption` counts: whether each shown tip's invited verb ran before that tip appeared again
-- advisory findings on `status`, the `done` Proof, and `improvement`
+- advisory findings during work and merge-conflict recovery
 - wait estimates when concurrent test runs queue, and contention readings
 - the in-flight check on the contained-worktree offer; an installation with recording off uses a one-hour inactivity period
 - observed checkpoint economics (`discern checkpoints`)
@@ -56,46 +56,47 @@ The shared result contract keeps one meaning across these routes. A finding's `s
 
 Each line contains names and numbers. It excludes code, prompts, command output, and file contents.
 
-| Field           | Example                                                                 |
-| --------------- | ----------------------------------------------------------------------- |
-| `schema`        | `1`                                                                     |
-| `at`            | ISO 8601 UTC timestamp                                                  |
-| `kind`          | `"begin"`, `"verb"`, or a rarer event kind                              |
-| `invocation`    | the opaque id joining a start and completion                            |
-| `writer`        | `"1.2.0"` (which discern wrote it)                                      |
-| `verb`          | `"done"`                                                                |
-| `surface`       | `"cli"` or `"mcp"`                                                      |
-| `driver`        | session, mode, CI, spawning invocation, and possible agent signals      |
-| `branch`        | `"agent/fix-upload-retry"`                                              |
-| `head`          | `"<short commit ID>"`                                                   |
-| `clean`         | was the working tree clean?                                             |
-| `tree`          | a checksum of the uncommitted diff                                      |
-| `outcome`       | `"ok"`, `"failed"`, `"partial"`, or `"refused"`                         |
-| `failed_stage`  | the Gate stage that went red                                            |
-| `crash`         | error class name and one code location                                  |
-| `lock_boundary` | `"none"`, `"checkout"`, `"common"`, or `"common-and-checkout"`          |
-| `dry_run`       | whether this invocation was a read-only preview                         |
-| `has_operands`  | whether a mixed command group received its effect-selecting operand     |
-| `duration_ms`   | end-to-end wall-clock milliseconds                                      |
-| `waited_ms`     | test-run slot-wait milliseconds on capped runs                          |
-| `gate_ran`      | whether this `done` invocation executed Gate work                       |
-| `target`        | page served, miss, new branch, or queued command                        |
-| `from`          | the ref a `start` forked from                                           |
-| `update`        | what an `update` merged in                                              |
-| `error`         | the result's machine-stable error slug when the verb refused            |
-| `flags`         | `["force"]` (names without values, including `rerun` when requested)    |
-| `change`        | files/insertions/deletions/commits vs the trunk                         |
-| `scopes`        | the configured scopes touched                                           |
-| `steps`         | per-step labels, stages, outcomes, timings                              |
-| `validation`    | versioned validation-start and execution evidence                       |
-| `diagnostics`   | tool, rule id, file path at most                                        |
-| `hint_ids`      | stable ids of advice delivered with the result                          |
-| `tip_ids`       | stable ids of desk tips shown during the run                            |
-| `standards`     | each Standard's measurement, limit, margin, and Gate-owned pin decision |
-| `consent`       | consent source and matched scopes on accept                             |
-| `landing`       | recovery, trunk, worktree, and branch effects                           |
-| `checkpoints`   | checkpoint servings, declarations, variances, abandoned open questions  |
-| `epoch`         | a fingerprint of your config                                            |
+| Field           | Example                                                                                                                                   |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`        | `1`                                                                                                                                       |
+| `at`            | ISO 8601 UTC timestamp                                                                                                                    |
+| `kind`          | `"begin"`, `"verb"`, or a rarer event kind                                                                                                |
+| `invocation`    | the opaque id joining a start and completion                                                                                              |
+| `writer`        | `"1.2.0"` (which discern wrote it)                                                                                                        |
+| `verb`          | `"done"`                                                                                                                                  |
+| `surface`       | `"cli"` or `"mcp"`                                                                                                                        |
+| `driver`        | session, mode, CI, spawning invocation, and possible agent signals                                                                        |
+| `branch`        | `"agent/fix-upload-retry"`                                                                                                                |
+| `head`          | `"<short commit ID>"`                                                                                                                     |
+| `clean`         | was the working tree clean?                                                                                                               |
+| `tree`          | a checksum of the uncommitted diff                                                                                                        |
+| `outcome`       | `"ok"`, `"failed"`, `"partial"`, or `"refused"`                                                                                           |
+| `failed_stage`  | the Gate stage that went red                                                                                                              |
+| `crash`         | error class name and one code location                                                                                                    |
+| `lock_boundary` | `"none"`, `"checkout"`, `"common"`, or `"common-and-checkout"`                                                                            |
+| `dry_run`       | whether this invocation was a read-only preview                                                                                           |
+| `has_operands`  | whether a mixed command group received its effect-selecting operand                                                                       |
+| `duration_ms`   | end-to-end wall-clock milliseconds                                                                                                        |
+| `waited_ms`     | test-run slot-wait milliseconds on capped runs                                                                                            |
+| `gate_ran`      | whether this `done` invocation executed Gate work                                                                                         |
+| `target`        | page served, miss, new branch, or queued command                                                                                          |
+| `from`          | the ref a `start` forked from                                                                                                             |
+| `update`        | what an `update` merged in                                                                                                                |
+| `merges`        | versioned merge attempts: originating effort, route, Git revisions, outcome, conflict paths, generated classification, and omitted counts |
+| `error`         | the result's machine-stable error slug when the verb refused                                                                              |
+| `flags`         | `["force"]` (names without values, including `rerun` when requested)                                                                      |
+| `change`        | files/insertions/deletions/commits vs the trunk                                                                                           |
+| `scopes`        | the configured scopes touched                                                                                                             |
+| `steps`         | per-step labels, stages, outcomes, timings                                                                                                |
+| `validation`    | versioned validation-start and execution evidence                                                                                         |
+| `diagnostics`   | tool, rule id, file path at most                                                                                                          |
+| `hint_ids`      | stable ids of advice delivered with the result                                                                                            |
+| `tip_ids`       | stable ids of desk tips shown during the run                                                                                              |
+| `standards`     | each Standard's measurement, limit, margin, and Gate-owned pin decision                                                                   |
+| `consent`       | consent source and matched scopes on accept                                                                                               |
+| `landing`       | recovery, trunk, worktree, and branch effects                                                                                             |
+| `checkpoints`   | checkpoint servings, declarations, variances, abandoned open questions                                                                    |
+| `epoch`         | a fingerprint of your config                                                                                                              |
 
 `partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The logbook omits the message and stack. A saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
 

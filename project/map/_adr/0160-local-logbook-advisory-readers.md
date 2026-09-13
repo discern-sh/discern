@@ -2,6 +2,7 @@
 
 > **Amendments.**
 >
+> - **[ADR 0393](0393-merge-observations-connect-conflict-recurrence-across-surfaces.md) — merge recovery:** the shared update core records merge outcomes independently of invocation success. Update and acceptance recovery additionally project the recurring-file finding from bounded local evidence. The finding remains advisory.
 > - **[ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md) — identity:** the logbook now records source-labelled coding-agent identity signals when cheap hints exist. They remain evidence, never a vendor verdict, and never steer product behaviour. The rest of this decision is unchanged.
 > - **[ADR 0190](0190-cohort-findings-lift-the-provider-comparison-deferral.md) — cohorts:** the provider-comparison deferral in this record's explicit *no*s is lifted — its stated condition, a cheap honest hint, is met — under standing conditions: facts beside denominators and never rankings, invocation-scoped cohort keys only, recorded per-cohort minimums, and the unattributed share always visible. Export, session replay, and guidance-amendment drafting stay deferred.
 > - **[ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md) — landing consent:** a successful `accept` event now records its consent source (`conversation`, `standing-grant`, or `effort-grant`) and the covering scope names for a standing grant. The local, metadata-only, evidence-first, and advisory boundaries below stand.

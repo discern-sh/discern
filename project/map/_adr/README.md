@@ -369,6 +369,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0390 — Public contracts preserve behavior and independent format versions](0390-public-contracts-preserve-behavior-and-independent-format-versions.md)
 - [0391 — Landings compose a moved trunk in an integration worktree](0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md)
 - [0392 — Readiness connects questions to the practice](0392-readiness-connects-questions-to-the-practice.md)
+- [0393 — Merge observations connect conflict recurrence across surfaces](0393-merge-observations-connect-conflict-recurrence-across-surfaces.md)
 
 <!-- END GENERATED: current ADR records -->
 

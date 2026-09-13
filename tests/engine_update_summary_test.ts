@@ -20,6 +20,7 @@ import {
   git,
   gitInit,
   gitOut,
+  readLogbookEvents,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -109,6 +110,47 @@ Deno.test("update --json: reports the commits, files, and range anchors brought 
     // Nothing of the branch's own was touched → no overlap.
     assertEquals(data.overlap, []);
     assertEquals(data.overlap_total, 0);
+  });
+});
+
+Deno.test("update merges the observed incoming revision when its source ref moves", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainAndWorktree(dir, "moving-source");
+    await commitOnMain(dir, "first source", { "first.txt": "first\n" });
+    const observed = await gitOut(dir, "rev-parse", "HEAD");
+    await git(dir, "branch", "incoming", observed);
+    await commitOnMain(dir, "next source", { "next.txt": "next\n" });
+    const next = await gitOut(dir, "rev-parse", "HEAD");
+    const wrapper = join(dir, "move-source-git");
+    await Deno.writeTextFile(
+      wrapper,
+      [
+        "#!/bin/sh",
+        'case " $* " in',
+        '  *" merge "*) git update-ref refs/heads/incoming "$MERGE_SOURCE_NEXT" ;;',
+        "esac",
+        'exec git "$@"',
+        "",
+      ].join("\n"),
+      { mode: 0o700 },
+    );
+    const result = await runAgent(wt, [
+      "update",
+      "--from",
+      "incoming",
+      "--json",
+    ], {
+      env: { GIT_BIN: wrapper, MERGE_SOURCE_NEXT: next },
+    });
+    assertEquals(result.code, 0, result.output);
+    assertEquals(parse(result.stdout).data.range.main, observed);
+    await git(wt, "merge-base", "--is-ancestor", observed, "HEAD");
+    assertEquals(await targetExists(join(wt, "next.txt")), false);
+    assertEquals(await gitOut(dir, "rev-parse", "incoming"), next);
+    const events = await readLogbookEvents(dir);
+    const event = events.filter((entry) => entry.kind === "verb")
+      .filter((entry) => entry.verb === "update").at(-1);
+    assertEquals(event?.merges?.attempts[0]?.incoming, observed);
   });
 });
 

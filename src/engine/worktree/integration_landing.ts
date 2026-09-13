@@ -15,6 +15,7 @@
 
 import { dirname, join } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
+import type { FiredHint } from "../../shared/hints.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
@@ -71,6 +72,7 @@ export type IntegrationAttempt =
   | {
     readonly kind: "conflict";
     readonly files: readonly string[];
+    readonly hints: FiredHint[];
     readonly cleanupFailures: readonly string[];
   }
   | {
@@ -276,6 +278,7 @@ export async function runIntegrationAttempt(input: {
     const updated = await applyUpdateCore(
       intCtx,
       await buildUpdatePlan(intCtx),
+      { route: "accept", effort: effort.branch },
     );
     if (updated.kind !== "applied") {
       const status = await runGit(["status", "--porcelain", "-z"], {
@@ -294,7 +297,12 @@ export async function runIntegrationAttempt(input: {
         log,
       );
       if (updated.kind === "conflict") {
-        return { kind: "conflict", files: updated.files, cleanupFailures };
+        return {
+          kind: "conflict",
+          files: updated.files,
+          hints: updated.hints,
+          cleanupFailures,
+        };
       }
       const reason = updated.kind === "merge_failed"
         ? `Git refused the merge: ${updated.reason}`

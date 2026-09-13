@@ -57,6 +57,7 @@ import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 import { validationEvidenceSchema } from "./validation.ts";
 import { OPERATION_LOCK_BOUNDARIES } from "../../shared/operation_effects.ts";
 import { completionObservationSchema } from "./completion_schema.ts";
+import { mergeActivitySchema } from "../../shared/merge_observation.ts";
 
 /** The event-format major this build writes; readers skip unknown majors. */
 export const LOGBOOK_SCHEMA_VERSION = ON_DISK_FORMATS.logbookEvent.version;
@@ -433,6 +434,8 @@ export const verbEventSchema = z.looseObject({
   standards: z.array(standardReadingSchema).optional(),
   /** What an `update` brought in ({@link UpdateShape}). */
   update: updateShapeSchema.optional(),
+  /** Actual merge attempts, including conflicts inside acceptance. */
+  merges: mergeActivitySchema.optional().catch(undefined),
   /** How a successful landing was authorized, with scope names only. */
   consent: landingConsentSchema.optional(),
   /** Which acceptance effects happened before a partial or successful result. */

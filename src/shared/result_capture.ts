@@ -20,6 +20,13 @@
 import { type FiredHint, firedHintsFromTexts } from "./hints.ts";
 import type { DiscernResult } from "./result.ts";
 import { evaluateResultCompletion } from "./result_completion.ts";
+import {
+  MERGE_ATTEMPT_LIMIT,
+  type MergeActivity,
+  mergeActivitySchema,
+  type MergeAttempt,
+  mergeAttemptSchema,
+} from "./merge_observation.ts";
 
 /** The envelope plus its local-only hint identities. */
 export interface ObservedResult {
@@ -28,6 +35,31 @@ export interface ObservedResult {
 }
 
 let observed: ObservedResult | undefined;
+
+let mergeActivity: MergeActivity | undefined;
+
+/** Capture a bounded executor observation even when later convergence fails. */
+export function observeMergeAttempt(attempt?: MergeAttempt): void {
+  mergeActivity ??= {
+    version: mergeActivitySchema.shape.version.value,
+    attempts: [],
+    omitted: 0,
+  };
+  if (attempt === undefined) return;
+  const parsed = mergeAttemptSchema.safeParse(attempt);
+  if (!parsed.success || mergeActivity.attempts.length >= MERGE_ATTEMPT_LIMIT) {
+    mergeActivity.omitted += 1;
+    return;
+  }
+  mergeActivity.attempts.push(parsed.data);
+}
+
+/** Drain at invocation boundaries so a later MCP call cannot inherit evidence. */
+export function takeMergeActivity(): MergeActivity | undefined {
+  const activity = mergeActivity;
+  mergeActivity = undefined;
+  return activity;
+}
 
 /** Report an invocation's final result envelope (latest call wins). */
 export function observeResult(

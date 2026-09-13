@@ -1763,6 +1763,25 @@ export const HINTS = {
       `has ${count} branch finding${count === 1 ? "" : "s"}. ${summary}`,
   }),
 
+  /** An observed conflict recurrence attached to the current merge recovery. */
+  "logbook-merge-conflict-finding": defineHint<{
+    observed: string;
+    next: string;
+  }>({
+    id: "logbook-merge-conflict-finding",
+    category: "next-step",
+    audience: "all",
+    when:
+      "An update or acceptance conflicts in a file with repeated local merge evidence.",
+    family: "logbook-inline-finding",
+    example: {
+      observed: "A shared file conflicted across several efforts.",
+      next:
+        "Inspect whether independent entries can generate the shared artifact.",
+    },
+    template: ({ observed, next }): string => `${observed} ${next}`,
+  }),
+
   /** A session-scoped finding rendered as its summary and next step. */
   "logbook-status-finding": defineHint<{
     summary: string;

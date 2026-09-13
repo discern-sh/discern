@@ -63,9 +63,9 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
   },
   {
     key: "inline-findings",
-    phrase:
-      "advisory findings on `status`, the `done` Proof, and `improvement`",
-    surface: "`status` hints, the Proof tail, and `improvement`'s history",
+    phrase: "advisory findings during work and merge-conflict recovery",
+    surface:
+      "`status` hints, the Proof tail, `improvement` history, and update and acceptance conflict recovery",
     readers: [
       "src/engine/status/status.ts",
       "src/engine/gate/finish.ts",

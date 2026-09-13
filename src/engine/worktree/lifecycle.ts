@@ -75,7 +75,15 @@ import {
   type StepResult,
   verbatimStepLabel,
 } from "../../shared/result.ts";
-import { observeResult } from "../../shared/result_capture.ts";
+import {
+  observeMergeAttempt,
+  observeResult,
+} from "../../shared/result_capture.ts";
+import {
+  boundMergeAttempt,
+  type MergeAttempt,
+} from "../../shared/merge_observation.ts";
+import { mergeConflictHints } from "../logbook/surfaces.ts";
 import type {
   StartData,
   TaskRenameData,
@@ -2452,6 +2460,7 @@ export type UpdateCoreOutcome =
   | {
     readonly kind: "conflict";
     readonly files: string[];
+    readonly hints: FiredHint[];
     readonly resolvable: string[];
     readonly aborted: boolean;
     readonly resolutionFailure?: string;
@@ -2482,7 +2491,10 @@ async function executeUpdatePlan(
   ctx: LifecycleContext,
   plan: UpdatePlan,
 ): Promise<DiscernResult<UpdateData>> {
-  const outcome = await applyUpdateCore(ctx, plan);
+  const outcome = await applyUpdateCore(ctx, plan, {
+    route: "update",
+    effort: plan.worktreeBranch,
+  });
   switch (outcome.kind) {
     case "applied":
       return outcome.result;
@@ -2491,16 +2503,22 @@ async function executeUpdatePlan(
         "This worktree has uncommitted tracked changes, and update merges only into a " +
           "clean tree. Commit or stash them, then re-run `discern update`.",
       );
-    case "conflict":
-      throw new WorktreeGitError(
-        updateConflictMessage(
-          plan,
-          outcome.files,
-          outcome.resolvable,
-          outcome.aborted,
-          outcome.resolutionFailure,
-        ),
+    case "conflict": {
+      const message = updateConflictMessage(
+        plan,
+        outcome.files,
+        outcome.resolvable,
+        outcome.aborted,
+        outcome.resolutionFailure,
       );
+      throw new WorktreeResultError(message, {
+        ok: false,
+        verb: "update",
+        error: "precondition_failed",
+        message,
+        hints: hintTexts(outcome.hints),
+      });
+    }
     case "merge_failed":
       // Git refused before any merge began — unrelated histories, an untracked
       // file in the way. The tree is untouched; the cause is git's to name.
@@ -2521,7 +2539,9 @@ async function executeUpdatePlan(
 export async function applyUpdateCore(
   ctx: LifecycleContext,
   plan: UpdatePlan,
+  origin: Pick<MergeAttempt, "route" | "effort">,
 ): Promise<UpdateCoreOutcome> {
+  observeMergeAttempt();
   const { source } = plan;
   const outcome = await updateMain(
     ctx.cwd,
@@ -2532,6 +2552,21 @@ export async function applyUpdateCore(
       autoResolvable: (path) => updateGeneratedOwner(plan, path) !== undefined,
     },
   );
+  const observation = outcome.kind === "updated" || outcome.kind === "conflict"
+    ? boundMergeAttempt({
+      ...origin,
+      head: outcome.before,
+      incoming: outcome.main,
+      outcome: outcome.kind === "updated" ? "merged" : "conflict",
+      conflicts: outcome.kind === "updated"
+        ? outcome.autoResolved.map((path) => ({ path, generated: true }))
+        : outcome.files.map((path) => ({
+          path,
+          generated: outcome.resolvable.includes(path),
+        })),
+    })
+    : undefined;
+  if (observation !== undefined) observeMergeAttempt(observation);
   switch (outcome.kind) {
     case "skipped":
     case "already": {
@@ -2578,6 +2613,9 @@ export async function applyUpdateCore(
       return {
         kind: "conflict",
         files: outcome.files,
+        hints: observation === undefined
+          ? []
+          : await mergeConflictHints(ctx.root, ctx.config, observation),
         resolvable: outcome.resolvable,
         aborted: outcome.aborted,
         ...(outcome.resolutionFailure === undefined

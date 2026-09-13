@@ -65,6 +65,8 @@ The report groups its observations around several questions:
 
 Your agent reads this with `discern patterns`. The `--stats` view also shows recorded accomplishments, such as accepted changes, completion streaks, cycle times, and standard trends.
 
+Repeated merge conflicts can identify a file that obstructs parallel efforts. Update and acceptance recovery can surface that finding when the same file conflicts again. The [logbook reference](../30-reference/logbook.md#recurring-merge-conflicts) explains the evidence and the option to generate shared artifacts from separate authored entries.
+
 ## Findings can join into investigations
 
 Several observations may point toward the same question. Repeated failed runs and evidence of how the agent responded, for example, can support an investigation of the feedback loop.
