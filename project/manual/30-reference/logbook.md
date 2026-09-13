@@ -61,6 +61,7 @@ Setting `[project].logbook = false` stops new evidence for every feature below. 
 - advisory findings during work and merge-conflict recovery
 - wait estimates when concurrent test runs queue, and contention readings
 - the in-flight check on the contained-worktree offer; an installation with recording off uses a one-hour inactivity period
+- recurring `discern update` and `discern accept` merge-conflict detection and mitigation
 - observed checkpoint economics (`discern checkpoints`)
 - Logbook storage checks in `discern doctor`
 
@@ -78,18 +79,6 @@ You can read the complete report on demand. Working commands also surface select
 | `discern patterns`    | Every finding: plain summary followed by concrete observed evidence, up to 3 attention pointers, family blocks, standard sparklines, and insufficient-evidence accounting. |
 
 The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory. Findings change no command outcome, exit code, failed gate stage, score, Proof identity, or acceptance decision.
-
-Update and acceptance conflict recovery can also show the recurring-file finding for a path that currently conflicts. That reading includes the current merge observation before the invocation finishes.
-
-### Recurring merge conflicts
-
-`recurring-merge-conflicts` reports an authored file after it conflicts in at least 3 distinct merge attempts across at least 2 efforts. It includes updates and acceptance's integration merges. Successful merges enter the denominator. Attempts with the same authoring effort and revision pair count once, including retries across update and acceptance. Conflicting observations, missing revisions, and omitted path lists remain outside that denominator. Route counts can overlap.
-
-Inspect whether independent changes repeatedly edit the same section. If the file collects independent entries, record each entry separately and generate the final artifact. In `discern.toml`, declare the output `paths` and regeneration `run` under `[generated.<name>]`. Keep source entries outside the declared output paths. Updates and acceptance rebuild those outputs and resolve conflicts confined to generated files; authored-source conflicts still need review.
-
-The logbook's optional `merges` field holds versioned metadata: originating effort, update or acceptance route, Git commit IDs, merge outcome, conflict paths, generated classification, and omitted counts. It excludes file contents and error output. An empty observation records no merge; missing or unknown-version evidence stays unknown. Existing history cannot reconstruct paths it did not record. File recurrence alone does not establish that the same section conflicted.
-
-Each invocation records at most 64 merge attempts. Each attempt records at most 200 conflict paths, with the serialized conflict list limited to 8,192 bytes. Omitted observations and paths have explicit counts, so truncation cannot turn an unknown outcome into a success.
 
 A finding's `summary` states the condition in plain language. Its `observed` field supplies the count, denominator, named subject, conditions, and material limitations. Shorter reports retain the same summary; open `discern patterns` when you need the underlying evidence.
 

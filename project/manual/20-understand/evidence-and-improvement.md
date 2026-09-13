@@ -61,11 +61,9 @@ The report groups its observations around several questions:
 - **Are measured improvements lasting?** A standard's trajectory shows its recorded values alongside its limits over time.
 - **Do the checks fit the work?** Findings can identify where gate time goes, waits for shared test capacity, and different results under comparable recorded conditions. They can also flag review questions that rarely fire or repeatedly need exceptions.
 - **Where does work get stuck?** The record can show repeated failed runs or refusals and whether their suggested next actions were followed.
-- **How do tasks move toward landing?** When the necessary events are recorded, the report can follow tasks from start through completion and acceptance, including update friction.
+- **How do tasks move toward landing?** When the necessary events are recorded, the report can follow tasks from start through completion and acceptance, including update and integration, and suggest configuration improvements to remove friction and optimize performance.
 
 Your agent reads this with `discern patterns`. The `--stats` view also shows recorded accomplishments, such as accepted changes, completion streaks, cycle times, and standard trends.
-
-Repeated merge conflicts can identify a file that obstructs parallel efforts. Update and acceptance recovery can surface that finding when the same file conflicts again. The [logbook reference](../30-reference/logbook.md#recurring-merge-conflicts) explains the evidence and the option to generate shared artifacts from separate authored entries.
 
 ## Findings can join into investigations
 
