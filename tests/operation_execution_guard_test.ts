@@ -43,6 +43,7 @@ Deno.test("every project command boundary checks publication ownership before ef
   );
   const project = new Project({
     useInMemoryFileSystem: true,
+    compilerOptions: { noLib: true },
     skipAddingFilesFromTsConfig: true,
   });
   for (const row of rows) {
