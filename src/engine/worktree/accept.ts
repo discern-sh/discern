@@ -1354,27 +1354,34 @@ async function executeLanding(
   for (const warning of authority.warnings) log.warn(warning);
 
   log.info(`Fast-forwarding ${trunk} to ${effort.branch}…`);
-  const transition = await performAcceptanceTransition(effort.path, {
-    mainRepo,
-    trunk,
-    worktreeBranch: effort.branch,
-    expectedTrunk,
-    target: subject.head,
-    effortClaim: consent.source === "effort-grant",
-    ...(authority.effortGrant === undefined
-      ? {}
-      : { grantId: authority.effortGrant.id }),
-    ...(subject.submission === undefined
-      ? {}
-      : { submissionId: subject.submission.id }),
-    proof: {
-      candidate_id: subject.complete.candidate_id,
-      proof_id: subject.complete.proof_id,
-    },
-    consent,
-    variances,
-    standardProposals,
-  });
+  // Only the transition itself runs under the common publication boundary;
+  // note recording, convergence, and cleanup follow outside it under the
+  // acceptance boundary alone.
+  const transition = await withLandingCommonPhase(
+    effort.path,
+    () =>
+      performAcceptanceTransition(effort.path, {
+        mainRepo,
+        trunk,
+        worktreeBranch: effort.branch,
+        expectedTrunk,
+        target: subject.head,
+        effortClaim: consent.source === "effort-grant",
+        ...(authority.effortGrant === undefined
+          ? {}
+          : { grantId: authority.effortGrant.id }),
+        ...(subject.submission === undefined
+          ? {}
+          : { submissionId: subject.submission.id }),
+        proof: {
+          candidate_id: subject.complete.candidate_id,
+          proof_id: subject.complete.proof_id,
+        },
+        consent,
+        variances,
+        standardProposals,
+      }),
+  );
   if (transition.kind === "authority-changed") {
     const detail = transition.claim.status === "invalid" ||
         transition.claim.status === "newer" ||
@@ -1732,10 +1739,11 @@ async function landEffortOnce(
     let authority = await inspectLandingAuthority(effort.path, effort.trunk, {
       includeScopeEvidence: true,
     });
-    const recoverySteps = request.dryRun ? [] : await withLandingCommonPhase(
-      effort.path,
-      () =>
-        recoverInterruptedJournal(effort, authority, request.confirmed, env),
+    const recoverySteps = request.dryRun ? [] : await recoverInterruptedJournal(
+      effort,
+      authority,
+      request.confirmed,
+      env,
     );
     if (recoverySteps.length > 0) {
       authority = await inspectLandingAuthority(effort.path, effort.trunk, {
@@ -1828,20 +1836,19 @@ async function landEffortOnce(
     if (recoverySteps.length > 0) progress.landing.recovery_performed = true;
     try {
       const landed = direct
-        ? await withLandingCommonPhase(effort.path, () =>
-          executeLanding(
-            effort,
-            subject,
-            plan,
-            decision.authority,
-            decision.consent,
-            decision.variances,
-            decision.standardProposals,
-            progress,
-            tip,
-            request.signal,
-            env,
-          ))
+        ? await executeLanding(
+          effort,
+          subject,
+          plan,
+          decision.authority,
+          decision.consent,
+          decision.variances,
+          decision.standardProposals,
+          progress,
+          tip,
+          request.signal,
+          env,
+        )
         : await executeIntegrationLanding(
           effort,
           subject,

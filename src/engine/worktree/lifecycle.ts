@@ -38,7 +38,6 @@ import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { commandEvidence } from "../../shared/command_evidence.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { withLandingCommonPhase } from "../operation_lock.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
   fileExists,
@@ -3755,24 +3754,6 @@ async function buildPrunePlan(
  * trunk transition is already durable. Unfinished cleanup stays recorded for
  * `discern worktree prune`. */
 export async function removeIntegrationWorktree(
-  mainRepo: string,
-  record: Pick<IntegrationLandingRecord, "worktree">,
-  log: Logger,
-): Promise<string[]> {
-  // The removal mutates repository-shared state (registration, branch,
-  // record), so it runs as one short landing phase under the common
-  // publication boundary — reentrant when the caller already holds one.
-  return await withLandingCommonPhase(
-    mainRepo,
-    () => removeIntegrationWorktreeLocked(mainRepo, record, log),
-  );
-}
-
-/** The locked body of the removal above: teardown when the marker exists,
- * verified removal whenever the directory or registration survives, ledger
- * notes when no teardown could run, and the record retired only once the
- * branch is verifiably gone. */
-async function removeIntegrationWorktreeLocked(
   mainRepo: string,
   record: Pick<IntegrationLandingRecord, "worktree">,
   log: Logger,

@@ -4,6 +4,16 @@ import type { ShellWaitBoundary } from "./test_shell_wait_guard.ts";
 export const TEST_SHELL_WAIT_BOUNDARIES = [
   {
     path: "tests/engine_integration_landing_test.ts",
+    enclosing:
+      "a sibling completes while an integration landing's resource teardown runs",
+    argument: "0.1",
+    count: 1,
+    classification: "condition-poll",
+    reason:
+      "The paused resource destroy polls the parent-owned release file; the sibling completion under test must run while the cleanup holds.",
+  },
+  {
+    path: "tests/engine_integration_landing_test.ts",
     enclosing: "a sibling completion publishes while an integration gate runs",
     argument: "0.1",
     count: 1,

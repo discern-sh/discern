@@ -848,3 +848,74 @@ Deno.test("a sibling completion publishes while an integration gate runs", async
     });
   });
 });
+Deno.test("a sibling completes while an integration landing's resource teardown runs", async () => {
+  await withTempDir(async (dir) => {
+    await withTempDir(async (scratch) => {
+      // Only the integration copy's resource destroy pauses, holding the
+      // landing in its cleanup tail while a sibling effort completes.
+      await integrationFixture(
+        dir,
+        `${CONFIG}[worktree.resources.state]\ncreate = "true"\ndestroy = "sh destroy-pause.sh @worktree@"\n`,
+      );
+      await Deno.writeTextFile(
+        join(dir, "destroy-pause.sh"),
+        [
+          "#!/bin/sh",
+          'case "$1" in',
+          "  *integration*)",
+          `    touch "${scratch}/started"`,
+          `    until [ -f "${scratch}/release" ]; do sleep 0.1; done ;;`,
+          "esac",
+          "exit 0",
+          "",
+        ].join("\n"),
+      );
+      await git(dir, "add", "-A");
+      await git(
+        dir,
+        "commit",
+        "-q",
+        "-m",
+        "wire pausing destroy",
+        "--no-gpg-sign",
+      );
+      assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
+      await git(dir, "add", "-A");
+      if ((await gitOut(dir, "status", "--porcelain")) !== "") {
+        await git(dir, "commit", "-q", "-m", "converge", "--no-gpg-sign");
+      }
+
+      const alpha = await effortWithWork(dir, "alpha", "alpha.txt");
+      const beta = await effortWithWork(dir, "beta", "beta.txt");
+      assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+      assertEquals((await runAgent(beta, ["done", "--json"])).code, 0);
+      assertEquals(
+        (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+        0,
+      );
+
+      const landing = runAgent(beta, ["accept", "--confirmed", "--json"]);
+      await waitForPendingCondition(
+        landing,
+        () => targetExists(join(scratch, "started")),
+        "the landing reached its paused resource teardown",
+        {
+          settledError: (value) =>
+            new Error(`the landing settled before pausing: ${value.output}`),
+        },
+      );
+
+      // The trunk already carries the composed landing; a sibling created
+      // from it completes while the teardown holds — cleanup must not
+      // monopolize the publication boundary.
+      const gamma = await effortWithWork(dir, "gamma", "gamma.txt");
+      const sibling = await runAgent(gamma, ["done", "--json"]);
+      assertEquals(sibling.code, 0, sibling.output);
+
+      await Deno.writeTextFile(join(scratch, "release"), "go\n");
+      const landed = await landing;
+      assertEquals(landed.code, 0, landed.output);
+      await assertNoIntegrationRemains(dir);
+    });
+  });
+});
