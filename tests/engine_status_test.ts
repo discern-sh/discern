@@ -1286,7 +1286,7 @@ Deno.test("status: one worktree's journey from dirty iteration to a landed proof
     );
 
     await t.step(
-      "status: a behind worktree with a valid proof is not ready for owner review",
+      "status: a behind worktree with a valid proof stays ready and routes to accept, not update",
       async () => {
         await writeExecutable(join(dir, "upstream.txt"), "upstream");
         await git(dir, "add", "-A");
@@ -1310,16 +1310,31 @@ Deno.test("status: one worktree's journey from dirty iteration to a landed proof
           typeof behind === "number" && behind > 0,
           JSON.stringify(local.data),
         );
+        // Trunk movement withdraws nothing from honored Proof: acceptance
+        // composes the moved trunk itself, so the branch routes to accept —
+        // the up-to-date ready hint stays absent, the proven-behind route
+        // replaces it, and no update is prescribed.
         assertLacksHint(local, HINTS["status-ready-for-review"], {
           trunk: "main",
           branch: "agent/alpha",
+        });
+        assertHasHint(local, HINTS["status-proven-behind"], {
+          behind,
+          trunk: "main",
+          branch: "agent/alpha",
+          authority: { kind: "review" },
+        });
+        assertLacksHint(local, HINTS["status-branch-behind"], {
+          behind,
+          trunk: "main",
+          overlap: undefined,
         });
 
         const fleet = parseStatus(
           (await runAgent(dir, ["status", "--json"])).stdout,
         );
         assertExists(fleet.data.fleet);
-        assertLacksHint(fleet, HINTS["status-fleet-member-ready"], {
+        assertHasHint(fleet, HINTS["status-fleet-member-ready"], {
           total: 1,
           names: ["alpha"],
           trunk: "main",

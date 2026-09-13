@@ -470,10 +470,13 @@ function classifyKind(
       (entry.ahead !== undefined && isPositiveGitCount(entry.ahead)))
   ) return "stale";
   if (entry.clean === false) return "in-progress";
+  // Ready outranks behind: honored Proof covers the exact HEAD, and a moved
+  // trunk is composed by acceptance itself — the row is landable, not owed
+  // an author-side update.
+  if (ready) return "ready";
   if (entry.behind !== undefined && isPositiveGitCount(entry.behind)) {
     return "behind";
   }
-  if (ready) return "ready";
   if (proof.status === "read_failed") return "proof-unreadable";
   if (proof.status === "unavailable") return "proof-unavailable";
   if (proof.status === "stale") return "proof-stale";

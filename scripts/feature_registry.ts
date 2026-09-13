@@ -3998,6 +3998,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         hints: [
           "status-land-under-verified-authority",
           "status-ready-uncovered-authority",
+          "status-proven-behind",
           "gate-land-under-verified-authority",
           "gate-relay-uncovered-authority",
           "accept-relay-landing-proof",

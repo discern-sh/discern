@@ -1006,7 +1006,7 @@ Rendered example:
 
 Rendered example:
 
-> Run `discern update`, then `discern done` again before `discern accept`. The trunk advanced while the gate ran, so this branch is behind even though the gate passed for this HEAD.
+> The trunk advanced while the gate ran; the Proof still covers this exact HEAD. `discern accept` composes and checks the moved trunk itself, so landing needs no author-side update first. Use `discern update` only to continue authoring on the new trunk.
 
 ## `gate-update-docs`
 
@@ -1806,7 +1806,7 @@ Interactive example:
 
 Rendered example:
 
-> Run `discern update` directly. This branch is 2 commits behind main, and the command is idempotent and checks its own git preconditions. Re-check 2 changed files after updating. They also changed upstream (src/main.ts, tests/main_test.ts). Run `discern done` before handing off or a user-requested landing.
+> Run `discern update` directly. This branch is 2 commits behind main with its work still in progress, and the command is idempotent and checks its own git preconditions. Re-check 2 changed files after updating. They also changed upstream (src/main.ts, tests/main_test.ts). Prove the finished tree with `discern done`. Once a revision is proven, trunk movement alone needs no further update: `discern accept` composes and checks the moved trunk itself.
 
 ## `status-contained-refs`
 
@@ -1887,11 +1887,11 @@ Rendered example:
 
 Rendered example:
 
-> Note 2 worktree pairs changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help. Both sides may merge cleanly and still conflict semantically. Whoever lands second should run `discern update`; the update result names the shared paths to re-read.
+> Note 2 worktree pairs changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help. Both sides may merge cleanly and still conflict semantically. Each later landing composes and re-checks the combined code itself; a real conflict returns to that author with `discern update` naming the shared paths to resolve. While authoring, re-read the shared paths after an update brings the other side in.
 
 Interactive example:
 
-> 2 worktree pairs are changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help. `discern status --verbose` lists the shared paths. Whoever lands second should run `discern update` and re-read them.
+> 2 worktree pairs are changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help. `discern status --verbose` lists the shared paths. Later landings compose and re-check the combined code; a real conflict returns to its author to resolve.
 
 ## `status-fleet-logbook-disabled`
 
@@ -2029,6 +2029,17 @@ Rendered example:
 Rendered example:
 
 > There are no active worktrees.
+
+## `status-proven-behind`
+
+- Category: `next-step`
+- Audience: `agent`
+- Family: `status-review-readiness`
+- Emitting context: `status` finds a clean branch with honored Proof behind the trunk.
+
+Rendered example:
+
+> This clean HEAD is committed with honored Proof; main moved on beneath it (2 commits), which withdraws nothing — no update or new Proof is owed for that. Report this branch to your owner in your own words, end with the result's Proof line verbatim, then wait. When the owner accepts it, run `discern accept` directly. `discern accept` composes and checks the combined code in a disposable integration worktree and lands the exact proven result; a conflict, a failed combined check, or a renewed checkpoint judgment names its own next step.
 
 ## `status-ready-for-review`
 

@@ -58,10 +58,7 @@ import type {
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
-import {
-  isPositiveGitCount,
-  UNKNOWN_GIT_COUNT,
-} from "../../shared/git_count.ts";
+import { isPositiveGitCount } from "../../shared/git_count.ts";
 import {
   findRoot,
   installedConfigRel,
@@ -144,7 +141,12 @@ import {
 import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
 import { makeOut } from "../output.ts";
 import { inspectGateProof } from "../gate/proof.ts";
-import { isLandingCandidate, isReadyToLand } from "../worktree/readiness.ts";
+import {
+  behindTrunkRoute,
+  isBehindTrunk,
+  isLandingCandidate,
+  isReadyToLand,
+} from "../worktree/readiness.ts";
 import { addAdvisoryHints } from "../logbook/routing.ts";
 import {
   inlineFindingRoutes,
@@ -1187,20 +1189,44 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           : fire(HINTS["status-dirty-worktree"]),
       );
     }
-    if (
-      g.behind_trunk === UNKNOWN_GIT_COUNT ||
-      (g.behind_trunk !== null && isPositiveGitCount(g.behind_trunk))
-    ) {
-      hints.push(
-        fire(HINTS["status-branch-behind"], {
-          behind: g.behind_trunk,
-          trunk: main,
-          overlap: ctx.incomingOverlap === undefined ? undefined : {
-            total: ctx.incomingOverlap.total,
-            paths: ctx.incomingOverlap.overlap,
-          },
-        }),
-      );
+    const proofHonored = ctx.gateProof?.status === "honored";
+    if (isBehindTrunk(g.behind_trunk) && g.behind_trunk !== null) {
+      // One routing authority decides where a behind branch goes: proven
+      // work routes to accept (which composes the moved trunk itself);
+      // work still being authored updates and proves in place.
+      if (behindTrunkRoute({ clean: g.clean }, proofHonored) === "accept") {
+        const authority = ctx.landingAuthority;
+        const variant = authority?.kind === "authorized"
+          ? authority.consent.source === "effort-grant"
+            ? { kind: "effort-grant" as const }
+            : {
+              kind: "standing-grant" as const,
+              scopes: authority.consent.scopes ?? [],
+            }
+          : authority !== undefined &&
+              landingAuthorityProjection(authority) !== undefined
+          ? { kind: "uncovered" as const }
+          : { kind: "review" as const };
+        hints.push(
+          fire(HINTS["status-proven-behind"], {
+            behind: g.behind_trunk,
+            trunk: main,
+            branch: g.branch,
+            authority: variant,
+          }),
+        );
+      } else {
+        hints.push(
+          fire(HINTS["status-branch-behind"], {
+            behind: g.behind_trunk,
+            trunk: main,
+            overlap: ctx.incomingOverlap === undefined ? undefined : {
+              total: ctx.incomingOverlap.total,
+              paths: ctx.incomingOverlap.overlap,
+            },
+          }),
+        );
+      }
     }
     const readinessFacts = {
       clean: g.clean,
