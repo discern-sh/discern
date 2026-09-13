@@ -1093,17 +1093,14 @@ export const TOOLS: McpTool[] = orderTools([
       "the submission, re-serves the review moment, and lands nothing. Landing " +
       "fast-forwards the trunk to the exact proven commit, records its Proof " +
       "note, converges the main checkout, and removes the worktree, its branch, " +
-      "and its resources when the branch holds nothing beyond the landed commit; " +
-      "a branch with later commits keeps its checkout and is told to run " +
-      "discern_done then discern_accept for them. A trunk that moved after the " +
-      "Proof is composed and checked in a disposable integration worktree this " +
-      "landing owns, then landed as that exact proven commit; a conflict or red " +
-      "combined check returns to the author with nothing changed. A second " +
-      "accept waits its turn and resumes on its own. With target, the selected " +
-      "submission lands first and the remaining queue lands under its own " +
-      "recorded grants, stopping at the first refusal; data.landings reports " +
-      "each attempted landing. Recorded grants never cover a " +
-      "checkpoint variance or standard proposal. " +
+      "and its resources when the branch holds nothing beyond the landed commit. " +
+      "A trunk that moved after the Proof is composed and re-proven in a " +
+      "disposable integration worktree, then landed as that exact commit; a " +
+      "conflict or red combined check returns to the author, nothing changed. " +
+      "A second accept waits its turn. With target, the remaining queue lands " +
+      "after the selected submission, each under its own recorded grant, " +
+      "stopping at the first refusal; data.landings reports each attempt. " +
+      "Recorded grants never cover a checkpoint variance or standard proposal. " +
       "Set dry_run to inspect the landing plan and the queue without changing anything. " +
       "After success, report what landed and any unresolved cleanup in your own " +
       "words, then end with data.proof_line verbatim; the full review page remains " +

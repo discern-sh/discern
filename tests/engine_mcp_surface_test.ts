@@ -421,7 +421,8 @@ Deno.test("acceptance describes verified grants without requiring a new conversa
   );
   assertStringIncludes(
     accept.description,
-    "A trunk that moved after the Proof refuses with the update route",
+    "A trunk that moved after the Proof is composed and re-proven in a " +
+      "disposable integration worktree",
   );
   assertStringIncludes(
     accept.description,
