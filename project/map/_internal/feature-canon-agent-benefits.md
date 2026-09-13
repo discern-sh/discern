@@ -2,9 +2,9 @@
 
 # Agent Benefit Canon
 
-The [Readiness Canon](brand/readiness-canon.md) connects release questions to these outcomes and their existing feature mechanisms. Use its approaches to select work appropriate to the project and change.
-
 _discern's canonical account of what the product gives the coding agent operating it. Each entry leads with the agent outcome, explains the product mechanism, states the boundary, and cites the feature identities, agent-only hints, and public claims that make the account checkable. The [feature canon](feature-canon.md) owns product identity; the [Human Benefit Canon](feature-canon-human-benefits.md) owns value for people._
+
+The [Readiness Canon](brand/readiness-canon.md) connects release questions to these outcomes and their existing feature mechanisms. Use its approaches to select work appropriate to the project and change.
 
 9 workflow clusters · 24 agent benefits · 127 direct feature roles · 11 supporting feature roles · 19 agent-only hints · 17 agent or shared claims carried.
 
