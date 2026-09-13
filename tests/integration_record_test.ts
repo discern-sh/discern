@@ -19,6 +19,7 @@ import { classifyAutomaticBranchOwnership } from "../src/engine/worktree/ownersh
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut, scaffoldEngine } from "./engine_helpers.ts";
+import { withOperationJournal } from "../src/engine/completion/operation_journal.ts";
 import { removeIntegrationWorktree } from "../src/engine/worktree/lifecycle.ts";
 import { Logger } from "../src/lib/log.ts";
 import { join } from "@std/path";
@@ -93,13 +94,47 @@ Deno.test("a newer or malformed integration record fails closed with its reason"
   assertEquals(parseIntegrationLandingRecord("not json").status, "invalid");
 });
 
-Deno.test("the record's owner probe distinguishes a live process from a dead one", () => {
-  assertEquals(integrationOwnerLiveness(record("a-1")), "running");
-  // A pid beyond the platform's allocation range provably names no process.
-  assertEquals(
-    integrationOwnerLiveness(record("a-1", 2 ** 22 - 7)),
-    "gone",
-  );
+Deno.test("the record's owner probe distinguishes a live process from a dead one", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const root = await Deno.realPath(dir);
+    assertEquals(
+      await integrationOwnerLiveness(root, record("a-1")),
+      "running",
+    );
+    // A pid beyond the platform's allocation range provably names no process.
+    assertEquals(
+      await integrationOwnerLiveness(root, record("a-1", 2 ** 22 - 7)),
+      "gone",
+    );
+  });
+});
+
+Deno.test("a finished operation releases the copy even while its host process lives", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const root = await Deno.realPath(dir);
+    let recorded: IntegrationLandingRecord | undefined;
+    await withOperationJournal(root, {
+      verb: "accept",
+      path: root,
+    }, async (handle) => {
+      assert(handle !== undefined, "the journal store must open");
+      recorded = {
+        ...record("a-1"),
+        operation: { pid: Deno.pid, operation_handle: handle },
+      };
+      // While the operation runs, the record's owner is live.
+      assertEquals(await integrationOwnerLiveness(root, recorded), "running");
+    }, { result: () => ({ ok: true, verb: "accept" }) });
+    assert(recorded !== undefined);
+    // The operation finished; this very process still exists — the way a
+    // persistent server outlives every landing it ran — and the copy is
+    // released for prune.
+    assertEquals(await integrationOwnerLiveness(root, recorded), "gone");
+  });
 });
 
 Deno.test("integration branch ownership comes from the recorded copy, not the name", () => {

@@ -560,7 +560,7 @@ export async function statusResult(
       const row = fleet.find((entry) => entry.path === owned.worktree.path);
       if (row === undefined) continue;
       row.integration = {
-        owner: integrationOwnerLiveness(owned) === "running"
+        owner: await integrationOwnerLiveness(root, owned) === "running"
           ? "live"
           : "interrupted",
         for_branch: owned.landing.branch,

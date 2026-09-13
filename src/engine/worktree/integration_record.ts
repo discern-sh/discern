@@ -31,6 +31,7 @@ import {
 import {
   type ExecutorLiveness,
   executorLiveness,
+  readOperationJournal,
 } from "../completion/operation_journal.ts";
 import {
   NameSchema,
@@ -183,11 +184,32 @@ export async function listIntegrationLandingRecords(
   return entries.sort((a, b) => a.worktreeId.localeCompare(b.worktreeId));
 }
 
-/** Whether the record's owning landing process still runs. */
-export function integrationOwnerLiveness(
+/** Whether the record's owning landing is still executing. A surviving host
+ * process is not enough: a persistent server outlives every operation it
+ * ran, so when the record carries a reconnect handle the operation journal
+ * decides — a finished or evicted operation releases the copy for prune even
+ * while its process lives, and a running journal keeps it protected. An
+ * unreadable journal stays protective; a record without a handle falls back
+ * to the process alone. */
+export async function integrationOwnerLiveness(
+  mainRepo: string,
   record: IntegrationLandingRecord,
-): ExecutorLiveness {
-  return executorLiveness(record.operation.pid).state;
+): Promise<ExecutorLiveness> {
+  const process = executorLiveness(record.operation.pid).state;
+  if (process === "gone") return "gone";
+  const handle = record.operation.operation_handle;
+  if (handle === undefined) return process;
+  const reading = await readOperationJournal(mainRepo, handle);
+  if (reading.kind === "found") {
+    const finished = reading.record.outcome !== undefined ||
+      reading.record.operation.finished_at !== undefined;
+    return finished ? "gone" : process;
+  }
+  // The journal keeps every running operation and evicts finished ones
+  // first, so a missing record means the landing is over. Anything less
+  // certain — corrupt, newer, invalid — keeps the copy protected.
+  if (reading.kind === "missing") return "gone";
+  return process;
 }
 
 /** The recorded integration landing that owns `path`, when one is recorded. */

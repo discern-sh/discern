@@ -232,7 +232,9 @@ export async function submissionRows(
   for (const entry of await listIntegrationLandingRecords(root)) {
     if (entry.reading.status !== "recorded") continue;
     const record = entry.reading.record;
-    if (integrationOwnerLiveness(record) !== "running") continue;
+    if (await integrationOwnerLiveness(root, record) !== "running") {
+      continue;
+    }
     checking.set(record.landing.submission_id, {
       ...(record.operation.operation_handle === undefined
         ? {}

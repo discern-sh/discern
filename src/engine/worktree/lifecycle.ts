@@ -3850,7 +3850,7 @@ async function scanIntegrationLandings(
       continue;
     }
     const record = entry.reading.record;
-    const liveness = integrationOwnerLiveness(record);
+    const liveness = await integrationOwnerLiveness(ctx.root, record);
     if (liveness === "gone") {
       items.push({
         worktreeId: record.worktree.id,
@@ -3903,7 +3903,9 @@ async function reclaimIntegrationLandings(
       );
       continue;
     }
-    if (integrationOwnerLiveness(entry.reading.record) !== "gone") {
+    if (
+      await integrationOwnerLiveness(ctx.root, entry.reading.record) !== "gone"
+    ) {
       ctx.log.warn(
         `Skipped ${item.path}: its owning landing is live again; a live integration is never pruned.`,
       );
