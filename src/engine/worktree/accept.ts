@@ -79,6 +79,7 @@ import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { candidatePredecessor } from "../completion/candidate.ts";
 import { readCompleteProof } from "../gate/completion_proof.ts";
 import { observedGateOperation } from "../gate/observed_operation.ts";
+import { withLandingCommonPhase } from "../operation_lock.ts";
 import { planStageJobs } from "../gate/plan.ts";
 import { renderProofLineCli } from "../gate/presentation.ts";
 import { inspectGateProof } from "../gate/proof.ts";
@@ -1731,11 +1732,10 @@ async function landEffortOnce(
     let authority = await inspectLandingAuthority(effort.path, effort.trunk, {
       includeScopeEvidence: true,
     });
-    const recoverySteps = request.dryRun ? [] : await recoverInterruptedJournal(
-      effort,
-      authority,
-      request.confirmed,
-      env,
+    const recoverySteps = request.dryRun ? [] : await withLandingCommonPhase(
+      effort.path,
+      () =>
+        recoverInterruptedJournal(effort, authority, request.confirmed, env),
     );
     if (recoverySteps.length > 0) {
       authority = await inspectLandingAuthority(effort.path, effort.trunk, {
@@ -1828,19 +1828,20 @@ async function landEffortOnce(
     if (recoverySteps.length > 0) progress.landing.recovery_performed = true;
     try {
       const landed = direct
-        ? await executeLanding(
-          effort,
-          subject,
-          plan,
-          decision.authority,
-          decision.consent,
-          decision.variances,
-          decision.standardProposals,
-          progress,
-          tip,
-          request.signal,
-          env,
-        )
+        ? await withLandingCommonPhase(effort.path, () =>
+          executeLanding(
+            effort,
+            subject,
+            plan,
+            decision.authority,
+            decision.consent,
+            decision.variances,
+            decision.standardProposals,
+            progress,
+            tip,
+            request.signal,
+            env,
+          ))
         : await executeIntegrationLanding(
           effort,
           subject,

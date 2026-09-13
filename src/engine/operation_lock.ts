@@ -109,6 +109,8 @@ function concreteBoundaries(
     case "common-and-checkout":
     case "phased":
       return ["common", "checkout"];
+    case "acceptance-and-checkout":
+      return ["acceptance", "checkout"];
   }
 }
 
@@ -129,6 +131,8 @@ function refusal(
 function boundaryName(boundary: OperationLockConcreteBoundary): string {
   return boundary === "common"
     ? "common repository boundary"
+    : boundary === "acceptance"
+    ? "acceptance boundary"
     : "checkout boundary";
 }
 
@@ -141,7 +145,7 @@ async function resolveLockSpecs(
   for (const concrete of concreteBoundaries(boundary)) {
     const anchor = await gitAdminStatePath(
       cwd,
-      concrete === "common" ? "resources" : "gateProof",
+      concrete === "checkout" ? "gateProof" : "resources",
     );
     if (anchor === undefined) return undefined;
     const adminDirectory = await Deno.realPath(dirname(dirname(anchor)));
@@ -484,8 +488,13 @@ export async function withOperationLock<T>(
 }
 
 /** Version-one journal recovery holds exclusion for its whole transaction.
- * A `wait` makes a contended boundary queue behind the running landing
- * instead of refusing — the second `accept`'s turn-taking. */
+ * A `wait` makes a contended acceptance serializer queue behind the running
+ * landing instead of refusing — the second `accept`'s turn-taking. Landings
+ * serialize on the dedicated acceptance boundary and hold the author's
+ * checkout; the short common publication boundary joins per phase through
+ * `withLandingCommonPhase`, so a long combined check never starves ordinary
+ * completion publications, and the author-checkout acquisition stays
+ * nonblocking so a running `done` there can finish and publish. */
 export async function withAcceptanceRecoveryBoundary<T>(
   cwd: string,
   operation: () => Promise<T>,
@@ -500,7 +509,7 @@ export async function withAcceptanceRecoveryBoundary<T>(
         "discern-common-mutation",
         "discern-git-mutation",
       ],
-      lock: "common-and-checkout",
+      lock: "acceptance-and-checkout",
       preview: "required",
       gitWriteAuthority: "boundary-plan",
     },
@@ -509,6 +518,34 @@ export async function withAcceptanceRecoveryBoundary<T>(
     undefined,
     false,
     wait,
+  );
+}
+
+/** One short transactional phase of a landing: the common publication
+ * boundary joins for the freeze, transition, and cleanup effects — bounded
+ * exactly like an ordinary completion publication — and releases before any
+ * long check runs. Reentrant while a phase is already held. */
+export async function withLandingCommonPhase<T>(
+  cwd: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  return await withPolicyLock(
+    cwd,
+    { command: "accept" },
+    {
+      effects: [
+        "discern-checkout-mutation",
+        "discern-common-mutation",
+        "discern-git-mutation",
+      ],
+      lock: "common",
+      preview: "required",
+      gitWriteAuthority: "boundary-plan",
+    },
+    operation,
+    SYSTEM_SECURE_ENTROPY,
+    undefined,
+    true,
   );
 }
 
@@ -734,7 +771,7 @@ async function withOwnedSecondaryCheckout<T>(
     },
     operation,
     SYSTEM_SECURE_ENTROPY,
-    { common: common.key, checkout: checkout.key },
+    { serializer: common.key, checkout: checkout.key },
   );
 }
 
@@ -752,41 +789,74 @@ export async function withSetupProbeCheckout<T>(
   );
 }
 
-/** Run `operation` holding only the common-repository leases of the current
- * context. The landing walk uses this to move from the selected effort's
- * checkout to the next submission's: serialization stays with the common
- * lock, while each further landing acquires its own checkout boundary
- * non-blockingly — a busy follower refuses and stops the walk. */
-export async function runWithCommonLeasesOnly<T>(
+/** Run `operation` holding only the acceptance-serializer lease of the
+ * current context. The landing walk uses this to move from the selected
+ * effort's checkout to the next submission's: serialization stays with the
+ * acceptance boundary, while each further landing acquires its own checkout
+ * boundary non-blockingly — a busy follower refuses and stops the walk. */
+export async function runWithAcceptanceLeaseOnly<T>(
   operation: () => Promise<T>,
 ): Promise<T> {
   const held = currentOperationLocks();
   if (held === undefined) return await operation();
   const leases = new Map(
-    [...held.leases].filter(([, lease]) => lease.boundary === "common"),
+    [...held.leases].filter(([, lease]) => lease.boundary === "acceptance"),
   );
   return await runWithOperationLocks({
     leases,
     boundaries: new Set(
-      [...held.boundaries].filter((boundary) => boundary === "common"),
+      [...held.boundaries].filter((boundary) => boundary === "acceptance"),
     ),
   }, operation);
 }
 
 /** A landing's freshly created integration worktree holds its own checkout
- * lease for the composed update and gate cores, under the acceptance
- * transaction's already-held common lock — so those cores reuse held leases
- * instead of deadlocking on a second acquisition. */
+ * lease for the composed update and gate cores, under the already-held
+ * acceptance serializer — so those cores reuse held leases instead of
+ * deadlocking on a second acquisition, while the common publication
+ * boundary stays free for sibling completions throughout the checks. */
 export async function withIntegrationCheckout<T>(
   authorWorktree: string,
   integrationWorktree: string,
   operation: () => Promise<T>,
 ): Promise<T> {
-  return await withOwnedSecondaryCheckout(
+  const parentSpecs = await resolveLockSpecs(
     authorWorktree,
+    "acceptance-and-checkout",
+  );
+  const secondarySpecs = await resolveLockSpecs(
+    integrationWorktree,
+    "acceptance-and-checkout",
+  );
+  const serializer = parentSpecs?.find((spec) =>
+    spec.boundary === "acceptance"
+  );
+  const checkout = secondarySpecs?.find((spec) => spec.boundary === "checkout");
+  const held = currentOperationLocks();
+  if (
+    serializer === undefined || checkout === undefined ||
+    held?.leases.has(serializer.key) !== true ||
+    secondarySpecs?.find((spec) => spec.boundary === "acceptance")?.key !==
+      serializer.key ||
+    parentSpecs?.some((spec) => spec.key === checkout.key)
+  ) {
+    throw refusal(
+      { command: "accept" },
+      "A landing's integration worktree runs only under its own live acceptance serializer in the same repository.",
+    );
+  }
+  return await withPolicyLock(
     integrationWorktree,
     { command: "accept" },
+    {
+      effects: ["discern-checkout-mutation", "project-command"],
+      lock: "checkout",
+      preview: "required",
+      gitWriteAuthority: "opaque",
+    },
     operation,
+    SYSTEM_SECURE_ENTROPY,
+    { serializer: serializer.key, checkout: checkout.key },
   );
 }
 
@@ -797,7 +867,12 @@ async function withPolicyLock<T>(
   policy: OperationEffectPolicy,
   operation: (commonGitDirectory?: string) => Promise<T>,
   entropy: SecureEntropy,
-  secondaryCheckout?: { readonly common: string; readonly checkout: string },
+  secondaryCheckout?: {
+    /** The held lease that legitimizes the second checkout: a setup's
+     * common transaction, or a landing's acceptance serializer. */
+    readonly serializer: string;
+    readonly checkout: string;
+  },
   waitForPublication = false,
   wait?: OperationLockWait,
 ): Promise<T> {
@@ -842,7 +917,10 @@ async function withPolicyLock<T>(
   const acquiringCheckout = missing.some((spec) =>
     spec.boundary === "checkout"
   );
-  if (heldCheckout && acquiringCommon && held?.completionExecution !== true) {
+  if (
+    heldCheckout && acquiringCommon && held?.completionExecution !== true &&
+    held?.boundaries.has("acceptance") !== true
+  ) {
     throw refusal(
       invocation,
       "discern refused a nested operation that would acquire the common repository boundary after a checkout boundary. " +
@@ -867,7 +945,7 @@ async function withPolicyLock<T>(
     }
   }
   const serializedSecondary = secondaryCheckout !== undefined &&
-    held?.leases.has(secondaryCheckout.common) === true &&
+    held?.leases.has(secondaryCheckout.serializer) === true &&
     missing.every((spec) =>
       spec.boundary === "checkout" && spec.key === secondaryCheckout.checkout
     );
@@ -889,7 +967,7 @@ async function withPolicyLock<T>(
         spec,
         entropy,
         waitForPublication,
-        wait,
+        spec.boundary === "acceptance" ? wait : undefined,
       );
       acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);

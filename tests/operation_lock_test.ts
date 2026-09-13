@@ -366,7 +366,7 @@ Deno.test("a waiting acceptance queues behind the running landing and resumes on
       () => withAcceptanceTransactionLock(second, () => Promise.resolve()),
       WorktreeResultError,
     );
-    assertStringIncludes(refusal.message, "common repository boundary");
+    assertStringIncludes(refusal.message, "acceptance boundary");
 
     // With a wait, it reports the contention once and resumes after release.
     let contended = 0;
@@ -414,6 +414,28 @@ Deno.test("a cancelled landing wait refuses without running the operation", asyn
     );
     assertEquals(ran, false);
     assertStringIncludes(refusal.message, "cancelled");
+    release.resolve();
+    await running;
+  });
+});
+
+Deno.test("a completion publication proceeds while a landing holds the acceptance boundary", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const running = withAcceptanceTransactionLock(
+      dir,
+      heldOperation(entered.resolve, release.promise),
+    );
+    await entered.promise;
+    // The landing serializes on its own boundary; the short publication
+    // boundary stays free for sibling completions throughout.
+    const published = await withCompletionPublication(
+      dir,
+      () => Promise.resolve("published"),
+    );
+    assertEquals(published, "published");
     release.resolve();
     await running;
   });

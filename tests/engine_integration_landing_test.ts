@@ -778,3 +778,73 @@ Deno.test("an ancestry-direct landing re-verifies never-loosen against the trunk
     await assertNoIntegrationRemains(dir);
   });
 });
+Deno.test("a sibling completion publishes while an integration gate runs", async () => {
+  await withTempDir(async (dir) => {
+    await withTempDir(async (scratch) => {
+      // The integration copy's gate pauses on a release file, holding the
+      // landing mid-check while a sibling effort completes normally.
+      await integrationFixture(
+        dir,
+        CONFIG.replace('lint = ":"', 'lint = "sh gate-pause.sh"'),
+      );
+      await Deno.writeTextFile(
+        join(dir, "gate-pause.sh"),
+        [
+          "#!/bin/sh",
+          'case "$(pwd)" in',
+          "  *integration*)",
+          `    touch "${scratch}/started"`,
+          `    until [ -f "${scratch}/release" ]; do sleep 0.1; done ;;`,
+          "esac",
+          "exit 0",
+          "",
+        ].join("\n"),
+      );
+      await git(dir, "add", "-A");
+      await git(
+        dir,
+        "commit",
+        "-q",
+        "-m",
+        "wire pausing gate",
+        "--no-gpg-sign",
+      );
+      assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
+      await git(dir, "add", "-A");
+      if ((await gitOut(dir, "status", "--porcelain")) !== "") {
+        await git(dir, "commit", "-q", "-m", "converge", "--no-gpg-sign");
+      }
+
+      const alpha = await effortWithWork(dir, "alpha", "alpha.txt");
+      const beta = await effortWithWork(dir, "beta", "beta.txt");
+      assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+      assertEquals((await runAgent(beta, ["done", "--json"])).code, 0);
+      assertEquals(
+        (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+        0,
+      );
+
+      const landing = runAgent(beta, ["accept", "--confirmed", "--json"]);
+      await waitForPendingCondition(
+        landing,
+        () => targetExists(join(scratch, "started")),
+        "the integration gate reached its paused check",
+        {
+          settledError: (value) =>
+            new Error(`the landing settled before pausing: ${value.output}`),
+        },
+      );
+
+      // A third effort completes while the landing's check is running: its
+      // publication must not starve behind the landing.
+      const gamma = await effortWithWork(dir, "gamma", "gamma.txt");
+      const sibling = await runAgent(gamma, ["done", "--json"]);
+      assertEquals(sibling.code, 0, sibling.output);
+
+      await Deno.writeTextFile(join(scratch, "release"), "go\n");
+      const landed = await landing;
+      assertEquals(landed.code, 0, landed.output);
+      await assertNoIntegrationRemains(dir);
+    });
+  });
+});

@@ -38,6 +38,7 @@ import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { commandEvidence } from "../../shared/command_evidence.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { withLandingCommonPhase } from "../operation_lock.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
   fileExists,
@@ -3758,11 +3759,25 @@ export async function removeIntegrationWorktree(
   record: Pick<IntegrationLandingRecord, "worktree">,
   log: Logger,
 ): Promise<string[]> {
+  // The removal mutates repository-shared state (registration, branch,
+  // record), so it runs as one short landing phase under the common
+  // publication boundary — reentrant when the caller already holds one.
+  return await withLandingCommonPhase(
+    mainRepo,
+    () => removeIntegrationWorktreeLocked(mainRepo, record, log),
+  );
+}
+
+async function removeIntegrationWorktreeLocked(
+  mainRepo: string,
+  record: Pick<IntegrationLandingRecord, "worktree">,
+  log: Logger,
+): Promise<string[]> {
   const failures: string[] = [];
   // Reported alongside failures but never gating the record: surviving
   // resource ledger rows have their own recovery route (orphan GC), while
   // the record accounts for the checkout and the branch.
-  const advisories: string[] = [];
+  const ledgerNotes: string[] = [];
   const dir = record.worktree.path;
   const gitMarker = await fileExists(join(dir, ".git"));
   if (gitMarker) {
@@ -3813,7 +3828,7 @@ export async function removeIntegrationWorktree(
         item.entry.worktree_path === dir
       );
     if (remaining.length > 0) {
-      advisories.push(
+      ledgerNotes.push(
         `integration resources remain recorded for recovery (${
           remaining.map((item) => item.entry.resource_name).join(", ")
         }); discern worktree prune reclaims them`,
@@ -3855,13 +3870,13 @@ export async function removeIntegrationWorktree(
     }
   }
   // The record outlives the branch, never the reverse: it is removed only
-  // once everything it accounts for is verifiably gone. Ledger advisories
+  // once everything it accounts for is verifiably gone. Ledger notes
   // are reported without retaining it — the resource ledger is its own
   // recovery record.
   if (failures.length === 0) {
     await removeIntegrationLandingRecord(mainRepo, record.worktree.id);
   }
-  return [...failures, ...advisories];
+  return [...failures, ...ledgerNotes];
 }
 
 /** Classify every recorded integration landing for the prune plan: a dead

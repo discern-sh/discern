@@ -12,7 +12,7 @@ import type {
   AcceptData,
   LandingOutcomeData,
 } from "../../shared/result_schemas.ts";
-import { runWithCommonLeasesOnly } from "../operation_lock.ts";
+import { runWithAcceptanceLeaseOnly } from "../operation_lock.ts";
 import { short } from "./accept_support.ts";
 import { withAcceptanceTransactionLock } from "./acceptance_transaction.ts";
 import { WorktreeGitError } from "./git.ts";
@@ -98,10 +98,10 @@ export async function walkQueue(
           `${next.branch}'s worktree could not be selected for the walk.`,
         );
       }
-      // Serialization stays with the held common lock; the follower's own
+      // Serialization stays with the held acceptance lease; the follower's
       // checkout boundary is acquired non-blockingly, so a busy follower
       // refuses and the walk stops there.
-      follower = await runWithCommonLeasesOnly(() =>
+      follower = await runWithAcceptanceLeaseOnly(() =>
         withAcceptanceTransactionLock(
           followerEffort.path,
           () =>

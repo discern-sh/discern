@@ -47,7 +47,7 @@ import {
 import { readOperationJournal } from "../src/engine/completion/operation_journal.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 import { withTempDir } from "./helpers.ts";
 
 const CONFIG = [
@@ -552,5 +552,78 @@ Deno.test("a first acceptance freezes its proven revision before waiting to subm
     assertEquals(await gitOut(dir, "rev-parse", "main"), entered);
     assertStringIncludes(result.message ?? "", "holds later commits");
     assert(await targetExists(betaPath));
+  });
+});
+Deno.test("a running done in the author checkout is never deadlocked by acceptance", async () => {
+  await withTempDir(async (dir) => {
+    await withTempDir(async (scratch) => {
+      await scaffoldEngine(dir);
+      await writeConfig(
+        dir,
+        CONFIG.replace('lint = ":"', 'lint = "sh author-pause.sh"'),
+      );
+      await gitInit(dir);
+      await Deno.writeTextFile(
+        join(dir, "author-pause.sh"),
+        [
+          "#!/bin/sh",
+          `if [ -f "${scratch}/pause" ]; then`,
+          '  case "$(pwd)" in',
+          "    *integration*) ;;",
+          "    *)",
+          `      touch "${scratch}/started"`,
+          `      until [ -f "${scratch}/release" ]; do sleep 0.1; done ;;`,
+          "  esac",
+          "fi",
+          "exit 0",
+          "",
+        ].join("\n"),
+      );
+      await git(dir, "add", "-A");
+      await git(
+        dir,
+        "commit",
+        "-q",
+        "-m",
+        "wire pausing lint",
+        "--no-gpg-sign",
+      );
+      assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
+      await git(dir, "add", "-A");
+      if ((await gitOut(dir, "status", "--porcelain")) !== "") {
+        await git(dir, "commit", "-q", "-m", "converge", "--no-gpg-sign");
+      }
+      const beta = await provenEffort(dir, "beta");
+      const tip = await gitOut(dir, "rev-parse", "main");
+
+      // A rerun holds beta's checkout mid-gate; acceptance must neither
+      // wait for that checkout while serialized nor starve the rerun's
+      // completion publication.
+      await Deno.writeTextFile(join(scratch, "pause"), "on\n");
+      const rerun = runAgent(beta, ["done", "--rerun", "--json"]);
+      await waitForPendingCondition(
+        rerun,
+        () => targetExists(join(scratch, "started")),
+        "the rerun reached its paused check",
+        {
+          settledError: (value) =>
+            new Error(`the rerun settled before pausing: ${value.output}`),
+        },
+      );
+
+      const refused = await runAgent(beta, ["accept", "--confirmed", "--json"]);
+      assertEquals(refused.code, 1, refused.output);
+      const result = decodeCliResult(refused.stdout, "accept");
+      assertStringIncludes(result.message ?? "", "checkout boundary");
+      assertStringIncludes(result.message ?? "", "Retry");
+      assertEquals(await gitOut(dir, "rev-parse", "main"), tip);
+
+      await Deno.writeTextFile(join(scratch, "release"), "go\n");
+      const finished = await rerun;
+      assertEquals(finished.code, 0, finished.output);
+
+      const landed = await runAgent(beta, ["accept", "--confirmed", "--json"]);
+      assertEquals(landed.code, 0, landed.output);
+    });
   });
 });

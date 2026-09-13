@@ -11,7 +11,10 @@ import { z } from "@zod/zod";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
 import { decodeJson } from "./runtime_decode.ts";
 
-export type OperationLockConcreteBoundary = "common" | "checkout";
+export type OperationLockConcreteBoundary =
+  | "acceptance"
+  | "common"
+  | "checkout";
 
 /** One OS-backed lock lease that may be delegated to a child process. */
 export interface OperationLockLease {
