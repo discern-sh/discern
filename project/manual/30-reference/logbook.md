@@ -89,6 +89,8 @@ Inspect whether independent changes repeatedly edit the same section. If the fil
 
 The logbook's optional `merges` field holds versioned metadata: originating effort, update or acceptance route, Git commit IDs, merge outcome, conflict paths, generated classification, and omitted counts. It excludes file contents and error output. An empty observation records no merge; missing or unknown-version evidence stays unknown. Existing history cannot reconstruct paths it did not record. File recurrence alone does not establish that the same section conflicted.
 
+Each invocation records at most 64 merge attempts. Each attempt records at most 200 conflict paths, with the serialized conflict list limited to 8,192 bytes. Omitted observations and paths have explicit counts, so truncation cannot turn an unknown outcome into a success.
+
 A finding's `summary` states the condition in plain language. Its `observed` field supplies the count, denominator, named subject, conditions, and material limitations. Shorter reports retain the same summary; open `discern patterns` when you need the underlying evidence.
 
 ## Practice stats
@@ -226,6 +228,7 @@ Invocation `surface` is `cli` or `mcp`. Completion `outcome` is `ok`, `failed`, 
 | `scopes`        | the configured scopes touched                                           |
 | `steps`         | per-step labels, stages, outcomes, timings                              |
 | `validation`    | versioned validation-start and execution evidence                       |
+| `merges`        | [versioned merge observations](#recurring-merge-conflicts)              |
 | `diagnostics`   | tool, rule id, file path at most                                        |
 | `hint_ids`      | stable ids of advice delivered with the result                          |
 | `tip_ids`       | stable ids of desk tips shown during the run                            |
