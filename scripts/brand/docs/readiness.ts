@@ -54,7 +54,7 @@ export function renderReadinessCanonDoc(
     "",
     "Start with the purpose and the people the change serves. Select the concerns it raises, then follow a question to its documentation and a practical way to investigate it. The first feature in each route is its discovery destination. The family’s benefit and practice links come from those features’ existing canon entries.",
     "",
-    "Feature names open the documentation; contribution labels open the feature’s question connections below. From this reference or the [feature canon](../feature-canon.md), a reader can follow the same relationship in either direction.",
+    "Each question lists its supporting feature slugs from the [feature canon](../feature-canon.md). The slugs open the documentation; the feature accounts below explain how each capability helps.",
     "",
     "Intent frames the effort. The concern families explore its consequences. Evidence qualifies the answers. Authority identifies who can permit the next action or accept an exception. Ready for review, landing, and deployment may call for different evidence. A small copy edit and a data migration deserve different attention; uncertainty about applicability is itself something to resolve.",
     "",
@@ -95,17 +95,13 @@ export function renderReadinessCanonDoc(
         "",
         question.approach,
         "",
-        `**Start here:** ${
+        `**Supporting features:** ${
           question.routes.map((id) => {
-            const route = READINESS_ROUTES[id];
-            const path = relative("project/map/_internal/brand", route.doc);
-            return `[${requiredTitle(features, id)}](${path}) (${
-              canonLink(
-                "",
-                requiredTitle(features, id),
-                route.contribution.toLowerCase(),
-              )
-            })`;
+            const path = relative(
+              "project/map/_internal/brand",
+              READINESS_ROUTES[id].doc,
+            );
+            return `[\`${id}\`](${path})`;
           }).join(" · ")
         }.`,
         "",
@@ -155,7 +151,7 @@ export function renderReadinessCanonDoc(
   lines.push(
     "## Start with a feature",
     "",
-    "Give a feature a question worth answering. These connections show what each feature brings to the work, the questions it helps address, and the human and agent benefits already tied to it. Use a featured question to introduce the capability, then follow the full account when the reader wants to put it to work.",
+    "Give a feature a question worth answering. These connections show what each feature brings to the work, the questions it helps address, and the human and agent benefits already tied to it. Use a connected question to introduce the capability, then follow the full account when the reader wants to put it to work.",
     "",
     "Start here marks a question’s primary discovery destination. Also helps names another contribution to the same question. These roles come from the question’s route order; the connection remains the same whichever end you start from.",
     "",
@@ -214,7 +210,7 @@ export function renderReadinessCanonDoc(
     "",
     "## Ownership and traceability",
     "",
-    "`scripts/brand/readiness.ts` owns the families, questions, approaches, feature routes, and feature introductions. `scripts/brand/docs/readiness.ts` renders the question and feature views; the feature canon derives its question links from the same records. Feature identities and names, human and agent benefits, and practice obligations remain in their own registries. The route names the benefit it introduces; its feature must occur in that benefit’s product basis, with the agent canon’s direct or supporting role retained. Practice connections derive from the tenets’ mechanism citations. Coverage runs from each question into the existing canons; unrelated features need no readiness question.",
+    "`scripts/brand/readiness.ts` owns the families, questions, approaches, feature routes, and feature introductions. `scripts/brand/docs/readiness.ts` renders the question and feature views here. Each question’s supporting-feature list uses the feature registry’s stable slugs; the feature canon keeps its mechanism account. Feature identities and names, human and agent benefits, and practice obligations remain in their own registries. The route names the benefit it introduces; its feature must occur in that benefit’s product basis, with the agent canon’s direct or supporting role retained. Practice connections derive from the tenets’ mechanism citations. Coverage runs from each question into the existing canons; unrelated features need no readiness question.",
     "",
     "`tests/readiness_canon_test.ts` checks live routes, benefit support, documentation destinations, question identity, reverse feature connections, and future-member rendering. The brand codegen guard keeps this page current. [ADR 0391](../../_adr/0391-readiness-connects-questions-to-the-practice.md) records the ownership and voice decision.",
     "",

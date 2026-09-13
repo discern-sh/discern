@@ -18,8 +18,6 @@ export type ReadinessContribution =
 
 interface ReadinessRoute {
   readonly contribution: ReadinessContribution;
-  /** One representative question, selected from this feature's relationships. */
-  readonly leadQuestion: string;
   /** Brand register: the reason someone would want this feature in the work. */
   readonly invitation: string;
   /** The concrete part this feature plays in answering its linked questions. */
@@ -33,7 +31,6 @@ interface ReadinessRoute {
 /** Keys are feature-canon identities. Titles and benefit prose stay there. */
 export const READINESS_ROUTES = {
   gate: {
-    leadQuestion: "meet-acceptance-criteria",
     invitation: "Make done mean something you can rely on.",
     how:
       "The Gate runs the checks the project declares before recording completion, giving testable acceptance criteria a repeatable place in the work.",
@@ -43,7 +40,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "run-the-relevant-gate-efficiently",
   },
   checkpoints: {
-    leadQuestion: "complete-without-explanation",
     invitation:
       "Bring your judgment into the change while it can still shape the work.",
     how:
@@ -54,7 +50,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "carry-judgment-as-judgment",
   },
   coupling: {
-    leadQuestion: "check-related-places",
     invitation: "Follow the change beyond the files already in front of you.",
     how:
       "Coupling uses Git history to name files that habitually change together, giving the agent concrete companions to investigate while the change is open.",
@@ -64,7 +59,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "diagnose-workflow-friction-locally",
   },
   "skill-cure-a-bug": {
-    leadQuestion: "guard-against-recurrence",
     invitation: "Let this fix outlast this defect.",
     how:
       "The skill teaches the agent to prove the cause, find the defect class, and leave a guard that covers future instances.",
@@ -74,7 +68,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "invoke-curated-project-procedures",
   },
   "skill-write-it-once": {
-    leadQuestion: "keep-one-source-of-truth",
     invitation: "Make the next change easier to get right.",
     how:
       "The skill teaches one authority per fact, guards that include future members, and effects planned before execution; the agent applies those methods to shared data, retries, and interrupted work.",
@@ -84,7 +77,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "invoke-curated-project-procedures",
   },
   standards: {
-    leadQuestion: "hold-memory-use",
     invitation: "Keep the gains you worked for.",
     how:
       "A project supplies a repeatable measurement and a defensible limit; Standards hold that limit against regressions in memory, calls, cost, or another property the measurement represents.",
@@ -94,7 +86,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "retain-earned-quality",
   },
   "skill-clear-the-decks": {
-    leadQuestion: "remove-temporary-scaffolding",
     invitation: "Leave room for the next idea.",
     how:
       "The cleanup skill teaches the agent to find accumulated clutter, prove each removal safe, and retain a measured limit where recurring clutter can be counted.",
@@ -104,7 +95,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "invoke-curated-project-procedures",
   },
   "adr-discipline": {
-    leadQuestion: "record-important-decisions",
     invitation: "Keep the reason within reach of the next decision.",
     how:
       "Decision records preserve significant choices, alternatives, and reasons in the project, with an index that later maintainers and agents can follow.",
@@ -114,7 +104,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "recover-the-project-mental-model",
   },
   map: {
-    leadQuestion: "make-the-next-change-understandable",
     invitation: "Give the next person somewhere useful to start.",
     how:
       "The Map holds the project's account of boundaries, workflows, and where to begin, so review and support preparation can start from retained understanding.",
@@ -124,7 +113,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "recover-the-project-mental-model",
   },
   instructions: {
-    leadQuestion: "respect-project-boundaries",
     invitation: "Let your expectations reach every agent who joins the work.",
     how:
       "Project instructions carry architectural boundaries and supported-environment policies into the compiled instructions each coding agent receives.",
@@ -134,7 +122,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "inherit-current-agent-instructions",
   },
   "skill-delegate-work": {
-    leadQuestion: "solve-the-requested-problem",
     invitation: "Give ambition a brief someone can finish.",
     how:
       "The delegation skill teaches complete task briefs with intended outcomes, scope, and acceptance criteria, followed by review of what returns.",
@@ -144,7 +131,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "invoke-curated-project-procedures",
   },
   proof: {
-    leadQuestion: "bind-results-to-this-version",
     invitation: "Know what stands behind the work that comes back.",
     how:
       "Proof binds the recorded completion evidence to the validated change, so a reviewer can compare what was established with the questions the release still raises.",
@@ -154,7 +140,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "prove-the-exact-tree",
   },
   accept: {
-    leadQuestion: "authorize-the-exception",
     invitation: "Keep the decision to land in the right hands.",
     how:
       "Acceptance checks authority for the proposed landing and requires the owner's authorization for the current unmet checkpoint set; the recorded decision stays tied to the work.",
@@ -164,7 +149,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "land-only-with-release-authority",
   },
   "scope-gates": {
-    leadQuestion: "preserve-existing-workflows",
     invitation:
       "Give each part of the project the attention its changes deserve.",
     how:
@@ -175,7 +159,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "see-the-change-discern-sees",
   },
   "jobs-table": {
-    leadQuestion: "keep-secrets-out-of-diagnostics",
     invitation: "Put the checks your project needs into its everyday practice.",
     how:
       "Declared jobs give the project's tests, analysis, and specialist tools a shared command table, including checks for sensitive output or release configuration.",
@@ -184,18 +167,8 @@ export const READINESS_ROUTES = {
     humanBenefit: "project-defined-completion",
     agentBenefit: "run-the-relevant-gate-efficiently",
   },
-  "job-test": {
-    leadQuestion: "open-older-saved-data",
-    invitation: "Keep yesterday's workflows working in tomorrow's release.",
-    how:
-      "The test job runs the suite the project supplies: saved-data fixtures, client contracts, input boundaries, failure cases, and recovery exercises can all become repeatable checks.",
-    contribution: "Project checks",
-    doc: "project/manual/10-guides/finish-and-land-a-change.md",
-    humanBenefit: "project-defined-completion",
-    agentBenefit: "run-the-relevant-gate-efficiently",
-  },
+
   "generated-artifact-declarations": {
-    leadQuestion: "keep-one-source-of-truth",
     invitation: "Change the source and bring its copies with it.",
     how:
       "Generated artifact declarations name which committed files a generator owns and how to regenerate them, keeping derived files connected to the source the project chose.",
@@ -205,7 +178,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "use-a-fast-inner-loop",
   },
   "producer-evidence": {
-    leadQuestion: "run-the-relevant-checks",
     invitation: "See the checks behind the confidence.",
     how:
       "Validation results name the producers executed or reused, their input binding, and the reason for reuse, so a reviewer can see how the current result obtained its evidence.",
@@ -215,7 +187,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "prove-the-exact-tree",
   },
   "map-freshness": {
-    leadQuestion: "keep-privacy-commitments-current",
     invitation: "Find the explanation that needs another look.",
     how:
       "File-linked freshness shows which source files a Map page covers and when they changed, helping an agent find accounts of data behavior, support, or recovery that need review.",
@@ -225,7 +196,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "recover-the-project-mental-model",
   },
   "impact": {
-    leadQuestion: "stay-within-agreed-scope",
     invitation: "See which parts of the project your change reaches.",
     how:
       "Impact names the configured scopes touched by the change, giving the agent a concrete starting point for comparing repository changes with the agreed brief.",
@@ -235,7 +205,6 @@ export const READINESS_ROUTES = {
     agentBenefit: "see-the-change-discern-sees",
   },
   "proof-notes": {
-    leadQuestion: "bind-results-to-this-version",
     invitation: "Keep the evidence with the code people will build on.",
     how:
       "After landing, a Proof note retains the structured completion record on the landed trunk commit, making the evidence findable beyond the session that produced it.",
@@ -287,7 +256,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "meet-acceptance-criteria",
         question: "Are the acceptance criteria met?",
-        routes: ["gate", "job-test", "checkpoints"],
+        routes: ["gate", "checkpoints"],
         approach:
           "Turn testable criteria into project checks and exercise the criteria that need judgment against the result.",
       },
@@ -312,14 +281,14 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
         id: "handle-input-extremes",
         question:
           "What happens with empty, invalid, or unusually large inputs?",
-        routes: ["job-test"],
+        routes: ["gate"],
         approach:
           "Add representative boundary cases to the project's tests and include those tests in its declared checks.",
       },
       {
         id: "recover-after-failure",
         question: "Do failures leave the system in a recoverable state?",
-        routes: ["skill-write-it-once", "job-test"],
+        routes: ["skill-write-it-once", "gate"],
         approach:
           "Plan the operation's effects, interrupt it at meaningful boundaries, and test the recovery path.",
       },
@@ -327,7 +296,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
         id: "retry-without-duplicate-effects",
         question:
           "Does retrying repeat an action that should happen only once?",
-        routes: ["skill-write-it-once", "job-test"],
+        routes: ["skill-write-it-once", "gate"],
         approach:
           "Define what a repeat should do and test retries after success, partial completion, and uncertain outcomes.",
       },
@@ -344,7 +313,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "preserve-existing-workflows",
         question: "Do existing workflows still work?",
-        routes: ["job-test", "scope-gates"],
+        routes: ["gate", "scope-gates"],
         approach:
           "Run the project's workflow tests, including the checks selected for the affected parts of the project.",
       },
@@ -358,7 +327,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "guard-against-recurrence",
         question: "Is there a guard against this defect returning?",
-        routes: ["skill-cure-a-bug", "job-test"],
+        routes: ["skill-cure-a-bug", "gate"],
         approach:
           "Prove the cause, identify the defect class, and leave a practical guard that enrolls future members.",
       },
@@ -382,14 +351,14 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "make-interface-states-useful",
         question: "Are loading, empty, and error states useful?",
-        routes: ["checkpoints", "job-test"],
+        routes: ["checkpoints", "gate"],
         approach:
           "Exercise each state in the working interface; keep repeatable behavior checks in the test suite.",
       },
       {
         id: "recover-from-a-mistake",
         question: "Can they recover from a mistake?",
-        routes: ["checkpoints", "job-test"],
+        routes: ["checkpoints", "gate"],
         approach:
           "Try cancellation, correction, and undo where they apply, and review whether the next action is understandable.",
       },
@@ -406,7 +375,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "complete-with-a-keyboard",
         question: "Can the workflow be completed with a keyboard?",
-        routes: ["checkpoints", "job-test"],
+        routes: ["checkpoints", "gate"],
         approach:
           "Exercise the full keyboard path, including focus and recovery, and automate the interactions the project can test reliably.",
       },
@@ -438,21 +407,21 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "work-on-supported-environments",
         question: "Does this work on the devices and browsers we support?",
-        routes: ["job-test", "instructions"],
+        routes: ["gate", "instructions"],
         approach:
           "Record the supported environments and run the project's checks on them, identifying any device checks still needed.",
       },
       {
         id: "preserve-existing-api-clients",
         question: "Can existing clients still use the API?",
-        routes: ["job-test", "checkpoints"],
+        routes: ["gate", "checkpoints"],
         approach:
           "Test the supported client contracts and review any intended break against the project's compatibility policy.",
       },
       {
         id: "open-older-saved-data",
         question: "Will older saved data still open?",
-        routes: ["job-test"],
+        routes: ["gate"],
         approach:
           "Keep representative saved records from supported versions and exercise them through the current reader or migration.",
       },
@@ -469,21 +438,21 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "avoid-data-loss-or-duplication",
         question: "Could this lose or duplicate data?",
-        routes: ["skill-write-it-once", "job-test"],
+        routes: ["skill-write-it-once", "gate"],
         approach:
           "State the data invariants before planning writes, then test conflicting, repeated, and interrupted operations.",
       },
       {
         id: "preserve-records-through-migration",
         question: "Does the migration preserve existing records?",
-        routes: ["job-test", "checkpoints"],
+        routes: ["gate", "checkpoints"],
         approach:
           "Exercise the migration on representative records and inspect the preservation properties the automated checks do not establish.",
       },
       {
         id: "survive-partial-completion",
         question: "What happens if the operation stops halfway?",
-        routes: ["skill-write-it-once", "job-test"],
+        routes: ["skill-write-it-once", "gate"],
         approach:
           "Identify durable boundaries and test interruption and recovery at each meaningful stage.",
       },
@@ -500,21 +469,21 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "enforce-permissions-at-the-boundary",
         question: "Are permissions enforced at the right boundary?",
-        routes: ["checkpoints", "job-test"],
+        routes: ["checkpoints", "gate"],
         approach:
           "Review where access decisions happen and run project tests that attempt the protected operations directly.",
       },
       {
         id: "isolate-account-data",
         question: "Can one account access another account’s data?",
-        routes: ["job-test", "checkpoints"],
+        routes: ["gate", "checkpoints"],
         approach:
           "Exercise cross-account requests using realistic identities and review the data boundary those tests cover.",
       },
       {
         id: "keep-secrets-out-of-diagnostics",
         question: "Could secrets appear in logs or error messages?",
-        routes: ["jobs-table", "job-test", "checkpoints"],
+        routes: ["jobs-table", "gate", "checkpoints"],
         approach:
           "Inspect failure output and configure secret detection or output assertions suited to the project's data paths.",
       },
@@ -538,7 +507,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "honor-deletion-expectations",
         question: "Does deletion remove what users expect it to remove?",
-        routes: ["job-test", "checkpoints"],
+        routes: ["gate", "checkpoints"],
         approach:
           "Test the deletion path across relevant stores and review retention and recovery behavior against the user-facing promise.",
       },
@@ -593,7 +562,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "respect-project-boundaries",
         question: "Does this respect the project’s boundaries?",
-        routes: ["instructions", "checkpoints", "job-test"],
+        routes: ["instructions", "checkpoints", "gate"],
         approach:
           "Carry the boundaries in project instructions, test mechanical rules, and review decisions that need architectural judgment.",
       },
@@ -669,7 +638,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "handle-dependency-unavailability",
         question: "What happens if the service or package becomes unavailable?",
-        routes: ["job-test", "checkpoints"],
+        routes: ["gate", "checkpoints"],
         approach:
           "Exercise the relevant unavailable-service or failed-install scenario and review fallback and recovery choices.",
       },
@@ -700,7 +669,7 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "roll-back-without-data-damage",
         question: "Can we roll back without damaging data?",
-        routes: ["job-test", "checkpoints"],
+        routes: ["gate", "checkpoints"],
         approach:
           "Exercise the proposed rollback with representative data and review changes whose effects cannot be reversed.",
       },
@@ -717,21 +686,21 @@ export const READINESS_CANON: readonly ReadinessFamily[] = [
       {
         id: "notice-runtime-failure",
         question: "Will we know when this fails?",
-        routes: ["job-test", "checkpoints"],
+        routes: ["gate", "checkpoints"],
         approach:
           "Exercise failure scenarios and check the project's monitoring and alerts with the people who will respond.",
       },
       {
         id: "make-diagnostics-actionable",
         question: "Will the diagnostic tell us what to do?",
-        routes: ["checkpoints", "job-test"],
+        routes: ["checkpoints", "gate"],
         approach:
           "Review the diagnostic beside a real failure and test stable details such as the failure location and recovery action.",
       },
       {
         id: "exercise-operational-recovery",
         question: "Has recovery been exercised?",
-        routes: ["job-test", "map"],
+        routes: ["gate", "map"],
         approach:
           "Rehearse the recovery procedure, preserve the evidence, and keep the operational instructions aligned with what worked.",
       },

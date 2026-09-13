@@ -12,7 +12,7 @@ Readiness is the practical expression of Consequential Code. It asks whether a c
 
 Start with the purpose and the people the change serves. Select the concerns it raises, then follow a question to its documentation and a practical way to investigate it. The first feature in each route is its discovery destination. The family’s benefit and practice links come from those features’ existing canon entries.
 
-Feature names open the documentation; contribution labels open the feature’s question connections below. From this reference or the [feature canon](../feature-canon.md), a reader can follow the same relationship in either direction.
+Each question lists its supporting feature slugs from the [feature canon](../feature-canon.md). The slugs open the documentation; the feature accounts below explain how each capability helps.
 
 Intent frames the effort. The concern families explore its consequences. Evidence qualifies the answers. Authority identifies who can permit the next action or accept an exception. Ready for review, landing, and deployment may call for different evidence. A small copy edit and a data migration deserve different attention; uncertainty about applicability is itself something to resolve.
 
@@ -59,19 +59,19 @@ Bring back the thing you set out to build.
 
 Put the intended outcome in the brief, then review the working result against it.
 
-**Start here:** [Delegate work](../../../manual/10-guides/delegate-work.md) ([taught method](#delegate-work)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`skill-delegate-work`](../../../manual/10-guides/delegate-work.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Are the acceptance criteria met?
 
 Turn testable criteria into project checks and exercise the criteria that need judgment against the result.
 
-**Start here:** [The quality gate](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#the-quality-gate)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Did anything outside the agreed scope change?
 
 Compare the changed work with the brief; record and resolve any expansion of scope.
 
-**Start here:** [Impact](../../20-quality-gate/README.md) ([advisory evidence](#impact)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [Delegate work](../../../manual/10-guides/delegate-work.md) ([taught method](#delegate-work)).
+**Supporting features:** [`impact`](../../20-quality-gate/README.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`skill-delegate-work`](../../../manual/10-guides/delegate-work.md).
 
 **For the person:** [Turn a large objective into work agents can carry](../feature-canon-human-benefits.md#turn-a-large-objective-into-work-agents-can-carry) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed) · [Run the checks relevant to this change](../feature-canon-human-benefits.md#run-the-checks-relevant-to-this-change).
 
@@ -89,19 +89,19 @@ Build for the ways people will really use it.
 
 Add representative boundary cases to the project's tests and include those tests in its declared checks.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Do failures leave the system in a recoverable state?
 
 Plan the operation's effects, interrupt it at meaningful boundaries, and test the recovery path.
 
-**Start here:** [Write it once](../../../manual/10-guides/create-and-manage-skills.md) ([taught method](#write-it-once)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`skill-write-it-once`](../../../manual/10-guides/create-and-manage-skills.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Does retrying repeat an action that should happen only once?
 
 Define what a repeat should do and test retries after success, partial completion, and uncertain outcomes.
 
-**Start here:** [Write it once](../../../manual/10-guides/create-and-manage-skills.md) ([taught method](#write-it-once)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`skill-write-it-once`](../../../manual/10-guides/create-and-manage-skills.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 **For the person:** [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed) · [Carry proven engineering practices between projects](../feature-canon-human-benefits.md#carry-proven-engineering-practices-between-projects).
 
@@ -119,19 +119,19 @@ Keep the workflows people count on.
 
 Run the project's workflow tests, including the checks selected for the affected parts of the project.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Scopes](../../20-quality-gate/README.md) ([project checks](#scopes)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`scope-gates`](../../20-quality-gate/README.md).
 
 ### Have we checked the other places affected by this change?
 
 Use repository co-change history to find habitual companion files, then investigate whether they need attention in this change.
 
-**Start here:** [Coupling](../../20-quality-gate/coupling.md) ([advisory evidence](#coupling)) · [Scopes](../../20-quality-gate/README.md) ([project checks](#scopes)).
+**Supporting features:** [`coupling`](../../20-quality-gate/coupling.md) · [`scope-gates`](../../20-quality-gate/README.md).
 
 ### Is there a guard against this defect returning?
 
 Prove the cause, identify the defect class, and leave a practical guard that enrolls future members.
 
-**Start here:** [Cure a bug](../../../manual/10-guides/create-and-manage-skills.md) ([taught method](#cure-a-bug)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`skill-cure-a-bug`](../../../manual/10-guides/create-and-manage-skills.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 **For the person:** [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed) · [Run the checks relevant to this change](../feature-canon-human-benefits.md#run-the-checks-relevant-to-this-change) · [Catch related files before the change closes](../feature-canon-human-benefits.md#catch-related-files-before-the-change-closes) · [Remove the cause and guard every instance of the bug class](../feature-canon-human-benefits.md#remove-the-cause-and-guard-every-instance-of-the-bug-class).
 
@@ -149,19 +149,19 @@ Make the next step feel obvious.
 
 Observe someone attempting the task and use a project checkpoint to review what the exercise established.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Are loading, empty, and error states useful?
 
 Exercise each state in the working interface; keep repeatable behavior checks in the test suite.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Can they recover from a mistake?
 
 Try cancellation, correction, and undo where they apply, and review whether the next action is understandable.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 **For the person:** [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed).
 
@@ -179,19 +179,19 @@ Welcome more people into what you have built.
 
 Exercise the full keyboard path, including focus and recovery, and automate the interactions the project can test reliably.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Does it make sense to a screen reader?
 
 Exercise the workflow with a screen reader and record the tools, scenario, and findings used in the judgment.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Is essential information available without relying on color?
 
 Review labels, symbols, and state changes; use configured analysis for the properties a tool can check.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [Declared jobs](../../../manual/30-reference/config-reference.md#jobs) ([project checks](#declared-jobs)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`jobs-table`](../../../manual/30-reference/config-reference.md#jobs).
 
 **For the person:** [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed).
 
@@ -209,19 +209,19 @@ Take the people who already depend on you forward.
 
 Record the supported environments and run the project's checks on them, identifying any device checks still needed.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Agent instructions](../../../manual/10-guides/write-project-instructions.md) ([project knowledge](#agent-instructions)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`instructions`](../../../manual/10-guides/write-project-instructions.md).
 
 ### Can existing clients still use the API?
 
 Test the supported client contracts and review any intended break against the project's compatibility policy.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Will older saved data still open?
 
 Keep representative saved records from supported versions and exercise them through the current reader or migration.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 **For the person:** [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed) · [Teach the project once](../feature-canon-human-benefits.md#teach-the-project-once) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens).
 
@@ -239,19 +239,19 @@ Keep people's work intact as your software grows.
 
 State the data invariants before planning writes, then test conflicting, repeated, and interrupted operations.
 
-**Start here:** [Write it once](../../../manual/10-guides/create-and-manage-skills.md) ([taught method](#write-it-once)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`skill-write-it-once`](../../../manual/10-guides/create-and-manage-skills.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Does the migration preserve existing records?
 
 Exercise the migration on representative records and inspect the preservation properties the automated checks do not establish.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### What happens if the operation stops halfway?
 
 Identify durable boundaries and test interruption and recovery at each meaningful stage.
 
-**Start here:** [Write it once](../../../manual/10-guides/create-and-manage-skills.md) ([taught method](#write-it-once)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`skill-write-it-once`](../../../manual/10-guides/create-and-manage-skills.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 **For the person:** [Carry proven engineering practices between projects](../feature-canon-human-benefits.md#carry-proven-engineering-practices-between-projects) · [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens).
 
@@ -269,19 +269,19 @@ Build for the trust people place in your software.
 
 Review where access decisions happen and run project tests that attempt the protected operations directly.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Can one account access another account’s data?
 
 Exercise cross-account requests using realistic identities and review the data boundary those tests cover.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Could secrets appear in logs or error messages?
 
 Inspect failure output and configure secret detection or output assertions suited to the project's data paths.
 
-**Start here:** [Declared jobs](../../../manual/30-reference/config-reference.md#jobs) ([project checks](#declared-jobs)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`jobs-table`](../../../manual/30-reference/config-reference.md#jobs) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 **For the person:** [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed).
 
@@ -299,19 +299,19 @@ Keep the promises that made people comfortable saying yes.
 
 Review each collected field against its purpose and keep the project's data-flow account current.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [The map](../../../manual/20-understand/instructions-skills-and-map.md) ([project knowledge](#the-map)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`map`](../../../manual/20-understand/instructions-skills-and-map.md).
 
 ### Does deletion remove what users expect it to remove?
 
 Test the deletion path across relevant stores and review retention and recovery behavior against the user-facing promise.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Have the stated privacy commitments remained accurate?
 
 Compare changed data behavior with published commitments and update the affected explanations.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [File-linked freshness](../../../manual/20-understand/instructions-skills-and-map.md) ([advisory evidence](#file-linked-freshness)) · [The map](../../../manual/20-understand/instructions-skills-and-map.md) ([project knowledge](#the-map)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`map-freshness`](../../../manual/20-understand/instructions-skills-and-map.md) · [`map`](../../../manual/20-understand/instructions-skills-and-map.md).
 
 **For the person:** [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [See what agents understand about the project](../feature-canon-human-benefits.md#see-what-agents-understand-about-the-project) · [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed).
 
@@ -329,19 +329,19 @@ Let the project grow without wasting what it needs to run.
 
 Measure memory under a repeatable workload and capture a defensible ceiling as a project Standard.
 
-**Start here:** [Standards](../../../manual/20-understand/standards.md) ([project checks](#standards)).
+**Supporting features:** [`standards`](../../../manual/20-understand/standards.md).
 
 ### Are we making unnecessary network or database calls?
 
 Measure calls for the affected workflow and review whether each call serves a necessary purpose.
 
-**Start here:** [Standards](../../../manual/20-understand/standards.md) ([project checks](#standards)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`standards`](../../../manual/20-understand/standards.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### What does this cost under realistic usage?
 
 Provide a project measurement using realistic usage and current service prices, and review the assumptions behind it.
 
-**Start here:** [Standards](../../../manual/20-understand/standards.md) ([project checks](#standards)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`standards`](../../../manual/20-understand/standards.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 **For the person:** [Keep measurable quality gains from slipping backward](../feature-canon-human-benefits.md#keep-measurable-quality-gains-from-slipping-backward) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens).
 
@@ -359,19 +359,19 @@ Build something the next idea can fit into.
 
 Carry the boundaries in project instructions, test mechanical rules, and review decisions that need architectural judgment.
 
-**Start here:** [Agent instructions](../../../manual/10-guides/write-project-instructions.md) ([project knowledge](#agent-instructions)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`instructions`](../../../manual/10-guides/write-project-instructions.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Have we introduced a second source of truth?
 
 Identify the authority for each shared fact and bind its consumers through derivation, generation, or a guard.
 
-**Start here:** [Write it once](../../../manual/10-guides/create-and-manage-skills.md) ([taught method](#write-it-once)) · [Generated artifact declarations](../../../manual/30-reference/config-reference.md#generatedname) ([project checks](#generated-artifact-declarations)).
+**Supporting features:** [`skill-write-it-once`](../../../manual/10-guides/create-and-manage-skills.md) · [`generated-artifact-declarations`](../../../manual/30-reference/config-reference.md#generatedname).
 
 ### Does the new abstraction earn its complexity?
 
 Review the actual callers and alternatives; record a significant tradeoff where future work can find its reasons.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [Decision records](../../../manual/20-understand/instructions-skills-and-map.md) ([project knowledge](#decision-records)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`adr-discipline`](../../../manual/20-understand/instructions-skills-and-map.md).
 
 **For the person:** [Teach the project once](../feature-canon-human-benefits.md#teach-the-project-once) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed) · [Carry proven engineering practices between projects](../feature-canon-human-benefits.md#carry-proven-engineering-practices-between-projects) · [Catch broken project documentation before it lands](../feature-canon-human-benefits.md#catch-broken-project-documentation-before-it-lands) · [Preserve why a decision was made](../feature-canon-human-benefits.md#preserve-why-a-decision-was-made).
 
@@ -389,19 +389,19 @@ Leave the next person a project they can take further.
 
 Keep the project's explanation current and review whether someone can locate the relevant behavior and decisions.
 
-**Start here:** [The map](../../../manual/20-understand/instructions-skills-and-map.md) ([project knowledge](#the-map)) · [File-linked freshness](../../../manual/20-understand/instructions-skills-and-map.md) ([advisory evidence](#file-linked-freshness)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`map`](../../../manual/20-understand/instructions-skills-and-map.md) · [`map-freshness`](../../../manual/20-understand/instructions-skills-and-map.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Have temporary scaffolding and dead code been removed?
 
 Apply the cleanup playbook, prove each cut safe, and retain a useful limit on recurring clutter.
 
-**Start here:** [Clear the decks](../../../manual/10-guides/create-and-manage-skills.md) ([taught method](#clear-the-decks)).
+**Supporting features:** [`skill-clear-the-decks`](../../../manual/10-guides/create-and-manage-skills.md).
 
 ### Is the important decision recorded somewhere durable?
 
 Record significant decisions and their reasons in the project's decision records, linked from the affected subsystem.
 
-**Start here:** [Decision records](../../../manual/20-understand/instructions-skills-and-map.md) ([project knowledge](#decision-records)).
+**Supporting features:** [`adr-discipline`](../../../manual/20-understand/instructions-skills-and-map.md).
 
 **For the person:** [See what agents understand about the project](../feature-canon-human-benefits.md#see-what-agents-understand-about-the-project) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [Keep maintenance clutter from growing back](../feature-canon-human-benefits.md#keep-maintenance-clutter-from-growing-back) · [Preserve why a decision was made](../feature-canon-human-benefits.md#preserve-why-a-decision-was-made).
 
@@ -419,19 +419,19 @@ Choose foundations you can keep building on.
 
 Compare the dependency with the project's actual need and record consequential adoption choices.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [Decision records](../../../manual/20-understand/instructions-skills-and-map.md) ([project knowledge](#decision-records)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`adr-discipline`](../../../manual/20-understand/instructions-skills-and-map.md).
 
 ### Is its maintenance situation acceptable?
 
 Inspect current maintenance evidence, supported versions, and the project's ability to replace or maintain the dependency.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### What happens if the service or package becomes unavailable?
 
 Exercise the relevant unavailable-service or failed-install scenario and review fallback and recovery choices.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 **For the person:** [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [Preserve why a decision was made](../feature-canon-human-benefits.md#preserve-why-a-decision-was-made) · [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed).
 
@@ -449,19 +449,19 @@ Carry the work from your machine into people's hands.
 
 Configure checks against the intended release environment and review the configuration and prerequisites they depend on.
 
-**Start here:** [Declared jobs](../../../manual/30-reference/config-reference.md#jobs) ([project checks](#declared-jobs)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`jobs-table`](../../../manual/30-reference/config-reference.md#jobs) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Does the rollout need a particular order?
 
 Record the deployment dependencies and have the release review assess their sequence before execution.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [The map](../../../manual/20-understand/instructions-skills-and-map.md) ([project knowledge](#the-map)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`map`](../../../manual/20-understand/instructions-skills-and-map.md).
 
 ### Can we roll back without damaging data?
 
 Exercise the proposed rollback with representative data and review changes whose effects cannot be reversed.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 **For the person:** [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [See what agents understand about the project](../feature-canon-human-benefits.md#see-what-agents-understand-about-the-project).
 
@@ -479,19 +479,19 @@ Be ready to look after what you launch.
 
 Exercise failure scenarios and check the project's monitoring and alerts with the people who will respond.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Will the diagnostic tell us what to do?
 
 Review the diagnostic beside a real failure and test stable details such as the failure location and recovery action.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`gate`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Has recovery been exercised?
 
 Rehearse the recovery procedure, preserve the evidence, and keep the operational instructions aligned with what worked.
 
-**Start here:** [test](../../../manual/10-guides/finish-and-land-a-change.md) ([project checks](#test)) · [The map](../../../manual/20-understand/instructions-skills-and-map.md) ([project knowledge](#the-map)).
+**Supporting features:** [`gate`](../../../manual/10-guides/finish-and-land-a-change.md) · [`map`](../../../manual/20-understand/instructions-skills-and-map.md).
 
 **For the person:** [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [See what agents understand about the project](../feature-canon-human-benefits.md#see-what-agents-understand-about-the-project).
 
@@ -509,19 +509,19 @@ Bring people with you as the product changes.
 
 Review the effect on people's work and decide what communication belongs with the change.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 ### Are breaking changes explained?
 
 Review the migration instructions and release explanation against the actual compatibility change.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [The map](../../../manual/20-understand/instructions-skills-and-map.md) ([project knowledge](#the-map)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`map`](../../../manual/20-understand/instructions-skills-and-map.md).
 
 ### Can support answer the questions this change will create?
 
 Walk through likely user questions and review the support material with the people who will use it.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [The map](../../../manual/20-understand/instructions-skills-and-map.md) ([project knowledge](#the-map)) · [File-linked freshness](../../../manual/20-understand/instructions-skills-and-map.md) ([advisory evidence](#file-linked-freshness)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`map`](../../../manual/20-understand/instructions-skills-and-map.md) · [`map-freshness`](../../../manual/20-understand/instructions-skills-and-map.md).
 
 **For the person:** [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens) · [See what agents understand about the project](../feature-canon-human-benefits.md#see-what-agents-understand-about-the-project).
 
@@ -539,19 +539,19 @@ Have something to stand behind when the work comes back.
 
 Read the completion evidence for the declared checks and compare their scope with the concerns this change raises.
 
-**Start here:** [Producer evidence on every validation result](../../20-quality-gate/complete-evidence.md) ([completion evidence](#producer-evidence-on-every-validation-result)) · [Proof](../../../manual/20-understand/proof.md) ([completion evidence](#proof)) · [Scopes](../../20-quality-gate/README.md) ([project checks](#scopes)).
+**Supporting features:** [`producer-evidence`](../../20-quality-gate/complete-evidence.md) · [`proof`](../../../manual/20-understand/proof.md) · [`scope-gates`](../../20-quality-gate/README.md).
 
 ### Do their results belong to this version?
 
 Check the commit and evidence identity; external exercises also need the tested version and environment recorded.
 
-**Start here:** [Proof](../../../manual/20-understand/proof.md) ([completion evidence](#proof)) · [Producer evidence on every validation result](../../20-quality-gate/complete-evidence.md) ([completion evidence](#producer-evidence-on-every-validation-result)) · [Durable proof notes](../../20-quality-gate/proof-notes.md) ([completion evidence](#durable-proof-notes)).
+**Supporting features:** [`proof`](../../../manual/20-understand/proof.md) · [`producer-evidence`](../../20-quality-gate/complete-evidence.md) · [`proof-notes`](../../20-quality-gate/proof-notes.md).
 
 ### What remains unverified?
 
 Compare the relevant questions with the evidence available and state the missing checks or unresolved judgments.
 
-**Start here:** [Proof](../../../manual/20-understand/proof.md) ([completion evidence](#proof)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`proof`](../../../manual/20-understand/proof.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 **For the person:** [Review less, knowing what already passed](../feature-canon-human-benefits.md#review-less-knowing-what-already-passed) · [Get proof of what passed, tied to the commit it passed on](../feature-canon-human-benefits.md#get-proof-of-what-passed-tied-to-the-commit-it-passed-on) · [Run the checks relevant to this change](../feature-canon-human-benefits.md#run-the-checks-relevant-to-this-change) · [Keep the completion record with the code](../feature-canon-human-benefits.md#keep-the-completion-record-with-the-code) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens).
 
@@ -569,19 +569,19 @@ Keep the call that matters yours.
 
 For landing, use discern's checked consent or recorded grant; identify any separate release or organizational approvals.
 
-**Start here:** [Accept](../../../manual/10-guides/finish-and-land-a-change.md) ([landing authority](#accept)).
+**Supporting features:** [`accept`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Is an exception being made?
 
 Declare an unmet checkpoint with its reason and keep the exception visible at the landing decision.
 
-**Start here:** [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)) · [Accept](../../../manual/10-guides/finish-and-land-a-change.md) ([landing authority](#accept)).
+**Supporting features:** [`checkpoints`](../../../manual/20-understand/checkpoints.md) · [`accept`](../../../manual/10-guides/finish-and-land-a-change.md).
 
 ### Has the responsible person accepted that exception?
 
 Obtain the responsible person's authorization for the current unmet checkpoint set before landing; a standing grant does not cover the variance.
 
-**Start here:** [Accept](../../../manual/10-guides/finish-and-land-a-change.md) ([landing authority](#accept)) · [Checkpoints](../../../manual/20-understand/checkpoints.md) ([declared judgment](#checkpoints)).
+**Supporting features:** [`accept`](../../../manual/10-guides/finish-and-land-a-change.md) · [`checkpoints`](../../../manual/20-understand/checkpoints.md).
 
 **For the person:** [Keep the final say over what ships](../feature-canon-human-benefits.md#keep-the-final-say-over-what-ships) · [Ask the judgment questions when the change happens](../feature-canon-human-benefits.md#ask-the-judgment-questions-when-the-change-happens).
 
@@ -591,7 +591,7 @@ Obtain the responsible person's authorization for the current unmet checkpoint s
 
 ## Start with a feature
 
-Give a feature a question worth answering. These connections show what each feature brings to the work, the questions it helps address, and the human and agent benefits already tied to it. Use a featured question to introduce the capability, then follow the full account when the reader wants to put it to work.
+Give a feature a question worth answering. These connections show what each feature brings to the work, the questions it helps address, and the human and agent benefits already tied to it. Use a connected question to introduce the capability, then follow the full account when the reader wants to put it to work.
 
 Start here marks a question’s primary discovery destination. Also helps names another contribution to the same question. These roles come from the question’s route order; the connection remains the same whichever end you start from.
 
@@ -603,9 +603,33 @@ The Gate runs the checks the project declares before recording completion, givin
 
 **Contribution:** Project checks. [Feature documentation](../../../manual/10-guides/finish-and-land-a-change.md).
 
-| Readiness question                                                   | Family | Route      |
-| -------------------------------------------------------------------- | ------ | ---------- |
-| [Are the acceptance criteria met?](#are-the-acceptance-criteria-met) | Intent | Start here |
+| Readiness question                                                                                                           | Family            | Route      |
+| ---------------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
+| [Are the acceptance criteria met?](#are-the-acceptance-criteria-met)                                                         | Intent            | Start here |
+| [What happens with empty, invalid, or unusually large inputs?](#what-happens-with-empty-invalid-or-unusually-large-inputs)   | Behavior          | Start here |
+| [Do failures leave the system in a recoverable state?](#do-failures-leave-the-system-in-a-recoverable-state)                 | Behavior          | Also helps |
+| [Does retrying repeat an action that should happen only once?](#does-retrying-repeat-an-action-that-should-happen-only-once) | Behavior          | Also helps |
+| [Do existing workflows still work?](#do-existing-workflows-still-work)                                                       | Regression        | Start here |
+| [Is there a guard against this defect returning?](#is-there-a-guard-against-this-defect-returning)                           | Regression        | Also helps |
+| [Are loading, empty, and error states useful?](#are-loading-empty-and-error-states-useful)                                   | Usability         | Also helps |
+| [Can they recover from a mistake?](#can-they-recover-from-a-mistake)                                                         | Usability         | Also helps |
+| [Can the workflow be completed with a keyboard?](#can-the-workflow-be-completed-with-a-keyboard)                             | Accessibility     | Also helps |
+| [Does this work on the devices and browsers we support?](#does-this-work-on-the-devices-and-browsers-we-support)             | Compatibility     | Start here |
+| [Can existing clients still use the API?](#can-existing-clients-still-use-the-api)                                           | Compatibility     | Start here |
+| [Will older saved data still open?](#will-older-saved-data-still-open)                                                       | Compatibility     | Start here |
+| [Could this lose or duplicate data?](#could-this-lose-or-duplicate-data)                                                     | Data integrity    | Also helps |
+| [Does the migration preserve existing records?](#does-the-migration-preserve-existing-records)                               | Data integrity    | Start here |
+| [What happens if the operation stops halfway?](#what-happens-if-the-operation-stops-halfway)                                 | Data integrity    | Also helps |
+| [Are permissions enforced at the right boundary?](#are-permissions-enforced-at-the-right-boundary)                           | Security          | Also helps |
+| [Can one account access another account’s data?](#can-one-account-access-another-accounts-data)                              | Security          | Start here |
+| [Could secrets appear in logs or error messages?](#could-secrets-appear-in-logs-or-error-messages)                           | Security          | Also helps |
+| [Does deletion remove what users expect it to remove?](#does-deletion-remove-what-users-expect-it-to-remove)                 | Privacy           | Start here |
+| [Does this respect the project’s boundaries?](#does-this-respect-the-projects-boundaries)                                    | Architecture      | Also helps |
+| [What happens if the service or package becomes unavailable?](#what-happens-if-the-service-or-package-becomes-unavailable)   | Dependencies      | Start here |
+| [Can we roll back without damaging data?](#can-we-roll-back-without-damaging-data)                                           | Release readiness | Start here |
+| [Will we know when this fails?](#will-we-know-when-this-fails)                                                               | Operations        | Start here |
+| [Will the diagnostic tell us what to do?](#will-the-diagnostic-tell-us-what-to-do)                                           | Operations        | Also helps |
+| [Has recovery been exercised?](#has-recovery-been-exercised)                                                                 | Operations        | Start here |
 
 **For the person:** [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed).
 
@@ -894,46 +918,6 @@ Declared jobs give the project's tests, analysis, and specialist tools a shared 
 
 **For the agent:** [Run the relevant Gate efficiently](../feature-canon-agent-benefits.md#run-the-relevant-gate-efficiently).
 
-### test
-
-Keep yesterday's workflows working in tomorrow's release.
-
-The test job runs the suite the project supplies: saved-data fixtures, client contracts, input boundaries, failure cases, and recovery exercises can all become repeatable checks.
-
-**Contribution:** Project checks. [Feature documentation](../../../manual/10-guides/finish-and-land-a-change.md).
-
-| Readiness question                                                                                                           | Family            | Route      |
-| ---------------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
-| [Are the acceptance criteria met?](#are-the-acceptance-criteria-met)                                                         | Intent            | Also helps |
-| [What happens with empty, invalid, or unusually large inputs?](#what-happens-with-empty-invalid-or-unusually-large-inputs)   | Behavior          | Start here |
-| [Do failures leave the system in a recoverable state?](#do-failures-leave-the-system-in-a-recoverable-state)                 | Behavior          | Also helps |
-| [Does retrying repeat an action that should happen only once?](#does-retrying-repeat-an-action-that-should-happen-only-once) | Behavior          | Also helps |
-| [Do existing workflows still work?](#do-existing-workflows-still-work)                                                       | Regression        | Start here |
-| [Is there a guard against this defect returning?](#is-there-a-guard-against-this-defect-returning)                           | Regression        | Also helps |
-| [Are loading, empty, and error states useful?](#are-loading-empty-and-error-states-useful)                                   | Usability         | Also helps |
-| [Can they recover from a mistake?](#can-they-recover-from-a-mistake)                                                         | Usability         | Also helps |
-| [Can the workflow be completed with a keyboard?](#can-the-workflow-be-completed-with-a-keyboard)                             | Accessibility     | Also helps |
-| [Does this work on the devices and browsers we support?](#does-this-work-on-the-devices-and-browsers-we-support)             | Compatibility     | Start here |
-| [Can existing clients still use the API?](#can-existing-clients-still-use-the-api)                                           | Compatibility     | Start here |
-| [Will older saved data still open?](#will-older-saved-data-still-open)                                                       | Compatibility     | Start here |
-| [Could this lose or duplicate data?](#could-this-lose-or-duplicate-data)                                                     | Data integrity    | Also helps |
-| [Does the migration preserve existing records?](#does-the-migration-preserve-existing-records)                               | Data integrity    | Start here |
-| [What happens if the operation stops halfway?](#what-happens-if-the-operation-stops-halfway)                                 | Data integrity    | Also helps |
-| [Are permissions enforced at the right boundary?](#are-permissions-enforced-at-the-right-boundary)                           | Security          | Also helps |
-| [Can one account access another account’s data?](#can-one-account-access-another-accounts-data)                              | Security          | Start here |
-| [Could secrets appear in logs or error messages?](#could-secrets-appear-in-logs-or-error-messages)                           | Security          | Also helps |
-| [Does deletion remove what users expect it to remove?](#does-deletion-remove-what-users-expect-it-to-remove)                 | Privacy           | Start here |
-| [Does this respect the project’s boundaries?](#does-this-respect-the-projects-boundaries)                                    | Architecture      | Also helps |
-| [What happens if the service or package becomes unavailable?](#what-happens-if-the-service-or-package-becomes-unavailable)   | Dependencies      | Start here |
-| [Can we roll back without damaging data?](#can-we-roll-back-without-damaging-data)                                           | Release readiness | Start here |
-| [Will we know when this fails?](#will-we-know-when-this-fails)                                                               | Operations        | Start here |
-| [Will the diagnostic tell us what to do?](#will-the-diagnostic-tell-us-what-to-do)                                           | Operations        | Also helps |
-| [Has recovery been exercised?](#has-recovery-been-exercised)                                                                 | Operations        | Start here |
-
-**For the person:** [Know when the project's own checks have passed](../feature-canon-human-benefits.md#know-when-the-projects-own-checks-have-passed).
-
-**For the agent:** [Run the relevant Gate efficiently](../feature-canon-agent-benefits.md#run-the-relevant-gate-efficiently) (supporting feature).
-
 ### Generated artifact declarations
 
 Change the source and bring its copies with it.
@@ -1025,6 +1009,6 @@ The question collection can support commissioning conversations, a change brief,
 
 ## Ownership and traceability
 
-`scripts/brand/readiness.ts` owns the families, questions, approaches, feature routes, and feature introductions. `scripts/brand/docs/readiness.ts` renders the question and feature views; the feature canon derives its question links from the same records. Feature identities and names, human and agent benefits, and practice obligations remain in their own registries. The route names the benefit it introduces; its feature must occur in that benefit’s product basis, with the agent canon’s direct or supporting role retained. Practice connections derive from the tenets’ mechanism citations. Coverage runs from each question into the existing canons; unrelated features need no readiness question.
+`scripts/brand/readiness.ts` owns the families, questions, approaches, feature routes, and feature introductions. `scripts/brand/docs/readiness.ts` renders the question and feature views here. Each question’s supporting-feature list uses the feature registry’s stable slugs; the feature canon keeps its mechanism account. Feature identities and names, human and agent benefits, and practice obligations remain in their own registries. The route names the benefit it introduces; its feature must occur in that benefit’s product basis, with the agent canon’s direct or supporting role retained. Practice connections derive from the tenets’ mechanism citations. Coverage runs from each question into the existing canons; unrelated features need no readiness question.
 
 `tests/readiness_canon_test.ts` checks live routes, benefit support, documentation destinations, question identity, reverse feature connections, and future-member rendering. The brand codegen guard keeps this page current. [ADR 0391](../../_adr/0391-readiness-connects-questions-to-the-practice.md) records the ownership and voice decision.

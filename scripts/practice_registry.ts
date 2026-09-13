@@ -300,7 +300,6 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     mechanisms: [
       "gate",
       "jobs-table",
-      "job-test",
       "staged-pipeline",
       "scope-gates",
       "checkpoints",

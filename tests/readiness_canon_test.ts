@@ -85,13 +85,6 @@ Deno.test("each readiness route connects a live feature to benefits it supplies 
     );
     assert(route.how.endsWith("."), `missing feature contribution: ${id}`);
     assert(
-      allReadinessQuestions().some((question) =>
-        question.id === route.leadQuestion &&
-        question.routes.some((featureId) => featureId === id)
-      ),
-      `lead question does not route to feature: ${id}`,
-    );
-    assert(
       (await Deno.stat(join(REPO_ROOT, route.doc.split("#")[0] ?? route.doc)))
         .isFile,
       `missing route documentation: ${id}`,
@@ -106,24 +99,12 @@ Deno.test("every readiness reference resolves to a real document and rendered he
   );
   const markdown = renderBrandDoc("readiness-canon");
   const documents = new Map([[page, markdown]]);
-  const featurePage = join(REPO_ROOT, "project/map/_internal/feature-canon.md");
-  const featureMarkdown = renderFeatureCanonDoc();
-  documents.set(featurePage, featureMarkdown);
-  const references = [
-    ...markdown.matchAll(/\[[^\]]+\]\(([^)]+)\)/g),
-    ...featureMarkdown.matchAll(
-      /\[[^\]]+\]\((brand\/readiness-canon\.md[^)]+)\)/g,
-    ),
-  ];
-  for (const match of references) {
+  for (const match of markdown.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
     const href = match[1];
     assert(href !== undefined);
     if (/^https?:/.test(href)) continue;
     const [path = "", anchor] = href.split("#");
-    const source = href.startsWith("brand/readiness-canon.md")
-      ? featurePage
-      : page;
-    const target = path === "" ? source : resolve(dirname(source), path);
+    const target = path === "" ? page : resolve(dirname(page), path);
     let text = documents.get(target);
     if (text === undefined) {
       text = await Deno.readTextFile(target);
@@ -246,35 +227,52 @@ Deno.test("feature connections render every linked question and preserve its dis
   }
 });
 
-Deno.test("individual feature entries introduce their selected readiness question", () => {
-  const rendered = renderFeatureCanonDoc();
-  const links = rendered.split("\n").filter((line) =>
-    line.includes("**Readiness:**")
-  );
-  assertEquals(links.length, Object.keys(READINESS_ROUTES).length);
-  const features = new Map(
-    allFeatureNodes().map(({ node }) => [node.id, node]),
-  );
-  for (const [id, route] of Object.entries(READINESS_ROUTES)) {
-    const question = allReadinessQuestions().find((entry) =>
-      entry.id === route.leadQuestion
+Deno.test("readiness support lists render feature identities for every current and future question", () => {
+  const future: ReadinessFamily = {
+    id: "future-support-list-family",
+    title: "Future support list",
+    role: "concern",
+    promise: "Keep the release question connected to the work.",
+    applies: "Consider a new review concern.",
+    questions: [{
+      id: "future-support-list-question",
+      question: "Has the revised account been reviewed?",
+      routes: ["map-freshness", "checkpoints"],
+      approach: "Compare the current explanation with the changed work.",
+    }],
+  };
+  const families = [...READINESS_CANON, future];
+  const rendered = renderReadinessCanonDoc(families);
+  for (const question of allReadinessQuestions(families)) {
+    const section = rendered.split(`### ${question.question}\n`)[1]?.split(
+      "\n##",
+    )[0];
+    assert(section !== undefined, `missing question: ${question.id}`);
+    const support = section.split("\n").find((line) =>
+      line.startsWith("**Supporting features:**")
     );
-    const feature = features.get(id);
-    assert(question !== undefined && feature !== undefined);
-    const link = canonLink(
-      "brand/readiness-canon.md",
-      feature.title,
-      "How this feature helps",
-    );
-    const matches = links.filter((line) => line.includes(link));
+    assert(support !== undefined, `missing feature identities: ${question.id}`);
+    const slugs = [...support.matchAll(/\[`([^`]+)`\]\([^)]+\)/g)].map((
+      match,
+    ) => match[1]);
     assertEquals(
-      matches.length,
-      1,
-      `missing or repeated feature connection: ${id}`,
+      slugs,
+      [...question.routes],
+      `wrong feature identities: ${question.id}`,
     );
-    assertStringIncludes(
-      matches[0] ?? "",
-      canonLink("brand/readiness-canon.md", question.question),
+  }
+});
+
+Deno.test("feature canon keeps Readiness in its introductory cross-reference", () => {
+  const rendered = renderFeatureCanonDoc();
+  const links = [
+    ...rendered.matchAll(/\]\((brand\/readiness-canon\.md[^)]*)\)/g),
+  ].map((match) => match[1]);
+  assertEquals(links, ["brand/readiness-canon.md"]);
+  for (const question of allReadinessQuestions()) {
+    assert(
+      !rendered.includes(question.question),
+      `question leaked into feature entries: ${question.id}`,
     );
   }
 });

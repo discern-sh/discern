@@ -1518,7 +1518,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "readiness-canon",
     title: "Readiness canon",
     what:
-      "Readiness families and questions with stable discovery identities, practical approaches, and feature routes read in either direction. Feature entries derive their lead questions from these records; benefits and practice connections retain their existing canon authorities.",
+      "Readiness families and questions with stable discovery identities, practical approaches, and feature routes read in either direction. Questions list supporting feature slugs within the Readiness Canon; benefits and practice connections retain their existing canon authorities.",
     source: {
       kind: "module",
       module: "scripts/brand/readiness.ts",

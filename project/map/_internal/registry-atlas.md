@@ -1672,7 +1672,7 @@ The market-side counterpart of the Human Benefit Canon: evidence-tagged struggli
 
 ## `readiness-canon` — Readiness canon
 
-Readiness families and questions with stable discovery identities, practical approaches, and feature routes read in either direction. Feature entries derive their lead questions from these records; benefits and practice connections retain their existing canon authorities.
+Readiness families and questions with stable discovery identities, practical approaches, and feature routes read in either direction. Questions list supporting feature slugs within the Readiness Canon; benefits and practice connections retain their existing canon authorities.
 
 - Source: `scripts/brand/readiness.ts` — `READINESS_CANON`
 - Members: 72
