@@ -80,7 +80,44 @@ export function migrateSingularSourceCandidate(value: unknown): unknown {
     typeof data !== "object" || data === null || Array.isArray(data)
   ) return value;
   const fields = data as Record<string, unknown>;
-  if (!("source" in fields) || "sources" in fields) return value;
+  const migrated = migrateSingularSourceFields(fields);
+  if (migrated === fields) return value;
+  return { ...record, data: migrated };
+}
+
+/** The field-level singular→list rewrite every embedding shares. */
+function migrateSingularSourceFields(
+  fields: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!("source" in fields) || "sources" in fields) return fields;
   const { source, ...rest } = fields;
-  return { ...record, data: { ...rest, sources: [source] } };
+  return { ...rest, sources: [source] };
+}
+
+/** Migrate the candidate a retained Proof presentation embeds at
+ * `completion.candidate`. Retained artifacts written before the list shape
+ * carry the singular field there too, and the presentation must keep
+ * reproducing its complete evidence byte-for-byte after both sides migrate.
+ * Anything that is not that exact embedding passes through untouched. */
+export function migrateProofEmbeddedCandidate(value: unknown): unknown {
+  if (
+    typeof value !== "object" || value === null || Array.isArray(value)
+  ) return value;
+  const proof = value as Record<string, unknown>;
+  const completion = proof.completion;
+  if (
+    typeof completion !== "object" || completion === null ||
+    Array.isArray(completion)
+  ) return value;
+  const complete = completion as Record<string, unknown>;
+  const candidate = complete.candidate;
+  if (
+    typeof candidate !== "object" || candidate === null ||
+    Array.isArray(candidate)
+  ) return value;
+  const migrated = migrateSingularSourceFields(
+    candidate as Record<string, unknown>,
+  );
+  if (migrated === candidate) return value;
+  return { ...proof, completion: { ...complete, candidate: migrated } };
 }

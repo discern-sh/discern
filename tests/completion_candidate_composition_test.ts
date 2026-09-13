@@ -12,6 +12,7 @@ import {
   candidateAuthor,
   candidateIsIntegrated,
   CandidateSchema,
+  migrateProofEmbeddedCandidate,
   migrateSingularSourceCandidate,
 } from "../src/engine/completion/candidate.ts";
 import {
@@ -100,6 +101,46 @@ Deno.test("the singular-source migration touches only candidate payloads", () =>
   const attempt = completionFixtures().attempt;
   assertEquals(migrateSingularSourceCandidate(attempt), attempt);
   assertEquals(migrateSingularSourceCandidate("text"), "text");
+});
+
+Deno.test("a retained Proof presentation's embedded singular candidate migrates in place", () => {
+  const candidate = ordinaryCandidate() as Record<string, unknown>;
+  delete candidate.sources;
+  candidate.source = COMPLETION_SOURCE;
+  const proof = {
+    head: "abcdef123456",
+    branch: "amber",
+    completion: { candidate, validation: { mode: "strict" } },
+    line: "> **Proof:** …",
+  };
+  const migrated = migrateProofEmbeddedCandidate(proof) as {
+    completion: { candidate: Record<string, unknown> };
+    line: string;
+  };
+  assertEquals(migrated.completion.candidate.sources, [COMPLETION_SOURCE]);
+  assert(!("source" in migrated.completion.candidate));
+  assertEquals(migrated.line, proof.line);
+
+  // Both embeddings of the same old bytes migrate identically, so the
+  // presentation's byte-for-byte comparison against its complete evidence
+  // still holds after both sides migrate.
+  const storeRecord = migrateSingularSourceCandidate({
+    version: ON_DISK_FORMATS.completionRecord.version,
+    kind: "candidate",
+    id: completionId(1),
+    revision: 1,
+    data: JSON.parse(JSON.stringify(candidate)),
+  }) as { data: Record<string, unknown> };
+  assertEquals(
+    JSON.stringify(migrated.completion.candidate),
+    JSON.stringify(storeRecord.data),
+  );
+
+  // Anything that is not the exact embedding passes through untouched.
+  const current = { completion: { candidate: ordinaryCandidate() } };
+  assertEquals(migrateProofEmbeddedCandidate(current), current);
+  assertEquals(migrateProofEmbeddedCandidate({ line: "x" }), { line: "x" });
+  assertEquals(migrateProofEmbeddedCandidate(null), null);
 });
 
 Deno.test("the store reads a stored singular-source candidate as the current list shape", async () => {

@@ -6,6 +6,7 @@ import {
 
 import { z } from "@zod/zod";
 import type { GateMode } from "../../shared/checkpoint_drops.ts";
+import { migrateProofEmbeddedCandidate } from "../completion/candidate.ts";
 import {
   canonicalProof,
   type Proof,
@@ -74,9 +75,13 @@ export function parseGateProofFile(content: string): GateProofFileRead {
   if (!parsed.success) {
     return { status: "malformed", reason: "Gate Proof JSON is malformed" };
   }
+  // A marker written before the source-list shape embeds the singular
+  // candidate; the retained evidence must keep reading after the migration.
   const proof = parsed.data.proof === undefined
     ? undefined
-    : TolerantProofSchema.safeParse(parsed.data.proof);
+    : TolerantProofSchema.safeParse(
+      migrateProofEmbeddedCandidate(parsed.data.proof),
+    );
   return {
     status: "recorded",
     record: {

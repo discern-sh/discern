@@ -13,7 +13,10 @@ import {
   readCompletionArtifact,
   saveCompletionArtifact,
 } from "../completion/artifacts.ts";
-import { candidateAuthor } from "../completion/candidate.ts";
+import {
+  candidateAuthor,
+  migrateProofEmbeddedCandidate,
+} from "../completion/candidate.ts";
 import { readCompleteProof } from "./completion_proof.ts";
 
 /** A presentation must reproduce the complete immutable claim, never replace it. */
@@ -21,7 +24,9 @@ function validatePresentation(
   complete: CompleteProofEvidence,
   value: unknown,
 ): Proof {
-  const proof = ProofSchema.parse(value);
+  // A presentation retained before the source-list shape embeds the singular
+  // candidate; both sides of the comparison migrate the same way.
+  const proof = ProofSchema.parse(migrateProofEmbeddedCandidate(value));
   if (
     JSON.stringify(proof.completion) !== JSON.stringify(complete) ||
     proof.head !== complete.candidate.head.slice(0, 12) ||
