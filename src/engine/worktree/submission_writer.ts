@@ -10,7 +10,11 @@ import {
 } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
-import { type Submission, SubmissionSchema } from "./submission.ts";
+import {
+  readSubmission,
+  type Submission,
+  SubmissionSchema,
+} from "./submission.ts";
 
 /** Record or replace the effort's submission with the exact revision given. */
 export async function recordSubmission(
@@ -43,4 +47,24 @@ export async function clearSubmission(cwd: string): Promise<void> {
     );
   }
   await removeIfExists(path);
+}
+
+/**
+ * Consume exactly the submission a landing recorded. A replacement submission
+ * recorded since the snapshot survives: settling the older landing must never
+ * spend the newer record. Absence and a replaced record are both settled.
+ */
+export async function clearSubmissionIfCurrent(
+  cwd: string,
+  submissionId: string,
+): Promise<{ readonly cleared: boolean; readonly replaced: boolean }> {
+  const current = await readSubmission(cwd);
+  if (current.status !== "submitted") {
+    return { cleared: false, replaced: false };
+  }
+  if (current.submission.id !== submissionId) {
+    return { cleared: false, replaced: true };
+  }
+  await clearSubmission(cwd);
+  return { cleared: true, replaced: false };
 }

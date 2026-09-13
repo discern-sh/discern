@@ -101,6 +101,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/desk/tips.json`                           | repository | Desk tip evidence.                                                                                                    |
 | `discern/desk/preferences.json`                    | repository | Last agent and task-creation path defaults.                                                                           |
 | `discern/temp-artifact-sweep`                      | repository | Temp-retention sweep stamp and cursor.                                                                                |
+| `discern/integration-landings/`                    | repository | One record per live or interrupted integration worktree: its owner and the frozen submission it composes.             |
 | `discern/gate-proof`                               | worktree   | Proof from a clean `done` run.                                                                                        |
 | `discern/last-gate-run`                            | worktree   | Last gate verdict.                                                                                                    |
 | `discern/standard-measurements`                    | worktree   | Reusable measurements.                                                                                                |

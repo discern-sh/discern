@@ -365,7 +365,13 @@ export async function effortGrantCovering(
 export async function inspectLandingAuthority(
   cwd: string,
   trunk: string,
-  opts: { includeScopeEvidence?: boolean } = {},
+  opts: {
+    includeScopeEvidence?: boolean;
+    /** Classify the changed paths of another checkout — an integrated
+     * landing's copy, whose HEAD is the exact tree that lands — while the
+     * effort grant and warnings still come from `cwd`. */
+    classifyAt?: string;
+  } = {},
 ): Promise<LandingAuthorityResolution> {
   const { effort, branch, granted: effortGranted } = await readEffortGrantState(
     cwd,
@@ -416,8 +422,9 @@ export async function inspectLandingAuthority(
       reason,
     );
   }
+  const classifyRoot = opts.classifyAt ?? cwd;
   const classification = opts.includeScopeEvidence === true
-    ? await classifyLanding(cwd, trunkConfig.commit, typed.config)
+    ? await classifyLanding(classifyRoot, trunkConfig.commit, typed.config)
     : undefined;
   const scopeEvidence = classification?.kind === "classified"
     ? classification
@@ -446,7 +453,7 @@ export async function inspectLandingAuthority(
   }
 
   const authorityClassification = classification ??
-    await classifyLanding(cwd, trunkConfig.commit, typed.config);
+    await classifyLanding(classifyRoot, trunkConfig.commit, typed.config);
   if (authorityClassification.kind === "unavailable") {
     return conversationRequired([
       ...warnings,

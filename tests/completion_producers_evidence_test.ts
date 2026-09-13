@@ -1,4 +1,5 @@
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { candidateAuthor } from "../src/engine/completion/candidate.ts";
 import { assert, assertEquals } from "@std/assert";
 import type { ComponentEvidence } from "../src/engine/completion/evidence.ts";
 import { CompletionRecordSchema } from "../src/engine/completion/records.ts";
@@ -298,7 +299,10 @@ Deno.test("E06: declared closure reuses across candidates; unknown closure stays
       candidate: {
         ...baseline.candidate,
         head: "e".repeat(40),
-        source: { ...baseline.candidate.source, head: "e".repeat(40) },
+        sources: [{
+          ...candidateAuthor(baseline.candidate),
+          head: "e".repeat(40),
+        }],
       },
     });
     const plan = planValidation(next, observation(prior.records), {
@@ -450,7 +454,7 @@ Deno.test("E10 V08: started/failed/report reruns supersede only matching subject
       kind: "diagnostic",
       mode: "strict",
       failing_requirement: failing,
-      source: snap.candidate.source,
+      source: candidateAuthor(snap.candidate),
       base: snap.candidate.predecessor,
     });
     const diagnostic = claimed(snap, diagnosticPlan, 3);

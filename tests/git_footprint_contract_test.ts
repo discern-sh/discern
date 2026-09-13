@@ -58,6 +58,7 @@ const FROZEN_V1_GIT_CONVENTIONS = {
   branches: {
     worktree_prefix_default: "agent/",
     setup: "discern-setup",
+    integration_namespace: "integration/",
     detached_fallback: "<branch>-<8-character-commit>",
   },
   worktree_root: {
@@ -118,6 +119,12 @@ const FROZEN_V1_GIT_ADMIN_STATE = {
     false,
   ],
   resources: ["discern/resources", "common", "directory", false],
+  integrationLandings: [
+    "discern/integration-landings",
+    "common",
+    "directory",
+    false,
+  ],
   logbook: ["discern/logbook", "common", "directory", false],
   logbookArchives: [
     "discern/logbook-archives",

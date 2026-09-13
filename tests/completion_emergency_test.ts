@@ -7,6 +7,7 @@
  */
 
 import { decodeBase64 } from "@std/encoding/base64";
+import { candidateAuthor } from "../src/engine/completion/candidate.ts";
 import { join } from "@std/path";
 import {
   assert,
@@ -324,7 +325,7 @@ function plannedExceptionRecord(
         authorization_id: id,
         authorized_at: now,
         actual_trunk: candidate.predecessor,
-        source: candidate.source,
+        source: candidateAuthor(candidate),
         candidate_id: preview.candidate_id ?? candidate.attempt_id,
         candidate_head: candidate.head,
         policy: candidate.policy,
@@ -333,7 +334,7 @@ function plannedExceptionRecord(
       },
       executor: {
         operation_id: crypto.randomUUID(),
-        originating_effort: candidate.source.effort_id,
+        originating_effort: candidateAuthor(candidate).effort_id,
         started_at: now,
       },
       expected_trunk: candidate.predecessor,

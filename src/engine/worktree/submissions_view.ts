@@ -15,6 +15,7 @@ import { readCompleteProof } from "../gate/completion_proof.ts";
 import { candidatePredecessor } from "../completion/candidate.ts";
 import { strictVerdictCurrency } from "../completion/verdict.ts";
 import {
+  commitIsAncestorOf,
   commitIsMerged,
   integrationBranch,
   listRegisteredWorktrees,
@@ -23,6 +24,10 @@ import {
   effortGrantCovering,
   inspectLandingAuthority,
 } from "./landing_authority.ts";
+import {
+  integrationOwnerLiveness,
+  listIntegrationLandingRecords,
+} from "./integration_record.ts";
 import { readSubmission, type Submission } from "./submission.ts";
 
 export type SubmissionAuthority = "pre-authorized" | "awaiting-owner";
@@ -40,6 +45,12 @@ export interface SubmissionRow {
   readonly readiness: "ready" | "waiting";
   /** One full sentence: why the submission waits. Absent when ready. */
   readonly reason?: string;
+  /** The trunk moved after its Proof, so acceptance composes and checks it in
+   * an integration worktree before landing. */
+  readonly integration?: boolean;
+  /** The running landing checking this submission, readable with
+   * `discern progress <handle>`. */
+  readonly operation_handle?: string;
   /** 1-based place in the displayed order. */
   readonly position: number;
 }
@@ -54,12 +65,26 @@ export interface SubmissionFacts {
   readonly proofReadable: boolean;
   /** The store's newest strict verdict over the submitted revision. */
   readonly verdict: "current" | "superseded" | "unavailable";
+  /** A live landing is checking this submission's combined code now. */
+  readonly checking?: { readonly handle?: string };
 }
 
-/** Derive one row's readiness and single waiting reason (pure). */
+/** Derive one row's readiness, single waiting reason, and optional
+ * integration detail (pure). A trunk that moved after the Proof is not a
+ * waiting reason: acceptance composes and checks the combined code in an
+ * integration worktree, so the row stays ready and says so. */
 export function submissionReadiness(
   facts: SubmissionFacts,
-): Pick<SubmissionRow, "readiness" | "reason"> {
+): Pick<SubmissionRow, "readiness" | "reason" | "integration"> {
+  if (facts.checking !== undefined) {
+    return {
+      readiness: "waiting",
+      reason: facts.checking.handle === undefined
+        ? "A running landing is checking its combined code now."
+        : `A running landing is checking its combined code now; read it with discern progress ${facts.checking.handle}.`,
+      ...(facts.trunkCurrent ? {} : { integration: true }),
+    };
+  }
   if (!facts.proofReadable) {
     return {
       readiness: "waiting",
@@ -67,18 +92,12 @@ export function submissionReadiness(
         "Its Proof cannot be read; run discern done from its worktree, then discern accept.",
     };
   }
-  if (!facts.trunkCurrent) {
-    return {
-      readiness: "waiting",
-      reason:
-        "The trunk moved after its Proof; run discern update, discern done, then discern accept from its worktree.",
-    };
-  }
   if (!facts.branchCurrent) {
     return {
       readiness: "waiting",
       reason:
         "Its branch has moved on since it was submitted; run discern done, then discern accept from its worktree for the new work.",
+      ...(facts.trunkCurrent ? {} : { integration: true }),
     };
   }
   if (facts.verdict === "superseded") {
@@ -95,7 +114,10 @@ export function submissionReadiness(
         "The strict verdict over its submitted revision could not be read; run discern done from its worktree, then discern accept.",
     };
   }
-  return { readiness: "ready" };
+  return {
+    readiness: "ready",
+    ...(facts.trunkCurrent ? {} : { integration: true }),
+  };
 }
 
 /** Order pre-authorized rows first by grant time, then the rest by submission time. */
@@ -130,6 +152,7 @@ async function submissionRow(
   trunkTip: string,
   path: string,
   submission: Submission,
+  checking?: { readonly handle?: string },
 ): Promise<Omit<SubmissionRow, "position"> | undefined> {
   if (await commitIsMerged(root, submission.head, trunk)) return undefined;
   let trunkCurrent = false;
@@ -137,8 +160,11 @@ async function submissionRow(
   try {
     const complete = await readCompleteProof(root, submission.proof);
     proofReadable = complete.candidate.head === submission.head;
+    // Ancestry, the landing's own rule: a submission that already contains
+    // the trunk tip lands directly, so its row carries no composition mark.
     trunkCurrent = proofReadable &&
-      candidatePredecessor(complete.candidate) === trunkTip;
+      (candidatePredecessor(complete.candidate) === trunkTip ||
+        await commitIsAncestorOf(root, trunkTip, submission.head));
   } catch {
     // discern-best-effort: submission-row-proof-unreadable
     proofReadable = false;
@@ -178,11 +204,15 @@ async function submissionRow(
     authority,
     ...(source === undefined ? {} : { authority_source: source }),
     ...(grantedAt === undefined ? {} : { granted_at: grantedAt }),
+    ...(checking?.handle === undefined
+      ? {}
+      : { operation_handle: checking.handle }),
     ...submissionReadiness({
       trunkCurrent,
       branchCurrent,
       proofReadable,
       verdict,
+      ...(checking === undefined ? {} : { checking }),
     }),
   };
 }
@@ -199,6 +229,22 @@ export async function submissionRows(
   );
   if (!tipRun.success) return [];
   const trunkTip = tipRun.stdout.trim();
+  // The submissions being checked right now, from the recorded integration
+  // landings whose owning process still runs — the one authority the queue,
+  // status, and the landing walk share.
+  const checking = new Map<string, { readonly handle?: string }>();
+  for (const entry of await listIntegrationLandingRecords(root)) {
+    if (entry.reading.status !== "recorded") continue;
+    const record = entry.reading.record;
+    if (await integrationOwnerLiveness(root, record) !== "running") {
+      continue;
+    }
+    checking.set(record.landing.submission_id, {
+      ...(record.operation.operation_handle === undefined
+        ? {}
+        : { handle: record.operation.operation_handle }),
+    });
+  }
   const rows: Omit<SubmissionRow, "position">[] = [];
   for (const registration of await listRegisteredWorktrees(root)) {
     if (registration.isMain) continue;
@@ -210,6 +256,7 @@ export async function submissionRows(
       trunkTip,
       registration.path,
       read.submission,
+      checking.get(read.submission.id),
     );
     if (row !== undefined) rows.push(row);
   }

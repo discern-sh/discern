@@ -1,4 +1,5 @@
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { candidateAuthor } from "../src/engine/completion/candidate.ts";
 /** Count the repository recipe through the landed producer and artifact runtime. */
 import {
   assert,
@@ -226,7 +227,7 @@ Deno.test("E08 E16: one demanded instrumented suite supplies every coverage cons
         attempt_id: completionId(101),
         head,
         tree,
-        source: { ...baseline.candidate.source, head, tree },
+        sources: [{ ...candidateAuthor(baseline.candidate), head, tree }],
       },
       producers: {
         "jobs.test": ProducerDeclarationSchema.parse({

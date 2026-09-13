@@ -83,10 +83,13 @@ Commands:
     <span style="color:rgb(135 215 255);font-weight:700">accept     </span>  <span style="opacity:0.68">Submit this worktree&#39;s proven commit and land it on the trunk</span>
                  <span style="opacity:0.68">(`main`), the shared landing branch. Landing needs the owner&#39;s</span>
                  <span style="opacity:0.68">consent in this conversation or a recorded grant; without one,</span>
-                 <span style="opacity:0.68">the submission waits in the landing queue. Landing removes the</span>
-                 <span style="opacity:0.68">worktree and its branch when the branch holds nothing beyond</span>
-                 <span style="opacity:0.68">the landed commit. Use accept emergency --reason &lt;text&gt; to</span>
-                 <span style="opacity:0.68">review an explicit exception against actual trunk. Emergency</span>
+                 <span style="opacity:0.68">the submission waits in the landing queue. If the trunk moved</span>
+                 <span style="opacity:0.68">after the Proof, the landing composes and checks the combined</span>
+                 <span style="opacity:0.68">code in a disposable integration worktree and lands that exact</span>
+                 <span style="opacity:0.68">proven commit; a second accept waits its turn. Landing removes</span>
+                 <span style="opacity:0.68">the worktree and its branch when the branch holds nothing</span>
+                 <span style="opacity:0.68">beyond the landed commit. Use accept emergency --reason &lt;text&gt;</span>
+                 <span style="opacity:0.68">to review an explicit exception against actual trunk. Emergency</span>
                  <span style="opacity:0.68">integration requires fresh exact owner confirmation and issues</span>
                  <span style="opacity:0.68">no passing Proof.</span>
     <span style="color:rgb(135 215 255);font-weight:700">worktree   </span>  <span style="opacity:0.68">Manage worktrees <span data-discern-terminal-cell="1" style="display:inline-block;width:1ch;text-align:center;vertical-align:baseline">—</span> separate checkouts and branches for</span>

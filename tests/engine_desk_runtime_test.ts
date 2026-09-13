@@ -2868,7 +2868,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   // The desk's interactive confirm IS the acceptance, so the apply carries the
   // attestation (ADR 0134) — never a bare, consent-less landing.
   assertEquals(acceptPlanCalls, 1);
-  assertEquals(appliedAccept, [{ confirmed: true }]);
+  assertEquals(appliedAccept, [{ confirmed: true, cliModel: TEST_CLI_MODEL }]);
   assertEquals(acceptPauses, 1);
 
   const dropOutput = transcript();

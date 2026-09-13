@@ -2,6 +2,7 @@ import {
   readCompletionArtifact,
   saveCompletionArtifact,
 } from "../src/engine/completion/artifacts.ts";
+import { candidateAuthor } from "../src/engine/completion/candidate.ts";
 import { openArtifactPaths } from "../src/engine/completion/artifact_paths.ts";
 import { countedAdminQueries } from "./git_admin_observer.ts";
 import { completionFixtures } from "./completion_fixtures.ts";
@@ -159,7 +160,7 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         attempt_id: completionId(101),
         head,
         tree,
-        source: { ...baseline.candidate.source, head, tree },
+        sources: [{ ...candidateAuthor(baseline.candidate), head, tree }],
       },
       producers: { "jobs.test": ARTIFACT_RECIPE },
       obligations: declarations,

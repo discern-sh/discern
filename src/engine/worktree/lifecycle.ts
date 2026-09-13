@@ -129,6 +129,7 @@ import {
   readySentinelPath,
   refMergedState,
   registeredWorktreeOwnershipEvidence,
+  registeredWorktreeRecord,
   removeWorktreeSafely,
   repoToplevel,
   resolveCommitRef,
@@ -172,6 +173,7 @@ import {
 import {
   dropPlanToEngine,
   FULL_REFRESH_STEP_NOTE,
+  type IntegrationPruneItem,
   type PrunePlan,
   prunePlanIsEmpty,
   prunePlanToEngine,
@@ -207,6 +209,12 @@ import {
   sameLedgerItems,
   WorktreeResourceError,
 } from "./resources.ts";
+import {
+  type IntegrationLandingRecord,
+  integrationOwnerLiveness,
+  listIntegrationLandingRecords,
+  removeIntegrationLandingRecord,
+} from "./integration_record.ts";
 import {
   pruneReappearedWorktreePaths,
   type ReappearedWorktreePathPruneResult,
@@ -1893,7 +1901,7 @@ function narrateIntegration(
  * shared worktree-target resolver as `start --from`, refusing an unknown or
  * ambiguous source in plain language).
  */
-async function buildUpdatePlan(
+export async function buildUpdatePlan(
   ctx: LifecycleContext,
   from?: string,
 ): Promise<UpdatePlan> {
@@ -2436,6 +2444,26 @@ async function runUpdateConvergence(
   };
 }
 
+/** What the shared update core did, for callers that compose it rather than
+ * throw: acceptance's integration phase needs the conflict's exact files, not
+ * a rendered refusal. `applied` covers the merge and the no-op convergence
+ * pass alike. */
+export type UpdateCoreOutcome =
+  | {
+    readonly kind: "conflict";
+    readonly files: string[];
+    readonly resolvable: string[];
+    readonly aborted: boolean;
+    readonly resolutionFailure?: string;
+  }
+  | { readonly kind: "dirty" }
+  | { readonly kind: "merge_failed"; readonly reason: string }
+  | {
+    readonly kind: "applied";
+    readonly result: DiscernResult<UpdateData>;
+    readonly merged: boolean;
+  };
+
 /**
  * Apply an integration: merge the source (the trunk, or the `--from` ref) in,
  * run the complete refresh reconciliation, then run checkout-shared
@@ -2454,6 +2482,46 @@ async function executeUpdatePlan(
   ctx: LifecycleContext,
   plan: UpdatePlan,
 ): Promise<DiscernResult<UpdateData>> {
+  const outcome = await applyUpdateCore(ctx, plan);
+  switch (outcome.kind) {
+    case "applied":
+      return outcome.result;
+    case "dirty":
+      throw new WorktreeGitError(
+        "This worktree has uncommitted tracked changes, and update merges only into a " +
+          "clean tree. Commit or stash them, then re-run `discern update`.",
+      );
+    case "conflict":
+      throw new WorktreeGitError(
+        updateConflictMessage(
+          plan,
+          outcome.files,
+          outcome.resolvable,
+          outcome.aborted,
+          outcome.resolutionFailure,
+        ),
+      );
+    case "merge_failed":
+      // Git refused before any merge began — unrelated histories, an untracked
+      // file in the way. The tree is untouched; the cause is git's to name.
+      throw new WorktreeGitError(
+        `Updating ${plan.source} failed before any merge began — your ` +
+          `tree is untouched. Git refused:\n    ${outcome.reason}\n` +
+          `Fix the cause git names, then re-run \`${
+            plan.fromOverride
+              ? `discern update --from ${plan.source}`
+              : "discern update"
+          }\`.`,
+      );
+  }
+}
+
+/** The update core acceptance composes inside an integration worktree; the
+ * standalone verb wraps it in the refusal prose above. */
+export async function applyUpdateCore(
+  ctx: LifecycleContext,
+  plan: UpdatePlan,
+): Promise<UpdateCoreOutcome> {
   const { source } = plan;
   const outcome = await updateMain(
     ctx.cwd,
@@ -2502,35 +2570,22 @@ async function executeUpdatePlan(
       if (convergence.diagnostics.length > 0) {
         result.diagnostics = convergence.diagnostics;
       }
-      return result;
+      return { kind: "applied", result, merged: false };
     }
     case "dirty":
-      throw new WorktreeGitError(
-        "This worktree has uncommitted tracked changes, and update merges only into a " +
-          "clean tree. Commit or stash them, then re-run `discern update`.",
-      );
+      return { kind: "dirty" };
     case "conflict":
-      throw new WorktreeGitError(
-        updateConflictMessage(
-          plan,
-          outcome.files,
-          outcome.resolvable,
-          outcome.aborted,
-          outcome.resolutionFailure,
-        ),
-      );
+      return {
+        kind: "conflict",
+        files: outcome.files,
+        resolvable: outcome.resolvable,
+        aborted: outcome.aborted,
+        ...(outcome.resolutionFailure === undefined
+          ? {}
+          : { resolutionFailure: outcome.resolutionFailure }),
+      };
     case "merge_failed":
-      // Git refused before any merge began — unrelated histories, an untracked
-      // file in the way. The tree is untouched; the cause is git's to name.
-      throw new WorktreeGitError(
-        `Updating ${plan.source} failed before any merge began — your ` +
-          `tree is untouched. Git refused:\n    ${outcome.reason}\n` +
-          `Fix the cause git names, then re-run \`${
-            plan.fromOverride
-              ? `discern update --from ${plan.source}`
-              : "discern update"
-          }\`.`,
-      );
+      return { kind: "merge_failed", reason: outcome.reason };
     case "updated": {
       const behindText = isKnownGitCount(outcome.behind)
         ? `${outcome.behind} commit(s)`
@@ -2611,7 +2666,7 @@ async function executeUpdatePlan(
       if (convergence.diagnostics.length > 0) {
         result.diagnostics = convergence.diagnostics;
       }
-      return result;
+      return { kind: "applied", result, merged: true };
     }
   }
 }
@@ -3689,7 +3744,224 @@ async function buildPrunePlan(
     resourceReclaimsKept: resources.kept,
     contained: await pruneContainedScan(ctx, reclaimContained),
     reclaimContained,
+    integrations: await scanIntegrationLandings(ctx),
   };
+}
+
+/** Remove the integration worktree, its resources, its branch, and its
+ * record. Returns human-readable failures instead of throwing: on the red
+ * routes the refusal must still reach the author, and after a landing the
+ * trunk transition is already durable. Unfinished cleanup stays recorded for
+ * `discern worktree prune`. */
+export async function removeIntegrationWorktree(
+  mainRepo: string,
+  record: Pick<IntegrationLandingRecord, "worktree">,
+  log: Logger,
+): Promise<string[]> {
+  const failures: string[] = [];
+  // Reported alongside failures but never gating the record: surviving
+  // resource ledger rows have their own recovery route (orphan GC), while
+  // the record accounts for the checkout and the branch.
+  const ledgerNotes: string[] = [];
+  const dir = record.worktree.path;
+  const gitMarker = await fileExists(join(dir, ".git"));
+  if (gitMarker) {
+    try {
+      const teardown = await teardownResources(
+        await lifecycleContext(dir, log, dir),
+      );
+      if (teardown.failed.length > 0) {
+        failures.push(
+          `integration resources remain recorded for recovery: ${
+            teardown.failed.join(", ")
+          }`,
+        );
+      }
+    } catch (error) {
+      failures.push(
+        `integration resource teardown could not run: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+  // An interrupted deletion can strip the .git marker while the directory
+  // and Git's registration survive; the verified removal path handles both,
+  // so its absence must never skip the removal itself.
+  if (
+    await pathExists(dir) ||
+    (await registeredWorktreeRecord(dir, mainRepo)) !== undefined
+  ) {
+    try {
+      await removeWorktreeSafely(dir, mainRepo);
+    } catch (error) {
+      failures.push(
+        `the integration worktree at ${dir} could not be removed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+  if (!gitMarker) {
+    // Without the marker no teardown ran here; surviving ledger rows for
+    // this copy are named so the caller's report points at the route that
+    // reclaims them.
+    const commonGitDir = await resolveCommonGitDir(mainRepo);
+    const remaining = commonGitDir === undefined
+      ? []
+      : (await listEntries(commonGitDir)).filter((item) =>
+        item.entry.worktree_path === dir
+      );
+    if (remaining.length > 0) {
+      ledgerNotes.push(
+        `integration resources remain recorded for recovery (${
+          remaining.map((item) => item.entry.resource_name).join(", ")
+        }); discern worktree prune reclaims them`,
+      );
+    }
+  }
+  if (failures.length === 0) {
+    const tip = await runGit(
+      [
+        "rev-parse",
+        "--verify",
+        `refs/heads/${record.worktree.branch}^{commit}`,
+      ],
+      { cwd: mainRepo },
+    );
+    if (tip.success) {
+      const deleted = await deleteAutomaticallyOwnedBranch({
+        repoRoot: mainRepo,
+        branch: record.worktree.branch,
+        expectedCommit: tip.stdout.trim(),
+        ownership: {
+          kind: "integration",
+          branch: record.worktree.branch,
+          recordedBranch: record.worktree.branch,
+        },
+      });
+      if (deleted.kind === "refused") {
+        failures.push(
+          `the integration worktree's branch ${record.worktree.branch} could not be deleted: ${deleted.reason}`,
+        );
+      }
+    } else if (await localBranchExists(mainRepo, record.worktree.branch)) {
+      // The branch exists but its tip could not be read: uncertainty, not
+      // absence. Keep the record — it is the only ownership evidence prune
+      // has for reclaiming the branch later.
+      failures.push(
+        `the integration worktree's branch ${record.worktree.branch} could not be read for deletion; run discern worktree prune from ${mainRepo} after the repository is readable`,
+      );
+    }
+  }
+  // The record outlives the branch, never the reverse: it is removed only
+  // once everything it accounts for is verifiably gone. Ledger notes
+  // are reported without retaining it — the resource ledger is its own
+  // recovery record.
+  if (failures.length === 0) {
+    await removeIntegrationLandingRecord(mainRepo, record.worktree.id);
+  }
+  return [...failures, ...ledgerNotes];
+}
+
+/** Classify every recorded integration landing for the prune plan: a dead
+ * owner's copy is reclaimable, a live landing is never a candidate, and an
+ * unreadable record is reported rather than acted on. */
+async function scanIntegrationLandings(
+  ctx: LifecycleContext,
+): Promise<IntegrationPruneItem[]> {
+  const items: IntegrationPruneItem[] = [];
+  for (const entry of await listIntegrationLandingRecords(ctx.root)) {
+    if (entry.reading.status !== "recorded") {
+      items.push({
+        worktreeId: entry.worktreeId,
+        branch: "",
+        path: "",
+        disposition: "unreadable",
+        reason:
+          `its integration-landing record is kept for inspection: ${entry.reading.reason}`,
+      });
+      continue;
+    }
+    const record = entry.reading.record;
+    const liveness = await integrationOwnerLiveness(ctx.root, record);
+    if (liveness === "gone") {
+      items.push({
+        worktreeId: record.worktree.id,
+        branch: record.worktree.branch,
+        path: record.worktree.path,
+        disposition: "reclaim",
+        reason: "its owning landing process is gone",
+      });
+      continue;
+    }
+    items.push({
+      worktreeId: record.worktree.id,
+      branch: record.worktree.branch,
+      path: record.worktree.path,
+      disposition: "live",
+      reason: liveness === "running"
+        ? `a live landing for ${record.landing.branch} owns it — never pruned`
+        : "its owner's liveness could not be established; kept",
+    });
+  }
+  return items;
+}
+
+/** Reclaim the planned dead-owner integration copies, re-checking liveness
+ * immediately before each act. */
+async function reclaimIntegrationLandings(
+  ctx: LifecycleContext,
+  planned: readonly IntegrationPruneItem[],
+): Promise<{ reclaimed: string[]; failures: string[]; failed: boolean }> {
+  const outcome = {
+    reclaimed: [] as string[],
+    failures: [] as string[],
+    failed: false,
+  };
+  const candidates = planned.filter((item) => item.disposition === "reclaim");
+  if (candidates.length === 0) {
+    ctx.log.line("No interrupted integration worktrees found.");
+    return outcome;
+  }
+  const current = new Map(
+    (await listIntegrationLandingRecords(ctx.root)).map(
+      (entry) => [entry.worktreeId, entry],
+    ),
+  );
+  for (const item of candidates) {
+    const entry = current.get(item.worktreeId);
+    if (entry === undefined || entry.reading.status !== "recorded") {
+      ctx.log.warn(
+        `Skipped ${item.path}: its integration record changed since the plan was built.`,
+      );
+      continue;
+    }
+    if (
+      await integrationOwnerLiveness(ctx.root, entry.reading.record) !== "gone"
+    ) {
+      ctx.log.warn(
+        `Skipped ${item.path}: its owning landing is live again; a live integration is never pruned.`,
+      );
+      continue;
+    }
+    const failures = await removeIntegrationWorktree(
+      ctx.root,
+      entry.reading.record,
+      ctx.log,
+    );
+    if (failures.length === 0) {
+      ctx.log.ok(`Reclaimed interrupted integration worktree ${item.path}.`);
+      outcome.reclaimed.push(item.path);
+    } else {
+      ctx.log.error(
+        `Reclaim of ${item.path} did not finish: ${failures.join("; ")}.`,
+      );
+      outcome.failures.push(...failures);
+      outcome.failed = true;
+    }
+  }
+  return outcome;
 }
 
 /**
@@ -3940,6 +4212,12 @@ export async function worktreePrune(
   ctx.log.heading("Reclaiming orphaned worktree directories…");
   const sweep = await sweepOrphanWorktrees(plan.orphanScan, ctx.log);
 
+  ctx.log.heading("Reclaiming interrupted integration worktrees…");
+  const integrations = await reclaimIntegrationLandings(
+    ctx,
+    plan.integrations,
+  );
+
   ctx.log.heading("Reclaiming reappeared worktree paths…");
   const reappeared = await pruneReappearedWorktreePaths(
     plan.reappearedPathScan,
@@ -3995,7 +4273,7 @@ export async function worktreePrune(
   }
   if (
     prune.failed || sweep.failed || reappeared.failed || gc.failed ||
-    reclaim.failed
+    reclaim.failed || integrations.failed
   ) {
     throw new WorktreeGitError(
       "One or more worktree cleanups failed. Review the failed steps above, fix " +
@@ -4015,6 +4293,7 @@ export async function worktreePrune(
         gc,
         plan,
         reclaim,
+        integrations,
         worktreeResourceSteps,
       ),
     ),
@@ -4267,6 +4546,7 @@ function pruneResults(
   gc: GcResult,
   plan: PrunePlan,
   reclaim: ContainedReclaimResult,
+  integrations: { reclaimed: string[]; failures: string[] },
   worktreeResourceSteps: StepResult[],
 ): StepResult[] {
   const step = (
@@ -4321,6 +4601,30 @@ function pruneResults(
     }));
   return [
     ...worktreeResourceSteps,
+    ...integrations.reclaimed.map((path) =>
+      step(
+        "git",
+        path,
+        "reclaimed the interrupted integration worktree, its resources, its branch, and its record",
+        "Integration worktrees",
+      )
+    ),
+    ...plan.integrations
+      .filter((item) =>
+        item.disposition !== "reclaim" && item.worktreeId !== ""
+      )
+      .map((item): StepResult => ({
+        step: {
+          kind: "git",
+          label: verbatimStepLabel(
+            item.path === "" ? item.worktreeId : item.path,
+          ),
+          disposition: "skip",
+          note: item.reason,
+          group: "Integration worktrees",
+        },
+        outcome: "skipped",
+      })),
     ...prune.removed.map((w) =>
       step("git", w, "removed owned clean merged worktree", "Worktrees")
     ),

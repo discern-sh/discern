@@ -1,4 +1,5 @@
 import { recordGateOutcome } from "../src/engine/gate/proof.ts";
+import { candidateAuthor } from "../src/engine/completion/candidate.ts";
 /** Complete immutable receipts for focused Proof-reader tests; no landing grant is created. */
 import { assert } from "@std/assert";
 import type { Proof } from "../src/shared/result_schemas.ts";
@@ -61,12 +62,12 @@ export async function completeGateFixture(root: string): Promise<{
     data: {
       ...candidate.data,
       attempt_id: attemptId,
-      source: {
-        ...candidate.data.source,
+      sources: [{
+        ...candidateAuthor(candidate.data),
         head,
         tree,
         branch: `refs/heads/${branch}`,
-      },
+      }],
       head,
       tree,
       predecessor: head,

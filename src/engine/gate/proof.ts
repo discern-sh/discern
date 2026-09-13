@@ -420,7 +420,7 @@ export async function recordGateOutcome(
     try {
       const complete = await readCompleteProof(cwd, completion);
       if (
-        complete.candidate.source.head !== pin.head ||
+        complete.candidate.head !== pin.head ||
         complete.validation.mode !== mode
       ) {
         return proofRecord("record_failed", {
@@ -674,7 +674,7 @@ export async function inspectGateProof(
     };
   }
   if (
-    complete.candidate.source.head !== parsedFile.record.head ||
+    complete.candidate.head !== parsedFile.record.head ||
     complete.validation.mode !== parsedFile.record.mode
   ) {
     return {

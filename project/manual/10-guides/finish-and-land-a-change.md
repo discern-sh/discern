@@ -118,11 +118,11 @@ Read the first sentence of the result before anything else: it names your task's
 Landed agent/recipe-search-0a7563 at 3f9c2d81a4b7 on main; its checkout, branch, and resources are gone. You are on main in /Users/you/projects/recipes.
 ```
 
-If the shared branch moved after the Proof was recorded, acceptance refuses in one sentence and names the route: the agent runs `discern update`, then `discern done`, then `discern accept` again. Checks that the incoming changes do not affect are reused.
+`discern done` starts up to date: if the branch is already behind when it begins, it refuses and names `discern update`. If the shared branch moves after that Proof, acceptance handles it itself: it checks the combined version in a fresh **integration worktree** — a disposable copy discern creates, provisions, and removes for that one landing — and lands the exact commit it proved. A second landing arriving meanwhile waits its turn and continues on its own. A conflict, or a failed combined check, returns to the author with the exact files or failing check named and nothing changed; judgments reserved for you — an unmet checkpoint, a standard-limit proposal — still stop for your decision.
 
 ## Completion
 
-A landing moves the shared branch to the submitted commit, attaches the Proof to that commit as a durable note, brings the main checkout up to date, and removes the task's worktree, its resources, and its branch. That cleanup happens when the branch holds nothing beyond what landed.
+A landing moves the shared branch to the exact commit it proved — the submitted commit, or the combined commit an integration worktree checked when the shared branch had moved — attaches the Proof to that commit as a durable note, brings the main checkout up to date, and removes the task's worktree, its resources, and its branch. That cleanup happens when the branch holds nothing beyond what landed.
 
 When the worktree stays, the first sentence says why and names the command that finishes the work:
 

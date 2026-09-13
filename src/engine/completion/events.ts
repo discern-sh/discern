@@ -5,6 +5,7 @@ import type {
 } from "../../shared/result_schemas.ts";
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
 import type { Clock } from "../../shared/clock.ts";
+import { candidateAuthor } from "./candidate.ts";
 import type { CompletionEvent, ValidationSubject } from "./protocol.ts";
 import type { ComponentEvidence } from "./evidence.ts";
 
@@ -123,11 +124,12 @@ export function executionEvent(
   fact: CompletionEvent["fact"],
   executorOperation = execution.attempt.identity.executor.operation_id,
 ): CompletionEvent {
+  const author = candidateAuthor(execution.candidate);
   return {
     id,
     at,
-    effort_id: execution.candidate.source.effort_id,
-    source_head: execution.candidate.source.head,
+    effort_id: author.effort_id,
+    source_head: author.head,
     candidate_id: execution.candidate_id,
     attempt_id: execution.attempt.identity.id,
     executor_operation: executorOperation,

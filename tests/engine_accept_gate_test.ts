@@ -32,6 +32,7 @@ import {
   addWorktree,
   git,
   gitInit,
+  gitOut,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -196,6 +197,14 @@ async function mainWithCheck(dir: string): Promise<void> {
   });
   await writeExecutable(join(dir, "check.sh"), CHECK_NO_TABOO);
   await gitInit(dir);
+  // Refresh-converge the committed tree, as a really set-up project is: a
+  // landing's integration worktree runs full setup, whose regeneration must
+  // be byte-identical to the committed artifacts.
+  assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
+  await git(dir, "add", "-A");
+  if ((await gitOut(dir, "status", "--porcelain")) !== "") {
+    await git(dir, "commit", "-q", "-m", "converge artifacts", "--no-gpg-sign");
+  }
 }
 
 /** Commit `feature.txt` onto the worktree branch — the branch's own (gate-passing) work. */
@@ -489,7 +498,7 @@ for (const legacy of [false, true]) {
   });
 }
 
-Deno.test("accept: a trunk that moved after the Proof refuses in one sentence and never reruns the gate", async () => {
+Deno.test("accept: a trunk that moved after the Proof composes in an integration worktree and never reruns the gate in the author's checkout", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "unavailable");
@@ -497,18 +506,19 @@ Deno.test("accept: a trunk that moved after the Proof refuses in one sentence an
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
     await advanceMain(dir, "notes.txt");
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(accepted.code, 1, accepted.output);
+    assertEquals(accepted.code, 0, accepted.output);
     const result = decodeCliResult(accepted.stdout, "accept");
-    assertEquals(result.error, "precondition_failed", accepted.output);
     assertStringIncludes(
       result.message ?? "",
-      "The trunk moved after agent/unavailable's Proof; run discern update, " +
-        "discern done, then discern accept.",
+      "composed with main and proven as",
     );
-    // accept never recomposes or revalidates: the check ran once, in done.
-    assertEquals(await Deno.readTextFile(join(wt, ".check-count")), "x");
-    assertEquals(await targetExists(join(dir, "feature.txt")), false);
-    assertEquals(await targetExists(wt), true);
+    // The combined check ran in the disposable copy, never in the author's
+    // checkout: its own count still shows exactly the one done run. The
+    // author's checkout is gone with the landing, so read what remains.
+    assertEquals(await targetExists(join(dir, "feature.txt")), true);
+    assertEquals(await targetExists(join(dir, "notes.txt")), true);
+    assertEquals(await targetExists(wt), false);
+    assertEquals(await targetExists(join(dir, ".check-count")), false);
   });
 });
 
@@ -549,12 +559,13 @@ Deno.test("accept: the stale-finish hole stays closed — a gate-breaking merge 
     assertEquals(done.code, 0, done.output);
     // A semantically breaking line of work lands on main beneath the branch.
     await advanceMain(dir, "taboo.txt");
-    // The proven-but-stale Proof cannot land the merged future.
+    // The proven-but-stale Proof cannot land the merged future: the landing
+    // composes and checks the combined tree, and the red check closes it.
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 1, accepted.output);
     assertTerminalTextIncludes(
       decodeCliResult(accepted.stdout, "accept").message ?? "",
-      "The trunk moved after agent/composed's Proof",
+      "The combined check for agent/composed's submission",
     );
     // The route the refusal names: update merges the trunk in, done fails on
     // the merged tree, and acceptance stays closed — nothing lands.

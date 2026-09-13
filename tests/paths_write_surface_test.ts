@@ -138,6 +138,14 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "the worktree-scoped submission record — registry-resolved Git-admin state, written and cleared through the atomic writer",
   ],
   [
+    "src/engine/worktree/integration_record.ts",
+    "the integration-landing record — registry-resolved common Git-admin state, cleanup intent written before effects through the atomic writer",
+  ],
+  [
+    "src/engine/worktree/integration_landing.ts",
+    "the author's worktree-scoped decision stores copied into the integration copy — registry-resolved Git-admin state, byte-for-byte, validated by their own readers",
+  ],
+  [
     "src/engine/worktree/env_file.ts",
     "the worktree .env upsert (never created)",
   ],

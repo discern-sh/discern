@@ -126,7 +126,7 @@ export const CHECKOUT_MUTATION_BOUNDARIES = [
     command: "checkout",
     allowance: "invoked-checkout",
     reason:
-      "update takes the incoming side of a generated-only conflict in the invoked worktree",
+      "update takes the incoming side of a generated-only conflict in the invoked worktree, a landing's own integration worktree included",
   },
   {
     path: "src/engine/worktree/git.ts",
@@ -166,7 +166,7 @@ export const CHECKOUT_MUTATION_BOUNDARIES = [
     command: "worktree add",
     allowance: "owned-worktree",
     reason:
-      "start and the setup viability probe create the worktrees discern owns",
+      "start, the setup viability probe, and a landing's integration worktree create the worktrees discern owns",
   },
   {
     path: "src/engine/worktree/git.ts",
@@ -174,7 +174,7 @@ export const CHECKOUT_MUTATION_BOUNDARIES = [
     command: "worktree remove",
     allowance: "owned-worktree",
     reason:
-      "accept, drop, park, and confirmed prune remove worktrees registered to this repository",
+      "accept (its integration worktree included), drop, park, and confirmed prune remove worktrees registered to this repository",
   },
   {
     path: "src/shared/discern_commit.ts",

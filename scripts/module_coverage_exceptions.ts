@@ -55,15 +55,6 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
       "Exercise the remaining proposal reconciliation states through public results.",
   },
   {
-    path: "src/engine/worktree/effort_grant_cleanup.ts",
-    measuredPct: 63.3,
-    owner: "worktree lifecycle",
-    reason:
-      "Grant cleanup spans Git-admin absence and corruption recovery states.",
-    recovery:
-      "Plant each missing, malformed, retained, and successfully reaped grant state.",
-  },
-  {
     path: "src/lib/docs_search.js",
     measuredPct: 47.6,
     owner: "documentation UI",

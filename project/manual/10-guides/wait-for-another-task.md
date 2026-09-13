@@ -49,7 +49,7 @@ Your agent normally calls the `discern_await` tool with the waiting worktree's a
 discern await --green agent/mark-books-read-b41f2c
 ```
 
-The other choices are `--landed <worktree>` and `--trunk-moved`. A named task can be identified by its returned worktree id, absolute path, local branch, or full local ref. The [CLI reference](../30-reference/cli-reference.md#discern-await) lists the exact options.
+The other choices are `--landed <worktree>` and `--trunk-moved`. A named task can be identified by its returned worktree id, absolute path, local branch, or full local ref. `--landed` holds once the task's submitted work is reachable from the trunk — including when its landing composed it with other changes in an integration worktree, so the landed commit is not the branch tip itself. The [CLI reference](../30-reference/cli-reference.md#discern-await) lists the exact options.
 
 The agent leaves the timeout unset so discern chooses the longest reliable call window. It follows continuation instructions if the work is still in progress. You do not need to supply a delay or ask it to check again every few minutes.
 

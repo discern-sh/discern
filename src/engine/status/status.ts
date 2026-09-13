@@ -118,6 +118,10 @@ import {
 } from "../worktree/git.ts";
 import { ADR_SUBDIR } from "../../lib/adr_numbers.ts";
 import {
+  integrationOwnerLiveness,
+  listIntegrationLandingRecords,
+} from "../worktree/integration_record.ts";
+import {
   deriveIdentity,
   IdentityError,
   type IdentitySettings,
@@ -548,6 +552,20 @@ export async function statusResult(
         );
       }),
     );
+    // Integration copies are discern-owned, never efforts an agent may
+    // adopt; the recorded landing is the authority, not the branch name.
+    for (const record of await listIntegrationLandingRecords(root)) {
+      if (record.reading.status !== "recorded") continue;
+      const owned = record.reading.record;
+      const row = fleet.find((entry) => entry.path === owned.worktree.path);
+      if (row === undefined) continue;
+      row.integration = {
+        owner: await integrationOwnerLiveness(root, owned) === "running"
+          ? "live"
+          : "interrupted",
+        for_branch: owned.landing.branch,
+      };
+    }
     // The containment fact, carried as advisory colour: a row whose committed
     // work travels inside a live sibling branch (the spent early stage of a
     // `start --from` train) names its container. The desk reads this to offer

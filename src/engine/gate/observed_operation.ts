@@ -16,12 +16,18 @@ import {
   gateProgressPresenterSlot,
 } from "./progress_presenter.ts";
 
-/** Run one gate verb as a journalled, presenter-observable operation. */
+/** Run one gate verb as a journalled, presenter-observable operation. The
+ * body also receives the reconnect handle (absent when nested in a parent
+ * journal or when the store is unavailable) so a landing can record which
+ * operation owns its integration worktree. */
 export async function observedGateOperation<T>(
   root: string,
   verb: string,
   signal: AbortSignal | undefined,
-  body: (presenterSlot: GateProgressPresenterSlot) => Promise<T>,
+  body: (
+    presenterSlot: GateProgressPresenterSlot,
+    handle?: string,
+  ) => Promise<T>,
   result: (value: T) => DiscernResult,
 ): Promise<T> {
   const branchRun = await runGit(
@@ -44,8 +50,8 @@ export async function observedGateOperation<T>(
         verb,
         path: root,
         ...(branch === "" ? {} : { branch }),
-      }, () =>
-        body(presenterSlot), {
+      }, (handle) =>
+        body(presenterSlot, handle), {
         result,
         ...(signal === undefined ? {} : { signal }),
       }),

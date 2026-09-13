@@ -33,7 +33,7 @@ Fresh setup's standing-grant example names `docs`, whose seed contains the map a
 
 ## How discern resolves coverage
 
-`start` reports possible standing scopes. `status` and green `done` classify the final paths: every path must match a known granted scope. Unknown grants and unmatched paths stay uncovered. Exactness comes from the submission, which names one commit; a later commit needs its own submission before any grant applies to it.
+`start` reports possible standing scopes. `status` and green `done` classify the final paths: every path must match a known granted scope. Unknown grants and unmatched paths stay uncovered. Exactness comes from the submission, which names one commit; a later commit needs its own submission before any grant applies to it. An integrated landing classifies the exact composed diff — the integration worktree's proven tree against the pinned trunk — and rechecks authority at the transaction boundary, so a grant revoked while the combined check ran refuses before the trunk moves, and regeneration that leaves the granted scopes fails closed to the conversation ([ADR 0391](../_adr/0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md)).
 
 When a grant exists, `data.landing_authority` carries the result:
 

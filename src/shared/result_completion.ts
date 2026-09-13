@@ -515,9 +515,26 @@ function requiredFailure(
       // disposition (later commits, uncommitted changes), never a partial
       // transaction: a genuinely failed cleanup step fails the executed-steps
       // postcondition with its own recovery evidence.
-      return landing.trunk_landed === true ? undefined : failed(
+      if (landing.trunk_landed !== true) {
+        return failed(
+          "partial_acceptance",
+          "Acceptance performed only part of its required landing transaction; data.landing records the exact effects.",
+        );
+      }
+      // A queue walk's required outcome covers every landing it attempted: a
+      // later refusal or failure makes the call false even though the
+      // selected submission landed and stays landed. Effects are preserved,
+      // never implied undone.
+      const walked = records(data?.landings).filter((outcome) =>
+        outcome.status !== "landed"
+      );
+      return walked.length === 0 ? undefined : failed(
         "partial_acceptance",
-        "Acceptance performed only part of its required landing transaction; data.landing records the exact effects.",
+        `The selected submission landed and stays landed, but ${
+          walked.length === 1
+            ? "a further landing in the queue walk"
+            : `${walked.length} further landings in the queue walk`
+        } did not complete; data.landings records each attempted outcome and its route.`,
       );
     }
     case "skill-materialization": {

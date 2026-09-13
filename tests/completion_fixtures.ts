@@ -83,7 +83,7 @@ export function completionFixtures(): Record<
   return {
     candidate: parse("candidate", 1, {
       attempt_id: completionId(2),
-      source: COMPLETION_SOURCE,
+      sources: [COMPLETION_SOURCE],
       predecessor: COMPLETION_TRUNK,
       head: COMPLETION_HEAD,
       tree: COMPLETION_SOURCE.tree,

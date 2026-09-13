@@ -136,10 +136,10 @@ Deno.test("automatic branch deletion and worktree removal stay enrolled in their
     ),
     {
       "src/commands/setup_accept.ts": 1,
-      "src/engine/worktree/accept.ts": 1,
+      "src/engine/worktree/accept_cleanup.ts": 1,
       "src/engine/worktree/git.ts": 1,
       "src/engine/worktree/landed_branches.ts": 1,
-      "src/engine/worktree/lifecycle.ts": 2,
+      "src/engine/worktree/lifecycle.ts": 3,
     },
     "a new automatic branch-deletion caller must enroll through the ownership primitive and this registry",
   );
@@ -149,9 +149,9 @@ Deno.test("automatic branch deletion and worktree removal stay enrolled in their
       "src/engine/worktree/git.ts",
     ),
     {
-      "src/engine/worktree/accept.ts": 1,
+      "src/engine/worktree/accept_cleanup.ts": 1,
       "src/engine/worktree/git.ts": 2,
-      "src/engine/worktree/lifecycle.ts": 3,
+      "src/engine/worktree/lifecycle.ts": 4,
       "src/engine/worktree/park.ts": 1,
     },
     "a new worktree-removal caller must enroll through the absence-verifying primitive and this registry",

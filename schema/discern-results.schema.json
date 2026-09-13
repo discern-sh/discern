@@ -26700,6 +26700,25 @@
                       "broken": {
                         "type": "boolean"
                       },
+                      "integration": {
+                        "type": "object",
+                        "properties": {
+                          "owner": {
+                            "type": "string",
+                            "enum": [
+                              "live",
+                              "interrupted"
+                            ]
+                          },
+                          "for_branch": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "owner",
+                          "for_branch"
+                        ]
+                      },
                       "gate_proof": {
                         "type": "object",
                         "properties": {
@@ -29535,33 +29554,37 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "source": {
-                          "type": "object",
-                          "properties": {
-                            "effort_id": {
-                              "type": "string",
-                              "minLength": 1,
-                              "pattern": "^[A-Za-z0-9_-]+$"
+                        "sources": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "effort_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "pattern": "^[A-Za-z0-9_-]+$"
+                              },
+                              "branch": {
+                                "type": "string",
+                                "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
+                              },
+                              "head": {
+                                "type": "string",
+                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                              },
+                              "tree": {
+                                "type": "string",
+                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                              }
                             },
-                            "branch": {
-                              "type": "string",
-                              "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
-                            },
-                            "head": {
-                              "type": "string",
-                              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                            },
-                            "tree": {
-                              "type": "string",
-                              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-                            }
-                          },
-                          "required": [
-                            "effort_id",
-                            "branch",
-                            "head",
-                            "tree"
-                          ]
+                            "required": [
+                              "effort_id",
+                              "branch",
+                              "head",
+                              "tree"
+                            ]
+                          }
                         },
                         "predecessor": {
                           "type": "string",
@@ -29582,11 +29605,23 @@
                         "requirement_set": {
                           "type": "string",
                           "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "integration": {
+                          "type": "object",
+                          "properties": {
+                            "procedure": {
+                              "type": "string",
+                              "const": "merge-trunk"
+                            }
+                          },
+                          "required": [
+                            "procedure"
+                          ]
                         }
                       },
                       "required": [
                         "attempt_id",
-                        "source",
+                        "sources",
                         "predecessor",
                         "head",
                         "tree",
@@ -29702,6 +29737,12 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/$defs/DiscernSubmissionRow"
+                  }
+                },
+                "landings": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/DiscernLandingOutcome"
                   }
                 },
                 "root": {
@@ -36044,6 +36085,12 @@
         },
         "reason": {
           "type": "string"
+        },
+        "integration": {
+          "type": "boolean"
+        },
+        "operation_handle": {
+          "type": "string"
         }
       },
       "required": [
@@ -36057,6 +36104,74 @@
         "readiness"
       ],
       "description": "One landing-queue row derived from an effort's submission record: the branch, the exact submitted commit, whether a recorded grant covers it, and the one sentence that says why it waits."
+    },
+    "DiscernLandingOutcome": {
+      "title": "DiscernLandingOutcome",
+      "type": "object",
+      "properties": {
+        "effort": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "head": {
+          "type": "string"
+        },
+        "selected": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "landed",
+            "refused",
+            "failed"
+          ]
+        },
+        "landed_commit": {
+          "type": "string"
+        },
+        "integrated": {
+          "type": "boolean"
+        },
+        "consent": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "conversation",
+                "standing-grant",
+                "effort-grant"
+              ]
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "source"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "proof_line": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "effort",
+        "branch",
+        "head",
+        "selected",
+        "status"
+      ],
+      "description": "One attempted landing in an acceptance call: the submission it names, whether it was the selected one, its broad terminal state, and the exact commit that reached the trunk when one did."
     },
     "DiscernAuthorizedVariance": {
       "title": "DiscernAuthorizedVariance",

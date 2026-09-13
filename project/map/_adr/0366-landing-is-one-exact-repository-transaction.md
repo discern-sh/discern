@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Completion-model direction (2026-09-05; settled 2026-09-12):** [ADR 0376](_superseded/0376-active-commands-advance-an-authorized-landing-queue.md) and [ADR 0378](_superseded/0378-landing-completion-survives-checkout-retirement.md) separated claims, validation, publication, and retirement around this transaction; [ADR 0389](0389-the-workspace-contract.md) superseded both. The exact-commit and ref-transition guarantees below remain required and unchanged.
+> - **Integration landings ([ADR 0391](0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md), 2026-09-12):** the journal's recorded ownership extends to the landing's integration worktree, its exact submission, and its Proof pointer, all as optional version-1 fields; retry completes or rolls back the recorded transaction, integration cleanup included, and never lands twice.
 
 **Status**: accepted. Extends the exact-tree landing model in [ADR 0110](0110-the-landing-model.md), the recoverable authority boundary in [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), the lock order in [ADR 0331](0331-common-repository-locks-precede-checkout-locks.md), and ambient trunk resolution in [ADR 0336](0336-ambient-process-state-resolves-at-boundaries.md). Amends detached-drop recovery in [ADR 0271](0271-destructive-drops-retain-bounded-recovery-refs.md).
 
@@ -15,6 +16,8 @@ Composition exposed the same need for exactness on either side of landing. A cho
 ## Decision
 
 **One applied acceptance holds one common-repository transaction over one resolved trunk and one exact validated target.** It acquires the common-repository lock before its first Gate, Proof, authority, journal, or checkout precondition read and retains that lock, followed by the checkout lock, through compare-and-swap, convergence, cleanup, Proof-note handling, and result construction. Lock contention refuses immediately and runs no operation body.
+
+> Amended by [ADR 0391](0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md): landings now serialize on a dedicated acceptance boundary for that whole span, while the common publication boundary joins only for the transition core — the transaction's atomicity against other landings is unchanged, and neither a composed landing's long check nor its cleanup commands starve sibling completion publications.
 
 The operation resolves the trunk once and carries that branch name through authority reads, Standard-limit reads, journal inspection and creation, main-checkout checks, and the Git transition. Every required Git observation is typed: unreadable status, branch, operation marker, declaration, or ref evidence refuses rather than supplying a clean or absent fact. An in-progress merge, either `rebase` form, or cherry-pick receives its own finish-or-abort recovery before any branch-switch advice.
 

@@ -1,4 +1,5 @@
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
+import { candidateAuthor } from "../completion/candidate.ts";
 import { displayBranch } from "../../shared/result_markdown_values.ts";
 import { emergencyOptionError } from "./arguments.ts";
 import { prepareEmergency } from "./prepare.ts";
@@ -30,15 +31,17 @@ import {
 import { worktreePathForEffortBranch } from "../worktree/target_resolution.ts";
 import {
   type AcceptExecutionProgress,
-  assertMainCheckoutReady,
-  type CleanupDisposition,
-  cleanUpEffort,
   convergeMainCheckout,
   type EffortCheckout,
   effortCheckout,
   freshAcceptExecutionProgress,
   landingPlan,
 } from "../worktree/accept.ts";
+import {
+  assertMainCheckoutReady,
+  type CleanupDisposition,
+  cleanUpEffort,
+} from "../worktree/accept_cleanup.ts";
 import {
   ignoredFileDriftDisabled,
   inspectIgnoredFileChanges,
@@ -204,7 +207,7 @@ async function prepareAndIntegrate(
         : { ok: false as const, error: AWAITING_CONSENT_SLUG }),
       data: preview,
       message: `Emergency plan for ${
-        markdownCodeSpan(displayBranch(plan.candidate.source.branch))
+        markdownCodeSpan(displayBranch(candidateAuthor(plan.candidate).branch))
       }: land its repair on ${plan.trunk} now, skipping ${
         plan.exceptions.length === 1
           ? "1 check"
@@ -233,7 +236,7 @@ async function prepareAndIntegrate(
   }
   const actor = {
     operation_id: SYSTEM_SECURE_ENTROPY.uuid(),
-    originating_effort: plan.candidate.source.effort_id,
+    originating_effort: candidateAuthor(plan.candidate).effort_id,
     started_at: now,
   };
   const record: RecordedException = {
@@ -247,7 +250,7 @@ async function prepareAndIntegrate(
         authorization_id: id,
         authorized_at: now,
         actual_trunk: plan.candidate.predecessor,
-        source: plan.candidate.source,
+        source: candidateAuthor(plan.candidate),
         candidate_id: plan.candidate_id,
         candidate_head: plan.candidate.head,
         policy: plan.candidate.policy,

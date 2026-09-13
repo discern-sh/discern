@@ -23,6 +23,7 @@ import { reusableGreenProof } from "./review_release.ts";
 import { retainProofPresentation } from "./proof_presentation.ts";
 import { readCompleteProof } from "./completion_proof.ts";
 import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
+import type { SourceRevision } from "../completion/identity.ts";
 /**
  * `done` — the full quality gate. Built on the plan/apply seam (ADR 0027): a
  * pure {@link GatePlan} (the job groups + scope-gates + merge check) is computed
@@ -231,6 +232,9 @@ async function runGateBody(
       ...(presentation.standalone === undefined
         ? {}
         : { standalone: presentation.standalone }),
+      ...(presentation.composition === undefined
+        ? {}
+        : { composition: presentation.composition }),
       ...(signal === undefined ? {} : { signal }),
     },
     async (session) => {
@@ -332,6 +336,8 @@ async function runCandidateGate(
     policyBase?: string;
     standalone?: boolean;
     rerun?: boolean;
+    /** Exact composed source revisions for an integrated landing's gate run. */
+    composition?: { readonly sources: readonly SourceRevision[] };
     /** Where this run registers its live completion-fact presenter. */
     presenterSlot?: GateProgressPresenterSlot;
   },
@@ -1135,7 +1141,7 @@ async function runCandidateGate(
           root,
           writeAuthority,
           true,
-          { ...treePin, head: complete.candidate.source.head },
+          { ...treePin, head: complete.candidate.head },
           proof,
           checkpointPreflight?.evidence,
           checkpointPreflight?.mode ?? "strict",
@@ -1725,6 +1731,9 @@ export interface FinishResultOptions {
   dryRun?: boolean;
   /** Deliberately execute the Gate even when exact current Proof is reusable. */
   rerun?: boolean;
+  /** Exact composed source revisions when a landing runs this gate inside its
+   * integration worktree; the candidate then records them as its input. */
+  composition?: { readonly sources: readonly SourceRevision[] };
   /** Explicit CI report lane; never inferred from the environment. */
   ci?: boolean;
   /** Checkpoint ids this invocation declares met (`--met`, repeatable). */
@@ -1820,6 +1829,9 @@ export async function finishResult(
       ...(opts.policyBase === undefined ? {} : { policyBase: opts.policyBase }),
       ...(opts.standalone === undefined ? {} : { standalone: opts.standalone }),
       ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
+      ...(opts.composition === undefined
+        ? {}
+        : { composition: opts.composition }),
       ...(preamble.preflight === undefined
         ? {}
         : { checkpoints: preamble.preflight }),
@@ -1847,6 +1859,9 @@ export async function finishResult(
       ...(opts.policyBase === undefined ? {} : { policyBase: opts.policyBase }),
       ...(opts.standalone === undefined ? {} : { standalone: opts.standalone }),
       ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
+      ...(opts.composition === undefined
+        ? {}
+        : { composition: opts.composition }),
       ...(preamble.preflight === undefined
         ? {}
         : { checkpoints: preamble.preflight }),

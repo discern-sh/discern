@@ -50,6 +50,18 @@ export function sameSource(a: SourceRevision, b: SourceRevision): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+/** Two composition inputs agree when every entry agrees, in order. */
+export function sameSources(
+  a: readonly SourceRevision[],
+  b: readonly SourceRevision[],
+): boolean {
+  return a.length === b.length &&
+    a.every((source, index) => {
+      const other = b[index];
+      return other !== undefined && sameSource(source, other);
+    });
+}
+
 /** The trunk's committed configuration identity at one immutable commit.
  * Identity digests the committed bytes: an unparseable committed config still
  * has an exact identity, and the gate's own policy checks report what it means. */
@@ -64,19 +76,23 @@ export async function predecessorPolicyIdentity(
   return await sha256Hex(read.kind === "absent" ? "absent-config" : read.text);
 }
 
-/** The recorded candidate for exactly this source, predecessor, policy, and requirement set. */
+/** The recorded candidate for exactly these sources, tested head,
+ * predecessor, policy, and requirement set. The head participates because two
+ * compositions of the same sources yield distinct merge commits; a source-tip
+ * candidate's head is already implied by its single source. */
 export function recordedCandidate(
   records: readonly CompletionRecord[],
   subject: Pick<
     Candidate,
-    "source" | "predecessor" | "policy" | "requirement_set"
+    "sources" | "head" | "predecessor" | "policy" | "requirement_set"
   >,
 ): Extract<CompletionRecord, { kind: "candidate" }> | undefined {
   return records.filter((
     record,
   ): record is Extract<CompletionRecord, { kind: "candidate" }> =>
     record.kind === "candidate" &&
-    sameSource(record.data.source, subject.source) &&
+    sameSources(record.data.sources, subject.sources) &&
+    record.data.head === subject.head &&
     record.data.predecessor === subject.predecessor &&
     record.data.policy === subject.policy &&
     record.data.requirement_set === subject.requirement_set

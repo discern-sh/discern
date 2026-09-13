@@ -109,6 +109,8 @@ function concreteBoundaries(
     case "common-and-checkout":
     case "phased":
       return ["common", "checkout"];
+    case "acceptance-and-checkout":
+      return ["acceptance", "checkout"];
   }
 }
 
@@ -129,6 +131,8 @@ function refusal(
 function boundaryName(boundary: OperationLockConcreteBoundary): string {
   return boundary === "common"
     ? "common repository boundary"
+    : boundary === "acceptance"
+    ? "acceptance boundary"
     : "checkout boundary";
 }
 
@@ -141,7 +145,7 @@ async function resolveLockSpecs(
   for (const concrete of concreteBoundaries(boundary)) {
     const anchor = await gitAdminStatePath(
       cwd,
-      concrete === "common" ? "resources" : "gateProof",
+      concrete === "checkout" ? "gateProof" : "resources",
     );
     if (anchor === undefined) return undefined;
     const adminDirectory = await Deno.realPath(dirname(dirname(anchor)));
@@ -281,6 +285,14 @@ async function releaseLocks(locks: AcquiredLock[]): Promise<void> {
   }
 }
 
+/** How a caller waits for a contended boundary instead of refusing. */
+export interface OperationLockWait {
+  /** Cancels the wait; the refusal says the wait was cancelled, not lost. */
+  readonly signal?: AbortSignal;
+  /** Fired once per contended boundary, before the first blocking pause. */
+  readonly onContended?: (boundary: OperationLockConcreteBoundary) => void;
+}
+
 /** Open and exclusively try-lock one inert host-temporary lock file. */
 async function acquireLock(
   invocation: OperationInvocation,
@@ -288,6 +300,7 @@ async function acquireLock(
   spec: LockSpec,
   entropy: SecureEntropy,
   waitForPublication: boolean,
+  wait?: OperationLockWait,
 ): Promise<AcquiredLock> {
   let file: Deno.FsFile;
   try {
@@ -361,6 +374,34 @@ async function acquireLock(
             : "This call could not continue. Retry after the other operation finishes.",
         );
       });
+    }
+    if (!acquired && wait !== undefined) {
+      // A waiting caller queues behind the holder instead of refusing. The
+      // pause is unbounded by design — the holder's own budgets bound it —
+      // and the caller's signal remains the way out. Cancellation is checked
+      // again after every acquisition attempt: an abort that arrives during
+      // the pause must refuse even when the very next attempt succeeds,
+      // because the caller has already stopped wanting the effects.
+      wait.onContended?.(spec.boundary);
+      const cancelled = (): never => {
+        // The enclosing catch closes the handle exactly once, releasing any
+        // lock this attempt just took.
+        throw refusal(
+          invocation,
+          `The wait for the ${
+            boundaryName(spec.boundary)
+          } was cancelled while another discern operation held it. ` +
+            "This call made no change. Retry when ready.",
+        );
+      };
+      while (!acquired) {
+        if (wait.signal?.aborted === true) cancelled();
+        await new Promise<void>((resolve) =>
+          SYSTEM_SCHEDULER.scheduleTimeout(resolve, 250)
+        );
+        acquired = await file.tryLock(true);
+      }
+      if (wait.signal?.aborted === true) cancelled();
     }
   } catch (error) {
     file.close();
@@ -446,8 +487,45 @@ export async function withOperationLock<T>(
   );
 }
 
-/** Version-one journal recovery holds exclusion for its whole transaction. */
+/** Version-one journal recovery holds exclusion for its whole transaction.
+ * A `wait` makes a contended acceptance serializer queue behind the running
+ * landing instead of refusing — the second `accept`'s turn-taking. Landings
+ * serialize on the dedicated acceptance boundary and hold the author's
+ * checkout; the short common publication boundary joins per phase through
+ * `withLandingCommonPhase`, so a long combined check never starves ordinary
+ * completion publications, and the author-checkout acquisition stays
+ * nonblocking so a running `done` there can finish and publish. */
 export async function withAcceptanceRecoveryBoundary<T>(
+  cwd: string,
+  operation: () => Promise<T>,
+  wait?: OperationLockWait,
+): Promise<T> {
+  return await withPolicyLock(
+    cwd,
+    { command: "accept" },
+    {
+      effects: [
+        "discern-checkout-mutation",
+        "discern-common-mutation",
+        "discern-git-mutation",
+      ],
+      lock: "acceptance-and-checkout",
+      preview: "required",
+      gitWriteAuthority: "boundary-plan",
+    },
+    operation,
+    SYSTEM_SECURE_ENTROPY,
+    undefined,
+    false,
+    wait,
+  );
+}
+
+/** One short transactional phase of a landing: the common publication
+ * boundary joins for the freeze, transition, and cleanup effects — bounded
+ * exactly like an ordinary completion publication — and releases before any
+ * long check runs. Reentrant while a phase is already held. */
+export async function withLandingCommonPhase<T>(
   cwd: string,
   operation: () => Promise<T>,
 ): Promise<T> {
@@ -460,12 +538,14 @@ export async function withAcceptanceRecoveryBoundary<T>(
         "discern-common-mutation",
         "discern-git-mutation",
       ],
-      lock: "common-and-checkout",
+      lock: "common",
       preview: "required",
       gitWriteAuthority: "boundary-plan",
     },
     operation,
     SYSTEM_SECURE_ENTROPY,
+    undefined,
+    true,
   );
 }
 
@@ -651,33 +731,37 @@ export async function withCompletionCheckout<T>(
   );
 }
 
-/** A newly created setup probe runs under its parent's already-held common transaction.
- * The second checkout is acquired non-blockingly and cannot widen into another repository.
- */
-export async function withSetupProbeCheckout<T>(
+/** One worktree discern just created, entered under the parent operation's
+ * already-held common transaction. The second checkout is acquired
+ * non-blockingly and cannot widen into another repository. */
+async function withOwnedSecondaryCheckout<T>(
   parent: string,
-  probe: string,
+  secondary: string,
+  refusedAs: OperationInvocation,
   operation: () => Promise<T>,
 ): Promise<T> {
   const parentSpecs = await resolveLockSpecs(parent, "common-and-checkout");
-  const probeSpecs = await resolveLockSpecs(probe, "common-and-checkout");
+  const secondarySpecs = await resolveLockSpecs(
+    secondary,
+    "common-and-checkout",
+  );
   const common = parentSpecs?.find((spec) => spec.boundary === "common");
-  const checkout = probeSpecs?.find((spec) => spec.boundary === "checkout");
+  const checkout = secondarySpecs?.find((spec) => spec.boundary === "checkout");
   const held = currentOperationLocks();
   if (
     common === undefined || checkout === undefined ||
     parentSpecs?.some((spec) => !held?.leases.has(spec.key)) ||
-    probeSpecs?.find((spec) => spec.boundary === "common")?.key !==
+    secondarySpecs?.find((spec) => spec.boundary === "common")?.key !==
       common.key ||
     parentSpecs?.some((spec) => spec.key === checkout.key)
   ) {
     throw refusal(
-      { command: "setup done" },
-      "The setup probe requires its parent's live common and checkout transaction in the same repository.",
+      refusedAs,
+      "A worktree discern created runs only under its parent operation's live common and checkout transaction in the same repository.",
     );
   }
   return await withPolicyLock(
-    probe,
+    secondary,
     { command: "done" },
     {
       effects: ["discern-checkout-mutation", "project-command"],
@@ -687,7 +771,92 @@ export async function withSetupProbeCheckout<T>(
     },
     operation,
     SYSTEM_SECURE_ENTROPY,
-    { common: common.key, checkout: checkout.key },
+    { serializer: common.key, checkout: checkout.key },
+  );
+}
+
+/** A newly created setup probe runs under its parent's already-held common transaction. */
+export async function withSetupProbeCheckout<T>(
+  parent: string,
+  probe: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  return await withOwnedSecondaryCheckout(
+    parent,
+    probe,
+    { command: "setup done" },
+    operation,
+  );
+}
+
+/** Run `operation` holding only the acceptance-serializer lease of the
+ * current context. The landing walk uses this to move from the selected
+ * effort's checkout to the next submission's: serialization stays with the
+ * acceptance boundary, while each further landing acquires its own checkout
+ * boundary non-blockingly — a busy follower refuses and stops the walk. */
+export async function runWithAcceptanceLeaseOnly<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  const held = currentOperationLocks();
+  if (held === undefined) return await operation();
+  const leases = new Map(
+    [...held.leases].filter(([, lease]) => lease.boundary === "acceptance"),
+  );
+  return await runWithOperationLocks({
+    leases,
+    boundaries: new Set(
+      [...held.boundaries].filter((boundary) => boundary === "acceptance"),
+    ),
+  }, operation);
+}
+
+/** A landing's freshly created integration worktree holds its own checkout
+ * lease for the composed update and gate cores, under the already-held
+ * acceptance serializer — so those cores reuse held leases instead of
+ * deadlocking on a second acquisition, while the common publication
+ * boundary stays free for sibling completions throughout the checks. */
+export async function withIntegrationCheckout<T>(
+  authorWorktree: string,
+  integrationWorktree: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const parentSpecs = await resolveLockSpecs(
+    authorWorktree,
+    "acceptance-and-checkout",
+  );
+  const secondarySpecs = await resolveLockSpecs(
+    integrationWorktree,
+    "acceptance-and-checkout",
+  );
+  const serializer = parentSpecs?.find((spec) =>
+    spec.boundary === "acceptance"
+  );
+  const checkout = secondarySpecs?.find((spec) => spec.boundary === "checkout");
+  const held = currentOperationLocks();
+  if (
+    serializer === undefined || checkout === undefined ||
+    held?.leases.has(serializer.key) !== true ||
+    secondarySpecs?.find((spec) => spec.boundary === "acceptance")?.key !==
+      serializer.key ||
+    parentSpecs?.some((spec) => spec.key === checkout.key)
+  ) {
+    throw refusal(
+      { command: "accept" },
+      "A landing's integration worktree runs only under its own live acceptance serializer in the same repository.",
+    );
+  }
+  return await withPolicyLock(
+    integrationWorktree,
+    { command: "accept" },
+    {
+      effects: ["discern-checkout-mutation", "project-command"],
+      lock: "checkout",
+      preview: "required",
+      gitWriteAuthority: "opaque",
+    },
+    operation,
+    SYSTEM_SECURE_ENTROPY,
+    { serializer: serializer.key, checkout: checkout.key },
   );
 }
 
@@ -698,8 +867,14 @@ async function withPolicyLock<T>(
   policy: OperationEffectPolicy,
   operation: (commonGitDirectory?: string) => Promise<T>,
   entropy: SecureEntropy,
-  setupProbe?: { readonly common: string; readonly checkout: string },
+  secondaryCheckout?: {
+    /** The held lease that legitimizes the second checkout: a setup's
+     * common transaction, or a landing's acceptance serializer. */
+    readonly serializer: string;
+    readonly checkout: string;
+  },
   waitForPublication = false,
+  wait?: OperationLockWait,
 ): Promise<T> {
   if (policy.lock === "none") return await operation();
   if (policy.lock === "phased") {
@@ -742,7 +917,10 @@ async function withPolicyLock<T>(
   const acquiringCheckout = missing.some((spec) =>
     spec.boundary === "checkout"
   );
-  if (heldCheckout && acquiringCommon && held?.completionExecution !== true) {
+  if (
+    heldCheckout && acquiringCommon && held?.completionExecution !== true &&
+    held?.boundaries.has("acceptance") !== true
+  ) {
     throw refusal(
       invocation,
       "discern refused a nested operation that would acquire the common repository boundary after a checkout boundary. " +
@@ -766,12 +944,12 @@ async function withPolicyLock<T>(
       );
     }
   }
-  const serializedProbe = setupProbe !== undefined &&
-    held?.leases.has(setupProbe.common) === true &&
+  const serializedSecondary = secondaryCheckout !== undefined &&
+    held?.leases.has(secondaryCheckout.serializer) === true &&
     missing.every((spec) =>
-      spec.boundary === "checkout" && spec.key === setupProbe.checkout
+      spec.boundary === "checkout" && spec.key === secondaryCheckout.checkout
     );
-  if (heldCheckout && acquiringCheckout && !serializedProbe) {
+  if (heldCheckout && acquiringCheckout && !serializedSecondary) {
     throw refusal(
       invocation,
       "discern refused a nested operation that would hold two checkout boundaries. " +
@@ -789,6 +967,7 @@ async function withPolicyLock<T>(
         spec,
         entropy,
         waitForPublication,
+        spec.boundary === "acceptance" ? wait : undefined,
       );
       acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);

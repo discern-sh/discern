@@ -1297,7 +1297,7 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
       );
       assertStringIncludes(
         concurrentRefusal.message,
-        "common repository boundary",
+        "acceptance boundary",
       );
       assertStringIncludes(
         concurrentRefusal.message,

@@ -566,8 +566,10 @@ async function comparablePath(path: string): Promise<string> {
  * type union omits 0 while the runtime accepts it, hence the cast. A process
  * the reader is not permitted to signal still exists; only "no such process"
  * means gone, and any other failure is reported as unknown, never guessed.
+ * Shared with the integration-landing record so every recorded-owner probe
+ * keeps one meaning.
  */
-function executorLiveness(
+export function executorLiveness(
   pid: number,
 ): { readonly state: ExecutorLiveness; readonly reason?: string } {
   try {

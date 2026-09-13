@@ -267,6 +267,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     resourceReclaimsKept: 0,
     contained: [],
     reclaimContained: false,
+    integrations: [],
   };
   assert(prunePlanIsEmpty(empty));
   assertEquals(prunePlanToEngine(empty).steps.length, 0);
@@ -344,6 +345,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
       containerAhead: 2,
     }],
     reclaimContained: false,
+    integrations: [],
   };
   assert(!prunePlanIsEmpty(full));
   const enginePlan = prunePlanToEngine(full);
@@ -402,6 +404,7 @@ Deno.test("prunePlanToEngine: the contained group is offer-only by default and r
       containingTip: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       containerAhead: 3,
     }],
+    integrations: [],
   };
 
   // Without the opt-in: visible, skipped, and NOT a change (the plan is empty

@@ -605,6 +605,17 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
  * directories) plus reappearance and resource evidence. The deliverable a
  * dry-run renders and the apply executor acts on.
  */
+/** One recorded integration landing as the prune scan classified it. */
+export interface IntegrationPruneItem {
+  readonly worktreeId: string;
+  readonly branch: string;
+  readonly path: string;
+  /** Reclaimed when its owner is gone; kept while the owner runs or the
+   * record cannot be read safely. */
+  readonly disposition: "reclaim" | "live" | "unreadable";
+  readonly reason: string;
+}
+
 export interface PrunePlan {
   /** Git-worktree/branch/stale-metadata scan to apply exactly. */
   gitScan: GitWorktreePruneScan;
@@ -630,6 +641,9 @@ export interface PrunePlan {
   /** Whether this run's explicit opt-in covers reclaiming the contained group.
    * Without it the group renders as skipped — the offer, never the act. */
   reclaimContained: boolean;
+  /** Recorded integration landings: a dead owner's copy is reclaimed with
+   * its resources, branch, and record; a live landing is never touched. */
+  integrations: IntegrationPruneItem[];
 }
 
 /** List branches released by owned worktree removal. */
@@ -650,6 +664,17 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
         group: "Resources",
       });
     }
+  }
+  for (const item of plan.integrations) {
+    steps.push({
+      kind: "git",
+      label: verbatimStepLabel(item.path),
+      disposition: item.disposition === "reclaim" ? "run" : "skip",
+      note: item.disposition === "reclaim"
+        ? `reclaim the interrupted integration worktree, its resources, its branch ${item.branch}, and its record — ${item.reason}`
+        : item.reason,
+      group: "Integration worktrees",
+    });
   }
   for (const w of plan.gitScan.worktreesToRemove) {
     steps.push({
@@ -794,7 +819,8 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
  * clearing superseded records is bounded-evidence housekeeping, not a change
  * to the repository's work. */
 export function prunePlanIsEmpty(plan: PrunePlan): boolean {
-  return plan.gitScan.worktreesToRemove.length === 0 &&
+  return plan.integrations.every((item) => item.disposition !== "reclaim") &&
+    plan.gitScan.worktreesToRemove.length === 0 &&
     pruneBranchesToDelete(plan.gitScan).length === 0 &&
     !plan.gitScan.orphanedLandedBranches.some((candidate) =>
       candidate.disposition === "delete"

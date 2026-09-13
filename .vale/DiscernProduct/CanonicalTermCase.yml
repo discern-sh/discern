@@ -13,6 +13,7 @@ nonword: true
 scope: paragraph
 tokens:
   - (?:\b|_)[A-Za-z][\w-]*\s+Accepts?\b
+  - (?:\b|_)[A-Za-z][\w-]*\s+Integration\s+worktrees?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Advisorys?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Gate\s+jobs?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Checkpoints?\b

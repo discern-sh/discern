@@ -33,7 +33,7 @@ import {
 import type { Candidate } from "./candidate.ts";
 import { completionRecordBlocker } from "./compatibility.ts";
 import { emitCompletionEvent, emitComponentUse } from "./events.ts";
-import type { Executor } from "./identity.ts";
+import type { Executor, SourceRevision } from "./identity.ts";
 import type {
   ClaimedExecution,
   CompletionBlocker,
@@ -97,6 +97,12 @@ function observedRecords(
  * Prove the invoking checkout's committed tip. `run` executes the gate over the
  * claimed attempt and reports its producers' evidence; `finalize` records the
  * gate marker and presentation once the complete Proof exists.
+ *
+ * With `composition`, the invoked checkout is a landing's integration
+ * worktree: the candidate records the given exact source revisions as its
+ * composition input and the checkout's own tip as the tested result, marked
+ * with the declared procedure whenever the two differ — so the integration
+ * copy is never described as the author.
  */
 export async function completeSourceTip<T>(
   rootInput: string,
@@ -104,6 +110,9 @@ export async function completeSourceTip<T>(
     readonly mode: "strict" | "report";
     readonly rerun?: boolean;
     readonly signal?: AbortSignal;
+    readonly composition?: {
+      readonly sources: readonly SourceRevision[];
+    };
   },
   run: (session: CompletionSession) => Promise<CompletionRunValue<T>>,
   finalize?: (value: T, pointer: CompletionProofPointer) => Promise<boolean>,
@@ -139,14 +148,18 @@ export async function completeSourceTip<T>(
       identity.id,
       branchRun.stdout.trim(),
     );
+    // The candidate's composition input: the caller's exact source revisions
+    // for an integrated landing, the checkout's own tip otherwise.
+    const sources = options.composition?.sources ?? [source];
+    const author = sources[0] ?? source;
     const actor: Executor = {
       operation_id: SYSTEM_SECURE_ENTROPY.uuid(),
       originating_effort: source.effort_id,
       started_at: SYSTEM_CLOCK.wallNow(),
     };
     attribution = {
-      effort_id: source.effort_id,
-      source_head: source.head,
+      effort_id: author.effort_id,
+      source_head: author.head,
       candidate_id: null,
       attempt_id: null,
       executor_operation: actor.operation_id,
@@ -177,8 +190,11 @@ export async function completeSourceTip<T>(
     const unsupported = completionRecordBlocker(observation);
     if (unsupported !== undefined) return unsupported;
     const records = observedRecords(observation);
+    const integrated = options.composition !== undefined &&
+      source.head !== author.head;
     const prior = recordedCandidate(records, {
-      source,
+      sources: [...sources],
+      head: source.head,
       predecessor: trunkHead,
       policy,
       requirement_set: requirementSet,
@@ -238,12 +254,13 @@ export async function completeSourceTip<T>(
     };
     const candidate: Candidate = prior?.data ?? {
       attempt_id: reserved.attempt.identity.id,
-      source,
+      sources: [...sources],
       predecessor: trunkHead,
       head: source.head,
       tree: source.tree,
       policy,
       requirement_set: requirementSet,
+      ...(integrated ? { integration: { procedure: "merge-trunk" } } : {}),
     };
     if (prior === undefined) {
       await retainCandidate(root, candidateId, candidate, reserved.fence);

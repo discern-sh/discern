@@ -29,6 +29,9 @@ export const OPERATION_LOCK_BOUNDARIES = [
   "checkout",
   "common",
   "common-and-checkout",
+  // The landing serializer plus the author's checkout; the short common
+  // publication boundary joins per phase, never for the whole landing.
+  "acceptance-and-checkout",
 ] as const;
 
 /** One operation exclusion boundary. */

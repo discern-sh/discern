@@ -323,6 +323,24 @@ export type DiscernSubmissionRow = {
   position: number;
   readiness: "ready" | "waiting";
   reason?: string;
+  integration?: boolean;
+  operation_handle?: string;
+};
+
+export type DiscernLandingOutcome = {
+  effort: string;
+  branch: string;
+  head: string;
+  selected: boolean;
+  status: "landed" | "refused" | "failed";
+  landed_commit?: string;
+  integrated?: boolean;
+  consent?: {
+    source: "conversation" | "standing-grant" | "effort-grant";
+    scopes?: Array<string>;
+  };
+  reason?: string;
+  proof_line?: string;
 };
 
 export type DiscernAuthorizedVariance = {
@@ -8082,6 +8100,10 @@ export type DiscernStatusResult = DiscernResultState & {
         unavailable_reason?: string;
       };
       broken?: boolean;
+      integration?: {
+        owner: "live" | "interrupted";
+        for_branch: string;
+      };
       gate_proof?: {
         status:
           | "honored"
@@ -8950,17 +8972,20 @@ export type DiscernAcceptResult = DiscernResultState & {
       candidate_id?: string;
       candidate?: {
         attempt_id: string;
-        source: {
+        sources: Array<{
           effort_id: string;
           branch: string;
           head: string;
           tree: string;
-        };
+        }>;
         predecessor: string;
         head: string;
         tree: string;
         policy: string;
         requirement_set: string;
+        integration?: {
+          procedure: "merge-trunk";
+        };
       };
       reason?: string;
       exceptions?: Array<{
@@ -8981,6 +9006,7 @@ export type DiscernAcceptResult = DiscernResultState & {
       cleanup?: "removed" | "kept" | "failed";
     };
     queue?: Array<DiscernSubmissionRow>;
+    landings?: Array<DiscernLandingOutcome>;
     root?: string;
     consent?: {
       source: "conversation" | "standing-grant" | "effort-grant";

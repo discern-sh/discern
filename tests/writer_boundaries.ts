@@ -45,26 +45,32 @@ export const RESTRICTED_WRITER_MODULES = [
       "src/engine/desk/desk.ts",
       "src/engine/worktree/acceptance_transaction.ts",
       "src/engine/worktree/accept.ts",
+      "src/engine/worktree/accept_integration.ts",
     ],
     authority:
-      "the desk may revoke, the acceptance transaction may claim or settle, and a landing may consume the grant it spent",
+      "the desk may revoke, the acceptance transaction may claim or settle, and a landing — the direct executor or the integration executor — may consume the grant it spent",
   },
   {
     id: "acceptance-transaction",
     module: "src/engine/worktree/acceptance_transaction.ts",
     allowedImporters: [
       "src/engine/worktree/accept.ts",
+      "src/engine/worktree/accept_integration.ts",
+      "src/engine/worktree/accept_walk.ts",
       "src/engine/emergency/action.ts",
       "src/engine/emergency/plan.ts",
     ],
     authority:
-      "the landing and the emergency route own transaction effects; emergency planning imports only the read-only interrupted-journal inspection",
+      "the landing — its verb, its integration executor, and its queue walk's follower boundary — and the emergency route own transaction effects; emergency planning imports only the read-only interrupted-journal inspection",
   },
   {
     id: "submission-writer",
     module: "src/engine/worktree/submission_writer.ts",
-    allowedImporters: ["src/engine/worktree/accept.ts"],
+    allowedImporters: [
+      "src/engine/worktree/accept.ts",
+      "src/engine/worktree/accept_integration.ts",
+    ],
     authority:
-      "only the landing records or consumes a submission; the queue is derived from these records",
+      "only the landing — the direct executor or the integration executor — records or consumes a submission; the queue is derived from these records",
   },
 ] as const satisfies readonly RestrictedWriterModule[];

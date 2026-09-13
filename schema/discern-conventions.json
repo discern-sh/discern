@@ -75,6 +75,12 @@
         "kind": "directory",
         "validation": false
       },
+      "integrationLandings": {
+        "path": "discern/integration-landings",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
       "logbook": {
         "path": "discern/logbook",
         "scope": "common",
@@ -562,6 +568,16 @@
         ]
       }
     },
+    "integration-landing": {
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "integrationLandings"
+        ]
+      }
+    },
     "fresh-standard-measurement-evidence": {
       "version_field": "version",
       "newer_version_policy": "observe",
@@ -784,6 +800,7 @@
     "branches": {
       "worktree_prefix_default": "agent/",
       "setup": "discern-setup",
+      "integration_namespace": "integration/",
       "detached_fallback": "<branch>-<8-character-commit>"
     },
     "worktree_root": {

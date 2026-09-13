@@ -80,14 +80,14 @@ export async function standaloneValidation(input: {
     const candidate = CandidateSchema.parse({
       attempt_id: attempt.id,
       // Detached diagnostics have no authored branch and never become a candidate record.
-      source: {
+      sources: [{
         effort_id: effort,
         branch: branch.success
           ? branch.stdout.trim()
           : "refs/heads/discern-diagnostic-reference",
         head,
         tree,
-      },
+      }],
       predecessor: input.base === undefined
         ? head
         : (await runGit(["rev-parse", "--verify", `${input.base}^{commit}`], {

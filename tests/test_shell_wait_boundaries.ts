@@ -3,6 +3,35 @@ import type { ShellWaitBoundary } from "./test_shell_wait_guard.ts";
 
 export const TEST_SHELL_WAIT_BOUNDARIES = [
   {
+    path: "tests/engine_integration_landing_test.ts",
+    enclosing:
+      "a sibling completes while an integration landing's resource teardown runs",
+    argument: "0.1",
+    count: 1,
+    classification: "condition-poll",
+    reason:
+      "The paused resource destroy polls the parent-owned release file; the sibling completion under test must run while the cleanup holds.",
+  },
+  {
+    path: "tests/engine_integration_landing_test.ts",
+    enclosing: "a sibling completion publishes while an integration gate runs",
+    argument: "0.1",
+    count: 1,
+    classification: "condition-poll",
+    reason:
+      "The paused integration gate polls the parent-owned release file; the sibling completion under test must run while it holds.",
+  },
+  {
+    path: "tests/engine_integration_recovery_test.ts",
+    enclosing:
+      "a running done in the author checkout is never deadlocked by acceptance",
+    argument: "0.1",
+    count: 1,
+    classification: "condition-poll",
+    reason:
+      "The paused author gate polls the parent-owned release file while acceptance and the rerun contend for the checkout.",
+  },
+  {
     path: "tests/completion_public_done_test.ts",
     enclosing:
       "E09 public done releases an extractor while an unrelated check waits for it",
