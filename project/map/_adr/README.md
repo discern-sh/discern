@@ -368,6 +368,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0389 — The workspace contract — a checkout changes only under its own operation](0389-the-workspace-contract.md)
 - [0390 — Public contracts preserve behavior and independent format versions](0390-public-contracts-preserve-behavior-and-independent-format-versions.md)
 - [0391 — Landings compose a moved trunk in an integration worktree](0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md)
+- [0391 — Readiness connects questions to the practice](0391-readiness-connects-questions-to-the-practice.md)
 
 <!-- END GENERATED: current ADR records -->
 
