@@ -2,7 +2,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { project } from "./completion_public_fixture.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
-import { addWorktree, git, runAgent } from "./engine_helpers.ts";
+import {
+  addWorktree,
+  git,
+  runAgent,
+  runAgentPtyJourney,
+} from "./engine_helpers.ts";
 import { shellBarrier } from "./shell_barrier.ts";
 import { waitForPendingCondition } from "./waiting.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";
@@ -102,5 +107,58 @@ for (const mode of ["start", "drop", "park", "prune"] as const) {
         }
       })
     );
+  });
+}
+
+import { LOGBOOK_LIFECYCLE_ACTION_NAMES } from "../src/shared/logbook_lifecycle.ts";
+import { realPtyTest } from "./real_pty.ts";
+
+for (const action of LOGBOOK_LIFECYCLE_ACTION_NAMES) {
+  realPtyTest({
+    name:
+      `patterns ${action} confirmation lets a sibling finish and revalidates before applying`,
+    contracts: ["platform-transport"],
+    canary: false,
+    ignore: Deno.build.os === "windows",
+    fn: async () => {
+      await withTempDir(async (root) => {
+        const sibling = await project(root);
+        const active = `${root}/.git/discern/logbook/2026-08.jsonl`;
+        await Deno.mkdir(`${root}/.git/discern/logbook`, { recursive: true });
+        await Deno.writeTextFile(active, "reviewed evidence\n");
+        const result = await runAgentPtyJourney(root, ["patterns", action], {
+          input: [{
+            waitFor: "Keep",
+            steps: [{
+              effect: async () => {
+                const completed = await runAgent(sibling, ["done", "--json"]);
+                assertEquals(completed.code, 0, completed.output);
+                const progress = await operationProgressResult(root);
+                assertEquals(
+                  progress.data?.operation.verb,
+                  `patterns ${action}`,
+                );
+                assertEquals(progress.data?.executor, "running");
+                await Deno.writeTextFile(active, "arrived while confirming\n", {
+                  append: true,
+                });
+              },
+              bytes: "y\n",
+            }],
+          }],
+        });
+        assertEquals(result.code, 1, result.transcript);
+        assertTerminalTextIncludes(
+          result.transcript,
+          "changed while confirmation was open",
+        );
+        assertEquals(
+          await Deno.readTextFile(active),
+          "reviewed evidence\narrived while confirming\n",
+        );
+        const progress = await operationProgressResult(root);
+        assertEquals(progress.data?.outcome, "failed");
+      });
+    },
   });
 }

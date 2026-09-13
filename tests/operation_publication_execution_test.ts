@@ -48,6 +48,12 @@ Deno.test("publication ownership rejects every project execution capability and 
           () => runOwnedChild("true", { cwd: root }),
           () => runShellRouted("true", { cwd: root, log }),
           () => acquirer.acquire(() => {}),
+          () =>
+            requestConfirmation("Unrelated choice", {
+              defaultTo: false,
+              noLabel: "Keep",
+              yesLabel: "Apply",
+            }, { interactive: () => true }),
         ]
       ) await assertRejects(run, Error, "common publication");
       const child = await runAgent(root, [
@@ -76,3 +82,5 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { Logger } from "../src/lib/log.ts";
 import { pinnedTerminal } from "./helpers.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";
+
+import { requestConfirmation } from "../src/lib/terminal_interaction.ts";

@@ -46,7 +46,13 @@ Deno.test("every project command boundary checks publication ownership before ef
     compilerOptions: { noLib: true },
     skipAddingFilesFromTsConfig: true,
   });
-  for (const row of rows) {
+  // All package interactions, including composed forms, construct this runtime.
+  for (
+    const row of [...rows, {
+      path: "src/lib/terminal_interaction.ts",
+      enclosingFunction: "packageInteractionRuntime",
+    }]
+  ) {
     assert(files.has(row.path));
     const source = project.getSourceFile(row.path) ??
       project.createSourceFile(

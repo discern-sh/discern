@@ -146,13 +146,13 @@ discern patterns reset
 
 The previews report the event count, date span, source files, bytes, and archive destination or deletion scope. They remain read-only under pipes, CI, `--plain`, `--json`, and `--markdown`.
 
-Apply is a CLI-only owner action. It requires terminal input and output, operation outside CI and global `--plain`, and an explicit affirmative selection from a confirmation that defaults to **Keep**. Reset offers **Keep** or **Delete**; archive offers **Keep** or **Archive**. Pipes, `--json`, and `--markdown` apply refuse, and no flag or environment bypass exists. Declining changes no file or lifecycle state. Both actions refuse while active history contains another fresh unmatched invocation ([ADR 0272](https://discern.sh/docs/decisions/0272-logbook-lifecycle-actions-require-terminal-confirmation)).
+Apply is a CLI-only owner action. It requires terminal input and output, operation outside CI and global `--plain`, and an explicit affirmative selection from a confirmation that defaults to **Keep**. Reset offers **Keep** or **Delete**; archive offers **Keep** or **Archive**. Pipes, `--json`, and `--markdown` apply refuse, and no flag or environment bypass exists. Declining preserves active history and existing archives. Other work can continue while you review. If active history changes before you confirm, rerun the command to review its current scope. Both actions refuse while active history contains another fresh unmatched invocation ([ADR 0272](https://discern.sh/docs/decisions/0272-logbook-lifecycle-actions-require-terminal-confirmation)).
 
 ### Archive boundary and recovery
 
 Archive atomically detaches `logbook/`, then copies the month shards' raw JSON Lines into a synced UTC-named file under `logbook-archives/`. A numeric suffix prevents collisions. `epoch.json` remains recorder state and is omitted. The final name is published atomically; only then is the detached source removed. A sealing failure leaves that source under `logbook-recovery/` and reports its path.
 
-A recorder arriving after detachment creates a fresh active directory. It never waits on the lifecycle lock, preserving fail-open recording. Archive and reset themselves record no begin or completion, so one invocation cannot straddle the old and new histories. Reset targets only active `logbook/`; archives and other Git-admin state survive.
+A recorder arriving after detachment creates a fresh active directory. It never waits on the lifecycle lock, preserving fail-open recording. Archive and reset themselves record no logbook begin or completion, so one invocation cannot straddle the old and new histories. Reset targets only active `logbook/`; archives and other Git-admin state survive.
 
 ### Find and read sealed history
 
@@ -185,47 +185,47 @@ Invocation `surface` is `cli` or `mcp`. Completion `outcome` is `ok`, `failed`, 
 | `prune`         | Aggregate digests for raw month shards removed by rotation.                                                  |
 | `completion`    | Producer-execution and landing observations for one run, with durable identities; advisory only.             |
 
-| Field           | Example                                                                 |
-| --------------- | ----------------------------------------------------------------------- |
-| `schema`        | `1`                                                                     |
-| `at`            | ISO 8601 UTC timestamp                                                  |
-| `kind`          | `"begin"`, `"verb"`, or a rarer event kind                              |
-| `invocation`    | the opaque id joining a start and completion                            |
-| `writer`        | `"1.2.0"` (which discern wrote it)                                      |
-| `verb`          | `"done"`                                                                |
-| `surface`       | `"cli"` or `"mcp"`                                                      |
-| `driver`        | session, mode, CI, spawning invocation, and possible agent signals      |
-| `branch`        | `"agent/fix-upload-retry"`                                              |
-| `head`          | short commit hash at invocation                                         |
-| `clean`         | was the working tree clean?                                             |
-| `tree`          | a checksum of the uncommitted diff                                      |
-| `outcome`       | `"ok"`, `"failed"`, `"partial"`, or `"refused"`                         |
-| `error`         | the result's machine-stable error slug when the verb refused            |
-| `failed_stage`  | the gate stage that went red                                            |
-| `crash`         | error class name and one code location                                  |
-| `lock_boundary` | `"none"`, `"checkout"`, `"common"`, or `"common-and-checkout"`          |
-| `dry_run`       | whether the invocation was a read-only preview                          |
-| `has_operands`  | whether a mixed command group received its effect-selecting operand     |
-| `duration_ms`   | end-to-end wall-clock milliseconds                                      |
-| `waited_ms`     | test-run slot-wait milliseconds on capped runs                          |
-| `gate_ran`      | whether this `done` invocation executed gate work                       |
-| `target`        | page served, miss, new branch, or queued command                        |
-| `from`          | the ref a `start` forked from                                           |
-| `update`        | what an `update` merged in                                              |
-| `flags`         | `["force"]` (names without values, including `rerun` when requested)    |
-| `change`        | files/insertions/deletions/commits vs the trunk                         |
-| `scopes`        | the configured scopes touched                                           |
-| `steps`         | per-step labels, stages, outcomes, timings                              |
-| `validation`    | versioned validation-start and execution evidence                       |
-| `merges`        | [versioned merge observations](#recurring-merge-conflicts)              |
-| `diagnostics`   | tool, rule id, file path at most                                        |
-| `hint_ids`      | stable ids of advice delivered with the result                          |
-| `tip_ids`       | stable ids of desk tips shown during the run                            |
-| `standards`     | each standard's measurement, limit, margin, and gate-owned pin decision |
-| `consent`       | consent source and matched scopes on accept                             |
-| `landing`       | recovery, trunk, worktree, and branch effects                           |
-| `checkpoints`   | checkpoint servings, declarations, variances, abandoned open questions  |
-| `epoch`         | a fingerprint of your config                                            |
+| Field           | Example                                                                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`        | `1`                                                                                                                                                |
+| `at`            | ISO 8601 UTC timestamp                                                                                                                             |
+| `kind`          | `"begin"`, `"verb"`, or a rarer event kind                                                                                                         |
+| `invocation`    | the opaque id joining a start and completion                                                                                                       |
+| `writer`        | `"1.2.0"` (which discern wrote it)                                                                                                                 |
+| `verb`          | `"done"`                                                                                                                                           |
+| `surface`       | `"cli"` or `"mcp"`                                                                                                                                 |
+| `driver`        | session, mode, CI, spawning invocation, and possible agent signals                                                                                 |
+| `branch`        | `"agent/fix-upload-retry"`                                                                                                                         |
+| `head`          | short commit hash at invocation                                                                                                                    |
+| `clean`         | was the working tree clean?                                                                                                                        |
+| `tree`          | a checksum of the uncommitted diff                                                                                                                 |
+| `outcome`       | `"ok"`, `"failed"`, `"partial"`, or `"refused"`                                                                                                    |
+| `error`         | the result's machine-stable error slug when the verb refused                                                                                       |
+| `failed_stage`  | the gate stage that went red                                                                                                                       |
+| `crash`         | error class name and one code location                                                                                                             |
+| `lock_boundary` | `"none"`, `"phased"`, `"checkout"`, `"lifecycle"`, `"lifecycle-and-checkout"`, `"common"`, `"common-and-checkout"`, or `"acceptance-and-checkout"` |
+| `dry_run`       | whether the invocation was a read-only preview                                                                                                     |
+| `has_operands`  | whether a mixed command group received its effect-selecting operand                                                                                |
+| `duration_ms`   | end-to-end wall-clock milliseconds                                                                                                                 |
+| `waited_ms`     | test-run slot-wait milliseconds on capped runs                                                                                                     |
+| `gate_ran`      | whether this `done` invocation executed gate work                                                                                                  |
+| `target`        | page served, miss, new branch, or queued command                                                                                                   |
+| `from`          | the ref a `start` forked from                                                                                                                      |
+| `update`        | what an `update` merged in                                                                                                                         |
+| `flags`         | `["force"]` (names without values, including `rerun` when requested)                                                                               |
+| `change`        | files/insertions/deletions/commits vs the trunk                                                                                                    |
+| `scopes`        | the configured scopes touched                                                                                                                      |
+| `steps`         | per-step labels, stages, outcomes, timings                                                                                                         |
+| `validation`    | versioned validation-start and execution evidence                                                                                                  |
+| `merges`        | versioned merge observations                                                                                                                       |
+| `diagnostics`   | tool, rule id, file path at most                                                                                                                   |
+| `hint_ids`      | stable ids of advice delivered with the result                                                                                                     |
+| `tip_ids`       | stable ids of desk tips shown during the run                                                                                                       |
+| `standards`     | each standard's measurement, limit, margin, and gate-owned pin decision                                                                            |
+| `consent`       | consent source and matched scopes on accept                                                                                                        |
+| `landing`       | recovery, trunk, worktree, and branch effects                                                                                                      |
+| `checkpoints`   | checkpoint servings, declarations, variances, abandoned open questions                                                                             |
+| `epoch`         | a fingerprint of your config                                                                                                                       |
 
 `partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The logbook omits the message and stack. A saved [crash report file](../40-troubleshooting/crashes-and-local-state.md) holds the full error text. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-understand/evidence-and-improvement.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
 

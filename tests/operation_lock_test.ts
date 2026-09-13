@@ -159,9 +159,8 @@ Deno.test("common-only Git writers do not demand linked-checkout administration"
     let ran = false;
 
     await withUnwritableDirectory(checkoutAdmin, async () => {
-      await withOperationLock(
+      await withCompletionPublication(
         worktree,
-        { command: "patterns reset" },
         () => {
           ran = true;
           return Promise.resolve();
@@ -505,30 +504,24 @@ Deno.test("an orphaned lock path is not treated as ownership", async () => {
   });
 });
 
-Deno.test("pre-repository common publication excludes common writers without masking their body", async () => {
+Deno.test("pre-repository publication retains native exclusion through its callback", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       "[project]\nslug = 'lock-boundary'\n",
     );
-    const entered = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<void>();
-    const first = withCompletionPublication(
-      dir,
-      heldOperation(entered.resolve, release.promise),
-    );
-    await entered.promise;
-    try {
-      await assertRejects(
-        () =>
-          withOperationLock(dir, { command: "patterns seal" }, async () => {}),
-        OperationLockError,
-        "common repository boundary",
-      );
-    } finally {
-      release.resolve();
-      await first;
-    }
+    let path: string | undefined;
+    await withCompletionPublication(dir, async () => {
+      path = [...(currentOperationLocks()?.leases.values() ?? [])]
+        .find((lease) => lease.boundary === "common")?.path;
+      assert(path);
+      using contender = await Deno.open(path, { read: true, write: true });
+      assertEquals(await contender.tryLock(true), false);
+    });
+    assert(path);
+    using after = await Deno.open(path, { read: true, write: true });
+    assertEquals(await after.tryLock(true), true);
+    after.unlockSync();
   });
 });
 

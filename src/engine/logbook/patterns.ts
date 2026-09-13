@@ -73,6 +73,7 @@ import {
 } from "../../shared/logbook_lifecycle.ts";
 import { LOGBOOK_POWERED } from "../../shared/logbook_powered.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { withCompletionPublication } from "../operation_lock.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
@@ -2073,61 +2074,65 @@ async function applyReset(
     if (!accepted) {
       return presentLifecycleCancellation(out);
     }
-    return await withLogbookLifecycleLock(commonGitDir, async () => {
-      const current = await activeLifecycleSnapshot(root, commonGitDir);
-      if (!sameActiveSnapshot(reviewed, current)) {
-        return presentLifecycleResult(
-          "reset",
-          changedDuringConfirmation("patterns reset", resetData(current)),
-          false,
-          out,
-        );
-      }
-      const newlyRunning = inFlightRefusal(
-        "patterns reset",
-        current,
-        resetData(current),
-      );
-      if (newlyRunning !== undefined) {
-        return presentLifecycleResult("reset", newlyRunning, false, out);
-      }
-      try {
-        await removeLogbook(commonGitDir);
-      } catch (error) {
-        const recovery = error instanceof LogbookLifecycleError
-          ? error.detachedPath
-          : undefined;
-        return presentLifecycleResult(
-          "reset",
-          {
-            ok: false,
+    return await withCompletionPublication(
+      root,
+      () =>
+        withLogbookLifecycleLock(commonGitDir, async () => {
+          const current = await activeLifecycleSnapshot(root, commonGitDir);
+          if (!sameActiveSnapshot(reviewed, current)) {
+            return presentLifecycleResult(
+              "reset",
+              changedDuringConfirmation("patterns reset", resetData(current)),
+              false,
+              out,
+            );
+          }
+          const newlyRunning = inFlightRefusal(
+            "patterns reset",
+            current,
+            resetData(current),
+          );
+          if (newlyRunning !== undefined) {
+            return presentLifecycleResult("reset", newlyRunning, false, out);
+          }
+          try {
+            await removeLogbook(commonGitDir);
+          } catch (error) {
+            const recovery = error instanceof LogbookLifecycleError
+              ? error.detachedPath
+              : undefined;
+            return presentLifecycleResult(
+              "reset",
+              {
+                ok: false,
+                verb: "patterns reset",
+                error: "apply_failed",
+                message: error instanceof Error ? error.message : String(error),
+                data: resetData(current, recovery),
+              },
+              false,
+              out,
+            );
+          }
+          const resetHints = [
+            ...(current.files.length === 0
+              ? [fire(HINTS["patterns-reset-empty"])]
+              : []),
+            ...(current.recording
+              ? [fire(HINTS["patterns-reset-recording-resumes"])]
+              : []),
+          ];
+          const result: DiscernResult<PatternsResetData> = {
+            ok: true,
             verb: "patterns reset",
-            error: "apply_failed",
-            message: error instanceof Error ? error.message : String(error),
-            data: resetData(current, recovery),
-          },
-          false,
-          out,
-        );
-      }
-      const resetHints = [
-        ...(current.files.length === 0
-          ? [fire(HINTS["patterns-reset-empty"])]
-          : []),
-        ...(current.recording
-          ? [fire(HINTS["patterns-reset-recording-resumes"])]
-          : []),
-      ];
-      const result: DiscernResult<PatternsResetData> = {
-        ok: true,
-        verb: "patterns reset",
-        data: resetData(current),
-        ...(resetHints.length > 0 ? { hints: hintTexts(resetHints) } : {}),
-      };
-      const code = presentLifecycleResult("reset", result, false, out);
-      out.raw("Removed the active logbook permanently.\n");
-      return code;
-    });
+            data: resetData(current),
+            ...(resetHints.length > 0 ? { hints: hintTexts(resetHints) } : {}),
+          };
+          const code = presentLifecycleResult("reset", result, false, out);
+          out.raw("Removed the active logbook permanently.\n");
+          return code;
+        }),
+    );
   } catch (error) {
     if (error instanceof LifecycleConfirmationFault) throw error.fault;
     const message = error instanceof LogbookLifecycleBusyError
@@ -2195,80 +2200,84 @@ async function applySeal(
     if (!accepted) {
       return presentLifecycleCancellation(out);
     }
-    return await withLogbookLifecycleLock(commonGitDir, async () => {
-      const current = await activeLifecycleSnapshot(root, commonGitDir);
-      if (!sameActiveSnapshot(reviewed, current)) {
-        return presentLifecycleResult(
-          "seal",
-          changedDuringConfirmation(
+    return await withCompletionPublication(
+      root,
+      () =>
+        withLogbookLifecycleLock(commonGitDir, async () => {
+          const current = await activeLifecycleSnapshot(root, commonGitDir);
+          if (!sameActiveSnapshot(reviewed, current)) {
+            return presentLifecycleResult(
+              "seal",
+              changedDuringConfirmation(
+                "patterns seal",
+                archiveData(current, filename),
+              ),
+              false,
+              out,
+            );
+          }
+          const newlyRunning = inFlightRefusal(
             "patterns seal",
+            current,
             archiveData(current, filename),
-          ),
-          false,
-          out,
-        );
-      }
-      const newlyRunning = inFlightRefusal(
-        "patterns seal",
-        current,
-        archiveData(current, filename),
-      );
-      if (newlyRunning !== undefined) {
-        return presentLifecycleResult("seal", newlyRunning, false, out);
-      }
-      if (current.archiveBytes === 0) {
-        const code = presentLifecycleResult(
-          "seal",
-          {
-            ok: true,
-            verb: "patterns seal",
-            data: archiveData(current, filename),
-          },
-          false,
-          out,
-        );
-        out.raw(
-          "No active event lines exist to archive.\n",
-        );
-        return code;
-      }
-      try {
-        const archived = await archiveLogbook(commonGitDir, filename);
-        const data = archiveData(current, filename, archived.bytes);
-        const result: DiscernResult<PatternsSealData> = {
-          ok: true,
-          verb: "patterns seal",
-          data,
-        };
-        const code = presentLifecycleResult("seal", result, false, out);
-        out.raw(`Sealed ${archived.path}.\n`);
-        out.raw(
-          `Read it: discern patterns --logbook-file ${archived.file}\n`,
-        );
-        return code;
-      } catch (error) {
-        const lifecycle = error instanceof LogbookLifecycleError
-          ? error
-          : undefined;
-        return presentLifecycleResult(
-          "seal",
-          {
-            ok: false,
-            verb: "patterns seal",
-            error: "apply_failed",
-            message: error instanceof Error ? error.message : String(error),
-            data: archiveData(
-              current,
-              filename,
-              current.archiveBytes,
-              lifecycle?.detachedPath,
-            ),
-          },
-          false,
-          out,
-        );
-      }
-    });
+          );
+          if (newlyRunning !== undefined) {
+            return presentLifecycleResult("seal", newlyRunning, false, out);
+          }
+          if (current.archiveBytes === 0) {
+            const code = presentLifecycleResult(
+              "seal",
+              {
+                ok: true,
+                verb: "patterns seal",
+                data: archiveData(current, filename),
+              },
+              false,
+              out,
+            );
+            out.raw(
+              "No active event lines exist to archive.\n",
+            );
+            return code;
+          }
+          try {
+            const archived = await archiveLogbook(commonGitDir, filename);
+            const data = archiveData(current, filename, archived.bytes);
+            const result: DiscernResult<PatternsSealData> = {
+              ok: true,
+              verb: "patterns seal",
+              data,
+            };
+            const code = presentLifecycleResult("seal", result, false, out);
+            out.raw(`Sealed ${archived.path}.\n`);
+            out.raw(
+              `Read it: discern patterns --logbook-file ${archived.file}\n`,
+            );
+            return code;
+          } catch (error) {
+            const lifecycle = error instanceof LogbookLifecycleError
+              ? error
+              : undefined;
+            return presentLifecycleResult(
+              "seal",
+              {
+                ok: false,
+                verb: "patterns seal",
+                error: "apply_failed",
+                message: error instanceof Error ? error.message : String(error),
+                data: archiveData(
+                  current,
+                  filename,
+                  current.archiveBytes,
+                  lifecycle?.detachedPath,
+                ),
+              },
+              false,
+              out,
+            );
+          }
+        }),
+    );
   } catch (error) {
     if (error instanceof LifecycleConfirmationFault) throw error.fault;
     const message = error instanceof LogbookLifecycleBusyError

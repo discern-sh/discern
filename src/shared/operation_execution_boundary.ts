@@ -1,4 +1,4 @@
-/** Project execution and capacity admission may never hold publication ownership. */
+/** Project execution, capacity admission, and human interaction may never hold publication ownership. */
 import {
   currentOperationLocks,
   inheritedOperationLockLeases,
@@ -21,6 +21,6 @@ export class CommonPublicationExecutionError extends Error {}
 /** Explain the invariant at the rejected execution boundary. */
 function violation(): Error {
   return new CommonPublicationExecutionError(
-    "Project commands and capacity admission cannot run while holding the common publication boundary. Release publication ownership and retain the operation's worktree or resource lease before executing.",
+    "Project commands, capacity admission, and human interaction cannot run while holding the common publication boundary. Release publication ownership and retain the operation's worktree or resource lease before executing.",
   );
 }

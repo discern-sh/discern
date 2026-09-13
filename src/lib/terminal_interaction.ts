@@ -5,6 +5,7 @@
  * flags). Requests are only reached on a TTY with `--yes` absent.
  */
 
+import { assertOutsideCommonPublication } from "../shared/operation_execution_boundary.ts";
 import {
   renderDestructiveActionNoticeCli,
   renderDialogCli,
@@ -956,13 +957,14 @@ interface PackageInteractionSessionOptions {
 }
 
 /** Construct one package runtime after policy has allowed interaction. */
-function packageInteractionRuntime(
+async function packageInteractionRuntime(
   runtime: TerminalInteractionRuntime,
   options: PackageInteractionSessionOptions = {
     leadingBoundary: true,
     terminateUnexpectedFrame: true,
   },
-): PackageInteractionSession {
+): Promise<PackageInteractionSession> {
+  await assertOutsideCommonPublication();
   const inherited = runtime.packageRuntime;
   let target: TerminalIO;
   let theme: PackageInteractionRuntime["theme"];
@@ -1050,7 +1052,7 @@ async function runInteractionRequest<Options, Value>(
     terminateUnexpectedFrame: true,
   },
 ): Promise<Value> {
-  const session = packageInteractionRuntime(runtime, sessionOptions);
+  const session = await packageInteractionRuntime(runtime, sessionOptions);
   let outcome = "value";
   try {
     return await operation(options, session.runtime);
@@ -1357,7 +1359,7 @@ export async function requestSequentialForm(
   runtime: TerminalInteractionRuntime = {},
 ): Promise<Record<string, unknown>> {
   requireInteraction("this task form", runtime);
-  const session = packageInteractionRuntime(runtime);
+  const session = await packageInteractionRuntime(runtime);
   const parent = session.runtime;
   const form = session.sequentialForm({
     label: terminalLine(options.message),

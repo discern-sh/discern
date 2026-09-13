@@ -199,13 +199,13 @@ export const OPERATION_EFFECTS = {
   patterns: OBSERVATION,
   "patterns seal": policy(
     ["discern-common-mutation", "discern-git-mutation"],
-    "common",
+    "phased",
     "required",
   ),
   "patterns archives": OBSERVATION,
   "patterns reset": policy(
     ["discern-common-mutation", "discern-git-mutation"],
-    "common",
+    "phased",
     "required",
   ),
   prepare: policy(

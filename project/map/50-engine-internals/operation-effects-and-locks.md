@@ -55,9 +55,9 @@ Observations, dry runs, and file-only writers do not probe Git. Project-authored
 
 ## Lock boundaries follow shared state
 
-The [operation policy](../../../src/shared/operation_effects.ts) selects invocation ownership. The common boundary is reserved for short publication and transition callbacks. Project commands and capacity admission refuse inside that boundary, including authenticated inherited child ownership.
+The [operation policy](../../../src/shared/operation_effects.ts) selects invocation ownership. The common boundary is reserved for short publication and transition callbacks. Project commands, capacity admission, and human interaction refuse inside that boundary, including authenticated inherited child ownership.
 
-Lifecycle commands retain their repository-wide lock while coordinating shared plans and bookkeeping. Their worktree reservations span creation, setup, validation, and removal. Checkout writers acquire the same path reservation before their Git-admin lock, including calls made from subdirectories. Resource operations hold an external-identity lease across the ownership check, command, and ledger settlement; a recycled Git key cannot admit another cleaner for that identity. These boundaries let unrelated worktrees publish completion evidence during slow setup or teardown ([ADR 0393](../_adr/0393-separate-operation-ownership-from-publication.md)).
+Lifecycle commands retain their repository-wide lock while coordinating shared plans and bookkeeping. Their worktree reservations span creation, setup, validation, and removal. Checkout writers acquire the same path reservation before their Git-admin lock, including calls made from subdirectories. Resource operations hold an external-identity lease across the ownership check, command, and ledger settlement; a recycled Git key cannot admit another cleaner for that identity. These boundaries let unrelated worktrees publish completion evidence during slow setup or teardown ([ADR 0394](../_adr/0394-separate-operation-ownership-from-publication.md)).
 
 Acceptance retains its own lock and author checkout. Each landing reserves the main checkout through transition, convergence, and cleanup; a competing writer there refuses while unrelated worktrees can finish. The common boundary joins for authority, consent, and the compare-and-swap with its journal and claim. Note recording, convergence, and resource cleanup run outside publication. A second acceptance waits on the acceptance boundary; checkout acquisition does not wait so a running completion can publish and finish.
 
@@ -100,3 +100,5 @@ Evidence stays outside the scope: status and diff reads, ref verification, `symb
 | CLI interception           | [`main.ts`](../../../src/main.ts)                                                                                                                  |
 | MCP interception           | [`server.ts`](../../../src/engine/mcp/server.ts)                                                                                                   |
 | Policy and preview parity  | [`operation_effects_test.ts`](../../../tests/operation_effects_test.ts), [`engine_plan_parity_test.ts`](../../../tests/engine_plan_parity_test.ts) |
+
+Logbook sealing and reset review the active snapshot and ask for confirmation before acquiring publication ownership. Under publication and logbook lifecycle exclusion, they re-read the snapshot and in-flight operations before detaching anything; changed evidence requires a fresh review.

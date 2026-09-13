@@ -1,4 +1,4 @@
-# ADR 0393: Separate operation ownership from publication
+# ADR 0394: Separate operation ownership from publication
 
 **Status**: accepted on 2026-09-13. Amends [ADR 0331](0331-common-repository-locks-precede-checkout-locks.md) and extends the short publication boundary established by [ADR 0391](0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md).
 
@@ -10,7 +10,7 @@ The same duration problem affects observation. A proposal renewal may wait for s
 
 ## Decision
 
-The common publication lock encloses shared-state publications and transitions. Project commands and capacity admission refuse while that lock is held, including an authenticated common lease inherited by a child process.
+The common publication lock encloses shared-state publications and transitions. Project commands, capacity admission, and human interaction refuse while that lock is held, including an authenticated common lease inherited by a child process.
 
 Lifecycle commands retain a separate repository-wide lifecycle lock. It preserves ordering around shared lifecycle plans and bookkeeping without blocking completion publication. A worktree path reservation spans creation, setup, validation, and removal. Ordinary checkout writers acquire that reservation before their Git-admin lease. Paths resolve through existing ancestors so the reservation survives creation and deletion; calls from a subdirectory resolve the worktree root. A setup probe retains its parent checkout and explicitly owns its new path. It requires no parent common lock.
 

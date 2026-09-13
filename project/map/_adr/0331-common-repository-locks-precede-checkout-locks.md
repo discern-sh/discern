@@ -2,7 +2,7 @@
 
 **Status**: accepted. Applies the operation policy in [ADR 0330](0330-every-command-path-declares-its-operation-effects.md) to the acceptance transaction from [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md) and the linked-worktree model in [ADR 0011](0011-adopt-worktree-workflow.md).
 
-> Amended by [ADR 0393](0393-separate-operation-ownership-from-publication.md): lifecycle ownership and target reservations remain held during execution while common publication is limited to short shared-state transitions.
+> Amended by [ADR 0394](0394-separate-operation-ownership-from-publication.md): lifecycle ownership and target reservations remain held during execution while common publication is limited to short shared-state transitions.
 
 ## Context
 
