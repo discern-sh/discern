@@ -344,10 +344,18 @@ function scriptedRuntime(
           : "back";
       }
       if (request.actions) {
-        return await select({
+        const choice = await select({
           message: request.title,
           options: request.actions.map((a) => ({ name: a.label, value: a.id })),
         });
+        assert(
+          choice === BACK ||
+            request.actions.some((action) => action.id === choice),
+          `Scripted choice ${
+            JSON.stringify(choice)
+          } is unavailable in ${request.title}`,
+        );
+        return choice;
       }
       return "back";
     },
@@ -620,11 +628,16 @@ Deno.test("recent completed tasks expose bounded local landing evidence", async 
       proof_line: "Proof: agent/completed abc1234 · gate passed",
     }],
   };
-  const choices = [DESK_ROUTES.recentCompleted, QUIT];
+  const choices = [DESK_ROUTES.recentCompleted, "0", BACK, QUIT];
   const menus: string[] = [];
   let pauses = 0;
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
+    git: () => ({
+      success: false,
+      stdout: "",
+      stderr: "Recorded revision is unavailable",
+    }),
     select: (options) => {
       menus.push(JSON.stringify(options.options));
       return choices.shift() ?? QUIT;
@@ -643,6 +656,8 @@ Deno.test("recent completed tasks expose bounded local landing evidence", async 
     "Proof: agent/completed abc1234",
   );
   assertStringIncludes(joined(output), "gate passed");
+  assertStringIncludes(joined(output), "Stored Proof unavailable");
+  assertStringIncludes(joined(output), "Recorded revision is unavailable");
 });
 
 Deno.test("desk grants and revokes one effort only through its human action", async () => {
@@ -1967,7 +1982,7 @@ Deno.test("desk explains missing configured agents and launches available argv i
   );
   assertStringIncludes(
     joined(output),
-    `Run: claude --continue (cwd: ${effort.path})`,
+    "Returned from Claude Code",
   );
 });
 

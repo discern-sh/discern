@@ -12,8 +12,3 @@ export function echoDeskCommand(out: Out, command: string): void {
   );
   out.raw(`${rendered.text}\n`);
 }
-
-/** Clear the screen before composing a complete Desk view. */
-export function clearDeskBoard(out: Out): void {
-  out.raw("\x1b[2J\x1b[H");
-}
