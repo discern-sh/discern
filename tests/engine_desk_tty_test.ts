@@ -1,9 +1,15 @@
 /** Real-PTY characterisation of the complete package-backed Desk session. */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { measureText } from "discern-design-system/cli";
 import { runAgent } from "./engine_helpers.ts";
 import {
+  assertDeskTtyInputPhase,
   deskCollision,
   deskFailedAction,
   deskFleetEntry,
@@ -24,6 +30,10 @@ import {
 } from "./fixtures/desk_tty_harness.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
+import type {
+  PtyObservedOutput,
+  PtyOutputCondition,
+} from "./fixtures/pty_process.ts";
 
 const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9:;]*m`, "u");
@@ -389,9 +399,20 @@ realPtyTest({
             waitFor: "New task title",
             chunks: [{
               input: `${"\u007f".repeat(originalTitle.length)}${title}`,
-            }, { resize: { columns: 80, rows: 24 } }],
+            }],
           }, {
             waitFor: ["New task title", title],
+            capture: textCapture("edited-form", title, "New task title"),
+            chunks: [{ resize: { columns: 80, rows: 24 } }],
+          }, {
+            waitFor: {
+              description: "the edited task title remains visible after resize",
+              test: (output: PtyObservedOutput): boolean =>
+                normaliseDeskTranscript("resized-form", output.stdout, {
+                  columns: 80,
+                  rows: 24,
+                }).text.includes(title),
+            },
             capture: textCapture("resized-form", title, "New task title"),
             chunks: [{ keys: ["enter"] }],
           }, {
@@ -416,6 +437,10 @@ realPtyTest({
         });
 
         assertHealthySession(result);
+        assertStringIncludes(frame(result, "edited-form").text, title);
+        assertEquals(frame(result, "edited-form").columns, 100);
+        assertStringIncludes(frame(result, "resized-form").text, title);
+        assertEquals(frame(result, "resized-form").columns, 80);
         assertStringIncludes(frame(result, "rename-preview").text, title);
         assertStringIncludes(result.transcript, title);
 
@@ -768,6 +793,78 @@ Deno.test("Desk PTY fleet builders materialise later-wave state through real aut
   });
 });
 
+/** Read the visible document's scroll indicator, independent of its prose. */
+function manualDocumentStart(text: string): number {
+  if (!text.includes("Document") || !text.includes("Tab picker  Esc/q close")) {
+    return 0;
+  }
+  return Number(text.match(/\b(\d+)-\d+\/\d+\b/u)?.[1] ?? 0);
+}
+
+/** Observe the complete manual frame at the journey's initial geometry. */
+function manualDocumentReady(minimumStart: number): PtyOutputCondition {
+  return {
+    description:
+      `the manual displays a document starting at line ${minimumStart} or later`,
+    test: (output) =>
+      manualDocumentStart(
+        normaliseDeskTranscript(
+          "manual-readiness",
+          output.stdout,
+          { columns: 80, rows: 24 },
+        ).text,
+      ) >= minimumStart,
+  };
+}
+
+Deno.test("Desk PTY recipes separate resize from keyboard input before launching", () => {
+  const resize = { resize: { columns: 61, rows: 27 } };
+  const mixed: readonly DeskTtyInputPhase[] = [
+    { waitFor: "Inventory", chunks: [{ input: "filter" }, resize] },
+    { waitFor: "Review", chunks: [resize, { keys: ["down"] }] },
+    {
+      waitFor: "Editor",
+      chunks: [{ ...resize, input: new Uint8Array([97]), settleMs: 10 }],
+    },
+  ];
+  for (const phase of mixed) {
+    assertThrows(
+      () => assertDeskTtyInputPhase(phase),
+      TypeError,
+      "separate phases",
+    );
+  }
+  assertDeskTtyInputPhase({ waitFor: "Edited value", chunks: [resize] });
+  assertDeskTtyInputPhase({
+    waitFor: "Resized view",
+    chunks: [{ keys: ["enter"] }],
+  });
+  assertDeskTtyInputPhase({
+    waitFor: "View",
+    chunks: [{ ...resize, input: "" }],
+  });
+});
+
+Deno.test("manual readiness requires the latest visible scrolled frame", () => {
+  const opening = "Document\n1-12/200\nTab picker  Esc/q close";
+  const scrolled = "Document\n13-24/200\nTab picker  Esc/q close";
+  const observed = (stdout: string): PtyObservedOutput => ({
+    stdout,
+    stderr: "",
+    transcript: stdout,
+    phaseStdout: stdout,
+    phaseStderr: "",
+  });
+  const ready = manualDocumentReady(2);
+  assertEquals(ready.test(observed(opening)), false);
+  assertEquals(ready.test(observed("Document\n13-24/200")), false);
+  assertEquals(ready.test(observed(scrolled)), true);
+  assertEquals(
+    ready.test(observed(scrolled + "\x1b[2J\x1b[H" + opening)),
+    false,
+  );
+});
+
 realPtyTest({
   name:
     "Desk PTY: the offline manual keeps document focus and scroll through resize and returns to its command",
@@ -798,10 +895,17 @@ realPtyTest({
             chunks: [{ keys: ["enter"] }],
           },
           {
-            waitFor: ["A substantial idea", "Tab picker  Esc/q close"],
-            chunks: [{ keys: ["page-down"] }, {
-              resize: { columns: 40, rows: 24 },
-            }],
+            waitFor: manualDocumentReady(1),
+            chunks: [{ keys: ["page-down"] }],
+          },
+          {
+            waitFor: manualDocumentReady(2),
+            capture: textCapture(
+              "scrolled-document",
+              "Document",
+              "Tab picker  Esc/q close",
+            ),
+            chunks: [{ resize: { columns: 40, rows: 24 } }],
           },
           {
             waitFor: ["Document", "Tab picker  Esc/q close"],
@@ -826,10 +930,10 @@ realPtyTest({
       assertHealthySession(result);
       const document = frame(result, "resized-document");
       assertEquals(document.columns, 40);
-      assertEquals(
-        document.text.includes("A substantial idea"),
-        false,
-        "the document did not jump to its opening",
+      assert(manualDocumentStart(frame(result, "scrolled-document").text) > 1);
+      assert(
+        manualDocumentStart(document.text) > 1,
+        "the resized document retains its scrolled position",
       );
       assertStringIncludes(
         frame(result, "manual-return").text,
