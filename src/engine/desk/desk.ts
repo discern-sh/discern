@@ -1,3 +1,4 @@
+import { readProofNoteAt } from "../gate/proof_notes.ts";
 /**
  * `desk` — the operator's interactive ingress and surface over the worktree fleet
  * (ADR 0119). Bare `discern`, post-setup on an interactive terminal, opens it;
@@ -19,7 +20,8 @@
 
 import { basename } from "@std/path";
 import { commandEvidence } from "../../shared/command_evidence.ts";
-import { DISCERN_DOCS_URL } from "../../shared/brand.ts";
+import { runDocs } from "../../commands/docs.ts";
+import { deskLiteral, type DeskReading, readDeskScreen } from "./reading.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -32,6 +34,8 @@ import type {
   GateData,
   StartData,
   StatusData,
+  SubmissionRevision,
+  SubmitData,
   TaskRenameData,
   UpdateData,
 } from "../../shared/result_schemas.ts";
@@ -63,7 +67,6 @@ import {
 } from "../../lib/terminal_interaction.ts";
 import { Logger } from "../../lib/log.ts";
 import {
-  browserOpenFailureMessage,
   type BrowserOpenResult,
   openInBrowser,
 } from "../../lib/open_browser.ts";
@@ -73,6 +76,7 @@ import { inspectGateProof } from "../gate/proof.ts";
 import {
   applyStartPlan,
   buildStartPlan,
+  DropWouldDiscardWork,
   type LifecycleContext,
   lifecycleContext,
   type PreparedStart,
@@ -82,6 +86,7 @@ import {
   updateResult,
   worktreeDrop,
   worktreeDropPlan,
+  worktreeErrorResult,
   WorktreeGitError,
   worktreePark,
   worktreeParkPlan,
@@ -94,7 +99,12 @@ import { mainRepoPath } from "../worktree/git.ts";
 import { commandExists, runGit } from "../../shared/subprocess.ts";
 import { makeOut, type Out } from "../output.ts";
 import { runOwnedChild } from "../owned_child.ts";
-import { withOperationLock } from "../operation_lock.ts";
+import {
+  type OperationInvocation,
+  OperationLockError,
+  withCompletionPublication,
+} from "../operation_lock.ts";
+import { executeOperation } from "../operation_execution.ts";
 import {
   type DeskProjectScript,
   type DeskProjectScriptInventory,
@@ -105,6 +115,7 @@ import {
   agentLaunchArgs,
   buildAgentLaunches,
   buildDeskDecision,
+  DESK_ACTION_REGISTRY,
   type DeskAction,
   type DeskActionOffer,
   type DeskAgentLaunch,
@@ -127,11 +138,7 @@ import { TIPS } from "../../shared/tips.ts";
 import { observeShownTip } from "../../shared/result_capture.ts";
 import { DISCERN_VERSION } from "../../lib/version.ts";
 import { terminalSize } from "../../lib/text.ts";
-import {
-  terminalContext,
-  terminalContextAtSize,
-  type TerminalSize,
-} from "../../lib/terminal.ts";
+import { terminalContext, type TerminalSize } from "../../lib/terminal.ts";
 import { deskSessionEnv, inDeskSession } from "./session.ts";
 import {
   parseProjectScriptArguments,
@@ -146,33 +153,26 @@ import {
   type EffortGrantWrite,
   grantEffort,
 } from "../worktree/effort_grant_writer.ts";
-import { acceptLanding, acceptLandingResult } from "../worktree/accept.ts";
+import { acceptLandingResult, submitResult } from "../worktree/accept.ts";
 import { userShell } from "../user_shell.ts";
 import {
   DESK_FILTER_THRESHOLD,
   DESK_REVIEW_ROUTES,
   DESK_ROUTES,
-  deskCompositionReserveRows,
   type DeskEditorCommand,
   type DeskReview,
   type DeskReviewFailure,
   type DeskReviewFile,
-  deskReviewGroups,
-  renderDeskActionFailure,
-  renderDeskActionPlan,
-  renderDeskAgentHandoff,
-  renderDeskCreatedTask,
-  renderDeskProjectScriptPlan,
-  renderDeskRecovery,
-  renderDeskReview,
-  renderDeskStartPreview,
-  renderDeskUnlandedBranchDetail,
 } from "./view.ts";
 import { liveDesk } from "./live.ts";
 import type { DeskChoice } from "./application_view.ts";
+import { resultPresenterForVerb } from "../../shared/result_contracts.ts";
+import { serializeResult } from "../../shared/result_serialization.ts";
+import { renderResultMarkdown } from "../../shared/result_markdown.ts";
+import type { DropPlan } from "../worktree/plan.ts";
 import { startPlanToEngine } from "../worktree/plan.ts";
 import { actOnMainCheckout, showRecentCompleted } from "./main_checkout.ts";
-import { clearDeskBoard, echoDeskCommand } from "./presentation.ts";
+import { echoDeskCommand } from "./presentation.ts";
 import {
   type NumstatMagnitude,
   parseNumstat,
@@ -202,6 +202,8 @@ type DeskScriptDiscovery =
  * runtime so every supervisory path is exercised without pretending a pipe is
  * a terminal or touching a real worktree. */
 export interface DeskRuntime {
+  screen(request: DeskReading): DeskMaybePromise<string>;
+  docs(): DeskMaybePromise<number>;
   canInteract(): boolean;
   inDeskSession(): boolean;
   findRoot(): DeskMaybePromise<string | undefined>;
@@ -255,8 +257,13 @@ export interface DeskRuntime {
       dryRun?: boolean;
       confirmed?: boolean;
       cliModel?: CliModelProvider;
+      expected?: SubmissionRevision;
     },
-  ): DeskMaybePromise<void>;
+  ): DeskMaybePromise<DiscernResult<AcceptData> | void>;
+  submit(
+    path: string,
+    options: { dryRun?: boolean; expected?: SubmissionRevision },
+  ): DeskMaybePromise<DiscernResult<SubmitData>>;
   update(
     ctx: LifecycleContext,
     opts: { dryRun?: boolean },
@@ -269,12 +276,12 @@ export interface DeskRuntime {
   drop(
     ctx: LifecycleContext,
     target: string,
-    opts: { dryRun?: boolean; force?: boolean },
+    opts: { dryRun?: boolean; force?: boolean; expected?: DropPlan },
   ): DeskMaybePromise<void>;
   dropPlan(
     ctx: LifecycleContext,
     target: string,
-  ): DeskMaybePromise<EnginePlan>;
+  ): DeskMaybePromise<EnginePlan & { subject?: DropPlan }>;
   park(
     ctx: LifecycleContext,
     target: string,
@@ -295,6 +302,10 @@ export interface DeskRuntime {
   proof(
     root: string,
   ): DeskMaybePromise<Awaited<ReturnType<typeof inspectGateProof>>>;
+  landedProof(
+    root: string,
+    commit: string,
+  ): DeskMaybePromise<Awaited<ReturnType<typeof readProofNoteAt>>>;
   pager(text: string): DeskMaybePromise<PagerResult>;
   editor(cwd: string): DeskMaybePromise<{
     editor?: DeskEditorCommand;
@@ -309,6 +320,7 @@ export interface DeskRuntime {
     args: readonly string[],
     cwd: string,
     env: Record<string, string>,
+    action?: string,
   ): DeskMaybePromise<number>;
   detectAgents(): DeskMaybePromise<readonly DetectedAgentBinary[]>;
   startPlan(
@@ -338,6 +350,7 @@ export interface DeskRuntime {
     name: string,
     args: readonly string[],
     env: Record<string, string>,
+    expectedExecutable?: string,
   ): DeskMaybePromise<number>;
   openBrowser(url: string): DeskMaybePromise<BrowserOpenResult>;
   now(): number;
@@ -397,45 +410,54 @@ function configuredEditorCommand(
   return visual || editor;
 }
 
-/** Render one action's real core plan before any confirmation or effect. */
-function showActionPlan(
-  out: Out,
+/** Review the authoritative plan with a locally scrollable reading region. */
+async function reviewAction(
   row: DeskRow,
   action: DeskAction,
   plan: EnginePlan | undefined,
   runtime: DeskRuntime,
-  offerOverride?: ReturnType<typeof selectedOffer>,
-): void {
-  const viewport = runtime.size();
-  const terminal = terminalContextAtSize(out.terminal, viewport);
-  const frame = renderDeskActionPlan(
-    row,
-    offerOverride ?? selectedOffer(row, action),
-    plan,
-    viewport,
-    terminal,
-  );
-  out.raw(`${frame.text}\n`);
-}
-
-/** Render one Project Script's resolved executable evidence before selection. */
-function showProjectScriptPlan(
-  out: Out,
-  script: DeskProjectScript,
-  args: readonly string[],
-  workingDirectory: string,
-  runtime: DeskRuntime,
-): void {
-  const viewport = runtime.size();
-  const terminal = terminalContextAtSize(out.terminal, viewport);
-  const frame = renderDeskProjectScriptPlan(
-    script,
-    args,
-    workingDirectory,
-    viewport,
-    terminal,
-  );
-  out.raw(`${frame.text}\n`);
+  question: string,
+  offerOverride?: DeskActionOffer,
+): Promise<boolean> {
+  const offer = offerOverride ?? selectedOffer(row, action);
+  const source = [
+    `**${deskLiteral(row.entry.branch)}**`,
+    deskLiteral(row.entry.path),
+    ...(plan === undefined ? [] : [
+      deskLiteral(plan.title),
+      ...plan.details.map(deskLiteral),
+      plan.steps.map((step) =>
+        `- ${
+          deskLiteral(
+            `${step.disposition}: ${step.label}${
+              step.note ? ` — ${step.note}` : ""
+            }`,
+          )
+        }`
+      ).join("\n"),
+    ]),
+    ...Object.entries(offer.consequence).flatMap(([label, facts]) =>
+      facts.length === 0 ? [] : [
+        `**${label}:** ${facts.map(deskLiteral).join("; ")}`,
+      ]
+    ),
+    `Command: ${deskLiteral(commandEvidence(offer.command.argv))}`,
+  ].filter(Boolean).join("\n\n");
+  const policy = offer.confirmation;
+  return await runtime.screen({
+    title: offer.label,
+    source,
+    ...(policy.kind === "none" ? {} : {
+      confirmation: {
+        question,
+        options: {
+          defaultTo: false,
+          noLabel: policy.noLabel,
+          yesLabel: policy.yesLabel,
+        },
+      },
+    }),
+  }) === "apply";
 }
 
 /** Refuse a composite preview through the lifecycle's authored result message. */
@@ -447,24 +469,6 @@ function resultPlan<T>(result: DiscernResult<T>): EnginePlan | undefined {
   }
   return result.plan;
 }
-
-/** Ask through the registry's exact No-default confirmation policy. */
-async function confirmAction(
-  row: DeskRow,
-  action: DeskAction,
-  message: string,
-  runtime: DeskRuntime,
-): Promise<boolean> {
-  const policy = selectedOffer(row, action).confirmation;
-  if (policy.kind === "none") return true;
-  return await runtime.confirm(message, {
-    defaultTo: policy.defaultTo,
-    noLabel: policy.noLabel,
-    yesLabel: policy.yesLabel,
-  });
-}
-
-const clearBoard = clearDeskBoard;
 
 /** A confirmation that treats a cancelled interaction (Ctrl-C / Esc) as "no". */
 async function confirmOrNo(
@@ -484,21 +488,111 @@ function deskLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
 }
 
+/** Retain the latest short action result across the foreground return. */
+async function collectDeskFeedback(
+  base: Out,
+  run: (out: Out) => Promise<string | void>,
+): Promise<{ path?: string; message?: string }> {
+  let message: string | undefined;
+  const out: Out = {
+    ...base,
+    info: (text) => {
+      message = text;
+      base.info(text);
+    },
+    ok: (text) => {
+      message = text;
+      base.ok(text);
+    },
+    warn: (text) => {
+      message = text;
+      base.warn(text);
+    },
+  };
+  const path = await run(out);
+  return {
+    ...(path === undefined ? {} : { path }),
+    ...(message === undefined ? {} : { message }),
+  };
+}
+
+/** Every Desk effect enters the shared execution boundary after its review. */
+export async function executeDeskOperation<T>(
+  path: string,
+  invocation: OperationInvocation,
+  run: (signal: AbortSignal) => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  try {
+    return await executeOperation(
+      path,
+      invocation,
+      async (signal) => {
+        try {
+          return await run(signal);
+        } catch (error) {
+          const mapped = worktreeErrorResult(invocation.command, error);
+          if (mapped !== undefined) {
+            throw new OperationLockError(mapped, { cause: error });
+          }
+          throw error;
+        }
+      },
+      (value, rendered) => {
+        if (
+          typeof value === "object" && value !== null && "ok" in value &&
+          "verb" in value
+        ) {
+          return value as DiscernResult;
+        }
+        // Nested commands emit results too; only the action's own envelope can finish it.
+        if (rendered?.verb === invocation.command) return rendered;
+        return typeof value !== "number" || value === 0
+          ? { ok: true, verb: invocation.command }
+          : {
+            ok: false,
+            verb: invocation.command,
+            error: "precondition_failed",
+            message:
+              `${invocation.command} exited with status ${value}. Read the command output before retrying.`,
+          };
+      },
+      signal,
+      undefined,
+      { resumeAfterInterrupt: true },
+    );
+  } catch (error) {
+    if (
+      error instanceof OperationLockError &&
+      error.cause instanceof WorktreeGitError
+    ) throw error.cause;
+    throw error;
+  }
+}
+
 /** Launch one desk-owned interactive child with the desk's interrupt contract. */
 export async function runDeskInteractiveChild(
   command: string,
   args: readonly string[],
   cwd: string,
   env: Record<string, string>,
+  action = "desk agent",
 ): Promise<number> {
-  const child = await runOwnedChild(command, {
-    args: [...args],
+  return await executeDeskOperation(
     cwd,
-    env,
-    resumeAfterInterrupt: true,
-    lineage: "interactive",
-  });
-  return child.status.code;
+    { command: action },
+    async (signal) => {
+      const child = await runOwnedChild(command, {
+        args: [...args],
+        cwd,
+        env,
+        resumeAfterInterrupt: true,
+        lineage: "interactive",
+        signal,
+      });
+      return child.status.code;
+    },
+  );
 }
 
 /** Run one desk-owned Project Script with the desk's interrupt contract. */
@@ -507,15 +601,19 @@ export async function runDeskProjectScript(
   name: string,
   args: readonly string[],
   env: Record<string, string>,
+  expectedExecutable?: string,
+  signal?: AbortSignal,
 ): Promise<number> {
-  return await withOperationLock(
+  return await executeDeskOperation(
     root,
     { command: "scripts", hasOperands: true },
     () =>
       runProjectScriptAt(root, name, [...args], {
         env,
         resumeAfterInterrupt: true,
+        ...(expectedExecutable === undefined ? {} : { expectedExecutable }),
       }),
+    signal,
   );
 }
 
@@ -523,6 +621,16 @@ export async function runDeskProjectScript(
  * makes the whole interactive surface scriptable while the CLI still calls the
  * same functions with the same options. */
 const DEFAULT_DESK_RUNTIME: DeskRuntime = {
+  screen: readDeskScreen,
+  docs: () =>
+    runDocs({
+      json: false,
+      noColor: !terminalContext().color,
+      raw: false,
+      list: false,
+      pager: false,
+      returnLabel: "Return to Desk",
+    }),
   canInteract: () => canInteract(false),
   inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
@@ -531,9 +639,18 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   mainRepoPath: (root) => mainRepoPath(root),
   grantEffortPlan: (path, branch) => effortGrantPlan(path, branch),
   grantEffort: (path, branch) =>
-    grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow())),
+    executeDeskOperation(
+      path,
+      { command: "desk grant" },
+      () => grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow())),
+    ),
   clearEffortGrantPlan: (path) => clearEffortGrantPlan(path),
-  clearEffortGrant: (path) => clearEffortGrant(path),
+  clearEffortGrant: (path) =>
+    executeDeskOperation(
+      path,
+      { command: "desk revoke" },
+      () => withCompletionPublication(path, () => clearEffortGrant(path)),
+    ),
   makeOut: () => {
     const terminal = terminalContext();
     return makeOut(terminal.color, { terminal });
@@ -548,10 +665,16 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   pause: () => requestCompactAcknowledgement(),
   lifecycle: (root) => lifecycleContext(root, deskLogger()),
   done: (root, cliModel) =>
-    finishResult(root, {
-      surface: { kind: "human", plain: false },
-      cliModel,
-    }),
+    executeDeskOperation(
+      root,
+      { command: "done" },
+      (signal) =>
+        finishResult(root, {
+          signal,
+          surface: { kind: "human", plain: false },
+          cliModel,
+        }),
+    ),
   donePlan: (root, cliModel) =>
     finishResult(root, {
       surface: { kind: "quiet" },
@@ -560,6 +683,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     }),
   acceptPlan: (ctx) =>
     acceptLandingResult(ctx, {
+      target: ctx.cwd,
       dryRun: true,
       confirmed: false,
       variance: [],
@@ -567,31 +691,49 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       met: [],
     }),
   accept: (ctx, opts) =>
-    acceptLanding(ctx, {
-      dryRun: opts.dryRun ?? false,
-      confirmed: opts.confirmed ?? false,
-      variance: [],
-      approveStandard: [],
-      met: [],
-      ...(opts.cliModel === undefined ? {} : { cliModel: opts.cliModel }),
-    }),
+    executeDeskOperation(
+      ctx.cwd,
+      { command: "accept" },
+      (signal) =>
+        acceptLandingResult(ctx, {
+          signal,
+          target: ctx.cwd,
+          ...(opts.expected === undefined ? {} : { expected: opts.expected }),
+          dryRun: opts.dryRun ?? false,
+          confirmed: opts.confirmed ?? false,
+          variance: [],
+          approveStandard: [],
+          met: [],
+          ...(opts.cliModel === undefined ? {} : { cliModel: opts.cliModel }),
+        }),
+    ),
+  submit: (path, options) =>
+    executeDeskOperation(
+      path,
+      { command: "submit", ...(options.dryRun ? { dryRun: true } : {}) },
+      async (signal) =>
+        submitResult(await lifecycleContext(path, deskLogger()), {
+          ...options,
+          signal,
+        }),
+    ),
   update: (ctx, opts) =>
-    withOperationLock(
+    executeDeskOperation(
       ctx.cwd,
       { command: "update", ...(opts.dryRun ? { dryRun: true } : {}) },
       () => update(ctx, opts),
     ),
   updatePlan: (ctx) => updateResult(ctx, { dryRun: true }),
   setup: (ctx) =>
-    withOperationLock(
+    executeDeskOperation(
       ctx.cwd,
       { command: "worktree setup" },
       () => worktreeSetup(ctx),
     ),
   setupPlan: (ctx) => worktreeSetupPlan(ctx),
   drop: (ctx, target, opts) =>
-    withOperationLock(
-      ctx.cwd,
+    executeDeskOperation(
+      target,
       {
         command: "worktree drop",
         ...(opts.dryRun ? { dryRun: true } : {}),
@@ -600,15 +742,15 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     ),
   dropPlan: (ctx, target) => worktreeDropPlan(ctx, target),
   park: (ctx, target) =>
-    withOperationLock(
-      ctx.cwd,
+    executeDeskOperation(
+      target,
       { command: "worktree park" },
       () => worktreePark(ctx, target),
     ),
   parkPlan: (ctx, target) => worktreeParkPlan(ctx, target),
   reclaim: async (ctx, target) => {
-    await withOperationLock(
-      ctx.cwd,
+    await executeDeskOperation(
+      target,
       { command: "worktree prune" },
       () => worktreeReclaimContained(ctx, target),
     );
@@ -616,6 +758,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   reclaimPlan: (ctx, target) => worktreeReclaimContainedPlan(ctx, target),
   git: (args, cwd) => runGit(args, { cwd }),
   proof: (root) => inspectGateProof(root),
+  landedProof: readProofNoteAt,
   pager: (text) => pageThrough(text),
   editor: async (cwd) => {
     const command = configuredEditorCommand();
@@ -652,13 +795,14 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       [...editor.args, "."],
       cwd,
       deskSessionEnv(),
+      "desk editor",
     ),
-  interactive: (command, args, cwd, env) =>
-    runDeskInteractiveChild(command, args, cwd, env),
+  interactive: (command, args, cwd, env, action) =>
+    runDeskInteractiveChild(command, args, cwd, env, action),
   detectAgents: () => detectAgentBinariesOnPath(),
   startPlan: (ctx, opts) => buildStartPlan(ctx, opts),
   start: async (ctx, prepared) => {
-    const result = await withOperationLock(
+    const result = await executeDeskOperation(
       ctx.cwd,
       { command: "start" },
       () => applyStartPlan(ctx, prepared),
@@ -670,7 +814,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   },
   renamePlan: (ctx, title) => taskRenameResult(ctx, title, { dryRun: true }),
   rename: (ctx, title) =>
-    withOperationLock(
+    executeDeskOperation(
       ctx.cwd,
       { command: "worktree rename" },
       () => taskRenameResult(ctx, title),
@@ -689,8 +833,8 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       };
     }
   },
-  runScript: (root, name, args, env) =>
-    runDeskProjectScript(root, name, args, env),
+  runScript: (root, name, args, env, expectedExecutable) =>
+    runDeskProjectScript(root, name, args, env, expectedExecutable),
   openBrowser: (url) => openInBrowser(url),
   now: SYSTEM_CLOCK.wallNow,
   readTipState: (root) => readTipSeenState(root, DISCERN_VERSION),
@@ -839,30 +983,70 @@ function withReviewFailure(
 
 /** Run the Proof-first review and its pager/editor drill-downs. */
 async function reviewTask(
-  out: Out,
+  _out: Out,
   row: DeskRow,
   trunk: string,
   runtime: DeskRuntime,
 ): Promise<void> {
   let review = await gatherDeskReview(row, trunk, runtime);
   while (true) {
-    clearBoard(out);
-    const viewport = runtime.size();
-    const terminal = terminalContextAtSize(out.terminal, viewport);
-    const frame = renderDeskReview(row, review, viewport, terminal);
-    out.raw(`${frame.text}\n`);
-    let route: string;
-    try {
-      route = await runtime.select({
-        message: `Review ${row.task.name}`,
-        options: groupedSelectionEntries(deskReviewGroups(review)),
-        reservedRows: deskCompositionReserveRows(frame.rows, viewport.rows),
+    const proof = review.proof;
+    const source = [
+      `Proof: ${deskLiteral(proof.status)}${
+        proof.reason ? ` — ${deskLiteral(proof.reason)}` : ""
+      }`,
+      deskLiteral(
+        proof.proof_line ?? proof.proof_data?.line ??
+          "No complete Proof is available.",
+      ),
+      `Authority: ${deskLiteral(row.decision.authority.summary)}`,
+      `${review.files.length} changed paths · +${review.insertions} −${review.deletions}`,
+      ...review.failures.map((failure) =>
+        `### ${deskLiteral(failure.title)}\n\n${
+          deskLiteral(failure.detail)
+        }\n\n${deskLiteral(failure.nextAction)}`
+      ),
+    ].join("\n\n");
+    const route = await runtime.screen({
+      title: `Review ${row.task.name}`,
+      source,
+      actions: [
+        { id: DESK_REVIEW_ROUTES.back, label: "Back" },
+        { id: "proof", label: "Complete Proof" },
+        { id: "changes", label: "Changed files and commits" },
+        { id: DESK_REVIEW_ROUTES.diff, label: "View actual diff" },
+        ...(review.editor === undefined
+          ? []
+          : [{ id: DESK_REVIEW_ROUTES.editor, label: "Open in editor" }]),
+      ],
+    });
+    if (route === "back" || route === DESK_REVIEW_ROUTES.back) return;
+    if (route === "proof") {
+      await runtime.screen({
+        title: "Complete Proof",
+        source: proof.proof ?? proof.proof_data?.markdown ??
+          deskLiteral(
+            proof.reason ??
+              "No complete Proof is available. Run discern done in this task after committing its final changes.",
+          ),
       });
-    } catch (error) {
-      if (!isInteractionCancelled(error)) throw error;
-      return;
+      continue;
     }
-    if (route === DESK_REVIEW_ROUTES.back) return;
+    if (route === "changes") {
+      await runtime.screen({
+        title: "Changed files and commits",
+        source: [
+          ...review.files.map((file) =>
+            `- ${deskLiteral(file.path)} (${file.disposition}${
+              file.uncommitted ? ", uncommitted" : ""
+            })`
+          ),
+          `### Commits not on ${deskLiteral(review.trunk)}`,
+          deskLiteral(review.commits || "No commits."),
+        ].join("\n\n"),
+      });
+      continue;
+    }
     if (route === DESK_REVIEW_ROUTES.diff) {
       const args = [
         "diff",
@@ -1015,7 +1199,17 @@ async function pickScript(
   owner: string,
   navigationLabel: "Desk" | "Task",
   runtime: DeskRuntime,
+  unavailableReason?: string,
 ): Promise<DeskProjectScript | undefined> {
+  if (scripts.length === 0) {
+    await runtime.screen({
+      title: "Project Scripts",
+      source: unavailableReason === undefined
+        ? `No Project Scripts are available in ${deskLiteral(owner)}.`
+        : deskLiteral(unavailableReason),
+    });
+    return undefined;
+  }
   const options = groupedSelectionEntries<string>([
     {
       id: "project-scripts",
@@ -1068,8 +1262,7 @@ async function authorizeProjectScript(
   try {
     argumentLine = await runtime.input({
       message: `Arguments for Project Script ${script.name} (optional)`,
-      hint:
-        "Spaces separate arguments. Quote spaces. Values are literal; no shell expansion runs.",
+      hint: "Quote spaces; no shell expansion.",
       placeholder: "Press Enter to run without arguments",
       validate: (value) => {
         const parsed = parseProjectScriptArguments(value);
@@ -1086,45 +1279,48 @@ async function authorizeProjectScript(
     return undefined;
   }
   const args = parsed.args;
-  showProjectScriptPlan(out, script, args, workingDirectory, runtime);
-  let route: string;
-  try {
-    route = await runtime.select({
-      message: `Review Project Script ${script.name}`,
-      options: groupedSelectionEntries([{
-        id: "script-actions",
-        label: "Project Script",
-        items: [{ name: "Run", value: "run" }, {
-          name: "Show command",
-          description: "Print the exact executable and CLI spelling.",
-          value: "show-command",
-        }],
-      }, {
-        id: "script-navigation",
-        label: "Task",
-        items: [{ name: "Back", value: BACK }],
-      }]),
-    });
-  } catch (error) {
-    if (!isInteractionCancelled(error)) throw error;
-    return undefined;
-  }
   const executable = script.path ?? script.name;
-  if (route === "show-command") {
-    echoCommand(out, displayedCommand(executable, args));
-    echoCommand(
-      out,
-      commandEvidence(["discern", "scripts", script.name, ...args]),
-    );
-    await runtime.pause(out);
-    return undefined;
+  const source = [
+    script.description === undefined ? "" : deskLiteral(script.description),
+    `Working directory: ${deskLiteral(workingDirectory)}`,
+    `Executable: ${deskLiteral(executable)}`,
+    `Arguments: ${deskLiteral(JSON.stringify(args))}`,
+    "The script defines its effects. Destructive policy: undeclared. Explicit consent is required.",
+  ].filter(Boolean).join("\n\n");
+  while (true) {
+    const route = await runtime.screen({
+      title: `Project Script: ${script.name}`,
+      source,
+      actions: [{ id: "back", label: "Back" }, { id: "run", label: "Run" }, {
+        id: "show-command",
+        label: "Show command",
+      }],
+    });
+    if (route === "show-command") {
+      await runtime.screen({
+        title: "Exact command",
+        source: [
+          `Working directory: ${deskLiteral(workingDirectory)}`,
+          deskLiteral(displayedCommand(executable, args)),
+          deskLiteral(
+            commandEvidence(["discern", "scripts", script.name, ...args]),
+          ),
+        ].join("\n\n"),
+      });
+      continue;
+    }
+    if (route !== "run") return undefined;
+    return await runtime.screen({
+        title: `Run ${script.name}`,
+        source,
+        confirmation: {
+          question: `Run in ${workingDirectory}?`,
+          options: { defaultTo: false, noLabel: "Cancel", yesLabel: "Run" },
+        },
+      }) === "apply"
+      ? args
+      : undefined;
   }
-  if (route === BACK) return undefined;
-  const confirmed = await runtime.confirm(
-    `Run Project Script ${script.name} in ${workingDirectory}?`,
-    { defaultTo: false, noLabel: "Cancel", yesLabel: "Run" },
-  );
-  return confirmed ? args : undefined;
 }
 
 /** Collect, review, and run one Project Script through the Desk's sole argv path. */
@@ -1135,6 +1331,7 @@ async function runAuthorizedProjectScript(
   workingDirectory: string,
   contextLabel: string,
   runtime: DeskRuntime,
+  verify?: () => Promise<void>,
 ): Promise<boolean> {
   const args = await authorizeProjectScript(
     out,
@@ -1143,6 +1340,7 @@ async function runAuthorizedProjectScript(
     runtime,
   );
   if (args === undefined) return false;
+  await verify?.();
   echoCommand(
     out,
     `${
@@ -1154,17 +1352,15 @@ async function runAuthorizedProjectScript(
     script.name,
     args,
     deskSessionEnv(),
+    script.path,
   );
   if (code !== 0) {
     out.warn(`Project Script exited with status ${code}.`);
-  }
-  await runtime.pause(out);
+    await runtime.pause(out);
+  } else out.ok(`Project Script ${script.name} completed.`);
   return true;
 }
 
-/** Offer the fleet as a grouped picker; resolves to a row path or a sentinel.
- * `boardRows` is what the board composition above this menu occupies, reserved out
- * of the menu's viewport-derived row budget so the board stays visible. */
 /** Run one Project Script from the main checkout, using the same picker,
  * process ownership, exit reporting, and pause as a worktree-local script. */
 async function runRootProjectScript(
@@ -1173,8 +1369,15 @@ async function runRootProjectScript(
   project: string,
   scripts: readonly DeskProjectScript[],
   runtime: DeskRuntime,
+  unavailableReason?: string,
 ): Promise<void> {
-  const script = await pickScript(scripts, project, "Desk", runtime);
+  const script = await pickScript(
+    scripts,
+    `${project} — project root ${root}`,
+    "Desk",
+    runtime,
+    unavailableReason,
+  );
   if (script === undefined) {
     return;
   }
@@ -1188,19 +1391,13 @@ async function runRootProjectScript(
   );
 }
 
-/** Hand the online manual to the user's browser and keep a copyable fallback
- * visible when the operating-system launcher is unavailable. */
-async function openOnlineDocs(
-  out: Out,
-  runtime: DeskRuntime,
-): Promise<void> {
-  const result = await runtime.openBrowser(DISCERN_DOCS_URL);
-  if (result.status === "opened") {
-    out.info(`Opened ${DISCERN_DOCS_URL}.`);
-  } else {
-    out.warn(browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, result));
+/** The outer application releases stdin before the existing manual browser owns it. */
+async function openDeskManual(out: Out, runtime: DeskRuntime): Promise<void> {
+  if (await runtime.docs() !== 0) {
+    out.warn(
+      "The manual could not open. Run discern docs to read its diagnosis.",
+    );
   }
-  await runtime.pause(out);
 }
 
 /** Page the committed work held by one status-reported branch without a worktree. */
@@ -1515,6 +1712,35 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
+/** A provider without prompt support gets an explicit, locally scrollable copy handoff. */
+async function reviewAgentBrief(
+  out: Out,
+  task: Pick<StartData["task"], "title" | "brief">,
+  launch: DeskAgentLaunch,
+  briefPassed: boolean,
+  runtime: DeskRuntime,
+): Promise<boolean> {
+  if (task.brief === undefined) return true;
+  if (briefPassed) {
+    out.info(
+      `The stored brief is passed through ${launch.providerLabel}'s documented prompt option.`,
+    );
+    return true;
+  }
+  return await runtime.screen({
+    title: "Stored brief",
+    source: `${
+      deskLiteral(launch.providerLabel)
+    }'s configured command does not declare a prompt option. Copy this brief into the session.\n\n${
+      deskLiteral(task.brief)
+    }`,
+    actions: [{ id: "launch", label: `Open ${launch.providerLabel}` }, {
+      id: "back",
+      label: "Back",
+    }],
+  }) === "launch";
+}
+
 /** Launch the chosen provider from the created worktree, with documented brief handling. */
 async function launchCreatedTask(
   out: Out,
@@ -1523,22 +1749,16 @@ async function launchCreatedTask(
   runtime: DeskRuntime,
 ): Promise<void> {
   const invocation = agentLaunchArgs(launch, started.task.brief);
-  const viewport = runtime.size();
-  const terminal = terminalContextAtSize(out.terminal, viewport);
-  const handoff = renderDeskAgentHandoff(
-    started.task,
-    launch,
-    invocation.briefPassed,
-    viewport,
-    terminal,
-  );
-  if (handoff !== undefined) out.raw(`${handoff.text}\n`);
-  echoCommand(
-    out,
-    `${
-      displayedCommand(launch.binary, invocation.args)
-    }  (cwd: ${started.path})`,
-  );
+  if (
+    !await reviewAgentBrief(
+      out,
+      started.task,
+      launch,
+      invocation.briefPassed,
+      runtime,
+    )
+  ) return;
+  out.info(`${launch.providerLabel} opens in ${started.path}.`);
   out.info(`Exit ${launch.providerLabel} to return to the created task.`);
   try {
     const code = await runtime.interactive(
@@ -1715,30 +1935,42 @@ async function startTask(
     ...(brief === undefined ? [] : ["--brief", brief]),
     ...(from === config.repository.trunk ? [] : ["--from", from]),
   ];
-  const viewport = runtime.size();
-  const terminal = terminalContextAtSize(out.terminal, viewport);
-  const preview = renderDeskStartPreview({
-    plan: prepared.plan,
-    enginePlan: startPlanToEngine(prepared.plan),
-    command,
-    ...(launch === undefined ? {} : { launch }),
-    preauthorizeLanding: false,
-    viewport,
-    terminal,
-  });
-  out.raw(`${preview.text}\n`);
-  let create: boolean;
-  try {
-    create = await runtime.confirm(
-      launch === undefined
+  const plan = startPlanToEngine(prepared.plan);
+  const source = [
+    deskLiteral(plan.title),
+    ...plan.details.map(deskLiteral),
+    ...plan.steps.map((step) =>
+      `- ${
+        deskLiteral(
+          `${step.disposition}: ${step.label}${
+            step.note ? ` — ${step.note}` : ""
+          }`,
+        )
+      }`
+    ),
+    `Command: ${deskLiteral(commandEvidence(command))}`,
+    launch === undefined
+      ? "No agent will launch."
+      : `${deskLiteral(launch.label)}: ${
+        deskLiteral(displayedCommand(launch.binary, launch.args))
+      }. Runs in the created checkout.`,
+    brief === undefined
+      ? "No task brief."
+      : `### Brief\n\n${
+        deskLiteral(brief)
+      }\n\nThe brief is saved with the task and shown for copying; no provider prompt option is added.`,
+    "Landing permission is a separate decision after creation.",
+  ].join("\n\n");
+  const create = await runtime.screen({
+    title: "Create task",
+    source,
+    confirmation: {
+      question: launch === undefined
         ? `Create ${prepared.plan.title} from ${prepared.plan.from}?`
         : `Create ${prepared.plan.title} from ${prepared.plan.from} and open ${launch.label}?`,
-      { defaultTo: false, noLabel: "Cancel", yesLabel: "Create" },
-    );
-  } catch (error) {
-    if (!isInteractionCancelled(error)) throw error;
-    return undefined;
-  }
+      options: { defaultTo: false, noLabel: "Cancel", yesLabel: "Create" },
+    },
+  }) === "apply";
   if (!create) return undefined;
   echoCommand(out, commandEvidence(command));
   const started = await runtime.start(ctx, prepared);
@@ -1752,22 +1984,8 @@ async function startTask(
       ...(launch === undefined ? {} : { last_agent: launch.agent }),
     }),
   );
-  const createdViewport = runtime.size();
-  const createdTerminal = terminalContextAtSize(
-    out.terminal,
-    createdViewport,
-  );
-  const createdTask = renderDeskCreatedTask(
-    started,
-    launch,
-    false,
-    createdViewport,
-    createdTerminal,
-  );
-  out.raw(`${createdTask.text}\n`);
-  if (launch === undefined) {
-    await runtime.pause(out);
-  } else {
+  out.ok(`Created ${started.task.title} at ${started.path}.`);
+  if (launch !== undefined) {
     await launchCreatedTask(out, started, launch, runtime);
   }
   return started.path;
@@ -1782,45 +2000,18 @@ async function actOnUnlandedBranch(
   runtime: DeskRuntime,
   startOptions: StartTaskOptions,
 ): Promise<string | undefined> {
-  clearBoard(out);
-  const viewport = runtime.size();
-  const terminal = terminalContextAtSize(out.terminal, viewport);
-  const detail = renderDeskUnlandedBranchDetail(
-    branch,
-    config.repository.trunk,
-    viewport,
-    terminal,
-  );
-  out.raw(`${detail.text}\n`);
   while (true) {
-    let action: string;
-    try {
-      action = await runtime.select({
-        message: "Choose a branch action",
-        options: groupedSelectionEntries([{
-          id: "unlanded-actions",
-          label: "Branch",
-          items: [{
-            name: "Resume in a worktree",
-            description: `Create a new task from ${branch}.`,
-            value: "resume",
-          }, {
-            name: "Inspect commits and changed files",
-            description: "Read the branch without creating a worktree.",
-            value: "inspect",
-          }],
-        }, {
-          id: "unlanded-navigation",
-          label: "Desk",
-          items: [{ name: "Back", value: BACK }],
-        }]),
-        reservedRows: deskCompositionReserveRows(detail.rows, viewport.rows),
-      });
-    } catch (error) {
-      if (!isInteractionCancelled(error)) throw error;
-      return undefined;
-    }
-    if (action === BACK) return undefined;
+    const action = await runtime.screen({
+      title: "Unlanded branch",
+      source: `${
+        deskLiteral(branch)
+      } has no checkout. Resume creates a task from this branch; inspection changes nothing.`,
+      actions: [{ id: "back", label: "Back" }, {
+        id: "resume",
+        label: "Resume in a worktree",
+      }, { id: "inspect", label: "Inspect commits and changed files" }],
+    });
+    if (action === "back" || action === BACK) return undefined;
     if (action === "inspect") {
       await inspectUnlandedBranch(
         out,
@@ -1858,325 +2049,328 @@ async function dispatchAction(
   startOptions: StartTaskOptions,
   cliModel?: CliModelProvider,
 ): Promise<boolean | string> {
+  const path = row.entry.path;
+  const branch = row.entry.branch;
   const trunk = config.repository.trunk;
-  const target = basename(row.entry.path);
+  const verify = async (): Promise<void> => {
+    const observed = await runtime.status(root);
+    const current = observed.data?.fleet?.find((entry) => entry.path === path);
+    if (
+      !observed.ok || current === undefined || current.branch !== branch ||
+      current.id !== row.entry.id
+    ) {
+      throw new WorktreeGitError(
+        "The selected task changed. Return to the task list and review it again; no action ran.",
+      );
+    }
+    if (
+      current.running && !DESK_ACTION_REGISTRY[action].availableWhileRunning
+    ) {
+      throw new WorktreeGitError(
+        `${current.running.verb} is running in this task. Wait for it to finish, then review the action again.`,
+      );
+    }
+  };
+  const review = async (
+    plan: EnginePlan | undefined,
+    question: string,
+    offer?: DeskActionOffer,
+  ): Promise<boolean> => {
+    if (!await reviewAction(row, action, plan, runtime, question, offer)) {
+      return false;
+    }
+    await verify();
+    return true;
+  };
   switch (action) {
     case "recovery": {
-      const viewport = runtime.size();
-      const terminal = terminalContextAtSize(out.terminal, viewport);
-      const recovery = renderDeskRecovery(row, viewport, terminal);
-      out.raw(`${recovery.text}\n`);
-      await runtime.pause(out);
+      const recovery = row.decision.recovery;
+      await runtime.screen({
+        title: "Recovery",
+        source: recovery === undefined
+          ? "This task has no degraded state to diagnose."
+          : [
+            recovery.failure,
+            ...(recovery.failedCommand ? [recovery.failedCommand] : []),
+            ...recovery.verified,
+            ...recovery.unavailable,
+            recovery.nextStep,
+            recovery.repairCommand,
+          ].map(deskLiteral).join("\n\n"),
+      });
       return false;
     }
     case "retry_setup": {
-      const ctx = await runtime.lifecycle(row.entry.path);
-      showActionPlan(
-        out,
-        row,
-        action,
-        await runtime.setupPlan(ctx),
-        runtime,
-      );
+      const ctx = await runtime.lifecycle(path);
       if (
-        !(await confirmAction(
-          row,
-          action,
-          `Retry setup for ${row.entry.branch}?`,
-          runtime,
-        ))
-      ) {
-        return false;
-      }
-      echoCommand(out, `discern worktree setup  (in ${target})`);
+        !await review(
+          await runtime.setupPlan(ctx),
+          `Retry setup for ${branch}?`,
+        )
+      ) return false;
       await runtime.setup(ctx);
-      out.ok(`Setup completed for ${row.entry.branch}.`);
-      await runtime.pause(out);
+      out.ok(`Setup completed for ${branch}.`);
       return true;
     }
     case "done": {
       if (cliModel === undefined) {
         throw new Error("Desk final checks require a live CLI model provider.");
       }
-      const preview = await runtime.donePlan(row.entry.path, cliModel);
-      showActionPlan(out, row, action, resultPlan(preview), runtime);
+      const preview = await runtime.donePlan(path, cliModel);
       if (
-        !(await confirmAction(
-          row,
-          action,
-          `Run final checks for ${row.entry.branch}?`,
-          runtime,
-        ))
-      ) {
-        return false;
-      }
-      echoCommand(out, `discern done  (in ${target})`);
-      const result = await runtime.done(row.entry.path, cliModel);
-      if (result.ok) {
-        out.ok(
-          result.message ?? "Final checks passed and Proof was refreshed.",
+        !await review(resultPlan(preview), `Run final checks for ${branch}?`)
+      ) return false;
+      const result = await runtime.done(path, cliModel);
+      if (!result.ok) {
+        await runtime.screen({
+          title: "Final checks did not pass",
+          source: renderResultMarkdown(
+            serializeResult(result),
+            resultPresenterForVerb(result.verb),
+          ),
+        });
+        out.warn(
+          result.message ??
+            "Final checks did not pass. Read Proof and details.",
         );
-      } else {
-        const viewport = runtime.size();
-        const terminal = terminalContextAtSize(out.terminal, viewport);
-        const failure = renderDeskActionFailure(
-          row,
-          selectedOffer(row, action),
-          result.message ?? "Final checks failed.",
-          viewport,
-          terminal,
-        );
-        out.raw(`${failure.text}\n`);
-      }
-      await runtime.pause(out);
+      } else {out.ok(
+          result.message ??
+            `Final checks passed for ${branch}. Proof is current; choose Accept or Join the landing queue.`,
+        );}
       return true;
     }
     case "accept": {
-      echoCommand(out, `discern accept  (in ${target})`);
-      const ctx = await runtime.lifecycle(row.entry.path);
+      const ctx = await runtime.lifecycle(path);
       const preview = await runtime.acceptPlan(ctx);
-      showActionPlan(out, row, action, resultPlan(preview), runtime);
       if (
-        !(await confirmAction(
-          row,
-          action,
-          `Land ${row.entry.branch} on ${trunk}?`,
-          runtime,
-        ))
-      ) {
-        return false;
-      }
-      // The human just accepted the landing in this interaction, so pass
-      // the consent attestation in — the desk's confirm IS the acceptance, and
-      // accept must not double-refuse for a consent it already collected (ADR 0134).
-      await runtime.accept(ctx, {
+        !await review(
+          resultPlan(preview),
+          `Start accepting ${branch} onto ${trunk}?`,
+        )
+      ) return false;
+      const result = await runtime.accept(ctx, {
         confirmed: true,
+        ...(preview.data?.revision === undefined
+          ? {}
+          : { expected: preview.data.revision }),
         ...(cliModel === undefined ? {} : { cliModel }),
       });
-      await runtime.pause(out);
+      if (result !== undefined && !result.ok) {
+        await runtime.screen({
+          title: "Acceptance did not finish",
+          source: renderResultMarkdown(
+            serializeResult(result),
+            resultPresenterForVerb(result.verb),
+          ),
+        });
+        out.warn(
+          result.message ??
+            "Acceptance did not finish. Read the retained result before retrying.",
+        );
+        return false;
+      }
+      out.ok(
+        `Acceptance finished for ${branch}. The refreshed task list shows what landed.`,
+      );
+      return true;
+    }
+    case "submit": {
+      const preview = await runtime.submit(path, { dryRun: true });
+      const plan = resultPlan(preview);
+      if (preview.data === undefined) {
+        throw new Error("The submission plan returned no revision.");
+      }
+      const needsAuthority = preview.data.authority.kind !== "authorized";
+      const reviewedPlan = plan === undefined ? undefined : {
+        ...plan,
+        details: [
+          ...plan.details,
+          ...(needsAuthority
+            ? [
+              "This flow next asks for effort pre-authorization, then records the reviewed revision. Permission covers later green revisions of this effort until landing; separate exceptions still require their own decisions.",
+            ]
+            : []),
+        ],
+      };
+      if (
+        !await review(
+          reviewedPlan,
+          `Queue ${preview.data.head.slice(0, 12)} from ${branch}?`,
+        )
+      ) return false;
+      if (needsAuthority) {
+        const grantPlan = await runtime.grantEffortPlan(path, branch);
+        if (
+          !await reviewAction(
+            row,
+            "grant",
+            grantPlan,
+            runtime,
+            `Allow ${branch} to land once green without a further conversation?`,
+          )
+        ) return false;
+        await verify();
+        const current = await runtime.submit(path, {
+          dryRun: true,
+          expected: preview.data,
+        });
+        resultPlan(current);
+        await runtime.grantEffort(path, branch);
+        out.info(
+          `Pre-authorized ${branch}. Queueing the reviewed revision next.`,
+        );
+      }
+      const result = await runtime.submit(path, { expected: preview.data });
+      if (!result.ok) {
+        throw new WorktreeGitError(
+          result.message ?? "The revision was not queued.",
+        );
+      }
+      out.ok(
+        `${
+          result.message ?? "Revision queued."
+        } An acceptance walk can pick it up; Accept starts a walk.`,
+      );
       return true;
     }
     case "grant": {
-      const plan = await runtime.grantEffortPlan(
-        row.entry.path,
-        row.entry.branch,
-      );
-      showActionPlan(
-        out,
-        row,
-        action,
-        plan,
-        runtime,
+      const plan = await runtime.grantEffortPlan(path, branch);
+      if (
+        !await review(
+          plan,
+          `Allow ${branch} to land once green without a further conversation?`,
+        )
+      ) return false;
+      await runtime.grantEffort(path, branch);
+      const refreshed = (await runtime.status(root)).data;
+      const queued = refreshed?.queue?.find((item) => item.branch === branch);
+      out.ok(
+        queued
+          ? `Pre-authorized ${branch}. Queued revision: ${
+            queued.head.slice(0, 12)
+          }. Accept starts a landing walk.`
+          : `Pre-authorized ${branch}. No revision is queued. When Proof is current, choose Accept or Join the landing queue.`,
       );
       if (
-        !(await confirmAction(
-          row,
-          action,
-          `Allow ${row.entry.branch} to land once green without a further conversation?`,
-          runtime,
-        ))
+        refreshed?.fleet?.find((item) =>
+          item.path === path && item.branch === branch
+        )?.gate_proof?.status === "honored"
       ) {
-        return false;
+        const next = await runtime.select({
+          message: "Choose how this proven revision enters landing",
+          options: [
+            { name: "Back to task", value: BACK },
+            {
+              name: "Accept and land now",
+              value: "accept",
+              description:
+                "Start acceptance; another landing may hold the turn and checks can refuse.",
+            },
+            {
+              name: "Join the landing queue",
+              value: "submit",
+              description: "Record this revision without starting a walk.",
+            },
+          ],
+        });
+        if (next === "accept" || next === "submit") {
+          return await dispatchAction(
+            out,
+            root,
+            config,
+            row,
+            next,
+            runtime,
+            startOptions,
+            cliModel,
+          );
+        }
       }
-      const result = await runtime.grantEffort(
-        row.entry.path,
-        row.entry.branch,
-      );
-      if (result.status === "already_granted") {
-        out.info(
-          `${row.entry.branch} is already pre-authorized to land once green.`,
-        );
-      } else {
-        out.ok(
-          `${row.entry.branch} is pre-authorized. A later submitted green revision may land without a further conversation. A variance, a standard proposal, or an emergency still needs you.`,
-        );
-      }
-      await runtime.pause(out);
       return true;
     }
     case "revoke_grant": {
-      showActionPlan(
-        out,
-        row,
-        action,
-        await runtime.clearEffortGrantPlan(row.entry.path),
-        runtime,
-      );
       if (
-        !(await confirmAction(
-          row,
-          action,
-          `Revoke landing pre-authorization for ${row.entry.branch}?`,
-          runtime,
-        ))
-      ) {
-        return false;
-      }
-      if (await runtime.clearEffortGrant(row.entry.path)) {
-        out.ok(`Landing pre-authorization revoked for ${row.entry.branch}.`);
-      } else {
-        out.info(`${row.entry.branch} had no landing pre-authorization.`);
-      }
-      await runtime.pause(out);
+        !await review(
+          await runtime.clearEffortGrantPlan(path),
+          `Revoke pre-authorization for ${branch}?`,
+        )
+      ) return false;
+      await runtime.clearEffortGrant(path);
+      out.ok(
+        `Revoked pre-authorization for ${branch}. Any queued revision remains awaiting authority.`,
+      );
       return true;
     }
     case "update": {
-      echoCommand(out, `discern update  (in ${target})`);
-      const ctx = await runtime.lifecycle(row.entry.path);
-      const preview = await runtime.updatePlan(ctx);
-      showActionPlan(out, row, action, resultPlan(preview), runtime);
+      const ctx = await runtime.lifecycle(path);
       if (
-        !(await confirmAction(
-          row,
-          action,
-          `Merge ${trunk} into ${row.entry.branch}?`,
-          runtime,
-        ))
-      ) {
-        return false;
-      }
+        !await review(
+          resultPlan(await runtime.updatePlan(ctx)),
+          `Merge ${trunk} into ${branch}?`,
+        )
+      ) return false;
       await runtime.update(ctx, {});
-      await runtime.pause(out);
+      out.ok(`Updated ${branch} from ${trunk}.`);
       return true;
     }
     case "reclaim": {
-      // The reclaim confirmation is the whole consent: it names the specific
-      // worktree, what is kept (the branch ref — the work travels inside its
-      // containing branch), and what is destroyed (the checkout and its
-      // per-worktree state, gate proof included, so a sibling's
-      // `await --green` on this branch refuses afterwards).
-      echoCommand(
-        out,
-        `discern worktree prune --contained  (reclaims ${target})`,
-      );
       const ctx = await runtime.lifecycle(root);
-      showActionPlan(
-        out,
-        row,
-        action,
-        await runtime.reclaimPlan(ctx, row.entry.path),
-        runtime,
-      );
-      const containedIn = row.entry.contained_in ?? "a live branch";
       if (
-        !(await confirmAction(
-          row,
-          action,
-          `Reclaim ${target}? Branch ${row.entry.branch} is KEPT (its commits ` +
-            `are contained in ${containedIn}); the checkout and its ` +
-            `per-worktree state — gate Proof included — are destroyed.`,
-          runtime,
-        ))
-      ) {
-        return false;
-      }
-      // The ABSOLUTE selected path, never the basename: two roots can hold
-      // same-named worktree directories, and the reclaim must hit exactly the
-      // row the confirmation named.
-      await runtime.reclaim(ctx, row.entry.path);
-      out.ok(
-        `Reclaimed ${target}. Branch ${row.entry.branch} kept — it lands with ${containedIn} and self-cleans on the next prune.`,
-      );
-      await runtime.pause(out);
+        !await review(
+          await runtime.reclaimPlan(ctx, path),
+          `Reclaim this checkout and keep ${branch}?`,
+        )
+      ) return false;
+      await runtime.reclaim(ctx, path);
+      out.ok(`Reclaimed ${path}. Branch ${branch} remains.`);
       return true;
     }
     case "park": {
-      const parkTarget = row.entry.path;
       const ctx = await runtime.lifecycle(root);
-      showActionPlan(
-        out,
-        row,
-        action,
-        await runtime.parkPlan(ctx, parkTarget),
-        runtime,
-      );
       if (
-        !(await confirmAction(
-          row,
-          action,
-          `Park ${target} and keep branch ${row.entry.branch}?`,
-          runtime,
-        ))
-      ) {
-        return false;
-      }
-      echoCommand(
-        out,
-        commandEvidence(["discern", "worktree", "park", parkTarget]),
-      );
-      await runtime.park(ctx, parkTarget);
-      out.ok(
-        `Parked ${target}. Branch ${row.entry.branch} and its task wording are ready under Work without a worktree.`,
-      );
-      await runtime.pause(out);
+        !await review(
+          await runtime.parkPlan(ctx, path),
+          `Park this checkout and keep ${branch}?`,
+        )
+      ) return false;
+      await runtime.park(ctx, path);
+      out.ok(`Parked ${branch}. Resume it under Work without a worktree.`);
       return true;
     }
     case "drop": {
-      const dropTarget = row.entry.path;
-      echoCommand(
-        out,
-        commandEvidence(["discern", "worktree", "drop", dropTarget]),
-      );
       const ctx = await runtime.lifecycle(root);
-      showActionPlan(
-        out,
-        row,
-        action,
-        await runtime.dropPlan(ctx, dropTarget),
-        runtime,
-      );
-      if (
-        !(await confirmAction(
-          row,
-          action,
-          `Drop ${target}?`,
-          runtime,
-        ))
-      ) {
-        return false;
-      }
+      const plan = await runtime.dropPlan(ctx, path);
+      if (!await review(plan, `Drop ${branch}?`)) return false;
+      const expected = plan.subject;
       try {
-        await runtime.drop(ctx, dropTarget, {});
-        await runtime.pause(out);
-        return true;
-      } catch (e) {
-        if (!(e instanceof WorktreeGitError)) {
-          throw e;
-        }
-        // The core refused: it holds work a drop would discard. Destructive
-        // weight (ADR 0119): discarding needs the branch name typed back.
-        out.warn(e.message);
-        let typed: string;
-        try {
-          typed = await runtime.input({
-            message:
-              `Type the branch name (${row.entry.branch}) to discard it permanently — anything else cancels`,
-            transform: (value) => value.trim(),
-          });
-        } catch (error) {
-          if (!isInteractionCancelled(error)) throw error;
-          typed = "";
-        }
-        // A mismatch is the documented cancellation choice, not invalid input
-        // that should trap the operator in a validation retry.
-        if (typed.trim() !== row.entry.branch) {
-          out.info("Left untouched.");
+        await runtime.drop(ctx, path, {
+          ...(expected === undefined ? {} : { expected }),
+        });
+      } catch (error) {
+        if (!(error instanceof DropWouldDiscardWork)) throw error;
+        await runtime.screen({
+          title: "Drop would discard work",
+          source: deskLiteral(error.message),
+        });
+        const typed = await runtime.input({
+          message:
+            `Type ${branch} to discard the reviewed work; anything else cancels`,
+          transform: (value) => value.trim(),
+        });
+        if (typed.trim() !== branch) {
+          out.info("Drop cancelled. The task remains.");
           return false;
         }
-        echoCommand(
-          out,
-          commandEvidence([
-            "discern",
-            "worktree",
-            "drop",
-            dropTarget,
-            "--force",
-          ]),
-        );
-        await runtime.drop(ctx, dropTarget, { force: true });
-        await runtime.pause(out);
-        return true;
+        await verify();
+        await runtime.drop(ctx, path, {
+          force: true,
+          ...(expected === undefined ? {} : { expected }),
+        });
       }
+      out.ok(
+        `Dropped ${branch}. Committed-tip recovery is bounded; uncommitted files have no automatic recovery.`,
+      );
+      return true;
     }
     case "scripts": {
       const script = await pickScript(
@@ -2184,165 +2378,112 @@ async function dispatchAction(
         row.task.name,
         "Task",
         runtime,
+        row.scriptsUnavailableReason,
       );
-      if (script === undefined) {
-        return false;
-      }
-      const ran = await runAuthorizedProjectScript(
+      if (script === undefined) return false;
+      return await runAuthorizedProjectScript(
         out,
-        row.entry.path,
+        path,
         script,
-        script.workingDirectory ?? row.entry.path,
-        target,
+        script.workingDirectory ?? path,
+        row.task.name,
         runtime,
+        verify,
       );
-      // A Project Script can change project or Git state, so always re-survey.
-      return ran;
     }
-    case "follow_up": {
-      const path = await startTask(out, root, config, runtime, {
+    case "follow_up":
+      return await startTask(out, root, config, runtime, {
         ...startOptions,
-        fixedFrom: row.entry.branch,
-      });
-      return path ?? false;
-    }
+        fixedFrom: branch,
+      }) ?? false;
     case "agent": {
-      const available = row.agentLaunches.filter((candidate) =>
-        candidate.availability !== "disabled"
-      );
-      const launch = available.length === 1
-        ? available[0]
-        : await pickAgentLaunch(row, runtime);
-      if (launch === undefined) {
-        return false;
-      }
+      const launch = await pickAgentLaunch(row, runtime);
+      if (launch === undefined) return false;
+      await verify();
       const invocation = agentLaunchArgs(launch, row.entry.task?.brief);
-      const agentOffer = selectedOffer(row, action);
-      showActionPlan(out, row, action, undefined, runtime, {
-        ...agentOffer,
-        label: launch.label,
-        command: {
-          argv: [launch.binary, ...invocation.args],
-          workingDirectory: "task",
-        },
-      });
-      if (row.entry.task !== undefined) {
-        const viewport = runtime.size();
-        const terminal = terminalContextAtSize(out.terminal, viewport);
-        const handoff = renderDeskAgentHandoff(
+      if (
+        row.entry.task !== undefined &&
+        !await reviewAgentBrief(
+          out,
           row.entry.task,
           launch,
           invocation.briefPassed,
-          viewport,
-          terminal,
-        );
-        if (handoff !== undefined) out.raw(`${handoff.text}\n`);
-      }
-      echoCommand(
-        out,
-        `${
-          displayedCommand(launch.binary, invocation.args)
-        }  (cwd: ${row.entry.path})`,
+          runtime,
+        )
+      ) return false;
+      await verify();
+      out.info(`${launch.providerLabel} opens in ${path}.`);
+      out.info(`Exit ${launch.providerLabel} to return to this task.`);
+      const code = await runtime.interactive(
+        launch.binary,
+        invocation.args,
+        path,
+        deskSessionEnv(),
+        "desk agent",
       );
-      out.info(`Exit ${launch.providerLabel} to return to the desk.`);
-      let code: number;
-      try {
-        code = await runtime.interactive(
-          launch.binary,
-          invocation.args,
-          row.entry.path,
-          deskSessionEnv(),
-        );
-        reportPreferenceWrite(
-          out,
-          await runtime.writePreferences(root, {
-            ...await runtime.readPreferences(root),
-            last_agent: launch.agent,
-          }),
-        );
-      } catch (error) {
-        out.warn(
-          `Could not launch ${launch.label}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-        await runtime.pause(out);
-        return true;
-      }
+      reportPreferenceWrite(
+        out,
+        await runtime.writePreferences(root, {
+          ...await runtime.readPreferences(root),
+          last_agent: launch.agent,
+        }),
+      );
       if (code !== 0) {
         out.warn(`${launch.label} exited with status ${code}.`);
         await runtime.pause(out);
-      }
+      } else out.info(`Returned from ${launch.providerLabel}.`);
       return true;
     }
     case "rename": {
-      let title: string;
-      try {
-        title = await runtime.input({
-          message: "New task title",
-          default: row.entry.task?.title ?? row.task.name,
-          hint:
-            "The worktree id, branch, path, brief, and base stay unchanged.",
-          required: "Enter a task title.",
-          validate: (value) => taskTextValidationError(value, "title") ?? true,
-        });
-      } catch (error) {
-        if (!isInteractionCancelled(error)) throw error;
-        return false;
-      }
-      const ctx = await runtime.lifecycle(row.entry.path);
-      const preview = await runtime.renamePlan(ctx, title);
-      showActionPlan(out, row, action, resultPlan(preview), runtime, {
-        ...selectedOffer(row, action),
-        command: {
-          argv: ["discern", "worktree", "rename", title],
-          workingDirectory: "task",
-        },
+      const title = await runtime.input({
+        message: "New task title",
+        default: row.entry.task?.title ?? row.task.name,
+        required: "Enter a task title.",
+        validate: (value) => taskTextValidationError(value, "title") ?? true,
       });
+      const ctx = await runtime.lifecycle(path);
+      const preview = await runtime.renamePlan(ctx, title);
       if (
-        !(await confirmAction(
-          row,
-          action,
+        !await review(
+          resultPlan(preview),
           `Change the task title to ${JSON.stringify(title)}?`,
-          runtime,
-        ))
-      ) {
-        return false;
-      }
-      echoCommand(
-        out,
-        commandEvidence(["discern", "worktree", "rename", title]),
-      );
+          {
+            ...selectedOffer(row, action),
+            command: {
+              argv: ["discern", "worktree", "rename", title],
+              workingDirectory: "task",
+            },
+          },
+        )
+      ) return false;
       const result = await runtime.rename(ctx, title);
+      if (!result.ok) {
+        throw new WorktreeGitError(result.message ?? "Title change refused.");
+      }
       out.ok(result.message ?? `Changed the task title to ${title}.`);
-      await runtime.pause(out);
       return true;
     }
     case "jump": {
       const shell = userShell();
-      const shellOffer = selectedOffer(row, action);
-      showActionPlan(out, row, action, undefined, runtime, {
-        ...shellOffer,
-        command: { argv: [shell], workingDirectory: "task" },
-      });
-      echoCommand(out, `${shell}  (cwd: ${row.entry.path})`);
-      out.info("Exit the shell to return to the desk.");
+      await verify();
+      echoCommand(out, `${shell}  (cwd: ${path})`);
+      out.info("Exit the shell to return to this task.");
       const code = await runtime.interactive(
         shell,
         [],
-        row.entry.path,
+        path,
         deskSessionEnv(),
+        "desk shell",
       );
       if (code !== 0) {
         out.warn(`Shell exited with status ${code}.`);
         await runtime.pause(out);
-      }
+      } else out.info("Returned from the shell.");
       return true;
     }
-    case "inspect": {
+    case "inspect":
       await reviewTask(out, row, trunk, runtime);
       return false;
-    }
   }
 }
 
@@ -2353,8 +2494,9 @@ async function dispatchAction(
  */
 export async function runDesk(
   opts: DeskOptions = {},
-  runtime: DeskRuntime = DEFAULT_DESK_RUNTIME,
+  overrides: Partial<DeskRuntime> = {},
 ): Promise<number> {
+  const runtime: DeskRuntime = { ...DEFAULT_DESK_RUNTIME, ...overrides };
   if (runtime.inDeskSession()) {
     const message =
       "discern desk is already active above this session — exit this shell, coding agent, or Project Script to return to it.";
@@ -2428,6 +2570,9 @@ export async function runDesk(
     return {
       ...row,
       scripts: inventory.scripts,
+      ...(inventory.unavailableReason === undefined
+        ? {}
+        : { scriptsUnavailableReason: inventory.unavailableReason }),
       agentLaunches,
       decision: {
         ...row.decision,
@@ -2471,69 +2616,70 @@ export async function runDesk(
         runtime.recordTipShown(selected.tip.id);
         return tipLine;
       },
-      perform: async (choice, data, row) => {
-        const startOptions: StartTaskOptions = {
-          data,
-          detectedAgents: (choice.kind === "route" &&
-              ["start", "unlanded"].includes(choice.route)) ||
-              (choice.kind === "action" && choice.action === "follow_up")
-            ? await runtime.detectAgents()
-            : [],
-        };
-        if (choice.kind === "action" && row !== undefined) {
-          const outcome = await dispatchAction(
-            out,
-            root,
-            config,
-            row,
-            choice.action,
-            runtime,
-            startOptions,
-            opts.cliModel,
-          );
-          return typeof outcome === "string" ? outcome : undefined;
-        }
-        if (choice.kind !== "route") return;
-        switch (choice.route) {
-          case "start":
-            return await startTask(out, root, config, runtime, startOptions);
-          case "unlanded":
-            if (
-              choice.branch !== undefined &&
-              data.unlanded_branches?.includes(choice.branch)
-            ) {
-              return await actOnUnlandedBranch(
-                out,
-                root,
-                config,
-                choice.branch,
-                runtime,
-                startOptions,
-              );
-            }
-            return;
-          case "scripts": {
-            const scripts = scriptInventory(
-              root,
-              await runtime.scripts(root, await runtime.loadConfig(root)),
-            );
-            await runRootProjectScript(
+      perform: async (choice, data, row) =>
+        await collectDeskFeedback(out, async (out) => {
+          const startOptions: StartTaskOptions = {
+            data,
+            detectedAgents: (choice.kind === "route" &&
+                ["start", "unlanded"].includes(choice.route)) ||
+                (choice.kind === "action" && choice.action === "follow_up")
+              ? await runtime.detectAgents()
+              : [],
+          };
+          if (choice.kind === "action" && row !== undefined) {
+            const outcome = await dispatchAction(
               out,
               root,
-              data.project ?? basename(root),
-              scripts.scripts,
+              config,
+              row,
+              choice.action,
               runtime,
+              startOptions,
+              opts.cliModel,
             );
-            return;
+            return typeof outcome === "string" ? outcome : undefined;
           }
-          case "main":
-            return await actOnMainCheckout(out, root, data, runtime);
-          case "recent":
-            return await showRecentCompleted(out, data, runtime);
-          case "docs":
-            return await openOnlineDocs(out, runtime);
-        }
-      },
+          if (choice.kind !== "route") return;
+          switch (choice.route) {
+            case "start":
+              return await startTask(out, root, config, runtime, startOptions);
+            case "unlanded":
+              if (
+                choice.branch !== undefined &&
+                data.unlanded_branches?.includes(choice.branch)
+              ) {
+                return await actOnUnlandedBranch(
+                  out,
+                  root,
+                  config,
+                  choice.branch,
+                  runtime,
+                  startOptions,
+                );
+              }
+              return;
+            case "scripts": {
+              const scripts = scriptInventory(
+                root,
+                await runtime.scripts(root, await runtime.loadConfig(root)),
+              );
+              await runRootProjectScript(
+                out,
+                root,
+                data.project ?? basename(root),
+                scripts.scripts,
+                runtime,
+              );
+              return;
+            }
+            case "main":
+              return await actOnMainCheckout(out, root, data, runtime);
+            case "recent":
+              return await showRecentCompleted(root, data, runtime);
+            case "docs":
+              return await openDeskManual(out, runtime);
+          }
+        }),
     }));
   } catch (error) {
     if (!isInteractionCancelled(error)) {

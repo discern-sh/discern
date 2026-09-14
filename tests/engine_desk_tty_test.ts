@@ -137,6 +137,18 @@ function assertHealthySession(
   const exit = frame(result, "exit");
   assertEquals(exit.cursor.visible, true, exit.text);
   assertEquals(exit.alternateScreen, false, exit.text);
+  for (const mode of ["1000", "1006"]) {
+    const changes = exit.controls.filter((control) =>
+      control.action.endsWith(`-mouse-${mode}`)
+    );
+    if (changes.length > 0) {
+      assertEquals(
+        changes.at(-1)?.action,
+        `disable-mouse-${mode}`,
+        "the shared reader releases mouse input on return",
+      );
+    }
+  }
 }
 
 /** Select the last root action (Quit) after capturing the ready frame. */
@@ -213,18 +225,13 @@ realPtyTest({
           waitFor: "› More actions",
           chunks: [{ input: "/recovery\r\r" }],
         }, {
-          waitFor: [
-            "Task recovery needed",
-            "Setup repair",
-            "The task remains intact",
-          ],
+          waitFor: ["Recovery", "Tab choices/read  Esc back"],
           capture: textCapture(
             "recovery-detail",
-            "Task recovery needed",
-            "Setup repair",
-            "The task remains intact",
+            "Recovery",
+            "Tab choices/read  Esc back",
           ),
-          chunks: [{ keys: ["enter"] }],
+          chunks: [{ keys: ["escape"], allowLoneEscape: true }],
         }, {
           waitFor: "› More actions",
           chunks: [{ keys: ["escape"], allowLoneEscape: true }],
@@ -240,9 +247,8 @@ realPtyTest({
 
       assertHealthySession(result);
       const detail = frame(result, "recovery-detail");
-      assertStringIncludes(detail.text, "Task recovery needed");
-      assertStringIncludes(detail.text, "Setup repair");
-      assertStringIncludes(detail.text, "The task remains intact");
+      assertStringIncludes(detail.text, "Recovery");
+      assertStringIncludes(detail.text, "Back");
     });
   },
 });
@@ -298,26 +304,13 @@ realPtyTest({
           ],
           chunks: [{ keys: ["enter"] }],
         }, {
-          waitFor: ["Creation facts", title, brief, "Base commit"],
-          capture: textCapture(
-            "creation-preview",
-            "Creation facts",
-            title,
-            brief,
-            "Worktree id",
-            "No agent will open",
-          ),
-          chunks: [{ keys: ["right", "enter"] }],
-        }, {
-          waitFor: "Press Enter to continue.",
-          capture: textCapture(
-            "creation-report",
-            "Created identity",
-            title,
-            brief,
-            "Path",
-          ),
-          chunks: [{ keys: ["enter"] }],
+          waitFor: [
+            "Create task",
+            "Cancel",
+            "Tab choices/read  Esc back",
+          ],
+          capture: textCapture("creation-preview", "Create task", "Cancel"),
+          chunks: [{ keys: ["tab", "down", "enter"] }],
         }, {
           waitFor: "Task controls",
           capture: focusedCapture(
@@ -335,8 +328,8 @@ realPtyTest({
       assertHealthySession(result);
       assertUniqueFocus(frame(result, "creation-title-route"));
       assertStringIncludes(frame(result, "creation-preview").text, title);
-      assertStringIncludes(frame(result, "creation-preview").text, brief);
-      assertStringIncludes(frame(result, "creation-report").text, "Path");
+      assertStringIncludes(result.transcript, brief);
+
       assertStringIncludes(
         result.transcript,
         title,
@@ -395,15 +388,20 @@ realPtyTest({
           }, {
             waitFor: "New task title",
             chunks: [{
-              input: `${"\u007f".repeat(originalTitle.length)}${title}\r`,
-            }],
+              input: `${"\u007f".repeat(originalTitle.length)}${title}`,
+            }, { resize: { columns: 80, rows: 24 } }],
           }, {
-            waitFor: ["Task title plan", title, "Change"],
-            capture: textCapture("rename-preview", "Task title plan", title),
-            chunks: [{ keys: ["right", "enter"] }],
-          }, {
-            waitFor: "Press Enter to continue.",
+            waitFor: ["New task title", title],
+            capture: textCapture("resized-form", title, "New task title"),
             chunks: [{ keys: ["enter"] }],
+          }, {
+            waitFor: [
+              "Change task title",
+              title,
+              "Tab choices/read  Esc back",
+            ],
+            capture: textCapture("rename-preview", "Change task title", title),
+            chunks: [{ keys: ["tab", "down", "enter"] }],
           }, {
             waitFor: "› More actions",
             chunks: [{ keys: ["escape"], allowLoneEscape: true }],
@@ -482,17 +480,16 @@ realPtyTest({
         }, {
           waitFor: [
             "Review Review pager",
-            "Stored Proof",
-            "View actual diff",
+            "Complete Proof",
+            "Tab choices/read  Esc back",
           ],
           capture: textCapture(
             "proof-review",
             "Proof: review pager fixture",
-            "Stored Proof",
-            "Open in editor",
+            "Complete Proof",
             "Back",
           ),
-          chunks: [{ keys: ["enter"] }],
+          chunks: [{ keys: ["tab", "down", "down", "down", "enter"] }],
         }, {
           waitFor: ["Review Review pager", "View actual diff"],
           capture: textCapture(
@@ -500,7 +497,7 @@ realPtyTest({
             "Review Review pager",
             "View actual diff",
           ),
-          chunks: [{ keys: ["end", "enter"] }],
+          chunks: [{ keys: ["escape"], allowLoneEscape: true }],
         }, {
           waitFor: "› More actions",
           chunks: [{ keys: ["escape"], allowLoneEscape: true }],
@@ -518,8 +515,7 @@ realPtyTest({
       const review = frame(result, "proof-review");
       const returned = frame(result, "pager-return");
       assertStringIncludes(review.text, "Proof: review pager fixture");
-      assertStringIncludes(review.text, "Stored Proof");
-      assertStringIncludes(review.text, "Open in editor");
+      assertStringIncludes(review.text, "Complete Proof");
       assertStringIncludes(review.text, "Back");
       assertStringIncludes(result.transcript, "diff --git");
       assertStringIncludes(result.transcript, "review.txt");
@@ -770,4 +766,76 @@ Deno.test("Desk PTY fleet builders materialise later-wave state through real aut
     assertEquals(result.data.fleet_collisions?.map((item) => item.total), [1]);
     assertEquals(result.data.unlanded_branches, ["agent/orphan-task-c0ffee"]);
   });
+});
+
+realPtyTest({
+  name:
+    "Desk PTY: the offline manual keeps document focus and scroll through resize and returns to its command",
+  contracts: [
+    "resize-delivery",
+    "control-rendering",
+    "terminal-modes",
+    "line-discipline",
+  ],
+  canary: true,
+  ignore: PTY_UNAVAILABLE,
+  fn: async () => {
+    await withDeskTtyProject(deskFleetFixture(), async (project) => {
+      const result = await runDeskTty(project, {
+        geometry: { columns: 80, rows: 24 },
+        colorMode: "no-color-env",
+        input: [
+          { waitFor: EMPTY_ROOT_READY, chunks: [{ input: "\t/manual\r\r" }] },
+          {
+            waitFor: ["DISCERN DOCS", "Enter open/action  Esc cancel"],
+            chunks: [{ input: "Delegate substantial work" }],
+          },
+          {
+            waitFor: [
+              "Search: Delegate substantial work",
+              "10-guides/delegate-work.md",
+            ],
+            chunks: [{ keys: ["enter"] }],
+          },
+          {
+            waitFor: ["A substantial idea", "Tab picker  Esc/q close"],
+            chunks: [{ keys: ["page-down"] }, {
+              resize: { columns: 40, rows: 24 },
+            }],
+          },
+          {
+            waitFor: ["Document", "Tab picker  Esc/q close"],
+            capture: textCapture(
+              "resized-document",
+              "Document",
+              "Tab picker  Esc/q close",
+            ),
+            chunks: [{ input: "q" }],
+          },
+          {
+            waitFor: "Enter open/action  Esc cancel",
+            chunks: [{ keys: ["escape"], allowLoneEscape: true }],
+          },
+          {
+            waitFor: ["Desk commands / manual", "/ find"],
+            capture: focusedCapture("manual-return", "Read the manual"),
+            chunks: [{ input: "q" }],
+          },
+        ],
+      });
+      assertHealthySession(result);
+      const document = frame(result, "resized-document");
+      assertEquals(document.columns, 40);
+      assertEquals(
+        document.text.includes("A substantial idea"),
+        false,
+        "the document did not jump to its opening",
+      );
+      assertStringIncludes(
+        frame(result, "manual-return").text,
+        "Read the manual",
+      );
+      assertEquals(result.terminal.resizes, [{ columns: 40, rows: 24 }]);
+    });
+  },
 });

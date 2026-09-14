@@ -3,6 +3,26 @@ import type { ShellWaitBoundary } from "./test_shell_wait_guard.ts";
 
 export const TEST_SHELL_WAIT_BOUNDARIES = [
   {
+    path: "tests/engine_desk_operation_test.ts",
+    enclosing:
+      "paused production Desk script exposes its actual lease, cancels durably, and releases the next action",
+    argument: "60",
+    count: 1,
+    classification: "serialization-stimulus",
+    reason:
+      "The owned script stays alive while its lease and competing writers are observed, then cancellation ends it; the test ends it by cancellation instead of elapsed time.",
+  },
+  {
+    path: "tests/engine_desk_queue_test.ts",
+    enclosing:
+      "Desk replaces a submission while another effort's acceptance checks are running",
+    argument: "0.01",
+    count: 1,
+    classification: "condition-poll",
+    reason:
+      "The owned integration check polls the test's release file while another effort explicitly replaces its submission; elapsed time cannot release the check.",
+  },
+  {
     path: "tests/engine_integration_landing_test.ts",
     enclosing:
       "a sibling completes while an integration landing's resource teardown runs",

@@ -1216,6 +1216,9 @@ function csiOperation(raw: string, offset: number): ScreenOperation {
       action: final === "h" ? "enter-alternate-screen" : "leave-alternate-screen",
     };
   }
+  if ((body === "?1000" || body === "?1006") && (final === "h" || final === "l")) {
+    return { offset, raw, action: `${final === "h" ? "enable" : "disable"}-mouse-${body.slice(1)}` };
+  }
   if (body === "?2004" && (final === "h" || final === "l")) {
     return {
       offset,
