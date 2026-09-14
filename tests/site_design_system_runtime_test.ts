@@ -33,11 +33,15 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 
 import {
-  assertDesignSystemWorktree,
+  assertDevelopmentWorktree,
+  DESIGN_SYSTEM_BRANCH,
   DESIGN_SYSTEM_SPECIFIER,
   DESIGN_SYSTEM_VERSION,
   DESIGN_SYSTEM_WORKTREE,
 } from "./design_system_dependency.ts";
+
+import { git as fixtureGit, gitInit } from "./engine_helpers.ts";
+import { withTempDir } from "./helpers.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -239,6 +243,30 @@ Deno.test("the committed-override detector catches a freshly named linked packag
   );
 });
 
+Deno.test("development worktree binding accepts evolving source and rejects a different branch", async () => {
+  await withTempDir(async (root) => {
+    const branch = "agent/future-library";
+    const source = join(root, "module.ts");
+    await Deno.writeTextFile(source, "export const value = 1;\n");
+    await gitInit(root);
+    await fixtureGit(root, "switch", "-c", branch);
+    await assertDevelopmentWorktree(root, branch);
+
+    await Deno.writeTextFile(source, "export const value = 2;\n");
+    await fixtureGit(root, "commit", "-am", "Advance library source");
+    await assertDevelopmentWorktree(root, branch);
+
+    await Deno.writeTextFile(source, "export const value = 3;\n");
+    await Deno.writeTextFile(join(root, "new-module.ts"), "export {};\n");
+    await assertDevelopmentWorktree(root, branch);
+    await fixtureGit(root, "add", "module.ts");
+    await assertDevelopmentWorktree(root, branch);
+    await assertRejects(() =>
+      assertDevelopmentWorktree(root, "agent/other-library")
+    );
+  });
+});
+
 Deno.test("Discern binds one exact design-system development worktree", async () => {
   const config = decodeWith(
     DENO_CONFIG_SCHEMA,
@@ -246,7 +274,7 @@ Deno.test("Discern binds one exact design-system development worktree", async ()
   );
   assertEquals(committedLocalOverrideViolations(config), []);
   assertEquals(config.links, [DESIGN_SYSTEM_WORKTREE]);
-  await assertDesignSystemWorktree();
+  await assertDevelopmentWorktree(DESIGN_SYSTEM_WORKTREE, DESIGN_SYSTEM_BRANCH);
   assertEquals(
     Object.entries(config.imports).filter(([key, value]) =>
       key.includes("design-system") || value.includes("design-system")
