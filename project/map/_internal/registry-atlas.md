@@ -3837,7 +3837,7 @@ The numbered decision records in the map, including records later superseded.
   - `0393`
   - `0394`
   - `0395`
-  - `0396`
+  - `0397`
   - `0001`
   - `0002`
   - `0004`

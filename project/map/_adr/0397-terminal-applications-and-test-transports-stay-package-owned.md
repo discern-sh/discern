@@ -1,4 +1,4 @@
-# ADR 0396: Terminal applications and test transports stay package-owned
+# ADR 0397: Terminal applications and test transports stay package-owned
 
 **Status**: accepted on 2026-09-14. Extends [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md) and preserves the admission contract of [ADR 0355](0355-real-pty-tests-declare-os-boundary-contracts.md).
 

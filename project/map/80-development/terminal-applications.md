@@ -33,7 +33,7 @@ Import generic transport and complete-frame capture instruments only through `di
 
 Complete-frame capture accepts bounded package paints. Inline consumers retain the existing inline capture path; arbitrary cursor transcripts require their existing specialized fixture. See [terminal output review](reviewing-terminal-output.md) for rendered evidence and the application capture matrix.
 
-General text and mini-chart adapters remain separate work. Adding a consumer event loop, layout language, painter, key decoder, or generic transport would duplicate package responsibilities. A missing generic capability requires a public package API; the development-source procedure below governs iteration before formal release ([ADR 0396](../_adr/0396-terminal-applications-and-test-transports-stay-package-owned.md)).
+General text and mini-chart adapters remain separate work. Adding a consumer event loop, layout language, painter, key decoder, or generic transport would duplicate package responsibilities. A missing generic capability requires a public package API; the development-source procedure below governs iteration before formal release ([ADR 0397](../_adr/0397-terminal-applications-and-test-transports-stay-package-owned.md)).
 
 ## Development source during adoption
 
