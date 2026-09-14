@@ -27,6 +27,7 @@
  */
 
 import { INTEGRATION_BRANCH_NAMESPACE } from "../../shared/git_conventions.ts";
+import { observeFleet } from "../../shared/fleet_observation.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
   type GitCount,
@@ -208,16 +209,14 @@ async function nearestContainer(
   candidates: readonly string[],
   tips: ReadonlyMap<string, string>,
 ): Promise<{ branch: string; tip: string; ahead: number } | undefined> {
-  const measured = await Promise.all(
-    candidates.map(async (branch) => {
-      const candidateTip = tips.get(branch) ?? "";
-      return {
-        branch,
-        tip: candidateTip,
-        ahead: await countAhead(repoRoot, tip, candidateTip),
-      };
-    }),
-  );
+  const measured = await observeFleet(candidates, async (branch) => {
+    const candidateTip = tips.get(branch) ?? "";
+    return {
+      branch,
+      tip: candidateTip,
+      ahead: await countAhead(repoRoot, tip, candidateTip),
+    };
+  });
   let nearest: { branch: string; tip: string; ahead: number } | undefined;
   for (const candidate of measured) {
     const ahead = candidate.ahead;
@@ -298,7 +297,7 @@ export async function scanContainedWorktrees(
     return opts.idle(row.branch, row.snapshot.lastActivity);
   });
 
-  const found = await Promise.all(candidates.map(async (row) => {
+  const found = await observeFleet(candidates, async (row) => {
     const tip = tips.get(row.branch);
     if (tip === undefined) {
       return undefined;
@@ -333,7 +332,7 @@ export async function scanContainedWorktrees(
       containingTip: nearest.tip,
       containerAhead: nearest.ahead,
     };
-  }));
+  });
   return found.filter((fact) => fact !== undefined);
 }
 
@@ -397,7 +396,7 @@ export async function containedRefPointers(
     localBranchTips(repoRoot),
     checkoutHoldingBranches(repoRoot),
   ]);
-  const pointers = await Promise.all(branches.map(async (branch) => {
+  const pointers = await observeFleet(branches, async (branch) => {
     const tip = tips.get(branch);
     if (tip === undefined) {
       return undefined;
@@ -411,7 +410,7 @@ export async function containedRefPointers(
       held,
     );
     return container === undefined ? undefined : { branch, container };
-  }));
+  });
   for (const pointer of pointers) {
     if (pointer !== undefined) {
       out.set(pointer.branch, pointer.container);

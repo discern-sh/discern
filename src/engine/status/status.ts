@@ -1,3 +1,4 @@
+import { observeFleet } from "../../shared/fleet_observation.ts";
 import {
   completionRecoveryStatus,
   completionStatusPresentation,
@@ -543,8 +544,9 @@ export async function statusResult(
         );
       }
     }
-    fleet = await Promise.all(
-      fleetRows.map(async (row) => {
+    fleet = await observeFleet(
+      fleetRows,
+      async (row) => {
         const entry = await fleetEntryFor(row, here, cfg, settings);
         return applyLogbookActivity(
           entry,
@@ -552,7 +554,7 @@ export async function statusResult(
           logbookActivity?.durationPriors,
           nowMs,
         );
-      }),
+      },
     );
     // Integration copies are discern-owned, never efforts an agent may
     // adopt; the recorded landing is the authority, not the branch name. A

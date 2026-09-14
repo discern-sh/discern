@@ -15,6 +15,7 @@
  * (default `main`); `git` from `GIT_BIN` (default `git`). Path identity throughout
  * uses real (canonical) paths so a symlinked checkout compares correctly.
  */
+import { observeFleet } from "../../shared/fleet_observation.ts";
 import { withWorktreeOwnership } from "../operation_lock.ts";
 
 import {
@@ -1538,12 +1539,13 @@ export async function forkPoints(
   branches: readonly string[],
   mainBranch: string,
 ): Promise<Map<string, string>> {
-  const resolved = await Promise.all(
-    [...new Set(branches)].map(async (branch) => {
+  const resolved = await observeFleet(
+    [...new Set(branches)],
+    async (branch) => {
       const run = await git(["merge-base", mainBranch, branch], cwd);
       const base = run.success ? run.stdout.trim() : "";
       return base === "" ? undefined : ([branch, base] as const);
-    }),
+    },
   );
   return new Map(resolved.filter((entry) => entry !== undefined));
 }
@@ -1567,15 +1569,16 @@ export async function fleetCollisions(
   bases?: ReadonlyMap<string, string>,
 ): Promise<FleetCollision[]> {
   const anchors = bases ?? await forkPoints(cwd, branches, mainBranch);
-  const changed = (await Promise.all(
-    [...new Set(branches)].map(async (branch) => {
+  const changed = (await observeFleet(
+    [...new Set(branches)],
+    async (branch) => {
       const base = anchors.get(branch);
       if (base === undefined) {
         return undefined;
       }
       const paths = await diffNames(cwd, base, branch);
       return paths.length > 0 ? ([branch, paths] as const) : undefined;
-    }),
+    },
   )).filter((entry) => entry !== undefined);
   const out: FleetCollision[] = [];
   for (const [i, [a, aPaths]] of changed.entries()) {
@@ -1619,7 +1622,7 @@ export async function adrNumberCollisions(
 ): Promise<AdrNumberCollision[]> {
   const unique = [...new Set(branches)];
   const anchors = bases ?? await forkPoints(cwd, unique, mainBranch);
-  const added = await Promise.all(unique.map(async (branch) => {
+  const added = await observeFleet(unique, async (branch) => {
     const base = anchors.get(branch);
     if (base === undefined) {
       return { branch, paths: [] as string[] };
@@ -1636,7 +1639,7 @@ export async function adrNumberCollisions(
       adrDir,
     ], cwd);
     return { branch, paths: r.success ? splitNulRecords(r.stdout) : [] };
-  }));
+  });
   const claims = new Map<string, Map<string, string[]>>();
   for (const { branch, paths: addedPaths } of added) {
     for (const path of addedPaths) {
@@ -2826,8 +2829,9 @@ export async function listRegisteredWorktrees(
 ): Promise<RegisteredWorktree[]> {
   const listRun = await git(["worktree", "list", "--porcelain"], cwd);
   if (!listRun.success) return [];
-  return await Promise.all(
-    parseWorktreeList(listRun.stdout).map(async (record, index) => ({
+  return await observeFleet(
+    parseWorktreeList(listRun.stdout),
+    async (record, index) => ({
       path: await realPathOr(record.path),
       isMain: index === 0,
       branch: record.branch.startsWith("refs/heads/")
@@ -2837,7 +2841,7 @@ export async function listRegisteredWorktrees(
       head: record.head,
       locked: record.locked,
       prunable: record.prunable,
-    })),
+    }),
   );
 }
 
@@ -2909,10 +2913,8 @@ export async function listWorktreeFleet(
   mainBranchFallback?: string,
 ): Promise<FleetWorktree[]> {
   const records = await listRegisteredWorktrees(cwd);
-  // Each row's snapshot reads only its own checkout, so the whole fleet is
-  // surveyed concurrently — the survey costs one worktree's reads, not the
-  // fleet's sum.
-  return await Promise.all(records.map(async (rec) => {
+  // Bound process discovery while preserving registration order.
+  return await observeFleet(records, async (rec) => {
     const inspected = await inspectGitSnapshot(rec.path, mainBranchFallback);
     const snap = inspected.kind === "available"
       ? inspected.snapshot
@@ -2938,7 +2940,7 @@ export async function listWorktreeFleet(
         }
         : {}),
     };
-  }));
+  });
 }
 
 /** Options for the read-only git-worktree prune scan. */
