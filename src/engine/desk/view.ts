@@ -71,13 +71,6 @@ export function deskUnlandedRoute(branch: string): string {
   return `${DESK_UNLANDED_ROUTE_PREFIX}${branch}`;
 }
 
-/** Recover an exact branch ref from a root-picker route. */
-export function deskUnlandedBranch(route: string): string | undefined {
-  return route.startsWith(DESK_UNLANDED_ROUTE_PREFIX)
-    ? route.slice(DESK_UNLANDED_ROUTE_PREFIX.length)
-    : undefined;
-}
-
 /** Routes available inside the Proof-first review drill-down. */
 export const DESK_REVIEW_ROUTES = {
   diff: "\x00review-diff",
