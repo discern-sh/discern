@@ -26,6 +26,7 @@ function cancellationHooks(node: Node): Node[] {
 /** Find reconstructed terminal ports whose delegated read loses cancellation. */
 function lostReadCancellation(source: string): number[] {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });
