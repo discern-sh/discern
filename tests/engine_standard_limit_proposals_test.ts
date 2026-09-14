@@ -20,6 +20,7 @@ import { z } from "@zod/zod";
 import { readTextIfExists, statIfExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { readSubmission } from "../src/engine/worktree/submission.ts";
 import { readProposalStore } from "../src/engine/gate/standard_proposal_state.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import {
@@ -304,6 +305,12 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
       await gitOut(worktree, "branch", "--show-current"),
       "2026-09-12T10:00:00.000Z",
     );
+    const queueStop = await runAgent(worktree, ["submit", "--json"]);
+    assertEquals(queueStop.code, 1, queueStop.output);
+    const queueRefusal = decodeCliResult(queueStop.stdout, "submit");
+    assertEquals(queueRefusal.error, "awaiting_standard_approval");
+    assertStringIncludes(queueRefusal.message ?? "", "Approval token:");
+    assertEquals((await readSubmission(worktree)).status, "missing");
     const firstStop = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(firstStop.code, 1, firstStop.output);
     const firstToken = approvalChallenge(firstStop.stdout).token;

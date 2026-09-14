@@ -3256,6 +3256,16 @@ export const HINTS = {
       "its reproduce command again in the checkout where that step ran.",
   }),
 
+  "submit-start-walk": defineHint<{ branch: string }>({
+    id: "submit-start-walk",
+    category: "next-step",
+    audience: "all",
+    when: "A proven revision is recorded without starting a landing walk.",
+    example: { branch: "agent/example" },
+    template: ({ branch }): string =>
+      `An active or later acceptance walk can pick up this revision. To start a walk, run discern accept --target ${branch}.`,
+  }),
+
   /** A successful acceptance exposes the system-rendered line for the agent's
    * report; the full page stays in the durable landing record. */
   "accept-relay-landing-proof": defineHint({

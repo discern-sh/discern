@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md); the outcome-first accounts are the [Human Benefit Canon](feature-canon-human-benefits.md) and [Agent Benefit Canon](feature-canon-agent-benefits.md)._
 
-10 main areas · 144 detailed entries · 11 statements of benefit · 81 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 145 detailed entries · 11 statements of benefit · 82 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -81,6 +81,7 @@ _Each simultaneous task has its own project copy, identity, network number, priv
 - **Start** — `discern start` makes the separate working copy from the main project copy — always starting from the main shared version, whatever the main copy happens to be showing — and returns the new copy's location. `--name` turns a supplied name into a safe one; leave it out for a random nickname.
 - **Update** — `discern update` brings the latest main shared work into the task's copy and remakes the automatically made files, in one step that is safe to repeat. It reports what changed underneath the task, and which of the task's own files the incoming work also touched. _Staying current is one instruction, and the overlap report names the files worth re-checking even after a clean join._
 - **Accept** — `discern accept` shares a finished task only with your permission or a grant you recorded. It keeps the saved version you submitted. If the shared project has moved, discern joins and checks the work in a temporary copy first. It then shares the checked result and cleans up, keeping the task's copy when newer work remains. _The project can keep moving while finished work finds its way into the shared version._
+  - **Queue checked work** — Choose Join the landing queue in the desk, or run `discern submit` from the task's copy, to record the version you want shared. This does not start a background job. An active or later Accept can pick it up with the required permission. _Finished work can wait visibly without restarting its coding agent or repeating its checks._
   - **Checking the joined work in a temporary copy** — If the shared project moved while a task was being checked, discern makes a temporary copy and joins the changes there. It checks that result before sharing it. A conflict or failed check returns the problem to the task's coding agent to fix. _Work is checked together before people build on it, and the task's own copy stays in place._
   - **Taking turns to share finished work** — When another task is being shared, the next request waits, says what it is waiting for, and continues when its turn comes. It keeps the saved version chosen before the wait, even if the task has newer work by then. _Sharing requests can wait for each other while coding agents keep finishing their own work._
   - **Sharing the permitted work that follows** — After sharing the task selected with `--target`, discern considers the other waiting tasks in order. Each needs its own permission and current check results. The first problem stops the sequence, and the result says which tasks were shared. _Work already allowed to join the project can follow the task you selected._
@@ -257,6 +258,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `standards` — producer-evidence, standards
 - `start` — start
 - `status` — status
+- `submit` — accept
 - `test` — test-verb, producer-evidence
 - `tidy` — tidy
 - `uninstall` — uninstall

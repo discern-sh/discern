@@ -9,6 +9,7 @@ import { runGit } from "../src/shared/subprocess.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { basename, dirname, join } from "@std/path";
+import { readSubmission } from "../src/engine/worktree/submission.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import { claimEffortGrant } from "../src/engine/worktree/effort_grant_cleanup.ts";
 import {
@@ -1278,6 +1279,15 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
         await readAcceptanceTransactionMarker(worktree, transaction.id),
         { kind: "missing" },
       );
+
+      const submissionBefore = await readSubmission(worktree);
+      const queuedDuringLanding = await runAgent(worktree, [
+        "submit",
+        "--json",
+      ]);
+      assertEquals(queuedDuringLanding.code, 1, queuedDuringLanding.output);
+      assertStringIncludes(queuedDuringLanding.output, "accept");
+      assertEquals(await readSubmission(worktree), submissionBefore);
 
       let concurrentOperationRan = false;
       let concurrentRefusal: unknown;

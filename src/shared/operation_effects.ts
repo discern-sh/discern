@@ -149,6 +149,11 @@ export const OPERATION_EFFECTS = {
     "phased",
     "required",
   ),
+  submit: policy(
+    ["discern-checkout-mutation", "discern-common-mutation"],
+    "phased",
+    "required",
+  ),
   await: OBSERVATION,
   checkpoints: OBSERVATION,
   config: OBSERVATION,

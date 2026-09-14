@@ -13,11 +13,12 @@ import type {
   LandingOutcomeData,
 } from "../../shared/result_schemas.ts";
 import { runWithAcceptanceLeaseOnly } from "../operation_lock.ts";
+import { readSubmission } from "./submission.ts";
 import { short } from "./accept_support.ts";
 import { withAcceptanceTransactionLock } from "./acceptance_transaction.ts";
 import { WorktreeGitError } from "./git.ts";
 import type { LifecycleContext } from "./lifecycle.ts";
-import { worktreeErrorResult } from "./lifecycle.ts";
+import { lifecycleContext, worktreeErrorResult } from "./lifecycle.ts";
 import { type SubmissionRow, submissionRows } from "./submissions_view.ts";
 import type { AcceptRequest, EffortCheckout } from "./accept.ts";
 
@@ -77,6 +78,7 @@ export async function walkQueue(
   deps: WalkDeps,
   operationHandle?: string,
 ): Promise<DiscernResult<AcceptData>> {
+  const walkContext = await lifecycleContext(effort.mainRepo, ctx.log);
   const outcomes: LandingOutcomeData[] = [
     ...(selected.data?.landings ?? []),
   ];
@@ -92,12 +94,33 @@ export async function walkQueue(
     attempted.add(next.path);
     let follower: DiscernResult<AcceptData>;
     try {
-      const followerEffort = await deps.effortCheckout(ctx, next.path);
+      const followerEffort = await deps.effortCheckout(walkContext, next.path);
       if (followerEffort === undefined) {
         throw new WorktreeGitError(
           `${next.branch}'s worktree could not be selected for the walk.`,
         );
       }
+      if (next.readiness !== "ready") {
+        throw new WorktreeGitError(
+          next.reason ??
+            "The queued revision is not ready. Review the task before resubmitting.",
+        );
+      }
+      const recorded = await readSubmission(next.path);
+      if (
+        recorded.status !== "submitted" ||
+        recorded.submission.head !== next.head
+      ) {
+        throw new WorktreeGitError(
+          "The queued revision changed. Review the current submission and start a fresh acceptance walk.",
+        );
+      }
+      const revision = {
+        path: next.path,
+        branch: next.branch,
+        head: next.head,
+        proof: recorded.submission.proof,
+      };
       // Serialization stays with the held acceptance lease; the follower's
       // checkout boundary is acquired non-blockingly, so a busy follower
       // refuses and the walk stops there.
@@ -108,6 +131,7 @@ export async function walkQueue(
             deps.landEffortOnce(
               followerEffort,
               {
+                expected: revision,
                 dryRun: false,
                 confirmed: false,
                 variance: [],

@@ -31,6 +31,7 @@ aliases:
   - "discern_standards"
   - "discern_standards_propose"
   - "discern_accept"
+  - "discern_submit"
   - "discern_impact"
   - "discern_coupling"
   - "discern_patterns"
@@ -107,6 +108,7 @@ Model Context Protocol (MCP) lets a coding agent call discern directly. The tool
 | `discern_progress`          | Read a long operation back after a lost call: its phase, the counts and failures known so far, and the retained result.                                                                                                     | Read-only and idempotent; reading changes nothing.                                                  |
 | `discern_standards`         | Measure standards, compare limits, and optionally pin improvements.                                                                                                                                                         | Runs project commands; pinning changes and commits config.                                          |
 | `discern_standards_propose` | Record or preview one exact, commit-bound proposal for an intrinsically breached standard.                                                                                                                                  | Mutating, closed-world, and idempotent; commits only the config limit.                              |
+| `discern_submit`            | Record the selected worktree's current proven revision without starting checks or landing.                                                                                                                                  | Reuses recorded authority; creates no permission, exception approval or scheduled run.              |
 | `discern_accept`            | Record the invoking effort's submission, its exact proven commit, and land it under verified authority; a landing removes the effort's worktree, resources, and branch when the branch holds nothing beyond the submission. | Ordinary landing requires consent or a verified grant; emergency requires fresh exact confirmation. |
 | `discern_impact`            | List the scopes the current change activates.                                                                                                                                                                               | Read-only and idempotent.                                                                           |
 | `discern_coupling`          | Report historical co-change partners for the current diff or named files.                                                                                                                                                   | Read-only, idempotent, and advisory.                                                                |
@@ -129,6 +131,7 @@ The input object is strict: undeclared keys are rejected. Optional keys by tool 
 | `discern_update`            | `from`, `dry_run`, `path`                                                                                                                                                        |
 | `discern_await`             | `green`, `landed`, `trunk_moved`, `resume`, `timeout`, `path`                                                                                                                    |
 | `discern_progress`          | `handle`, `path`                                                                                                                                                                 |
+| `discern_submit`            | `dry_run`, `path`                                                                                                                                                                |
 | `discern_accept`            | `action`, `target`, `prepare`, `preparation`, `met`, `unmet`, `composition`, `reason`, `confirmation`, `recover`, `dry_run`, `confirmed`, `variance`, `approve_standard`, `path` |
 | `discern_test`              | `path`                                                                                                                                                                           |
 | `discern_standards`         | `dry_run`, `force`, `pin`, `names`, `path`                                                                                                                                       |
@@ -294,6 +297,8 @@ For `done`, inspect `data.completion` as well as the top-level verdict:
 | `data.producer_executions`              | Recorded execution counts by producer.                                                                                     |
 
 Explicit CI reports use `data.mode: "report"` and report checkpoint review without answering questions. Their feedback does not provide landing Proof. `checkpoint_drops` preserves classified uncertainty about checkpoint enforcement.
+
+`discern_submit` returns the reviewed `path`, `branch`, `head`, complete `proof` pointer and observed `authority`. `state` is `planned` for a dry run and `queued` after recording; a queued result includes `submission_id` and `submitted_at`. `replaces`, when present, names the previous queued commit. Apply rechecks the clean tree, current Proof and separate checkpoint or standard decisions. Repeating the same revision preserves its queue order. A later commit or `done` does not submit newer work. To start an acceptance walk, your agent uses `discern_accept` with `target`; queueing itself schedules no background run.
 
 Ordinary acceptance returns `data.queue` — the landing queue, a derived view over submissions. Each row is one unlanded submission: `pre-authorized` rows come first in grant order, then rows `awaiting-owner` in submission order. `discern status`, the desk, and a `dry_run: true` preview show the same rows in the same order, and a dry run changes nothing.
 

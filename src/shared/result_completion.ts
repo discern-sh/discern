@@ -220,6 +220,7 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
     ],
     noOp: "not-applicable",
   }),
+  submit: effectPolicy(),
   accept: effectPolicy({
     required: ["declared-outcome", "executed-steps", "accept-landing"],
     advisories: [

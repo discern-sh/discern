@@ -1663,7 +1663,17 @@ export const IntegrationJudgmentSchema = z.strictObject({
     "receipt a continuation must name, the decision kind that continues it, " +
     "and the checkpoint ids awaiting that decision.",
 });
+/** The revision a person or caller reviewed before submission. */
+export const SubmissionRevisionSchema = z.strictObject({
+  path: z.string(),
+  branch: z.string(),
+  head: z.string(),
+  proof: CompletionProofPointerSchema,
+});
+export type SubmissionRevision = z.infer<typeof SubmissionRevisionSchema>;
+
 export const AcceptDataSchema = z.strictObject({
+  revision: SubmissionRevisionSchema.optional(),
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),
   /** Present on a judgment or variance stop over a retained composition. */
   integration_judgment: IntegrationJudgmentSchema.optional(),
@@ -3536,8 +3546,21 @@ export const TaskRenameOutputSchema = resultOutputSchema(
   TaskRenameDataSchema,
 );
 
-/** `accept` output: envelope + the landing-root `data` (present on an apply; a
- * dry-run preview carries none). */
+/** Submission records a revision and observes authority; it starts no landing. */
+export const SubmitDataSchema = SubmissionRevisionSchema.extend({
+  state: z.enum(["planned", "queued"]),
+  authority: LandingAuthorityDataSchema,
+  replaces: z.string().optional(),
+  submission_id: z.string().optional(),
+  submitted_at: z.string().optional(),
+});
+export type SubmitData = z.infer<typeof SubmitDataSchema>;
+export const SubmitOutputSchema = resultOutputSchema(
+  "submit",
+  SubmitDataSchema,
+);
+
+/** `accept` output: the reviewed revision on a preview and landing evidence on apply. */
 export const AcceptOutputSchema = resultOutputSchema(
   "accept",
   AcceptWireDataSchema,

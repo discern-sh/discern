@@ -28586,6 +28586,555 @@
         }
       ]
     },
+    "DiscernSubmitResult": {
+      "title": "DiscernSubmitResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "instructions-check",
+                      "skills-check",
+                      "tracked-refresh-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "task-metadata",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "instructions-check",
+                  "skills-check",
+                  "tracked-refresh-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "task-metadata",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped",
+                  "cancelled"
+                ]
+              },
+              "advisory": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "acceptance-cleanup-incomplete",
+                      "checkpoint-evidence-dropped",
+                      "checkout-clean-observation-unavailable",
+                      "doctor-warning",
+                      "execution-cap-unavailable",
+                      "generated-attribute-pattern-untranslated",
+                      "ignored-file-observation-unavailable",
+                      "landing-authority-unverified",
+                      "optional-resource-unavailable",
+                      "proof-recording-unavailable",
+                      "setup-unproven-completion",
+                      "setup-machinery-commit-failed",
+                      "setup-marker-commit-failed",
+                      "standards-limits-unverified",
+                      "uninstall-strip-incomplete"
+                    ]
+                  },
+                  "evidence": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "next_action": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "evidence",
+                  "next_action"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "diagnostic_evidence": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "digest": {
+              "type": "string"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "shown": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "repeats": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            }
+          },
+          "required": [
+            "path",
+            "digest",
+            "bytes",
+            "total",
+            "shown",
+            "repeats"
+          ]
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "advisories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "acceptance-cleanup-incomplete",
+                  "checkpoint-evidence-dropped",
+                  "checkout-clean-observation-unavailable",
+                  "doctor-warning",
+                  "execution-cap-unavailable",
+                  "generated-attribute-pattern-untranslated",
+                  "ignored-file-observation-unavailable",
+                  "landing-authority-unverified",
+                  "optional-resource-unavailable",
+                  "proof-recording-unavailable",
+                  "setup-unproven-completion",
+                  "setup-machinery-commit-failed",
+                  "setup-marker-commit-failed",
+                  "standards-limits-unverified",
+                  "uninstall-strip-incomplete"
+                ]
+              },
+              "evidence": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "next_action": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "evidence",
+              "next_action"
+            ]
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "submit"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "branch": {
+                  "type": "string"
+                },
+                "head": {
+                  "type": "string"
+                },
+                "proof": {
+                  "type": "object",
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "proof_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "candidate_id",
+                    "proof_id"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "planned",
+                    "queued"
+                  ]
+                },
+                "authority": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "authorized",
+                        "conversation-required"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "conversation",
+                        "standing-grant",
+                        "effort-grant"
+                      ]
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "standing_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "generated": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "scopes"
+                        ]
+                      }
+                    },
+                    "uncovered_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered_unscoped_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "uncovered_generated_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "replaces": {
+                  "type": "string"
+                },
+                "submission_id": {
+                  "type": "string"
+                },
+                "submitted_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "branch",
+                "head",
+                "proof",
+                "state",
+                "authority"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "unknown_root_section"
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "issues"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
+      ]
+    },
     "DiscernAcceptResult": {
       "title": "DiscernAcceptResult",
       "type": "object",
@@ -28955,6 +29504,45 @@
             {
               "type": "object",
               "properties": {
+                "revision": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "branch": {
+                      "type": "string"
+                    },
+                    "head": {
+                      "type": "string"
+                    },
+                    "proof": {
+                      "type": "object",
+                      "properties": {
+                        "candidate_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "proof_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "candidate_id",
+                        "proof_id"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "branch",
+                    "head",
+                    "proof"
+                  ]
+                },
                 "checkpoint_preparation": {
                   "type": "object",
                   "properties": {
@@ -36916,6 +37504,44 @@
         "isError"
       ]
     },
+    "DiscernSubmitMcpToolResult": {
+      "title": "DiscernSubmitMcpToolResult",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "text"
+              },
+              "text": {
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ]
+          }
+        },
+        "structuredContent": {
+          "$ref": "#/$defs/DiscernSubmitResult",
+          "description": "The compact structured projection, sufficient without text content."
+        },
+        "isError": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "content",
+        "structuredContent",
+        "isError"
+      ]
+    },
     "DiscernAcceptMcpToolResult": {
       "title": "DiscernAcceptMcpToolResult",
       "type": "object",
@@ -37114,6 +37740,9 @@
           "$ref": "#/$defs/DiscernWorktreeEnsureResult"
         },
         {
+          "$ref": "#/$defs/DiscernSubmitResult"
+        },
+        {
           "$ref": "#/$defs/DiscernAcceptResult"
         },
         {
@@ -37211,6 +37840,9 @@
         },
         {
           "$ref": "#/$defs/DiscernStartMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernSubmitMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernAcceptMcpToolResult"
@@ -38073,6 +38705,28 @@
         "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernWorktreeEnsureResult"
+    },
+    {
+      "id": "submit",
+      "verb": "submit",
+      "commands": [
+        "submit"
+      ],
+      "mcp_tool": "discern_submit",
+      "completion_policy": {
+        "required_postconditions": [
+          "declared-outcome",
+          "executed-steps"
+        ],
+        "optional_advisories": [],
+        "refusal": "failure",
+        "cancellation": "failure",
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
+      },
+      "schema": "#/$defs/DiscernSubmitResult",
+      "mcp_tool_result_schema": "#/$defs/DiscernSubmitMcpToolResult"
     },
     {
       "id": "accept",

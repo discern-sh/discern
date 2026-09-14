@@ -697,6 +697,30 @@
         "idempotentHint": true,
         "openWorldHint": false
       }
+    },
+    {
+      "name": "discern_submit",
+      "title": "Join the landing queue",
+      "description": "Record this effort's current proven revision in the landing queue without starting checks, landing, or a background run. Reuses recorded authority without consuming or creating it. Missing checkpoint or standard decisions remain separate prerequisites. An active or later acceptance walk can pick it up; use discern_accept with target to start a walk.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "description": "Review the revision and authority; touch nothing.",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      }
     }
   ]
 }

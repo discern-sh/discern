@@ -58,6 +58,7 @@ aliases:
   - "discern desk"
   - "discern enter"
   - "discern start"
+  - "discern submit"
   - "discern accept"
   - "discern update"
   - "discern identity"

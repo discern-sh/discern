@@ -1,7 +1,7 @@
 /**
  * The landing queue as a derived view over the fleet's submission records.
  *
- * A row is one effort whose agent submitted an exact revision with `accept`
+ * A row is one effort submitted at an exact revision with `submit` or `accept`
  * and whose submission has not landed: pre-authorized rows first, by grant
  * time, then rows awaiting the owner, by submission time. A row whose Proof
  * predates trunk movement, whose branch has moved on, or whose revision a
@@ -118,7 +118,7 @@ export function submissionReadiness(
       reason:
         `This submission names a different commit; the branch has valid Proof at ${
           short(facts.provenBranchHead)
-        }. Run discern accept from its worktree to submit the proven revision.`,
+        }. Run discern submit from its worktree to queue the proven revision, or discern accept to submit and start landing.`,
       ...(facts.trunkCurrent ? {} : { integration: true }),
     };
   }

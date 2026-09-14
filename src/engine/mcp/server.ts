@@ -1,7 +1,7 @@
 import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
 import { emergencyArguments } from "../emergency/arguments.ts";
 import { type EmergencyOptions, emergencyResult } from "../emergency/action.ts";
-import { acceptLandingResult } from "../worktree/accept.ts";
+import { acceptLandingResult, submitResult } from "../worktree/accept.ts";
 import {
   type CompletionProgressNotification,
   withMcpCompletionProgress,
@@ -112,6 +112,7 @@ import {
   type StartData,
   StartOutputSchema,
   StatusOutputSchema,
+  SubmitOutputSchema,
   TestOutputSchema,
   UpdateOutputSchema,
 } from "../../shared/result_schemas.ts";
@@ -1083,6 +1084,28 @@ export const TOOLS: McpTool[] = orderTools([
         target: args.target,
         search: args.search,
       }),
+  }),
+  defineTool({
+    name: "discern_submit",
+    title: "Join the landing queue",
+    outputSchema: SubmitOutputSchema,
+    annotations: DESTRUCTIVE,
+    description:
+      "Record this effort's current proven revision in the landing queue without starting checks, landing, or a background run. Reuses recorded authority without consuming or creating it. Missing checkpoint or standard decisions remain separate prerequisites. An active or later acceptance walk can pick it up; use discern_accept with target to start a walk.",
+    inputSchema: {
+      dry_run: z.boolean().optional().describe(
+        "Review the revision and authority; touch nothing.",
+      ),
+      ...PATH_PARAM,
+    },
+    run: async (root, args, signal) =>
+      submitResult(
+        await lifecycleContext(root, new Logger({ json: true, noColor: true })),
+        {
+          dryRun: args.dry_run === true,
+          ...(signal === undefined ? {} : { signal }),
+        },
+      ),
   }),
   defineTool({
     name: "discern_accept",

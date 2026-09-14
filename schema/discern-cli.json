@@ -6273,6 +6273,105 @@
     },
     {
       "path": [
+        "submit"
+      ],
+      "description": "Join the landing queue with this worktree's current proven revision. Records the submission without starting checks or landing. An active or later acceptance walk can pick it up; run discern accept --target <effort> to start a walk.",
+      "aliases": [],
+      "hidden": false,
+      "hidden_when": null,
+      "positionals": [],
+      "usage": "",
+      "flags": [
+        {
+          "spellings": [
+            "--json"
+          ],
+          "description": "Emit one JSON result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--markdown"
+          ],
+          "description": "Emit one Markdown result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--render"
+          ],
+          "description": "Render the Markdown result as terminal output.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--no-color"
+          ],
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--plain"
+          ],
+          "description": "Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--theme"
+          ],
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "type_definition": "<theme:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--dry-run"
+          ],
+          "description": "Review the proven revision and authority; touch nothing.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": false
+        }
+      ]
+    },
+    {
+      "path": [
         "accept"
       ],
       "description": "Submit this worktree's proven commit and land it on the trunk, the shared landing branch. Landing needs the owner's consent in this conversation or a recorded grant; without one, the submission waits in the landing queue. If the trunk moved after the Proof, the landing composes and checks the combined code in a disposable integration worktree and lands that exact proven commit; a second accept waits its turn. Landing removes the worktree and its branch when the branch holds nothing beyond the landed commit. Use accept emergency --reason <text> to review an explicit exception against actual trunk. Emergency integration requires fresh exact owner confirmation and issues no passing Proof.",

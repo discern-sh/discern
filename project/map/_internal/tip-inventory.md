@@ -111,12 +111,12 @@ Rendered line:
 - Relevance: Two or more tasks are in flight and none is pre-authorized.
 - Predicate: `no-landing-authority`
 - Since: —
-- Teaches: `consent-attestations`
+- Teaches: `consent-attestations`, `submission-only`
 - Follow-through: —
 
 Rendered line:
 
-> "Pre-authorize landing" lets this task land a submitted green commit. Permission alone does not submit work.
+> "Pre-authorize landing once green" grants permission. Use "Join the landing queue" to submit the proven revision, or "Accept and land now" to start landing.
 
 ## `drop-protects-work`
 

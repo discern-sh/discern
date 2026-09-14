@@ -6,7 +6,7 @@ _discern's internal commercial account of what the product gives people. It is d
 
 Start from a concern in the [Readiness Canon](brand/readiness-canon.md) when the reader recognizes a release question before they know the product. Its feature routes introduce the relevant human value here.
 
-8 clusters · 46 benefits · 144 of 144 feature nodes cited · 20 of 20 public claims carried.
+8 clusters · 46 benefits · 145 of 145 feature nodes cited · 20 of 20 public claims carried.
 
 ## How to use this canon
 
@@ -72,7 +72,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** Another task landing first does not have to send yours back through a routine handoff. discern can join the changes, check them together, and land the result while the author keeps working in the same place.
 - **Mechanism:** Acceptance retains the submitted revision, waits its turn, and creates an integration worktree when the trunk moved. The combined Gate and authority check precede landing; conflicts and failed checks return to the author.
-- **Product basis:** Integration worktrees · Waiting for a landing turn · Landing after a selected submission · Accept.
+- **Product basis:** Integration worktrees · Waiting for a landing turn · Landing after a selected submission · Join the landing queue · Accept.
 
 ### Walk away mid-task and pick up where you left off
 
