@@ -22,7 +22,7 @@ export interface PageDocument {
   readonly description: string;
   /** Compositions-bundle stylesheet files, in load order. */
   readonly styles: readonly string[];
-  /** Page-owned deferred ECMAScript modules in the compositions bundle. */
+  /** Compositions-bundle deferred ECMAScript module files. */
   readonly scripts: readonly string[];
   /** Rendered static body markup. */
   readonly body: string;
@@ -57,9 +57,6 @@ export function pageDocument(page: PageDocument): string {
 ${styles}
 <link rel="stylesheet" href="${THEME_STYLESHEET_PATH}" />
 <script defer src="${THEME_SCRIPT_PATH}"></script>
-<script defer src="${
-    designSystemAssetPath("compositions", "discern.js")
-  }"></script>
 ${scripts}
 </head>
 <body>

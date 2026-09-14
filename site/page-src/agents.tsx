@@ -619,7 +619,7 @@ export function renderAgents(): string {
     title: AGENTS_TITLE,
     description: AGENTS_DESCRIPTION,
     styles: ["fonts.css", "discern.css", "agents.css"],
-    scripts: ["agents.js"],
+    scripts: ["discern.js", "agents.js"],
     body: renderToStaticMarkup(<AgentsPage />),
   });
 }
