@@ -104,7 +104,7 @@ Rendered line:
 
 Rendered line:
 
-> Before Accept, open More actions, then "Review changes" to inspect saved and unsaved work and the Proof for the checked commit.
+> Before "Accept", open More actions, then "Review changes" to inspect saved and unsaved work and the Proof for the checked commit.
 
 ## `grant-once-green`
 

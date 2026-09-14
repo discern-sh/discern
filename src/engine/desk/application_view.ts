@@ -191,7 +191,7 @@ export function deskApplicationView(
         literal(
           snapshot.tip ?? "A tip will appear after the first observation.",
         ),
-        "Read the manual from Desk commands for more information.",
+        'Read the manual from "Desk commands" for more information.',
       ]
       : page === "help"
       ? [

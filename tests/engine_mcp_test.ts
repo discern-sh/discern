@@ -1993,7 +1993,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       target: "config-reference",
       contentIncludes: "config reference",
       missingTarget: "config-referenc",
-      search: "review Proof and changes",
+      search: "Delegate substantial work",
       searchTarget: "10-guides/delegate-work",
     });
     const index = core.index;

@@ -1,11 +1,7 @@
 /**
- * `discern desk` and the bare-`discern` fall-through (ADR 0119): the desk is
- * gated by the shared interaction policy, so under the test harness — where stdio is always
- * piped, never a terminal — every invocation here must land on the
- * non-interactive side: structured refusals for `desk`, byte-boring help for
- * bare `discern`. The interactive branch itself is exercised by the pure model
- * suite (`engine_desk_model_test.ts`); these tests pin the class "no pipe, CI
- * run, or agent harness can ever wander into the interactive surface".
+ * CLI entry contracts for Desk and a minimal real application journey.
+ * Piped, CI and nested sessions retain their non-interactive entry contracts;
+ * the PTY case exercises package region navigation and terminal restoration.
  */
 
 import {
@@ -15,7 +11,13 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
-import { runAgent, runAgentPty, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  gitInit,
+  runAgent,
+  runAgentPtyJourney,
+  scaffoldEngine,
+} from "./engine_helpers.ts";
+import { applicationFrameReady } from "./fixtures/terminal_application_capture.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
@@ -79,25 +81,32 @@ Deno.test("desk without a TTY: refuses with a pointer at status", async () => {
 });
 
 realPtyTest({
-  name: "discern desk opens its production grouped interaction on a real PTY",
+  name: "discern desk opens its production application on a real PTY",
   contracts: ["line-discipline", "terminal-modes", "control-rendering"],
   canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
-      const r = await runAgentPty(dir, ["desk"], {
-        // The empty fleet exposes Start, docs, Refresh, and Quit. Select's End
-        // navigation reaches the final semantic option without counting group
-        // headings as choices.
-        input: "\x1b[F\r",
+      await gitInit(dir);
+      const geometry = { columns: 80, rows: 24 };
+      const r = await runAgentPtyJourney(dir, ["desk"], {
+        geometry,
+        input: [{
+          waitFor: applicationFrameReady(geometry, "No tasks yet"),
+          steps: [{ bytes: "\t" }],
+        }, {
+          waitFor: applicationFrameReady(geometry, "Desk commands"),
+          steps: [{ bytes: "\x1b[F\r" }],
+        }],
       });
-      assertEquals(r.code, 0, r.output);
-      assertTerminalTextIncludes(r.output, "Choose a desk command");
-      assertStringIncludes(r.output, "DESK");
-      assertStringIncludes(r.output, "SESSION");
-      assertTerminalTextIncludes(r.output, "› [●] Quit");
-      assertStringIncludes(r.output, "\x1b[?25h");
+      assertEquals(r.code, 0, r.transcript);
+      assertTerminalTextIncludes(r.transcript, "No tasks yet");
+      assertTerminalTextIncludes(r.transcript, "Desk commands");
+      assertTerminalTextIncludes(r.transcript, "Quit");
+      assertStringIncludes(r.transcript, "\x1b[?1049h");
+      assertStringIncludes(r.transcript, "\x1b[?1049l");
+      assertStringIncludes(r.transcript, "\x1b[?25h");
     });
   },
 });

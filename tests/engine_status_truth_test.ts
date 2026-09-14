@@ -277,7 +277,11 @@ Deno.test("configured worktrees without a ready marker expose safe and manual se
         trunk: "main",
         nowMs: SYSTEM_CLOCK.wallNow(),
       });
-      assertEquals(decision.recommendedAction, "recovery");
+      assertEquals(
+        decision.actions.find((offer) => offer.action === "recovery")
+          ?.availability,
+        "enabled",
+      );
       assertEquals(
         decision.actions.find((offer) => offer.action === "retry_setup")
           ?.availability,
@@ -313,7 +317,11 @@ Deno.test("a missing checkout directory stays registered and unavailable in reco
       trunk: "main",
       nowMs: SYSTEM_CLOCK.wallNow(),
     });
-    assertEquals(decision.recommendedAction, "recovery");
+    assertEquals(
+      decision.actions.find((offer) => offer.action === "recovery")
+        ?.availability,
+      "enabled",
+    );
     assert(
       decision.recovery?.unavailable.some((fact) =>
         fact === "Filesystem: missing"

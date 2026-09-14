@@ -314,7 +314,7 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["accept", "proof"],
     example: undefined,
     template: (): string =>
-      'Before Accept, open More actions, then "Review changes" to inspect ' +
+      'Before "Accept", open More actions, then "Review changes" to inspect ' +
       "saved and unsaved work and the Proof for the checked commit.",
   }),
 
