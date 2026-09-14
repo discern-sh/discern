@@ -304,3 +304,22 @@ Deno.test("every operation policy keeps project execution outside common publica
     ["unrelated"],
   );
 });
+
+Deno.test("accept queue-only owns submission publication without landing or Git-write authority", () => {
+  const queued = operationEffectPolicy("accept", { flags: ["queue-only"] });
+  assertEquals(queued?.effects, [
+    "discern-checkout-mutation",
+    "discern-common-mutation",
+  ]);
+  assertEquals(queued?.lock, "phased");
+  assertEquals(queued?.gitWriteAuthority, "none");
+  assertEquals(
+    operationEffectPolicy("accept", { flags: ["queue-only"], dryRun: true })
+      ?.lock,
+    "none",
+  );
+  assertEquals(
+    operationEffectPolicy("accept")?.effects,
+    OPERATION_EFFECTS.accept.effects,
+  );
+});

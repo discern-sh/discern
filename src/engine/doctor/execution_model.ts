@@ -9,7 +9,7 @@
  *    ({@link buildGatePlan}, {@link buildPreparePlan}, {@link stageGroup},
  *    {@link buildStandardPlan}) — a test asserts they are byte-derived, so they can
  *    never drift from what the gate actually runs;
- *  - `update`, `accept`, and `submit` use representative inputs with their REAL
+ *  - `update` and both `accept` modes use representative inputs with their REAL
  *    pure plan projections. Runtime identities stay descriptive, while those ordered
  *    operation cores and project commands cannot drift from execution. Worktree verbs
  *    without a complete projection retain a config-derived conditional model.
@@ -573,7 +573,7 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
 }
 
 /** Queue admission uses the same pure projection as the public submission operation. */
-function submitVerb(): VerbPlan {
+function queueAcceptanceVerb(): VerbPlan {
   const projected = submissionPlanToEngine({
     path: "the worktree directory",
     branch: "the worktree branch",
@@ -582,7 +582,7 @@ function submitVerb(): VerbPlan {
     unchanged: false,
   });
   return {
-    verb: "submit",
+    verb: "accept --queue-only",
     when:
       "When joining the landing queue with a clean, proven revision. Revalidate Proof and required decisions; record the submission without starting checks or landing.",
     steps: projected.steps.map((planned) =>
@@ -647,7 +647,7 @@ export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
     ensureVerb(cfg),
     updateVerb(cfg),
     acceptVerb(cfg),
-    submitVerb(),
+    queueAcceptanceVerb(),
     pruneVerb(cfg),
   ];
 }

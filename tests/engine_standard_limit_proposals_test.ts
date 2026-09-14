@@ -305,9 +305,13 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
       await gitOut(worktree, "branch", "--show-current"),
       "2026-09-12T10:00:00.000Z",
     );
-    const queueStop = await runAgent(worktree, ["submit", "--json"]);
+    const queueStop = await runAgent(worktree, [
+      "accept",
+      "--queue-only",
+      "--json",
+    ]);
     assertEquals(queueStop.code, 1, queueStop.output);
-    const queueRefusal = decodeCliResult(queueStop.stdout, "submit");
+    const queueRefusal = decodeCliResult(queueStop.stdout, "accept");
     assertEquals(queueRefusal.error, "awaiting_standard_approval");
     assertStringIncludes(queueRefusal.message ?? "", "Approval token:");
     assertEquals((await readSubmission(worktree)).status, "missing");

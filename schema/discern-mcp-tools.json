@@ -234,21 +234,22 @@
     },
     {
       "name": "discern_accept",
-      "title": "Submit and land the worktree",
-      "description": "Submit this effort's proven commit and land it on the selected project's configured trunk. Land only with explicit owner consent or machine-verified authority; without either, the call records the submission, re-serves the review moment, and lands nothing. Landing fast-forwards the trunk to the proven commit, records its Proof note, converges the main checkout, and removes the worktree, branch, and resources once nothing beyond it remains. A trunk that moved after the Proof is composed and re-proven in a disposable integration worktree, then landed as that commit; a conflict or red combined check returns to the author, nothing changed. A checkpoint question about the combined result stops read-only and retains the composition: answer with met (or unmet with why) to continue the same landing — no author-side update is owed. A second accept waits its turn. With target, the remaining queue lands after the selected submission under recorded grants, stopping at the first refusal; data.landings reports each attempt. Recorded grants never cover a checkpoint variance or standard proposal. Set dry_run to preview the landing plan and queue. After success, report what landed and any unresolved cleanup in your own words, ending with data.proof_line verbatim; the full review page remains available through `discern status --verbose`. Use action: emergency with a reason for an explicit exception against actual trunk. prepare: true with met records served judgments; pass its receipt to the read-only plan. The preview lists failed, unrun, and stale obligations; owner approval names its current confirmation token with confirmed; no ordinary grant covers it. The exception stays durable, outstanding validation visible; no passing Proof is issued. Use recover with the emergency landing id for interrupted transitions. Neither route pushes.",
+      "title": "Accept or queue the worktree",
+      "description": "By default, submit the proven commit and start landing on the selected project's configured trunk under explicit owner consent or machine-verified authority. Without either, the call records the submission and returns awaiting consent. With action: queue, record the current clean, proven revision and return without checks or landing. Queueing reuses recorded authority, grants no permission and schedules nothing; an active walk may pick it up immediately. Ordinary accept with target starts a walk: the selected submission first, then other authorized submissions in queue order, stopping at refusal. data.landings records each attempt. A trunk that moved after the Proof is composed and re-proven in a disposable integration worktree; conflicts or failed checks land nothing. A served integration question retains that composition: answer with met or unmet and its composition receipt. Landing records the Proof note and removes the worktree, branch and resources when no later work remains. A second accept waits its turn. Recorded grants never cover a checkpoint variance or standard proposal. Use dry_run to preview the selected mode. After landing, report the effects and unresolved cleanup, ending with data.proof_line verbatim. Use action: emergency with reason for an explicit exception. prepare with met records served judgments; preparation carries its receipt. Review the failed, unrun and stale obligations, then pass the owner's exact confirmation token with confirmed. No grant covers this exception and no passing Proof is issued. recover reconciles an interrupted emergency landing. No mode pushes.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
           "target": {
-            "description": "Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with confirmed.",
+            "description": "Select the effort by id, path, or branch, from any checkout. Queue mode records its current proven revision; ordinary acceptance starts landing under applicable authority.",
             "type": "string"
           },
           "action": {
-            "description": "Omit for ordinary landing. Select emergency only for an explicit exception with fresh exact owner approval; ordinary grants do not cover it.",
+            "description": "Omit to submit and start landing. Select queue to record the current proven revision and return without starting checks or landing; it reuses recorded authority and starts no background run. Select emergency only for an explicit exception with fresh exact owner approval; ordinary grants do not cover it.",
             "type": "string",
             "enum": [
-              "emergency"
+              "emergency",
+              "queue"
             ]
           },
           "reason": {
@@ -696,30 +697,6 @@
         "readOnlyHint": true,
         "idempotentHint": true,
         "openWorldHint": false
-      }
-    },
-    {
-      "name": "discern_submit",
-      "title": "Join the landing queue",
-      "description": "Record this effort's current proven revision in the landing queue without starting checks, landing, or a background run. Reuses recorded authority without consuming or creating it. Missing checkpoint or standard decisions remain separate prerequisites. An active or later acceptance walk can pick it up; use discern_accept with target to start a walk.",
-      "inputSchema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "dry_run": {
-            "description": "Review the revision and authority; touch nothing.",
-            "type": "boolean"
-          },
-          "path": {
-            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "annotations": {
-        "readOnlyHint": false,
-        "destructiveHint": true
       }
     }
   ]

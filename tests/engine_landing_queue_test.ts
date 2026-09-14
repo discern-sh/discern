@@ -463,9 +463,9 @@ Deno.test("an effort grant never covers a declared-unmet variance", async () => 
       0,
     );
 
-    const queueStop = await runAgent(wt, ["submit", "--json"]);
+    const queueStop = await runAgent(wt, ["accept", "--queue-only", "--json"]);
     assertEquals(queueStop.code, 1, queueStop.output);
-    const queueRefusal = decodeCliResult(queueStop.stdout, "submit");
+    const queueRefusal = decodeCliResult(queueStop.stdout, "accept");
     assertEquals(queueRefusal.error, "awaiting_variance");
     assertStringIncludes(queueRefusal.message ?? "", "api-review");
     assertEquals((await readSubmission(wt)).status, "missing");

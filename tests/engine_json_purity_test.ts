@@ -469,10 +469,10 @@ const START_CASE: PurityCase = {
 
 const LIFECYCLE_CASES: readonly LifecycleCase[] = [
   {
-    commandPath: "submit",
-    envelopeVerb: "submit",
+    commandPath: "accept",
+    envelopeVerb: "accept",
     cwd: "worktree",
-    args: () => ["submit"],
+    args: () => ["accept", "--queue-only"],
   },
   {
     commandPath: "update",

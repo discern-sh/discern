@@ -862,7 +862,7 @@ export const DESK_ACTION_REGISTRY = {
     label: (_context: DeskActionLabelContext): string =>
       "Join the landing queue",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
-      argv: ["discern", "submit"],
+      argv: ["discern", "accept", "--queue-only"],
       workingDirectory: "task",
     }),
     consequence: (_context: DeskActionLabelContext): DeskConsequence =>

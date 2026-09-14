@@ -87,9 +87,9 @@ Proof, permission, and submission are independent. A green effort can be **Prove
 
 **Accept and land now** reviews the proven revision, submits it, and starts acceptance. Another landing may hold the turn. A moved trunk requires the existing integration checks; a refusal stops the walk. After the selected task lands, acceptance considers the other submissions under their own grants.
 
-**Join the landing queue** calls `discern submit`. It records the reviewed revision and reuses an existing grant. If unattended landing needs permission, the flow reviews queueing and then asks for the separate effort grant. It runs no checks and starts no landing or scheduled task. An active or later walk can pick it up; **Accept** or `discern accept --target <branch>` starts a walk.
+**Join the landing queue** calls `discern accept --queue-only`. It records the reviewed revision and reuses an existing grant. If unattended landing needs permission, the flow reviews queueing and then asks for the separate effort grant. It runs no checks and starts no landing or scheduled task. An active or later walk can pick it up; **Accept** or `discern accept --target <branch>` starts a walk.
 
-The queue displays its submitted commit even when the branch has newer Proof. A new commit or `done` does not replace it. Explicit resubmission requires current, complete Proof and a clean checkout. Same-revision queueing keeps its order. Checkpoint and standard decisions retain their exact requirements; an ordinary grant cannot supply them. [ADR 0399](../_adr/0399-submit-records-a-proven-revision-without-starting-landing.md) records the shared boundary.
+The queue displays its submitted commit even when the branch has newer Proof. A new commit or `done` does not replace it. Explicit resubmission requires current, complete Proof and a clean checkout. Same-revision queueing keeps its order. Checkpoint and standard decisions retain their exact requirements; an ordinary grant cannot supply them. [ADR 0399](../_adr/0399-acceptance-can-queue-without-starting-landing.md) records the shared boundary.
 
 ## Review effects before confirming
 

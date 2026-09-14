@@ -8695,175 +8695,6 @@ export type DiscernWorktreeEnsureResult = DiscernResultState & {
   };
 };
 
-export type DiscernSubmitResult = DiscernResultState & {
-  ok: boolean;
-  dry_run?: boolean;
-  plan?: {
-    title: string;
-    details: Array<string>;
-    steps: Array<{
-      kind:
-        | "job"
-        | "scope-gate"
-        | "merge-check"
-        | "standards-limits-check"
-        | "tracked-artifacts-check"
-        | "instructions-check"
-        | "skills-check"
-        | "tracked-refresh-check"
-        | "resource-create"
-        | "resource-destroy"
-        | "git"
-        | "task-metadata"
-        | "setup-step"
-        | "repository-ensure"
-        | "checkout-clean-check"
-        | "setup-ensure"
-        | "env"
-        | "refresh"
-        | "tidy"
-        | "standard";
-      label: string;
-      disposition: "run" | "skip" | "gate";
-      note?: string;
-      group?: string;
-    }>;
-  };
-  steps?: Array<{
-    kind:
-      | "job"
-      | "scope-gate"
-      | "merge-check"
-      | "standards-limits-check"
-      | "tracked-artifacts-check"
-      | "instructions-check"
-      | "skills-check"
-      | "tracked-refresh-check"
-      | "resource-create"
-      | "resource-destroy"
-      | "git"
-      | "task-metadata"
-      | "setup-step"
-      | "repository-ensure"
-      | "checkout-clean-check"
-      | "setup-ensure"
-      | "env"
-      | "refresh"
-      | "tidy"
-      | "standard";
-    label: string;
-    disposition: "run" | "skip" | "gate";
-    note?: string;
-    group?: string;
-    outcome: "ok" | "failed" | "skipped" | "cancelled";
-    advisory?: {
-      kind:
-        | "acceptance-cleanup-incomplete"
-        | "checkpoint-evidence-dropped"
-        | "checkout-clean-observation-unavailable"
-        | "doctor-warning"
-        | "execution-cap-unavailable"
-        | "generated-attribute-pattern-untranslated"
-        | "ignored-file-observation-unavailable"
-        | "landing-authority-unverified"
-        | "optional-resource-unavailable"
-        | "proof-recording-unavailable"
-        | "setup-unproven-completion"
-        | "setup-machinery-commit-failed"
-        | "setup-marker-commit-failed"
-        | "standards-limits-unverified"
-        | "uninstall-strip-incomplete";
-      evidence: Array<string>;
-      next_action: string;
-    };
-    duration_s?: number;
-    output_path?: string;
-    output_lines?: number;
-    error_like_lines?: number;
-  }>;
-  waited_ms?: number;
-  diagnostics?: Array<{
-    tool: string;
-    severity: "error" | "warning";
-    message: string;
-    reproduce_cmd: string;
-    output?: string;
-    truncated?: boolean;
-    output_path?: string;
-    file?: string;
-    line?: number;
-    col?: number;
-    rule?: string;
-    fix_available?: boolean;
-  }>;
-  diagnostic_evidence?: {
-    path: string;
-    digest: string;
-    bytes: number;
-    total: number;
-    shown: number;
-    repeats: Array<number>;
-  };
-  hints?: Array<string>;
-  advisories?: Array<{
-    kind:
-      | "acceptance-cleanup-incomplete"
-      | "checkpoint-evidence-dropped"
-      | "checkout-clean-observation-unavailable"
-      | "doctor-warning"
-      | "execution-cap-unavailable"
-      | "generated-attribute-pattern-untranslated"
-      | "ignored-file-observation-unavailable"
-      | "landing-authority-unverified"
-      | "optional-resource-unavailable"
-      | "proof-recording-unavailable"
-      | "setup-unproven-completion"
-      | "setup-machinery-commit-failed"
-      | "setup-marker-commit-failed"
-      | "standards-limits-unverified"
-      | "uninstall-strip-incomplete";
-    evidence: Array<string>;
-    next_action: string;
-  }>;
-  error?: string;
-  message?: string;
-  verb: "submit";
-  data?: {
-    path: string;
-    branch: string;
-    head: string;
-    proof: {
-      candidate_id: string;
-      proof_id: string;
-    };
-    state: "planned" | "queued";
-    authority: {
-      kind: "authorized" | "conversation-required";
-      source?: "conversation" | "standing-grant" | "effort-grant";
-      scopes?: Array<string>;
-      standing_scopes?: Array<string>;
-      uncovered?: Array<{
-        path: string;
-        scopes: Array<string>;
-        generated?: boolean;
-      }>;
-      uncovered_scopes?: Array<string>;
-      uncovered_unscoped_total?: number;
-      uncovered_generated_total?: number;
-      warnings?: Array<string>;
-    };
-    replaces?: string;
-    submission_id?: string;
-    submitted_at?: string;
-  } | {
-    issues: Array<{
-      kind?: "unknown_root_section";
-      path: string;
-      message: string;
-    }>;
-  };
-};
-
 export type DiscernAcceptResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -9006,6 +8837,27 @@ export type DiscernAcceptResult = DiscernResultState & {
         candidate_id: string;
         proof_id: string;
       };
+    };
+    submission?: {
+      state: "planned" | "queued";
+      authority: {
+        kind: "authorized" | "conversation-required";
+        source?: "conversation" | "standing-grant" | "effort-grant";
+        scopes?: Array<string>;
+        standing_scopes?: Array<string>;
+        uncovered?: Array<{
+          path: string;
+          scopes: Array<string>;
+          generated?: boolean;
+        }>;
+        uncovered_scopes?: Array<string>;
+        uncovered_unscoped_total?: number;
+        uncovered_generated_total?: number;
+        warnings?: Array<string>;
+      };
+      replaces?: string;
+      submission_id?: string;
+      submitted_at?: string;
     };
     checkpoint_preparation?: {
       policy?: string;
@@ -11208,7 +11060,6 @@ export type DiscernCliJsonResult =
   | DiscernStartResult
   | DiscernWorktreeRenameResult
   | DiscernWorktreeEnsureResult
-  | DiscernSubmitResult
   | DiscernAcceptResult
   | DiscernUpdateResult
   | DiscernIdentityResult
@@ -11263,7 +11114,6 @@ export interface DiscernResultByVerb {
   start: DiscernStartResult;
   "worktree rename": DiscernWorktreeRenameResult;
   "worktree ensure": DiscernWorktreeEnsureResult;
-  submit: DiscernSubmitResult;
   accept: DiscernAcceptResult;
   update: DiscernUpdateResult;
   identity: DiscernIdentityResult;
@@ -11329,7 +11179,6 @@ export interface DiscernResultByCommand {
   start: DiscernStartResult;
   "worktree rename": DiscernWorktreeRenameResult;
   "worktree ensure": DiscernWorktreeEnsureResult;
-  submit: DiscernSubmitResult;
   accept: DiscernAcceptResult;
   update: DiscernUpdateResult;
   identity: DiscernIdentityResult;
@@ -11378,7 +11227,6 @@ export interface DiscernMcpStructuredContentByTool {
   discern_patterns: DiscernPatternsResult;
   discern_status: DiscernStatusResult;
   discern_start: DiscernStartResult;
-  discern_submit: DiscernSubmitResult;
   discern_accept: DiscernAcceptResult;
   discern_update: DiscernUpdateResult;
 }
@@ -11404,7 +11252,6 @@ export interface DiscernMcpToolResultByTool {
   discern_patterns: DiscernMcpToolResult<DiscernPatternsResult>;
   discern_status: DiscernMcpToolResult<DiscernStatusResult>;
   discern_start: DiscernMcpToolResult<DiscernStartResult>;
-  discern_submit: DiscernMcpToolResult<DiscernSubmitResult>;
   discern_accept: DiscernMcpToolResult<DiscernAcceptResult>;
   discern_update: DiscernMcpToolResult<DiscernUpdateResult>;
 }
@@ -11428,7 +11275,6 @@ export type DiscernMcpStructuredContent =
   | DiscernPatternsResult
   | DiscernStatusResult
   | DiscernStartResult
-  | DiscernSubmitResult
   | DiscernAcceptResult
   | DiscernUpdateResult;
 
@@ -11451,7 +11297,6 @@ export type DiscernMcpJsonResult =
   | DiscernPatternsMcpToolResult
   | DiscernStatusMcpToolResult
   | DiscernStartMcpToolResult
-  | DiscernSubmitMcpToolResult
   | DiscernAcceptMcpToolResult
   | DiscernUpdateMcpToolResult;
 
@@ -11517,10 +11362,6 @@ export type DiscernStatusMcpToolResult = DiscernMcpToolResult<
 
 export type DiscernStartMcpToolResult = DiscernMcpToolResult<
   DiscernStartResult
->;
-
-export type DiscernSubmitMcpToolResult = DiscernMcpToolResult<
-  DiscernSubmitResult
 >;
 
 export type DiscernAcceptMcpToolResult = DiscernMcpToolResult<

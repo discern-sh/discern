@@ -115,6 +115,11 @@ function policy(
   };
 }
 
+const ACCEPT_QUEUE = policy(
+  ["discern-checkout-mutation", "discern-common-mutation"],
+  "phased",
+  "required",
+);
 const OBSERVATION = policy(["observation"], "none", "none");
 const CHECKOUT_REQUIRED = policy(
   ["discern-checkout-mutation"],
@@ -146,11 +151,6 @@ export const OPERATION_EFFECTS = {
       "project-command",
       "external-setup",
     ],
-    "phased",
-    "required",
-  ),
-  submit: policy(
-    ["discern-checkout-mutation", "discern-common-mutation"],
     "phased",
     "required",
   ),
@@ -475,10 +475,12 @@ export function operationEffectPolicy(
 ):
   | (OperationEffectPolicy & { readonly lock: OperationLockBoundary })
   | undefined {
-  const policy = OPERATION_EFFECTS[command as keyof typeof OPERATION_EFFECTS] ??
-    INTERACTIVE_OPERATION_EFFECTS[
-      command as keyof typeof INTERACTIVE_OPERATION_EFFECTS
-    ];
+  const policy = command === "accept" && facts.flags?.includes("queue-only")
+    ? ACCEPT_QUEUE
+    : OPERATION_EFFECTS[command as keyof typeof OPERATION_EFFECTS] ??
+      INTERACTIVE_OPERATION_EFFECTS[
+        command as keyof typeof INTERACTIVE_OPERATION_EFFECTS
+      ];
   if (policy === undefined) return undefined;
   const lock = facts.dryRun === true ||
       (policy.lockWhen !== undefined &&

@@ -13,21 +13,18 @@ export {
   type LandingSubject,
 } from "./accept_subject.ts";
 /**
- * `discern accept`: submit this effort's proven revision and land it.
+ * Accept a proven revision, or record it with --queue-only without starting landing.
  *
- * The verb runs in the effort's own checkout, or selects one with `--target`.
- * It records the submission beside the effort grant, then, once authority
- * covers the landing, fast-forwards the trunk to the exact proven commit under
- * the acceptance transaction (journal, compare-and-swap, marker ref), records
- * the Proof note, converges the main checkout, and removes the effort's
- * resources, checkout, and branch when the branch holds nothing beyond the
- * landed revision. A revision is proven when its complete Proof names the
- * trunk's current tip as its predecessor; a moved trunk refuses with the
- * update route. Nothing here installs a revision into any checkout: the
- * effort's checkout is read, the main checkout converges to the trunk it
- * advanced, and no other checkout is touched.
+ * The invoking checkout or --target selects the effort. Queue-only admission
+ * rechecks its current clean revision and complete Proof under checkout and
+ * publication ownership. Ordinary acceptance freezes the submission, verifies
+ * authority, and lands it under the acceptance transaction. A moved trunk is
+ * composed and proven in a disposable integration worktree; author work stays
+ * outside that snapshot. Landing records the Proof note, converges the main
+ * checkout, and removes the effort only when no later work remains.
  */
 
+import { loadModule } from "../../shared/module_loading.ts";
 import { loggerSink } from "../../lib/log.ts";
 import { terminalLine } from "../../lib/terminal.ts";
 import {
@@ -193,6 +190,8 @@ import { type SubmissionRow, submissionRows } from "./submissions_view.ts";
 
 /** The landing request, as the CLI, MCP, and desk hand it over. */
 export interface AcceptRequest {
+  /** Record the current proven revision without starting a landing walk. */
+  readonly queueOnly?: boolean;
   /** The person's reviewed revision, revalidated before effects and after any wait. */
   readonly expected?: SubmissionRevision;
   /** Select the effort by id, path, branch, or full local ref. */
@@ -1918,6 +1917,12 @@ export async function acceptLandingResult(
   ctx: LifecycleContext,
   request: AcceptRequest,
 ): Promise<DiscernResult<AcceptData>> {
+  if (request.queueOnly) {
+    const { queueAcceptanceResult } = await loadModule(() =>
+      import("./queue_acceptance.ts")
+    );
+    return await queueAcceptanceResult(ctx, request);
+  }
   const run = async (
     operationHandle?: string,
   ): Promise<DiscernResult<AcceptData>> => {

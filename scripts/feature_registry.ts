@@ -786,19 +786,19 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "The project can keep moving while finished work finds its way into the shared version.",
         },
-        surfaces: ["verb:accept", "verb:submit"],
+        surfaces: ["verb:accept"],
         children: [
           {
             id: "submission-only",
             title: "Join the landing queue",
             what:
-              "`discern submit` records a clean, proven revision without running checks, taking the landing turn, consuming a grant, or starting a walk. Its read-only plan names the exact revision and authority. Applying rechecks both and preserves the order of an unchanged submission. An ordinary grant never authorizes a checkpoint variance or standard proposal.",
+              "`discern accept --queue-only` records a clean, proven revision without running checks, taking the landing turn, consuming a grant, or starting a walk. Its read-only plan names the exact revision and authority. Applying rechecks both and preserves the order of an unchanged submission. An ordinary grant never authorizes a checkpoint variance or standard proposal.",
             why:
               "The owner can queue green work after its agent has stopped, with submission, Proof, and permission remaining separate facts.",
             plain: {
               title: "Queue checked work",
               what:
-                "Choose Join the landing queue in the desk, or run `discern submit` from the task's copy, to record the version you want shared. This does not start a background job. An active or later Accept can pick it up with the required permission.",
+                "Choose Join the landing queue in the desk, or run `discern accept --queue-only` from the task's copy, to record the version you want shared. This does not start a background job. An active or later Accept can pick it up with the required permission.",
               why:
                 "Finished work can wait visibly without restarting its coding agent or repeating its checks.",
             },

@@ -1672,8 +1672,20 @@ export const SubmissionRevisionSchema = z.strictObject({
 });
 export type SubmissionRevision = z.infer<typeof SubmissionRevisionSchema>;
 
+/** Queue admission observes authority without starting or promising a landing. */
+const QueueSubmissionDataSchema = z.strictObject({
+  state: z.enum(["planned", "queued"]),
+  authority: LandingAuthorityDataSchema,
+  replaces: z.string().optional(),
+  submission_id: z.string().optional(),
+  submitted_at: z.string().optional(),
+});
+export type QueueSubmissionData = z.infer<typeof QueueSubmissionDataSchema>;
+
 export const AcceptDataSchema = z.strictObject({
   revision: SubmissionRevisionSchema.optional(),
+  /** Present for accept --queue-only / MCP action: queue. */
+  submission: QueueSubmissionDataSchema.optional(),
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),
   /** Present on a judgment or variance stop over a retained composition. */
   integration_judgment: IntegrationJudgmentSchema.optional(),
@@ -3544,20 +3556,6 @@ export const StartOutputSchema = resultOutputSchema("start", StartDataSchema);
 export const TaskRenameOutputSchema = resultOutputSchema(
   "worktree rename",
   TaskRenameDataSchema,
-);
-
-/** Submission records a revision and observes authority; it starts no landing. */
-export const SubmitDataSchema = SubmissionRevisionSchema.extend({
-  state: z.enum(["planned", "queued"]),
-  authority: LandingAuthorityDataSchema,
-  replaces: z.string().optional(),
-  submission_id: z.string().optional(),
-  submitted_at: z.string().optional(),
-});
-export type SubmitData = z.infer<typeof SubmitDataSchema>;
-export const SubmitOutputSchema = resultOutputSchema(
-  "submit",
-  SubmitDataSchema,
 );
 
 /** `accept` output: the reviewed revision on a preview and landing evidence on apply. */

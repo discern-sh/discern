@@ -29,7 +29,7 @@ function mainRuntime(patch: Partial<DeskRuntime>): DeskRuntime {
           })),
         }),
     docs: () => 0,
-    submit: () => ({ ok: false, verb: "submit", error: "precondition_failed" }),
+    submit: () => ({ ok: false, verb: "accept", error: "precondition_failed" }),
     canInteract: unrelated,
     inDeskSession: unrelated,
     findRoot: unrelated,

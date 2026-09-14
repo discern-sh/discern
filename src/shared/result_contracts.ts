@@ -56,7 +56,6 @@ import {
   StandardsProposeOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
-  SubmitOutputSchema,
   TaskRenameOutputSchema,
   TestOutputSchema,
   TidyOutputSchema,
@@ -452,14 +451,6 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "worktree ensure",
     schema: WorktreeEnsureOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
-  },
-  {
-    id: "submit",
-    commands: ["submit"],
-    verb: "submit",
-    schema: SubmitOutputSchema,
-    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
-    mcpTool: "discern_submit",
   },
   {
     id: "accept",

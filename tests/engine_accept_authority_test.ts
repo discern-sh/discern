@@ -1282,7 +1282,8 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
 
       const submissionBefore = await readSubmission(worktree);
       const queuedDuringLanding = await runAgent(worktree, [
-        "submit",
+        "accept",
+        "--queue-only",
         "--json",
       ]);
       assertEquals(queuedDuringLanding.code, 1, queuedDuringLanding.output);

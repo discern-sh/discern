@@ -1,8 +1,10 @@
-import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
+import {
+  EMERGENCY_ACCEPT_ACTION,
+  QUEUE_ACCEPT_ACTION,
+} from "../../shared/verbs.ts";
 import { emergencyArguments } from "../emergency/arguments.ts";
 import { type EmergencyOptions, emergencyResult } from "../emergency/action.ts";
 import { acceptLandingResult } from "../worktree/accept.ts";
-import { submitResult } from "../worktree/submit.ts";
 import {
   type CompletionProgressNotification,
   withMcpCompletionProgress,
@@ -113,7 +115,6 @@ import {
   type StartData,
   StartOutputSchema,
   StatusOutputSchema,
-  SubmitOutputSchema,
   TestOutputSchema,
   UpdateOutputSchema,
 } from "../../shared/result_schemas.ts";
@@ -1087,66 +1088,31 @@ export const TOOLS: McpTool[] = orderTools([
       }),
   }),
   defineTool({
-    name: "discern_submit",
-    title: "Join the landing queue",
-    outputSchema: SubmitOutputSchema,
-    annotations: DESTRUCTIVE,
-    description:
-      "Record this effort's current proven revision in the landing queue without starting checks, landing, or a background run. Reuses recorded authority without consuming or creating it. Missing checkpoint or standard decisions remain separate prerequisites. An active or later acceptance walk can pick it up; use discern_accept with target to start a walk.",
-    inputSchema: {
-      dry_run: z.boolean().optional().describe(
-        "Review the revision and authority; touch nothing.",
-      ),
-      ...PATH_PARAM,
-    },
-    run: async (root, args, signal) =>
-      submitResult(
-        await lifecycleContext(root, new Logger({ json: true, noColor: true })),
-        {
-          dryRun: args.dry_run === true,
-          ...(signal === undefined ? {} : { signal }),
-        },
-      ),
-  }),
-  defineTool({
     name: "discern_accept",
-    title: "Submit and land the worktree",
+    title: "Accept or queue the worktree",
     outputSchema: AcceptOutputSchema,
     annotations: DESTRUCTIVE,
-    description: "Submit this effort's proven commit and land it on the " +
-      "selected project's configured trunk. Land only with explicit owner " +
-      "consent or machine-verified authority; without either, the call records " +
-      "the submission, re-serves the review moment, and lands nothing. Landing " +
-      "fast-forwards the trunk to the proven commit, records its Proof note, " +
-      "converges the main checkout, and removes the worktree, branch, and " +
-      "resources once nothing beyond it remains. " +
-      "A trunk that moved after the Proof is composed and re-proven in a " +
-      "disposable integration worktree, then landed as that commit; a " +
-      "conflict or red combined check returns to the author, nothing changed. " +
-      "A checkpoint question about the combined result stops read-only and " +
-      "retains the composition: answer with met (or unmet with why) to " +
-      "continue the same landing — no author-side update is owed. " +
-      "A second accept waits its turn. With target, the remaining queue lands " +
-      "after the selected submission under recorded grants, stopping at the " +
-      "first refusal; data.landings reports each attempt. " +
-      "Recorded grants never cover a checkpoint variance or standard proposal. " +
-      "Set dry_run to preview the landing plan and queue. " +
-      "After success, report what landed and any unresolved cleanup in your own " +
-      "words, ending with data.proof_line verbatim; the full review page " +
-      "remains available through `discern status --verbose`. " +
-      "Use action: emergency with a reason for an explicit exception against actual trunk. " +
-      "prepare: true with met records served judgments; pass its receipt to the read-only plan. " +
-      "The preview lists failed, unrun, and stale obligations; owner approval " +
-      "names its current confirmation token with confirmed; no ordinary grant covers it. " +
-      "The exception stays durable, outstanding validation visible; no passing Proof is issued. " +
-      "Use recover with the emergency landing id for interrupted transitions. Neither route pushes.",
+    description:
+      "By default, submit the proven commit and start landing on the selected project's configured trunk under explicit owner consent or machine-verified authority. " +
+      "Without either, the call records the submission and returns awaiting consent. " +
+      "With action: queue, record the current clean, proven revision and return without checks or landing. " +
+      "Queueing reuses recorded authority, grants no permission and schedules nothing; an active walk may pick it up immediately. " +
+      "Ordinary accept with target starts a walk: the selected submission first, then other authorized submissions in queue order, stopping at refusal. data.landings records each attempt. " +
+      "A trunk that moved after the Proof is composed and re-proven in a disposable integration worktree; conflicts or failed checks land nothing. " +
+      "A served integration question retains that composition: answer with met or unmet and its composition receipt. " +
+      "Landing records the Proof note and removes the worktree, branch and resources when no later work remains. A second accept waits its turn. " +
+      "Recorded grants never cover a checkpoint variance or standard proposal. Use dry_run to preview the selected mode. " +
+      "After landing, report the effects and unresolved cleanup, ending with data.proof_line verbatim. " +
+      "Use action: emergency with reason for an explicit exception. prepare with met records served judgments; preparation carries its receipt. " +
+      "Review the failed, unrun and stale obligations, then pass the owner's exact confirmation token with confirmed. No grant covers this exception and no passing Proof is issued. recover reconciles an interrupted emergency landing. No mode pushes.",
     inputSchema: {
       target: z.string().optional().describe(
-        "Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with confirmed.",
+        "Select the effort by id, path, or branch, from any checkout. Queue mode records its current proven revision; ordinary acceptance starts landing under applicable authority.",
       ),
-      action: z.enum([EMERGENCY_ACCEPT_ACTION]).optional().describe(
-        "Omit for ordinary landing. Select emergency only for an explicit exception with fresh exact owner approval; ordinary grants do not cover it.",
-      ),
+      action: z.enum([EMERGENCY_ACCEPT_ACTION, QUEUE_ACCEPT_ACTION]).optional()
+        .describe(
+          "Omit to submit and start landing. Select queue to record the current proven revision and return without starting checks or landing; it reuses recorded authority and starts no background run. Select emergency only for an explicit exception with fresh exact owner approval; ordinary grants do not cover it.",
+        ),
       reason: z.string().optional().describe(
         "Emergency reason presented in the exact owner review.",
       ),
@@ -1220,10 +1186,14 @@ export const TOOLS: McpTool[] = orderTools([
         : undefined;
     },
     run: (root, args, signal, context) => {
-      const parsed = emergencyArguments(args.action, {
-        ...args,
-        dryRun: args.dry_run === true,
-      });
+      const parsed = emergencyArguments(
+        args.action === QUEUE_ACCEPT_ACTION ? undefined : args.action,
+        {
+          queueOnly: args.action === QUEUE_ACCEPT_ACTION,
+          ...args,
+          dryRun: args.dry_run === true,
+        },
+      );
       if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
       if (
         parsed.value.emergency !== undefined &&
@@ -1240,6 +1210,7 @@ export const TOOLS: McpTool[] = orderTools([
         );
       }
       return acceptToolResult(root, {
+        queueOnly: args.action === QUEUE_ACCEPT_ACTION,
         ...(parsed.value.emergency === undefined
           ? {}
           : { emergency: parsed.value.emergency }),
@@ -1439,6 +1410,7 @@ async function acceptToolResult(
   root: string,
   opts: {
     target?: string;
+    queueOnly?: boolean;
     emergency?: EmergencyOptions;
     signal?: AbortSignal;
     dryRun: boolean;
@@ -1463,6 +1435,7 @@ async function acceptToolResult(
       });
     }
     return await acceptLandingResult(ctx, {
+      ...(opts.queueOnly ? { queueOnly: true } : {}),
       ...(opts.target === undefined ? {} : { target: opts.target }),
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
       dryRun: opts.dryRun,
@@ -1755,6 +1728,10 @@ function mcpCallFacts(
     .map((k) => k.replaceAll("_", "-"))
     .sort();
   const targets = positionalNames.flatMap((name) => {
+    if (
+      verb === "accept" && name === "action" &&
+      args.action === QUEUE_ACCEPT_ACTION
+    ) return [];
     const value = args[name];
     if (typeof value === "string" && value !== "") return [value];
     if (Array.isArray(value)) {
@@ -1769,6 +1746,9 @@ function mcpCallFacts(
     args.target !== ""
   ) {
     targets.push(args.target);
+  }
+  if (verb === "accept" && args.action === QUEUE_ACCEPT_ACTION) {
+    names.push("queue-only");
   }
   const target = targets.length > 0 ? targets.join(" ") : undefined;
   return { flags: names.length > 0 ? names : undefined, target };

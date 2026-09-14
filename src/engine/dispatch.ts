@@ -938,29 +938,6 @@ export function attachEngineCommands(
     }));
 
   root
-    .command("submit")
-    .description(
-      "Join the landing queue with this worktree's current proven revision. Records the submission without starting checks or landing. An active or later acceptance walk can pick it up; run discern accept --target <effort> to start a walk.",
-    )
-    .option(
-      "--dry-run",
-      "Review the proven revision and authority; touch nothing.",
-    )
-    .action(recordedExit("submit", async (o) => {
-      const json = jsonFrom(o);
-      return await runWorktreeOp(async (ctx, lc) => {
-        const { submitResult } = await loadModule(() =>
-          import("./worktree/submit.ts")
-        );
-        lc.emitOrRenderWorktreeResult(
-          ctx,
-          await submitResult(ctx, { dryRun: o.dryRun ?? false }),
-          json,
-        );
-      }, { json, verb: "submit" });
-    }));
-
-  root
     .command("accept [action:string]")
     .description(
       `Submit this worktree's proven commit and land it on the trunk${trunkName}, ` +
@@ -974,10 +951,14 @@ export function attachEngineCommands(
         "--reason <text> to review an explicit exception against actual trunk. " +
         "Emergency integration requires fresh exact owner confirmation and issues no passing Proof.",
     )
-    .option("--dry-run", "Show the landing plan and the queue; touch nothing.")
+    .option("--dry-run", "Show the selected acceptance plan; touch nothing.")
+    .option(
+      "--queue-only",
+      "Record the current clean, proven revision in the landing queue and return without starting checks or landing. Reuses recorded authority; an active or later accept --target <effort> walk can pick it up.",
+    )
     .option(
       "--target <effort:string>",
-      "Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with --confirmed.",
+      "Select the effort by id, path, or branch, from any checkout. With --queue-only, record its current proven revision; otherwise start landing under applicable authority.",
     )
     .option(
       "--prepare",

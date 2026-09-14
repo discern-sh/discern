@@ -125,7 +125,7 @@ Pre-authorizing an effort alone does not queue a revision. After the agent has s
 
 A later edit makes the current Proof stale because the work no longer matches the checked commit. The agent renews that evidence before the new revision can be submitted.
 
-The command-line equivalent is `discern submit` from the proven worktree. Use `discern submit --dry-run` to review its revision and authority.
+The command-line equivalent is `discern accept --queue-only` from the proven worktree. Use `discern accept --queue-only --dry-run` to review its revision and authority.
 
 <!-- BEGIN DESK ACTION REGISTRY -->
 
@@ -135,7 +135,7 @@ The command-line equivalent is `discern submit` from the proven worktree. Use `d
 | `retry_setup`  | Manage | Retry setup                                                            | `discern worktree setup`             | No by default; Retry                                             |
 | `done`         | Work   | Run final checks                                                       | `discern done`                       | No by default; Run                                               |
 | `accept`       | Review | Accept and land now                                                    | `discern accept`                     | No by default; Land                                              |
-| `submit`       | Review | Join the landing queue                                                 | `discern submit`                     | No by default; Queue                                             |
+| `submit`       | Review | Join the landing queue                                                 | `discern accept --queue-only`        | No by default; Queue                                             |
 | `update`       | Manage | Update branch from &lt;trunk&gt;                                       | `discern update`                     | No by default; Update                                            |
 | `agent`        | Work   | Start or resume agent                                                  | `<configured-agent>`                 | None                                                             |
 | `follow_up`    | Work   | Start a follow-up from this task                                       | `discern start --from <branch>`      | None                                                             |

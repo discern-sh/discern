@@ -362,14 +362,18 @@ function scriptedRuntime(
     docs: () => 0,
     submit: (path, options) => ({
       ok: true,
-      verb: "submit",
+      verb: "accept",
       data: {
-        path,
-        branch: "agent/test",
-        head: "a".repeat(40),
-        proof: { candidate_id: "candidate", proof_id: "proof" },
-        state: options.dryRun ? "planned" : "queued",
-        authority: { kind: "authorized", source: "effort-grant" },
+        revision: {
+          path,
+          branch: "agent/test",
+          head: "a".repeat(40),
+          proof: { candidate_id: "candidate", proof_id: "proof" },
+        },
+        submission: {
+          state: options.dryRun ? "planned" : "queued",
+          authority: { kind: "authorized", source: "effort-grant" },
+        },
       },
     }),
     canInteract: () => true,
@@ -2467,14 +2471,18 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
           if (!options.dryRun) effects.push("submit");
           return {
             ok: true,
-            verb: "submit",
+            verb: "accept",
             data: {
-              path,
-              branch: "agent/test",
-              head: "a".repeat(40),
-              proof: { candidate_id: "candidate", proof_id: "proof" },
-              state: options.dryRun ? "planned" : "queued",
-              authority: { kind: "authorized" },
+              revision: {
+                path,
+                branch: "agent/test",
+                head: "a".repeat(40),
+                proof: { candidate_id: "candidate", proof_id: "proof" },
+              },
+              submission: {
+                state: options.dryRun ? "planned" : "queued",
+                authority: { kind: "authorized" },
+              },
             },
           };
         },

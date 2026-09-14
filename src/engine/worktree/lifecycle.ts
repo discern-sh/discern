@@ -278,7 +278,6 @@ import {
  * so a nested project root cannot safely create or land one.
  */
 export const WORKTREE_LIFECYCLE_REPO_ROOT_VERBS = [
-  "submit",
   "start",
   "accept",
 ] as const;

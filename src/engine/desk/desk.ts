@@ -45,7 +45,6 @@ import type {
   StartData,
   StatusData,
   SubmissionRevision,
-  SubmitData,
   TaskRenameData,
   UpdateData,
 } from "../../shared/result_schemas.ts";
@@ -156,7 +155,6 @@ import {
   grantEffort,
 } from "../worktree/effort_grant_writer.ts";
 import { acceptLandingResult } from "../worktree/accept.ts";
-import { submitResult } from "../worktree/submit.ts";
 import { userShell } from "../user_shell.ts";
 import {
   DESK_FILTER_THRESHOLD,
@@ -266,7 +264,7 @@ export interface DeskRuntime {
   submit(
     path: string,
     options: { dryRun?: boolean; expected?: SubmissionRevision },
-  ): DeskMaybePromise<DiscernResult<SubmitData>>;
+  ): DeskMaybePromise<DiscernResult<AcceptData>>;
   update(
     ctx: LifecycleContext,
     opts: { dryRun?: boolean },
@@ -612,10 +610,20 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   submit: (path, options) =>
     executeDeskOperation(
       path,
-      { command: "submit", ...(options.dryRun ? { dryRun: true } : {}) },
+      {
+        command: "accept",
+        flags: ["queue-only"],
+        ...(options.dryRun ? { dryRun: true } : {}),
+      },
       async (signal) =>
-        submitResult(await lifecycleContext(path, deskLogger()), {
+        acceptLandingResult(await lifecycleContext(path, deskLogger()), {
           ...options,
+          queueOnly: true,
+          dryRun: options.dryRun ?? false,
+          confirmed: false,
+          variance: [],
+          approveStandard: [],
+          met: [],
           signal,
         }),
     ),
@@ -2079,10 +2087,14 @@ async function dispatchAction(
     case "submit": {
       const preview = await runtime.submit(path, { dryRun: true });
       const plan = resultPlan(preview);
-      if (preview.data === undefined) {
+      if (
+        preview.data?.revision === undefined ||
+        preview.data.submission === undefined
+      ) {
         throw new Error("The submission plan returned no revision.");
       }
-      const needsAuthority = preview.data.authority.kind !== "authorized";
+      const needsAuthority =
+        preview.data.submission.authority.kind !== "authorized";
       const reviewedPlan = plan === undefined ? undefined : {
         ...plan,
         details: [
@@ -2097,7 +2109,7 @@ async function dispatchAction(
       if (
         !await review(
           reviewedPlan,
-          `Queue ${preview.data.head.slice(0, 12)} from ${branch}?`,
+          `Queue ${preview.data.revision.head.slice(0, 12)} from ${branch}?`,
         )
       ) return false;
       if (needsAuthority) {
@@ -2114,7 +2126,7 @@ async function dispatchAction(
         await verify();
         const current = await runtime.submit(path, {
           dryRun: true,
-          expected: preview.data,
+          expected: preview.data.revision,
         });
         resultPlan(current);
         await runtime.grantEffort(path, branch);
@@ -2122,7 +2134,9 @@ async function dispatchAction(
           `Pre-authorized ${branch}. Queueing the reviewed revision next.`,
         );
       }
-      const result = await runtime.submit(path, { expected: preview.data });
+      const result = await runtime.submit(path, {
+        expected: preview.data.revision,
+      });
       if (!result.ok) {
         throw new WorktreeGitError(
           result.message ?? "The revision was not queued.",

@@ -220,7 +220,6 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
     ],
     noOp: "not-applicable",
   }),
-  submit: effectPolicy(),
   accept: effectPolicy({
     required: ["declared-outcome", "executed-steps", "accept-landing"],
     advisories: [
@@ -501,6 +500,21 @@ function requiredFailure(
     }
     case "accept-landing": {
       if (result.dry_run === true) return undefined;
+      const submission = record(data?.submission);
+      if (submission !== undefined) {
+        return submission.state === "queued" &&
+            typeof submission.submission_id === "string" &&
+            submission.submission_id !== "" &&
+            typeof submission.submitted_at === "string" &&
+            submission.submitted_at !== "" &&
+            record(data?.revision) !== undefined &&
+            data?.landing === undefined && data?.emergency === undefined
+          ? undefined
+          : failed(
+            "apply_failed",
+            "Queue-only acceptance did not record the reviewed submission.",
+          );
+      }
       const emergency = record(data?.emergency);
       if (emergency !== undefined) {
         return emergencyCompletionFailure(data ?? {}, emergency);

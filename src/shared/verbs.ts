@@ -29,7 +29,6 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "desk",
   "enter",
   "accept",
-  "submit",
   "update",
   "start",
   "worktree",
@@ -143,3 +142,6 @@ export function logbookVerbIsEffectful(
 
 /** The explicit emergency action is part of accept, with a separate exact confirmation exchange. */
 export const EMERGENCY_ACCEPT_ACTION = "emergency";
+
+/** MCP queue admission selects the CLI accept --queue-only mode. */
+export const QUEUE_ACCEPT_ACTION = "queue";

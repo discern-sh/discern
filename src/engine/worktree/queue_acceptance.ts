@@ -8,8 +8,9 @@ import {
   previewResult,
 } from "../../shared/result.ts";
 import type {
+  AcceptData,
+  QueueSubmissionData,
   SubmissionRevision,
-  SubmitData,
 } from "../../shared/result_schemas.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
@@ -17,6 +18,7 @@ import {
   withCompletionPublication,
 } from "../operation_lock.ts";
 import {
+  type AcceptRequest,
   enforceAcceptanceCheckpoints,
   enforceStandardLimitApprovals,
   refuseUnreadableDeclarationEvidence,
@@ -45,32 +47,25 @@ import {
 import { readSubmission } from "./submission.ts";
 import { submissionPlanToEngine } from "./plan.ts";
 
-/** A queue-only request never conveys landing or exception authority. */
-export interface SubmitRequest {
-  readonly dryRun?: boolean;
-  /** Apply the reviewed plan only while its complete revision remains current. */
-  readonly expected?: SubmissionRevision;
-  readonly signal?: AbortSignal;
-}
-
 /** The shared read-only submission plan, resolved from complete current Proof. */
-async function submissionPlan(ctx: LifecycleContext): Promise<{
+async function submissionPlan(ctx: LifecycleContext, target?: string): Promise<{
   effort: EffortCheckout;
   subject: LandingSubject;
-  data: SubmitData;
+  revision: SubmissionRevision;
+  data: QueueSubmissionData;
   plan: EnginePlan;
 }> {
-  await assertProjectRootIsRepoToplevel(ctx, "submit");
-  const effort = await effortCheckout(ctx, undefined);
+  await assertProjectRootIsRepoToplevel(ctx, "accept");
+  const effort = await effortCheckout(ctx, target);
   if (effort === undefined) {
     throw new WorktreeGitError(
-      "Run discern submit from the proven effort's worktree. Select a task in the desk to join the landing queue.",
+      "Run discern accept --queue-only from the proven effort's worktree, or select it with --target.",
     );
   }
   const subject = await resolveSubject(effort);
   if (subject === undefined || !subject.atHead) {
     throw new WorktreeGitError(
-      `${effort.branch} has no current complete Proof. Commit the work and run discern done, then discern submit.`,
+      `${effort.branch} has no current complete Proof. Commit the work and run discern done, then discern accept --queue-only.`,
     );
   }
   const clean = await runGit([
@@ -80,7 +75,7 @@ async function submissionPlan(ctx: LifecycleContext): Promise<{
   ], { cwd: effort.path });
   if (!clean.success || clean.stdout !== "") {
     throw new WorktreeGitError(
-      "Submission requires a readable, clean worktree. Commit the intended work and run discern done, then discern submit.",
+      "Submission requires a readable, clean worktree. Commit the intended work and run discern done, then discern accept --queue-only.",
     );
   }
   const recorded = await readSubmission(effort.path);
@@ -108,7 +103,7 @@ async function submissionPlan(ctx: LifecycleContext): Promise<{
   const authority = await inspectLandingAuthority(effort.path, effort.trunk, {
     includeScopeEvidence: true,
   });
-  const data: SubmitData = {
+  const revision: SubmissionRevision = {
     path: effort.path,
     branch: effort.branch,
     head: subject.head,
@@ -116,6 +111,8 @@ async function submissionPlan(ctx: LifecycleContext): Promise<{
       candidate_id: subject.complete.candidate_id,
       proof_id: subject.complete.proof_id,
     },
+  };
+  const data: QueueSubmissionData = {
     state: "planned",
     authority: landingAuthorityProjection(authority) ??
       { kind: authority.kind },
@@ -130,6 +127,7 @@ async function submissionPlan(ctx: LifecycleContext): Promise<{
   return {
     effort,
     subject,
+    revision,
     data,
     plan: submissionPlanToEngine({
       path: effort.path,
@@ -143,22 +141,38 @@ async function submissionPlan(ctx: LifecycleContext): Promise<{
 }
 
 /** Plan and record a proven revision without acquiring the landing turn or starting checks. */
-export async function submitResult(
+export async function queueAcceptanceResult(
   ctx: LifecycleContext,
-  request: SubmitRequest = {},
-): Promise<DiscernResult<SubmitData>> {
+  request: AcceptRequest,
+): Promise<DiscernResult<AcceptData>> {
+  if (
+    request.confirmed || request.variance.length > 0 ||
+    request.approveStandard.length > 0 || request.met.length > 0 ||
+    request.unmet !== undefined || request.composition !== undefined
+  ) {
+    return {
+      ok: false,
+      verb: "accept",
+      error: "invalid_arguments",
+      message:
+        "Queue-only admission cannot grant permission, approve exceptions, or answer integration questions. Use ordinary accept for those exact decisions; queueing reuses recorded authority.",
+    };
+  }
   try {
-    const initial = await submissionPlan(ctx);
+    const initial = await submissionPlan(ctx, request.target);
     if (
       request.expected !== undefined &&
-      !sameSubmissionRevision(request.expected, initial.data)
+      !sameSubmissionRevision(request.expected, initial.revision)
     ) {
       throw new WorktreeGitError(
         "The reviewed revision changed. Open a fresh submission plan; no revision was queued.",
       );
     }
     if (request.dryRun) {
-      return { ...previewResult("submit", initial.plan), data: initial.data };
+      return {
+        ...previewResult("accept", initial.plan),
+        data: { revision: initial.revision, submission: initial.data },
+      };
     }
     return await withCompletionCheckout(initial.effort.path, async (signal) => {
       // The publication is short and has no project command or capacity wait.
@@ -166,7 +180,7 @@ export async function submitResult(
         const current = await submissionPlan(
           await lifecycleContext(initial.effort.path, ctx.log),
         );
-        if (!sameSubmissionRevision(initial.data, current.data)) {
+        if (!sameSubmissionRevision(initial.revision, current.revision)) {
           throw new WorktreeGitError(
             "The reviewed revision changed. Open a fresh submission plan; no revision was queued.",
           );
@@ -181,17 +195,20 @@ export async function submitResult(
           : "Awaiting authority";
         return {
           ...appliedResult(
-            "submit",
+            "accept",
             current.plan.steps.map((step) => ({
               step,
               outcome: "ok" as const,
             })),
           ),
           data: {
-            ...current.data,
-            state: "queued" as const,
-            submission_id: record.id,
-            submitted_at: record.submitted_at,
+            revision: current.revision,
+            submission: {
+              ...current.data,
+              state: "queued" as const,
+              submission_id: record.id,
+              submitted_at: record.submitted_at,
+            },
           },
           message: `Queued ${current.effort.branch} at ${
             short(record.head)
@@ -203,19 +220,8 @@ export async function submitResult(
       });
     }, request.signal);
   } catch (error) {
-    const mapped = worktreeErrorResult("submit", error);
+    const mapped = worktreeErrorResult("accept", error);
     if (mapped === undefined) throw error;
-    // The acceptance decision cores retain their full diagnosis, but their
-    // action-specific data does not belong to the submission envelope.
-    return {
-      ok: false,
-      verb: "submit",
-      error: mapped.error ?? "precondition_failed",
-      ...(mapped.message === undefined ? {} : { message: mapped.message }),
-      ...(mapped.hints === undefined ? {} : { hints: mapped.hints }),
-      ...(mapped.diagnostics === undefined
-        ? {}
-        : { diagnostics: mapped.diagnostics }),
-    };
+    return mapped as DiscernResult<AcceptData>;
   }
 }
