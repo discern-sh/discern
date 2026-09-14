@@ -955,18 +955,7 @@
   metric = "lint_exclusions"
   direction = "down"
   limit = 2
-  run = "deno task lint-suppressions"
-  inputs = [
-    "*.ts",
-    "*.tsx",
-    "*.mts",
-    "*.cts",
-    "*.js",
-    "*.jsx",
-    "*.mjs",
-    "*.cjs",
-    "deno.json",
-  ]
+  producer = "standards.lint_suppressions"
 
 # Deliberate error-discard boundary standard — every synchronous catch,
 # promise rejection handler, or side-effect-only best-effort call is a stable
@@ -998,7 +987,7 @@
 [standards.detached_promise_boundaries]
   direction = "down"
   limit = 10
-  run = "deno task promise-effects"
+  producer = "jobs.promise-effects"
   inputs = [
     "*.ts",
     "*.tsx",
@@ -1063,14 +1052,7 @@
 [standards.process_exit_boundaries]
   direction = "down"
   limit = 5
-  run = "deno task process-boundaries"
-  inputs = [
-    "src/**/*.ts",
-    "scripts/process_boundaries.ts",
-    "tests/structural_guard_scope.ts",
-    "deno.json",
-    "deno.lock",
-  ]
+  producer = "standards.process_output_boundaries"
 
 # JavaScript test-delay boundary standard — every genuine timer dependency
 # is a stable registry member bound one-to-one to a literal `realDelay` call.
@@ -1088,8 +1070,9 @@
     "deno.lock",
   ]
 
-# Ambient-read module standard — counts distinct boundary modules separately
-# so the operation registry cannot trade more modules for fewer calls.
+# One ambient census supplies every registry reading below. Its inputs cover
+# the complete command; consumers retain separate metrics and limits.
+# The module count cannot trade more modules for fewer calls.
 [standards.ambient_read_boundaries]
   direction = "down"
   limit = 38
@@ -1097,6 +1080,10 @@
   inputs = [
     "scripts/ambient_state_lint.ts",
     "scripts/ambient_state_boundary_counts.ts",
+    "src/shared/clock.ts",
+    "src/shared/scheduler.ts",
+    "src/shared/entropy.ts",
+    "site/pages/assets/scheduler.js",
     "deno.json",
   ]
 
@@ -1106,12 +1093,7 @@
 [standards.ambient_read_operations]
   direction = "down"
   limit = 56
-  run = "deno task ambient-boundaries"
-  inputs = [
-    "scripts/ambient_state_lint.ts",
-    "scripts/ambient_state_boundary_counts.ts",
-    "deno.json",
-  ]
+  producer = "standards.ambient_read_boundaries"
 
 # Process-environment mutation boundary standard — the explicit registry is
 # empty while no unavoidable mutation exists. The zero ceiling prevents a
@@ -1120,65 +1102,35 @@
 [standards.ambient_mutation_boundaries]
   direction = "down"
   limit = 0
-  run = "deno task ambient-boundaries"
-  inputs = [
-    "scripts/ambient_state_lint.ts",
-    "scripts/ambient_state_boundary_counts.ts",
-    "deno.json",
-  ]
+  producer = "standards.ambient_read_boundaries"
 
 # Clock authority standard — direct wall and monotonic reads are confined to
 # the system clock, and the structural guard rejects every unregistered call.
 [standards.clock_primitive_boundaries]
   direction = "down"
   limit = 2
-  run = "deno task ambient-boundaries"
-  inputs = [
-    "scripts/ambient_state_lint.ts",
-    "scripts/ambient_state_boundary_counts.ts",
-    "src/shared/clock.ts",
-    "deno.json",
-  ]
+  producer = "standards.ambient_read_boundaries"
 
 # Scheduler authority standard — the Deno and browser adapters each own the
 # host's four schedule/cancel operations; application code injects the seam.
 [standards.scheduler_primitive_boundaries]
   direction = "down"
   limit = 8
-  run = "deno task ambient-boundaries"
-  inputs = [
-    "scripts/ambient_state_lint.ts",
-    "scripts/ambient_state_boundary_counts.ts",
-    "site/pages/assets/scheduler.js",
-    "src/shared/scheduler.ts",
-    "deno.json",
-  ]
+  producer = "standards.ambient_read_boundaries"
 
 # Scheduling-jitter authority standard — Math.random is retained only for
 # bounded retry variation and is never an entropy source for identities.
 [standards.scheduling_jitter_boundaries]
   direction = "down"
   limit = 1
-  run = "deno task ambient-boundaries"
-  inputs = [
-    "scripts/ambient_state_lint.ts",
-    "scripts/ambient_state_boundary_counts.ts",
-    "src/shared/scheduler.ts",
-    "deno.json",
-  ]
+  producer = "standards.ambient_read_boundaries"
 
 # Secure-entropy authority standard — WebCrypto UUID and byte generation are
 # retained only inside the typed system adapter; production code injects it.
 [standards.secure_entropy_primitive_boundaries]
   direction = "down"
   limit = 2
-  run = "deno task ambient-boundaries"
-  inputs = [
-    "scripts/ambient_state_lint.ts",
-    "scripts/ambient_state_boundary_counts.ts",
-    "src/shared/entropy.ts",
-    "deno.json",
-  ]
+  producer = "standards.ambient_read_boundaries"
 
 # Instruction-footprint standard — the bundled built-in instructions (templates/instructions/
 # *.md) compiles into every end-user agent's context in every session, so its total

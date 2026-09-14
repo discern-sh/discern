@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { executeValidation } from "../src/engine/validation/execute.ts";
 import { planValidation } from "../src/engine/validation/plan.ts";
+import type { ProducerDeclaration } from "../src/shared/config_schema.ts";
 import { assembleCandidate } from "../src/engine/validation/selection.ts";
 import {
   assemblyRecord,
@@ -178,7 +179,21 @@ Deno.test("E09: extraction starts while an unrelated job is held open", async ()
 });
 
 Deno.test("physical deduplication requires matching recipe identity; each protected bound still applies", async () => {
-  for (const timeout of [undefined, 30]) {
+  const differences = {
+    run: { run: "another command" },
+    inputs: { inputs: ["other/**"] },
+    artifacts: { artifacts: ["other.txt"] },
+    environment: { environment: ["OTHER"] },
+    toolchain: { toolchain: ["other.lock"] },
+    timeout: { timeout: 30 },
+    needs: { needs: ["jobs.build"] },
+  } satisfies Record<keyof ProducerDeclaration, Partial<ProducerDeclaration>>;
+  for (
+    const [field, difference] of [
+      ["identical", {}],
+      ...Object.entries(differences),
+    ] as const
+  ) {
     const declarations = obligations().map((o) => ({
       ...o,
       input: {
@@ -194,9 +209,10 @@ Deno.test("physical deduplication requires matching recipe identity; each protec
     const snap = await snapshot({
       producers: {
         "jobs.test": PRODUCER_RECIPE,
+        "jobs.build": { ...PRODUCER_RECIPE, run: "build" },
         "jobs.same": {
           ...PRODUCER_RECIPE,
-          ...(timeout === undefined ? {} : { timeout }),
+          ...difference,
         },
       },
       obligations: declarations,
@@ -217,7 +233,8 @@ Deno.test("physical deduplication requires matching recipe identity; each protec
     );
     assertEquals(
       [...counts.values()].reduce((a, b) => a + b, 0),
-      timeout === undefined ? 1 : 2,
+      field === "identical" ? 1 : field === "needs" ? 3 : 2,
+      field,
     );
     assertEquals(result.evidence.length, 3);
     assertEquals(result.blockers.length, 1);

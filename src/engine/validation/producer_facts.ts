@@ -17,7 +17,11 @@
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
-import { commands, resolveProducerGraph } from "./catalog.ts";
+import {
+  commands,
+  producerRecipeKey,
+  resolveProducerGraph,
+} from "./catalog.ts";
 import { configuredValidation } from "./configuration.ts";
 import { producerLabel } from "./public_run.ts";
 
@@ -38,13 +42,12 @@ export interface ProducerFacts {
   readonly producers: readonly ProducerFact[];
   /** Configured standards, whatever produces their readings. */
   readonly standards: readonly string[];
-  /** Standards that read another producer's output instead of running their own. */
+  /** Standards sharing a declared producer or an identical physical recipe. */
   readonly shared: readonly {
     readonly producer: string;
     readonly standards: readonly string[];
   }[];
-  /** Producers whose commands are identical to another producer's: the same
-   * work would run twice under different names. */
+  /** Equal commands with incompatible recipes or prerequisites need separate executions. */
   readonly duplicated: readonly {
     readonly commands: readonly string[];
     readonly producers: readonly string[];
@@ -90,33 +93,70 @@ export async function producerFacts(
         consumers: consumers.get(node.selector) ?? [],
       }),
     );
-    const shared = producers.flatMap((producer) => {
-      const consuming = producer.consumers.filter((id) =>
-        standards.includes(id) &&
-        producer.selector !== `standards.${id}`
-      );
-      return consuming.length === 0
-        ? []
-        : [{ producer: producer.label, standards: consuming }];
+    const physicalKeys = new Map(producers.map((producer) => [
+      producer.selector,
+      producerRecipeKey(
+        graph.producers,
+        producer.selector,
+        configured.ordering,
+      ),
+    ]));
+    const owners = new Map<string, ProducerFact>();
+    for (const producer of producers) {
+      const key = physicalKeys.get(producer.selector);
+      if (key === undefined) {
+        throw new Error("missing physical producer identity");
+      }
+      if (!owners.has(key)) owners.set(key, producer);
+    }
+    const shared = new Map<string, { producer: string; standards: string[] }>();
+    configured.obligations.forEach((obligation, index) => {
+      if (obligation.requirement.kind !== "standard") return;
+      const selector = graph.selectors[index];
+      const key = selector === undefined
+        ? undefined
+        : physicalKeys.get(selector);
+      const owner = key === undefined ? undefined : owners.get(key);
+      if (owner === undefined) {
+        throw new Error("missing standard producer owner");
+      }
+      if (owner.selector === `standards.${obligation.requirement.id}`) return;
+      const group = shared.get(owner.selector) ??
+        { producer: owner.label, standards: [] };
+      group.standards.push(obligation.requirement.id);
+      shared.set(owner.selector, group);
     });
     const byCommands = new Map<
       string,
-      { commands: readonly string[]; producers: string[] }
+      {
+        commands: readonly string[];
+        producers: string[];
+        identities: Set<string>;
+      }
     >();
     for (const producer of producers) {
       const key = JSON.stringify(producer.commands);
       const group = byCommands.get(key) ??
-        { commands: producer.commands, producers: [] };
+        {
+          commands: producer.commands,
+          producers: [],
+          identities: new Set<string>(),
+        };
       group.producers.push(producer.label);
+      const identity = physicalKeys.get(producer.selector);
+      if (identity === undefined) {
+        throw new Error("missing physical producer identity");
+      }
+      group.identities.add(identity);
       byCommands.set(key, group);
     }
     const duplicated = [...byCommands.values()].filter((group) =>
-      group.producers.length > 1
-    );
+      group.identities.size > 1
+    ).map(({ commands, producers }) => ({ commands, producers }));
     return {
       producers,
       standards,
-      shared,
+      shared: [...shared.values()],
       duplicated,
       candidate_bound: producers.filter((producer) =>
         producer.closure === "candidate-bound"

@@ -4,10 +4,16 @@ import { assert, assertEquals } from "@std/assert";
 import { applyConfigDoc, configDocFillPaths } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import {
+  loadConfig,
   planStandardInput,
   ProducerDeclarationSchema,
   StandardInputSchema,
 } from "../src/shared/config_schema.ts";
+import {
+  commands,
+  resolveProducerGraph,
+} from "../src/engine/validation/catalog.ts";
+import { fromFileUrl } from "@std/path";
 import {
   configDocSchema,
   governingConfigValue,
@@ -160,5 +166,24 @@ Deno.test("test capacity never invents dependencies between independent check an
         );
       }
     }
+  }
+});
+
+Deno.test("repository repeated commands have one declared producer owner", async () => {
+  const config = await loadConfig(fromFileUrl(new URL("../", import.meta.url)));
+  const configured = await configuredValidation(config, []);
+  const graph = resolveProducerGraph(
+    configured.producers,
+    configured.obligations,
+  );
+  const owners = new Map<string, string>();
+  for (const [selector, producer] of graph.producers) {
+    const command = JSON.stringify(commands(producer.recipe.run));
+    assertEquals(
+      owners.get(command),
+      undefined,
+      `${selector} repeats ${owners.get(command)}`,
+    );
+    owners.set(command, selector);
   }
 });

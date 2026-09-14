@@ -32,7 +32,7 @@ limit = 90
 Deno.test("a standard whose own run repeats the test command is a duplicated suite", async () => {
   const facts = await producerFacts(parseConfigOrThrow(`
 [jobs]
-test = "deno test"
+test = { run = "deno test", inputs = ["src/**"] }
 [standards.coverage]
 run = "deno test"
 direction = "up"
@@ -46,6 +46,40 @@ limit = 90
     [...(facts.duplicated[0]?.producers ?? [])].sort(),
     ["standard:coverage", "test"],
   );
+});
+
+Deno.test("producer facts distinguish coalesced recipes from incompatible executions under fresh names", async () => {
+  for (
+    const extra of [
+      "",
+      "inputs = ['other/**']",
+      "timeout = 17",
+      "environment = ['MODE']",
+      "toolchain = ['tool.lock']",
+      "needs = ['jobs.build']",
+    ]
+  ) {
+    const facts = await producerFacts(parseConfigOrThrow(`
+[jobs]
+build = "build"
+[jobs.inspect]
+stage = "check"
+run = "inspect"
+[standards.population]
+run = "inspect"
+direction = "down"
+limit = 0
+${extra}
+`));
+    assertEquals(facts.error, undefined);
+    assertEquals(facts.duplicated.length, extra === "" ? 0 : 1, extra);
+    if (extra === "") {
+      assertEquals(facts.shared, [{
+        producer: "inspect",
+        standards: ["population"],
+      }]);
+    }
+  }
 });
 
 Deno.test("a standard naming a missing producer is reported as an unresolved graph, not a crash", async () => {

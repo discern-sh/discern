@@ -65,7 +65,7 @@ limit = 90
     const checks = await checksFor(
       dir,
       `[jobs]
-test = "deno test"
+test = { run = "deno test", inputs = ["src/**"] }
 [standards.coverage]
 run = "deno test"
 direction = "up"
@@ -74,7 +74,10 @@ limit = 90
     );
     const coverage = named(checks, "producer coverage");
     assertEquals(coverage.status, "warn");
-    assertStringIncludes(coverage.detail, "the same work runs twice");
+    assertStringIncludes(
+      coverage.detail,
+      "matching commands require separate executions",
+    );
     assertStringIncludes(coverage.fix ?? "", 'producer = "jobs.<name>"');
   });
   await withTempDir(async (dir) => {
