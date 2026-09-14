@@ -35,8 +35,9 @@ Deno.test("a static human done narrates counts and retains a reconnectable resul
       run.output,
       "Running test: 2 of 2 suites done, 5 passed, no failures so far, 0 skipped.",
     );
-    // The reconnect handle was announced at the start of the run.
-    assertTerminalTextIncludes(run.output, "`discern progress R1-");
+    // Human output omits agent recovery instructions; the same journal stays
+    // discoverable through progress without needing its handle in scrollback.
+    assertEquals(run.output.includes("If this call is lost"), false);
     // A second session reads the same operation back without re-running it.
     const read = await operationProgressResult(path);
     assert(read.ok, JSON.stringify(read));

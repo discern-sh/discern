@@ -112,11 +112,9 @@ Deno.test("one fact stream reads identically on the terminal, over MCP, and afte
     assert(handle !== undefined);
     const announcement =
       `done is running. If this call is lost, \`discern progress ${handle}\` reads it back.`;
-    // The terminal presented the same sentences, in the same order: a live
-    // frame shows the announcement and counts in its transient line and pins
-    // only the failure and the owner's decision.
+    // Human output presents work and decisions; the recovery announcement is
+    // reserved for MCP, and the journal remains available through progress.
     assertEquals(terminal, [
-      { kind: "transient", text: announcement },
       { kind: "transient", text: COUNTS },
       { kind: "failure", text: FAILURE_SENTENCE },
       { kind: "warning", text: PENDING },
@@ -180,14 +178,7 @@ Deno.test("a nested operation presents each fact exactly once between its outer 
       },
       (value) => value,
     );
-    assertEquals(outer.length, 3, JSON.stringify(outer));
-    assert(
-      outer[0]?.startsWith(
-        "accept is running. If this call is lost, `discern progress R1-",
-      ),
-    );
-    assertEquals(outer[1], "done is running within accept.");
-    assertEquals(outer[2], PENDING);
+    assertEquals(outer, ["done is running within accept.", PENDING]);
     assertEquals(inner, [COUNTS, FAILURE_SENTENCE]);
     // One journal covers the whole acceptance: the nested run opened none of
     // its own, and the producer's failure reached the shared record.

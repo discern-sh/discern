@@ -44,8 +44,8 @@ export async function observedGateOperation<T>(
   const presenterSlot = gateProgressPresenterSlot(
     presentingOperation.getStore() === true ? "producer" : "all",
   );
-  // The presenter scope encloses the journal so the handle announcement the
-  // journal emits at start reaches the terminal once a presenter registers.
+  // The presenter scope encloses the journal so early progress can replay
+  // once the run registers its human output policy.
   return await presentingOperation.run(true, () =>
     withCompletionObserver(
       (fact) => presenterSlot.observe(fact),

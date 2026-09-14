@@ -37,6 +37,43 @@ const FINISHED: CompletionProgress = {
   work: { producer: "test" },
 };
 
+Deno.test("human presenters omit recovery announcements for every operation without hiding actionable progress", () => {
+  for (const mode of ["static", "live"] as const) {
+    const lines: string[] = [];
+    const write = (line: string): void => {
+      lines.push(line.trimEnd());
+    };
+    const presenter = createGateProgressPresenter(
+      mode === "live" ? { live: { note: write, transient: write } } : { write },
+    );
+    presenter.observe({
+      kind: "progress",
+      progress: {
+        phase: "operation",
+        state: "started",
+        candidate_id: null,
+        reason:
+          "An independently named operation announces its recovery handle.",
+        operation_handle: "R1-example",
+      },
+    });
+    assertEquals(lines, [], mode);
+    presenter.observe({ kind: "progress", progress: snapshot(1, 0) });
+    assertEquals(lines, [snapshot(1, 0).reason], mode);
+    presenter.observe({
+      kind: "progress",
+      progress: {
+        phase: "pending",
+        state: "missing-judgment",
+        candidate_id: null,
+        reason: "A judgment is required.",
+        owner_must_act: true,
+      },
+    });
+    assertEquals(lines.at(-1), "A judgment is required.", mode);
+  }
+});
+
 Deno.test("static output writes counts on change, on cadence, and once more when the producer settles", () => {
   let clock = 0;
   const lines: string[] = [];

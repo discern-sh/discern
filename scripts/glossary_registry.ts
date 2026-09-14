@@ -701,7 +701,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         "the short code that reads a long command back after a lost connection",
     },
     definition:
-      "The short `R1-XXXX-XXXX-XX` code a long operation announces when it starts. `discern progress <handle>`, or the `discern_progress` tool, reads that operation back after a lost call: its phase, the counts and failures known so far, and the retained result. It only reads; the `C1` continuation that `discern await` returns is what resumes a wait. See [progress and reconnect](../70-reference/progress-and-reconnect.md).",
+      "The short `R1-XXXX-XXXX-XX` code recorded for a long operation and announced to MCP callers. `discern progress <handle>`, or the `discern_progress` tool, reads that operation back after a lost call: its phase, the counts and failures known so far, and the retained result. Human command output omits the startup announcement; `discern progress` without a handle finds the latest operation. It only reads; the `C1` continuation that `discern await` returns is what resumes a wait. See [progress and reconnect](../70-reference/progress-and-reconnect.md).",
   },
   {
     term: "Proof",

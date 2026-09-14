@@ -32,7 +32,7 @@ export interface GateProgressPresenter {
   observe(fact: CompletionObservationFact): void;
 }
 
-/** Facts observed before the output policy exists; the handle announcement lives here. */
+/** Facts observed before the output policy exists. */
 const SLOT_BUFFER_LIMIT = 16;
 
 /**
@@ -59,8 +59,8 @@ export function completionFactOwner(
 /**
  * The registration point a surrounding observer scope feeds: the verb body
  * sets the presenter once its output policy exists, and the few facts
- * observed before that moment replay into it so the reconnect-handle
- * announcement still reaches the terminal. A quiet run never registers.
+ * observed before that moment replay into it. Each presenter chooses which
+ * facts belong on its surface. A quiet run never registers.
  */
 export interface GateProgressPresenterSlot {
   observe(fact: CompletionObservationFact): void;
@@ -195,6 +195,12 @@ export function createGateProgressPresenter(
       }
       if (fact.kind !== "progress") return;
       const progress = fact.progress;
+      // Recovery handles belong to the journal and agent notifications.
+      // Human terminals already show the invoked command and its real work.
+      if (
+        progress.phase === "operation" && progress.state === "started" &&
+        progress.operation_handle !== undefined
+      ) return;
       if (progress.phase === "producer") {
         // Start and settle already reach the terminal as job facts; the value
         // here is the producer's own counts while it runs, and the final
@@ -217,8 +223,8 @@ export function createGateProgressPresenter(
         progress.phase === "pending";
       if (target.live !== undefined) {
         // A live frame carries every pinned line in its own height, so only
-        // a failure or a decision earns a pin there; the announcement, a
-        // wait, and an environment step show as the frame's transient line,
+        // a failure or a decision earns a pin there; a wait and an
+        // environment step show as the frame's transient line,
         // and the journal keeps them all.
         if (decisive) durable(sentence, "warning");
         else transient(sentence);
