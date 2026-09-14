@@ -1,11 +1,6 @@
 /** Real-PTY characterisation of the complete package-backed Desk session. */
 
-import {
-  assert,
-  assertEquals,
-  assertRejects,
-  assertStringIncludes,
-} from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { measureText } from "discern-design-system/cli";
 import { runAgent } from "./engine_helpers.ts";
 import {
@@ -566,69 +561,37 @@ realPtyTest({
         });
         assertHealthySession(root);
 
-        const actionRun = (): Promise<DeskTtyRunResult> =>
-          runDeskTty(project, {
-            geometry: { columns: 86, rows: 28 },
-            colorMode: "no-color-env",
-            // The short deadline characterises Escape's known stranded reader.
-            // Ctrl-C is a successful journey and keeps the harness's ordinary
-            // readiness allowance, including under full-suite load.
-            ...(key === "escape" ? { timeoutMs: 5_000 } : {}),
-            input: [{
-              waitFor: TASK_ROOT_READY,
-              chunks: [{ keys: ["enter"] }],
-            }, {
-              waitFor: TASK_ACTION_READY,
-              capture: focusedCapture(
-                `${key}-at-action`,
-                "Choose an action",
-              ),
-              chunks: [{
-                keys: [key],
-                ...(key === "escape" ? { allowLoneEscape: true } : {}),
-              }],
-            }, {
-              waitFor: TASK_ROOT_READY,
-              capture: focusedCapture(
-                `${key}-returned-to-root`,
-                "Cancellation task",
-              ),
-              chunks: [{ settleMs: 500, keys: ["ctrl-c"] }],
+        const action = await runDeskTty(project, {
+          geometry: { columns: 86, rows: 28 },
+          colorMode: "no-color-env",
+          input: [{
+            waitFor: TASK_ROOT_READY,
+            chunks: [{ keys: ["enter"] }],
+          }, {
+            waitFor: TASK_ACTION_READY,
+            capture: focusedCapture(
+              `${key}-at-action`,
+              "Choose an action",
+            ),
+            chunks: [{
+              keys: [key],
+              ...(key === "escape" ? { allowLoneEscape: true } : {}),
             }],
-          });
-        if (key === "escape") {
-          const action = await assertRejects(
-            actionRun,
-            Error,
-            "exceeded 5000ms",
-          );
-          const dismissedAt = action.message.indexOf("× Dismissed.");
-          assert(dismissedAt >= 0, action.message);
-          assert(
-            action.message.indexOf(
-              "Choose a task or desk command",
-              dismissedAt,
-            ) >
-              dismissedAt,
-            action.message,
-          );
-          continue;
-        }
-        const action = await actionRun();
+          }, {
+            waitFor: TASK_ROOT_READY,
+            capture: focusedCapture(
+              `${key}-returned-to-root`,
+              "Cancellation task",
+            ),
+            chunks: [{ keys: ["ctrl-c"] }],
+          }],
+        });
         assertHealthySession(action);
         assertStringIncludes(
           frame(action, `${key}-returned-to-root`).text,
           "Cancellation task",
         );
       }
-
-      // Characterisation only: root cancellation exits while action-menu
-      // Ctrl-C cancellation returns to a live root reader. Escape redraws the
-      // same root but currently leaves its next reader stuck. Key semantics
-      // and trap removal belong to
-      // `6a-keyboard-accessibility.md`; lifecycle recovery belongs to
-      // `7a-refresh-resilience.md`. The shared timeout guard proves the
-      // stranded child is still reaped.
     });
   },
 });

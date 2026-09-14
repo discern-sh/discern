@@ -1,5 +1,6 @@
 /** Real-PTY command capture composed with the published terminal projection. */
 
+import { captureTerminalFrame } from "discern-design-system/cli/interactive/testing";
 import { dirname, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import {
@@ -103,7 +104,11 @@ export function normalizePtyLineEndings(output: string): string {
  * the visible frame, apart from cursor visibility and background-query controls
  * that manage the terminal but occupy no cells.
  */
-export function settledInteractiveTerminalFrame(output: string): string {
+export function settledInteractiveTerminalFrame(output: string, geometry?: PtyGeometry): string {
+  if (output.includes("\x1b[?1049h") || output.includes("\x1b[2J")) {
+    if (geometry === undefined) throw new TypeError("complete-frame capture requires terminal geometry");
+    return captureTerminalFrame(output, geometry).frame;
+  }
   const normalized = normalizePtyLineEndings(output);
   const erasures = [...normalized.matchAll(/\x1b\[(?:[012])?J/gu)];
   const last = erasures.at(-1);
@@ -172,7 +177,7 @@ export async function captureDiscernCommand(
     applyNormalizers(
       staticOutput
         ? normalizePtyLineEndings(output)
-        : settledInteractiveTerminalFrame(output),
+        : settledInteractiveTerminalFrame(output, geometry),
       normalizers,
       context,
     );

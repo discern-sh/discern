@@ -372,6 +372,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0393 — Merge observations connect conflict recurrence across surfaces](0393-merge-observations-connect-conflict-recurrence-across-surfaces.md)
 - [0394 — Separate operation ownership from publication](0394-separate-operation-ownership-from-publication.md)
 - [0395 — Integration judgments continue the retained landing](0395-integration-judgments-continue-the-retained-landing.md)
+- [0397 — Terminal applications and test transports stay package-owned](0397-terminal-applications-and-test-transports-stay-package-owned.md)
 
 <!-- END GENERATED: current ADR records -->
 

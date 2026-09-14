@@ -97,10 +97,10 @@ Deno.test("interactive capture extracts the last settled package frame", () => {
 
 Deno.test("interactive capture extracts a complete alternate-screen repaint", () => {
   const transcript = "\x1b[?1049h\x1b[?1000h\x1b[2J\x1b[H" +
-    "complete frame\r\r\nsecond row\r\r\n";
+    "complete frame\r\r\nsecond row    ";
   assertEquals(
-    settledInteractiveTerminalFrame(transcript),
-    "complete frame\nsecond row\n",
+    settledInteractiveTerminalFrame(transcript, { columns: 14, rows: 2 }),
+    "complete frame\nsecond row    ",
   );
 });
 
@@ -133,5 +133,26 @@ Deno.test("captured package styling projects to stable self-contained HTML", () 
     serializeTerminalCapture({
       ...capture,
     }),
+  );
+});
+
+Deno.test("complete-frame capture refuses missing geometry, partial and overflowing frames", () => {
+  const frame = "\x1b[?1049h\x1b[2J\x1b[H";
+  for (
+    const output of [
+      frame + "x",
+      frame + "12345\n1234",
+      frame + "1234\n1234\n1234",
+    ]
+  ) {
+    assertThrows(
+      () => settledInteractiveTerminalFrame(output, { columns: 4, rows: 2 }),
+      TypeError,
+    );
+  }
+  assertThrows(
+    () => settledInteractiveTerminalFrame(frame + "1234\n1234"),
+    TypeError,
+    "requires terminal geometry",
   );
 });

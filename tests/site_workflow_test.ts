@@ -67,7 +67,7 @@ Deno.test("every Workflow directive has one source example and selected package 
   );
 });
 
-Deno.test("representative manual journeys render the complete Workflow dependency closure", async () => {
+Deno.test("representative manual journeys render declared Workflow roots from the selected bundle", async () => {
   const pages = await workflowPages();
   assert(pages.length > 0, "the manual has no Workflow journeys");
   const html = (
@@ -95,10 +95,6 @@ Deno.test("representative manual journeys render the complete Workflow dependenc
       visit(component.id);
     }
   }
-  const workflow = packageManifest.components.filter((component) =>
-    component.group === "Workflow" && resolved.has(component.id)
-  );
-  assert(workflow.length > 0);
   const renderedWorkflow = packageManifest.components.filter((component) => {
     if (component.group !== "Workflow") return false;
     const root = component.ownedClasses.find((name) =>
@@ -107,11 +103,19 @@ Deno.test("representative manual journeys render the complete Workflow dependenc
     if (root === undefined) return false;
     return new RegExp(`class="[^"]*\\b${root}\\b`).test(html);
   });
-  assertEquals(
-    renderedWorkflow.map((component) => component.id),
-    workflow.map((component) => component.id),
-    "rendered Workflow roots and the docs bundle must agree",
-  );
+  const rendered = new Set(renderedWorkflow.map((component) => component.id));
+  for (const id of WORKFLOW_COMPONENTS) {
+    assert(
+      rendered.has(id),
+      `declared Workflow root ${id} needs a manual example`,
+    );
+  }
+  for (const id of rendered) {
+    assert(
+      resolved.has(id),
+      `rendered Workflow component ${id} needs bundle assets`,
+    );
+  }
 });
 
 Deno.test("Workflow-enhanced routes keep their pristine Markdown editions", async () => {

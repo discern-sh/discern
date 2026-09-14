@@ -27,6 +27,8 @@ import {
 import { extractDocLinks, headingAnchors } from "../src/lib/docs_integrity.ts";
 import { structuralGuardScope } from "../tests/structural_guard_scope.ts";
 
+import { transientStateText } from "./planning_dependency_bindings.ts";
+
 const PLANNING_REL = "project/map/_private/planning";
 const TODO_REL = "project/TODO.md";
 const SCOPES_REL = "project/map/_internal/scopes";
@@ -761,13 +763,14 @@ function checkActiveBriefs(
           }
         }
       }
-      if (transientPatterns.some((pattern) => pattern.test(line))) {
+      const stateText = transientStateText(line);
+      if (transientPatterns.some((pattern) => pattern.test(stateText))) {
         findings.push(finding(
           file.source.rel,
           index + 1,
           "planning-transient-state",
           "active brief records transient branch or fleet state",
-          "State the scheduling contract, then require discern_status and a live overlap/dependency check at dispatch.",
+          "State the scheduling contract and check it live at dispatch. A predecessor selector may use '**Dependency binding:** worktree `<id>`, full branch `agent/<id>`. Required readiness: **<key> landed**.' with matching identities.",
         ));
       }
     }

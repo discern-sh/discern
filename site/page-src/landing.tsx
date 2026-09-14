@@ -12,7 +12,7 @@ export function renderLanding(): string {
     title: LANDING_TITLE,
     description: LANDING_DESCRIPTION,
     styles: ["fonts.css", "discern.css", "campaign.css", "clarity-first.css"],
-    scripts: ["copy-prompt.js", "clarity-first.js"],
+    scripts: ["discern.js", "copy-prompt.js", "clarity-first.js"],
     body: renderToStaticMarkup(<ClarityFirst />),
   });
 }

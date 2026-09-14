@@ -33,7 +33,7 @@
 import { gunzipSync, gzipSync } from "zlib";
 import { createFromBuffer } from "@dprint/formatter";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
-import { join } from "@std/path";
+import { join, resolve, toFileUrl } from "@std/path";
 import { z } from "@zod/zod";
 import { denoMetadata } from "../src/shared/deno_metadata.ts";
 import {
@@ -398,6 +398,54 @@ async function resolveJsrComponent(
   };
 }
 
+/** Credit linked packages only when their files occur in the compiled graph. */
+export async function linkedComponentsOf(
+  repoRoot: string,
+  links: readonly string[],
+  specifiers: readonly string[],
+): Promise<ResolvedComponent[]> {
+  const components: ResolvedComponent[] = [];
+  for (const link of links) {
+    const root = resolve(repoRoot, link);
+    const origins = [root, await Deno.realPath(root)].map((path) =>
+      toFileUrl(`${path}/`).href
+    );
+    if (
+      !specifiers.some((specifier) =>
+        origins.some((origin) => specifier.startsWith(origin))
+      )
+    ) continue;
+    const configPath = join(root, "deno.json");
+    const config = decodeJson(
+      z.object({ name: z.string(), version: z.string(), license: z.string() }),
+      await Deno.readTextFile(configPath),
+      configPath,
+    );
+    const licensePath = await findLicenseFile(root);
+    if (licensePath === undefined) {
+      throw new Error(
+        `Linked package ${config.name} has no LICENSE file in ${root}`,
+      );
+    }
+    const licenseText = normalizeLicenseText(
+      await Deno.readTextFile(join(root, licensePath)),
+    );
+    if (licenseText === "") {
+      throw new Error(
+        `Linked package ${config.name} has an empty LICENSE file`,
+      );
+    }
+    components.push({
+      name: config.name,
+      version: config.version,
+      registry: "linked",
+      license: config.license,
+      licenseText,
+    });
+  }
+  return components;
+}
+
 /** Extract the license embedded inside a bundled dprint Wasm plugin. */
 async function resolveVendoredWasmComponent(
   repoRoot: string,
@@ -579,7 +627,21 @@ export async function generateThirdPartyArtifacts(
     ),
   );
 
-  const components = [...jsr, ...npm, ...vendored].sort((a, b) =>
+  const configPath = join(options.repoRoot, "deno.json");
+  const config = decodeJson(
+    z.object({ links: z.array(z.string()).default([]) }),
+    await Deno.readTextFile(configPath),
+    configPath,
+  );
+  const linked = await linkedComponentsOf(
+    options.repoRoot,
+    config.links,
+    graph.modules.flatMap((module) =>
+      module.specifier === undefined ? [] : [module.specifier]
+    ),
+  );
+
+  const components = [...jsr, ...npm, ...vendored, ...linked].sort((a, b) =>
     a.name.localeCompare(b.name) || a.version.localeCompare(b.version)
   );
 

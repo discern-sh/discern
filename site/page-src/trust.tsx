@@ -235,7 +235,7 @@ export function renderTrust(): string {
     title: TRUST_TITLE,
     description: TRUST_DESCRIPTION,
     styles: ["fonts.css", "discern.css", "trust.css"],
-    scripts: [],
+    scripts: ["discern.js"],
     body: renderToStaticMarkup(<TrustPage />),
   });
 }

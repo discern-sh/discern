@@ -1139,7 +1139,9 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   const imported = propertyName(entry.imported);
                   if (imported === undefined) continue;
                   if (
-                    /^request[A-Z]/u.test(imported) &&
+                    /^(?:request[A-Z]|runTerminalApplication$)/u.test(
+                      imported,
+                    ) &&
                     rel !== INTERACTION_AUTHORITY
                   ) {
                     add(`package-request-import:${imported}`, node);
