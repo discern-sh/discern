@@ -1139,8 +1139,9 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   const imported = propertyName(entry.imported);
                   if (imported === undefined) continue;
                   if (
-                    (/^request[A-Z]/u.test(imported) ||
-                      imported === "runTerminalApplication") &&
+                    /^(?:request[A-Z]|runTerminalApplication$)/u.test(
+                      imported,
+                    ) &&
                     rel !== INTERACTION_AUTHORITY
                   ) {
                     add(`package-request-import:${imported}`, node);
@@ -1706,14 +1707,6 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
     count: 1,
     reason:
       "The review task forwards its HTML artifact theme into package projection.",
-  },
-  {
-    file: "scripts/terminal_application_capture.ts",
-    rule: "direct-theme-threading",
-    authority: "main",
-    count: 1,
-    reason:
-      "The application review task selects the HTML artifact ground independently of the live terminal.",
   },
   {
     file: "src/engine/owned_child.ts",

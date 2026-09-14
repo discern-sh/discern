@@ -94,9 +94,7 @@ async function main(): Promise<void> {
           assertStringIncludes(result.transcript, "CHILD_RECEIVED_HELLO");
         }
         for (const [phase, transcript] of Object.entries(result.keyframes)) {
-          const capture = captureTerminalFrame(transcript, geometry, {
-            theme: "dark",
-          });
+          const capture = captureTerminalFrame(transcript, geometry);
           if (plain) {
             assert(
               [...capture.frame].every((character) =>

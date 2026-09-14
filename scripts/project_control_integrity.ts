@@ -27,6 +27,8 @@ import {
 import { extractDocLinks, headingAnchors } from "../src/lib/docs_integrity.ts";
 import { structuralGuardScope } from "../tests/structural_guard_scope.ts";
 
+import { transientStateText } from "./planning_dependency_bindings.ts";
+
 const PLANNING_REL = "project/map/_private/planning";
 const TODO_REL = "project/TODO.md";
 const SCOPES_REL = "project/map/_internal/scopes";
@@ -714,20 +716,6 @@ async function checkPlanningLinks(
   return findings;
 }
 
-/** Bound predecessor and retained source identities never claim readiness. */
-function boundPredecessorBranch(line: string): string | undefined {
-  const match =
-    /^\*\*Dependency binding:\*\* worktree `([a-z0-9][a-z0-9-]*-[0-9a-f]{6})`, full branch `(agent\/[^`]+)`\. Required readiness: \*\*\d+[A-Z] landed\*\*\.$/u
-      .exec(line);
-  const retained =
-    /^\*\*Design-system worktree:\*\* `([a-z0-9][a-z0-9-]*-[0-9a-f]{6})`, full branch `(agent\/[^`]+)`\. Retain through 4A\.$/u
-      .exec(line);
-  const binding = match ?? retained;
-  const id = binding?.[1];
-  const branch = binding?.[2];
-  return id !== undefined && branch === `agent/${id}` ? branch : undefined;
-}
-
 /** Active briefs must carry one stable literal worktree name. */
 function checkActiveBriefs(
   programme: Programme,
@@ -775,10 +763,7 @@ function checkActiveBriefs(
           }
         }
       }
-      const predecessor = boundPredecessorBranch(line);
-      const stateText = predecessor === undefined
-        ? line
-        : line.replace(predecessor, "");
+      const stateText = transientStateText(line);
       if (transientPatterns.some((pattern) => pattern.test(stateText))) {
         findings.push(finding(
           file.source.rel,
