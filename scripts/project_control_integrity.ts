@@ -714,13 +714,17 @@ async function checkPlanningLinks(
   return findings;
 }
 
-/** A bound predecessor is a durable watch selector, never a claim of readiness. */
+/** Bound predecessor and retained source identities never claim readiness. */
 function boundPredecessorBranch(line: string): string | undefined {
   const match =
     /^\*\*Dependency binding:\*\* worktree `([a-z0-9][a-z0-9-]*-[0-9a-f]{6})`, full branch `(agent\/[^`]+)`\. Required readiness: \*\*\d+[A-Z] landed\*\*\.$/u
       .exec(line);
-  const id = match?.[1];
-  const branch = match?.[2];
+  const retained =
+    /^\*\*Design-system worktree:\*\* `([a-z0-9][a-z0-9-]*-[0-9a-f]{6})`, full branch `(agent\/[^`]+)`\. Retain through 4A\.$/u
+      .exec(line);
+  const binding = match ?? retained;
+  const id = binding?.[1];
+  const branch = binding?.[2];
   return id !== undefined && branch === `agent/${id}` ? branch : undefined;
 }
 

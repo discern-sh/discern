@@ -370,6 +370,28 @@ Deno.test("bound predecessor selectors preserve live readiness instead of record
   }
 });
 
+Deno.test("retained package selectors require matching identities and an explicit final stage", async () => {
+  const binding =
+    "**Design-system worktree:** `orbit-source-a3b2c1`, full branch `agent/orbit-source-a3b2c1`. Retain through 4A.";
+  assertEquals(await fixtureFindings(activeProgramme(binding)), []);
+  for (
+    const invalid of [
+      binding.replace("`orbit-source-a3b2c1`", "`comet-source-a3b2c1`"),
+      binding.replace("Retain through 4A.", ""),
+      binding + " Currently green.",
+    ]
+  ) {
+    assertEquals(
+      ruleFindings(
+        await fixtureFindings(activeProgramme(invalid)),
+        "planning-transient-state",
+      ).length,
+      1,
+      invalid,
+    );
+  }
+});
+
 Deno.test("planned outputs pass only while absent, referenced, local, and unique", async () => {
   const valid = activeProgramme([
     "<!-- discern-planned-output: generated/report.md -->",
