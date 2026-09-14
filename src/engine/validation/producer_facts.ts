@@ -9,7 +9,7 @@
  * or an owner asks before trusting the gate:
  *  - which standards share a producer with the test stage instead of running a
  *    second suite;
- *  - which producers run the same command twice under different names;
+ *  - which matching commands require separate executions;
  *  - which producers have no declared `inputs`, so their evidence is bound to the
  *    exact commit and produced again for every candidate.
  * Nothing here judges a project. It reports facts with their remedy and leaves
@@ -93,30 +93,28 @@ export async function producerFacts(
         consumers: consumers.get(node.selector) ?? [],
       }),
     );
-    const physicalKeys = new Map(producers.map((producer) => [
-      producer.selector,
-      producerRecipeKey(
+    const identified = producers.map((producer) => ({
+      producer,
+      identity: producerRecipeKey(
         graph.producers,
         producer.selector,
         configured.ordering,
       ),
-    ]));
+    }));
     const owners = new Map<string, ProducerFact>();
-    for (const producer of producers) {
-      const key = physicalKeys.get(producer.selector);
-      if (key === undefined) {
-        throw new Error("missing physical producer identity");
-      }
-      if (!owners.has(key)) owners.set(key, producer);
+    const selectorOwners = new Map<string, ProducerFact>();
+    for (const { producer, identity } of identified) {
+      const owner = owners.get(identity) ?? producer;
+      owners.set(identity, owner);
+      selectorOwners.set(producer.selector, owner);
     }
     const shared = new Map<string, { producer: string; standards: string[] }>();
     configured.obligations.forEach((obligation, index) => {
       if (obligation.requirement.kind !== "standard") return;
       const selector = graph.selectors[index];
-      const key = selector === undefined
+      const owner = selector === undefined
         ? undefined
-        : physicalKeys.get(selector);
-      const owner = key === undefined ? undefined : owners.get(key);
+        : selectorOwners.get(selector);
       if (owner === undefined) {
         throw new Error("missing standard producer owner");
       }
@@ -134,7 +132,7 @@ export async function producerFacts(
         identities: Set<string>;
       }
     >();
-    for (const producer of producers) {
+    for (const { producer, identity } of identified) {
       const key = JSON.stringify(producer.commands);
       const group = byCommands.get(key) ??
         {
@@ -143,10 +141,6 @@ export async function producerFacts(
           identities: new Set<string>(),
         };
       group.producers.push(producer.label);
-      const identity = physicalKeys.get(producer.selector);
-      if (identity === undefined) {
-        throw new Error("missing physical producer identity");
-      }
       group.identities.add(identity);
       byCommands.set(key, group);
     }

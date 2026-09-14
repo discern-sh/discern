@@ -236,18 +236,19 @@ export function producerRecipeKey(
   selector: string,
   ordering?: ReadonlyMap<string, readonly string[]>,
 ): string {
-  const node = producers.get(selector);
-  if (node === undefined) throw new Error(`missing producer '${selector}'`);
-  return JSON.stringify([
-    [...(ordering?.get(selector) ?? [])].sort(),
-    {
-      ...node.recipe,
-      run: commands(node.recipe.run),
-      needs: node.dependencies.map((need) =>
-        producerRecipeKey(producers, need, ordering)
-      ),
-    },
-  ]);
+  const components = (current: string): readonly unknown[] => {
+    const node = producers.get(current);
+    if (node === undefined) throw new Error(`missing producer '${current}'`);
+    return [
+      [...(ordering?.get(current) ?? [])].sort(),
+      {
+        ...node.recipe,
+        run: commands(node.recipe.run),
+        needs: node.dependencies.map(components),
+      },
+    ];
+  };
+  return JSON.stringify(components(selector));
 }
 
 /** Select a deterministic file set from the complete observed input universe. */
