@@ -60,7 +60,10 @@ function uninstall(): void {
  * run re-raises it — i.e. the process finishes reporting what was cancelled,
  * then dies with the signal's conventional status.
  */
-export function trackRun(controller: AbortController): () => void {
+export function trackRun(
+  controller: AbortController,
+  options: { resumeAfterInterrupt?: boolean } = {},
+): () => void {
   active.add(controller);
   install();
   return (): void => {
@@ -71,7 +74,7 @@ export function trackRun(controller: AbortController): () => void {
     uninstall();
     const sig = received;
     received = null;
-    if (sig !== null) {
+    if (sig !== null && !options.resumeAfterInterrupt) {
       reraiseInterrupt(sig);
     }
   };
@@ -87,7 +90,10 @@ export interface TrackedRun {
 }
 
 /** Begin one locally controlled run, chaining optional external cancellation. */
-export function beginTrackedRun(external?: AbortSignal): TrackedRun {
+export function beginTrackedRun(
+  external?: AbortSignal,
+  options: { resumeAfterInterrupt?: boolean } = {},
+): TrackedRun {
   const controller = new AbortController();
   const onAbort = (): void => controller.abort();
   if (external?.aborted) {
@@ -95,7 +101,7 @@ export function beginTrackedRun(external?: AbortSignal): TrackedRun {
   } else {
     external?.addEventListener("abort", onAbort, { once: true });
   }
-  const releaseRun = trackRun(controller);
+  const releaseRun = trackRun(controller, options);
   return {
     signal: controller.signal,
     release: (): void => {
@@ -109,8 +115,9 @@ export function beginTrackedRun(external?: AbortSignal): TrackedRun {
 export async function withTrackedRun<T>(
   external: AbortSignal | undefined,
   operation: (signal: AbortSignal) => Promise<T>,
+  options: { resumeAfterInterrupt?: boolean } = {},
 ): Promise<T> {
-  const tracked = beginTrackedRun(external);
+  const tracked = beginTrackedRun(external, options);
   try {
     return await runWithOperationSignal(
       tracked.signal,

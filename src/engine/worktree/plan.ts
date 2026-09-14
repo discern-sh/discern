@@ -470,6 +470,8 @@ export function setupPlanToEngine(plan: SetupPlan): EnginePlan {
  * checkout; a plan exists even when blocked, so `--dry-run` can show what a
  * `--force` WOULD discard. */
 export interface DropPlan {
+  /** Content identity for the reviewed uncommitted work; absent when unreadable. */
+  state?: string;
   /** The resolved worktree's canonical path. */
   targetPath: string;
   /** The worktree's id (its directory basename, or the resolved identity). */
@@ -590,6 +592,7 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
     `Worktree: ${plan.id}`,
     `Path:     ${plan.targetPath}`,
     `Branch:   ${plan.branch !== "" ? plan.branch : "(detached)"}`,
+    `Revision: ${plan.head}`,
   ];
   if (plan.blockers.length > 0) {
     details.push(`Discards: ${plan.blockers.join("; ")}`);

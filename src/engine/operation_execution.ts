@@ -37,6 +37,7 @@ export async function executeOperation<T>(
   result: (value: T, rendered: DiscernResult | undefined) => DiscernResult,
   externalSignal?: AbortSignal,
   announce?: (fact: CompletionObservationFact) => void,
+  options: { resumeAfterInterrupt?: boolean } = {},
 ): Promise<T> {
   const policy = operationEffectPolicy(invocation.command, invocation);
   const observable = !invocation.dryRun &&
@@ -129,7 +130,7 @@ export async function executeOperation<T>(
     );
     if (outcome.kind === "threw") throw outcome.error;
     return outcome.value;
-  });
+  }, options);
 }
 
 /** A delegated child belongs to its live lease owner's journal. The parent

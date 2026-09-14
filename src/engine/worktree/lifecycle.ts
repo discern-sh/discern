@@ -183,6 +183,7 @@ import {
   removeParkedTaskMetadata,
 } from "./parked_task_metadata.ts";
 import {
+  type DropPlan,
   dropPlanToEngine,
   FULL_REFRESH_STEP_NOTE,
   type IntegrationPruneItem,
@@ -1459,14 +1460,20 @@ export async function worktreeTeardown(
 export interface WorktreeDropOptions extends WorktreeOpOptions {
   /** Discard even when the worktree holds uncommitted changes or unmerged commits. */
   force?: boolean;
+  /** Review supplied by a composite consent flow; changed effects require a fresh review. */
+  expected?: DropPlan;
 }
+
+/** The core alone authorizes a force choice for work it would discard. */
+export class DropWouldDiscardWork extends WorktreeGitError {}
 
 /** Read-only drop plan for composite human surfaces such as the Desk. */
 export async function worktreeDropPlan(
   ctx: LifecycleContext,
   target: string,
-): Promise<EnginePlan> {
-  return dropPlanToEngine(await buildRemovalPlan(ctx, target));
+): Promise<EnginePlan & { subject: DropPlan }> {
+  const subject = await buildRemovalPlan(ctx, target);
+  return { ...dropPlanToEngine(subject), subject };
 }
 
 /**
@@ -1499,9 +1506,25 @@ export async function worktreeDrop(
   }
   return await withWorktreeOwnership(prepared.targetPath, async () => {
     const plan = await buildRemovalPlan(ctx, prepared.targetPath);
-
-    if (plan.blockers.length > 0 && !(opts.force ?? false)) {
+    if (
+      opts.expected !== undefined &&
+      JSON.stringify(opts.expected) !== JSON.stringify(plan)
+    ) {
       throw new WorktreeGitError(
+        "The reviewed Drop target or its work changed. Open a fresh Drop plan; nothing was removed.",
+      );
+    }
+
+    if (
+      opts.expected !== undefined && plan.state === undefined &&
+      await targetExists(plan.targetPath)
+    ) {
+      throw new WorktreeGitError(
+        "The checkout contents could not be bound to this Drop review. Restore readable Git and file state, then review Drop again; nothing was removed.",
+      );
+    }
+    if (plan.blockers.length > 0 && !(opts.force ?? false)) {
+      throw new DropWouldDiscardWork(
         `Worktree '${plan.id}' has work a drop would discard: ${
           plan.blockers.join("; ")
         }. Resume a session there to finish or land it, or re-run with --force ` +
