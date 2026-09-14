@@ -12,6 +12,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { listIntegrationLandingRecords } from "../src/engine/worktree/integration_record.ts";
+import { readOpenQuestions } from "../src/engine/checkpoints/open_questions.ts";
 import { readSubmission } from "../src/engine/worktree/submission.ts";
 import { submissionRows } from "../src/engine/worktree/submissions_view.ts";
 import {
@@ -317,6 +318,66 @@ Deno.test("a renewed integration judgment is served, answered with accept --met,
       const authorRunsAfterProofs = await producerRuns(counter);
       const betaHead = await gitOut(beta, "rev-parse", "HEAD");
       const betaBranch = await gitOut(beta, "branch", "--show-current");
+      // Direct-landing refusals retain the proved revision and its judgments.
+      const directTip = await gitOut(dir, "rev-parse", "main");
+      const alphaHead = await gitOut(alpha, "rev-parse", "HEAD");
+      const directQuestions = await readOpenQuestions(alpha);
+      assertEquals(directQuestions.status, "ok");
+      const refused = await runAgent(alpha, [
+        "accept",
+        "--met",
+        "record-review",
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(refused.code, 1, refused.output);
+      const directResult = decodeCliResult(refused.stdout, "accept");
+      assertEquals(directResult.error, "invalid_value");
+      assert(directResult.message !== undefined);
+      assertStringIncludes(directResult.message, "no integration judgment");
+      // Accept freezes the submission before rejecting the declaration.
+      // Later refusals preserve that same submission as well as the proof state.
+      const directSubmission = await readSubmission(alpha);
+      assert(directSubmission.status === "submitted");
+      assertEquals(directSubmission.submission.head, alphaHead);
+      const assertDirectState = async (): Promise<void> => {
+        assertEquals(await gitOut(dir, "rev-parse", "main"), directTip);
+        assertEquals(await gitOut(alpha, "rev-parse", "HEAD"), alphaHead);
+        assertEquals(await readSubmission(alpha), directSubmission);
+        assertEquals(await readOpenQuestions(alpha), directQuestions);
+        assertEquals(await producerRuns(counter), authorRunsAfterProofs);
+        await assertNoIntegrationRemains(dir);
+      };
+      await assertDirectState();
+      // A bare receipt is refused the same way, and a receipt without any
+      // decision to bind is an argument error before anything runs.
+      assertEquals(
+        (await runAgent(alpha, [
+          "accept",
+          "--met",
+          "record-review",
+          "--composition",
+          "0000",
+          "--confirmed",
+          "--json",
+        ])).code,
+        1,
+      );
+      await assertDirectState();
+      const dangling = await runAgent(alpha, [
+        "accept",
+        "--composition",
+        "0000",
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(dangling.code, 1, dangling.output);
+      assertEquals(
+        decodeCliResult(dangling.stdout, "accept").error,
+        "invalid_arguments",
+      );
+      await assertDirectState();
+
       assertEquals(
         (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
         0,
@@ -535,126 +596,6 @@ Deno.test("an unmet integration judgment routes to the owner's variance, and the
   });
 });
 
-Deno.test("a composition that changed while its judgment waited is discarded: the answer never transfers, and a fresh question is served", async () => {
-  await withTempDir(async (dir) => {
-    await withTempDir(async (scratch) => {
-      const counter = join(scratch, "producer-runs");
-      await judgmentFixture(dir, counter);
-      const alpha = await effortFlippingRow(dir, "alpha");
-      const beta = await effortFlippingRow(dir, "beta");
-      const gamma = await addWorktree(dir, "gamma");
-      await Deno.writeTextFile(join(gamma, "gamma.txt"), "gamma\n");
-      await git(gamma, "add", "-A");
-      await git(gamma, "commit", "-q", "-m", "feat: gamma", "--no-gpg-sign");
-
-      assertEquals(
-        (await runAgent(alpha, ["done", "--met", "record-review", "--json"]))
-          .code,
-        0,
-      );
-      assertEquals(
-        (await runAgent(beta, ["done", "--met", "record-review", "--json"]))
-          .code,
-        0,
-      );
-      assertEquals((await runAgent(gamma, ["done", "--json"])).code, 0);
-      assertEquals(
-        (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
-        0,
-      );
-      assertEquals(
-        (await runAgent(beta, ["accept", "--confirmed", "--json"])).code,
-        1,
-        "beta's judgment is served and its composition retained",
-      );
-      const firstRetained = await retainedRecord(dir);
-      assert(firstRetained !== undefined);
-
-      // While beta's judgment waits, a sibling lands freely: the wait holds
-      // no lock. Its landing moves the trunk past beta's retained composition.
-      assertEquals(
-        (await runAgent(gamma, ["accept", "--confirmed", "--json"])).code,
-        0,
-        "a sibling lands while the judgment waits",
-      );
-
-      // The answered judgment binds to the composition that was served; that
-      // composition is stale now, so the answer is refused, the stale copy is
-      // discarded, and a fresh accept serves the question about the new
-      // composition.
-      const stale = await runAgent(beta, [
-        "accept",
-        "--met",
-        "record-review",
-        "--composition",
-        firstRetained.id,
-        "--confirmed",
-        "--json",
-      ]);
-      assertEquals(stale.code, 1, stale.output);
-      const staleResult = decodeCliResult(stale.stdout, "accept");
-      assert(staleResult.message !== undefined);
-      assertStringIncludes(staleResult.message, "discern accept");
-      assertEquals(
-        await targetExists(firstRetained.worktreePath),
-        false,
-        "the stale composition is discarded, not answered",
-      );
-
-      const reserved = await runAgent(beta, [
-        "accept",
-        "--confirmed",
-        "--json",
-      ]);
-      assertEquals(reserved.code, 1, reserved.output);
-      const reservedResult = decodeCliResult(reserved.stdout, "accept");
-      assertEquals(reservedResult.error, "awaiting_declaration");
-      const secondRetained = await retainedRecord(dir);
-      assert(secondRetained !== undefined);
-      assert(secondRetained.worktreePath !== firstRetained.worktreePath);
-      assert(secondRetained.id !== firstRetained.id);
-
-      // The discarded composition's receipt never answers the new one.
-      const transferred = await runAgent(beta, [
-        "accept",
-        "--met",
-        "record-review",
-        "--composition",
-        firstRetained.id,
-        "--confirmed",
-        "--json",
-      ]);
-      assertEquals(transferred.code, 1, transferred.output);
-      const transferredResult = decodeCliResult(transferred.stdout, "accept");
-      assertEquals(transferredResult.error, "precondition_failed");
-      assert(transferredResult.message !== undefined);
-      assertStringIncludes(transferredResult.message, "no longer retained");
-
-      // Answering the freshly served question lands the current composition.
-      const landed = await runAgent(beta, [
-        "accept",
-        "--met",
-        "record-review",
-        "--composition",
-        secondRetained.id,
-        "--confirmed",
-        "--json",
-      ]);
-      assertEquals(landed.code, 0, landed.output);
-      await assertNoIntegrationRemains(dir);
-      assertEquals(
-        await producerRuns(counter),
-        3 + 1 + 1,
-        [
-          "three author proofs, one discarded-composition producer never ran",
-          "(both judgment stops fire before jobs), one combined check per",
-          "landed composition: gamma landed direct off its own proof.",
-        ].join(" "),
-      );
-    });
-  });
-});
-
 Deno.test("prune preserves a retained composition while its submission stands and reclaims it once the effort is gone", async () => {
   await withTempDir(async (dir) => {
     await withTempDir(async (scratch) => {
@@ -725,64 +666,6 @@ Deno.test("prune preserves a retained composition while its submission stands an
   });
 });
 
-Deno.test("declarations without an awaited integration judgment are refused, and a direct landing never consumes them", async () => {
-  await withTempDir(async (dir) => {
-    await withTempDir(async (scratch) => {
-      const counter = join(scratch, "producer-runs");
-      await judgmentFixture(dir, counter);
-      const alpha = await effortFlippingRow(dir, "alpha");
-      assertEquals(
-        (await runAgent(alpha, ["done", "--met", "record-review", "--json"]))
-          .code,
-        0,
-      );
-      const refused = await runAgent(alpha, [
-        "accept",
-        "--met",
-        "record-review",
-        "--confirmed",
-        "--json",
-      ]);
-      assertEquals(refused.code, 1, refused.output);
-      const result = decodeCliResult(refused.stdout, "accept");
-      assertEquals(result.error, "invalid_value");
-      assert(result.message !== undefined);
-      assertStringIncludes(result.message, "no integration judgment");
-      // A bare receipt is refused the same way, and a receipt without any
-      // decision to bind is an argument error before anything runs.
-      assertEquals(
-        (await runAgent(alpha, [
-          "accept",
-          "--met",
-          "record-review",
-          "--composition",
-          "0000",
-          "--confirmed",
-          "--json",
-        ])).code,
-        1,
-      );
-      const dangling = await runAgent(alpha, [
-        "accept",
-        "--composition",
-        "0000",
-        "--confirmed",
-        "--json",
-      ]);
-      assertEquals(dangling.code, 1, dangling.output);
-      assertEquals(
-        decodeCliResult(dangling.stdout, "accept").error,
-        "invalid_arguments",
-      );
-      // The refusals changed nothing: the ordinary direct landing follows.
-      assertEquals(
-        (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
-        0,
-      );
-    });
-  });
-});
-
 Deno.test("a replacement submission supersedes the retained composition: the author's rebuilt work lands directly and the stale copy is discarded", async () => {
   await withTempDir(async (dir) => {
     await withTempDir(async (scratch) => {
@@ -844,7 +727,7 @@ Deno.test("a replacement submission supersedes the retained composition: the aut
   });
 });
 
-Deno.test("an answer served by one composition never approves its replacement: the receipt refuses, and the replacement's own serving continues", async () => {
+Deno.test("stale answers before and after replacement serving never approve another composition", async () => {
   await withTempDir(async (dir) => {
     await withTempDir(async (scratch) => {
       const counter = join(scratch, "producer-runs");
@@ -909,6 +792,22 @@ Deno.test("an answer served by one composition never approves its replacement: t
       // The answer prepared for the first composition arrives — with its
       // receipt, and without one. Neither records anything or lands.
       const trunkBefore = await gitOut(dir, "rev-parse", "main");
+      const authorHead = await gitOut(beta, "rev-parse", "HEAD");
+      const submission = await readSubmission(beta);
+      const questions = await readOpenQuestions(replacement.worktreePath);
+      assertEquals(questions.status, "ok");
+      const runsBefore = await producerRuns(counter);
+      const assertReplacementPreserved = async (): Promise<void> => {
+        assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+        assertEquals(await gitOut(beta, "rev-parse", "HEAD"), authorHead);
+        assertEquals(await readSubmission(beta), submission);
+        assertEquals(await retainedRecord(dir), replacement);
+        assertEquals(
+          await readOpenQuestions(replacement.worktreePath),
+          questions,
+        );
+        assertEquals(await producerRuns(counter), runsBefore);
+      };
       const stale = await runAgent(beta, [
         "accept",
         "--met",
@@ -923,6 +822,7 @@ Deno.test("an answer served by one composition never approves its replacement: t
         decodeCliResult(stale.stdout, "accept").error,
         "precondition_failed",
       );
+      await assertReplacementPreserved();
       const unreceipted = await runAgent(beta, [
         "accept",
         "--met",
@@ -935,13 +835,27 @@ Deno.test("an answer served by one composition never approves its replacement: t
         decodeCliResult(unreceipted.stdout, "accept").error,
         "invalid_value",
       );
-      assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
-      const still = await retainedRecord(dir);
-      assert(still !== undefined);
-      assertEquals(still.id, replacement.id);
+      await assertReplacementPreserved();
 
-      // Judging the replacement itself — with its own receipt — lands it.
-      const landed = await runAgent(beta, [
+      // A later sibling moves the trunk again. This time the answer arrives
+      // BEFORE a replacement has been served, exercising stale-copy disposal.
+      const delta = await addWorktree(dir, "delta");
+      await Deno.writeTextFile(join(delta, "delta.txt"), "delta\n");
+      await git(delta, "add", "-A");
+      await git(delta, "commit", "-q", "-m", "delta", "--no-gpg-sign");
+      assertEquals((await runAgent(delta, ["done", "--json"])).code, 0);
+      assertEquals(
+        (await runAgent(delta, ["accept", "--confirmed", "--json"])).code,
+        0,
+        "a sibling lands while the judgment waits",
+      );
+      const advancedTip = await gitOut(dir, "rev-parse", "main");
+
+      // The answered judgment binds to the composition that was served; that
+      // composition is stale now, so the answer is refused, the stale copy is
+      // discarded, and a fresh accept serves the question about the new
+      // composition.
+      const early = await runAgent(beta, [
         "accept",
         "--met",
         "record-review",
@@ -950,8 +864,76 @@ Deno.test("an answer served by one composition never approves its replacement: t
         "--confirmed",
         "--json",
       ]);
+      assertEquals(early.code, 1, early.output);
+      const earlyResult = decodeCliResult(early.stdout, "accept");
+      assertEquals(earlyResult.error, "precondition_failed");
+      assert(earlyResult.message !== undefined);
+      assertStringIncludes(earlyResult.message, "discern accept");
+      assertEquals(
+        await targetExists(replacement.worktreePath),
+        false,
+        "the stale composition is discarded, not answered",
+      );
+
+      assertEquals(await gitOut(dir, "rev-parse", "main"), advancedTip);
+      assertEquals(await readSubmission(beta), submission);
+      assertEquals(await producerRuns(counter), runsBefore + 1);
+
+      const reserved = await runAgent(beta, [
+        "accept",
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(reserved.code, 1, reserved.output);
+      const reservedResult = decodeCliResult(reserved.stdout, "accept");
+      assertEquals(reservedResult.error, "awaiting_declaration");
+      const fresh = await retainedRecord(dir);
+      assert(fresh !== undefined);
+      assert(fresh.worktreePath !== replacement.worktreePath);
+      assert(fresh.id !== replacement.id);
+
+      const freshQuestions = await readOpenQuestions(fresh.worktreePath);
+      assertEquals(freshQuestions.status, "ok");
+
+      // The discarded composition's receipt never answers the new one.
+      const transferred = await runAgent(beta, [
+        "accept",
+        "--met",
+        "record-review",
+        "--composition",
+        replacement.id,
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(transferred.code, 1, transferred.output);
+      const transferredResult = decodeCliResult(transferred.stdout, "accept");
+      assertEquals(transferredResult.error, "precondition_failed");
+      assert(transferredResult.message !== undefined);
+      assertStringIncludes(transferredResult.message, "no longer retained");
+
+      assertEquals(await gitOut(dir, "rev-parse", "main"), advancedTip);
+      assertEquals(await readSubmission(beta), submission);
+      assertEquals(await retainedRecord(dir), fresh);
+      assertEquals(await readOpenQuestions(fresh.worktreePath), freshQuestions);
+      assertEquals(await producerRuns(counter), runsBefore + 1);
+
+      // Judging the replacement itself — with its own receipt — lands it.
+      const landed = await runAgent(beta, [
+        "accept",
+        "--met",
+        "record-review",
+        "--composition",
+        fresh.id,
+        "--confirmed",
+        "--json",
+      ]);
       assertEquals(landed.code, 0, landed.output);
       await assertNoIntegrationRemains(dir);
+      assertEquals(
+        await producerRuns(counter),
+        5,
+        "four author proofs and one final combined check; judgment stops run no jobs",
+      );
     });
   });
 });

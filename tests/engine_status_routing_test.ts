@@ -100,7 +100,7 @@ async function statusHints(wt: string): Promise<string[]> {
   return [...(decodeCliResult(status.stdout, "status").hints ?? [])];
 }
 
-Deno.test("a proven branch behind the trunk routes to accept, never into author-side update work", async () => {
+Deno.test("behind-trunk status follows proven, dirty, and committed-unproven transitions", async () => {
   await withTempDir(async (dir) => {
     const beta = await behindFixture(dir, CONFIG, () => "beta.txt");
     const hints = await statusHints(beta);
@@ -119,27 +119,6 @@ Deno.test("a proven branch behind the trunk routes to accept, never into author-
       ),
       hints.join("\n"),
     );
-  });
-});
-
-Deno.test("a proven branch behind the trunk under a covering standing grant is told to accept now", async () => {
-  await withTempDir(async (dir) => {
-    const beta = await behindFixture(
-      dir,
-      GRANT_CONFIG,
-      () => join("notes", "beta.txt"),
-    );
-    const hints = await statusHints(beta);
-    const now = hints.filter((hint) =>
-      hint.includes("standing grant") && hint.includes("run `discern accept`")
-    );
-    assertEquals(now.length, 1, hints.join("\n"));
-  });
-});
-
-Deno.test("behind work still being authored keeps the update-then-prove route", async () => {
-  await withTempDir(async (dir) => {
-    const beta = await behindFixture(dir, CONFIG, () => "beta.txt");
 
     // Dirty: authoring continues, so the update route stands.
     await Deno.writeTextFile(join(beta, "beta-wip.txt"), "wip\n");
@@ -163,5 +142,20 @@ Deno.test("behind work still being authored keeps the update-then-prove route", 
       unprovenHints.every((hint) => !hint.includes("honored Proof;")),
       unprovenHints.join("\n"),
     );
+  });
+});
+
+Deno.test("a proven branch behind the trunk under a covering standing grant is told to accept now", async () => {
+  await withTempDir(async (dir) => {
+    const beta = await behindFixture(
+      dir,
+      GRANT_CONFIG,
+      () => join("notes", "beta.txt"),
+    );
+    const hints = await statusHints(beta);
+    const now = hints.filter((hint) =>
+      hint.includes("standing grant") && hint.includes("run `discern accept`")
+    );
+    assertEquals(now.length, 1, hints.join("\n"));
   });
 });
