@@ -23,7 +23,7 @@ A Proof that contains a standard limit proposal also needs separate owner approv
 | -------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
 | Conversation   | `discern accept --confirmed` attests to acceptance in this conversation.                               | The submitted commit.                                                           |
 | Standing grant | The trunk's `[acceptance].pre_authorized` lists granted [scopes](../00-orientation/glossary.md#scope). | Every covered landing.                                                          |
-| Effort grant   | The desk's `Pre-authorize landing once green` action records permission for the effort's branch.       | Until the landing consumes it, the owner revokes it, or the worktree goes away. |
+| Effort grant   | The desk's `Pre-authorize landing` action records permission for the effort's branch.                  | Until the landing consumes it, the owner revokes it, or the worktree goes away. |
 
 `--confirmed` attests to the owner's instruction for the selected landing. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
 

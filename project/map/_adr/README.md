@@ -373,6 +373,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0394 — Separate operation ownership from publication](0394-separate-operation-ownership-from-publication.md)
 - [0395 — Integration judgments continue the retained landing](0395-integration-judgments-continue-the-retained-landing.md)
 - [0397 — Terminal applications and test transports stay package-owned](0397-terminal-applications-and-test-transports-stay-package-owned.md)
+- [0398 — The Desk is a live human control panel](0398-the-desk-is-a-live-human-control-panel.md)
 
 <!-- END GENERATED: current ADR records -->
 

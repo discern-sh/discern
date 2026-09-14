@@ -582,7 +582,7 @@ Deno.test("standing, effort, scoped, and absent authority remain distinct", () =
 
 // ── collision and desk-only capability evidence ─────────────────────────────
 
-Deno.test("changed-file and ADR collisions enter attention without changing status meaning", () => {
+Deno.test("advisory collisions retain facts without changing state or recommending an action", () => {
   const decision = decide(
     {
       branch: "agent/alpha",
@@ -607,9 +607,9 @@ Deno.test("changed-file and ADR collisions enter attention without changing stat
     },
   );
   assertEquals(decision.statusKind, "ready", "collision is not a row status");
-  assertEquals(decision.state, "needs_attention");
+  assertEquals(decision.state, "ready_to_review");
   assertEquals(decision.needsHumanDecision, true);
-  assertEquals(decision.recommendedAction, "inspect");
+  assertEquals(decision.recommendedAction, undefined);
   assertEquals(decision.collisions, [
     {
       kind: "changed_files",
@@ -641,7 +641,7 @@ Deno.test("changed-file and ADR collisions enter attention without changing stat
   assertEquals(unrelated.state, "paused");
 });
 
-Deno.test("a contained task names its live successor and recommends reclaim", () => {
+Deno.test("a contained task names its live successor and offers reclaim", () => {
   const decision = decide({
     ahead: 2,
     contained_in: "agent/next-stage",
@@ -649,7 +649,7 @@ Deno.test("a contained task names its live successor and recommends reclaim", ()
   assertEquals(decision.state, "paused");
   assertEquals(decision.headline, "Work continues in agent/next-stage");
   assertEquals(decision.needsHumanDecision, true);
-  assertEquals(decision.recommendedAction, "reclaim");
+  assertEquals(decision.recommendedAction, undefined);
   assertEquals(offer(decision, "reclaim").availability, "enabled");
   assertStringIncludes(
     offer(decision, "reclaim").label,
@@ -888,12 +888,12 @@ Deno.test("every action is offered once with closed metadata and concrete availa
     assertEquals(enabledActions(decision), testCase.enabled, testCase.name);
     assertEquals(
       decision.recommendedAction,
-      testCase.recommended,
+      undefined,
       testCase.name,
     );
     assertEquals(
       decision.actions.filter((candidate) => candidate.recommended).length,
-      testCase.recommended === undefined ? 0 : 1,
+      0,
       `${testCase.name}: at most one recommendation`,
     );
     for (const candidate of decision.actions) {
@@ -983,7 +983,7 @@ Deno.test("landing authority stays editable while final checks run", () => {
   assertEquals(offer(granted, "revoke_grant").availability, "enabled");
 });
 
-Deno.test("a proven branch behind main keeps Accept enabled and recommended: the landing composes the moved trunk", () => {
+Deno.test("a proven branch behind main keeps Accept enabled : the landing composes the moved trunk", () => {
   const decision = decide({
     clean: true,
     ahead: 2,
@@ -992,10 +992,10 @@ Deno.test("a proven branch behind main keeps Accept enabled and recommended: the
   });
   assertEquals(offer(decision, "accept").availability, "enabled");
   assertEquals(offer(decision, "update").availability, "enabled");
-  assertEquals(decision.recommendedAction, "accept");
+  assertEquals(decision.recommendedAction, undefined);
 });
 
-Deno.test("an unproven branch behind main disables Accept and recommends Update", () => {
+Deno.test("an unproven branch behind main disables Accept", () => {
   const decision = decide({
     clean: true,
     ahead: 2,
@@ -1007,7 +1007,7 @@ Deno.test("an unproven branch behind main disables Accept and recommends Update"
     assertEquals(accept.reason, "1 commit behind main.");
   }
   assertEquals(offer(decision, "update").availability, "enabled");
-  assertEquals(decision.recommendedAction, "update");
+  assertEquals(decision.recommendedAction, undefined);
 });
 
 Deno.test("unknown divergence disables actions that require trustworthy counts", () => {
@@ -1109,7 +1109,7 @@ Deno.test("the board decision carries project, main, counts, and bounded notices
   });
 });
 
-Deno.test("buildDeskRows excludes main, carries collisions, and sorts by human decision", () => {
+Deno.test("buildDeskRows excludes main, carries collisions, and sorts by title and stable identity", () => {
   const fleet = [
     entry({ is_main: true, branch: "main", path: "/p/main" }),
     entry({
@@ -1167,19 +1167,19 @@ Deno.test("buildDeskRows excludes main, carries collisions, and sorts by human d
     [
       "agent/attention-new",
       "agent/attention-old",
+      "agent/empty",
+      "agent/paused",
       "agent/ready",
       "agent/working",
-      "agent/paused",
-      "agent/empty",
     ],
   );
   assertEquals(rows.map((row) => row.decision.state), [
+    "ready_to_review",
     "needs_attention",
-    "needs_attention",
+    "empty",
+    "paused",
     "ready_to_review",
     "working",
-    "paused",
-    "empty",
   ]);
   assert(rows.every((row) => !row.entry.is_main));
   assertEquals(

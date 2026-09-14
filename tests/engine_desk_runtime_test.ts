@@ -1,18 +1,18 @@
 /**
- * Behavioral coverage for the desk's interactive renderer and dispatcher.
+ * Behavioral coverage for the Desk foreground dispatcher and lifecycle effects.
  *
- * A piped test process must never impersonate a TTY, so the production desk
- * exposes its terminal/effect boundary as a runtime. These tests script that
- * boundary and exercise the same session loop the CLI uses: fleet rendering,
- * refresh, inspect, jump, update, acceptance, destructive drop, and lifecycle
- * refusals. No test mutates a real worktree.
+ * Semantic route fixtures exercise plans, confirmations, agent and script argv,
+ * acceptance, destructive Drop and refusals. The package application runtime
+ * and navigation are exercised separately in engine_desk_live_test.ts. No test
+ * here mutates a real worktree.
  *
  * Guards: boundary:agent-runtime-boundary, boundary:invoked-process-lifecycle
  */
 
+import { scriptedDeskEffects } from "./fixtures/desk_scripted_application.ts";
 import { fixtureEffortGrant } from "./effort_grant_fixtures.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { DISCERN_DOCS_URL, DISCERN_WORDMARK } from "../src/shared/brand.ts";
+import { DISCERN_DOCS_URL } from "../src/shared/brand.ts";
 import {
   configSchema,
   type DiscernConfig,
@@ -34,10 +34,7 @@ import {
   type TextRequestOptions,
 } from "../src/lib/terminal_interaction.ts";
 import { makeOut, type Out } from "../src/engine/output.ts";
-import {
-  resolveTerminalContext,
-  type TerminalContext,
-} from "../src/lib/terminal.ts";
+import type { TerminalContext } from "../src/lib/terminal.ts";
 import {
   type DeskRuntime,
   runDesk,
@@ -61,14 +58,9 @@ import {
   type PreparedStart,
   WorktreeGitError,
 } from "../src/engine/worktree/lifecycle.ts";
-import {
-  freshTipSeenState,
-  type TipSeenState,
-} from "../src/engine/desk/tips.ts";
-import { renderTipCli, TIPS } from "../src/shared/tips.ts";
+import { freshTipSeenState } from "../src/engine/desk/tips.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
-import { displayWidth, stripAnsi } from "../src/lib/text.ts";
-import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 
@@ -149,7 +141,14 @@ function statusData(
     root: ROOT,
     project: "demo",
     worktree: null,
-    git: null,
+    git: {
+      branch: "main",
+      trunk: "main",
+      clean: true,
+      changed_files: 0,
+      behind_trunk: 0,
+      ahead_trunk: 0,
+    },
     standards: [],
     fleet,
   };
@@ -295,6 +294,7 @@ function scriptedRuntime(
     is_current: true,
   });
   const data = statusData([main]);
+  let latest = data;
   const select = patch.select ?? (() => QUIT);
   const confirm = patch.confirm ?? (() => true);
   const input = patch.input ?? (() => "");
@@ -330,7 +330,6 @@ function scriptedRuntime(
     inDeskSession: () => false,
     findRoot: () => ROOT,
     loadConfig: () => CONFIG,
-    status: () => ({ ok: true, data }),
     mainRepoPath: () => ROOT,
     grantEffortPlan: () => ({
       title: "Landing pre-authorization plan",
@@ -407,30 +406,26 @@ function scriptedRuntime(
     recordTipShown: () => {},
     size: () => ({ columns: 80, rows: 24 }),
     ...patch,
+    status: async (root) => {
+      const result = patch.status === undefined
+        ? { ok: true, data }
+        : await patch.status(root);
+      if (result.data) latest = result.data;
+      return result;
+    },
+    application: (options) =>
+      scriptedDeskEffects(
+        options,
+        select,
+        () => latest,
+        (frame) => output.stdout.push(frame),
+      ),
   };
 }
 
 /** Combine both captured desk streams for order-insensitive message assertions. */
 function joined(output: Transcript): string {
   return [...output.stdout, ...output.stderr].join("\n");
-}
-
-/** The registered tip with `id`, or a failed assertion. */
-function registeredTip(id: string): (typeof TIPS)[number] {
-  const tip = TIPS.find((entry) => entry.id === id);
-  assert(tip !== undefined, `the shipped registry must carry ${id}`);
-  return tip;
-}
-
-/** Count overlapping candidate positions to prove a tip is narrated exactly once. */
-function countOccurrences(haystack: string, needle: string): number {
-  let count = 0;
-  let index = haystack.indexOf(needle);
-  while (index !== -1) {
-    count += 1;
-    index = haystack.indexOf(needle, index + needle.length);
-  }
-  return count;
 }
 
 Deno.test("desk-owned terminal children receive the desk-session marker", async () => {
@@ -519,128 +514,6 @@ Deno.test("a desk-owned child refuses a nested desk before surveying the fleet",
   assert(!joined(output).includes("cd /"));
 });
 
-Deno.test("desk session renders task-first fleet rows from the survey's own proof facts", async () => {
-  const output = transcript();
-  const main = fleetEntry("main", ROOT, {
-    is_main: true,
-    is_current: true,
-    clean: false,
-    changed_files: 1,
-  });
-  const ready = fleetEntry(
-    "agent/ready-to-land-a1b2c3",
-    "/worktrees/ready-to-land-a1b2c3",
-    { id: "ready-to-land-a1b2c3", ahead: 2, proof_honored: true },
-  );
-  const flying = fleetEntry("agent/flying-c4d5e6", "/worktrees/flying-c4d5e6", {
-    id: "flying-c4d5e6",
-    clean: false,
-    changed_files: 3,
-  });
-  const broken = fleetEntry("agent/broken-123abc", "/worktrees/broken-123abc", {
-    id: "broken-123abc",
-    broken: true,
-  });
-  const unreadable = fleetEntry(
-    "agent/unreadable-456def",
-    "/worktrees/unreadable-456def",
-    {
-      id: "unreadable-456def",
-      clean: undefined,
-      changed_files: undefined,
-      git_unavailable: true,
-    },
-  );
-  const data = {
-    ...statusData([main, ready, flying, broken, unreadable]),
-    unlanded_branches: ["agent/orphan"],
-  };
-  const optionText: string[] = [];
-  const runtime = scriptedRuntime(output, {
-    status: () => ({ ok: true, data }),
-    select: (options) => {
-      assertEquals(options.search, false);
-      assertStringIncludes(String(options.hint), "arrow keys");
-      optionText.push(JSON.stringify(options.options));
-      return QUIT;
-    },
-  });
-
-  assertEquals(await runDesk({}, runtime), 0);
-  const text = joined(output);
-  assertStringIncludes(text, `${DISCERN_WORDMARK} · demo`);
-  assertStringIncludes(text, "4 tasks");
-  assertStringIncludes(text, "main has 1 uncommitted change");
-  assertStringIncludes(text, "1 branch has no worktree: agent/orphan");
-  assertStringIncludes(text, "Refreshed just now");
-  assertStringIncludes(text, "Tip:");
-  const options = optionText.join("\n");
-  for (const task of ["Ready to land", "Flying", "Broken", "Unreadable"]) {
-    assertStringIncludes(options, task);
-  }
-  for (
-    const branch of [
-      ready.branch,
-      flying.branch,
-      broken.branch,
-      unreadable.branch,
-    ]
-  ) {
-    assert(
-      !options.includes(branch),
-      "live fleet rows should lead with task names",
-    );
-  }
-  assertStringIncludes(options, "Work without a worktree");
-  assertStringIncludes(options, "agent/orphan");
-  assert(
-    !options.includes("Ready to land  a1b2c3"),
-    "a unique task name should not display its id tail",
-  );
-  for (
-    const section of [
-      '"kind":"group-heading","id":"tasks-needs_attention","name":"Needs attention · 2"',
-      '"kind":"group-heading","id":"tasks-ready_to_review","name":"Ready to review · 1"',
-      '"kind":"group-heading","id":"tasks-paused","name":"Paused · 1"',
-      '"kind":"group-heading","id":"desk-commands","name":"Desk commands"',
-      '"kind":"group-heading","id":"session-commands","name":"Session"',
-    ]
-  ) {
-    assertStringIncludes(options, section);
-  }
-});
-
-Deno.test("desk reports removed worktree paths that are present again", async () => {
-  const output = transcript();
-  const main = fleetEntry("main", ROOT, {
-    is_main: true,
-    is_current: true,
-  });
-  const data = {
-    ...statusData([main]),
-    reappeared_worktree_paths: [{
-      path: "/worktrees/apollo-11",
-      removed_at: "2026-08-08T11:00:00.000Z",
-      kind: "directory" as const,
-      contents: ["observer-state/checkpoint.bin"],
-      contents_truncated: false,
-      entries: 2,
-    }],
-  };
-  const runtime = scriptedRuntime(output, {
-    status: () => ({ ok: true, data }),
-    select: () => QUIT,
-  });
-
-  assertEquals(await runDesk({}, runtime), 0);
-  const text = joined(output);
-  assertStringIncludes(text, "1 removed worktree path is present again");
-  assertStringIncludes(
-    text,
-    "Review with discern worktree prune --dry-run.",
-  );
-});
-
 Deno.test("dirty main is inspectable without offering agent work", async () => {
   const output = transcript();
   const main = fleetEntry("main", ROOT, {
@@ -681,7 +554,7 @@ Deno.test("dirty main is inspectable without offering agent work", async () => {
     ["status", "--short", "--branch"],
     ["diff", "--stat", "HEAD"],
   ]);
-  assertStringIncludes(menus[0] ?? "", "Inspect main checkout");
+  assertStringIncludes(menus[0] ?? "", "Main checkout");
   assertStringIncludes(menus[1] ?? "", "Inspect status and diff");
   assert(!menus[1]?.includes('"value":"agent"'), menus[1]);
   assertStringIncludes(pages[0] ?? "", "Command: git status --short --branch");
@@ -724,7 +597,7 @@ Deno.test("recent completed tasks expose bounded local landing evidence", async 
 
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(pauses, 1);
-  assertStringIncludes(menus[0] ?? "", "Recent completed tasks · 1");
+  assertStringIncludes(menus[0] ?? "", "Recent completed tasks");
   assertStringIncludes(joined(output), "agent/completed");
   assertStringIncludes(
     joined(output),
@@ -833,15 +706,15 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   ]);
   assertStringIncludes(
     menus.join("\n"),
-    "Pre-authorize landing once green",
+    "Pre-authorize landing",
   );
   assertStringIncludes(
     menus.join("\n"),
-    "Revoke landing pre-authorization",
+    "Revoke pre-authorization",
   );
   assertStringIncludes(
     joined(output),
-    `${effort.branch} lands once green without a further conversation. A variance, a standard proposal, or an emergency still needs you.`,
+    `${effort.branch} is pre-authorized. A later submitted green revision may land without a further conversation. A variance, a standard proposal, or an emergency still needs you.`,
   );
   assertStringIncludes(
     joined(output),
@@ -891,48 +764,8 @@ Deno.test("desk keeps landing pre-authorization selectable during final checks",
   const grant = action("grant");
   const rename = action("rename");
   assert(grant !== undefined && !isSelectionHeading(grant));
-  assert(rename !== undefined && !isSelectionHeading(rename));
+  assertEquals(rename, undefined);
   assertEquals(grant.disabled, undefined);
-  assertEquals(rename.disabled, true);
-  assertEquals(
-    rename.description,
-    "discern done is running. It usually takes 1m.",
-  );
-});
-
-Deno.test("desk adds filtering for a large fleet and disambiguates duplicate task names", async () => {
-  const output = transcript();
-  const main = fleetEntry("main", ROOT, {
-    is_main: true,
-    is_current: true,
-  });
-  const tasks = [
-    fleetEntry("agent/same-task-a1b2c3", "/worktrees/same-task-a1b2c3", {
-      id: "same-task-a1b2c3",
-    }),
-    fleetEntry("agent/same-task-d4e5f6", "/worktrees/same-task-d4e5f6", {
-      id: "same-task-d4e5f6",
-    }),
-    ...Array.from({ length: 7 }, (_, index) => {
-      const id = `task-${index}-a0000${index}`;
-      return fleetEntry(`agent/${id}`, `/worktrees/${id}`, { id });
-    }),
-  ];
-  let optionText = "";
-  const runtime = scriptedRuntime(output, {
-    status: () => ({ ok: true, data: statusData([main, ...tasks]) }),
-    select: (options) => {
-      assertEquals(options.search, true);
-      assertEquals(options.searchLabel, "filter");
-      assertStringIncludes(String(options.hint), "Type to filter");
-      optionText = JSON.stringify(options.options);
-      return QUIT;
-    },
-  });
-
-  assertEquals(await runDesk({}, runtime), 0);
-  assertStringIncludes(optionText, "Same task · a1b2c3");
-  assertStringIncludes(optionText, "Same task · d4e5f6");
 });
 
 Deno.test("desk bootstrap and refresh failures remain actionable", async () => {
@@ -958,13 +791,13 @@ Deno.test("desk bootstrap and refresh failures remain actionable", async () => {
       scriptedRuntime(failedSurvey, {
         status: () => ({
           ok: false,
-          message: "survey failed — run status",
+          message: "Stale",
         }),
       }),
     ),
-    1,
+    0,
   );
-  assertStringIncludes(joined(failedSurvey), "survey failed — run status");
+  assertStringIncludes(joined(failedSurvey), "Stale");
 
   const worktree = transcript();
   assertEquals(
@@ -997,13 +830,13 @@ Deno.test("desk bootstrap and refresh failures remain actionable", async () => {
             String(options.message),
             "Choose a desk command",
           );
-          return REFRESH;
+          return surveys === 1 ? REFRESH : QUIT;
         },
       }),
     ),
-    1,
+    0,
   );
-  assertStringIncludes(joined(refreshFailure), "the status survey failed");
+  assertStringIncludes(joined(refreshFailure), "Stale");
 });
 
 Deno.test("desk Refresh replaces the root menu from a fresh fleet survey", async () => {
@@ -1089,9 +922,8 @@ Deno.test("Park refreshes a removed checkout into its resumable branch", async (
   assertEquals(await runDesk({}, runtime), 0);
   assertStringIncludes(
     joined(output),
-    "Task changed; refreshed. Its branch is ready to resume.",
+    "Task checkout closed; branch available to resume",
   );
-  assertStringIncludes(joined(output), "Committed branch has no worktree");
   assertStringIncludes(joined(output), effort.branch);
 });
 
@@ -1136,7 +968,7 @@ Deno.test("a lifecycle refusal refreshes a task that landed outside the Desk", a
   );
   assertStringIncludes(
     joined(output),
-    "Task landed; refreshed. Completion evidence is available.",
+    "Task landed",
   );
 });
 
@@ -1172,9 +1004,9 @@ Deno.test("a lifecycle refusal reports an externally removed task and refreshes"
   assertEquals(await runDesk({}, runtime), 0);
   assertStringIncludes(
     joined(output),
-    "The selected task no longer has a registered checkout.",
+    "registered checkout.",
   );
-  assertStringIncludes(joined(output), "Task changed; refreshed.");
+  assertStringIncludes(joined(output), "Task no longer observed");
 });
 
 Deno.test("desk starts a named task and focuses its ready worktree immediately", async () => {
@@ -2071,15 +1903,7 @@ Deno.test("desk explains missing configured agents and launches available argv i
   assert(actionMenu !== undefined);
   assert(agentMenu !== undefined);
   assert(boardMenu !== undefined);
-  assert(
-    (boardMenu.reservedRows ?? 0) >= 4,
-    "the board menu must reserve the header rows the desk wrote above it",
-  );
-  assert(
-    (actionMenu.reservedRows ?? 0) > 4,
-    "the action menu must reserve the complete task-detail frame",
-  );
-  assertStringIncludes(actionMenu.options, "Continue with an agent");
+  assertStringIncludes(actionMenu.options, "Start or resume agent");
   assertStringIncludes(
     agentMenu.options,
     '"kind":"group-heading","id":"agent-claude_code","name":"Claude Code"',
@@ -2175,31 +1999,15 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   assertStringIncludes(text, "Proof honored for this commit");
   const actionMenu = menus.join("\n");
   for (
-    const group of [
-      '"kind":"group-heading","id":"actions-recommended","name":"Recommended"',
-      '"kind":"group-heading","id":"actions-work","name":"Work"',
-      '"kind":"group-heading","id":"actions-review","name":"Review"',
-      '"kind":"group-heading","id":"actions-manage","name":"Manage"',
-      '"kind":"group-heading","id":"actions-danger","name":"Danger"',
-      '"kind":"group-heading","id":"task-navigation","name":"Task"',
-    ]
-  ) {
-    assertStringIncludes(actionMenu, group);
-  }
-  for (
     const label of [
-      "Update branch",
-      "Open a shell",
-      "Review Proof and changes",
-      "Drop worktree",
+      "Start or resume agent",
+      "Project Scripts",
+      "Accept",
+      "Drop",
+      "Proof and details",
+      "More actions",
     ]
-  ) {
-    assertStringIncludes(actionMenu, label);
-  }
-  assertStringIncludes(actionMenu, "Review and land on main");
-  assertStringIncludes(actionMenu, "1 commit behind main.");
-  assertStringIncludes(actionMenu, "Run a Project Script");
-  assertStringIncludes(actionMenu, "No Project Scripts are available");
+  ) assertStringIncludes(actionMenu, label);
 });
 
 Deno.test("desk offers and runs only the selected worktree's Project Scripts", async () => {
@@ -2270,24 +2078,11 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   const actionMenus = menus.filter((menu) =>
     menu.message === "Choose an action"
   );
-  const emptyMenu = actionMenus.find((menu) =>
-    menu.options.includes("No Project Scripts are available")
-  );
-  const scriptedMenu = actionMenus.find((menu) =>
-    menu.options.includes("Run a Project Script")
-  );
+  assert(actionMenus.every((menu) => menu.options.includes("Project Scripts")));
   const scriptMenu = menus.find((menu) =>
     menu.message.startsWith("Choose a Project Script for Scripted")
   );
-  assert(emptyMenu !== undefined);
-  assert(scriptedMenu !== undefined);
   assert(scriptMenu !== undefined);
-  assertStringIncludes(emptyMenu.options, "Run a Project Script");
-  assertStringIncludes(
-    emptyMenu.options,
-    "No Project Scripts are available in this task.",
-  );
-  assertStringIncludes(scriptedMenu.options, "Run a Project Script");
   assertStringIncludes(scriptMenu.options, "deploy");
   assertStringIncludes(scriptMenu.options, "deploy this checkout");
 
@@ -2403,8 +2198,8 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
 
   const rootMenu = menus[0]?.options ?? "";
   const startAt = rootMenu.indexOf("Start a task");
-  const scriptAt = rootMenu.indexOf("Run a Project Script");
-  const docsAt = rootMenu.indexOf("Read discern's docs");
+  const scriptAt = rootMenu.indexOf("Project Scripts");
+  const docsAt = rootMenu.indexOf("Read the manual");
   assert(startAt >= 0 && startAt < scriptAt && scriptAt < docsAt);
   const scriptMenu = menus.find((menu) =>
     menu.message === "Choose a Project Script for demo"
@@ -2451,7 +2246,7 @@ Deno.test("desk opens discern's online docs from the root menu", async () => {
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(opened, [DISCERN_DOCS_URL]);
   assertEquals(pauses, 1);
-  assertStringIncludes(menus[0] ?? "", "Read discern's docs");
+  assertStringIncludes(menus[0] ?? "", "Read the manual");
   assertStringIncludes(joined(output), `Opened ${DISCERN_DOCS_URL}.`);
 });
 
@@ -2525,9 +2320,9 @@ Deno.test("desk final checks use the shared core and return to refreshed Proof",
   assertStringIncludes(text, "Final checks passed and Proof was refreshed.");
   assertStringIncludes(
     text,
-    "Proof: agent/final-checks abc1234 · gate passed in 1m",
+    "Proof valid",
   );
-  assertStringIncludes(text, "Review and land on main");
+  assertStringIncludes(text, "Accept");
 
   const cancelledOutput = transcript();
   const cancelledChoices = [effort.path, "done", BACK, QUIT];
@@ -2790,6 +2585,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   const effort = fleetEntry("agent/actions", "/worktrees/actions", {
     ahead: 2,
     behind: 1,
+    gate_proof: { status: "honored" },
   });
   const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
   const data = statusData([main, effort]);
@@ -3057,102 +2853,6 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   assertStringIncludes(joined(output), "Branch agent/stage-a kept");
 });
 
-Deno.test("desk shows one tip below status, stable across redraws, marked once", async () => {
-  const output = transcript();
-  const writes: TipSeenState[] = [];
-  const recorded: string[] = [];
-  const choices = [REFRESH, QUIT];
-  const runtime = scriptedRuntime(output, {
-    select: () => choices.shift() ?? QUIT,
-    writeTipState: (_root, state) => {
-      writes.push(state);
-    },
-    recordTipShown: (id) => {
-      recorded.push(id);
-    },
-  });
-
-  assertEquals(await runDesk({}, runtime), 0);
-  // The scripted survey configures no standards, so the contextual
-  // standards tip outranks the curriculum opener.
-  const plainTranscript = stripAnsi(output.stdout.join(""));
-  assertEquals(
-    countOccurrences(plainTranscript, "Tip:"),
-    2,
-    "the same tip renders below status on both board passes",
-  );
-  assertEquals(
-    countOccurrences(plainTranscript, "A standard is a quality measure"),
-    2,
-  );
-  assertEquals(
-    recorded,
-    ["standards-first-rule"],
-    "the shown id is reported once per session, not once per redraw",
-  );
-  assertEquals(writes.length, 1, "the seen-state is written once per session");
-  assertEquals(writes[0]?.tips["standards-first-rule"], {
-    count: 1,
-    last_shown: new Date(NOW).toISOString(),
-  });
-});
-
-Deno.test("desk renders tips through the package note cue", async () => {
-  const terminal = resolveTerminalContext({
-    noColor: false,
-    env: fakeEnv({
-      TERM: "xterm-256color",
-      COLORTERM: "truecolor",
-      LANG: "en_GB.UTF-8",
-    }),
-    isTerminal: () => true,
-    consoleSize: () => ({ columns: 80, rows: 24 }),
-  });
-  const output = transcript(terminal);
-
-  assertEquals(await runDesk({}, scriptedRuntime(output)), 0);
-  assertTerminalTextIncludes(stripAnsi(output.stdout.join("")), "▸ Tip:");
-  assertStringIncludes(output.stdout.join(""), "\x1b[");
-});
-
-Deno.test("desk wraps the complete tip at 60 columns without truncating it", async () => {
-  const output = transcript();
-  const runtime = scriptedRuntime(output, {
-    size: () => ({ columns: 60, rows: 24 }),
-  });
-
-  assertEquals(await runDesk({}, runtime), 0);
-  const lines = stripAnsi(output.stdout.join("")).split("\n");
-  const first = lines.findIndex((line) => line.includes("Tip:"));
-  assert(first >= 0, "the tip line must render");
-  const block = [lines[first] ?? ""];
-  for (
-    let index = first + 1;
-    index < lines.length && (lines[index] ?? "").startsWith("  ");
-    index += 1
-  ) {
-    block.push(lines[index] ?? "");
-  }
-  assert(block.length >= 2, "a 60-column terminal wraps the tip");
-  for (const line of block) {
-    assert(
-      displayWidth(line) <= 60,
-      `a tip line exceeds the terminal width: ${JSON.stringify(line)}`,
-    );
-  }
-  assertEquals(
-    block
-      .map((line, index) =>
-        index === 0
-          ? line.slice(line.indexOf("Tip:") + "Tip: ".length)
-          : line.trimStart()
-      )
-      .join(" "),
-    renderTipCli(registeredTip("standards-first-rule")),
-    "wrapping reflows the whole text — nothing is truncated",
-  );
-});
-
 Deno.test("desk rotates the tip across sessions through the seen-state", async () => {
   const stateRef = { state: freshTipSeenState(DISCERN_VERSION) };
   const shown: string[] = [];
@@ -3196,39 +2896,4 @@ Deno.test("desk survives a tip-state failure with a tipless header, no warning",
     "a failed tip read renders no tip line",
   );
   assertEquals(output.stderr, [], "and warns about nothing");
-});
-
-Deno.test("desk renders a reclaimed stage ref as a dim fact, not a missing-worktree warning", async () => {
-  const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
-  const live = fleetEntry("agent/stage-c", "/worktrees/stage-c", { ahead: 3 });
-  const data: StatusData = {
-    ...statusData([main, live]),
-    contained_refs: [
-      { branch: "agent/stage-a", contained_in: "agent/stage-c" },
-    ],
-  };
-  const output = transcript();
-  assertEquals(
-    await runDesk(
-      {},
-      scriptedRuntime(output, {
-        status: () => ({ ok: true, data }),
-        select: () => QUIT,
-      }),
-    ),
-    0,
-  );
-  const text = joined(output);
-  assertStringIncludes(
-    text.replaceAll(/\s+/gu, ""),
-    "agent/stage-aremainsinsideagent/stage-cuntilitlands",
-  );
-  assert(
-    !text.includes("has no worktree"),
-    `a contained ref must not raise the missing-worktree warning\n${text}`,
-  );
-  assert(
-    !text.includes("start --from"),
-    "no resume hint for a deliberately kept ref",
-  );
 });

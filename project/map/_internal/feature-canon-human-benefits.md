@@ -102,7 +102,7 @@ More of the backlog can move at once. The person spends less time running the wo
 ### See which tasks need a decision
 
 - **Value:** One view shows work in flight grouped by the decision it needs and offers the actions that are valid in the current state. The person can return at decision points instead of opening every session to ask for status.
-- **Mechanism:** The Desk projects the fleet's current state into decision-oriented groups, and its tips teach relevant capabilities without requiring a separate tour of the command line.
+- **Mechanism:** The Desk presents current tasks in a stable order while observations refresh, and its tips teach relevant capabilities without requiring a separate tour of the command line.
 - **Product basis:** The desk · Desk tips · Bounded status projection · Owner-attention channel.
 
 ### Get useful failures sooner

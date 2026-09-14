@@ -19,7 +19,7 @@ For direct movement between checkouts, [`discern enter`](opening-worktrees.md) o
 
 ## Start a task
 
-The root menu groups project actions under **desk commands** and refresh or quit under **Session**. It always includes `Start a task`, adds `Run a Project Script` when configured, and opens [discern.sh/docs](https://discern.sh/docs) from `Read discern's docs`. A changed or Git-unreadable main checkout adds `Inspect main checkout`. Local landing evidence adds `Recent completed tasks`. Task groups remain separate from both command groups, so `Choose a task or Desk command` names every selectable entry.
+The overview has a task list and `Desk commands`. Tab reaches either region, including one hidden by a short terminal. Commands include Start, Project Scripts for the project root, main-checkout inspection, the landing queue, recent completions and the manual. The manual opens [discern.sh/docs](https://discern.sh/docs).
 
 `Start a task` opens one sequential form. `What are you changing?` asks for a display title that preserves the submitted Unicode, case, and punctuation. A generated codename is a separate choice. The title remains separate from the normalized worktree id and branch. The preview shows each value and includes the planner's normalization note when their spellings differ.
 
@@ -36,41 +36,29 @@ Before creation, the desk shows the retained start plan: title, brief, worktree 
 
 After creation, the desk opens the new row. `Refresh` runs another status survey, so a worktree created elsewhere appears in the root menu.
 
-## Read the decision order
+## Read current work
 
-The desk uses the same observed fleet facts and task status as `discern status`; it does not classify the same work again. It groups each task into one of 5 human-decision states ([ADR 0318](../_adr/0318-the-desk-adapts-status-into-one-human-decision.md)):
+The desk is a bounded terminal application ([ADR 0398](../_adr/0398-the-desk-is-a-live-human-control-panel.md)). The package owns its viewport, scrolling, search, resizing and foreground handoff. It displays two regions beside each other when wide enough, stacks them when tall enough, and otherwise shows the active region. Below the package minimum it displays a resize notice. No essential overview or task control depends on terminal history.
 
-| Group           | Included worktrees                                                                                                                                                                  |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Needs attention | Broken or unreadable setup, a failed, partial, or refused action, stale work, unreadable or unavailable [Proof](../00-orientation/glossary.md#proof), or overlap with another task. |
-| Ready to review | A clean commit ahead of the trunk with honored Proof and no branch lag.                                                                                                             |
-| Working         | A fresh running discern operation, including its verb, elapsed time, and typical duration when known.                                                                               |
-| Paused          | Uncommitted or committed work without live activity; the row names the next unmet condition, such as Update or final checks.                                                        |
-| Empty           | A healthy worktree with no uncommitted files or commits ahead of the trunk.                                                                                                         |
+Tasks sort by their case-folded display title, then stable identity. Activity, overlaps and Proof changes do not impose an urgency ranking. Each row shows a recognizable title, observed activity and a short Proof indicator. Duplicate titles carry an identity suffix. An `i` indicates advisory overlaps; **Proof and details** holds their paths. An overlap does not block a task or recommend an action.
 
-Within groups, recent worktrees appear first. The root board shows project and main-checkout state, task totals, counts that need a person or are ready to review, static `Refreshed just now`, bounded fleet notices, and a secondary [desk tip](desk-tips.md). Each row shows its title, decision headline, one fact, and the recommended action when it fits. Selection opens the complete evidence.
+Activity, Proof validity, landing authority and submission are separate facts. A green pre-authorized task can say **Not submitted**. The landing queue renders status's submitted revisions, readiness and authority, including an older submitted revision when the branch has newer work. Running operations retain their progress handle. Outstanding emergency exceptions remain available in the queue view. Ending an operation never implies acceptance.
 
-Rows adapt at 96 and 56 columns ([ADR 0352](../_adr/0352-desk-decisions-cross-a-pure-responsive-presentation-boundary.md)): wide rows separate task, state, and activity or action; medium rows keep task and state together; narrow rows put state and detail below the task. Every row has an independent width, and task detail preserves a truncated title. Static content retains at most one third of the terminal height; the interaction fitter owns the rest. Search begins at 9 tasks. One result receives active focus; the query field receives it during typing.
+## Choose a task control
 
-## Choose one contextual action
+Selecting a task opens **Start or resume agent**, **Project Scripts**, **Pre-authorize landing** or **Revoke pre-authorization**, **Accept**, and **Drop**. **Proof and details** retains branch, path, stable identity and observed evidence. **More actions** contains the remaining registered actions, including recovery, final checks, update, review, title changes, shell, follow-up and cleanup. The [action registry](../../../src/engine/desk/model.ts) owns their contracts; the [manual](https://discern.sh/docs/guides/delegate-work#inspect-decisions-from-the-desk) lists them.
 
-Task detail shows the stored title and brief, creation source, normalized id, and location. It also presents activity, Git and Proof facts, landing authority, collisions, containment, and available agents and Project Scripts. Older worktrees without a task-metadata record retain the id-derived title. Short screens move earlier evidence into terminal history.
+A menu is advisory. Activation observes current status again and validates the captured identity, branch and absolute path before dispatch. The existing lifecycle plan/apply core rechecks at its effect boundary. A refused action opens a bounded reading view with its reason. It never falls through to the next row after removal.
 
-Every action remains visible in **Work**, **Review**, **Manage**, or **Danger**. Known refusals are disabled with a reason and recovery. At most one available action moves into **Recommended**:
+Press `/` to find entries using the package editor. Enter leaves editing and preserves the filter; Enter again selects. Escape while editing clears the query. Outside editing, Escape goes Back, then exits from the overview. `?` opens keyboard help; its product shortcuts come from [one key map](../../../src/engine/desk/application_view.ts). Typing does not invoke global shortcuts.
 
-- behind trunk: Update;
-- failed: an available agent, otherwise Proof review;
-- active, stale, or empty: the preferred available agent;
-- clean commits without current Proof: final checks;
-- honored Proof: review and landing;
-- collisions: review;
-- contained work: Reclaim.
+## Observe without stopping navigation
 
-Broken, setup-incomplete, or Git-unreadable tasks recommend `Show recovery steps`. They never recommend Drop.
+The initial frame appears before fleet discovery. One status observation runs at a time; the next starts five seconds after completion. Refresh and Retry use that same observation slot. Fleet reads use bounded workers. Agent and script discovery is limited to the selected task, with one capability read at a time. Review Git reads and stored Proof documents wait for their intentional action route.
 
-The typed action registry owns menu order, grouping, contextual labels, command evidence, confirmation policy, and whether each action can coexist with a reported running operation. The decision model applies running compatibility centrally before the action's contextual predicate, so a newly enrolled action cannot bypass that boundary. The [product-manual action table](https://discern.sh/docs/guides/delegate-work#inspect-decisions-from-the-desk) projects every member for readers; its registry-driven test enrols future actions automatically.
+Immutable updates retain task identity, focus, search, selection and reading position. Back and foreground return use the package's retained region state. Obsolete observations cannot publish after a newer generation or session cancellation. A recoverable observation failure keeps the last good fleet and marks it stale with Retry; an initial failure remains an unknown fleet. Fatal application failures alone end the session.
 
-Grant and revoke remain human-only actions inside `discern desk`. The grant action reads `Pre-authorize landing once green` and asks `Allow <branch> to land once green without a further conversation?`. It binds to the task's branch: any later green `done` on that branch is covered once its agent submits it, the landing consumes the grant, revoke removes it, and it dies with the worktree. It never covers a checkpoint variance, a standard limit proposal, or an emergency. Grant and revoke stay available while the gate runs; changing future landing authority does not conflict with the running check.
+Grant and revoke remain human-only actions inside `discern desk`. The grant action reads `Pre-authorize landing` and asks `Allow <branch> to land once green without a further conversation?`. It binds to the task's branch: any later green `done` on that branch is covered once its agent submits it, the landing consumes the grant, revoke removes it, and it dies with the worktree. It never covers a checkpoint variance, a standard limit proposal, or an emergency. Grant and revoke stay available while the gate runs; changing future landing authority does not conflict with the running check.
 
 `Start a follow-up from this task` fixes the selected task's reported branch as the new task's base. Its preview includes that ref and resolved commit before creation. The follow-up remains an independent worktree. Branch containment records the dependency without creating a landing queue.
 
@@ -86,9 +74,9 @@ The main checkout remains a project boundary. Its detail can inspect `git status
 
 ## Run final checks and review Proof
 
-`Run final checks` calls the same gate core as `discern done`. Without Proof, landing reads `Run final checks, then land on <trunk>`; honored Proof changes it to `Review and land on <trunk>`. Status shows a typical duration when known. A pass refreshes the task with its new Proof.
+`Run final checks` calls the same gate core as `discern done`. The task control remains `Accept` regardless of Proof state. A pass refreshes the task with its new Proof; submission and landing remain separate observations.
 
-`Review Proof and changes` shows Proof currency, its stored line and Markdown page, checks and standards, every commit subject, Diffstat, changed and uncommitted paths, collisions, and landing authority. Failed reads remain failures with one next step.
+`Review changes` shows Proof currency, its stored line and Markdown page, checks and standards, every commit subject, Diffstat, changed and uncommitted paths, collisions, and landing authority. Failed reads remain failures with one next step.
 
 `View actual diff` opens `git diff --no-ext-diff --color=always <trunk>...HEAD` in the [shared pager](../../../src/lib/pager.ts), then returns to review. `Open in editor` runs an available simple command from `$VISUAL` or `$EDITOR`; unsafe values stay disabled with a reason.
 
@@ -116,9 +104,9 @@ Session state stays outside discern, and resume arguments come from the provider
 
 ## Resume worktree-less branches
 
-Status-reported unlanded branches appear as selectable root items. `Inspect commits and changed files` compares the reported branch ref with the trunk. `Resume in a worktree` uses that ref as the fixed creation base and returns to the created task's recommended action. A branch created by Park offers its retained title and brief as defaults while the recorded branch commit still matches.
+Status-reported unlanded branches appear as selectable root items. `Inspect commits and changed files` compares the reported branch ref with the trunk. `Resume in a worktree` uses that ref as the fixed creation base and returns to the created task's controls. A branch created by Park offers its retained title and brief as defaults while the recorded branch commit still matches.
 
-After every repair, refusal, or cleanup, the desk surveys the fleet again. If the selected checkout became an unlanded branch, it opens that branch's resume detail. If landing evidence matches the vanished branch, it reports `Task landed; refreshed` and leaves recent completion evidence available. Every other disappearance reports `Task changed; refreshed` before returning to the nearest available selection.
+After every repair, refusal, or cleanup, the desk surveys the fleet again. If the selected checkout became an unlanded branch, a short notice names that observation and the root Resume entry remains available. Matching landing evidence says `Task landed`. Other disappearances say `Task no longer observed`. The package selects the deterministic surviving neighbor.
 
 `Recent completed tasks` is a bounded read-only view over successful local acceptance events and the latest landed Proof note. It distinguishes a recently landed task from an unexplained removal without creating a task archive.
 
@@ -132,7 +120,7 @@ Before setup completes, bare `discern` keeps showing the setup welcome. From ins
 
 ## Where it lives in code
 
-Start with [`model.ts`](../../../src/engine/desk/model.ts) for decisions and action legality. [`view.ts`](../../../src/engine/desk/view.ts) owns pure composition, and [`desk.ts`](../../../src/engine/desk/desk.ts) owns surveys, prompts, and effects. [`preferences.ts`](../../../src/engine/desk/preferences.ts) owns convenience defaults. [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts) is the production prompt boundary, including sequential composition.
+Start with [`live.ts`](../../../src/engine/desk/live.ts) for observation and routing, [`application_view.ts`](../../../src/engine/desk/application_view.ts) for bounded composition, and [`model.ts`](../../../src/engine/desk/model.ts) for status adaptation and action availability. [`desk.ts`](../../../src/engine/desk/desk.ts) owns shared effects; [`view.ts`](../../../src/engine/desk/view.ts) composes their foreground reviews. [`preferences.ts`](../../../src/engine/desk/preferences.ts) owns convenience defaults. [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts) is the production prompt boundary, including sequential composition.
 
 The subsystem has focused [model](../../../tests/engine_desk_model_test.ts), [view](../../../tests/engine_desk_view_test.ts), [runtime](../../../tests/engine_desk_runtime_test.ts), [prompt-boundary](../../../tests/terminal_interaction_test.ts), and [real-terminal](../../../tests/engine_desk_tty_test.ts) tests.
 
@@ -142,4 +130,4 @@ The subsystem has focused [model](../../../tests/engine_desk_model_test.ts), [vi
 - Current provider entries declare no prompt argument, so an agent launch displays the task brief for copying and keeps the configured invocation unchanged.
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A row's menu is advisory. The invoked lifecycle core rechecks every precondition before changing state.
-- Degraded checkouts lead with recovery evidence. A shell remains available only while the directory is present. Drop remains a separate destructive offer and requires force when work cannot be verified.
+- Degraded checkouts retain recovery in More actions. A shell requires a present directory. Drop remains a separate destructive offer and requires force when work cannot be verified.

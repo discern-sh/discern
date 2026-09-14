@@ -30,6 +30,7 @@ function mainRuntime(patch: Partial<DeskRuntime>): DeskRuntime {
     clearEffortGrant: unrelated,
     makeOut: unrelated,
     error: unrelated,
+    application: unrelated,
     select: unrelated,
     confirm: unrelated,
     input: unrelated,

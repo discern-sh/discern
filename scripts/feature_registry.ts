@@ -1022,13 +1022,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "desk",
         title: "The desk",
         what:
-          "Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, runs Project Scripts from the main checkout or a selected worktree, opens configured coding-agent CLIs found on `PATH`, links to the online manual, pre-authorizes one effort to land once green, and offers each worktree its valid next actions, owning the child sessions it launches.",
+          "Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, runs Project Scripts from the main checkout or a selected worktree, opens configured coding-agent CLIs found on `PATH`, links to the online manual, pre-authorizes one effort to land once green, and keeps task controls reachable while observations refresh, owning the child sessions it launches.",
         why:
           "The maintainer can inspect and act on the fleet from one interactive surface.",
         plain: {
           title: "The desk",
           what:
-            "Running `discern` on its own opens the desk for the person in charge: one interactive view over all the work in progress. It starts tasks, runs the project's own tools from the main or a separate working copy, opens the online manual, opens any of the recognized coding-agent programs found in the computer's standard installed-program list (called `PATH`), records permission in advance for one task to join the main shared version once it passes, and offers each working copy its valid next actions — staying responsible for the sessions it starts.",
+            "Running `discern` on its own opens the desk for the person in charge: one interactive view over all the work in progress. It starts tasks, runs the project's own tools from the main or a separate working copy, opens the online manual, opens any of the recognized coding-agent programs found in the computer's standard installed-program list (called `PATH`), records permission in advance for one task to join the main shared version once it passes, and keeps each task's controls reachable while work changes — staying responsible for the sessions it starts.",
           why:
             "The person in charge can inspect and act on every task from one interactive view.",
         },
@@ -1038,13 +1038,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "tips",
             title: "Desk tips",
             what:
-              "The desk puts one tip directly below the root status per session. Its `Tip` label is yellow and the teaching text stays secondary. Selection is deterministic over a curriculum registry (new-in-release entries first, then contextual relevance, then authored order, then rotation), the line wraps at the terminal width, and each shown id is recorded in the logbook.",
+              "The desk reserves one quiet tip per session. Selection is deterministic over a curriculum registry (new-in-release entries first, then contextual relevance, then authored order, then rotation). The package fits the line within the viewport; Read this Tip opens the full text. Each shown id is recorded once in the logbook.",
             why:
               "The desk presents one tip per session and records its id in the logbook for later adoption analysis.",
             plain: {
               title: "Desk tips",
               what:
-                "The desk puts one short tip below the project status for each session. The choice follows fixed rules, the line wraps to fit the window, and the tip's name goes into the activity record.",
+                "The desk keeps one short tip for each session. The choice follows fixed rules, the line fits the window, and Read this Tip opens its full text. The tip's name goes into the activity record.",
               why:
                 "The person in charge learns one ability at a time without reading a manual, and the record can later show whether the teaching was used.",
             },
@@ -2945,7 +2945,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "One view shows work in flight grouped by the decision it needs and offers the actions that are valid in the current state. The person can return at decision points instead of opening every session to ask for status.",
         whyItFollows:
-          "The Desk projects the fleet's current state into decision-oriented groups, and its tips teach relevant capabilities without requiring a separate tour of the command line.",
+          "The Desk presents current tasks in a stable order while observations refresh, and its tips teach relevant capabilities without requiring a separate tour of the command line.",
         drawsOn: [
           "desk",
           "tips",

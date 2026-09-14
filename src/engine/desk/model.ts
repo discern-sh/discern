@@ -175,7 +175,6 @@ export interface DeskActionMetadata {
   ) => DeskConsequence;
   readonly confirmation: DeskConfirmationPolicy;
   readonly availability: (facts: DeskActionFacts) => string | undefined;
-  readonly recommended: (facts: DeskActionFacts) => boolean;
 }
 
 interface DeskActionOfferBase {
@@ -563,20 +562,9 @@ function collisionDetails(collisions: readonly DeskCollision[]): DeskDetail[] {
 function headlineFor(
   statusKind: FleetRowStatusKind,
   entry: StatusFleetEntry,
-  collisions: readonly DeskCollision[],
   trunk: string,
   nowMs: number,
 ): string {
-  if (collisions.length > 0) {
-    const kinds = new Set(collisions.map((collision) => collision.kind));
-    if (collisions.length > 1 || kinds.size > 1) {
-      return "Collisions need review";
-    }
-    const only = collisions[0];
-    return only?.kind === "adr"
-      ? `ADR ${only.number} is claimed by another task`
-      : "Changed-file collision needs review";
-  }
   if (entry.contained_in !== undefined) {
     return `Work continues in ${entry.contained_in}`;
   }
@@ -787,7 +775,6 @@ export const DESK_ACTION_REGISTRY = {
       isUnhealthy(facts.entry)
         ? undefined
         : "This task has no degraded state to diagnose.",
-    recommended: (facts: DeskActionFacts): boolean => isUnhealthy(facts.entry),
   },
   retry_setup: {
     group: "manage",
@@ -812,7 +799,6 @@ export const DESK_ACTION_REGISTRY = {
     },
     availability: (facts: DeskActionFacts): string | undefined =>
       retrySetupAvailability(facts.entry),
-    recommended: (_facts: DeskActionFacts): boolean => false,
   },
   done: {
     group: "work",
@@ -840,23 +826,11 @@ export const DESK_ACTION_REGISTRY = {
     },
     availability: (facts: DeskActionFacts): string | undefined =>
       finalChecksAvailability(facts.entry, committedWorkReason(facts)),
-    recommended: (facts: DeskActionFacts): boolean =>
-      facts.entry.running === undefined && facts.collisions.length === 0 &&
-      facts.entry.contained_in === undefined &&
-      [
-        "needs-gate",
-        "proof-unreadable",
-        "proof-unavailable",
-        "proof-stale",
-      ].includes(facts.statusKind),
   },
   accept: {
     group: "review",
     availableWhileRunning: false,
-    label: (context: DeskActionLabelContext): string =>
-      context.proofHonored
-        ? `Review and land on ${context.trunk}`
-        : `Run final checks, then land on ${context.trunk}`,
+    label: (_context: DeskActionLabelContext): string => "Accept",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "accept"],
       workingDirectory: "task",
@@ -880,11 +854,6 @@ export const DESK_ACTION_REGISTRY = {
         "The task is not healthy enough to land. Follow its recovery steps first.",
         committedWorkReason(facts, true),
       ),
-    recommended: (facts: DeskActionFacts): boolean =>
-      facts.entry.running === undefined && facts.collisions.length === 0 &&
-      facts.entry.contained_in === undefined &&
-      facts.statusKind === "ready" &&
-      facts.entry.gate_proof?.status === "honored",
   },
   update: {
     group: "manage",
@@ -923,14 +892,12 @@ export const DESK_ACTION_REGISTRY = {
         ? undefined
         : `The branch is not behind ${facts.trunk}.`;
     },
-    recommended: (facts: DeskActionFacts): boolean =>
-      facts.entry.running === undefined && facts.statusKind === "behind",
   },
   agent: {
     group: "work",
     availableWhileRunning: false,
     label: (_context: DeskActionLabelContext): string =>
-      "Continue with an agent",
+      "Start or resume agent",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["<configured-agent>"],
       workingDirectory: "task",
@@ -956,14 +923,6 @@ export const DESK_ACTION_REGISTRY = {
       return reason ??
         "No agent is configured for this task. Add one under [project].agents in discern.toml.";
     },
-    recommended: (facts: DeskActionFacts): boolean => {
-      if (facts.entry.running !== undefined || facts.collisions.length > 0) {
-        return false;
-      }
-      return ["failed", "blocked", "in-progress", "stale", "idle"].includes(
-        facts.statusKind,
-      );
-    },
   },
   follow_up: {
     group: "work",
@@ -987,12 +946,11 @@ export const DESK_ACTION_REGISTRY = {
         facts.entry,
         "Follow the task's recovery steps before starting a follow-up.",
       ),
-    recommended: (_facts: DeskActionFacts): boolean => false,
   },
   scripts: {
     group: "work",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string => "Run a Project Script",
+    label: (_context: DeskActionLabelContext): string => "Project Scripts",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "scripts", "<name>"],
       workingDirectory: "task",
@@ -1018,7 +976,6 @@ export const DESK_ACTION_REGISTRY = {
           ? undefined
           : facts.scriptsUnavailableReason ??
             "No Project Scripts are available in this task."),
-    recommended: (_facts: DeskActionFacts): boolean => false,
   },
   jump: {
     group: "work",
@@ -1042,13 +999,11 @@ export const DESK_ACTION_REGISTRY = {
         : `The checkout directory is ${
           facts.entry.filesystem?.state ?? "unavailable"
         }.`,
-    recommended: (_facts: DeskActionFacts): boolean => false,
   },
   inspect: {
     group: "review",
     availableWhileRunning: true,
-    label: (_context: DeskActionLabelContext): string =>
-      "Review Proof and changes",
+    label: (_context: DeskActionLabelContext): string => "Review changes",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["git", "diff"],
       workingDirectory: "task",
@@ -1066,11 +1021,6 @@ export const DESK_ACTION_REGISTRY = {
         facts.entry,
         "Follow the task's recovery steps before reviewing Proof and changes.",
       ),
-    recommended: (facts: DeskActionFacts): boolean =>
-      facts.entry.running === undefined &&
-      (facts.collisions.length > 0 ||
-        (["failed", "blocked"].includes(facts.statusKind) &&
-          !hasAvailableAgent(facts))),
   },
   rename: {
     group: "manage",
@@ -1098,7 +1048,6 @@ export const DESK_ACTION_REGISTRY = {
         facts.entry,
         "Follow the task's recovery steps before changing the title.",
       ),
-    recommended: (_facts: DeskActionFacts): boolean => false,
   },
   grant: {
     group: "manage",
@@ -1106,7 +1055,7 @@ export const DESK_ACTION_REGISTRY = {
     // point, so a Gate run cannot make this human authority choice unsafe.
     availableWhileRunning: true,
     label: (_context: DeskActionLabelContext): string =>
-      "Pre-authorize landing once green",
+      "Pre-authorize landing",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "desk"],
       workingDirectory: "main",
@@ -1114,7 +1063,7 @@ export const DESK_ACTION_REGISTRY = {
     consequence: (_context: DeskActionLabelContext): DeskConsequence =>
       consequences(
         ["Task and branch"],
-        ["Let any later green done on this branch land without a further conversation"],
+        ["Authorize a later submitted green revision to land without a further conversation"],
         [],
         [
           "Revoke the grant from this task before it lands",
@@ -1133,13 +1082,12 @@ export const DESK_ACTION_REGISTRY = {
         : facts.effortGranted
         ? "This task is already pre-authorized to land once green."
         : undefined,
-    recommended: (_facts: DeskActionFacts): boolean => false,
   },
   revoke_grant: {
     group: "manage",
     availableWhileRunning: true,
     label: (_context: DeskActionLabelContext): string =>
-      "Revoke landing pre-authorization",
+      "Revoke pre-authorization",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "desk"],
       workingDirectory: "main",
@@ -1161,7 +1109,6 @@ export const DESK_ACTION_REGISTRY = {
       facts.effortGranted
         ? undefined
         : "No task landing pre-authorization is recorded.",
-    recommended: (_facts: DeskActionFacts): boolean => false,
   },
   reclaim: {
     group: "manage",
@@ -1182,9 +1129,6 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Reclaim",
     },
     availability: reclaimAvailability,
-    recommended: (facts: DeskActionFacts): boolean =>
-      facts.entry.running === undefined &&
-      facts.entry.contained_in !== undefined,
   },
   park: {
     group: "manage",
@@ -1203,13 +1147,11 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Park",
     },
     availability: parkAvailability,
-    recommended: (_facts: DeskActionFacts): boolean => false,
   },
   drop: {
     group: "danger",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string =>
-      "Drop worktree and branch",
+    label: (_context: DeskActionLabelContext): string => "Drop",
     command: (context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "worktree", "drop", context.path],
       workingDirectory: "main",
@@ -1222,23 +1164,13 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Drop",
     },
     availability: (_facts: DeskActionFacts): string | undefined => undefined,
-    recommended: (_facts: DeskActionFacts): boolean => false,
   },
 } as const satisfies Readonly<Record<DeskAction, DeskActionMetadata>>;
-
-/** Choose the first registry recommendation that is also honestly available. */
-function recommendedActionFor(facts: DeskActionFacts): DeskAction | undefined {
-  return DESK_ACTIONS.find((action) =>
-    DESK_ACTION_REGISTRY[action].recommended(facts) &&
-    DESK_ACTION_REGISTRY[action].availability(facts) === undefined
-  );
-}
 
 /** Represent every action once and retain only an enabled recommendation. */
 function actionOffers(
   facts: DeskActionFacts,
 ): { actions: DeskActionOffer[]; recommendedAction?: DeskAction } {
-  const candidate = recommendedActionFor(facts);
   const actions = DESK_ACTIONS.map((action): DeskActionOffer => {
     const metadata = DESK_ACTION_REGISTRY[action];
     const context: DeskActionLabelContext = {
@@ -1260,10 +1192,10 @@ function actionOffers(
         ? {}
         : { containedIn: facts.entry.contained_in }),
     };
-    const recommended = action === candidate;
+    const recommended = false;
     const base: DeskActionOfferBase = {
       action,
-      group: recommended ? "recommended" : metadata.group,
+      group: metadata.group,
       label: metadata.label(context),
       command: metadata.command(context),
       consequence: metadata.consequence(context),
@@ -1330,9 +1262,7 @@ export function buildDeskDecision(
     })),
     ...adrCollisionsFor(entry, options.adrCollisions ?? []),
   ];
-  const state = collisions.length > 0
-    ? "needs_attention"
-    : DESK_STATE_BY_STATUS_KIND[presentation.kind];
+  const state = DESK_STATE_BY_STATUS_KIND[presentation.kind];
   const effortGranted = authority.source === "effort-grant" &&
     authority.status === "granted";
   const offers = actionOffers({
@@ -1393,8 +1323,8 @@ export function buildDeskDecision(
   }
   const nextCondition = nextConditionDetail(presentation.kind, entry);
   if (nextCondition !== undefined) details.push(nextCondition);
-  const needsHumanDecision = collisions.length > 0 ||
-    state === "needs_attention" || entry.contained_in !== undefined ||
+  const needsHumanDecision = state === "needs_attention" ||
+    entry.contained_in !== undefined ||
     (state === "ready_to_review" && authority.status !== "granted");
   const recovery = recoveryFact(entry);
   return {
@@ -1403,7 +1333,6 @@ export function buildDeskDecision(
     headline: headlineFor(
       presentation.kind,
       entry,
-      collisions,
       options.trunk,
       options.nowMs,
     ),
@@ -1554,13 +1483,6 @@ export function buildAgentLaunches(
   return launches;
 }
 
-/** Most-recent-first by last activity; unknown activity sinks. */
-function byActivityDesc(a: StatusFleetEntry, b: StatusFleetEntry): number {
-  const at = a.last_activity === undefined ? 0 : Date.parse(a.last_activity);
-  const bt = b.last_activity === undefined ? 0 : Date.parse(b.last_activity);
-  return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
-}
-
 export interface BuildDeskRowsOptions {
   readonly trunk: string;
   readonly nowMs: number;
@@ -1611,10 +1533,17 @@ export function buildDeskRows(
       };
     });
   return rows.sort((left, right) => {
-    const stateOrder = DESK_STATES.indexOf(left.decision.state) -
-      DESK_STATES.indexOf(right.decision.state);
-    return stateOrder === 0
-      ? byActivityDesc(left.entry, right.entry)
-      : stateOrder;
+    const leftName = left.task.name.toLowerCase();
+    const rightName = right.task.name.toLowerCase();
+    return leftName < rightName
+      ? -1
+      : leftName > rightName
+      ? 1
+      : deskRowId(left).localeCompare(deskRowId(right), "en");
   });
+}
+
+/** Stable identity for navigation and effect targeting, including degraded rows. */
+export function deskRowId(row: Pick<DeskRow, "entry">): string {
+  return row.entry.id ?? (row.entry.branch || row.entry.path);
 }

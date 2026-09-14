@@ -502,8 +502,8 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "A script cannot be offered safely without a successful inventory and the rest of the fleet survey remains authoritative.",
   },
   "desk-tip-presentation": {
-    path: "src/engine/desk/desk.ts",
-    enclosingFunction: "runDesk",
+    path: "src/engine/desk/live.ts",
+    enclosingFunction: "refresh",
     operation: "read, select, and record one optional desk tip",
     kind: "capability",
     shape: "async",

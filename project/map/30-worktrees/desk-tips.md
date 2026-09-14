@@ -9,9 +9,9 @@ aliases:
 
 # Desk tips
 
-_Each desk session puts a teaching line directly below the root status._
+_Each desk session reserves one quiet teaching line._
 
-The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The design system's Note cue keeps it secondary across terminal modes. The complete text wraps to the terminal and may enter terminal history on short screens.
+The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The package fits that line within the viewport. `Read this Tip` or the `t` shortcut opens its full text. Narrow fitting and redraws do not select or record another tip.
 
 ## How the tip is chosen
 
@@ -30,11 +30,11 @@ Seen-state lives at `<git-common-dir>/discern/desk/tips.json`, beside the logboo
 
 ## What a tip may say
 
-Tips educate about capability; alarms about state belong to the board's own facts and `discern status`. Every action remains available without its tip. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction. The curriculum opener directs the person to start under **Needs attention**, read the selected task's evidence and recommended next action, then choose **Back** to return to the triage queue.
+Tips educate about capability; alarms about state belong to the board's own facts and `discern status`. Every action remains available without its tip. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction. The curriculum opener teaches task selection, finding work, and returning to the task list.
 
 ## Where it lives in code
 
-[`src/shared/tips.ts`](../../../src/shared/tips.ts) is the ordered registry; [`tips.ts`](../../../src/engine/desk/tips.ts) owns selection, [`tip_state.ts`](../../../src/engine/desk/tip_state.ts) owns storage, and [`view.ts`](../../../src/engine/desk/view.ts) composes the line. [Registry tests](../../../tests/engine_desk_tips_test.ts) and [session tests](../../../tests/engine_desk_runtime_test.ts) cover the boundary.
+[`src/shared/tips.ts`](../../../src/shared/tips.ts) is the ordered registry; [`tips.ts`](../../../src/engine/desk/tips.ts) owns selection, [`tip_state.ts`](../../../src/engine/desk/tip_state.ts) owns storage, and [`application_view.ts`](../../../src/engine/desk/application_view.ts) composes the line. [Registry tests](../../../tests/engine_desk_tips_test.ts) and [session tests](../../../tests/engine_desk_runtime_test.ts) cover the boundary.
 
 ## Current state and gotchas
 

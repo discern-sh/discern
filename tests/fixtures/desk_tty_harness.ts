@@ -81,7 +81,7 @@ const SAFE_SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
 const MARKER_OPEN = "\uE000";
 const MARKER_CLOSE = "\uE001";
 const SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-const FOCUS_PREFIXES = ["› [", "› ○ ", "> [", "> o "] as const;
+const FOCUS_PREFIXES = ["› [", "› ○ ", "> [", "> o ", "›   ", ">   "] as const;
 
 const PTY_GEOMETRY_SCHEMA = z.object({
   columns: z.number().int().positive(),
@@ -1259,6 +1259,7 @@ class DeskScreen {
   #saved: { row: number; column: number } | undefined;
   #visible = true;
   #alternateScreen = false;
+  #mainScreen: {cells: MutableCell[][]; row:number; column:number} | undefined;
   #clearCount = 0;
   readonly #controls: DeskFrameControl[] = [];
   readonly #unexpected: DeskFrameControl[] = [];
@@ -1371,6 +1372,7 @@ class DeskScreen {
         this.#visible = true;
         break;
       case "enter-alternate-screen":
+        if (!this.#alternateScreen) this.#mainScreen = {cells:this.#cells,row:this.#row,column:this.#column};
         this.#alternateScreen = true;
         this.#cells = Array.from({ length: this.#rows }, () => []);
         this.#row = 0;
@@ -1378,6 +1380,12 @@ class DeskScreen {
         break;
       case "leave-alternate-screen":
         this.#alternateScreen = false;
+        if (this.#mainScreen !== undefined) {
+          this.#cells = Array.from({length:this.#rows},(_,index)=>this.#mainScreen?.cells[index]?.slice(0,this.#columns) ?? []);
+          this.#row = Math.min(this.#rows-1,this.#mainScreen.row);
+          this.#column = Math.min(this.#columns-1,this.#mainScreen.column);
+          this.#mainScreen = undefined;
+        }
         break;
       default:
         break;

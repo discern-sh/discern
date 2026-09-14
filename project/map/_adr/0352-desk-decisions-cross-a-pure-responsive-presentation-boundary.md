@@ -1,5 +1,9 @@
 # ADR 0352: Desk decisions cross a pure responsive presentation boundary
 
+> **Amendments.**
+>
+> - **[ADR 0398](0398-the-desk-is-a-live-human-control-panel.md) — presentation:** supersedes urgency grouping, recommendations, the transactional list/pick loop and scrollback-dependent boards with a bounded live application. Lifecycle truth, identity, action safety and consent remain in force.
+
 **Status**: accepted. Extends the external terminal boundary from [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md), the Desk's canonical decision model from [ADR 0318](0318-the-desk-adapts-status-into-one-human-decision.md), and the human advisory channel from [ADR 0234](0234-tips-are-the-desks-human-advisory-channel.md).
 
 ## Context

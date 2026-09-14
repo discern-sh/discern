@@ -139,9 +139,8 @@ export interface TipDef<P = undefined> {
 }
 
 /**
- * Maximum CLI-rendered tip length. At the Desk's ordinary 60–80-column
- * widths, 160 characters wraps to two or three lines; anything longer is two
- * lessons or belongs in the Map.
+ * Maximum complete teaching text. The bounded Desk fits a quiet excerpt and
+ * exposes the whole tip in a reading region; longer lessons belong in the Map.
  */
 export const TIP_RENDERED_LENGTH_LIMIT = 160;
 
@@ -208,9 +207,8 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      "Start with a task under Needs attention. Select it to read the " +
-      "evidence and recommended next action, then choose Back to return to " +
-      "the triage queue.",
+      "Select a task to reach its controls. Press / to find work, Tab to read " +
+      "the other region, and Escape to return to the task list.",
   }),
 
   defineTip({
@@ -316,9 +314,8 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["accept", "proof"],
     example: undefined,
     template: (): string =>
-      'Before accepting, choose "Inspect commits and changes" in the desk. ' +
-      "It shows saved and unsaved work, size, and Proof that the exact " +
-      "version passed its checks.",
+      'Before Accept, open More actions, then "Review changes" to inspect ' +
+      "saved and unsaved work and the Proof for the checked commit.",
   }),
 
   defineTip({
@@ -328,8 +325,8 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["consent-attestations"],
     example: undefined,
     template: (): string =>
-      '"Pre-authorize landing once green" records permission for one task to ' +
-      "land after every check passes. It applies only to that task.",
+      '"Pre-authorize landing" lets this task land a submitted green commit. ' +
+      "Permission alone does not submit work.",
   }),
 
   defineTip({
@@ -818,8 +815,8 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      'When a task has a project-owned tool, the desk offers "Run a Project ' +
-      `Script". ${CMD.scripts} lists the same tools from a shell.`,
+      'When a task has a project-owned tool, the desk offers "Project ' +
+      `Scripts". ${CMD.scripts} lists the same tools from a shell.`,
   }),
 ];
 

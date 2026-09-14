@@ -20,7 +20,7 @@ The guard omits a reading-grade ceiling because command names and placeholders d
 
 Rendered line:
 
-> Start with a task under Needs attention. Select it to read the evidence and recommended next action, then choose Back to return to the triage queue.
+> Select a task to reach its controls. Press / to find work, Tab to read the other region, and Escape to return to the task list.
 
 ## `status-orients-anywhere`
 
@@ -104,7 +104,7 @@ Rendered line:
 
 Rendered line:
 
-> Before accepting, choose "Inspect commits and changes" in the desk. It shows saved and unsaved work, size, and Proof that the exact version passed its checks.
+> Before Accept, open More actions, then "Review changes" to inspect saved and unsaved work and the Proof for the checked commit.
 
 ## `grant-once-green`
 
@@ -116,7 +116,7 @@ Rendered line:
 
 Rendered line:
 
-> "Pre-authorize landing once green" records permission for one task to land after every check passes. It applies only to that task.
+> "Pre-authorize landing" lets this task land a submitted green commit. Permission alone does not submit work.
 
 ## `drop-protects-work`
 
@@ -536,7 +536,7 @@ Rendered line:
 
 Rendered line:
 
-> When a task has a project-owned tool, the desk offers "Run a Project Script". `discern scripts` lists the same tools from a shell.
+> When a task has a project-owned tool, the desk offers "Project Scripts". `discern scripts` lists the same tools from a shell.
 
 ## Coverage absences
 

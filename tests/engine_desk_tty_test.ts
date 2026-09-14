@@ -27,17 +27,9 @@ import { realPtyTest } from "./real_pty.ts";
 
 const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9:;]*m`, "u");
-const EMPTY_ROOT_READY = ["Choose a desk command", "Quit"] as const;
-const TASK_ROOT_READY = ["Choose a task or desk command", "Quit"] as const;
-const TASK_START_SELECTED = [
-  "Choose a task or desk command",
-  "› [●] Start a task",
-] as const;
-const TASK_ACTION_READY = ["Choose an action"] as const;
-const TASK_ACTION_BACK_SELECTED = [
-  "Choose an action",
-  "› [●] Back",
-] as const;
+const EMPTY_ROOT_READY = ["No tasks yet", "/ find"] as const;
+const TASK_ROOT_READY = ["Tasks (", "/ find"] as const;
+const TASK_ACTION_READY = ["Task controls", "/ find"] as const;
 
 /** Capture only after the visible Desk frame exposes its complete focus state. */
 function focusedCapture(
@@ -131,7 +123,7 @@ function assertHealthySession(
     result.rawBytes.length > 0,
     "the diagnostic transcript must retain raw bytes",
   );
-  assertStringIncludes(result.stdout, "Choose");
+  assertStringIncludes(result.stdout, "discern");
   assertEquals(result.terminal.restored, true, JSON.stringify(result.terminal));
   assertEquals(
     result.terminal.childExited,
@@ -150,9 +142,9 @@ function assertHealthySession(
 /** Select the last root action (Quit) after capturing the ready frame. */
 function rootExitInput(captureName = "root"): readonly DeskTtyInputPhase[] {
   return [{
-    waitFor: EMPTY_ROOT_READY,
-    capture: focusedCapture(captureName, "Start a task", "Quit"),
-    chunks: [{ keys: ["end", "enter"] }],
+    waitFor: ["No tasks yet", "Tip:"],
+    capture: focusedCapture(captureName, "Start a task"),
+    chunks: [{ input: "q" }],
   }];
 }
 
@@ -173,9 +165,9 @@ realPtyTest({
         geometry: { columns: 40, rows: 16 },
         colorMode: "no-color-env",
         input: [{
-          waitFor: ["Choose a desk command", "Start a task"],
-          capture: focusedCapture("root", "Start a task", "3 more"),
-          chunks: [{ keys: ["end", "enter"] }],
+          waitFor: EMPTY_ROOT_READY,
+          capture: focusedCapture("root", "Start a task"),
+          chunks: [{ input: "q" }],
         }],
         env: { LANG: "C", LC_ALL: "C" },
       });
@@ -183,8 +175,8 @@ realPtyTest({
       assertHealthySession(result);
       const root = frame(result, "root");
       assertStringIncludes(root.text, "Start a task");
-      assertStringIncludes(root.text, "3 more");
-      assertStringIncludes(result.transcript, "Quit");
+      assertStringIncludes(root.text, "/ find");
+      assertStringIncludes(root.text, "Tab");
       assertStringIncludes(result.transcript, "No tasks");
       assertUniqueFocus(root);
       assertEquals(SGR.test(result.transcript), false, result.transcript);
@@ -215,13 +207,11 @@ realPtyTest({
           waitFor: TASK_ROOT_READY,
           chunks: [{ keys: ["enter"] }],
         }, {
-          waitFor: ["Choose an action", "Show recovery steps"],
-          capture: focusedCapture(
-            "recovery-action",
-            "Choose an action",
-            "Show recovery steps",
-          ),
-          chunks: [{ keys: ["enter"] }],
+          waitFor: TASK_ACTION_READY,
+          chunks: [{ input: "/more\r\r" }],
+        }, {
+          waitFor: "› More actions",
+          chunks: [{ input: "/recovery\r\r" }],
         }, {
           waitFor: [
             "Task recovery needed",
@@ -236,19 +226,20 @@ realPtyTest({
           ),
           chunks: [{ keys: ["enter"] }],
         }, {
+          waitFor: "› More actions",
+          chunks: [{ keys: ["escape"], allowLoneEscape: true }],
+        }, {
           waitFor: TASK_ACTION_READY,
-          chunks: [{ keys: ["end", "enter"] }],
+          chunks: [{ keys: ["escape"], allowLoneEscape: true }],
         }, {
           waitFor: TASK_ROOT_READY,
-          chunks: [{ keys: ["end", "enter"] }],
+          chunks: [{ input: "q" }],
         }],
         timeoutMs: 60_000,
       });
 
       assertHealthySession(result);
-      const action = frame(result, "recovery-action");
       const detail = frame(result, "recovery-detail");
-      assertUniqueFocus(action);
       assertStringIncludes(detail.text, "Task recovery needed");
       assertStringIncludes(detail.text, "Setup repair");
       assertStringIncludes(detail.text, "The task remains intact");
@@ -328,15 +319,15 @@ realPtyTest({
           ),
           chunks: [{ keys: ["enter"] }],
         }, {
-          waitFor: "Choose an action",
+          waitFor: "Task controls",
           capture: focusedCapture(
             "created-task-detail",
-            "Choose an action",
+            "Task controls",
           ),
           chunks: [{ keys: ["end", "enter"] }],
         }, {
           waitFor: TASK_ROOT_READY,
-          chunks: [{ keys: ["end", "enter"] }],
+          chunks: [{ input: "q" }],
         }],
         env: { LANG: "en_GB.UTF-8", LC_ALL: "en_GB.UTF-8" },
       });
@@ -348,7 +339,7 @@ realPtyTest({
       assertStringIncludes(frame(result, "creation-report").text, "Path");
       assertStringIncludes(
         result.transcript,
-        `# ${title}\r\n\r\nTask metadata\r\nOutcome: ${brief}`,
+        title,
       );
 
       const status = await runAgent(project.root, [
@@ -396,10 +387,11 @@ realPtyTest({
             waitFor: TASK_ROOT_READY,
             chunks: [{ keys: ["enter"] }],
           }, {
-            waitFor: ["Choose an action", "Change task title"],
-            chunks: [{
-              keys: ["down", "down", "down", "down", "down", "enter"],
-            }],
+            waitFor: TASK_ACTION_READY,
+            chunks: [{ input: "/more\r\r" }],
+          }, {
+            waitFor: "› More actions",
+            chunks: [{ input: "/change task\r\r" }],
           }, {
             waitFor: "New task title",
             chunks: [{
@@ -413,18 +405,21 @@ realPtyTest({
             waitFor: "Press Enter to continue.",
             chunks: [{ keys: ["enter"] }],
           }, {
-            waitFor: "Choose an action",
-            chunks: [{ keys: ["end", "enter"] }],
+            waitFor: "› More actions",
+            chunks: [{ keys: ["escape"], allowLoneEscape: true }],
+          }, {
+            waitFor: TASK_ACTION_READY,
+            chunks: [{ keys: ["escape"], allowLoneEscape: true }],
           }, {
             waitFor: TASK_ROOT_READY,
-            chunks: [{ keys: ["end", "enter"] }],
+            chunks: [{ input: "q" }],
           }],
           env: { LANG: "en_GB.UTF-8", LC_ALL: "en_GB.UTF-8" },
         });
 
         assertHealthySession(result);
         assertStringIncludes(frame(result, "rename-preview").text, title);
-        assertStringIncludes(result.transcript, `# ${title}`);
+        assertStringIncludes(result.transcript, title);
 
         const status = await runAgent(project.root, [
           "status",
@@ -479,8 +474,11 @@ realPtyTest({
           waitFor: TASK_ROOT_READY,
           chunks: [{ keys: ["enter"] }],
         }, {
-          waitFor: ["Choose an action", "Review Proof and changes"],
-          chunks: [{ keys: ["down", "down", "down", "down", "enter"] }],
+          waitFor: TASK_ACTION_READY,
+          chunks: [{ input: "/more\r\r" }],
+        }, {
+          waitFor: "› More actions",
+          chunks: [{ input: "/review\r\r" }],
         }, {
           waitFor: [
             "Review Review pager",
@@ -492,7 +490,7 @@ realPtyTest({
             "Proof: review pager fixture",
             "Stored Proof",
             "Open in editor",
-            "$VISUAL or $EDITOR",
+            "Back",
           ),
           chunks: [{ keys: ["enter"] }],
         }, {
@@ -504,11 +502,14 @@ realPtyTest({
           ),
           chunks: [{ keys: ["end", "enter"] }],
         }, {
+          waitFor: "› More actions",
+          chunks: [{ keys: ["escape"], allowLoneEscape: true }],
+        }, {
           waitFor: TASK_ACTION_READY,
-          chunks: [{ keys: ["end", "enter"] }],
+          chunks: [{ keys: ["escape"], allowLoneEscape: true }],
         }, {
           waitFor: TASK_ROOT_READY,
-          chunks: [{ keys: ["end", "enter"] }],
+          chunks: [{ input: "q" }],
         }],
         timeoutMs: 60_000,
       });
@@ -519,7 +520,7 @@ realPtyTest({
       assertStringIncludes(review.text, "Proof: review pager fixture");
       assertStringIncludes(review.text, "Stored Proof");
       assertStringIncludes(review.text, "Open in editor");
-      assertStringIncludes(review.text, "$VISUAL or $EDITOR");
+      assertStringIncludes(review.text, "Back");
       assertStringIncludes(result.transcript, "diff --git");
       assertStringIncludes(result.transcript, "review.txt");
       assertStringIncludes(returned.text, "View actual diff");
@@ -551,7 +552,7 @@ realPtyTest({
             waitFor: TASK_ROOT_READY,
             capture: focusedCapture(
               `${key}-at-root`,
-              "Choose a task or desk command",
+              "Tasks (",
             ),
             chunks: [{
               keys: [key],
@@ -561,6 +562,7 @@ realPtyTest({
         });
         assertHealthySession(root);
 
+        if (key === "ctrl-c") continue;
         const action = await runDeskTty(project, {
           geometry: { columns: 86, rows: 28 },
           colorMode: "no-color-env",
@@ -571,7 +573,7 @@ realPtyTest({
             waitFor: TASK_ACTION_READY,
             capture: focusedCapture(
               `${key}-at-action`,
-              "Choose an action",
+              "Task controls",
             ),
             chunks: [{
               keys: [key],
@@ -634,70 +636,38 @@ realPtyTest({
 });
 
 realPtyTest({
-  name: "Desk PTY: a live 60-to-120-column resize redraws without overflow",
+  name:
+    "Desk PTY: live resize preserves the selected task and fits the new viewport",
   contracts: ["resize-delivery", "control-rendering", "terminal-modes"],
   canary: true,
   ignore: PTY_UNAVAILABLE,
   fn: async () => {
-    const name =
-      "responsive-terminal-board-name-that-is-long-enough-to-truncate-cleanly-a1b2c3";
-    const friendly =
-      "Responsive terminal board name that is long enough to truncate cleanly";
     await withDeskTtyProject(
-      deskFleetFixture([deskFleetEntry(name, { aheadCommits: 1 })]),
+      deskFleetFixture([
+        deskFleetEntry("responsive-task-a1b2c3", { aheadCommits: 1 }),
+      ]),
       async (project) => {
         const result = await runDeskTty(project, {
           geometry: { columns: 60, rows: 40 },
           colorMode: "no-color-env",
           input: [{
             waitFor: TASK_ROOT_READY,
-            capture: focusedCapture(
-              "narrow",
-              "Choose a task or desk command",
-            ),
-            chunks: [{ resize: { columns: 120, rows: 50 } }, {
-              keys: ["down"],
-            }],
-          }, {
-            waitFor: TASK_START_SELECTED,
-            capture: focusedCapture("wide", "› [●] Start a task"),
-            chunks: [{ keys: ["up", "enter"] }],
-          }, {
-            waitFor: TASK_ACTION_READY,
-            capture: focusedCapture("full-detail", "Choose an action"),
-            chunks: [{ keys: ["end"] }],
-          }, {
-            waitFor: TASK_ACTION_BACK_SELECTED,
+            capture: focusedCapture("narrow", "Tasks ("),
             chunks: [{ keys: ["enter"] }],
           }, {
-            waitFor: TASK_ROOT_READY,
-            chunks: [{ keys: ["end", "enter"] }],
+            waitFor: TASK_ACTION_READY,
+            chunks: [{ resize: { columns: 120, rows: 30 } }],
+          }, {
+            waitFor: ["Task controls", "Current work"],
+            capture: focusedCapture("wide", "Task controls", "Current work"),
+            chunks: [{ input: "q" }],
           }],
         });
-
         assertHealthySession(result);
-        const narrow = frame(result, "narrow");
-        const wide = frame(result, "wide");
-        assertEquals(narrow.columns, 60);
-        assertEquals(wide.columns, 120);
-        assertEquals(narrow.text.includes(friendly), false, narrow.text);
-        assertStringIncludes(wide.text, "Responsive terminal boar");
-        assertStringIncludes(result.transcript, friendly);
-        assertStringIncludes(result.transcript, "Task evidence");
-        assertStringIncludes(
-          frame(result, "full-detail").text,
-          "Choose an action",
-        );
-        assertUniqueFocus(narrow);
-        assertUniqueFocus(wide);
-        assertUniqueFocus(frame(result, "full-detail"));
-        assertEquals(result.terminal.initialSize, { columns: 60, rows: 40 });
-        assertEquals(result.terminal.finalSize, { columns: 120, rows: 50 });
-        assertEquals(result.terminal.resizes, [{ columns: 120, rows: 50 }]);
-
-        // The narrow queue keeps identity bounded; selecting the task opens
-        // its full title and evidence. The wide queue can expose more identity
-        // without changing the selected task.
+        assertEquals(frame(result, "narrow").columns, 60);
+        assertEquals(frame(result, "wide").columns, 120);
+        assertStringIncludes(frame(result, "wide").text, "Responsive task");
+        assertEquals(result.terminal.resizes, [{ columns: 120, rows: 30 }]);
       },
     );
   },
@@ -712,6 +682,15 @@ Deno.test("Desk PTY normalisation exposes clears, overflow, and unknown controls
   assertEquals(cleared.clearCount, 1);
   assertEquals(cleared.text.includes("obsolete"), false, cleared.text);
   assertStringIncludes(cleared.text, "current");
+
+  const restored = normaliseDeskTranscript(
+    "foreground-return",
+    "main\x1b[?1049h\x1b[2J\x1b[Htemporary\x1b[?1049l next",
+    { columns: 30, rows: 4 },
+  );
+  assertStringIncludes(restored.text, "main next");
+  assertEquals(restored.text.includes("temporary"), false);
+  assertEquals(restored.implicitWraps, []);
 
   const overflow = normaliseDeskTranscript(
     "overflow",

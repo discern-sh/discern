@@ -8,7 +8,7 @@ export const DESIGN_SYSTEM_SPECIFIER =
 export const DESIGN_SYSTEM_WORKTREE =
   "/Users/jack/Sites/discern-design-system.worktrees/calm-1a-prerequisites-dafbe4";
 export const DESIGN_SYSTEM_REVISION =
-  "c486b14d74a6e2d74ee096704db26e2f3ed8a8e7";
+  "6673e3774843720790cd87281acaaad8cc6e1f8e";
 export const DESIGN_SYSTEM_ORIGIN =
   toFileUrl(`${DESIGN_SYSTEM_WORKTREE}/`).href;
 

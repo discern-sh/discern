@@ -18,7 +18,6 @@
  */
 
 import { basename } from "@std/path";
-import { bestEffort } from "../../shared/best_effort.ts";
 import { commandEvidence } from "../../shared/command_evidence.ts";
 import { DISCERN_DOCS_URL } from "../../shared/brand.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
@@ -54,10 +53,12 @@ import {
   requestSelection,
   requestSequentialForm,
   requestText,
+  runTerminalApplication,
   type SelectionGroup,
   type SelectionRequestOptions,
   type SequentialFormRequestOptions,
   type SequentialInteractionRequests,
+  type TerminalApplicationOptions,
   type TextRequestOptions,
 } from "../../lib/terminal_interaction.ts";
 import { Logger } from "../../lib/log.ts";
@@ -72,7 +73,6 @@ import { inspectGateProof } from "../gate/proof.ts";
 import {
   applyStartPlan,
   buildStartPlan,
-  IdentityError,
   type LifecycleContext,
   lifecycleContext,
   type PreparedStart,
@@ -104,8 +104,7 @@ import {
 import {
   agentLaunchArgs,
   buildAgentLaunches,
-  buildDeskBoardDecision,
-  buildDeskRows,
+  buildDeskDecision,
   type DeskAction,
   type DeskActionOffer,
   type DeskAgentLaunch,
@@ -153,30 +152,24 @@ import {
   DESK_FILTER_THRESHOLD,
   DESK_REVIEW_ROUTES,
   DESK_ROUTES,
-  deskActionGroups,
   deskCompositionReserveRows,
   type DeskEditorCommand,
   type DeskReview,
   type DeskReviewFailure,
   type DeskReviewFile,
   deskReviewGroups,
-  deskRootPrompt,
-  deskRootSelectionGroups,
-  deskRootUsesSearch,
-  deskUnlandedBranch,
-  deskUnlandedRoute,
   renderDeskActionFailure,
   renderDeskActionPlan,
   renderDeskAgentHandoff,
-  renderDeskBoard,
   renderDeskCreatedTask,
   renderDeskProjectScriptPlan,
   renderDeskRecovery,
   renderDeskReview,
   renderDeskStartPreview,
-  renderDeskTaskDetail,
   renderDeskUnlandedBranchDetail,
 } from "./view.ts";
+import { liveDesk } from "./live.ts";
+import type { DeskChoice } from "./application_view.ts";
 import { startPlanToEngine } from "../worktree/plan.ts";
 import { actOnMainCheckout, showRecentCompleted } from "./main_checkout.ts";
 import { clearDeskBoard, echoDeskCommand } from "./presentation.ts";
@@ -188,13 +181,6 @@ import {
 
 const {
   back: BACK,
-  quit: QUIT,
-  readDocs: READ_DOCS,
-  mainCheckout: MAIN_CHECKOUT,
-  recentCompleted: RECENT_COMPLETED,
-  refresh: REFRESH,
-  runProjectScript: RUN_PROJECT_SCRIPT,
-  startTask: START_TASK,
 } = DESK_ROUTES;
 
 /** Flags accepted by `desk`. */
@@ -238,6 +224,9 @@ export interface DeskRuntime {
   clearEffortGrant(path: string): DeskMaybePromise<boolean>;
   makeOut(): Out;
   error(message: string): void;
+  application(
+    options: TerminalApplicationOptions<DeskChoice>,
+  ): Promise<unknown>;
   select(options: DeskSelectOptions): DeskMaybePromise<string>;
   confirm(
     message: string,
@@ -538,7 +527,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
   loadConfig: (root) => loadConfig(root),
-  status: (root) => statusResult(root),
+  status: (root) => statusResult(root, { all: true }),
   mainRepoPath: (root) => mainRepoPath(root),
   grantEffortPlan: (path, branch) => effortGrantPlan(path, branch),
   grantEffort: (path, branch) =>
@@ -550,7 +539,9 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     return makeOut(terminal.color, { terminal });
   },
   error: (message) => deskLogger().error(message),
-  select: (options) => requestSelection<string>(options),
+  application: (options) => runTerminalApplication(options),
+  select: (options) =>
+    requestSelection<string>({ ...options, presentation: "menu" }),
   confirm: (message, options) => confirmOrNo(message, options),
   input: (options) => requestText(options),
   sequence: (options) => requestSequentialForm(options),
@@ -929,14 +920,6 @@ interface WorktreeConfigLoad {
   readonly error?: string;
 }
 
-interface GatheredDeskCapabilities {
-  readonly path: string;
-  readonly scripts: readonly DeskProjectScript[];
-  readonly scriptsUnavailableReason?: string;
-  readonly agentLaunches: readonly DeskAgentLaunch[];
-  readonly capabilityError?: string;
-}
-
 /** Normalize array-shaped script discovery into the complete discovery shape. */
 function scriptInventory(
   root: string,
@@ -1182,50 +1165,6 @@ async function runAuthorizedProjectScript(
 /** Offer the fleet as a grouped picker; resolves to a row path or a sentinel.
  * `boardRows` is what the board composition above this menu occupies, reserved out
  * of the menu's viewport-derived row budget so the board stays visible. */
-async function pickRow(
-  rows: readonly DeskRow[],
-  unlandedBranches: readonly string[],
-  data: StatusData,
-  rootScripts: readonly DeskProjectScript[],
-  boardRows: number,
-  viewport: TerminalSize,
-  terminal: Out["terminal"],
-  runtime: DeskRuntime,
-): Promise<string> {
-  const options = groupedSelectionEntries<string>(deskRootSelectionGroups({
-    rows,
-    unlandedBranches,
-    mainActionable: (data.fleet ?? []).some((entry) =>
-      entry.is_main &&
-      (entry.clean === false || entry.git_unavailable === true)
-    ),
-    recentCompletedCount: data.recent_completed_tasks?.length ?? 0,
-    hasProjectScripts: rootScripts.some((script) =>
-      script.availability !== "disabled"
-    ),
-    viewport,
-    terminal,
-  }));
-  const selectableWork = rows.length + unlandedBranches.length;
-  const search = deskRootUsesSearch(selectableWork);
-  try {
-    return await runtime.select({
-      message: deskRootPrompt(selectableWork),
-      options,
-      search,
-      ...(search ? { searchLabel: "filter" } : {}),
-      hint: search
-        ? "Type to filter. Use the arrow keys to move and Enter to choose."
-        : "Use the arrow keys to move and Enter to choose.",
-      reservedRows: deskCompositionReserveRows(boardRows, viewport.rows),
-    });
-  } catch (error) {
-    if (!isInteractionCancelled(error)) throw error;
-    // Ctrl-C or end-of-input closes the Desk.
-    return QUIT;
-  }
-}
-
 /** Run one Project Script from the main checkout, using the same picker,
  * process ownership, exit reporting, and pause as a worktree-local script. */
 async function runRootProjectScript(
@@ -2049,7 +1988,7 @@ async function dispatchAction(
         );
       } else {
         out.ok(
-          `${row.entry.branch} lands once green without a further conversation. A variance, a standard proposal, or an emergency still needs you.`,
+          `${row.entry.branch} is pre-authorized. A later submitted green revision may land without a further conversation. A variance, a standard proposal, or an emergency still needs you.`,
         );
       }
       await runtime.pause(out);
@@ -2407,79 +2346,6 @@ async function dispatchAction(
   }
 }
 
-/** The per-row action menu; loops until the row is left or the state changed. */
-async function actOn(
-  out: Out,
-  root: string,
-  config: DiscernConfig,
-  row: DeskRow,
-  runtime: DeskRuntime,
-  startOptions: StartTaskOptions,
-  cliModel?: CliModelProvider,
-): Promise<boolean | string> {
-  clearBoard(out);
-  const viewport = runtime.size();
-  const terminal = terminalContextAtSize(out.terminal, viewport);
-  const detail = renderDeskTaskDetail(row, viewport, terminal);
-  out.raw(`${detail.text}\n`);
-  while (true) {
-    const options = groupedSelectionEntries<string>([
-      ...deskActionGroups(row),
-      {
-        id: "task-navigation",
-        label: "Task",
-        items: [{ name: "Back", value: BACK }],
-      },
-    ]);
-    let action: string;
-    try {
-      action = await runtime.select({
-        message: "Choose an action",
-        options,
-        hint: "Use the arrow keys to move and Enter to choose.",
-        reservedRows: deskCompositionReserveRows(detail.rows, viewport.rows),
-      });
-    } catch (error) {
-      if (!isInteractionCancelled(error)) throw error;
-      return false;
-    }
-    if (action === BACK) {
-      return false;
-    }
-    try {
-      const outcome = await dispatchAction(
-        out,
-        root,
-        config,
-        row,
-        action as DeskAction,
-        runtime,
-        startOptions,
-        cliModel,
-      );
-      if (outcome) return outcome;
-    } catch (e) {
-      if (e instanceof WorktreeGitError || e instanceof IdentityError) {
-        const viewport = runtime.size();
-        const terminal = terminalContextAtSize(out.terminal, viewport);
-        const failure = renderDeskActionFailure(
-          row,
-          selectedOffer(row, action as DeskAction),
-          e.message,
-          viewport,
-          terminal,
-        );
-        out.raw(`${failure.text}\n`);
-        await runtime.pause(out);
-        // A refusal can reflect stale survey state. Re-survey and return to this
-        // task when it still exists.
-        return true;
-      }
-      throw e;
-    }
-  }
-}
-
 /**
  * Run the desk. Returns a process exit code: 0 for any session the operator
  * ended (including "nothing to do"), 1 for a refusal (no TTY, `--json`, no
@@ -2528,257 +2394,152 @@ export async function runDesk(
   const out = runtime.makeOut();
   const config = await runtime.loadConfig(root);
 
-  const first = await runtime.status(root);
-  if (!first.ok || first.data === undefined) {
-    out.error(first.message ?? "the status survey failed.");
-    return 1;
-  }
-  if (first.data.location === "worktree") {
-    // The desk supervises the fleet, and the fleet's actions (drop, accept)
-    // operate from the main checkout — point home rather than half-work here.
-    const mainRepo = await runtime.mainRepoPath(root);
+  const main = await runtime.mainRepoPath(root);
+  if (main !== undefined && main !== root) {
     out.info(
-      `The desk runs from the main checkout${
-        mainRepo !== undefined ? `: cd ${mainRepo}` : ""
-      } — this is a worktree. For this worktree's own state: discern status.`,
+      `The desk runs from the main checkout: cd ${main} — this is a worktree. For this worktree's own state: discern status.`,
     );
     return 0;
   }
-  const initialData = first.data;
-
-  // The session's tip (ADR 0234): chosen once from the first survey, held
-  // stable across every redraw, and marked shown exactly once — the
-  // seen-state write and the logbook id together, at selection, never per
-  // redraw. Tip state must never cost a session, so any failure in the seams
-  // degrades to a tipless header.
-  let tipLine: string | undefined;
-  await bestEffort("desk-tip-presentation", async () => {
-    const tipState = await runtime.readTipState(root);
-    const selected = selectTip(TIPS, { data: initialData, config }, tipState);
-    if (selected !== undefined) {
-      tipLine = renderTipLine(selected);
-      await runtime.writeTipState(
-        root,
-        markTipShown(
-          tipState,
-          selected.tip.id,
-          new Date(runtime.now()).toISOString(),
-        ),
-      );
-      runtime.recordTipShown(selected.tip.id);
+  const capabilities = async (row: DeskRow): Promise<DeskRow> => {
+    const loaded = await loadWorktreeConfig(row.entry.path, runtime);
+    if (loaded.config === undefined) {
+      return {
+        ...row,
+        capabilityError: loaded.error ?? "Task configuration unavailable",
+        decision: {
+          ...row.decision,
+          actions: buildDeskDecision(row.entry, {
+            trunk: config.repository.trunk,
+            nowMs: runtime.now(),
+            scripts: [],
+            agentLaunches: [],
+            capabilityError: loaded.error ?? "Task configuration unavailable",
+          }).actions,
+        },
+      };
     }
-  });
-
-  let data: StatusData = initialData;
-  let focusPath: string | undefined;
-  let focusBranch: string | undefined;
-  while (true) {
-    clearBoard(out);
-    const fleet = data.fleet ?? [];
-    const [detectedAgents, rootScriptDiscovery] = await Promise.all([
-      runtime.detectAgents(),
-      runtime.scripts(root, config),
-    ]);
-    const startOptions: StartTaskOptions = { data, detectedAgents };
-    const rootScriptInventory = scriptInventory(root, rootScriptDiscovery);
-    const rootScripts = rootScriptInventory.scripts;
-    // Per-row facts the survey cannot carry (each worktree's own scripts and
-    // agent launches), gathered concurrently from ONE config read per row.
-    // Proof and effort-grant state ride the fleet entries themselves.
-    const gathered = await Promise.all(
-      fleet
-        .filter((entry) =>
-          !entry.is_main && entry.broken !== true &&
-          entry.git_unavailable !== true
-        )
-        .map(async (entry): Promise<GatheredDeskCapabilities> => {
-          const loaded = await loadWorktreeConfig(entry.path, runtime);
-          if (loaded.config === undefined) {
-            return {
-              path: entry.path,
-              scripts: [] as readonly DeskProjectScript[],
-              scriptsUnavailableReason: loaded.error ??
-                "Task configuration is unavailable.",
-              agentLaunches: [] as readonly DeskAgentLaunch[],
-              ...(loaded.error === undefined
-                ? {}
-                : { capabilityError: loaded.error }),
-            };
-          }
-          const inventory = scriptInventory(
-            entry.path,
-            await runtime.scripts(entry.path, loaded.config),
-          );
-          return {
-            path: entry.path,
-            scripts: inventory.scripts,
-            ...(inventory.unavailableReason === undefined
-              ? {}
-              : { scriptsUnavailableReason: inventory.unavailableReason }),
-            agentLaunches: buildAgentLaunches(loaded.config, detectedAgents),
-          };
-        }),
+    const detected = await runtime.detectAgents();
+    const inventory = scriptInventory(
+      row.entry.path,
+      await runtime.scripts(row.entry.path, loaded.config),
     );
-    const scriptsByPath = new Map<string, readonly DeskProjectScript[]>(
-      gathered.map((facts) => [facts.path, facts.scripts]),
-    );
-    const agentLaunchesByPath = new Map<string, readonly DeskAgentLaunch[]>(
-      gathered.map((facts) => [facts.path, facts.agentLaunches]),
-    );
-    const scriptsUnavailableReasons = new Map<string, string>(
-      gathered.flatMap((facts) =>
-        facts.scriptsUnavailableReason === undefined
-          ? []
-          : [[facts.path, facts.scriptsUnavailableReason] as const]
-      ),
-    );
-    const capabilityErrors = new Map<string, string>(
-      gathered.flatMap((facts) =>
-        facts.capabilityError === undefined
-          ? []
-          : [[facts.path, facts.capabilityError] as const]
-      ),
-    );
-    const rows = buildDeskRows(
-      fleet,
-      scriptsByPath,
-      agentLaunchesByPath,
-      {
-        trunk: config.repository.trunk,
-        nowMs: runtime.now(),
-        ...(data.fleet_collisions === undefined
-          ? {}
-          : { fleetCollisions: data.fleet_collisions }),
-        ...(data.adr_collisions === undefined
-          ? {}
-          : { adrCollisions: data.adr_collisions }),
-        scriptsUnavailableReasons,
-        capabilityErrors,
+    const agentLaunches = buildAgentLaunches(loaded.config, detected);
+    return {
+      ...row,
+      scripts: inventory.scripts,
+      agentLaunches,
+      decision: {
+        ...row.decision,
+        actions: buildDeskDecision(row.entry, {
+          trunk: config.repository.trunk,
+          nowMs: runtime.now(),
+          scripts: inventory.scripts,
+          agentLaunches,
+          ...(inventory.unavailableReason === undefined
+            ? {}
+            : { scriptsUnavailableReason: inventory.unavailableReason }),
+        }).actions,
       },
-    );
-    const viewport = runtime.size();
-    const terminal = terminalContextAtSize(out.terminal, viewport);
-    const board = renderDeskBoard({
-      board: buildDeskBoardDecision(data, rows),
-      ...(tipLine === undefined ? {} : { tip: tipLine }),
-      viewport,
-      terminal,
-    });
-    out.raw(`${board.text}\n`);
-
-    const focused = focusPath === undefined
-      ? undefined
-      : rows.find((row) => row.entry.path === focusPath);
-    let changedSelection: string | undefined;
-    if (focusPath !== undefined && focused === undefined) {
-      if (
-        focusBranch !== undefined &&
-        (data.unlanded_branches ?? []).includes(focusBranch)
-      ) {
-        out.info("Task changed; refreshed. Its branch is ready to resume.");
-        changedSelection = deskUnlandedRoute(focusBranch);
-      } else if (
-        focusBranch !== undefined &&
-        (data.recent_completed_tasks ?? []).some((task) =>
-          task.branch === focusBranch
-        )
-      ) {
-        out.info("Task landed; refreshed. Completion evidence is available.");
-      } else {
-        out.info("Task changed; refreshed.");
-      }
-    }
-    focusPath = undefined;
-    focusBranch = undefined;
-    const choice = focused?.entry.path ??
-      changedSelection ??
-      await pickRow(
-        rows,
-        data.unlanded_branches ?? [],
-        data,
-        rootScripts,
-        board.rows,
-        viewport,
-        terminal,
-        runtime,
-      );
-    if (choice === QUIT) {
-      return 0;
-    }
-    const unlandedBranch = deskUnlandedBranch(choice);
-    if (choice === START_TASK) {
-      try {
-        focusPath = await startTask(
-          out,
-          root,
-          config,
-          runtime,
-          startOptions,
-        );
-      } catch (e) {
-        if (e instanceof WorktreeGitError || e instanceof IdentityError) {
-          out.error(e.message);
-          await runtime.pause(out);
-        } else {
-          throw e;
+    };
+  };
+  try {
+    await runtime.application(liveDesk({
+      trunk: config.repository.trunk,
+      now: runtime.now,
+      observe: async () => {
+        const result = await runtime.status(root);
+        if (!result.ok || result.data === undefined) {
+          throw new Error(result.message ?? "The status survey failed.");
         }
-      }
-    } else if (unlandedBranch !== undefined) {
-      try {
-        focusPath = await actOnUnlandedBranch(
-          out,
+        return result.data;
+      },
+      capabilities,
+      tip: async (data) => {
+        const state = await runtime.readTipState(root);
+        const selected = selectTip(TIPS, { data, config }, state);
+        if (selected === undefined) return undefined;
+        const tipLine = renderTipLine(selected);
+        await runtime.writeTipState(
           root,
-          config,
-          unlandedBranch,
-          runtime,
-          startOptions,
+          markTipShown(
+            state,
+            selected.tip.id,
+            new Date(runtime.now()).toISOString(),
+          ),
         );
-      } catch (e) {
-        if (e instanceof WorktreeGitError || e instanceof IdentityError) {
-          out.error(e.message);
-          await runtime.pause(out);
-        } else {
-          throw e;
+        runtime.recordTipShown(selected.tip.id);
+        return tipLine;
+      },
+      perform: async (choice, data, row) => {
+        const startOptions: StartTaskOptions = {
+          data,
+          detectedAgents: (choice.kind === "route" &&
+              ["start", "unlanded"].includes(choice.route)) ||
+              (choice.kind === "action" && choice.action === "follow_up")
+            ? await runtime.detectAgents()
+            : [],
+        };
+        if (choice.kind === "action" && row !== undefined) {
+          const outcome = await dispatchAction(
+            out,
+            root,
+            config,
+            row,
+            choice.action,
+            runtime,
+            startOptions,
+            opts.cliModel,
+          );
+          return typeof outcome === "string" ? outcome : undefined;
         }
-      }
-    } else if (choice === RUN_PROJECT_SCRIPT) {
-      await runRootProjectScript(
-        out,
-        root,
-        data.project ?? basename(root),
-        rootScripts,
-        runtime,
-      );
-    } else if (choice === MAIN_CHECKOUT) {
-      await actOnMainCheckout(out, root, data, runtime);
-    } else if (choice === RECENT_COMPLETED) {
-      await showRecentCompleted(out, data, runtime);
-    } else if (choice === READ_DOCS) {
-      await openOnlineDocs(out, runtime);
-    } else if (choice !== REFRESH) {
-      const row = rows.find((r) => r.entry.path === choice);
-      if (row !== undefined) {
-        const outcome = await actOn(
-          out,
-          root,
-          config,
-          row,
-          runtime,
-          startOptions,
-          opts.cliModel,
-        );
-        if (typeof outcome === "string") focusPath = outcome;
-        else if (outcome) {
-          focusPath = row.entry.path;
-          focusBranch = row.entry.branch;
+        if (choice.kind !== "route") return;
+        switch (choice.route) {
+          case "start":
+            return await startTask(out, root, config, runtime, startOptions);
+          case "unlanded":
+            if (
+              choice.branch !== undefined &&
+              data.unlanded_branches?.includes(choice.branch)
+            ) {
+              return await actOnUnlandedBranch(
+                out,
+                root,
+                config,
+                choice.branch,
+                runtime,
+                startOptions,
+              );
+            }
+            return;
+          case "scripts": {
+            const scripts = scriptInventory(
+              root,
+              await runtime.scripts(root, await runtime.loadConfig(root)),
+            );
+            await runRootProjectScript(
+              out,
+              root,
+              data.project ?? basename(root),
+              scripts.scripts,
+              runtime,
+            );
+            return;
+          }
+          case "main":
+            return await actOnMainCheckout(out, root, data, runtime);
+          case "recent":
+            return await showRecentCompleted(out, data, runtime);
+          case "docs":
+            return await openOnlineDocs(out, runtime);
         }
-      }
-    }
-    const next = await runtime.status(root);
-    if (!next.ok || next.data === undefined) {
-      out.error(next.message ?? "the status survey failed.");
+      },
+    }));
+  } catch (error) {
+    if (!isInteractionCancelled(error)) {
+      runtime.error(error instanceof Error ? error.message : String(error));
       return 1;
     }
-    data = next.data;
   }
+  return 0;
 }

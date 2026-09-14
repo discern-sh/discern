@@ -23,7 +23,7 @@ The survey preserves unknown states instead of guessing:
 | State                                              | What status reports                                                                                     |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Tracked or untracked non-ignored files changed     | `clean: false` with the changed-file count.                                                             |
-| Checkout has no project config                     | `broken`, with **Show recovery steps** as the recommended Desk action.                                  |
+| Checkout has no project config                     | `broken`; **Show recovery steps** remains available under **More actions** in the desk.                 |
 | Config exists and the setup-ready marker is absent | `setup.state: "incomplete"`, with retry or manual recovery evidence.                                    |
 | Git cannot read a checkout's status                | Sets `git_unavailable` with the failed command and diagnostic. Clean and divergence values stay absent. |
 | Git returns a failed or malformed count            | Reports `"unknown"` for the affected ahead or behind value.                                             |
