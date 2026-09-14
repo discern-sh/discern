@@ -31,6 +31,10 @@ const JOURNEY_BUDGET = 860;
 
 /** Engine verbs the journey does not exercise, each with the reason. */
 const UNBUDGETED_ENGINE_VERBS: ReadonlyMap<string, string> = new Map([
+  [
+    "submit",
+    "this journey submits through accept; queue-only admission has its own production Desk journey",
+  ],
   ["prepare", "its fixers and refresh rewrite the fixture between steps"],
   ["test", "runs the project's own test command, not a git workload"],
   ["queue", "schedules test processes; its git use is fleet observation"],

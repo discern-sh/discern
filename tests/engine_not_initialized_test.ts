@@ -70,6 +70,7 @@ const SPEC: Record<string, OutsideSpec> = {
   patterns: { run: ["patterns"], verb: "patterns", expect: "not_initialized" },
   status: { run: ["status"], verb: "status", expect: "not_initialized" },
   accept: { run: ["accept"], verb: "accept", expect: "not_initialized" },
+  submit: { run: ["submit"], verb: "submit", expect: "not_initialized" },
   update: { run: ["update"], verb: "update", expect: "not_initialized" },
   start: { run: ["start"], verb: "start", expect: "not_initialized" },
   worktree: {

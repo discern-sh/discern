@@ -469,6 +469,12 @@ const START_CASE: PurityCase = {
 
 const LIFECYCLE_CASES: readonly LifecycleCase[] = [
   {
+    commandPath: "submit",
+    envelopeVerb: "submit",
+    cwd: "worktree",
+    args: () => ["submit"],
+  },
+  {
     commandPath: "update",
     envelopeVerb: "update",
     cwd: "worktree",
@@ -822,7 +828,7 @@ Deno.test("done --markdown emits one quiet authored document under both stream s
   }
 });
 
-Deno.test("worktree lifecycle --json: start/update/accept/setup/rename/teardown/drop/prune emit only the envelope", async () => {
+Deno.test("worktree lifecycle commands emit only their JSON envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // Noisy worktree setup steps and resource commands: they inherit stdio in
