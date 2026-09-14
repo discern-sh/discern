@@ -1,9 +1,7 @@
-/** Hold the selected design-system inventory to evidence in live site output. */
+/** Measure completed site output; the configured producer requires jobs.build. */
 
-import { buildSite } from "../site/build.ts";
 import { measureSiteComponentCoverage } from "./site_component_coverage_lib.ts";
 
-await buildSite();
 const coverage = await measureSiteComponentCoverage();
 const routeGaps = coverage.flatMap((bundle) =>
   bundle.routeGaps.map((route) => `${bundle.bundle}:${route}`)

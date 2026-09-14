@@ -775,6 +775,7 @@
   direction = "down"
   limit = 65
   run = "deno task site:component-coverage"
+  needs = ["jobs.build"]
   inputs = [
     "${map.dir}**",
     "site/**",
