@@ -1,15 +1,15 @@
 # Open work — discern
 
-Outstanding fixes, improvements, and ideas, grouped by subject for review. Groups do not imply priority, and an entry is not a commitment to build it. The [map](map/README.md) describes what exists; this file records what remains to fix or decide.
+Small outstanding fixes and improvements, grouped by subject for review. Groups do not imply priority. The [map](map/README.md) describes what exists; this file records what remains to fix or decide.
 
-This backlog publishes with the repository, including marketing and positioning ideas. Private research and launch material stay in the `_private` overlay.
+This tracked backlog publishes with the repository by design. It records inspectable outstanding work, not a promised roadmap; private research and launch material stay in the `_private` overlay.
 
 ## For agents (any agent — and the maintainer)
 
-- **When you defer something, descope, or find a real issue you won't fix, record it here.** Don't bury it in private memory, a chat reply, or a lone code comment—the next agent and the maintainer cannot see those.
+- **Record deferred work in the project.** Use the scope rule below to choose its home; private memory, chat replies, and lone code comments do not make work discoverable to the next agent or maintainer.
 - **Format:** use one tidy-stable line with an unchecked checkbox, bold title, bounded standalone description, and terminal `Evidence:` field. Wrap live repository-relative paths in code spans. When no checkout artifact can exist, use `Evidence: Owner-only: <concrete external fact>.` instead.
 - **When you finish an item, delete it**—the resolving commit is the record. Never leave checked boxes behind.
-- **Scope:** this file is for work that outlives the work which discovered it. Track the steps of active work in the agent's own task tooling.
+- **Scope:** keep small leftovers that outlive the effort which discovered them in this file; larger programmes belong in `project/map/_private/planning/` workstreams and must not be duplicated here. Omit routine workflow actions such as pinning improved standards, and track active task steps in the agent's own task tooling.
 - This is a backlog, not documentation—modal verbs are fine here. Every item must remain pickup-able without session-relative context.
 
 ## Gate performance and reliability
@@ -23,7 +23,6 @@ This backlog publishes with the repository, including marketing and positioning 
 - [ ] **Make status work before the first commit.** Report incomplete setup instead of throwing when status reads completion records in a repository with no commits. Evidence: `src/engine/status/completion_recovery.ts`; `src/engine/emergency/obligations.ts`; `src/engine/validation/runtime.ts`.
 - [ ] **Resolve setup checks that reject finished documentation.** Review the skeleton-marker scan, design-principle heading check, and primary-subsystem check so completed documentation is accepted without weakening detection of unfinished setup. Evidence: `src/shared/setup_state.ts`; `src/shared/setup_checks.ts`; `project/map/_private/planning/completion-workstreams/evidence/8a.md`.
 - [ ] **Teach setup agents to add job progress reports.** Add setup guidance for configuring long-running project checks to emit useful `DISCERN_PROGRESS` updates. Evidence: `src/commands/setup.ts`; `src/shared/config_prose.ts`; `src/engine/validation/producer_progress.ts`.
-- [ ] **Recover edits made in the wrong checkout.** Provide a supported way to move an effort's tracked and untracked changes from main into its assigned worktree after establishing who owns them. Evidence: `src/shared/hints.ts`; `src/engine/dispatch.ts`.
 - [ ] **Review the improvement suggestions.** Assess whether job progress reporting and the concurrent-test limit deserve advisory improvement rules, and seek owner approval before changing how projects are scored. Evidence: `src/engine/improve/rules.ts`; `project/map/_private/planning/completion-workstreams/evidence/7c.md`.
 - [ ] **Exercise worktree resources in discern itself.** Choose a useful per-worktree resource, such as a local site server, to exercise creation, recovery, and cleanup during ordinary development. Evidence: `src/engine/worktree/resources.ts`; `discern.toml`; `project/map/_adr/0025-worktree-resources.md`.
 
@@ -33,7 +32,6 @@ This backlog publishes with the repository, including marketing and positioning 
 - [ ] **Remove remaining lint suppressions.** Replace suppression directives with compliant code, pin each reduction, and keep a permanent zero-count guard once none remain. Evidence: `scripts/lint_suppressions.ts`; `project/map/80-development/code-conventions.md`; `discern.toml`.
 - [ ] **Reduce unused site-component output.** Render components included in live route bundles or stop shipping their unused output, reducing the measured component gaps toward zero. Evidence: `scripts/site_component_coverage.ts`; `site/design_system.ts`; `project/map/90-site/the-design-system.md`.
 - [ ] **Upgrade Vale and fix the findings it reveals.** Evaluate a newer Vale release, update the tracked version and integrity data, and correct the additional prose issues while preserving the quality standard. Evidence: `.vale-version`; `scripts/vale_toolchain.ts`; `project/map/_adr/0337-vale-self-provisions-from-tracked-release-integrity.md`.
-- [ ] **Tighten quality limits to preserve measured gains.** Review current readings and pin justified improvements, including the site's reading-grade limit and margin once launch copy settles. Evidence: `discern.toml`; `src/engine/gate/standards.ts`; `scripts/site_reading_grade.ts`.
 - [ ] **Bring contributor documentation up to date.** Add the missing Canonical sets link and reconcile descriptions of test layers, build ownership, and generated files with their live authorities. Evidence: `project/map/80-development/README.md`; `project/map/80-development/testing.md`; `project/map/80-development/code-conventions.md`; `src/shared/paths_registry.ts`.
 
 ## Launch checks and public evidence
@@ -44,21 +42,12 @@ This backlog publishes with the repository, including marketing and positioning 
 - [ ] **Link homepage claims to their evidence.** Give material landing-page claims typed references to the claims registry and enable the deferred claim-annotation check. Evidence: `site/page-src/clarity-first.tsx`; `site/page-src/trust.tsx`; `scripts/brand/vale.ts`.
 - [ ] **Keep evidence illustrations tied to their dated source.** Generate the site's quality-trajectory figures from a recorded snapshot or test them against it so each illustration stays consistent with the date and evidence it cites. Evidence: `site/page-src/specimens.tsx`; `project/map/_private/brand/claims-residue.md`.
 
-## Diagnostics and continuous integration
+## Diagnostics
 
 - [ ] **Recognize more diagnostic formats.** Add parsers for GitHub Actions annotations, TeamCity messages, and Checkstyle XML, with fixtures and a failed-job test for each format. Evidence: `src/engine/gate/diagnostics.ts`; `tests/gate_diagnostics_test.ts`; `tests/engine_done_json_test.ts`.
-- [ ] **Support custom text diagnostics.** Let projects declare named regex captures for file, line, column, rule, and message, then normalize those findings through the existing diagnostic pipeline. Evidence: `src/engine/gate/diagnostics.ts`; `src/shared/config_schema.ts`.
-- [ ] **Offer an opt-in managed GitHub gate after launch.** Once public releases and managed-version support exist, maintain an ejectable GitHub Actions workflow and add native annotations and summaries. Evidence: `project/map/_private/planning/managed-ci-workstreams/README.md`; `.github/workflows`.
 
 ## Editing tools
 
 - [ ] **Extend Canon Editor to consequences and readiness.** Add consequence fields and, when question editing is needed, readiness questions, approaches, and routes through the editor's existing projections and pickers. Evidence: `scripts/brand/consequences.ts`; `scripts/brand/readiness.ts`; `scripts/canon_editor/fields.ts`; `scripts/canon_editor/registry_ast.ts`.
 - [ ] **Add structural editing and commit support to Canon Editor.** Use real editorial work to decide which add, retire, reorder, and stage-and-commit controls are worth building. Evidence: `scripts/canon_editor/fields.ts`; `project/map/80-development/canon-editor.md`.
 - [ ] **Explore Docs Studio after launch.** Specify a local worktree-based editor for the public manual with live production previews, validation, document management, and review through discern's existing completion and landing workflow. Evidence: `project/manual/`; `src/lib/manual.ts`; `site/docs.ts`; `project/map/_adr/0314-separate-public-manual-and-project-map.md`.
-
-## Product and messaging experiments
-
-- [ ] **Explore human direction as the central contribution.** Test messaging about the technical and creative judgment people bring to agent-built software, keeping claims about taste within the brand's voice rules. Evidence: `templates/skills/discern-write-it-once/SKILL.md`; `project/skills/discern-brand-voice/SKILL.md`.
-- [ ] **Explore helping people develop better judgment.** Test whether teaching reusable ways to assess work is a useful message for builders who are still developing their quality instincts. Evidence: `templates/skills/discern-write-it-once/SKILL.md`; `scripts/brand/readiness.ts`.
-- [ ] **Explore questions as a way into the product.** Compare an accessible question cloud with a readable list that connects visitors' concerns to benefits and feature documentation, starting with related changes and Coupling. Evidence: `scripts/brand/readiness.ts`; `project/map/_adr/0392-readiness-connects-questions-to-the-practice.md`.
-- [ ] **Try readiness questions on real work.** Use a UI change, an API change, and a data migration to see which questions improve implementation or expose missing evidence before deciding whether to build a readiness account. Evidence: `scripts/brand/readiness.ts`.
