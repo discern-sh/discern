@@ -176,7 +176,9 @@ Deno.test("main-checkout actions diagnose Git, pager, shell, and editor failures
   }
   assertStringIncludes(pages[0] ?? "", "No local changes.");
   assertStringIncludes(pages[0] ?? "", "No tracked diff.");
+  actions.push(DESK_ROUTES.back);
   await showRecentCompleted("/project", MAIN, runtime);
+  assertEquals(actions, []);
   assertEquals(pauses, 7);
 });
 
