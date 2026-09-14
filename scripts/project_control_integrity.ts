@@ -714,6 +714,16 @@ async function checkPlanningLinks(
   return findings;
 }
 
+/** A bound predecessor is a durable watch selector, never a claim of readiness. */
+function boundPredecessorBranch(line: string): string | undefined {
+  const match =
+    /^\*\*Dependency binding:\*\* worktree `([a-z0-9][a-z0-9-]*-[0-9a-f]{6})`, full branch `(agent\/[^`]+)`\. Required readiness: \*\*\d+[A-Z] landed\*\*\.$/u
+      .exec(line);
+  const id = match?.[1];
+  const branch = match?.[2];
+  return id !== undefined && branch === `agent/${id}` ? branch : undefined;
+}
+
 /** Active briefs must carry one stable literal worktree name. */
 function checkActiveBriefs(
   programme: Programme,
@@ -761,13 +771,17 @@ function checkActiveBriefs(
           }
         }
       }
-      if (transientPatterns.some((pattern) => pattern.test(line))) {
+      const predecessor = boundPredecessorBranch(line);
+      const stateText = predecessor === undefined
+        ? line
+        : line.replace(predecessor, "");
+      if (transientPatterns.some((pattern) => pattern.test(stateText))) {
         findings.push(finding(
           file.source.rel,
           index + 1,
           "planning-transient-state",
           "active brief records transient branch or fleet state",
-          "State the scheduling contract, then require discern_status and a live overlap/dependency check at dispatch.",
+          "State the scheduling contract and check it live at dispatch. A predecessor selector may use '**Dependency binding:** worktree `<id>`, full branch `agent/<id>`. Required readiness: **<key> landed**.' with matching identities.",
         ));
       }
     }

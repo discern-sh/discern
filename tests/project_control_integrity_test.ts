@@ -346,6 +346,30 @@ Deno.test("active briefs reject durable claims about transient fleet state", asy
   assertEquals(ruleFindings(findings, "planning-transient-state").length, 1);
 });
 
+Deno.test("bound predecessor selectors preserve live readiness instead of recording fleet state", async () => {
+  const binding =
+    "**Dependency binding:** worktree `orbit-4b-a3b2c1`, full branch `agent/orbit-4b-a3b2c1`. Required readiness: **4B landed**.";
+  assertEquals(await fixtureFindings(activeProgramme(binding)), []);
+  for (
+    const invalid of [
+      binding.replace(
+        "worktree `orbit-4b-a3b2c1`",
+        "worktree `comet-4b-a3b2c1`",
+      ),
+      binding.replace("Required readiness: **4B landed**.", ""),
+      binding + " Currently green.",
+      "The branch `agent/orbit-4b-a3b2c1` is ready.",
+    ]
+  ) {
+    const findings = await fixtureFindings(activeProgramme(invalid));
+    assertEquals(
+      ruleFindings(findings, "planning-transient-state").length,
+      1,
+      invalid,
+    );
+  }
+});
+
 Deno.test("planned outputs pass only while absent, referenced, local, and unique", async () => {
   const valid = activeProgramme([
     "<!-- discern-planned-output: generated/report.md -->",
