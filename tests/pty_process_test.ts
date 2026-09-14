@@ -300,7 +300,10 @@ realPtyTest({
   fn: async () => {
     const result = await runPtyProcess({
       command: "sh",
-      args: ["-c", "stty size"],
+      args: [
+        "-c",
+        'stty size; printf "%s|%s|%s|%s|%s|%s|%s|%s|%s\\n" "$TERM" "$COLORTERM" "$LANG" "$LC_ALL" "$CI" "$NO_COLOR" "$FORCE_COLOR" "$COLUMNS" "$LINES"',
+      ],
       cwd: REPO_ROOT,
       geometry: { columns: 97, rows: 31 },
       keepInputOpen: true,
@@ -308,6 +311,10 @@ realPtyTest({
 
     assertEquals(result.code, 0, result.transcript);
     assertStringIncludes(result.transcript, "31 97");
+    assertStringIncludes(
+      result.transcript,
+      "xterm-256color||en_US.UTF-8||false|||97|31",
+    );
     assert(result.transcriptBytes.length > 0);
     assertEquals(
       new TextDecoder().decode(result.transcriptBytes),

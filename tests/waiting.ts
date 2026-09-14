@@ -111,22 +111,6 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
       "The scenario proves startup readiness and completion use different clocks by intentionally exceeding the latter before readiness.",
     classification: "adversarial-stimulus",
   },
-  "pty-input-step-pacing": {
-    path: "tests/fixtures/pty_process.ts",
-    enclosing: "runPtyProcess",
-    operation: "separate intentionally distinct terminal input writes",
-    reason:
-      "The tests exercise byte sequences arriving in separate terminal reads; a condition would collapse the input timing under test.",
-    classification: "adversarial-stimulus",
-  },
-  "pty-termination-grace": {
-    path: "tests/fixtures/pty_process.ts",
-    enclosing: "terminateProcessTree",
-    operation: "allow TERM handling before escalating the PTY tree to KILL",
-    reason:
-      "Graceful signal handling is the timing contract, and the child offers no positive completion condition before escalation.",
-    classification: "elapsed-behavior",
-  },
   "routed-command-quiescence-window": {
     path: "tests/owned_child_test.ts",
     enclosing:

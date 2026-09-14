@@ -202,6 +202,7 @@ function canonicalEofBoundary(): CanonicalEofBoundary {
       }
       return await target.read();
     },
+    cancelRead: () => target.cancelRead(),
     setRawMode: (enabled) => target.setRawMode(enabled),
     write: (value) => target.write(value),
   };

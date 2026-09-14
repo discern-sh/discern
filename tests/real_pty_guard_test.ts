@@ -36,7 +36,7 @@ interface PtyDeclarationSite {
 }
 
 const APPROVED_PTY_PRIMITIVES = new Set([
-  "tests/fixtures/pty_process.ts#runPtyProcess#command:script",
+  "tests/fixtures/pty_process.ts#<module>#module:package-pty",
   "tests/fixtures/interactive_tty_harness.ts#stty#command:stty",
   "tests/fixtures/desk_tty_harness.ts#stty#command:stty",
   "tests/fixtures/terminal_resize_harness.ts#stty#command:stty",
@@ -107,6 +107,15 @@ function primitiveSitesInSourceFile(
   }
   for (const node of sourceFile.getImportDeclarations()) {
     const specifier = node.getModuleSpecifierValue();
+    if (
+      specifier === "discern-design-system/cli/interactive/testing" &&
+      (node.getNamespaceImport() !== undefined ||
+        node.getNamedImports().some((entry) =>
+          entry.getName() === "runPtyProcess"
+        ))
+    ) {
+      add(node, "module:package-pty");
+    }
     if (
       /(?:^|[/@-])(?:node-pty|openpty|forkpty)(?:$|[/@-])/iu.test(specifier)
     ) {
@@ -281,6 +290,17 @@ export async function openOrbitConsole(): Promise<void> {
       (await ptyGuardFiles(root)).includes(path),
       "a new fixture container must join the Git-derived real-PTY universe",
     );
+    for (
+      const binding of ["{ runPtyProcess as openConsole }", "* as instruments"]
+    ) {
+      const imported = primitiveSitesInSource(
+        path,
+        `import ${binding} from "discern-design-system/cli/interactive/testing";`,
+      );
+      assertEquals(imported.map((site) => site.primitive), [
+        "module:package-pty",
+      ]);
+    }
     const sites = primitiveSitesInSource(path, source);
     assertEquals(
       sites.map((site) => `${site.path}#${site.owner}#${site.primitive}`),
@@ -324,7 +344,7 @@ await orbitConsoleTest();
   );
 });
 
-Deno.test("real PTY primitives remain enclosed by the four canonical authorities", async () => {
+Deno.test("real PTY primitives and package transport remain enclosed by their canonical authorities", async () => {
   const sources = await liveSources();
   const sites = [...sources].flatMap(([path, source]) =>
     primitiveSitesInSourceFile(path, source)

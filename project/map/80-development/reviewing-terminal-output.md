@@ -107,15 +107,27 @@ The capture condition states the complete screen the named frame will be used to
 
 ## What the task captures
 
-[`terminal_command_capture.ts`](../../../tests/fixtures/terminal_command_capture.ts) composes the repository's shared PTY process driver ([`pty_process.ts`](../../../tests/fixtures/pty_process.ts)) with the published `@discern-sh/design-system/cli/projection` surface. The driver sets the kernel terminal size before the command starts. It also supports readiness-gated input and named intermediate frames for interactive command capture; non-interactive command captures need neither. Capture tasks declare the control-rendering and platform-transport contracts through the same [`real_pty.ts`](../../../tests/real_pty.ts) authority as the test canaries.
+[`terminal_command_capture.ts`](../../../tests/fixtures/terminal_command_capture.ts) composes the repository's shared PTY process driver ([`pty_process.ts`](../../../tests/fixtures/pty_process.ts)) with the published `@discern-sh/design-system/cli/projection` surface. The thin adapter delegates generic transport to `discern-design-system/cli/interactive/testing` while retaining repository environment policy, test admission, and evidence. The package sets the kernel terminal size before the command starts. It also supports readiness-gated input and named intermediate frames for interactive command capture; non-interactive command captures need neither. Capture tasks declare the control-rendering and platform-transport contracts through the same [`real_pty.ts`](../../../tests/real_pty.ts) authority as the test canaries.
 
 The task compiles the current checkout to a temporary binary before the PTY run. This keeps Deno launcher's own startup controls out of discern's screen while ensuring the capture represents the current source rather than a frozen `dist/` build. A `docs` capture points that binary at the checkout's current `project/map`, so it does not depend on docs bundled into an older executable. The temporary binary is removed after the artifact is written. Interactive captures retain each named frame and project the last settled full-frame repaint instead of a transcript containing superseded picker frames.
 
-The settled-frame projector recognizes both inline erases and complete alternate-screen repaints. It also normalizes the doubled carriage return that a PTY line discipline can add when a complete-frame writer has already returned to column zero. A remaining carriage return still refuses the artifact because it represents a live repaint rather than a settled screen.
+Complete alternate-screen paints go through `captureTerminalFrame` from the package testing export with the observed geometry. It requires exactly one viewport of complete cell rows and rejects partial or oversized frames. This bounded protocol does not interpret arbitrary cursor movement. Existing inline consumers retain the local settled-inline path; the desk's specialized cursor fixture remains separate. Both paths normalize PTY line endings, while a remaining live repaint refuses the artifact.
 
 Every task run overrides the caller's terminal environment with explicit facts: `TERM=xterm-256color`, a scripted geometry, static CI output, the selected locale, and the selected color mode. The gate may invoke the task with `CI=1`, `NO_COLOR=1`, and `TERM=dumb`; those inherited values do not change the capture. The static mode records the completed command surface rather than a history of progress-frame repaints.
 
 The package projection validates the captured styled output and owns its conversion to typed spans and self-contained HTML. The repository does not decode Select Graphic Rendition (SGR) or Operating System Command (OSC) sequences for this workflow ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)). A carriage-return repaint left in a static capture makes the task fail.
+
+## Application fixture matrix
+
+The [application fixture](terminal-applications.md) uses complete package paints. Capture its choices and reading regions at the requested wide, tall, canonical, and below-minimum sizes, with color and ASCII variants:
+
+```sh
+discern queue -- deno run -A scripts/terminal_application_capture.ts
+```
+
+The script prints HTML paths under `.scratch/terminal-application/` and retains raw transcripts, bounded frames, and geometry inspections alongside them. It observes complete frames before Tab or Escape and validates the chosen color mode. The canonical color journey also records foreground-child input and the restored application frame. Its optional output directory and child Deno config arguments support development against an explicitly linked package worktree. Such captures verify local source; the published-consumer gate still requires the immutable package pin.
+
+Inspect each generated frame in the browser using the review procedure above. The native tests separately verify resizing, pending-read release, foreground child input, and application return.
 
 ## Flagship evidence
 

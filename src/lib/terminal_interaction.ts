@@ -17,6 +17,7 @@ import {
   type InteractionCompletionPolicy,
   type InteractionEntry,
   type InteractionRuntime as PackageInteractionRuntime,
+  type InteractionSelectionPresentation,
   type MarkdownBrowserEntry as PackageMarkdownBrowserEntry,
   type MarkdownBrowserLinkResolution as PackageMarkdownBrowserLinkResolution,
   type MarkdownBrowserLinkResolverInput
@@ -24,6 +25,7 @@ import {
   type MarkdownBrowserOptions as PackageMarkdownBrowserOptions,
   MarkdownBrowserRefusalError as PackageMarkdownBrowserRefusalError,
   type MarkdownBrowserResumableState as PackageMarkdownBrowserResumableState,
+  observeTerminalIO,
   requestAcknowledgement as packageRequestAcknowledgement,
   requestConfirmation as packageRequestConfirmation,
   requestMarkdownBrowser as packageRequestMarkdownBrowser,
@@ -31,7 +33,11 @@ import {
   requestSelection as packageRequestSelection,
   requestSelections as packageRequestSelections,
   requestText as packageRequestText,
+  runTerminalApplication as packageRunTerminalApplication,
   type SelectionsRequestOptions as PackageSelectionsRequestOptions,
+  type TerminalApplicationOptions as PackageTerminalApplicationOptions,
+  type TerminalApplicationRuntime as PackageTerminalApplicationRuntime,
+  type TerminalApplicationState,
   type TerminalIO,
 } from "discern-design-system/cli/interactive";
 import { bestEffortSync } from "../shared/best_effort.ts";
@@ -305,8 +311,8 @@ export interface SelectionRequestOptions<T> {
   readonly required?: boolean | string;
   /** Successful-frame cleanup owned by the package request driver. */
   readonly completion?: InteractionCompletionPolicy;
-  /** Form chrome or the quieter long-lived browsing treatment. */
-  readonly presentation?: InteractionChoicePresentation;
+  /** Package form, browsing, or single-choice menu presentation. */
+  readonly presentation?: InteractionSelectionPresentation;
   readonly validate?: (value: T) => MaybePromise<InteractionValidation>;
   /** Use the package search request rather than a static selection request. */
   readonly search?: boolean;
@@ -429,6 +435,9 @@ export function withInteractionBoundary(target: TerminalIO): TerminalIO {
     capabilities: () => target.capabilities(),
     size: () => target.size(),
     read: () => target.read(),
+    ...(target.cancelRead === undefined
+      ? {}
+      : { cancelRead: () => target.cancelRead?.() ?? false }),
     setRawMode: (enabled) => target.setRawMode(enabled),
     write: (value): void => {
       if (boundaryPending && value.length > 0) {
@@ -493,7 +502,6 @@ function interactionTraceTarget(
 
 interface InteractionTraceWrite {
   readonly lines: number;
-  readonly control?: true;
 }
 
 interface InteractionTraceBudget {
@@ -521,35 +529,15 @@ function traceInteractionIo(target: string, io: TerminalIO): InteractionTrace {
   const writes: InteractionTraceWrite[] = [];
   const budget = pendingBudgetTrace;
   pendingBudgetTrace = undefined;
-  const listenResize = io.listenResize === undefined
-    ? undefined
-    : (handler: () => void): () => void =>
-      io.listenResize?.(handler) ??
-        (() => {});
   return {
-    io: {
-      isInteractive: () => io.isInteractive(),
-      capabilities: () => io.capabilities(),
-      size: (): { columns: number; rows: number } => {
-        const size = io.size();
-        if (sizeRows.length < INTERACTION_TRACE_LIMIT) {
-          sizeRows.push(size.rows);
-        }
-        return size;
-      },
-      read: () => io.read(),
-      setRawMode: (enabled) => io.setRawMode(enabled),
-      write: (value): void => {
-        io.write(value);
-        if (writes.length < INTERACTION_TRACE_LIMIT) {
-          writes.push({
-            lines: value.split("\n").length - 1,
-            ...(value.charCodeAt(0) === 27 ? { control: true as const } : {}),
-          });
-        }
-      },
-      ...(listenResize === undefined ? {} : { listenResize }),
-    },
+    io: observeTerminalIO(io, (event) => {
+      if (event.kind === "size" && sizeRows.length < INTERACTION_TRACE_LIMIT) {
+        sizeRows.push(event.size.rows);
+      }
+      if (event.kind === "write" && writes.length < INTERACTION_TRACE_LIMIT) {
+        writes.push({ lines: event.lines - 1 });
+      }
+    }),
     settle: (outcome): void => {
       bestEffortSync("terminal-interaction-trace-write", () => {
         // Records carry no clock: append order is the diagnostic timeline.
@@ -991,23 +979,10 @@ async function packageInteractionRuntime(
   const output = options.leadingBoundary
     ? withInteractionBoundary(target)
     : target;
-  const listenResize = output.listenResize === undefined
-    ? undefined
-    : (handler: () => void): () => void =>
-      output.listenResize?.(handler) ?? (() => {});
   let wrote = false;
-  const io: TerminalIO = {
-    isInteractive: () => output.isInteractive(),
-    capabilities: () => output.capabilities(),
-    size: () => output.size(),
-    read: () => output.read(),
-    setRawMode: (enabled) => output.setRawMode(enabled),
-    write: (value): void => {
-      output.write(value);
-      if (value.length > 0) wrote = true;
-    },
-    ...(listenResize === undefined ? {} : { listenResize }),
-  };
+  const io = observeTerminalIO(output, (event) => {
+    if (event.kind === "write" && event.bytes > 0) wrote = true;
+  });
   const tracePath = interactionTraceTarget(runtime.env);
   const trace = tracePath === undefined
     ? undefined
@@ -1067,6 +1042,37 @@ async function runInteractionRequest<Options, Value>(
   } finally {
     session.settleTrace?.(outcome);
   }
+}
+
+/** Package composition stays public; this adapter adds only product interaction policy. */
+export type TerminalApplicationOptions<Action> =
+  PackageTerminalApplicationOptions<Action>;
+
+/** Product terminal policy with the package's cooperative application controls. */
+export interface TerminalApplicationRuntime extends TerminalInteractionRuntime {
+  readonly abortSignal?: AbortSignal;
+  readonly observe?: PackageTerminalApplicationRuntime["observe"];
+}
+
+/** Run a persistent package viewport through the shared refusal and error boundary. */
+export async function runTerminalApplication<Action>(
+  options: TerminalApplicationOptions<Action>,
+  runtime: TerminalApplicationRuntime = {},
+): Promise<TerminalApplicationState<Action>> {
+  requireInteraction("this application", runtime);
+  return await runInteractionRequest(
+    (contents: TerminalApplicationOptions<Action>, session) =>
+      packageRunTerminalApplication(contents, {
+        ...session,
+        ...(runtime.abortSignal === undefined
+          ? {}
+          : { abortSignal: runtime.abortSignal }),
+        ...(runtime.observe === undefined ? {} : { observe: runtime.observe }),
+      }),
+    options,
+    runtime,
+    { leadingBoundary: false, terminateUnexpectedFrame: false },
+  );
 }
 
 /** Request the package's complete Markdown browser through the product boundary. */
