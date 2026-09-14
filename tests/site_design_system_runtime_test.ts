@@ -1,4 +1,4 @@
-/** Consumer checks for Discern's selected published design-system runtime. */
+/** Consumer checks for Discern's selected design-system runtime. */
 
 import {
   assert,
@@ -32,10 +32,14 @@ import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 
+import {
+  assertDesignSystemWorktree,
+  DESIGN_SYSTEM_SPECIFIER,
+  DESIGN_SYSTEM_VERSION,
+  DESIGN_SYSTEM_WORKTREE,
+} from "./design_system_dependency.ts";
+
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const DESIGN_SYSTEM_VERSION = "0.30.1";
-const DESIGN_SYSTEM_SPECIFIER =
-  `jsr:@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}`;
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -56,7 +60,8 @@ interface DenoConfig {
 function committedLocalOverrideViolations(config: DenoConfig): string[] {
   return [
     ...(config.workspace === undefined ? [] : ["workspace"]),
-    ...(config.links ?? []).map((path) => `links:${path}`),
+    ...(config.links ?? []).filter((path) => path !== DESIGN_SYSTEM_WORKTREE)
+      .map((path) => `links:${path}`),
   ];
 }
 
@@ -73,6 +78,7 @@ const DENO_CONFIG_SCHEMA = z.object({
 const DENO_LOCK_SCHEMA = z.object({
   specifiers: z.record(z.string(), z.string()),
   jsr: z.record(z.string(), z.json()),
+  workspace: z.object({ links: z.record(z.string(), z.json()) }),
 }).passthrough();
 
 const DENO_INFO_SCHEMA = z.object({
@@ -233,12 +239,14 @@ Deno.test("the committed-override detector catches a freshly named linked packag
   );
 });
 
-Deno.test("Discern pins one exact public design-system dependency", async () => {
+Deno.test("Discern binds one exact design-system development worktree", async () => {
   const config = decodeWith(
     DENO_CONFIG_SCHEMA,
     await Deno.readTextFile(join(ROOT, "deno.json")),
   );
   assertEquals(committedLocalOverrideViolations(config), []);
+  assertEquals(config.links, [DESIGN_SYSTEM_WORKTREE]);
+  await assertDesignSystemWorktree();
   assertEquals(
     Object.entries(config.imports).filter(([key, value]) =>
       key.includes("design-system") || value.includes("design-system")
@@ -254,11 +262,12 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
     DENO_LOCK_SCHEMA,
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   );
+  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], undefined);
+  assert(`${DESIGN_SYSTEM_SPECIFIER}` in lock.workspace.links);
   assertEquals(
-    lock.specifiers[DESIGN_SYSTEM_SPECIFIER],
-    DESIGN_SYSTEM_VERSION,
+    `@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}` in lock.jsr,
+    false,
   );
-  assert(`@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}` in lock.jsr);
 
   const sourceFiles = await structuralGuardScope({
     guard:

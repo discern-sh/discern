@@ -1,4 +1,4 @@
-/** External-consumer contract for Discern's selected design-system CLI release. */
+/** External-consumer contract for Discern's selected design-system CLI source. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { z } from "@zod/zod";
@@ -26,13 +26,21 @@ import {
   type InteractionEntry,
   type MarkdownBrowserLinkResolution,
   MarkdownBrowserRefusalError,
+  renderTerminalApplication,
   requestAcknowledgement,
   requestMarkdownBrowser,
   requestSelection,
+  runTerminalApplication,
   senseTerminalBackground,
+  TERMINAL_APPLICATION_MINIMUM,
+  type TerminalApplicationOptions,
+  type TerminalApplicationState,
+  type TerminalApplicationView,
   type TerminalIO,
   type TerminalMouseEvent,
   type TerminalSize,
+  transitionTerminalApplication,
+  updateTerminalApplication,
 } from "discern-design-system/cli/interactive";
 import {
   encodeTerminalKeys,
@@ -42,11 +50,12 @@ import {
 import { projectTerminalHtml } from "discern-design-system/cli/projection";
 import { decodeWith } from "./decode_cli_result.ts";
 
+import {
+  DESIGN_SYSTEM_ORIGIN,
+  DESIGN_SYSTEM_SPECIFIER as SELECTED_SPECIFIER,
+} from "./design_system_dependency.ts";
+
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.30.1";
-const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
-const PACKAGE_VERSION_PATTERN =
-  /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
 const encoder = new TextEncoder();
 const ANSI_PATTERN = new RegExp(
   `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
@@ -64,6 +73,12 @@ const DenoLockSchema = z.object({
   specifiers: z.record(z.string(), z.string()),
   jsr: z.record(z.string(), LockPackageSchema),
   npm: z.record(z.string(), LockPackageSchema),
+  workspace: z.object({
+    links: z.record(
+      z.string(),
+      z.object({ dependencies: z.array(z.string()).optional() }),
+    ),
+  }),
 });
 
 interface DenoInfoResolution {
@@ -182,7 +197,7 @@ function resolvedEdge(info: DenoInfo, specifier: string): string {
   return info.redirects?.[specifier] ?? specifier;
 }
 
-Deno.test("the selected release exposes the complete public reader contract", async () => {
+Deno.test("the selected source exposes the complete public reader contract", async () => {
   const config = decodeWith(
     DenoConfigSchema,
     await Deno.readTextFile(join(ROOT, "deno.json")),
@@ -192,8 +207,8 @@ Deno.test("the selected release exposes the complete public reader contract", as
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   );
   assertEquals(config.imports["discern-design-system"], SELECTED_SPECIFIER);
-  assertEquals(lock.specifiers[SELECTED_SPECIFIER], SELECTED_VERSION);
-  assert(`@discern-sh/design-system@${SELECTED_VERSION}` in lock.jsr);
+  assertEquals(lock.specifiers[SELECTED_SPECIFIER], undefined);
+  assert(SELECTED_SPECIFIER in lock.workspace.links);
 
   assertEquals(packageManifest.package, "@discern-sh/design-system");
   assert(packageManifest.components.length > 0);
@@ -559,7 +574,7 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
   assertStringIncludes(textarea, "line 12");
 });
 
-Deno.test("CLI design-system graphs stay published, lock-resolved, and React-free", async () => {
+Deno.test("CLI design-system graphs stay within the selected source, lock-resolved, and React-free", async () => {
   const entrypoint = join(ROOT, "tests/fixtures/design_system_cli_graph.ts");
   const info = await moduleGraph(entrypoint);
   const lock = decodeWith(
@@ -570,15 +585,9 @@ Deno.test("CLI design-system graphs stay published, lock-resolved, and React-fre
     module.specifier === undefined ? [] : [module.specifier]
   );
   const packageModules = modules.filter((specifier) =>
-    specifier.includes("/@discern-sh/design-system/")
+    specifier.startsWith(DESIGN_SYSTEM_ORIGIN)
   );
   assert(packageModules.length > 0);
-
-  const resolvedVersions = new Set(packageModules.flatMap((specifier) => {
-    const match = specifier.match(PACKAGE_VERSION_PATTERN);
-    return match?.[1] === undefined ? [] : [match[1]];
-  }));
-  assertEquals([...resolvedVersions], [SELECTED_VERSION]);
 
   const moduleBySpecifier = new Map(
     (info.modules ?? []).flatMap((module) =>
@@ -617,13 +626,14 @@ Deno.test("CLI design-system graphs stay published, lock-resolved, and React-fre
     "discern-design-system/cli/interactive/testing",
     "discern-design-system/cli/projection",
   ]);
-  const allowedOrigin =
-    `https://jsr.io/@discern-sh/design-system/${SELECTED_VERSION}/`;
-  const packageLock = lock.jsr[`@discern-sh/design-system@${SELECTED_VERSION}`];
+  const allowedOrigin = DESIGN_SYSTEM_ORIGIN;
+  const packageLock = lock.workspace.links[SELECTED_SPECIFIER];
   assert(packageLock !== undefined);
   const declaredNpmPackages = (packageLock.dependencies ?? []).flatMap(
     (dependency) =>
-      dependency.startsWith("npm:") ? [dependency.slice("npm:".length)] : [],
+      dependency.startsWith("npm:")
+        ? [dependency.slice("npm:".length).replace(/@[^@]+$/u, "")]
+        : [],
   );
   for (const [publicRoot, resolvedRoot] of packageRoots) {
     const pending = [resolvedRoot];
@@ -635,11 +645,19 @@ Deno.test("CLI design-system graphs stay published, lock-resolved, and React-fre
       publicClosure.add(specifier);
       const module = moduleBySpecifier.get(specifier);
       assert(module !== undefined, `missing resolved module ${specifier}`);
-      if (!specifier.startsWith(allowedOrigin)) {
+      if (publicRoot !== "discern-design-system/cli/interactive/testing") {
+        assert(
+          !/(?:^|\/)(?:testing|[^/]+-testing)\.ts$/u.test(specifier),
+          `${publicRoot} acquired testing helpers: ${specifier}`,
+        );
+      }
+      if (
+        !specifier.startsWith(allowedOrigin) && specifier !== "node:process"
+      ) {
         assertEquals(
           module.kind,
           "npm",
-          `${publicRoot} graph escaped its published package: ${specifier}`,
+          `${publicRoot} graph escaped its selected package: ${specifier}`,
         );
         const packageKey = module.npmPackage;
         assert(
@@ -673,4 +691,57 @@ Deno.test("CLI design-system graphs stay published, lock-resolved, and React-fre
     reactRuntimeModules([specifier]).length > 0
   );
   assertEquals(forbidden, []);
+});
+
+Deno.test("public application composition, pure functions and minimum geometry are consumable", async () => {
+  const view: TerminalApplicationView<string> = {
+    title: "Public consumer",
+    regions: [{
+      kind: "choices",
+      id: "items",
+      title: "Items",
+      entries: [
+        { id: "a", label: "Available", value: "a" },
+        { id: "b", label: "Unavailable", value: "b", disabled: true },
+      ],
+    }],
+  };
+  const options: TerminalApplicationOptions<string> = { view };
+  const state: TerminalApplicationState<string> = updateTerminalApplication(
+    view,
+  );
+  const selected =
+    transitionTerminalApplication(state, { kind: "named", name: "down" }).state;
+  assertEquals(
+    transitionTerminalApplication(selected, { kind: "named", name: "enter" })
+      .action,
+    undefined,
+  );
+  assertEquals(TERMINAL_APPLICATION_MINIMUM, { columns: 32, rows: 10 });
+  const io = new FakeTerminalIO([encodeTerminalKeys("escape")]);
+  assertStringIncludes(
+    renderTerminalApplication(state, io.size(), io.capabilities()).frame,
+    "Public consumer",
+  );
+  assertEquals(
+    (await runTerminalApplication(options, { io })).focusedRegionId,
+    "items",
+  );
+});
+
+Deno.test("ordinary CLI runtime graph excludes testing, browser frameworks and PTY launch modules", async () => {
+  const graph = await moduleGraph(join(ROOT, "src/main.ts"));
+  const modules = (graph.modules ?? []).flatMap((entry) =>
+    entry.specifier === undefined ? [] : [entry.specifier]
+  );
+  assert(modules.length > 1);
+  assertEquals(
+    modules.filter((specifier) =>
+      /\/(?:tests|fixtures)\//u.test(specifier) ||
+      /(?:^|\/)(?:testing|[^/]+-testing)\.ts$/u.test(specifier) ||
+      /(?:playwright|puppeteer|node-pty)/u.test(specifier) ||
+      reactRuntimeModules([specifier]).length > 0
+    ),
+    [],
+  );
 });

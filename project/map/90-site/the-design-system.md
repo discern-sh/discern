@@ -6,21 +6,21 @@ aliases:
   - runtime emitter
 ---
 
-# The published design-system dependency
+# The design-system dependency
 
-discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) at an exact version. The [discern-sh/design-system](https://github.com/discern-sh/design-system) repository authors and releases the package. This repository owns the discern.sh integration and product compositions.
+discern uses one exact `@discern-sh/design-system` alias. During the desk adoption programme it resolves through the retained development worktree described in [terminal applications](../80-development/terminal-applications.md#development-source-during-adoption); finalization restores an immutable JavaScript Registry (JSR) dependency. The [discern-sh/design-system](https://github.com/discern-sh/design-system) repository authors and releases the package. This repository owns the discern.sh integration and product compositions.
 
 ## Dependency boundary
 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.30.1"
+"discern-design-system": "jsr:@discern-sh/design-system@0.31.0"
 ```
 
-Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer Proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. The docs site's fenced-code renderer uses the same projection export. `deno.lock` records the release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
+Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer Proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. The docs site's fenced-code renderer uses the same projection export. `deno.lock` records the linked package’s transitive dependencies. Those public exports are the complete consumer application programming interface (API); source paths, registry addresses, cache internals and distribution files never appear in consumer imports. The committed link is a temporary development resolution policy.
 
-When a package defect affects discern, release the fix from the package repository and update this repository to the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
+Package defects are fixed in the assigned package worktree; 4A finishes the upstream gate, landing and formal release before restoring the exact published dependency. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
 ## Local package iteration
 
@@ -40,13 +40,13 @@ Use a one-shot build when another process already serves the generated site:
 discern scripts site-design-system -- --build-only
 ```
 
-Pass an absolute checkout path after the script name to override the sibling checkout. The local link provides visual and integration evidence only. The full gate, release workflow, and production build continue to resolve the exact JSR version. After a release reaches JSR, update the committed pin and return to the ordinary production build.
+Pass an absolute checkout path after the script name to override the sibling checkout. The local link provides visual and integration evidence only. Ordinary builds and gates follow the committed source selection, including the temporary programme link. A preview override is not a substitute for that receipt. Final release requires the [development-source cutover](../80-development/terminal-applications.md#development-source-during-adoption).
 
 ## CLI-owned integration
 
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. [`terminal.ts`](../../../src/lib/terminal.ts) binds the shared product-blue hue as an explicit terminal Appearance independently from its light/dark ground; [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts) carries the same immutable facts into effectful requests. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern at those boundaries.
 
-Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.30.1/` origin; an external npm root must be declared by that published package and resolve to an exact node in `deno.lock`. A local path, workspace override, source import, mixed version, unlocked parser, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves inside the selected source root; an external npm root must be declared by the package and resolve to an exact node in `deno.lock`. The temporary source receipt admits only the assigned worktree and committed revision. Mixed origins, undeclared overrides, source imports, unlocked parsers and testing modules in ordinary graphs cannot satisfy the guards. 4A restores immutable registry-origin assertions. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
 
 ## Release 0.23.0 declaration contract
 
@@ -123,7 +123,7 @@ Mixed Result summaries compose through the package's group renderer, which align
 
 The table also owns the emitted public directories. Beside it, [`SITE_APPEARANCE`](../../../site/appearance.ts) is the single browser Appearance authority: it selects the package's symmetric scope CSS and names the Accent roots and hue 255 that retain discern's blue identity. [`site/build.ts`](../../../site/build.ts) passes that scope selection and each bundle selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a schema-4 manifest, and the requested assets. The production marketing and docs document builders put the shared root contract on `<html>`; nested fixed-theme specimen and art roots reuse its Accent activation and inherit the hue. The discern integration reads package outputs instead of copying the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 
-The docs shell loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The `/`, `/agents`, and `/trust` pages load the full selected bundle from `/assets/design-system/compositions/`. That selection currently emits no package browser script. Both bundles select fonts; neither selects the optional grain asset. Generated output stays ignored beneath `site/pages/assets/design-system/`.
+The docs shell loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The `/`, `/agents`, and `/trust` pages load the full selected bundle from `/assets/design-system/compositions/`. Each marketing document loads the package behavior script emitted for that selection. Both bundles select fonts; neither selects the optional grain asset. Generated output stays ignored beneath `site/pages/assets/design-system/`.
 
 ### Output coverage
 

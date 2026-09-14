@@ -31,16 +31,18 @@ import {
   assert,
   assertEquals,
   assertNotEquals,
+  assertRejects,
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
 import { encodeBase64 } from "@std/encoding/base64";
-import { dirname, fromFileUrl, join } from "@std/path";
+import { dirname, fromFileUrl, join, toFileUrl } from "@std/path";
 import { gzipSync } from "zlib";
 import {
   decodeCompileGraph,
   decodeJsrLicenseCache,
   generateThirdPartyArtifacts,
+  linkedComponentsOf,
   sameThirdPartyBundlePayload,
   THIRD_PARTY_ARTIFACT_PATHS,
   thirdPartyBundlePayload,
@@ -64,6 +66,8 @@ const DENO_LOCK_NPM_SCHEMA = z.object({
 const DENO_IMPORT_MAP_SCHEMA = z.object({
   imports: z.record(z.string(), z.string()).optional(),
 }).passthrough();
+
+import { withTempDir } from "./helpers.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -382,4 +386,40 @@ Deno.test("every jsr:/npm: package src/ imports through the import map is credit
       `src/ imports "${pkg}" but the notices do not credit it — run \`deno task codegen\``,
     );
   }
+});
+
+Deno.test("linked source credits follow the compiled graph and require a license", async () => {
+  await withTempDir(async (directory) => {
+    const linked = join(directory, "fresh-package");
+    await Deno.mkdir(linked);
+    await Deno.writeTextFile(
+      join(linked, "deno.json"),
+      JSON.stringify({
+        name: "@example/orbit",
+        version: "2.3.4",
+        license: "MIT",
+      }),
+    );
+    await Deno.writeTextFile(join(linked, "LICENSE"), "Example license text\n");
+    const modules = [toFileUrl(join(linked, "mod.ts")).href];
+    assertEquals(await linkedComponentsOf(directory, [linked], modules), [{
+      name: "@example/orbit",
+      version: "2.3.4",
+      registry: "linked",
+      license: "MIT",
+      licenseText: "Example license text",
+    }]);
+    assertEquals(
+      await linkedComponentsOf(directory, [linked], [
+        toFileUrl(`${linked}-other/mod.ts`).href,
+      ]),
+      [],
+    );
+    await Deno.remove(join(linked, "LICENSE"));
+    await assertRejects(
+      () => linkedComponentsOf(directory, [linked], modules),
+      Error,
+      "has no LICENSE",
+    );
+  });
 });

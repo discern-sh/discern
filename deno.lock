@@ -6,7 +6,6 @@
     "jsr:@cliffy/internal@1.2.1": "1.2.1",
     "jsr:@cliffy/table@1.2.1": "1.2.1",
     "jsr:@david/code-block-writer@13": "13.0.3",
-    "jsr:@discern-sh/design-system@0.30.1": "0.30.1",
     "jsr:@std/assert@^1.0.10": "1.0.19",
     "jsr:@std/async@^1.5.0": "1.5.0",
     "jsr:@std/collections@^1.1.3": "1.2.0",
@@ -80,17 +79,6 @@
     },
     "@david/code-block-writer@13.0.3": {
       "integrity": "f98c77d320f5957899a61bfb7a9bead7c6d83ad1515daee92dbacc861e13bb7f"
-    },
-    "@discern-sh/design-system@0.30.1": {
-      "integrity": "25f8737aca6dea05da8d131a64cd76ebf14a0a4280909fad2a04cab86ccc6173",
-      "dependencies": [
-        "npm:@types/mdast",
-        "npm:@types/react",
-        "npm:mdast-util-from-markdown",
-        "npm:mdast-util-gfm",
-        "npm:micromark-extension-gfm",
-        "npm:react"
-      ]
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
@@ -1408,7 +1396,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@cliffy/command@^1.0.0-rc.8",
-      "jsr:@discern-sh/design-system@0.30.1",
+      "jsr:@discern-sh/design-system@0.31.0",
       "jsr:@std/assert@^1.0.10",
       "jsr:@std/encoding@^1.0.7",
       "jsr:@std/fmt@^1.0.10",
@@ -1434,6 +1422,27 @@
       "npm:playwright-core@1.61.1",
       "npm:react-dom@18.3.1",
       "npm:react@18.3.1"
-    ]
+    ],
+    "links": {
+      "jsr:@discern-sh/design-system@0.31.0": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.10",
+          "jsr:@std/encoding@^1.0.7",
+          "jsr:@std/path@^1.0.8",
+          "npm:@types/mdast@4.0.4",
+          "npm:mdast-util-from-markdown@2.0.3",
+          "npm:mdast-util-gfm@3.1.0",
+          "npm:micromark-extension-gfm@3.0.0",
+          "npm:react-dom@18.3.1",
+          "npm:react@18.3.1"
+        ]
+      },
+      "npm:discern-design-system@0.31.0": {
+        "peerDependencies": [
+          "npm:react-dom@>=18.3.0",
+          "npm:react@>=18.3.0"
+        ]
+      }
+    }
   }
 }

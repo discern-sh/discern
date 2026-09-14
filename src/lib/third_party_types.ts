@@ -11,7 +11,7 @@
 export interface ThirdPartyComponent {
   readonly name: string;
   readonly version: string;
-  /** The registry the package resolves from (`"npm"` or `"jsr"`). */
+  /** The package source (`"npm"`, `"jsr"`, `"linked"`, or `"vendored"`). */
   readonly registry: string;
   /** The license label — an SPDX identifier when one is known. */
   readonly license: string;
