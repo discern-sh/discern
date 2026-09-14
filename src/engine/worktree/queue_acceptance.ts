@@ -71,6 +71,7 @@ async function submissionPlan(ctx: LifecycleContext, target?: string): Promise<{
   const clean = await runGit([
     "status",
     "--porcelain=v1",
+    "-z",
     "--untracked-files=all",
   ], { cwd: effort.path });
   if (!clean.success || clean.stdout !== "") {
