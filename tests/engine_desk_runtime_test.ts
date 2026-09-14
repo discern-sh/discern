@@ -2413,6 +2413,53 @@ Deno.test("desk final checks use the shared core and return to refreshed Proof",
   assertEquals(cancelledDoneCalls, 0);
 });
 
+Deno.test("Desk retains failed final-check and acceptance details in the shared reader", async () => {
+  for (const action of ["done", "accept"] as const) {
+    const output = transcript();
+    const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
+    const effort = fleetEntry("agent/reading", "/worktrees/reading", {
+      ahead: 1,
+      ...(action === "done"
+        ? { gate_proof: { status: "missing" as const } }
+        : {}),
+    });
+    const choices = [effort.path, action, BACK, QUIT];
+    const failure = {
+      ok: false as const,
+      verb: action,
+      error: "precondition_failed" as const,
+      message: "The selected revision needs another review.",
+      hints: ["Read the current Proof before retrying."],
+    };
+    const base = scriptedRuntime(output, {
+      status: () => ({ ok: true, data: statusData([main, effort]) }),
+      select: () => choices.shift() ?? QUIT,
+      done: () => failure,
+      accept: () => failure,
+    });
+    const readings: string[] = [];
+    assertEquals(
+      await runDesk({ cliModel: TEST_CLI_MODEL }, {
+        ...base,
+        screen: async (request) => {
+          if (
+            request.title === "Final checks did not pass" ||
+            request.title === "Acceptance did not finish"
+          ) {
+            readings.push(request.source);
+          }
+          return await base.screen(request);
+        },
+      }),
+      0,
+    );
+    assertEquals(readings.length, 1, `${action}: ${joined(output)}`);
+    assertStringIncludes(readings[0] ?? "", failure.message);
+    assertStringIncludes(readings[0] ?? "", failure.hints[0] ?? "");
+    assertEquals(choices, [], "the reader must return to the selected task");
+  }
+});
+
 Deno.test("every registered Desk action reaches its shared runtime effect", async () => {
   interface RuntimeActionCase {
     readonly entry?: Partial<StatusFleetEntry>;

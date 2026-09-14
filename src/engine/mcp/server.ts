@@ -1103,6 +1103,7 @@ export const TOOLS: McpTool[] = orderTools([
       "Landing records the Proof note and removes the worktree, branch and resources when no later work remains. A second accept waits its turn. " +
       "Recorded grants never cover a checkpoint variance or standard proposal. Use dry_run to preview the selected mode. " +
       "After landing, report the effects and unresolved cleanup, ending with data.proof_line verbatim. " +
+      "The full review page remains available through `discern status --verbose`. " +
       "Use action: emergency with reason for an explicit exception. prepare with met records served judgments; preparation carries its receipt. " +
       "Review the failed, unrun and stale obligations, then pass the owner's exact confirmation token with confirmed. No grant covers this exception and no passing Proof is issued. recover reconciles an interrupted emergency landing. No mode pushes.",
     inputSchema: {

@@ -168,8 +168,7 @@ import {
 import { liveDesk } from "./live.ts";
 import type { DeskChoice } from "./application_view.ts";
 import { resultPresenterForVerb } from "../../shared/result_contracts.ts";
-import { serializeResult } from "../../shared/result_serialization.ts";
-import { renderResultMarkdown } from "../../shared/result_markdown.ts";
+import { renderResultReading } from "../../shared/emit.ts";
 import type { DropPlan } from "../worktree/plan.ts";
 import { startPlanToEngine } from "../worktree/plan.ts";
 import { actOnMainCheckout, showRecentCompleted } from "./main_checkout.ts";
@@ -2034,9 +2033,10 @@ async function dispatchAction(
       if (!result.ok) {
         await runtime.screen({
           title: "Final checks did not pass",
-          source: renderResultMarkdown(
-            serializeResult(result),
+          source: renderResultReading(
+            result,
             resultPresenterForVerb(result.verb),
+            resultPresenterForVerb,
           ),
         });
         out.warn(
@@ -2045,7 +2045,7 @@ async function dispatchAction(
         );
       } else {out.ok(
           result.message ??
-            `Final checks passed for ${branch}. Proof is current; choose Accept or Join the landing queue.`,
+            `Final checks passed for ${branch}. Proof is current. Choose “Accept and land now” or “Join the landing queue”.`,
         );}
       return true;
     }
@@ -2068,9 +2068,10 @@ async function dispatchAction(
       if (result !== undefined && !result.ok) {
         await runtime.screen({
           title: "Acceptance did not finish",
-          source: renderResultMarkdown(
-            serializeResult(result),
+          source: renderResultReading(
+            result,
             resultPresenterForVerb(result.verb),
+            resultPresenterForVerb,
           ),
         });
         out.warn(
@@ -2165,7 +2166,7 @@ async function dispatchAction(
           ? `Pre-authorized ${branch}. Queued revision: ${
             queued.head.slice(0, 12)
           }. Accept starts a landing walk.`
-          : `Pre-authorized ${branch}. No revision is queued. When Proof is current, choose Accept or Join the landing queue.`,
+          : `Pre-authorized ${branch}. No revision is queued. When Proof is current, choose “Accept and land now” or “Join the landing queue”.`,
       );
       if (
         refreshed?.fleet?.find((item) =>

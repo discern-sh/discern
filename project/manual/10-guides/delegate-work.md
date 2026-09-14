@@ -119,7 +119,7 @@ Read the manual opens the same offline document browser as `discern docs`. Searc
 
 On the selected task, **Accept and land now** submits the reviewed revision and starts the existing landing path. It may wait for another landing or check the combination with newer shared work. It then considers other authorized submissions.
 
-Join the landing queue records that proven revision without running checks or starting a landing. The flow reuses a grant or asks you to pre-authorize the effort explicitly. An active or later acceptance walk may pick it up. Use **Accept and land now** to start a walk when none is running; queueing schedules no background run and promises no delay.
+Join the landing queue records that proven revision without running checks or starting a landing. The flow reuses a grant or asks you to pre-authorize the effort explicitly. An active or later acceptance walk may pick it up. Use “Accept and land now” to start a walk when none is running; queueing schedules no background run and promises no delay.
 
 Pre-authorizing an effort alone does not queue a revision. After the agent has stopped, grant permission if needed, then explicitly choose **Join the landing queue**. Revoking permission keeps the submission visible awaiting authority. A later commit or green `done` does not replace the queued commit; review and submit the new revision explicitly. Unmet checkpoints and changed standard limits still require your separate, exact approval.
 
