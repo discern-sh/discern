@@ -55,7 +55,7 @@ discern status --verbose --json
 discern status --no-color
 ```
 
-During setup, this read-only result reports the recorded phase, dedicated branch, and bounded continuation. It performs no write probe; the later effectful command checks its own targets ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
+During setup, this read-only result reports the recorded phase, dedicated branch, and bounded continuation. It reports incomplete setup even before the first commit; completion-history readers skip a checkout whose `HEAD` has no commit. It performs no write probe; the later effectful command checks its own targets ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
 ## Structured result
 

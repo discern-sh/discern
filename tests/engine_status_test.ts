@@ -740,25 +740,33 @@ Deno.test("status human output separates its semantic groups", async () => {
   });
 });
 
-Deno.test("status: while setup is unfinished, the main-checkout worktree next-steps are suppressed (no contradiction)", async () => {
-  // Setup runs in the main checkout (on the `discern-setup` branch). Until it is
-  // recorded, the only correct "what now" is "finish setup here" — so the
-  // `discern start` guardrail and the "no active worktrees" nudge must NOT fire,
-  // or the agent is told to abandon setup and start a worktree (the contradiction a
-  // real cold run hit). The class: NO "start work elsewhere" hint while
-  // `setup_unfinished` is present.
+Deno.test("status: unfinished setup stays observable across checkout history states", async (t) => {
+  // Exercise the public read-only path so every completion reader it reaches
+  // inherits the same pre-setup contract, including readers added later.
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
-    await gitInit(dir);
-
-    const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
-    assertEquals(obj.data.location, "main");
-    assert(
-      obj.data.setup_unfinished !== undefined,
-      "an un-bootstrapped project must report setup_unfinished",
-    );
-    assertLacksHint(obj, HINTS["status-start-on-trunk"]);
-    assertLacksHint(obj, HINTS["status-no-active-worktrees"]);
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await git(dir, "init", "-q", "-b", "main");
+    for (const state of ["unborn", "committed", "orphan"]) {
+      await t.step(state, async () => {
+        if (state === "committed") await gitInit(dir);
+        if (state === "orphan") {
+          await git(dir, "checkout", "-q", "--orphan", "scratch");
+        }
+        const before = await gitOut(dir, "status", "--porcelain");
+        const result = await runAgent(dir, ["status", "--json"]);
+        assertEquals(result.code, 0, result.output);
+        const obj = parseStatus(result.stdout);
+        assertEquals(obj.data.location, "main");
+        assertExists(obj.data.setup_unfinished);
+        assertEquals(obj.data.emergency_validation, undefined);
+        assertHasHint(obj, HINTS["setup-unfinished-status"], {
+          pendingCount: obj.data.setup_unfinished.pending_markers.length,
+        });
+        assertLacksHint(obj, HINTS["status-start-on-trunk"]);
+        assertLacksHint(obj, HINTS["status-no-active-worktrees"]);
+        assertEquals(await gitOut(dir, "status", "--porcelain"), before);
+      });
+    }
   });
 });
 

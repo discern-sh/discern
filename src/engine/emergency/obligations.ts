@@ -16,7 +16,10 @@ import type { CompletionRecord } from "../completion/records.ts";
 import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { decodeJson, decodeUnknown } from "../../shared/runtime_decode.ts";
 import { readProofPresentation } from "../gate/proof_presentation.ts";
-import { observeCompletionRecords } from "../validation/runtime.ts";
+import {
+  observableCompletionCheckout,
+  observeCompletionRecords,
+} from "../validation/runtime.ts";
 import { withCompletionPublication } from "../operation_lock.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
@@ -150,10 +153,7 @@ export async function resolveEmergencyValidation(
 export async function emergencyValidationInventory(
   root: string,
 ): Promise<EmergencyValidation[]> {
-  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
-    cwd: root,
-  });
-  if (!inside.success || inside.stdout.trim() !== "true") return [];
+  if (!await observableCompletionCheckout(root)) return [];
   const rows: EmergencyValidation[] = [];
   for (const exception of await recordedExceptions(root)) {
     if (exception.data.outcome.kind !== "landed") continue;

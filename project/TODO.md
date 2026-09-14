@@ -18,7 +18,6 @@ This tracked backlog publishes with the repository by design. It records inspect
 
 ## Setup and recovery
 
-- [ ] **Make status work before the first commit.** Report incomplete setup instead of throwing when status reads completion records in a repository with no commits. Evidence: `src/engine/status/completion_recovery.ts`; `src/engine/emergency/obligations.ts`; `src/engine/validation/runtime.ts`.
 - [ ] **Resolve setup checks that reject finished documentation.** Review the skeleton-marker scan, design-principle heading check, and primary-subsystem check so completed documentation is accepted without weakening detection of unfinished setup. Evidence: `src/shared/setup_state.ts`; `src/shared/setup_checks.ts`; `project/map/_private/planning/completion-workstreams/evidence/8a.md`.
 - [ ] **Teach setup agents to add job progress reports.** Add setup guidance for configuring long-running project checks to emit useful `DISCERN_PROGRESS` updates. Evidence: `src/commands/setup.ts`; `src/shared/config_prose.ts`; `src/engine/validation/producer_progress.ts`.
 - [ ] **Review the improvement suggestions.** Assess whether job progress reporting and the concurrent-test limit deserve advisory improvement rules, and seek owner approval before changing how projects are scored. Evidence: `src/engine/improve/rules.ts`; `project/map/_private/planning/completion-workstreams/evidence/7c.md`.
