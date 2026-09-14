@@ -1,7 +1,8 @@
 import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
 import { emergencyArguments } from "../emergency/arguments.ts";
 import { type EmergencyOptions, emergencyResult } from "../emergency/action.ts";
-import { acceptLandingResult, submitResult } from "../worktree/accept.ts";
+import { acceptLandingResult } from "../worktree/accept.ts";
+import { submitResult } from "../worktree/submit.ts";
 import {
   type CompletionProgressNotification,
   withMcpCompletionProgress,

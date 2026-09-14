@@ -950,7 +950,7 @@ export function attachEngineCommands(
       const json = jsonFrom(o);
       return await runWorktreeOp(async (ctx, lc) => {
         const { submitResult } = await loadModule(() =>
-          import("./worktree/accept.ts")
+          import("./worktree/submit.ts")
         );
         lc.emitOrRenderWorktreeResult(
           ctx,

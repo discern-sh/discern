@@ -4,7 +4,7 @@ import { project } from "./completion_public_fixture.ts";
 import { withTempDir } from "./helpers.ts";
 import { git, gitOut, runAgent } from "./engine_helpers.ts";
 import { lifecycleContext } from "../src/engine/worktree/lifecycle.ts";
-import { submitResult } from "../src/engine/worktree/accept.ts";
+import { submitResult } from "../src/engine/worktree/submit.ts";
 import { readSubmission } from "../src/engine/worktree/submission.ts";
 import { Logger } from "../src/lib/log.ts";
 import { SubmitOutputSchema } from "../src/shared/result_schemas.ts";

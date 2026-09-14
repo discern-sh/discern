@@ -1,3 +1,17 @@
+import {
+  type EffortCheckout,
+  effortCheckout,
+  type LandingSubject,
+  recordProvenSubmission,
+  resolveSubject,
+  sameSubmissionRevision,
+  subjectRevision,
+} from "./accept_subject.ts";
+export {
+  type EffortCheckout,
+  effortCheckout,
+  type LandingSubject,
+} from "./accept_subject.ts";
 /**
  * `discern accept`: submit this effort's proven revision and land it.
  *
@@ -22,9 +36,7 @@ import {
   isIndeterminateStopDrop,
   uniqueCheckpointDrops,
 } from "../../shared/checkpoint_drops.ts";
-import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { commandEvidence } from "../../shared/command_evidence.ts";
-import type { CompleteProofEvidence } from "../../shared/completion_proof.ts";
 import {
   AWAITING_CONSENT_SLUG,
   type LandingConsent,
@@ -33,7 +45,6 @@ import {
   AWAITING_DECLARATION_SLUG,
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
-import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { targetExists } from "../../shared/fs_presence.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import {
@@ -49,11 +60,9 @@ import {
   type Diagnostic,
   dimBlock,
   type DiscernResult,
-  type EnginePlan,
   previewResult,
   type StepOutcome,
   type StepResult,
-  verbatimStepLabel,
 } from "../../shared/result.ts";
 import { observeCheckpointActivity } from "../../shared/result_capture.ts";
 import {
@@ -71,7 +80,6 @@ import type {
   StandardLimitApprovalRequestData,
   StandardLimitProposalData,
   SubmissionRevision,
-  SubmitData,
 } from "../../shared/result_schemas.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
@@ -79,11 +87,8 @@ import {
   readOpenQuestions,
 } from "../checkpoints/open_questions.ts";
 import { candidatePredecessor } from "../completion/candidate.ts";
-import { readCompleteProof } from "../gate/completion_proof.ts";
 import { observedGateOperation } from "../gate/observed_operation.ts";
 import {
-  withCompletionCheckout,
-  withCompletionPublication,
   withLandingCommonPhase,
   withWorktreeOwnership,
 } from "../operation_lock.ts";
@@ -152,40 +157,28 @@ import {
   assertResolvedTrunkMerged,
   commitIsAncestorOf,
   commitIsMerged,
-  inLinkedWorktree,
   integrationBranch,
-  mainRepoPath,
   missingIntegrationBranchWarning,
   registeredWorktreeRecord,
-  repoToplevel,
   WorktreeGitError,
   WorktreeResultError,
 } from "./git.ts";
-import {
-  deriveIdentity,
-  type IdentitySettings,
-  loadIdentitySettings,
-  resolveWorktreeId,
-} from "./identity.ts";
+import { deriveIdentity } from "./identity.ts";
 import { hasIgnoredFileChanges, inspectIgnoredFileChanges } from "./ignored.ts";
 import {
   inspectLandingAuthority,
-  landingAuthorityProjection,
   type LandingAuthorityResolution,
 } from "./landing_authority.ts";
 import {
   assertProjectRootIsRepoToplevel,
   emitOrRenderWorktreeResult,
   type LifecycleContext,
-  lifecycleContext,
   removeIntegrationWorktree,
-  worktreeErrorResult,
 } from "./lifecycle.ts";
 import { classifyAutomaticBranchOwnership } from "./ownership.ts";
 import { type AcceptPlan, acceptPlanToEngine } from "./plan.ts";
 import { readResourceSpecs } from "./resources.ts";
 import { standardLimitApprovalRequests } from "./standard_approval.ts";
-import { strictVerdictCurrency } from "../completion/verdict.ts";
 import { discardSupersededComposition } from "./integration_landing.ts";
 import {
   readSubmission,
@@ -195,10 +188,8 @@ import {
 import {
   clearSubmission,
   clearSubmissionIfCurrent,
-  recordSubmission,
 } from "./submission_writer.ts";
 import { type SubmissionRow, submissionRows } from "./submissions_view.ts";
-import { resolveWorktreeTarget } from "./target_resolution.ts";
 
 /** The landing request, as the CLI, MCP, and desk hand it over. */
 export interface AcceptRequest {
@@ -229,19 +220,6 @@ export interface AcceptRequest {
 }
 
 // ── the effort ───────────────────────────────────────────────────────────────
-
-/** The checkout whose revision this call submits or lands. */
-export interface EffortCheckout {
-  readonly ctx: LifecycleContext;
-  readonly path: string;
-  readonly branch: string;
-  readonly id: string;
-  readonly settings: IdentitySettings;
-  readonly mainRepo: string;
-  readonly trunk: string;
-  /** The owner selected the effort with `--target` instead of running inside it. */
-  readonly explicit: boolean;
-}
 
 /** One sentence per queue row, for the refusal and the preview. */
 function queueLines(rows: readonly SubmissionRow[]): string[] {
@@ -279,227 +257,6 @@ async function refuseFromMainCheckout(
     error: "precondition_failed",
     message:
       `Run discern accept from the effort's worktree, or select one with --target <effort>. ${queue}`,
-  };
-}
-
-/** Resolve the effort checkout this call operates on. Read-only. */
-export async function effortCheckout(
-  ctx: LifecycleContext,
-  target: string | undefined,
-): Promise<EffortCheckout | undefined> {
-  let path: string;
-  let explicit = false;
-  if (target !== undefined) {
-    const resolved = await resolveWorktreeTarget(ctx.root, target, {
-      cwd: ctx.cwd,
-      mode: "registered",
-      includeMain: false,
-      command: "discern accept --target",
-    });
-    if (resolved.path === undefined) {
-      throw new WorktreeGitError(
-        `'${target}' names no registered worktree. Pass a listed worktree's id, path, or branch, then re-run discern accept --target.`,
-      );
-    }
-    path = resolved.path;
-    explicit = true;
-  } else {
-    if (!(await inLinkedWorktree(ctx.cwd))) return undefined;
-    const toplevel = await repoToplevel(ctx.cwd);
-    if (toplevel === undefined) {
-      throw new WorktreeGitError(
-        "discern accept needs a Git worktree, but this directory is outside a Git repository. Move into the worktree that holds the finished branch, then re-run.",
-      );
-    }
-    path = toplevel;
-  }
-  const effortCtx = explicit
-    ? await lifecycleContext(path, ctx.log, path)
-    : { ...ctx, cwd: path };
-  const mainRepo = await mainRepoPath(path);
-  if (mainRepo === undefined) {
-    throw new WorktreeGitError(
-      "discern could not find the main checkout from Git's worktree records. Run `git worktree repair`, then re-run `discern accept`.",
-    );
-  }
-  if (mainRepo === path) {
-    throw new WorktreeGitError(
-      "Git identifies this path as the main checkout, so there is no effort branch to land. Move into the finished worktree shown by `discern status`, then re-run `discern accept`.",
-    );
-  }
-  const settings = await loadIdentitySettings(effortCtx.root);
-  const id = await resolveWorktreeId(settings, path);
-  const branchRun = await runGit(["branch", "--show-current"], { cwd: path });
-  const branch = branchRun.success ? branchRun.stdout.trim() : "";
-  if (branch === "") {
-    const conventional = deriveIdentity(id, settings).branch;
-    throw new WorktreeGitError(
-      `The worktree at ${path} is detached from a named branch, so there is no branch to land. Run \`git switch ${conventional}\` there, then re-run \`discern accept\`.`,
-    );
-  }
-  return {
-    ctx: effortCtx,
-    path,
-    branch,
-    id,
-    settings,
-    mainRepo,
-    trunk: integrationBranch(effortCtx.config.repository.trunk),
-    explicit,
-  };
-}
-
-// ── the landing subject ──────────────────────────────────────────────────────
-
-/** The exact revision this call lands and the Proof that vouches for it. */
-export interface LandingSubject {
-  readonly head: string;
-  readonly complete: CompleteProofEvidence;
-  readonly proof: Proof;
-  readonly proofMarkdown: string | undefined;
-  readonly proofLine: string | undefined;
-  readonly drops: CheckpointDrop[];
-  /** The subject is the checkout's HEAD; otherwise an earlier submission. */
-  readonly atHead: boolean;
-  readonly submission: Submission | undefined;
-}
-
-/** The refusal `accept` serves for a report-only Proof. */
-function refuseReportOnlyProof(drops: readonly CheckpointDrop[]): never {
-  refusal(
-    "report_only_proof",
-    "This Proof records checkpoint review as reported and not enforced. Run ordinary `discern done` before acceptance. Nothing has been landed.",
-    {
-      hints: hintTexts([fire(HINTS["accept-requires-strict-proof"])]),
-      ...(drops.length === 0 ? {} : { data: { checkpoint_drops: [...drops] } }),
-    },
-  );
-}
-
-/**
- * Resolve what this call may land: the checkout's HEAD when its Proof is
- * honored and complete; otherwise, for an owner's explicit `--target`, the
- * effort's recorded submission read back from common storage.
- */
-async function resolveSubject(
-  effort: EffortCheckout,
-  /** The submission this call entered with, read before any wait. A waiting
-   * request keeps its identity: it lands exactly the revision it queued
-   * with, even when the author's branch moved on during the wait — the
-   * re-read decides settlement and current authority, never a new subject. */
-  entered?: Submission,
-): Promise<LandingSubject | undefined> {
-  const inspected = await inspectGateProof(effort.path);
-  const inspectedDrops = uniqueCheckpointDrops([
-    ...(inspected.proof_data?.checkpoint_drops ?? []),
-    ...(inspected.checkpoint_drops ?? []),
-  ]);
-  if (inspected.status === "report_only") refuseReportOnlyProof(inspectedDrops);
-  const submissionRead = await readSubmission(effort.path);
-  const submission = submissionRead.status === "submitted"
-    ? submissionRead.submission
-    : undefined;
-  // An honored Proof whose only defect is a checkpoint drop still names the
-  // proven revision: the decision layers serve the drop-specific refusal
-  // (unreadable declaration evidence, an indeterminate stop) instead of the
-  // generic nothing-proven route. Unverifiable strand evidence stays excluded:
-  // no decision layer can compensate for it.
-  const proofData = inspected.status === "honored"
-    ? inspected.proof_data
-    : undefined;
-  if (
-    inspected.status === "honored" &&
-    proofData !== undefined && proofData.completion !== undefined &&
-    inspected.proof_line !== undefined && inspected.head !== undefined &&
-    inspectedDrops.some((drop) =>
-        drop.reason === "strand_check_unavailable"
-      ) !== true
-  ) {
-    return {
-      head: inspected.head,
-      complete: proofData.completion,
-      proof: proofData,
-      proofMarkdown: inspected.proof,
-      proofLine: inspected.proof_line,
-      drops: inspectedDrops,
-      atHead: true,
-      submission,
-    };
-  }
-  if (
-    submission === undefined ||
-    (!effort.explicit && submission.id !== entered?.id)
-  ) {
-    return undefined;
-  }
-  let complete: CompleteProofEvidence;
-  let proof: Proof;
-  try {
-    complete = await readCompleteProof(effort.path, submission.proof);
-    proof = await readProofPresentation(effort.path, submission.proof);
-  } catch (error) {
-    throw new WorktreeGitError(
-      `${effort.branch} submitted ${
-        short(submission.head)
-      }, but its Proof cannot be read: ${
-        error instanceof Error ? error.message : String(error)
-      }. Run discern done from ${effort.path}, then discern accept.`,
-      { cause: error },
-    );
-  }
-  if (complete.candidate.head !== submission.head) {
-    throw new WorktreeGitError(
-      `${effort.branch} submitted ${
-        short(submission.head)
-      }, but its Proof names another commit. Run discern done from ${effort.path}, then discern accept.`,
-    );
-  }
-  if (proof.mode === "report") {
-    refuseReportOnlyProof(proof.checkpoint_drops ?? []);
-  }
-  const tip = await runGit(
-    ["rev-parse", "--verify", `refs/heads/${effort.branch}^{commit}`],
-    { cwd: effort.path },
-  );
-  const tipSha = tip.success ? tip.stdout.trim() : "";
-  if (
-    tipSha === "" ||
-    !(await commitIsAncestorOf(effort.mainRepo, submission.head, tipSha))
-  ) {
-    throw new WorktreeGitError(
-      `${effort.branch} no longer contains its submitted revision ${
-        short(submission.head)
-      }. Run discern done from ${effort.path}, then discern accept for the current work.`,
-    );
-  }
-  // The submission's Proof is durable, but it is landable only while it is
-  // still the revision's NEWEST strict verdict: a later strict run that
-  // judged the same revision red supersedes it for landing, and an
-  // unreadable verdict inventory fails closed rather than landing blind.
-  const verdict = await strictVerdictCurrency(effort.path, submission.head);
-  if (verdict.kind === "superseded") {
-    throw new WorktreeGitError(
-      `${effort.branch} submitted ${
-        short(submission.head)
-      }, but a newer strict gate run judged that revision red, so its earlier Proof is not landable. Resolve the failure and run discern done --rerun from ${effort.path}, then discern accept.`,
-    );
-  }
-  if (verdict.kind === "unavailable") {
-    throw new WorktreeGitError(
-      `${effort.branch} submitted ${
-        short(submission.head)
-      }, but the strict verdict over that revision could not be read: ${verdict.reason}. Restore the completion records, run discern done from ${effort.path}, then discern accept.`,
-    );
-  }
-  return {
-    head: submission.head,
-    complete,
-    proof,
-    proofMarkdown: proof.markdown,
-    proofLine: proof.line,
-    drops: uniqueCheckpointDrops(proof.checkpoint_drops ?? []),
-    atHead: tipSha === submission.head && inspected.status === "honored",
-    submission,
   };
 }
 
@@ -542,161 +299,6 @@ function refuseTrunkMoved(effort: EffortCheckout): never {
 
 // ── the submission ───────────────────────────────────────────────────────────
 
-/** Record what this effort asks to land; a same-revision resubmission keeps its time. */
-async function submit(
-  effort: EffortCheckout,
-  subject: LandingSubject,
-): Promise<Submission> {
-  const existing = subject.submission;
-  const sameHead = existing?.head === subject.head;
-  if (
-    sameHead && existing.proof.candidate_id === subject.complete.candidate_id &&
-    existing.proof.proof_id === subject.complete.proof_id
-  ) return existing;
-  return await recordSubmission(effort.path, {
-    id: sameHead ? existing.id : SYSTEM_SECURE_ENTROPY.uuid(),
-    effort_id: effort.id,
-    branch: effort.branch,
-    head: subject.head,
-    tree: subject.complete.candidate.tree,
-    proof: {
-      candidate_id: subject.complete.candidate_id,
-      proof_id: subject.complete.proof_id,
-    },
-    submitted_at: sameHead
-      ? existing.submitted_at
-      : wallTimeIso(SYSTEM_CLOCK.wallNow()),
-  });
-}
-
-/** A queue-only request never conveys landing or exception authority. */
-export interface SubmitRequest {
-  readonly dryRun?: boolean;
-  /** Apply the reviewed plan only while its complete revision remains current. */
-  readonly expected?: SubmissionRevision;
-  readonly signal?: AbortSignal;
-}
-
-/** The shared read-only submission plan, resolved from complete current Proof. */
-async function submissionPlan(ctx: LifecycleContext): Promise<{
-  effort: EffortCheckout;
-  subject: LandingSubject;
-  data: SubmitData;
-  plan: EnginePlan;
-}> {
-  await assertProjectRootIsRepoToplevel(ctx, "submit");
-  const effort = await effortCheckout(ctx, undefined);
-  if (effort === undefined) {
-    throw new WorktreeGitError(
-      "Run discern submit from the proven effort's worktree. Select a task in the desk to join the landing queue.",
-    );
-  }
-  const subject = await resolveSubject(effort);
-  if (subject === undefined || !subject.atHead) {
-    throw new WorktreeGitError(
-      `${effort.branch} has no current complete Proof. Commit the work and run discern done, then discern submit.`,
-    );
-  }
-  const clean = await runGit([
-    "status",
-    "--porcelain=v1",
-    "--untracked-files=all",
-  ], { cwd: effort.path });
-  if (!clean.success || clean.stdout !== "") {
-    throw new WorktreeGitError(
-      "Submission requires a readable, clean worktree. Commit the intended work and run discern done, then discern submit.",
-    );
-  }
-  const recorded = await readSubmission(effort.path);
-  if (recorded.status !== "submitted" && recorded.status !== "missing") {
-    throw new WorktreeGitError(
-      `The submission could not be read: ${recorded.reason}. Restore the record before submitting.`,
-    );
-  }
-  // Queue admission must not turn an ordinary grant into an exception decision.
-  const checkpoints = await inspectAcceptanceCheckpoints(
-    effort.path,
-    effort.ctx.config,
-  );
-  refuseUnreadableDeclarationEvidence(
-    uniqueCheckpointDrops([...subject.drops, ...checkpoints.drops]),
-  );
-  enforceAcceptanceCheckpoints(checkpoints, {
-    confirmed: false,
-    varianceIds: [],
-  });
-  await enforceStandardLimitApprovals(effort, subject, {
-    confirmed: false,
-    names: [],
-  });
-  const authority = await inspectLandingAuthority(effort.path, effort.trunk, {
-    includeScopeEvidence: true,
-  });
-  const data: SubmitData = {
-    path: effort.path,
-    branch: effort.branch,
-    head: subject.head,
-    proof: {
-      candidate_id: subject.complete.candidate_id,
-      proof_id: subject.complete.proof_id,
-    },
-    state: "planned",
-    authority: landingAuthorityProjection(authority) ??
-      { kind: authority.kind },
-    ...(subject.submission !== undefined &&
-        subject.submission.head !== subject.head
-      ? { replaces: subject.submission.head }
-      : {}),
-  };
-  const unchanged = subject.submission?.head === subject.head &&
-    subject.submission.proof.candidate_id === subject.complete.candidate_id &&
-    subject.submission.proof.proof_id === subject.complete.proof_id;
-  return {
-    effort,
-    subject,
-    data,
-    plan: {
-      title: "Join the landing queue",
-      details: [
-        `Task: ${effort.path}`,
-        `Branch: ${effort.branch}`,
-        `Revision: ${subject.head}`,
-        `Authority: ${landingAuthorityDetail(authority, false)}`,
-        ...(data.replaces === undefined
-          ? []
-          : [`Replaces queued revision: ${data.replaces}`]),
-        "Records this proven revision. Checks, the trunk, the checkout, and grants remain unchanged.",
-        "An active or later acceptance walk may land it. Queueing schedules no background run.",
-        `Start a landing walk with discern accept --target ${effort.branch}.`,
-      ],
-      steps: [{
-        kind: "task-metadata",
-        label: verbatimStepLabel("record submission"),
-        disposition: unchanged ? "skip" : "run",
-        note: unchanged
-          ? "Keep the existing submission and queue order"
-          : `Queue ${subject.head}`,
-      }],
-    },
-  };
-}
-
-/** Bind the selected checkout to its complete Proof. */
-function subjectRevision(
-  effort: EffortCheckout,
-  subject: LandingSubject,
-): SubmissionRevision {
-  return {
-    path: effort.path,
-    branch: effort.branch,
-    head: subject.head,
-    proof: {
-      candidate_id: subject.complete.candidate_id,
-      proof_id: subject.complete.proof_id,
-    },
-  };
-}
-
 /** Re-read before an explicitly reviewed landing; a waiting call cannot inherit new work. */
 async function validateReviewedLanding(
   effort: EffortCheckout,
@@ -718,92 +320,6 @@ async function validateReviewedLanding(
     throw new WorktreeGitError(
       "The reviewed revision changed. Open a fresh acceptance plan; this acceptance landed nothing.",
     );
-  }
-}
-
-/** Compare every fact that identifies the revision reviewed before consent. */
-export function sameSubmissionRevision(
-  left: SubmissionRevision,
-  right: SubmissionRevision,
-): boolean {
-  return left.path === right.path && left.branch === right.branch &&
-    left.head === right.head &&
-    left.proof.candidate_id === right.proof.candidate_id &&
-    left.proof.proof_id === right.proof.proof_id;
-}
-
-/** Plan and record a proven revision without acquiring the landing turn or starting checks. */
-export async function submitResult(
-  ctx: LifecycleContext,
-  request: SubmitRequest = {},
-): Promise<DiscernResult<SubmitData>> {
-  try {
-    const initial = await submissionPlan(ctx);
-    if (
-      request.expected !== undefined &&
-      !sameSubmissionRevision(request.expected, initial.data)
-    ) {
-      throw new WorktreeGitError(
-        "The reviewed revision changed. Open a fresh submission plan; no revision was queued.",
-      );
-    }
-    if (request.dryRun) {
-      return { ...previewResult("submit", initial.plan), data: initial.data };
-    }
-    return await withCompletionCheckout(initial.effort.path, async (signal) => {
-      // The publication is short and has no project command or capacity wait.
-      return await withCompletionPublication(initial.effort.path, async () => {
-        const current = await submissionPlan(
-          await lifecycleContext(initial.effort.path, ctx.log),
-        );
-        if (!sameSubmissionRevision(initial.data, current.data)) {
-          throw new WorktreeGitError(
-            "The reviewed revision changed. Open a fresh submission plan; no revision was queued.",
-          );
-        }
-        signal.throwIfAborted();
-        const record = await submit(current.effort, current.subject);
-        const authority = current.data.authority.kind === "authorized"
-          ? "Authorized"
-          : "Awaiting authority";
-        return {
-          ...appliedResult(
-            "submit",
-            current.plan.steps.map((step) => ({
-              step,
-              outcome: "ok" as const,
-            })),
-          ),
-          data: {
-            ...current.data,
-            state: "queued" as const,
-            submission_id: record.id,
-            submitted_at: record.submitted_at,
-          },
-          message: `Queued ${current.effort.branch} at ${
-            short(record.head)
-          } · ${authority}.`,
-          hints: hintTexts([
-            fire(HINTS["submit-start-walk"], { branch: current.effort.branch }),
-          ]),
-        };
-      });
-    }, request.signal);
-  } catch (error) {
-    const mapped = worktreeErrorResult("submit", error);
-    if (mapped === undefined) throw error;
-    // The acceptance decision cores retain their full diagnosis, but their
-    // action-specific data does not belong to the submission envelope.
-    return {
-      ok: false,
-      verb: "submit",
-      error: mapped.error ?? "precondition_failed",
-      ...(mapped.message === undefined ? {} : { message: mapped.message }),
-      ...(mapped.hints === undefined ? {} : { hints: mapped.hints }),
-      ...(mapped.diagnostics === undefined
-        ? {}
-        : { diagnostics: mapped.diagnostics }),
-    };
   }
 }
 
@@ -964,7 +480,7 @@ function refuseAwaitingVariance(
 }
 
 /** Resolve the variance interlock, throwing the typed refusal when it stops. */
-function enforceAcceptanceCheckpoints(
+export function enforceAcceptanceCheckpoints(
   state: AcceptanceCheckpointState,
   request: { confirmed: boolean; varianceIds: readonly string[] },
 ): AuthorizedVarianceData[] {
@@ -1035,7 +551,7 @@ function refuseAwaitingStandardApproval(
 }
 
 /** Resolve the current proposal authority and enforce the narrow approval set. */
-async function enforceStandardLimitApprovals(
+export async function enforceStandardLimitApprovals(
   effort: EffortCheckout,
   subject: LandingSubject,
   request: { readonly confirmed: boolean; readonly names: readonly string[] },
@@ -1101,7 +617,7 @@ async function enforceStandardLimitApprovals(
 }
 
 /** Refuse an acceptance whose declaration binding cannot be read. */
-function refuseUnreadableDeclarationEvidence(
+export function refuseUnreadableDeclarationEvidence(
   drops: readonly CheckpointDrop[],
 ): void {
   if (
@@ -2057,7 +1573,10 @@ async function landEffortOnce(
       subject = { ...enteredSubject, atHead: tipSha === enteredSubject.head };
     }
     if (!request.dryRun && !effort.explicit) {
-      subject = { ...subject, submission: await submit(effort, subject) };
+      subject = {
+        ...subject,
+        submission: await recordProvenSubmission(effort, subject),
+      };
     }
     const tip = await trunkTip(effort);
     // Ancestry decides the shape, not queue length: a submission that
@@ -2127,7 +1646,10 @@ async function landEffortOnce(
       subject.submission === undefined ||
       subject.submission.head !== subject.head
     ) {
-      subject = { ...subject, submission: await submit(effort, subject) };
+      subject = {
+        ...subject,
+        submission: await recordProvenSubmission(effort, subject),
+      };
     }
     const progress = freshAcceptExecutionProgress(
       recoverySteps,

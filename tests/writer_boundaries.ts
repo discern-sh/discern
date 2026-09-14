@@ -68,9 +68,10 @@ export const RESTRICTED_WRITER_MODULES = [
     module: "src/engine/worktree/submission_writer.ts",
     allowedImporters: [
       "src/engine/worktree/accept.ts",
+      "src/engine/worktree/accept_subject.ts",
       "src/engine/worktree/accept_integration.ts",
     ],
     authority:
-      "only the landing — the direct executor or the integration executor — records or consumes a submission; the queue is derived from these records",
+      "the shared proven-subject boundary records submissions; only the direct or integration landing executor consumes them; the queue is derived from these records",
   },
 ] as const satisfies readonly RestrictedWriterModule[];

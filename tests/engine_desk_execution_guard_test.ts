@@ -110,9 +110,12 @@ Deno.test("Desk task effects cross shared execution and never acquire direct ope
       `${method} must enter ${executor}`,
     );
   }
+  const execution = project.getSourceFileOrThrow(
+    "src/engine/desk/execution.ts",
+  );
   for (const helper of ["runDeskInteractiveChild", "runDeskProjectScript"]) {
     assert(
-      source.getFunctionOrThrow(helper).getDescendantsOfKind(
+      execution.getFunctionOrThrow(helper).getDescendantsOfKind(
         SyntaxKind.CallExpression,
       ).some((call) =>
         call.getExpression().getText() === "executeDeskOperation"
@@ -121,7 +124,7 @@ Deno.test("Desk task effects cross shared execution and never acquire direct ope
     );
   }
   assert(
-    source.getFunctionOrThrow("executeDeskOperation").getDescendantsOfKind(
+    execution.getFunctionOrThrow("executeDeskOperation").getDescendantsOfKind(
       SyntaxKind.CallExpression,
     ).some((call) => call.getExpression().getText() === "executeOperation"),
   );
