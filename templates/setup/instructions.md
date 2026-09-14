@@ -165,6 +165,10 @@ discern recognizes {{diagnostic_formats}}, but recognition alone does not justif
 
 {{reporter_guidance_table}}
 
+Optional progress reports: consider the test runner's reporter or event hooks and the project's overall check runtime. For long-running checks, a small adapter can print `DISCERN_PROGRESS` followed by one JSON object per line to stdout or stderr, so discern can show measured counts and failures while the command runs. Fast checks or runners without suitable hooks may not benefit; choose whether to add reporting during setup or defer it. Progress reports are never required to complete setup.
+
+If you add reporting, preserve the command's exit status and failure diagnostics, avoid material overhead, and emit only facts the runner established. Read `discern docs 30-reference/mcp-and-results` for the protocol and examples.
+
 ---
 
 ## Step 3 - Inspect the scaffold and preserve existing project material

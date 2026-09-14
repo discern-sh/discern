@@ -22,6 +22,8 @@ A live terminal frame shows counts, waits, and environment steps in its one tran
 
 ## The producer progress protocol
 
+[Setup's gate configuration step](../../../templates/setup/instructions.md#step-2---preserve-project-workflows-and-configure-the-gate) makes producer reports optional. The agent weighs runner hooks and check runtime, then chooses whether to add reports or defer them. Setup completion does not depend on that choice.
+
 A producer command may report its own progress by printing lines to stdout or stderr:
 
 ```text
