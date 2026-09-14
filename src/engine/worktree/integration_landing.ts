@@ -479,7 +479,7 @@ export async function runIntegrationAttempt(input: {
   if (adoption.kind === "adopted") {
     return await proveComposition(input, adoption.record, true);
   }
-  if (input.declarations !== undefined) {
+  if (input.declarations !== undefined || input.composition !== undefined) {
     return {
       kind: "judgment-stale",
       reason: adoption.staleReason ??

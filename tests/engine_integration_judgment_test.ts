@@ -152,6 +152,149 @@ async function retainedRecord(dir: string): Promise<
   };
 }
 
+Deno.test("a variance receipt cannot follow a recomposition even when the unmet subject is unchanged", async () => {
+  await withTempDir(async (dir) => {
+    await withTempDir(async (scratch) => {
+      const counter = join(scratch, "runs");
+      await judgmentFixture(dir, counter);
+      const beta = await effortFlippingRow(dir, "beta");
+      const done = await runAgent(beta, [
+        "done",
+        "--unmet",
+        "record-review",
+        "--why",
+        "The record needs a follow-up.",
+        "--json",
+      ]);
+      assertEquals(done.code, 0, done.output);
+      const advance = async (name: string): Promise<void> => {
+        const sibling = await addWorktree(dir, name);
+        await Deno.writeTextFile(join(sibling, `${name}.txt`), `${name}\n`);
+        await git(sibling, "add", "-A");
+        await git(sibling, "commit", "-q", "-m", name, "--no-gpg-sign");
+        assertEquals((await runAgent(sibling, ["done", "--json"])).code, 0);
+        assertEquals(
+          (await runAgent(sibling, ["accept", "--confirmed", "--json"])).code,
+          0,
+        );
+      };
+      await advance("alpha");
+      const first = await runAgent(beta, ["accept", "--confirmed", "--json"]);
+      assertEquals(
+        decodeCliResult(first.stdout, "accept").error,
+        "awaiting_variance",
+        first.output,
+      );
+      const served = await retainedRecord(dir);
+      assert(served !== undefined);
+      await advance("gamma");
+      const trunk = await gitOut(dir, "rev-parse", "main");
+      const runs = await producerRuns(counter);
+      const stale = await runAgent(beta, [
+        "accept",
+        "--confirmed",
+        "--variance",
+        "record-review",
+        "--composition",
+        served.id,
+        "--json",
+      ]);
+      assertEquals(stale.code, 1, stale.output);
+      assertEquals(
+        decodeCliResult(stale.stdout, "accept").error,
+        "precondition_failed",
+      );
+      assertEquals(await gitOut(dir, "rev-parse", "main"), trunk);
+      assertEquals(
+        await producerRuns(counter),
+        runs,
+        "a stale receipt never starts another combined check",
+      );
+      const fresh = await runAgent(beta, ["accept", "--confirmed", "--json"]);
+      assertEquals(
+        decodeCliResult(fresh.stdout, "accept").error,
+        "awaiting_variance",
+        fresh.output,
+      );
+      const replacement = await retainedRecord(dir);
+      assert(replacement !== undefined && replacement.id !== served.id);
+      // Move the trunk at the compare-and-swap itself, after the receipt has
+      // been adopted. The bounded retry must not carry this decision either.
+      const shim = join(scratch, "move-at-publication.sh");
+      const moved = join(scratch, "moved-at-publication");
+      await Deno.writeTextFile(
+        shim,
+        [
+          "#!/bin/sh",
+          'for arg in "$@"; do',
+          '  if [ "$arg" = "--stdin" ]; then',
+          "    payload=$(cat)",
+          '    case "$payload" in *"update refs/heads/main "*)',
+          `      if [ ! -e "${moved}" ]; then`,
+          `        git -C "${await Deno.realPath(
+            dir,
+          )}" commit -q --allow-empty -m outside --no-gpg-sign || exit 1`,
+          `        touch "${moved}"`,
+          "      fi ;;",
+          "    esac",
+          '    printf "%s\\n" "$payload" | git "$@"',
+          "    exit $?",
+          "  fi",
+          "done",
+          'exec git "$@"',
+          "",
+        ].join("\n"),
+        { mode: 0o700 },
+      );
+      const checkedRuns = await producerRuns(counter);
+      const raced = await runAgent(beta, [
+        "accept",
+        "--confirmed",
+        "--variance",
+        "record-review",
+        "--composition",
+        replacement.id,
+        "--json",
+      ], { env: { GIT_BIN: shim } });
+      assertEquals(raced.code, 1, raced.output);
+      assertEquals(
+        decodeCliResult(raced.stdout, "accept").error,
+        "precondition_failed",
+      );
+      assert(await targetExists(moved), "the trunk moved at publication");
+      assertEquals(
+        await producerRuns(counter),
+        checkedRuns,
+        "a receipt never starts the bounded recomposition",
+      );
+      await assertNoIntegrationRemains(dir);
+      const reServed = await runAgent(beta, [
+        "accept",
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(
+        decodeCliResult(reServed.stdout, "accept").error,
+        "awaiting_variance",
+        reServed.output,
+      );
+      const current = await retainedRecord(dir);
+      assert(current !== undefined && current.id !== replacement.id);
+      const landed = await runAgent(beta, [
+        "accept",
+        "--confirmed",
+        "--variance",
+        "record-review",
+        "--composition",
+        current.id,
+        "--json",
+      ]);
+      assertEquals(landed.code, 0, landed.output);
+      await assertNoIntegrationRemains(dir);
+    });
+  });
+});
+
 Deno.test("a renewed integration judgment is served, answered with accept --met, and the landing continues without author-side work", async () => {
   await withTempDir(async (dir) => {
     await withTempDir(async (scratch) => {

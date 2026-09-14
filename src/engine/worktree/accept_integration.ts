@@ -410,7 +410,7 @@ export async function executeIntegrationLanding(
         "precondition_failed",
         `The judgment this call carries no longer has its composition: ${composed.reason}.${
           cleanupTail(composed.cleanupFailures)
-        } Re-run discern accept from ${effort.path} without declarations — it composes against the current trunk and serves any renewed question about that exact result. ${ACCEPT_NOTHING_LANDED}`,
+        } Re-run discern accept from ${effort.path} without continuation inputs — it composes against the current trunk and serves any renewed question about that exact result. ${ACCEPT_NOTHING_LANDED}`,
       );
     }
     if (composed.kind === "awaiting-judgment") {
@@ -482,9 +482,10 @@ export async function executeIntegrationLanding(
     // its receipt: without the match, the confirmation was given over a
     // different served moment, so the current composition's decision is
     // (re-)served instead of inheriting it.
-    const varianceReceiptOk = !composed.resumed ||
-      request.variance.length === 0 ||
-      request.composition === composed.record.id;
+    const varianceReceiptOk = request.variance.length === 0 ||
+      (request.composition === undefined
+        ? !composed.resumed
+        : request.composition === composed.record.id);
     const interlock = resolveVarianceInterlock(composed.checkpointState, {
       confirmed: request.confirmed && varianceReceiptOk,
       varianceIds: request.variance,
@@ -691,6 +692,14 @@ export async function executeIntegrationLanding(
         log,
       );
       const newTip = await trunkTip(effort);
+      if (request.composition !== undefined) {
+        refusal(
+          "precondition_failed",
+          `${trunk} moved past the composition this decision names. Its receipt cannot authorize a replacement.${
+            cleanupTail(failures)
+          } Re-run discern accept without continuation inputs to be served the current composition's decision. ${ACCEPT_NOTHING_LANDED}`,
+        );
+      }
       if (attempt === 1 && newTip !== tip) {
         log.warn(
           `${trunk} moved again while the combined check ran; discarding the composition and recomposing once against ${

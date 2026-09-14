@@ -32,6 +32,7 @@ The explicit *no*s:
 - A retained copy is a deliberate workspace with no live owner between calls. The record is the authority that distinguishes it from an interrupted landing; prune, status, and the queue all read it, and a submission dropped or replaced releases it.
 - The answer costs a second `accept` call and, for a declaration continuation, the one combined gate run the first call never got to start. Integration checks are not free — the change removes the author's retry loop, not the check.
 - The receipt makes the continuation two-token (`--met <id> --composition <receipt>`); the refusal serves the exact command, so the agent copies rather than composes it, and a judgment can never drift onto a composition its judge was not served.
+- Every receipt-bearing continuation ends if its composition becomes stale, including a variance decision and trunk movement at publication. It cannot enter the bounded composition retry; a new composition requires its own served decision.
 - `accept` gains two declaration inputs mirrored from `done`; the accepted-input surface widens (previously refused arguments now act), which old callers never sent and new callers reach only when a question was served.
 
 ## Alternatives considered
