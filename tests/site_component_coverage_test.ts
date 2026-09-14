@@ -1,6 +1,10 @@
 /** Guards for the site design-system coverage census and route boundary. */
 
 import { assertEquals } from "@std/assert";
+import { fromFileUrl } from "@std/path";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { configuredValidation } from "../src/engine/validation/configuration.ts";
+import { resolveProducerGraph } from "../src/engine/validation/catalog.ts";
 import {
   htmlClassTokens,
   type ManifestComponent,
@@ -97,4 +101,32 @@ Deno.test("every live HTML route renders a component from its assigned bundle", 
     ),
     [],
   );
+});
+
+Deno.test({
+  name:
+    "component measurement consumes completed output without filesystem mutation or child processes",
+  permissions: { read: true, env: true, write: false, run: false },
+  async fn(): Promise<void> {
+    await import("../scripts/site_component_coverage.ts");
+  },
+});
+
+Deno.test("site measurement requires the build in full and standalone validation", async () => {
+  const config = await loadConfig(fromFileUrl(new URL("../", import.meta.url)));
+  for (const stageDependencies of [true, false]) {
+    const configured = await configuredValidation(
+      config,
+      [],
+      stageDependencies,
+    );
+    const graph = resolveProducerGraph(
+      configured.producers,
+      configured.obligations,
+    );
+    assertEquals(
+      graph.producers.get("standards.site_component_gaps")?.dependencies,
+      ["jobs.build"],
+    );
+  }
 });

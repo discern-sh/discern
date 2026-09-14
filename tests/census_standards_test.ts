@@ -11,17 +11,32 @@ import {
   processOutputBoundaryCount,
 } from "../src/shared/process_boundaries.ts";
 import { COMPLEXITY_HOTSPOT_BUDGETS } from "../scripts/complexity_hotspots.ts";
+import { configuredValidation } from "../src/engine/validation/configuration.ts";
+import { resolveProducerGraph } from "../src/engine/validation/catalog.ts";
 
 Deno.test("mechanical census Standards are distinct falling ceilings", async () => {
-  const standards = (await loadConfig(REPO_ROOT)).standards;
+  const config = await loadConfig(REPO_ROOT);
+  const standards = config.standards;
+  const configured = await configuredValidation(config, []);
+  const graph = resolveProducerGraph(
+    configured.producers,
+    configured.obligations,
+  );
+  const owners = new Map(
+    configured.obligations.flatMap((obligation, index) =>
+      obligation.requirement.kind === "standard"
+        ? [[obligation.requirement.id, graph.selectors[index]] as const]
+        : []
+    ),
+  );
   assertEquals(standards.unsafe_type_assertions?.direction, "down");
   assertEquals(standards.unsafe_type_assertions?.run, "deno task cast-census");
   assertEquals(standards.lint_suppressions?.direction, "down");
   assertEquals(standards.lint_exclusions?.direction, "down");
   assertEquals(standards.lint_exclusions?.metric, "lint_exclusions");
   assertEquals(
-    standards.lint_exclusions?.run,
-    standards.lint_suppressions?.run,
+    owners.get("lint_exclusions"),
+    owners.get("lint_suppressions"),
     "lint directives and effective exclusions share one measurement process",
   );
   assertEquals(standards.silent_error_boundaries?.direction, "down");
@@ -46,8 +61,8 @@ Deno.test("mechanical census Standards are distinct falling ceilings", async () 
   assertEquals(standards.process_output_boundaries?.direction, "down");
   assertEquals(standards.process_exit_boundaries?.direction, "down");
   assertEquals(
-    standards.process_output_boundaries?.run,
-    standards.process_exit_boundaries?.run,
+    owners.get("process_output_boundaries"),
+    owners.get("process_exit_boundaries"),
     "process output and exit boundaries share one validated source scan",
   );
   assertEquals(

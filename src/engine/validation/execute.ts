@@ -14,7 +14,7 @@ import type {
 } from "../completion/protocol.ts";
 import { validationPurpose } from "../completion/protocol.ts";
 import {
-  commands,
+  producerRecipeKey,
   requirementKey,
   type ResolvedObligation,
   type ValidationSnapshot,
@@ -175,23 +175,13 @@ function verifyValidationBinding(
 function physicalKey(
   snapshot: ValidationSnapshot,
   selector: string,
-  plan: ValidationPlan,
   execution: ValidationSubject,
 ): string {
-  const node = snapshot.producers.get(selector);
-  if (node === undefined) throw new Error(`missing producer '${selector}'`);
   return JSON.stringify([
     execution.path,
     execution.candidate_id,
     snapshot.conditions[0],
-    [...(snapshot.ordering?.get(selector) ?? [])].sort(),
-    {
-      ...node.recipe,
-      run: commands(node.recipe.run),
-      needs: node.dependencies.map((need) =>
-        physicalKey(snapshot, need, plan, execution)
-      ),
-    },
+    producerRecipeKey(snapshot.producers, selector, snapshot.ordering),
   ]);
 }
 
@@ -246,7 +236,7 @@ async function executeProducerGraph(
   const run = (producer: ProducerDemand): Promise<ProducerCapture> => {
     const existing = captures.get(producer.selector);
     if (existing !== undefined) return existing;
-    const key = physicalKey(snapshot, producer.selector, plan, execution);
+    const key = physicalKey(snapshot, producer.selector, execution);
     let work = physical.get(key);
     if (work === undefined) {
       work = (async (): Promise<ProducerCapture> => {

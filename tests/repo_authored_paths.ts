@@ -178,11 +178,11 @@ export const TRACKED_MD_FILES: string[] = await trackedMarkdownFiles();
 
 /**
  * Extensions whose files hold genuine binary payloads — the only exemption
- * from the text universe. Grounded in what the repo actually tracks (images
- * and Wasm plugins); a new binary format must enrol here by name, so a stray
+ * from the text universe. Grounded in what the repo tracks (images, Wasm
+ * plugins, and compressed evidence); a new binary format must enrol here by name, so a stray
  * binary landing under a text extension still fails byte-level guards.
  */
-const BINARY_EXTENSIONS = [".png", ".wasm"];
+const BINARY_EXTENSIONS = [".png", ".wasm", ".gz"];
 
 /** Enumerate text-contract files, optionally including inert test fixtures. */
 export async function gitListedTextFiles(

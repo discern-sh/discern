@@ -72,7 +72,7 @@ export async function completionConfigurationChecks(
     }`;
     if (producers.duplicated.length > 0) {
       const repeats = producers.duplicated.map((group) =>
-        `${group.producers.join(" and ")} both run \`${
+        `${group.producers.join(" and ")} run \`${
           group.commands.join(" && ")
         }\``
       );
@@ -80,11 +80,11 @@ export async function completionConfigurationChecks(
         name: "producer coverage",
         ok: true,
         status: "warn",
-        detail: `${summary}; the same work runs twice under different names: ${
+        detail: `${summary}; matching commands require separate executions: ${
           repeats.join("; ")
         }`,
         fix:
-          'keep one `run` and point the others at it with `producer = "jobs.<name>"` (or `producer = "standards.<name>"` for a shared measurement) so one execution supplies every reading',
+          'review the differing inputs, prerequisites, and execution settings. Compatible jobs already share an execution; standards can reference a shared producer with `producer = "jobs.<name>"` or `producer = "standards.<name>"`',
       });
     } else {
       checks.push({ name: "producer coverage", ok: true, detail: summary });

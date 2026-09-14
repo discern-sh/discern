@@ -1,7 +1,10 @@
-import { assertEquals, assertRejects, assertThrows } from "@std/assert";
+import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { planValidation } from "../src/engine/validation/plan.ts";
 import { executeValidation } from "../src/engine/validation/execute.ts";
-import { resolveProducerGraph } from "../src/engine/validation/catalog.ts";
+import {
+  producerRecipeKey,
+  resolveProducerGraph,
+} from "../src/engine/validation/catalog.ts";
 import {
   ARTIFACT_EXTRACTOR,
   ARTIFACT_RECIPE,
@@ -15,6 +18,37 @@ import {
   recorded,
   snapshot,
 } from "./completion_producers_fixtures.ts";
+
+Deno.test("producer recipe keys grow with dependency content without repeated JSON escaping", () => {
+  const key = (depth: number, leafRun = "inspect"): string => {
+    const graph = resolveProducerGraph(
+      recipes(Object.fromEntries(Array.from({ length: depth }, (_, index) => [
+        `jobs.phase${index}`,
+        {
+          run: index === 0 ? leafRun : "inspect",
+          needs: index === 0 ? [] : [`jobs.phase${index - 1}`],
+        },
+      ]))),
+      [],
+    );
+    return producerRecipeKey(graph.producers, `jobs.phase${depth - 1}`);
+  };
+  const shallow = key(4);
+  const deep = key(8);
+  assert(
+    deep.length <= shallow.length * 3,
+    "doubling a chain must not multiply escaped JSON",
+  );
+  assert(
+    deep !== key(8, "inspect changed"),
+    "a leaf change must still change its parent's identity",
+  );
+  assertThrows(
+    () => producerRecipeKey(new Map(), "jobs.absent"),
+    Error,
+    "missing producer",
+  );
+});
 
 Deno.test("E02 E03 E06: cold scope and build producers are demanded; valid replay has no process", async () => {
   for (const selector of ["jobs.test", "jobs.build", "scopes.unrelated.gate"]) {

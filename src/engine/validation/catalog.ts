@@ -230,6 +230,27 @@ export function commands(run: ProducerDeclaration["run"]): readonly string[] {
   return typeof run === "string" ? [run] : run;
 }
 
+/** Identify the recipes and prerequisites that may share one physical execution. */
+export function producerRecipeKey(
+  producers: ReadonlyMap<string, ResolvedProducer>,
+  selector: string,
+  ordering?: ReadonlyMap<string, readonly string[]>,
+): string {
+  const components = (current: string): readonly unknown[] => {
+    const node = producers.get(current);
+    if (node === undefined) throw new Error(`missing producer '${current}'`);
+    return [
+      [...(ordering?.get(current) ?? [])].sort(),
+      {
+        ...node.recipe,
+        run: commands(node.recipe.run),
+        needs: node.dependencies.map(components),
+      },
+    ];
+  };
+  return JSON.stringify(components(selector));
+}
+
 /** Select a deterministic file set from the complete observed input universe. */
 function selectedFiles(
   inputs: ValidationInputs,
