@@ -18,11 +18,11 @@ import {
   withCompletionPublication,
 } from "../operation_lock.ts";
 import {
-  type AcceptRequest,
   enforceAcceptanceCheckpoints,
   enforceStandardLimitApprovals,
   refuseUnreadableDeclarationEvidence,
-} from "./accept.ts";
+} from "./accept_decisions.ts";
+import type { AcceptRequest } from "./accept.ts";
 import {
   type EffortCheckout,
   effortCheckout,
