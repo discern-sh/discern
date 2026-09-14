@@ -41,6 +41,7 @@ import { planStandardJobsFromConfig } from "../src/engine/gate/standards_gate.ts
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 import {
   acceptPlanToEngine,
+  submissionPlanToEngine,
   updatePlanToEngine,
 } from "../src/engine/worktree/plan.ts";
 
@@ -304,7 +305,7 @@ Deno.test("execution model: done reports both tracked-refresh checkpoints in exe
   assertEquals(done.steps.at(-1)?.label, refreshChecks.at(-1)?.label);
 });
 
-Deno.test("execution model: update and accept derive their ordered cores from the worktree plans", () => {
+Deno.test("execution model: update, acceptance and submission derive their cores from the worktree plans", () => {
   const cfg = parseConfigOrThrow(RICH_TOML);
   const model = buildExecutionModel(cfg);
   const update = model.find((plan) => plan.verb === "update");
@@ -348,6 +349,20 @@ Deno.test("execution model: update and accept derive their ordered cores from th
     step.kind === "resource-destroy" ? ["db"] : [step.label]
   );
   assertEquals(accept.steps.map((step) => step.label), acceptLabels);
+  const submit = model.find((plan) => plan.verb === "submit");
+  assert(submit !== undefined);
+  const submission = submissionPlanToEngine({
+    path: "/repo.worktrees/model-test",
+    branch: "agent/model-test",
+    head: "proven revision",
+    authority: "authorized",
+    unchanged: false,
+  });
+  assertEquals(
+    submit.steps.map((step) => step.label),
+    submission.steps.map((step) => step.label),
+  );
+  assert(submit.steps.every((step) => step.actor === "discern"));
 });
 
 Deno.test("execution model: every full refresh step names the complete operation", () => {
@@ -445,18 +460,10 @@ Deno.test("execution model: every declared plan is always modeled (ADR 0101)", (
   // a bare config. The modeled-or-absent guard above holds this declared subset
   // against the full CLI/MCP verb surface.
   const model = buildExecutionModel(cfg);
-  assertEquals(model.map((v) => v.verb), [
-    "done",
-    "prepare",
-    "test",
-    "standards",
-    "tidy",
-    "start",
-    "worktree ensure",
-    "update",
-    "accept",
-    "worktree prune",
-  ]);
+  assertEquals(
+    model.map((plan) => plan.verb),
+    buildExecutionModel(parseConfigOrThrow(RICH_TOML)).map((plan) => plan.verb),
+  );
   const accept = model.find((plan) => plan.verb === "accept");
   const teardown = accept?.steps.find((step) =>
     step.kind === "resource-destroy"

@@ -60,6 +60,43 @@ export function teardownPlanToEngine(plan: TeardownPlan): EnginePlan {
   };
 }
 
+/** The observed facts needed to explain one queue-only submission effect. */
+export interface SubmissionPlan {
+  readonly path: string;
+  readonly branch: string;
+  readonly head: string;
+  readonly authority: string;
+  readonly replaces?: string;
+  readonly unchanged: boolean;
+}
+
+/** Project queue admission without adding landing or project-command effects. */
+export function submissionPlanToEngine(plan: SubmissionPlan): EnginePlan {
+  return {
+    title: "Join the landing queue",
+    details: [
+      `Task: ${plan.path}`,
+      `Branch: ${plan.branch}`,
+      `Revision: ${plan.head}`,
+      `Authority: ${plan.authority}`,
+      ...(plan.replaces === undefined
+        ? []
+        : [`Replaces queued revision: ${plan.replaces}`]),
+      "Records this proven revision. Checks, the trunk, the checkout, and grants remain unchanged.",
+      "An active or later acceptance walk may land it. Queueing schedules no background run.",
+      `Start a landing walk with discern accept --target ${plan.branch}.`,
+    ],
+    steps: [{
+      kind: "task-metadata",
+      label: verbatimStepLabel("record submission"),
+      disposition: plan.unchanged ? "skip" : "run",
+      note: plan.unchanged
+        ? "Keep the existing submission and queue order"
+        : `Queue ${plan.head}`,
+    }],
+  };
+}
+
 // ── accept ──────────────────────────────────────────────────────────────────
 
 /** The read-only diagnosis an acceptance acts on. The preconditions (behind main,

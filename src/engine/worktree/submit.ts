@@ -6,7 +6,6 @@ import {
   type DiscernResult,
   type EnginePlan,
   previewResult,
-  verbatimStepLabel,
 } from "../../shared/result.ts";
 import type {
   SubmissionRevision,
@@ -44,6 +43,7 @@ import {
   worktreeErrorResult,
 } from "./lifecycle.ts";
 import { readSubmission } from "./submission.ts";
+import { submissionPlanToEngine } from "./plan.ts";
 
 /** A queue-only request never conveys landing or exception authority. */
 export interface SubmitRequest {
@@ -131,29 +131,14 @@ async function submissionPlan(ctx: LifecycleContext): Promise<{
     effort,
     subject,
     data,
-    plan: {
-      title: "Join the landing queue",
-      details: [
-        `Task: ${effort.path}`,
-        `Branch: ${effort.branch}`,
-        `Revision: ${subject.head}`,
-        `Authority: ${landingAuthorityDetail(authority, false)}`,
-        ...(data.replaces === undefined
-          ? []
-          : [`Replaces queued revision: ${data.replaces}`]),
-        "Records this proven revision. Checks, the trunk, the checkout, and grants remain unchanged.",
-        "An active or later acceptance walk may land it. Queueing schedules no background run.",
-        `Start a landing walk with discern accept --target ${effort.branch}.`,
-      ],
-      steps: [{
-        kind: "task-metadata",
-        label: verbatimStepLabel("record submission"),
-        disposition: unchanged ? "skip" : "run",
-        note: unchanged
-          ? "Keep the existing submission and queue order"
-          : `Queue ${subject.head}`,
-      }],
-    },
+    plan: submissionPlanToEngine({
+      path: effort.path,
+      branch: effort.branch,
+      head: subject.head,
+      authority: landingAuthorityDetail(authority, false),
+      ...(data.replaces === undefined ? {} : { replaces: data.replaces }),
+      unchanged,
+    }),
   };
 }
 
