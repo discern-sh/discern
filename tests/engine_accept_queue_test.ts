@@ -1,5 +1,10 @@
 /** Queue-only admission uses the public core and leaves validation and landing untouched. */
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { project } from "./completion_public_fixture.ts";
 import { withTempDir } from "./helpers.ts";
 import { git, gitOut, runAgent } from "./engine_helpers.ts";
@@ -114,6 +119,14 @@ Deno.test("accept queue-only plans, queues idempotently, and rejects changed or 
     assertEquals(working.get(), root, "queueing keeps the MCP checkout");
     assert(queued.ok, JSON.stringify(queued));
     const queuedData = AcceptDataSchema.parse(queued.data);
+    const reading = mcp.content.flatMap((block) =>
+      block.type === "text" ? [block.text] : []
+    ).join("\n");
+    assertStringIncludes(reading, branch);
+    assertStringIncludes(reading, reviewed.head.slice(0, 12));
+    assertStringIncludes(reading, "Queued");
+    assertEquals(queuedData.landing, undefined);
+
     const record = await readSubmission(path);
     assertEquals((await queue()).data, queuedData);
     assertEquals(await readSubmission(path), record);

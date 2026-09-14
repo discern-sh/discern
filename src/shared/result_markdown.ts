@@ -1930,8 +1930,6 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
   const landing = object(data.landing);
   const emergency = object(data.emergency);
   const queue = records(data.queue);
-  const submission = object(data.submission);
-  const revision = object(data.revision);
   // A preview answers in the terminal's own first paragraph: the verdict and
   // the reasons the owner can act on, then what the command would do.
   const previewLead = result.dry_run === true
@@ -1947,17 +1945,6 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
         : `Landed the validated tree into ${code(data.root)}.`,
     ),
     evidence: unique([
-      ...(submission === undefined ? [] : [
-        `Revision: ${code(text(revision?.head) ?? "unknown")} on ${
-          code(text(revision?.branch) ?? "unknown")
-        }.`,
-        `Submission: ${text(submission.state) ?? "unknown"}; authority: ${
-          text(object(submission.authority)?.kind) ?? "unknown"
-        }.`,
-        text(submission.replaces) === undefined
-          ? undefined
-          : `Replaces queued revision ${code(submission.replaces)}.`,
-      ]),
       ...emergencyValidationFacts(data),
       text(data.root) === undefined
         ? undefined
