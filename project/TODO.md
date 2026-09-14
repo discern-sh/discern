@@ -14,9 +14,7 @@ This tracked backlog publishes with the repository by design. It records inspect
 
 ## Gate performance and reliability
 
-- [ ] **Reduce coverage-report overhead.** Compare profile-processing approaches on the same inputs, then reduce classification and reporting time while preserving complete coverage evidence. Evidence: `scripts/coverage.ts`; `scripts/coverage_profiles.ts`; `project/map/_private/planning/completion-workstreams/evidence/6b.md`.
-- [ ] **Avoid running shared checks repeatedly.** Decide how compatible jobs and standards that run the same command can share one execution, using the repeated ambient, process, lint-suppression, and promise-effect checks as concrete cases. Evidence: `discern.toml`; `src/engine/validation/configuration.ts`; `src/engine/validation/catalog.ts`.
-- [ ] **Stop site measurements racing with type-checking.** Make component measurement use a completed build or isolated output so rebuilding assets cannot remove modules while the type checker reads them. Evidence: `scripts/site_component_coverage.ts`; `site/build.ts`; `discern.toml`.
+- [ ] **Reduce coverage-report overhead.** Reduce profile filesystem costs using a new matched-input approach after the recorded disposal and concurrency comparisons failed to improve large-corpus elapsed time, while preserving complete native LCOV evidence. Evidence: `scripts/coverage.ts`; `scripts/coverage_profiles.ts`; `project/map/_private/gate-performance.md`.
 
 ## Setup and recovery
 
