@@ -18,7 +18,6 @@ This tracked backlog publishes with the repository by design. It records inspect
 
 ## Setup and recovery
 
-- [ ] **Resolve setup checks that reject finished documentation.** Review the skeleton-marker scan, design-principle heading check, and primary-subsystem check so completed documentation is accepted without weakening detection of unfinished setup. Evidence: `src/shared/setup_state.ts`; `src/shared/setup_checks.ts`; `project/map/_private/planning/completion-workstreams/evidence/8a.md`.
 - [ ] **Review the improvement suggestions.** Assess whether job progress reporting and the concurrent-test limit deserve advisory improvement rules, and seek owner approval before changing how projects are scored. Evidence: `src/engine/improve/rules.ts`; `project/map/_private/planning/completion-workstreams/evidence/7c.md`.
 - [ ] **Exercise worktree resources in discern itself.** Choose a useful per-worktree resource, such as a local site server, to exercise creation, recovery, and cleanup during ordinary development. Evidence: `src/engine/worktree/resources.ts`; `discern.toml`; `project/map/_adr/0025-worktree-resources.md`.
 
