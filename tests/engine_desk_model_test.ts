@@ -624,6 +624,8 @@ Deno.test("Park, Reclaim, and Drop retain distinct artifact contracts", () => {
   assert(parked.removes.includes("Task checkout"));
   assert(parked.removes.includes("Task landing grant"));
   assert(parked.removes.includes("Task-local Proof"));
+  assertStringIncludes(parked.recoverable.join(" "), "commands");
+  assertStringIncludes(parked.recoverable.join(" "), "Resume");
   assert(
     !parked.removes.some((fact) => fact.includes(`Branch ${task.branch}`)),
   );

@@ -2067,7 +2067,8 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
       "Project Scripts",
       "Accept",
       "Drop",
-      "Proof and details",
+      "Proof and changes",
+      "Task details",
       "More actions",
     ]
   ) assertStringIncludes(actionMenu, label);

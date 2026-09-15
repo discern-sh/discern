@@ -103,7 +103,7 @@ discern worktree park <target>
 
 Review the preview before confirming. It names the kept branch and commit, retained task wording, destroyed resources, removed checkout, and consumed worktree-local Proof, submission, and landing grant. Park refuses a dirty, unreadable, setup-incomplete, trunk, detached, or branch-mismatched checkout. It has no force option: a branch cannot preserve uncommitted files.
 
-After success, open the branch under **Work without a worktree** in the desk, or resume directly:
+After success, open the desk's commands menu and choose **Resume** for the branch, or resume directly:
 
 ```sh
 discern start --from <parked-branch>

@@ -2037,7 +2037,7 @@ async function dispatchAction(
         });
         out.warn(
           result.message ??
-            "Final checks did not pass. Read Proof and details.",
+            "Final checks did not pass.",
         );
       } else {out.ok(
           result.message ??
@@ -2247,7 +2247,7 @@ async function dispatchAction(
         )
       ) return false;
       await runtime.park(ctx, path);
-      out.ok(`Parked ${branch}. Choose its Resume command in Desk commands.`);
+      out.ok(`Parked ${branch}. Open commands and choose its Resume command.`);
       return true;
     }
     case "drop": {
