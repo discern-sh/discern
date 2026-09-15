@@ -423,22 +423,60 @@ Deno.test("every release projection and fixed route enrolls future records and s
       model.history_coverage.before_earliest_known,
       "history gaps matter only when the comparison predates the available notes",
     );
-    const disclosure = [...html.querySelectorAll("details")].find((element) =>
-      element.textContent?.includes("discern.sh")
-    );
-    assert(disclosure, "network details remain available on request");
-    assert(
-      !disclosure.open,
-      "network details do not interrupt the release notes",
-    );
-    assertStringIncludes(disclosure.textContent ?? "", "No project data");
+    const disclosure = html.querySelector("[data-release-disclosure]");
+    assert(disclosure, "the network explanation stays beside the result");
+    assert(disclosure.closest("[data-release-status]"));
+    assertEquals(disclosure.closest("details, [hidden]"), null);
+    assertStringIncludes(disclosure.textContent ?? "", "project data");
     for (const section of sections) {
       assert(section.records.length > 0, "empty release sections are omitted");
       assertEquals(
         [...html.querySelectorAll(
-          `[data-release-group="${section.key}"] [data-release-version]`,
-        )].map((article) => article.getAttribute("data-release-version")),
+          `[data-release-group="${section.key}"] [${
+            section.key === "applicable"
+              ? "data-release-ref"
+              : "data-release-version"
+          }]`,
+        )].map((article) =>
+          article.getAttribute(
+            section.key === "applicable"
+              ? "data-release-ref"
+              : "data-release-version",
+          )
+        ),
         section.records.map((record) => record.version),
+      );
+    }
+    assertEquals(html.querySelectorAll("h1").length, 1);
+    assertEquals(html.querySelectorAll("main").length, 1);
+    assert(html.querySelector("header nav[aria-label]"));
+    assert(html.querySelector("footer nav[aria-label]"));
+    assertEquals(
+      html.querySelectorAll("[data-release-version]").length,
+      catalogue.length,
+    );
+    assertEquals(
+      html.querySelector("#update") !== null,
+      model.status === "update-available",
+    );
+    assertEquals(
+      html.querySelector("#update code")?.textContent ?? null,
+      model.status === "update-available" ? INSTALL_COMMAND : null,
+    );
+    for (
+      const [index, step] of [...html.querySelectorAll("#update li")].entries()
+    ) {
+      assertEquals(
+        step.textContent?.replace(/\s+/g, " ").trim(),
+        UPDATE_SEQUENCE[index],
+      );
+    }
+    for (
+      const link of html.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')
+    ) {
+      assert(
+        html.getElementById(decodeURIComponent(link.hash.slice(1))),
+        link.href,
       );
     }
     assertStringIncludes(renderReleaseText(model), `Status: ${model.status}`);

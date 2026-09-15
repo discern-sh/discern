@@ -1,6 +1,6 @@
 /** Guards for the shared campaign scaffold and thin homepage route adapter. */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
@@ -29,63 +29,24 @@ async function flushCopyClick(): Promise<void> {
   await Promise.resolve();
 }
 
-Deno.test("the homepage adapter selects one composition and its independent assets", async () => {
-  const [adapter, composition, campaign, copyClient, compositionClient] =
-    await Promise.all([
-      Deno.readTextFile(join(ROOT, "site/page-src/landing.tsx")),
-      Deno.readTextFile(join(ROOT, "site/page-src/clarity-first.tsx")),
-      Deno.readTextFile(join(ROOT, "site/page-src/campaign.tsx")),
-      Deno.readTextFile(join(ROOT, "site/page-src/copy-prompt.js")),
-      Deno.readTextFile(join(ROOT, "site/page-src/clarity-first.js")),
-    ]);
-
-  assertStringIncludes(adapter, "renderToStaticMarkup(<ClarityFirst />)");
-  assertStringIncludes(adapter, '"campaign.css"');
-  assertStringIncludes(adapter, '"clarity-first.css"');
-  assertStringIncludes(adapter, '"copy-prompt.js"');
-  assertStringIncludes(adapter, '"clarity-first.js"');
-  for (
-    const implementationMarker of [
-      "COPY_PROMPT_TEXT",
-      "CampaignShell",
-      "data-copy-prompt",
-      "data-project-preview",
-      "<header",
-      "<footer",
-      "<main",
-      "<section",
-    ]
-  ) {
-    assert(
-      !adapter.includes(implementationMarker),
-      `landing.tsx reclaimed ${implementationMarker}`,
-    );
+Deno.test("the homepage has static landmarks, a manual action, and local assets", async () => {
+  const dom = new JSDOM(renderLanding());
+  const document = dom.window.document;
+  for (const landmark of ["header", "main", "footer", "h1"]) {
+    assertEquals(document.querySelectorAll(landmark).length, 1, landmark);
   }
-
-  assertStringIncludes(campaign, "export const COPY_PROMPT_TEXT");
-  assertStringIncludes(campaign, "export function CampaignShell");
-  assertStringIncludes(campaign, "export function CampaignHeader");
-  assertStringIncludes(campaign, "export function CampaignFooter");
-  assertStringIncludes(campaign, "export function CopyPrompt");
-  assertStringIncludes(composition, "<CampaignShell");
-  assertStringIncludes(composition, "<CopyPrompt");
-  assertStringIncludes(copyClient, 'querySelectorAll("[data-copy-prompt]")');
-  assert(!copyClient.includes("data-project-preview"));
-  assertStringIncludes(
-    compositionClient,
-    'querySelector("[data-project-preview]")',
-  );
-  assert(!compositionClient.includes("data-copy-prompt"));
-
-  const html = renderLanding();
-  assertStringIncludes(
-    html,
-    '<script type="module" defer src="/assets/design-system/compositions/copy-prompt.js"></script>',
-  );
-  assertStringIncludes(
-    html,
-    '<script type="module" defer src="/assets/design-system/compositions/clarity-first.js"></script>',
-  );
+  assert(document.querySelector('main a[href="/docs/start"]'));
+  for (
+    const asset of document.querySelectorAll(
+      "link[rel=stylesheet], script[src]",
+    )
+  ) {
+    const path = asset.getAttribute("href") ?? asset.getAttribute("src") ?? "";
+    assert(path.startsWith("/assets/"), path);
+    const stat = await Deno.stat(join(ROOT, "site/pages", path));
+    assert(stat.isFile, path);
+  }
+  dom.window.close();
 });
 
 Deno.test("Copy prompt is a complete static fallback with a two-word default action", () => {

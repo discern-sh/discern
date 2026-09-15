@@ -1,0 +1,110 @@
+/* Layout for the public homepage. */
+
+@layer discern.components {
+  body {
+    display: flex;
+    min-block-size: 100svh;
+    margin: 0;
+    flex-direction: column;
+    background: var(--discern-color-canvas);
+  }
+
+  main {
+    display: grid;
+    flex: 1;
+  }
+
+  .homepage-artwork {
+    display: grid;
+    position: relative;
+    align-items: center;
+    min-block-size: clamp(24rem, 65svh, 56rem);
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .homepage-copy,
+  .homepage-benefits {
+    position: relative;
+    z-index: 1;
+    inline-size: min(calc(100% - 2 * var(--discern-space-6)), 86rem);
+    margin-inline: auto;
+  }
+
+  .homepage-copy {
+    padding-block: clamp(5rem, 10vw, 9rem) clamp(3rem, 6vw, 6rem);
+  }
+
+  .homepage-eyebrow {
+    color: var(--discern-color-ink);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .homepage-title {
+    max-inline-size: 15ch;
+    margin-block: var(--discern-space-5) 0;
+    font-size: clamp(2.75rem, 5.1vw, 5.5rem);
+    line-height: 1.03;
+    letter-spacing: -0.04em;
+    text-wrap: balance;
+  }
+
+  .homepage-subtitle {
+    max-inline-size: 46ch;
+    margin-block: var(--discern-space-6) 0;
+    font-size: clamp(1.0625rem, 1.4vw, 1.375rem);
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  .homepage-cta {
+    margin-block-start: var(--discern-space-8);
+  }
+
+  .homepage-benefits {
+    padding-block: var(--discern-space-10) var(--discern-space-16);
+  }
+
+  .homepage-benefits-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .homepage-benefit h2 {
+    margin-block: var(--discern-space-5) var(--discern-space-2);
+    font-family: var(--discern-font-ui);
+    font-size: 1.1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .homepage-benefit p {
+    max-inline-size: 38ch;
+    margin: 0;
+    font-size: var(--discern-font-size-sm);
+  }
+
+  @media (max-width: 42rem) {
+    .homepage-benefits-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .homepage-benefit {
+      display: grid;
+      grid-template-columns: 3rem minmax(0, 1fr);
+      column-gap: var(--discern-space-4);
+      align-items: center;
+    }
+
+    .homepage-benefit-icon {
+      grid-row: span 2;
+    }
+
+    .homepage-benefit h2 {
+      margin: 0 0 var(--discern-space-1);
+    }
+
+    .homepage-benefit p {
+      grid-column: 2;
+    }
+  }
+}

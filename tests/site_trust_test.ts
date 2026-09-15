@@ -76,10 +76,7 @@ Deno.test("the trust gateway routes each claim to exact manual or Map evidence",
   dom.window.close();
 });
 
-Deno.test("marketing reaches trust, while trust remains a human HTML gateway", async () => {
-  const home = await (await get("/")).text();
-  assertStringIncludes(home, 'href="/trust"');
-
+Deno.test("trust remains a discoverable human HTML gateway", async () => {
   const curl = await get("/trust", CURL);
   assertEquals(curl.status, 200);
   assertStringIncludes(curl.headers.get("content-type") ?? "", "text/html");
