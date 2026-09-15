@@ -1123,7 +1123,7 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: —
-- Emitting context: The running discern binary version differs from the version recorded in the project.
+- Emitting context: The running discern version differs from the version recorded in the project.
 
 Rendered example:
 
