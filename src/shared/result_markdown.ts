@@ -1,3 +1,4 @@
+import { presentReleases } from "./release_presentation.ts";
 import { completionEconomicsLines } from "./completion_economics_presentation.ts";
 import { CompletionEconomicsSchema } from "./patterns_vocabulary.ts";
 /**
@@ -1090,13 +1091,16 @@ ${text(model.when) ?? ""}
 ${
         renderItems(
           records(model.steps).map((step) =>
-            `${code(step.label)} (${text(step.actor) ?? "unknown"}, ${
-              text(step.kind) ?? "step"
-            }).${text(step.note) === undefined ? "" : ` ${code(step.note)}`}${
+            [
+              `${code(step.label)} (${text(step.actor) ?? "unknown"}, ${
+                text(step.kind) ?? "step"
+              }).`,
+              text(step.note) === undefined ? undefined : code(step.note),
               text(step.condition) === undefined
-                ? ""
-                : ` When: ${text(step.condition)}`
-            }${text(step.hint) === undefined ? "" : ` ${text(step.hint)}`}`
+                ? undefined
+                : `When: ${text(step.condition)}`,
+              text(step.hint),
+            ].filter(Boolean).join(" ")
           ),
         )
       }`
@@ -2119,37 +2123,6 @@ const presentSkillsEject: ResultMarkdownPresenter = (result) => {
     ]),
   };
 };
-
-/** Keep both addresses visible regardless of browser availability. */
-function presentReleases(
-  result: Readonly<Record<string, unknown>>,
-): ResultMarkdownPresentation {
-  const data = dataOf(result);
-  const urls = object(data.urls) ?? {};
-  const write = object(data.state_write) ?? {};
-  return {
-    state: text(result.message) ?? "Release information handoff.",
-    evidence: [
-      `Browser: ${text(urls.html) ?? "unavailable"}`,
-      `JSON: ${text(urls.json) ?? "unavailable"}`,
-      data.launch_attempted === true
-        ? data.launch_succeeded === true
-          ? "The browser launcher accepted the URL. Navigation was not verified."
-          : `The browser launcher failed: ${
-            text(data.launch_message) ?? "unavailable"
-          }. Open the URL yourself.`
-        : "No browser launch was attempted.",
-      write.status === "saved"
-        ? "The clone-local handoff timestamp was recorded."
-        : `Local timestamp: ${text(write.status) ?? "unavailable"}${
-          text(write.reason) ? ` — ${text(write.reason)}` : ""
-        }.`,
-    ],
-    boundary: [
-      "The binary made no network request and installed nothing. Opening either URL sends only this process's version number as application data to discern.sh. A supplied version does not prove the on-disk binary; the timestamp does not prove a fetch.",
-    ],
-  };
-}
 
 /**
  * Presenter families selected explicitly by every result-contract entry.
