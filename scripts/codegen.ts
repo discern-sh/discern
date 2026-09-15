@@ -19,6 +19,13 @@
 
 import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
+import { loadReleaseRecords } from "../site/releases/records.ts";
+import {
+  RELEASE_METADATA_PATH,
+  renderReleaseMetadata,
+} from "./release_metadata.ts";
+import { releaseJsonSchema } from "../site/releases/model.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import {
   renderConfigDocSchemaJson,
   renderConfigSchemaJson,
@@ -488,4 +495,13 @@ await write(
 await write(
   THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache,
   thirdParty.jsrLicenseCacheJson,
+);
+
+await write(
+  RELEASE_METADATA_PATH,
+  renderReleaseMetadata(await loadReleaseRecords(), DISCERN_VERSION),
+);
+await write(
+  "schema/discern-releases.schema.json",
+  `${JSON.stringify(releaseJsonSchema(), null, 2)}\n`,
 );

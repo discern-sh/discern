@@ -4,6 +4,8 @@
 /schema/discern-config.schema.json merge=discern-generated linguist-generated
 /schema/discern-setup-config.schema.json merge=discern-generated linguist-generated
 /schema/discern-results.schema.json merge=discern-generated linguist-generated
+/schema/discern-releases.schema.json merge=discern-generated linguist-generated
+/src/lib/release_metadata.ts merge=discern-generated linguist-generated
 /schema/discern-proof-note.schema.json merge=discern-generated linguist-generated
 /schema/discern-mcp-tools.json merge=discern-generated linguist-generated
 /schema/discern-cli.json merge=discern-generated linguist-generated

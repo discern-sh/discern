@@ -12,6 +12,7 @@ One row per set, in registry order. The detail sections use the same order and c
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
+| [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 1       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 35      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
 | [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 66      | —                | —                           |
@@ -96,7 +97,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
 | [`contract-manifests`](#contract-manifests--frozen-contract-manifests)                                                | `scripts/contract_manifests.ts#CONTRACT_MANIFEST_ARTIFACTS`                       | 3       | —                | node `published-contracts`  |
-| [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 7       | —                | node `published-contracts`  |
+| [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 8       | —                | node `published-contracts`  |
 | [`security-disclosure`](#security-disclosure--security-disclosure)                                                    | `site/security.ts#SECURITY_DISCLOSURE`                                            | 9       | —                | —                           |
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 69      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
@@ -142,9 +143,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 13      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 3       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 131     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 132     | —                | node `canonical-sets`       |
 
-131 sets · 187 guard tests · 72 committed artifacts.
+132 sets · 188 guard tests · 74 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -305,6 +306,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/real_pty_guard_test.ts`                     | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/reference_docs_test.ts`                     | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/release_artifacts_test.ts`                  | [`build-targets`](#build-targets--release-build-targets)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `tests/releases_test.ts`                           | [`release-records`](#release-records--release-records)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `tests/repo_authored_paths_test.ts`                | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/repository_hygiene_test.ts`                 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies), [`repository-community-files`](#repository-community-files--repository-community-files), [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules), [`contributor-intake-surfaces`](#contributor-intake-surfaces--contributor-intake-surfaces)                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/repository_identity_guard_test.ts`          | [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -402,6 +404,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `schema/discern-conventions.json`                          | generated file   | [`contract-manifests`](#contract-manifests--frozen-contract-manifests)                                            | —                                             |
 | `schema/discern-mcp-tools.json`                            | generated file   | [`contract-manifests`](#contract-manifests--frozen-contract-manifests)                                            | —                                             |
 | `schema/discern-proof-note.schema.json`                    | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                           | —                                             |
+| `schema/discern-releases.schema.json`                      | generated file   | [`release-records`](#release-records--release-records)                                                            | —                                             |
 | `schema/discern-results.schema.json`                       | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                         | —                                             |
 | `schema/discern-results.schema.json`                       | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)         | —                                             |
 | `schema/discern-results.schema.json`                       | generated file   | [`result-completion-policies`](#result-completion-policies--result-completion-policies)                           | —                                             |
@@ -412,12 +415,25 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `scripts/jsr_license_cache.json`                           | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          | —                                             |
 | `site/pages/assets/integrations/README.md`                 | generated file   | [`agent-providers`](#agent-providers--agent-providers)                                                            | —                                             |
 | `src/lib/first_party_license_bundle.ts`                    | generated file   | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                        | —                                             |
+| `src/lib/release_metadata.ts`                              | generated file   | [`release-records`](#release-records--release-records)                                                            | —                                             |
 | `src/lib/third_party_bundle.ts`                            | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          | —                                             |
 | `templates/discern.toml.tmpl`                              | generated file   | [`config-tables`](#config-tables--config-tables)                                                                  | —                                             |
 | `types/discern-json.d.ts`                                  | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                         | —                                             |
 | `types/discern-json.d.ts`                                  | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                                 | —                                             |
 | `types/discern-json.d.ts`                                  | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                  | —                                             |
 | `types/discern-json.d.ts`                                  | generated file   | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                          | —                                             |
+
+## `release-records` — Release records
+
+Authored Markdown release notes, family names, and the records enrolled in every release projection.
+
+- Source: `site/releases/records.ts` — `loadReleaseRecords`
+- Members: 1
+  - `1.0.0`
+- Guards: `tests/releases_test.ts`
+- Artifacts: `src/lib/release_metadata.ts`, `schema/discern-releases.schema.json`
+- Glossary: not enrolled — Release records are publishing inputs, not a separate product concept.
+- Feature canon: not enrolled — The release-awareness programme owns the later CLI feature enrollment.
 
 ## `verbs` — Top-level verbs
 
@@ -3067,7 +3083,8 @@ The generated MCP, CLI, and conventions baselines whose same-major policies pres
 The versioned public schema URLs and the root generated artifacts served at them.
 
 - Source: `src/shared/public_schemas.ts` — `PUBLIC_SCHEMA_PUBLICATIONS`
-- Members: 7
+- Members: 8
+  - `https://discern.sh/schema/v1/discern-releases.schema.json`
   - `https://discern.sh/schema/v1/discern-config.schema.json`
   - `https://discern.sh/schema/v1/discern-setup-config.schema.json`
   - `https://discern.sh/schema/v1/discern-results.schema.json`
@@ -4763,7 +4780,8 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 131
+- Members: 132
+  - `release-records`
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`

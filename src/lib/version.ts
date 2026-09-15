@@ -6,8 +6,11 @@
  * compiled installer reports the right version with no filesystem lookup.
  */
 
+export { RELEASE_METADATA } from "./release_metadata.ts";
+
 import denoJson from "../../deno.json" with { type: "json" };
 import { DISCERN_ISSUES_URL, INSTALL_COMMAND } from "../shared/brand.ts";
+import { DISCERN_RELEASE_CHECK_URL } from "../shared/product_identity.ts";
 
 /** The current discern version, e.g. "1.0.0". */
 export const DISCERN_VERSION: string = denoJson.version;
@@ -22,7 +25,7 @@ export const DISCERN_VERSION: string = denoJson.version;
  * auto-updater) this constant doesn't name.
  */
 export const UPDATE_CHANNEL =
-  `install a current discern binary by running \`${INSTALL_COMMAND}\``;
+  `read release notes at ${DISCERN_RELEASE_CHECK_URL}, then install the recommended stable discern binary by running \`${INSTALL_COMMAND}\``;
 
 /** Where a crash report belongs: the repository's public issue tracker, cited
  * verbatim by every crash surface (the stderr frame, the `--json` envelope,

@@ -1,3 +1,5 @@
+import { z } from "@zod/zod";
+import { releaseJsonSchema } from "../site/releases/model.ts";
 import { RecordIdSchema } from "../src/engine/completion/identity.ts";
 /**
  * Structural compatibility checks for generated public JSON Schemas.
@@ -88,6 +90,7 @@ const CURRENT_SCHEMA_BUILDERS: Record<
   PublicSchemaArtifactPath,
   () => Record<string, unknown>
 > = {
+  "schema/discern-releases.schema.json": releaseJsonSchema,
   "schema/discern-config.schema.json": buildConfigJsonSchema,
   "schema/discern-setup-config.schema.json": buildConfigDocJsonSchema,
   "schema/discern-results.schema.json": buildResultJsonSchema,
@@ -118,6 +121,11 @@ export function publicSchemaAjv(strict: boolean): Ajv2020 {
     "uuid",
     (value: string) => RecordIdSchema.safeParse(value).success,
   );
+  ajv.addFormat(
+    "date",
+    (value: string) => z.iso.date().safeParse(value).success,
+  );
+  ajv.addFormat("uri", (value: string) => z.url().safeParse(value).success);
   return ajv;
 }
 

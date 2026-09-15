@@ -419,6 +419,8 @@
     "schema/discern-config.schema.json",
     "schema/discern-setup-config.schema.json",
     "schema/discern-results.schema.json",
+    "schema/discern-releases.schema.json",
+    "src/lib/release_metadata.ts",
     "schema/discern-proof-note.schema.json",
     "schema/discern-mcp-tools.json",
     "schema/discern-cli.json",

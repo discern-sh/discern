@@ -52,3 +52,36 @@ export const DISCERN_RAW_INSTALL_URL =
 /** The one canonical public install command. */
 export const INSTALL_COMMAND =
   `curl -fsSL ${DISCERN_URL}${DISCERN_INSTALL_ROUTE} | sh`;
+
+/** First-party release comparison addresses; GitHub's collection remains separate. */
+export const RELEASE_ROUTES = {
+  html: "/releases",
+  text: "/releases.txt",
+  json: "/releases.json",
+} as const;
+export const DISCERN_RELEASE_CHECK_URL = `${DISCERN_URL}${RELEASE_ROUTES.html}`;
+export const DISCERN_RELEASE_JSON_URL = `${DISCERN_URL}${RELEASE_ROUTES.json}`;
+export const DISCERN_INSTALL_URL = `${DISCERN_URL}${DISCERN_INSTALL_ROUTE}`;
+
+/** Encode only the supplied binary version in the shared browser/client handoff. */
+export function releaseCheckUrls(
+  version?: string,
+): { html: string; json: string } {
+  const query = version === undefined
+    ? ""
+    : `?${new URLSearchParams({ since: version })}`;
+  return {
+    html: `${DISCERN_RELEASE_CHECK_URL}${query}`,
+    json: `${DISCERN_RELEASE_JSON_URL}${query}`,
+  };
+}
+
+/** Common update sequence consumed by release guidance and later local handoffs. */
+export const UPDATE_SEQUENCE = [
+  "Read the release notes.",
+  `Install the recommended stable binary with ${INSTALL_COMMAND}.`,
+  "Verify the executable your shell resolves with command -v discern and check discern --version.",
+  "Restart agent and MCP sessions so they use the new executable.",
+  "Preview an upgrade in an explicitly chosen project, then apply it when authorized.",
+  "Review and commit the project's upgrade diff.",
+] as const;

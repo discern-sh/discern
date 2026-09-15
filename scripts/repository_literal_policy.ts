@@ -1,5 +1,7 @@
 /** Deliberate non-TypeScript projections of repository and installer identity. */
 
+import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
+
 export type RepositoryLiteralKind =
   | "current-repository"
   | "permanent-repository"
@@ -78,7 +80,7 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
   },
   {
     path: "project/manual/30-reference/mcp-and-results.md",
-    counts: { "current-repository": 7 },
+    counts: { "current-repository": PUBLIC_SCHEMA_PUBLICATIONS.length },
     reason:
       "codegen projects the public schema, contract manifest, and type source links",
   },
