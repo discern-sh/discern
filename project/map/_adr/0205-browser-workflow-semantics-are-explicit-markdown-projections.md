@@ -1,6 +1,10 @@
 # ADR 0205: Browser Workflow semantics are explicit Markdown projections
 
+> **Amendments.**
+>
 > **Build-on links (2026-07-28):** This record builds on [ADR 0135](0135-site-pages-use-build-time-react-and-static-runtime.md), which keeps the browser runtime static, and [ADR 0139](0139-the-design-system-is-an-independent-package.md), which makes the exact external package release the component and semantics boundary.
+>
+> - **React site authoring:** React is permitted in the website server. Explicit Markdown workflow directives remain authoritative, and their corpus renderer must preserve the complete raw source and product semantics. See [ADR 0402](0402-site-layouts-use-server-rendered-react-components.md).
 
 **Status**: accepted
 
@@ -16,7 +20,7 @@ Inferring those meanings from headings or prose would make small copy edits chan
 
 - A directive opens as `<!-- discern-workflow:<kind> -->` and closes as `<!-- /discern-workflow -->`. The enclosed Markdown carries every fact and remains useful when comments are ignored.
 - `site/workflow_registry.ts` owns the closed directive vocabulary and the design-system roots each member selects. The canonical-set guard enrols every new member in a parser, a real source example, and the emitted bundle.
-- `site/workflow.ts` parses the marked blocks before the shared Markdown renderer runs, then emits the published package's semantic HTML through its public manifest and class helper. Unknown, nested, incomplete, or malformed directives fail the page build at their source path.
+- `site/workflow.tsx` parses the marked blocks before the shared Markdown renderer runs, then emits the published package's semantic HTML through its public manifest and class helper. Unknown, nested, incomplete, or malformed directives fail the page build at their source path.
 - The projection is presentation metadata, not another content model. It does not infer semantics from arbitrary headings, lists, tables, or code fences, and no route registry repeats the prose.
 - Raw help, MCP, negotiated text, and `.md` routes continue to serve the pristine Markdown bytes. JavaScript is optional behavior on the already-complete semantic HTML, not a source of instructions.
 

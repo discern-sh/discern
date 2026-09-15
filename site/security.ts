@@ -3,7 +3,7 @@
  * RFC 9116 response are held to this registry by security_disclosure_test.ts.
  */
 
-import { canonicalUrl } from "./seo.ts";
+import { canonicalUrl } from "./seo.tsx";
 import {
   DISCERN_ADVISORY_URL,
   DISCERN_REPOSITORY_URL,

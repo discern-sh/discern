@@ -16,7 +16,7 @@ import {
   PERSISTENT_TRACE_ROUTE,
   PERSISTENT_TRACE_SEGMENTS,
 } from "../art/browser/persistent-trace.tsx";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 
 const ARTWORK_CSS = new URL(
   "../art/browser/persistent-trace.css",

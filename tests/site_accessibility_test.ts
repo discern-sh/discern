@@ -8,7 +8,7 @@ import { assertEquals } from "@std/assert";
 import axe from "axe-core";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { decorateDocumentHtml, loadDocsSite } from "../site/docs.ts";
+import { decorateDocumentHtml, loadDocsSite } from "../site/docs.tsx";
 import { handler, PAGES } from "../site/serve.ts";
 
 const BROWSER = {
@@ -122,9 +122,6 @@ Deno.test("public marketing and representative document pages have no serious or
       section.pages.find((page) => !page.isIndex)?.route ?? section.index.route
     ),
     "/map",
-    ...site.publicMap.sections.map((section) =>
-      section.pages.find((page) => !page.isIndex)?.route ?? section.index.route
-    ),
     site.decisions.route,
     decision?.route,
   ].filter(

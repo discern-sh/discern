@@ -3,9 +3,9 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join, resolve } from "@std/path";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
-import { renderAgents } from "../site/page-src/agents.tsx";
-import { renderLanding } from "../site/page-src/landing.tsx";
-import { renderTrust } from "../site/page-src/trust.tsx";
+import { renderAgents } from "../site/ui/pages/AgentsPage.tsx";
+import { renderLanding } from "../site/ui/pages/HomePage.tsx";
+import { renderTrust } from "../site/ui/pages/TrustPage.tsx";
 import { proseWordCount } from "../scripts/prose_lib.ts";
 import {
   projectSiteProse,

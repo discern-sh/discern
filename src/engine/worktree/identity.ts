@@ -632,7 +632,11 @@ async function gitCheckoutDirs(
   }
   const dirs = await discoverGitDirs(
     path,
-    (cwd, args) => runGit(args, { cwd }),
+    (cwd, args) =>
+      runGit(args, {
+        cwd,
+        environmentPermissionFallback: "isolated-read-only",
+      }),
   );
   if (dirs === undefined) {
     return undefined;

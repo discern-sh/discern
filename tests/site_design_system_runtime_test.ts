@@ -24,9 +24,9 @@ import {
 } from "../site/design_system.ts";
 import { SITE_APPEARANCE } from "../site/appearance.ts";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
-import { renderDiscernBrand } from "../site/page-src/branding.tsx";
+import { renderDiscernBrand } from "../site/ui/components/Brand.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
-import { renderMarketingPage } from "../site/page-src/renderers.ts";
+import { renderMarketingPage } from "../site/renderers.ts";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -37,6 +37,7 @@ import {
   DESIGN_SYSTEM_PACKAGE,
   DESIGN_SYSTEM_SPECIFIER,
   DESIGN_SYSTEM_VERSION,
+  reactRuntimeModules,
 } from "./design_system_dependency.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -127,14 +128,6 @@ const RUNTIME_MANIFEST_SCHEMA = z.object({
     ),
   }).passthrough(),
 }).passthrough();
-
-/** Select runtime React dependencies while excluding type-only package declarations. */
-function reactRuntimeModules(specifiers: readonly string[]): string[] {
-  return specifiers.filter((specifier) =>
-    !specifier.startsWith("npm:/@types/") &&
-    /(?:^|[/@-])react(?:-dom)?(?:[/.@-]|$)/i.test(specifier)
-  );
-}
 
 /** Read Deno's resolved module graph for one site entrypoint. */
 async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
@@ -306,18 +299,12 @@ Deno.test("Discern binds one exact immutable design-system release", async () =>
   assertEquals(violations, []);
 });
 
-Deno.test("the production site import graph remains React-free", async () => {
-  const newSibling = "https://example.test/vendor/react-dom@99/server";
+Deno.test("the production server renders React without importing its browser entrypoint", async () => {
+  const modules = await moduleSpecifiers(join(ROOT, "site/main.ts"));
+  assert(reactRuntimeModules(modules).length > 0);
   assertEquals(
-    reactRuntimeModules([
-      "https://example.test/new-server.ts",
-      newSibling,
-    ]),
-    [newSibling],
-  );
-  assertEquals(
-    reactRuntimeModules(
-      await moduleSpecifiers(join(ROOT, "site/main.ts")),
+    reactRuntimeModules(modules).filter((specifier) =>
+      /react-dom[^\s]*\/client(?:[.@/]|$)/.test(specifier)
     ),
     [],
   );

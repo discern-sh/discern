@@ -1,38 +1,23 @@
+import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
 /** The public /agents campaign page, rendered to static HTML by site/build.ts. */
 
-import type { CSSProperties } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import {
-  Badge,
-  Button,
-  Kicker,
-  SiteFooter,
-  SiteHeader,
-  SkipLink,
-} from "discern-design-system/react";
+import type { CSSProperties, ReactElement } from "react";
+import { Badge, Button, Kicker } from "discern-design-system/react";
 import {
   PROVIDER_TRADEMARK_NOTICE,
   providerBrandSilhouette,
   PROVIDERS,
-} from "../../src/lib/providers.ts";
-import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
-import { AGENTS_DESCRIPTION, AGENTS_TITLE, DISCERN_MARK } from "../brand.ts";
+} from "../../../src/lib/providers.ts";
+import { AGENT_NAMES } from "../../../src/shared/agent_catalogue.ts";
+import { AGENTS_DESCRIPTION, AGENTS_TITLE, DISCERN_MARK } from "../../brand.ts";
 import {
   AGENTS_CONTENT,
   AGENTS_EVIDENCE,
   AGENTS_ROUTES,
   CLOSING_ENVELOPE,
   EVALUATION_INSTRUCTION,
-} from "./agents-content.ts";
-import { pageDocument } from "./document.ts";
-import {
-  DISCERN_REPOSITORY_URL,
-  repositoryBlobUrl,
-} from "../../src/shared/brand.ts";
-
-const GITHUB = DISCERN_REPOSITORY_URL;
-const LICENSE = repositoryBlobUrl("LICENSE");
-
+} from "../../page-src/agents-content.ts";
+import { renderDocument } from "../Document.tsx";
 /** Provider files and marks, derived from the live native-provider registry. */
 const PROVIDER_OUTPUTS = AGENT_NAMES.map((name) => {
   const provider = PROVIDERS[name];
@@ -45,50 +30,6 @@ const PROVIDER_OUTPUTS = AGENT_NAMES.map((name) => {
   };
 });
 
-/** Keep the product name in its page-wide monospace treatment. */
-function DiscernName() {
-  return <span className="agents-brand-name">discern</span>;
-}
-
-/** Navigation for the machine-addressed campaign surface. */
-function AgentsMasthead() {
-  return (
-    <SiteHeader
-      className="agents-masthead"
-      brand={<DiscernName />}
-      brandMark={<span className="agents-masthead__mark">{DISCERN_MARK}</span>}
-      brandTypeface="mono"
-      brandMarkTreatment="plain"
-      navLabel="For coding agents"
-      navItems={[
-        { label: "Why discern", href: AGENTS_ROUTES.home },
-        { label: "Agent ergonomics", href: "#agent-ergonomics" },
-        { label: "Proof", href: "#proof" },
-        { label: "Machine guide", href: AGENTS_ROUTES.machineGuide },
-      ]}
-      actions={
-        <>
-          <a
-            className="agents-masthead__plaintext"
-            href={AGENTS_ROUTES.machineGuide}
-          >
-            llms.txt
-          </a>
-          <Button
-            className="agents-masthead__guide"
-            href={AGENTS_ROUTES.machineGuide}
-            variant="primary"
-          >
-            Read the machine guide
-          </Button>
-        </>
-      }
-      sticky
-      variant="campaign"
-    />
-  );
-}
-
 /** Shared editorial title rhythm for each movement. */
 function MovementHeader(
   { number, eyebrow, title, lead, titleId }: {
@@ -98,7 +39,7 @@ function MovementHeader(
     readonly lead?: string;
     readonly titleId: string;
   },
-) {
+): ReactElement {
   return (
     <header className="agents-movement-header">
       <div className="agents-movement-header__index" aria-hidden="true">
@@ -115,7 +56,7 @@ function MovementHeader(
 }
 
 /** The opening card: the claim, and the agent's account rendered as a profile. */
-function AgentsHero() {
+function AgentsHero(): ReactElement {
   const { hero } = AGENTS_CONTENT;
   return (
     <section className="agents-hero" aria-labelledby="agents-hero-title">
@@ -185,7 +126,7 @@ function AgentsHero() {
 }
 
 /** Recognition of the interfaces agents currently have to compensate for. */
-function RecognitionSection() {
+function RecognitionSection(): ReactElement {
   const { recognition } = AGENTS_CONTENT;
   const frictions = [
     ["terminal", "remembers nothing"],
@@ -231,7 +172,7 @@ function RecognitionSection() {
 }
 
 /** The explicit workflow, shown as the "did you mean" every developer knows. */
-function ErgonomicsSection() {
+function ErgonomicsSection(): ReactElement {
   const { ergonomics } = AGENTS_CONTENT;
   const { refusal } = AGENTS_EVIDENCE;
   return (
@@ -264,7 +205,7 @@ function ErgonomicsSection() {
 }
 
 /** Context economy, itemised like a till bill. */
-function ContextSection() {
+function ContextSection(): ReactElement {
   const { context } = AGENTS_CONTENT;
   const { bill } = AGENTS_EVIDENCE;
   return (
@@ -305,7 +246,7 @@ function ContextSection() {
 }
 
 /** Project memory that outlives sessions, compiled per provider. */
-function ContinuitySection() {
+function ContinuitySection(): ReactElement {
   const { continuity } = AGENTS_CONTENT;
   return (
     <section
@@ -359,7 +300,7 @@ function ContinuitySection() {
 }
 
 /** Exact completion, issued the way certificates always have been. */
-function ProofSection() {
+function ProofSection(): ReactElement {
   const { proof } = AGENTS_CONTENT;
   const evidence = AGENTS_EVIDENCE.proof;
   return (
@@ -423,7 +364,7 @@ function ProofSection() {
 }
 
 /** A green gate is not permission, shown as the review box every dev knows. */
-function AuthoritySection() {
+function AuthoritySection(): ReactElement {
   const { authority } = AGENTS_CONTENT;
   const { review } = authority;
   return (
@@ -461,7 +402,7 @@ function AuthoritySection() {
 }
 
 /** Trust through explicit absences. */
-function AbsencesSection() {
+function AbsencesSection(): ReactElement {
   const { absences } = AGENTS_CONTENT;
   return (
     <section
@@ -498,7 +439,7 @@ function AbsencesSection() {
 }
 
 /** The page turns to the human: one instruction to hand their agent. */
-function NextActionsSection() {
+function NextActionsSection(): ReactElement {
   const { next } = AGENTS_CONTENT;
   return (
     <section className="agents-next" id={next.id} aria-labelledby="next-title">
@@ -538,6 +479,15 @@ function NextActionsSection() {
           <pre><code>{CLOSING_ENVELOPE}</code></pre>
           <p className="agents-result-close__note">{next.plaintextNote}</p>
         </div>
+        <nav className="agents-reference-links" aria-label="Agent references">
+          {[
+            { label: "Quickstart", href: AGENTS_ROUTES.quickstart },
+            { label: "MCP and results", href: AGENTS_ROUTES.mcp },
+            { label: "Result schema", href: AGENTS_ROUTES.schema },
+            { label: "Canonical glossary", href: AGENTS_ROUTES.glossary },
+            { label: "Supported providers", href: AGENTS_ROUTES.providers },
+          ].map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}
+        </nav>
         <div className="agents-final">
           <span aria-hidden="true">{DISCERN_MARK}</span>
           <h2>{next.finalTitle}</h2>
@@ -549,12 +499,10 @@ function NextActionsSection() {
 }
 
 /** Shared site chrome around the bespoke campaign composition. */
-function AgentsPage() {
+function AgentsPage(): ReactElement {
   return (
     <div className="agents-page">
-      <SkipLink href="#main">Skip to content</SkipLink>
-      <AgentsMasthead />
-      <main id="main">
+      <MarketingLayout>
         <AgentsHero />
         <RecognitionSection />
         <ErgonomicsSection />
@@ -564,62 +512,21 @@ function AgentsPage() {
         <AuthoritySection />
         <AbsencesSection />
         <NextActionsSection />
-      </main>
-      <SiteFooter
-        className="agents-footer"
-        brand={<DiscernName />}
-        brandMark={<span className="agents-footer__mark">{DISCERN_MARK}</span>}
-        brandTypeface="mono"
-        brandMarkTreatment="plain"
-        description={AGENTS_CONTENT.next.signature}
-        groups={[
-          {
-            title: "Machine routes",
-            links: [
-              { label: "llms.txt", href: AGENTS_ROUTES.machineGuide },
-              { label: "Quickstart", href: AGENTS_ROUTES.quickstart },
-              { label: "MCP and results", href: AGENTS_ROUTES.mcp },
-              { label: "Result schema", href: AGENTS_ROUTES.schema },
-            ],
-          },
-          {
-            title: "Exact boundaries",
-            links: [
-              { label: "Trust and data", href: AGENTS_ROUTES.trust },
-              { label: "Canonical glossary", href: AGENTS_ROUTES.glossary },
-              { label: "Supported providers", href: AGENTS_ROUTES.providers },
-              { label: "Human homepage", href: AGENTS_ROUTES.home },
-              { label: "Source repository", href: GITHUB },
-              { label: "License", href: LICENSE },
-            ],
-          },
-        ]}
-        legal={
-          <span className="agents-footer__legal">
-            Machine-readable orientation lives at{" "}
-            <a href={AGENTS_ROUTES.machineGuide}>
-              <code>/llms.txt</code>
-            </a>.<br />
-            {PROVIDER_TRADEMARK_NOTICE}
-          </span>
-        }
-        meta={
-          <span className="agents-footer__meta">© 2026 Jack Webb-Heller</span>
-        }
-      />
+        <p className="agents-trademark-notice">{PROVIDER_TRADEMARK_NOTICE}</p>
+      </MarketingLayout>
     </div>
   );
 }
 
 /** Render the /agents composition for static serving. */
 export function renderAgents(): string {
-  return pageDocument({
-    source: "agents.tsx",
+  return renderDocument({
+    source: "site/ui/pages/AgentsPage.tsx",
     sourceComment: "Hello. Machine-readable orientation lives at /llms.txt",
     title: AGENTS_TITLE,
     description: AGENTS_DESCRIPTION,
     styles: ["fonts.css", "discern.css", "agents.css"],
     scripts: ["discern.js", "agents.js"],
-    body: renderToStaticMarkup(<AgentsPage />),
+    children: <AgentsPage />,
   });
 }

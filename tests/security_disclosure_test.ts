@@ -8,7 +8,7 @@ import {
   securityTxtFields,
 } from "../site/security.ts";
 import { handler } from "../site/serve.ts";
-import { canonicalUrl } from "../site/seo.ts";
+import { canonicalUrl } from "../site/seo.tsx";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 

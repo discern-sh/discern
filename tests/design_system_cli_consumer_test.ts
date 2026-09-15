@@ -53,6 +53,7 @@ import {
   DESIGN_SYSTEM_PACKAGE,
   DESIGN_SYSTEM_SPECIFIER as SELECTED_SPECIFIER,
   DESIGN_SYSTEM_VERSION,
+  reactRuntimeModules,
 } from "./design_system_dependency.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -117,14 +118,6 @@ const DenoInfoSchema = z.object({
     })).optional(),
   })).optional(),
 });
-
-/** Select React runtime modules while ignoring configured type declarations. */
-function reactRuntimeModules(specifiers: readonly string[]): string[] {
-  return specifiers.filter((specifier) =>
-    !specifier.startsWith("npm:/@types/") &&
-    /(?:^|[/@-])react(?:-dom)?(?:[/.@-]|$)/iu.test(specifier)
-  );
-}
 
 /** Read one resolved Deno graph as external-consumer evidence. */
 async function moduleGraph(entrypoint: string): Promise<DenoInfo> {
@@ -527,6 +520,29 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
   assertStringIncludes(textarea, "line 12");
 });
 
+Deno.test("React graph detection follows package identity independently of checkout names", () => {
+  const runtime = [
+    "npm:/react@18.3.1",
+    "npm:/react@18.3.1/jsx-runtime",
+    "npm:/react-dom@18.3.1/server",
+    "npm:/react-dom@18.3.1/client",
+    "npm:react@18.3.1",
+    "npm:react-dom@18.3.1/server",
+  ];
+  assertEquals(
+    reactRuntimeModules([
+      ...runtime,
+      "npm:/@types/react@18.3.12",
+      "npm:/@types/react-dom@18.3.1",
+      "npm:/preact@10.0.0",
+      "file:///tmp/site-react-layouts/src/main.ts",
+      "file:///tmp/react-dom/client/src/main.ts",
+      "file:///tmp/react/project/deno.json",
+    ]),
+    runtime,
+  );
+});
+
 Deno.test("CLI design-system graphs stay within the immutable release, lock-resolved, and React-free", async () => {
   const entrypoint = join(ROOT, "tests/fixtures/design_system_cli_graph.ts");
   const info = await moduleGraph(entrypoint);
@@ -633,13 +649,6 @@ Deno.test("CLI design-system graphs stay within the immutable release, lock-reso
     assert(publicClosure.size > 1, `${publicRoot} closure was not traversed`);
   }
 
-  assertEquals(
-    reactRuntimeModules([
-      "npm:/@types/react@18.3.12",
-      "npm:/react-dom@18.3.1/server",
-    ]),
-    ["npm:/react-dom@18.3.1/server"],
-  );
   const forbidden = modules.filter((specifier) =>
     reactRuntimeModules([specifier]).length > 0
   );

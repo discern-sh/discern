@@ -7,7 +7,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import type { DocEntry } from "../src/lib/docs.ts";
-import { loadDocsSite } from "../site/docs.ts";
+import { loadDocsSite } from "../site/docs.tsx";
 import { buildSearchIndex, type SearchSource } from "../site/search.ts";
 import { renderBrowserSearchModule } from "../src/lib/docs_search.ts";
 import { searchPages } from "../site/pages/assets/search.js";

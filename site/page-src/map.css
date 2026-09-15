@@ -1,0 +1,60 @@
+/* The repository directory stays readable without document navigation rails. */
+.map-overview {
+  width: min(100% - 2 * var(--discern-space-6), 72rem);
+  margin-inline: auto;
+  padding-block: clamp(3rem, 7vw, 6rem);
+}
+.map-overview-intro {
+  max-width: 48rem;
+}
+.map-overview-intro h1 {
+  margin-block: var(--discern-space-4);
+}
+.map-overview-notice {
+  margin-block: var(--discern-space-8);
+}
+.map-overview-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--discern-space-8);
+  padding-block: var(--discern-space-8);
+  border-top: 1px solid var(--discern-color-border);
+}
+.map-overview-section-heading h2 {
+  margin-top: 0;
+}
+.map-overview-section-heading p {
+  color: var(--discern-color-ink-muted);
+}
+.map-overview-section ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: var(--discern-space-3) var(--discern-space-6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.map-overview-section a {
+  color: inherit;
+  text-underline-offset: 0.2em;
+}
+.map-overview-section li p {
+  color: var(--discern-color-ink-muted);
+  font-size: var(--discern-font-size-sm);
+}
+.map-overview-section li a {
+  display: block;
+  padding-block: var(--discern-space-1);
+}
+@media (max-width: 50rem) {
+  .map-overview-section {
+    grid-template-columns: 1fr;
+    gap: var(--discern-space-4);
+  }
+}
+@media (max-width: 32rem) {
+  .map-overview-section ul {
+    grid-template-columns: 1fr;
+  }
+}

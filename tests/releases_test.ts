@@ -1,3 +1,4 @@
+import { releaseUpdateSteps } from "./release_page_fixtures.ts";
 /** Release records force every projection, publication plan, and compiled name to agree. */
 import {
   assert,
@@ -56,8 +57,8 @@ import {
   liveHtmlRoutes,
   type SiteRouting,
 } from "../site/serve.ts";
-import { loadDocsSite } from "../site/docs.ts";
-import { buildSiteRedirectTable, STATIC_REDIRECTS } from "../site/seo.ts";
+import { loadDocsSite } from "../site/docs.tsx";
+import { buildSiteRedirectTable, STATIC_REDIRECTS } from "../site/seo.tsx";
 import { sitePublicationPlan } from "../scripts/release_site.ts";
 import { releasePlan } from "../scripts/release_plan.ts";
 import {
@@ -463,14 +464,10 @@ Deno.test("every release projection and fixed route enrolls future records and s
       html.querySelector("#update code")?.textContent ?? null,
       model.status === "update-available" ? INSTALL_COMMAND : null,
     );
-    for (
-      const [index, step] of [...html.querySelectorAll("#update li")].entries()
-    ) {
-      assertEquals(
-        step.textContent?.replace(/\s+/g, " ").trim(),
-        UPDATE_SEQUENCE[index],
-      );
-    }
+    assertEquals(
+      releaseUpdateSteps(html),
+      model.status === "update-available" ? [...UPDATE_SEQUENCE] : [],
+    );
     for (
       const link of html.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')
     ) {

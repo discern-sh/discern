@@ -65,8 +65,20 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
   },
   {
     path: "project/manual/30-reference/environment-variables.md",
+    counts: { "current-repository": 2 },
+    reason:
+      "codegen projects the installer repository default and checkpoint protocol source",
+  },
+  {
+    path: "project/manual/30-reference/files-and-ownership.md",
     counts: { "current-repository": 1 },
-    reason: "codegen projects the installer repository default",
+    reason: "the manual links the source inventory in the repository",
+  },
+  {
+    path: "project/manual/30-reference/glossary.md",
+    counts: { "current-repository": 4 },
+    reason:
+      "codegen projects contributor reading links through the repository URL authority",
   },
   {
     path: "project/manual/30-reference/licenses.md",
@@ -80,14 +92,15 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
   },
   {
     path: "project/manual/30-reference/mcp-and-results.md",
-    counts: { "current-repository": PUBLIC_SCHEMA_PUBLICATIONS.length },
+    counts: { "current-repository": PUBLIC_SCHEMA_PUBLICATIONS.length + 1 },
     reason:
-      "codegen projects the public schema, contract manifest, and type source links",
+      "codegen projects schema source links; the authored reference links the runtime boundary source",
   },
   {
     path: "project/manual/30-reference/platforms-and-providers.md",
-    counts: { "current-repository": 3 },
-    reason: "the reference gives exact release-verification commands",
+    counts: { "current-repository": 4 },
+    reason:
+      "the reference gives exact release-verification commands and the entropy source",
   },
   {
     path: "project/manual/30-reference/proof-and-checkpoint-formats.md",

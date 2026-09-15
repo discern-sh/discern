@@ -2,7 +2,7 @@
 
 import { JSDOM } from "jsdom";
 import { SELF_TITLED_PAGES } from "../site/brand.ts";
-import { loadDocsSite, relatedDecisionCitations } from "../site/docs.ts";
+import { loadDocsSite, relatedDecisionCitations } from "../site/docs.tsx";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
 import { SECURITY_DISCLOSURE, securityTxt } from "../site/security.ts";
 import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
@@ -13,7 +13,7 @@ import {
   META_DESCRIPTION_MIN,
   SITE_ORIGIN,
   STATIC_REDIRECTS,
-} from "../site/seo.ts";
+} from "../site/seo.tsx";
 
 const BROWSER_HEADERS = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -190,16 +190,12 @@ export async function runSiteSmoke(
       title: page.entry.title,
     })),
   ];
-  const mapItems: InstructionItem[] = [
-    {
-      route: site.publicMap.landing.route,
-      title: site.publicMap.landing.entry.title,
-    },
-    ...site.publicMap.pages.map((page) => ({
-      route: page.route,
-      title: page.entry.title,
-    })),
-  ];
+  const mapItems: InstructionItem[] = site.publicMap.sections.flatMap(
+    (section) => [
+      section.index,
+      ...section.pages.filter((page) => !page.isIndex),
+    ],
+  ).map((page) => ({ route: page.route, title: page.entry.title }));
 
   const sitemapResponse = await get("/sitemap.xml");
   secure(sitemapResponse, "/sitemap.xml");
@@ -358,7 +354,6 @@ export async function runSiteSmoke(
     { route: site.decisions.route, entry: site.decisions.index },
     ...site.decisions.pages,
     site.publicMap.landing,
-    ...site.publicMap.pages,
   ];
   await parallel(rawPages, async (page) => {
     const source = await Deno.readTextFile(page.entry.absPath);
@@ -468,7 +463,6 @@ export async function runSiteSmoke(
       ...site.pages,
       ...site.decisions.pages,
       site.publicMap.landing,
-      ...site.publicMap.pages,
     ],
     STATIC_REDIRECTS,
   );
@@ -562,23 +556,18 @@ export async function runSiteSmoke(
   if (mapDocument === undefined) {
     fail("/map: unavailable for surface parity");
   } else {
-    const nav: InstructionItem[] = [mapItems[0] as InstructionItem];
-    for (const chapter of mapDocument.querySelectorAll(".docs-nav-chapter")) {
-      const sectionTitle = chapter.querySelector(".docs-nav-label")?.textContent
-        ?.replace(/^\s*\d+\s*/, "").trim() ?? "";
-      for (
-        const [index, link] of [...chapter.querySelectorAll("ul a")].entries()
-      ) {
-        nav.push({
-          route: link.getAttribute("href") ?? "",
-          title: index === 0
-            ? sectionTitle
-            : (link.querySelector(".docs-nav-page-title")?.textContent ?? "")
-              .trim(),
-        });
-      }
+    const entries = [...mapDocument.querySelectorAll("[data-map-entry]")].map(
+      (link) => ({
+        route: link.getAttribute("href") ?? "",
+        title: link.textContent?.trim() ?? "",
+      }),
+    );
+    sameItems("/map repository directory", entries, mapItems, fail);
+    if (
+      mapDocument.querySelector(".docs-nav, .docs-rail, main details") !== null
+    ) {
+      fail("/map: the directory must remain visible without document rails");
     }
-    sameItems("/map nav", nav, mapItems, fail);
   }
 
   const searchResponse = await get("/docs/index.json");
@@ -589,16 +578,12 @@ export async function runSiteSmoke(
   sameItems("search", search.pages, instructions, fail);
 
   const mapSearchResponse = await get("/map/index.json");
-  secure(mapSearchResponse, "/map/index.json");
-  const mapSearch = await mapSearchResponse.json() as {
-    pages: Array<{ route: string; title: string }>;
-  };
-  sameItems("Map search", mapSearch.pages, mapItems, fail);
+  if (mapSearchResponse.status !== 404) {
+    fail("/map/index.json must not remain public");
+  }
+  await mapSearchResponse.body?.cancel();
   if (search.pages.some((page) => page.route.startsWith("/map"))) {
     fail("manual search contains a Map route");
-  }
-  if (mapSearch.pages.some((page) => page.route.startsWith("/docs"))) {
-    fail("Map search contains a manual route");
   }
 
   const llmsResponse = await get("/llms.txt");
@@ -649,7 +634,7 @@ export async function runSiteSmoke(
   sameSequence(
     "Map sitemap",
     sitemapMap,
-    mapItems.map((item) => item.route),
+    [site.publicMap.landing.route],
     fail,
   );
 
@@ -775,7 +760,7 @@ export async function runSiteSmoke(
     `${redirectTable.redirects.size} declared historical redirects`,
     `${checkedInternal.size} linked non-HTML internal endpoints`,
     `${instructions.length} instructions pages in cross-surface parity`,
-    `${mapItems.length} isolated public Map pages`,
+    `${mapItems.length} repository links in the Map overview`,
     `${PUBLIC_SCHEMA_PUBLICATIONS.length} versioned public schemas byte-matched`,
     "RFC 9116 security.txt byte-matched",
   );

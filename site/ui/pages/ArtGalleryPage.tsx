@@ -1,23 +1,22 @@
 /** Development-only browser and terminal art gallery, rendered to static HTML. */
 
 import type { ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { Brand, SkipLink } from "discern-design-system/react";
 import {
   BROWSER_ARTWORK_ENTRIES,
   type BrowserArtworkEntry,
-} from "../../art/browser/renderers.tsx";
+} from "../../../art/browser/renderers.tsx";
 import {
   BROWSER_ART_FOUNDATION_STYLESHEET,
   browserArtworkStylesheetNames,
-} from "../../art/browser/registry.ts";
+} from "../../../art/browser/registry.ts";
 import {
   artGalleryEntries,
   type ArtGalleryEntry,
-} from "../../art/terminal/gallery.ts";
-import { DISCERN_MARK } from "../brand.ts";
-import { SITE_APPEARANCE } from "../appearance.ts";
-import { pageDocument } from "./document.ts";
+} from "../../../art/terminal/gallery.ts";
+import { DISCERN_MARK } from "../../brand.ts";
+import { SITE_APPEARANCE } from "../../appearance.ts";
+import { renderDocument } from "../Document.tsx";
 
 const PREVIEW_THEMES = ["light", "dark"] as const;
 
@@ -164,8 +163,7 @@ function ArtGallery(
               Static browser mockups of the same registry members printed by
               {" "}
               <code>deno task art</code>. Their semantic timelines remain
-              available through{"  "}<code>--animate</code>{" "}
-              in a capable terminal.
+              available through <code>--animate</code> in a capable terminal.
             </p>
           </header>
           <TerminalArtwork artworks={terminalArtworks} />
@@ -186,8 +184,8 @@ export function renderArtGallery(
   browserArtworks: readonly BrowserArtworkEntry[] = BROWSER_ARTWORK_ENTRIES,
   terminalArtworks: readonly ArtGalleryEntry[] = artGalleryEntries(),
 ): string {
-  return pageDocument({
-    source: "art-gallery.tsx",
+  return renderDocument({
+    source: "site/ui/pages/ArtGalleryPage.tsx",
     title: "Art studies · discern",
     description:
       "Development-only browser motion and terminal artwork references.",
@@ -200,11 +198,11 @@ export function renderArtGallery(
       ...browserArtworkStylesheetNames(browserArtworks),
     ],
     scripts: [],
-    body: renderToStaticMarkup(
+    children: (
       <ArtGallery
         browserArtworks={browserArtworks}
         terminalArtworks={terminalArtworks}
-      />,
+      />
     ),
   });
 }

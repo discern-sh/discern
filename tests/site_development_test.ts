@@ -168,8 +168,8 @@ function wildcardServeTasks(entries: readonly ConfigEntry[]): string[] {
   return offenders;
 }
 
-/** Find site-dev tasks allowed to override the production NODE_ENV contract. */
-function siteDevEnvMaskingOffenders(
+/** Find site-dev tasks missing the explicit server-rendering environment contract. */
+function siteDevEnvPermissionOffenders(
   entries: readonly ConfigEntry[],
 ): string[] {
   const offenders: string[] = [];
@@ -180,9 +180,8 @@ function siteDevEnvMaskingOffenders(
         command,
       );
       if (
-        allowEnv !== null &&
-        (allowEnv[1] === undefined ||
-          allowEnv[1].split(",").includes("NODE_ENV"))
+        (allowEnv === null || allowEnv[1] === undefined ||
+          !allowEnv[1].split(",").includes("NODE_ENV"))
       ) {
         offenders.push(`${path}:${name}`);
       }
@@ -201,14 +200,14 @@ Deno.test("the development-server detector catches a freshly named wildcard sibl
   );
 });
 
-Deno.test("the site env-mask detector catches a freshly named task sibling", () => {
+Deno.test("the site server environment guard enrolls a freshly named task sibling", () => {
   assertEquals(
-    siteDevEnvMaskingOffenders([{
+    siteDevEnvPermissionOffenders([{
       path: "unrelated/deno.json",
       config: {
         tasks: {
           showcase:
-            "deno run --allow-env=PORT,NODE_ENV --allow-net=127.0.0.1 site/dev.ts",
+            "deno run --allow-env=PORT --allow-net=127.0.0.1 site/dev.ts",
         },
       },
     }]),
@@ -279,11 +278,11 @@ Deno.test("every deno serve task binds to loopback explicitly", async () => {
   );
 });
 
-Deno.test("site development tasks leave NODE_ENV reads visible", async () => {
+Deno.test("site development tasks grant the server renderer only explicit environment names", async () => {
   assertEquals(
-    siteDevEnvMaskingOffenders(await developmentConfigs()),
+    siteDevEnvPermissionOffenders(await developmentConfigs()),
     [],
-    "site/dev.ts must neither grant NODE_ENV nor grant unrestricted env access",
+    "site/dev.ts must grant NODE_ENV explicitly and reject unrestricted env access",
   );
 });
 
@@ -531,6 +530,11 @@ function sitePreviewTasks(
  * override's read before neutralizing its value.
  */
 const PREVIEW_ENV_PROBE = `
+let fullEnvironmentReads = 0;
+Deno.env.toObject = () => {
+  fullEnvironmentReads++;
+  throw new Deno.errors.NotCapable("preview has only named environment grants");
+};
 const [target, devSpecifier, entrySpecifier] = Deno.args;
 if (
   target === undefined || devSpecifier === undefined ||
@@ -551,6 +555,9 @@ const resolved = await dev.resolveSiteDevPort(
 );
 if (resolved !== discovered) {
   throw new Error("preview port resolution ignored the worktree identity");
+}
+if (fullEnvironmentReads !== 0) {
+  throw new Error("preview attempted " + fullEnvironmentReads + " full environment reads");
 }
 console.log("preview-port:" + resolved);
 `;
@@ -766,9 +773,9 @@ Deno.test("every preview task resolves worktree identity under its own permissio
       assert(
         probe.success,
         `task '${task.name}' cannot start from a linked worktree under its ` +
-          `own permission flags. Preview startup reads something the task's ` +
-          `--allow-env list in ${task.config} does not grant; add the ` +
-          `variable named below to that list.\n${probe.stderr}`,
+          `own permission flags in ${task.config}. Required named reads must ` +
+          `be declared; optional full-environment reads must use the isolated ` +
+          `read-only Git fallback without prompting.\n${probe.stderr}`,
       );
       assertStringIncludes(
         probe.stdout,
@@ -809,7 +816,7 @@ Deno.test("the watch task delegates to the source-driven site watcher", async ()
   const root = await readConfig(join(REPO, "deno.json"));
   assertEquals(
     root.tasks?.watch,
-    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_TRUNK,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch",
+    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=NODE_ENV,PORT,DISCERN_PROJECT_SLUG,DISCERN_TRUNK,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch",
   );
 
   assertEquals(SITE_BUILD_INPUTS.length > 0, true);

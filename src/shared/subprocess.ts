@@ -118,19 +118,25 @@ export function gitChildEnvironmentPlan(
   permissionFallback: GitEnvironmentPermissionFallback = "refuse",
   parent: Pick<typeof Deno.env, "get" | "toObject"> = Deno.env,
 ): GitChildEnvironmentPlan {
-  try {
-    return {
-      clearEnv: true,
-      env: gitChildEnvironment(overrides, parent),
-    };
-  } catch (error) {
-    if (
-      !(error instanceof Deno.errors.NotCapable) &&
-      !(error instanceof Deno.errors.PermissionDenied)
-    ) {
-      throw error;
+  // Optional enumeration must not request a wider grant in an interactive host.
+  if (
+    permissionFallback === "refuse" ||
+    Deno.permissions.querySync({ name: "env" }).state === "granted"
+  ) {
+    try {
+      return {
+        clearEnv: true,
+        env: gitChildEnvironment(overrides, parent),
+      };
+    } catch (error) {
+      if (
+        !(error instanceof Deno.errors.NotCapable) &&
+        !(error instanceof Deno.errors.PermissionDenied)
+      ) {
+        throw error;
+      }
+      if (permissionFallback === "refuse") throw error;
     }
-    if (permissionFallback === "refuse") throw error;
   }
 
   const safeOverrides = { ...overrides };

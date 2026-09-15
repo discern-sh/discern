@@ -4,9 +4,9 @@ import {
   type CatalogueRecord,
   releaseCatalogue,
 } from "../site/releases/model.ts";
-import { loadDocsSite } from "../site/docs.ts";
+import { loadDocsSite } from "../site/docs.tsx";
 import { liveHtmlRoutes, type SiteRouting } from "../site/serve.ts";
-import { buildSiteRedirectTable, STATIC_REDIRECTS } from "../site/seo.ts";
+import { buildSiteRedirectTable, STATIC_REDIRECTS } from "../site/seo.tsx";
 
 /** Keep visual-review names and release claims confined to synthetic records. */
 export function releasePageCatalogue(): CatalogueRecord[] {
@@ -95,4 +95,13 @@ export async function releasePageRouting(
     releases: records,
     redirects: buildSiteRedirectTable(liveRoutes, [], STATIC_REDIRECTS),
   };
+}
+
+/** Read canonical update wording separately from package clipboard-control labels. */
+export function releaseUpdateSteps(document: Document): string[] {
+  return [...document.querySelectorAll("#update li")].map((step) => {
+    const copy = step.cloneNode(true) as Element;
+    for (const control of copy.querySelectorAll("button")) control.remove();
+    return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
+  });
 }

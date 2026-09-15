@@ -18,8 +18,8 @@ import {
   type DocsSite,
   loadDocsSite,
   projectManualPages,
-} from "../site/docs.ts";
-import { buildSiteRedirectTable, docsLlmsFullText } from "../site/seo.ts";
+} from "../site/docs.tsx";
+import { buildSiteRedirectTable, docsLlmsFullText } from "../site/seo.tsx";
 import { liveHtmlRoutes } from "../site/serve.ts";
 import { buildSearchIndex } from "../site/search.ts";
 import {
@@ -108,7 +108,7 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
   // The sitemap also carries project history and the separately admitted Map.
   // Select only the manual's canonical identities before comparing surfaces.
   const expectedRouteSet = new Set(expectedRoutes);
-  const manualSitemap = site.sitemapRoutes.filter((route) =>
+  const manualSitemap = liveHtmlRoutes(site).filter((route) =>
     expectedRouteSet.has(route)
   );
   assertEquals(manualSitemap, expectedRoutes);
@@ -163,7 +163,6 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
     ...site.pages,
     ...site.decisions.pages,
     site.publicMap.landing,
-    ...site.publicMap.pages,
   ]);
   assertEquals(table.issues, []);
   for (const [source, target] of redirects.redirects) {
@@ -334,15 +333,7 @@ This published fixture must join every complete delivery projection while the au
       landing,
       pages: site.pages,
       sections: site.sections,
-      sitemapRoutes: [
-        landing.route,
-        ...site.pages.map((page) => page.route),
-        real.decisions.route,
-        ...real.decisions.pages.map((page) => page.route),
-        ...real.publicMap.sitemapRoutes,
-      ],
     };
-    assert(enrolled.sitemapRoutes.includes(fresh.route));
     assert(liveHtmlRoutes(enrolled).includes(fresh.route));
 
     // llms.txt lists the fresh page exactly once; llms-full.txt carries its
@@ -369,7 +360,6 @@ This published fixture must join every complete delivery projection while the au
       ...enrolled.pages,
       ...real.decisions.pages,
       real.publicMap.landing,
-      ...real.publicMap.pages,
     ]);
     assertEquals(table.issues, []);
     assertEquals(table.redirects.get(retiredSource), fresh.route);

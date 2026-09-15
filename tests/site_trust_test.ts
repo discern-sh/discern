@@ -3,7 +3,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { CLAIMS } from "../scripts/brand/claims.ts";
 import { TRUST_TITLE } from "../site/brand.ts";
-import { TRUST_EVIDENCE } from "../site/page-src/trust.tsx";
+import { TRUST_EVIDENCE } from "../site/ui/pages/TrustPage.tsx";
 import { handler } from "../site/serve.ts";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";

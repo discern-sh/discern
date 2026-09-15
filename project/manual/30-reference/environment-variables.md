@@ -78,9 +78,9 @@ Values discern exports before running a Project Script.
 
 Structured inputs exported to checkpoint `when` commands.
 
-| Variable                   | What it does                                                                                                                                                                                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DISCERN_CHECKPOINT_INPUT` | Absolute path to the versioned JSON facts without raw file content for the current checkpoint `when` command. See the [checkpoint `when` protocol](https://discern.sh/map/reference/checkpoint-when-protocol). The file exists only while that command runs. |
+| Variable                   | What it does                                                                                                                                                                                                                                                                                        |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCERN_CHECKPOINT_INPUT` | Absolute path to the versioned JSON facts without raw file content for the current checkpoint `when` command. See the [checkpoint `when` protocol](https://github.com/jackwh/discern/blob/main/project/map/70-reference/checkpoint-when-protocol.md). The file exists only while that command runs. |
 
 ## Worktree environment
 

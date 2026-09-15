@@ -165,6 +165,8 @@ export const ARTIFACT_VALIDATORS: readonly EnrolledValidator[] = [
  * record that outlives any of those facts fails, so the ledger cannot rot.
  */
 export const NON_VALIDATOR_IMPORTS: Readonly<Record<string, string>> = {
+  "src/lib/paths.ts#numberedDocRoute":
+    "derives URL shapes from numbered document paths; the site guard uses it to exercise retired routes, not to validate an authored artifact",
   "src/lib/artifact_ownership.ts#isDiscernWriteTarget":
     "classifies discern-owned write targets for the write-surface guard; its subject is discern's own outputs, not an authored artifact",
   "src/lib/artifact_ownership.ts#projectArtifactPaths":

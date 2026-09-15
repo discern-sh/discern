@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Dependency pin:** the package is consumed as an exact immutable pin; `deno.json` and `deno.lock` hold the live version, and release-borne contract changes are recorded in their own ADRs ([ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md), [ADR 0287](0287-terminal-markdown-delegates-to-the-design-system.md), [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)).
+> - **React site authoring:** Website layouts consume the package React adapters at build time and request time. Exact package ownership and emitted local assets remain the contract. See [ADR 0402](0402-site-layouts-use-server-rendered-react-components.md).
 
 **Status**: accepted
 

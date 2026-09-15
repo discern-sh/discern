@@ -14,7 +14,7 @@ import {
   type RulePoint,
   type RuleTriangle,
 } from "../art/browser/rule.tsx";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 
 const ARTWORK_CSS = new URL("../art/browser/rule.css", import.meta.url);
 

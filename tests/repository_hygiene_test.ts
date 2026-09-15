@@ -15,7 +15,7 @@ import { decodeWith } from "./decode_cli_result.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { MAP_TIER_PUBLICATION_POSTURES } from "../src/lib/paths.ts";
-import { STATIC_REDIRECTS } from "../site/seo.ts";
+import { STATIC_REDIRECTS } from "../site/seo.tsx";
 
 const text = async (rel: string): Promise<string> =>
   await Deno.readTextFile(join(REPO_ROOT, rel));

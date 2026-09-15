@@ -13,6 +13,7 @@
  * bytes — the same bytes `discern docs <leaf> --raw` prints.
  */
 
+import { DOCUMENT_ROUTES, DOCUMENT_SEARCH_ROUTES } from "./routes.ts";
 import { fromFileUrl, join, relative } from "@std/path";
 import {
   adrRecords,
@@ -24,7 +25,6 @@ import {
 import {
   MAP_SECTION_REGISTRY,
   type MapSectionAudience,
-  publicMapExhibitRoute,
   resolveMapDir,
   resolveRepositoryManualDir,
 } from "../src/lib/paths.ts";
@@ -53,22 +53,22 @@ import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { repositoryBlobUrl, repositoryTreeUrl } from "../src/shared/brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
 import { siteAppearanceRootAttributes } from "./appearance.ts";
-import { decorateDocumentHtml } from "./document_html.ts";
+import { decorateDocumentHtml } from "./document_html.tsx";
 import {
   authoredHeadingNumberClass,
   tableOfContentsHtml,
   type TocItem,
-} from "./document_toc.ts";
+} from "./document_toc.tsx";
 import { buildSearchIndex } from "./search.ts";
 import {
   THEME_BOOTSTRAP,
   THEME_SCRIPT_PATH,
   THEME_STYLESHEET_PATH,
 } from "./theme.ts";
-import { renderWorkflowMarkdown } from "./workflow.ts";
+import { renderWorkflowMarkdown } from "./workflow.tsx";
 
-export { decorateDocumentHtml } from "./document_html.ts";
-export type { TocItem } from "./document_toc.ts";
+export { decorateDocumentHtml } from "./document_html.tsx";
+export type { TocItem } from "./document_toc.tsx";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const MANUAL_DIR = resolveRepositoryManualDir(REPO_ROOT).abs;
@@ -76,8 +76,8 @@ const MAP_DIR = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
 const ADR_DIR = join(MAP_DIR, "_adr");
 const MANUAL_REPO_REL = relative(REPO_ROOT, MANUAL_DIR);
 const MAP_REPO_REL = relative(REPO_ROOT, MAP_DIR);
-const DECISIONS_ROUTE = "/docs/decisions";
-export const PUBLIC_MAP_ROUTE = "/map";
+const DECISIONS_ROUTE = DOCUMENT_ROUTES.decisions;
+export const PUBLIC_MAP_ROUTE = DOCUMENT_ROUTES.map;
 const GLOSSARY_SOURCE_PATH = "30-reference/glossary.md";
 const DISCERN_BRAND_FRAGMENT = new URL(
   "pages/fragments/brand.html",
@@ -108,7 +108,7 @@ export interface DocsPage {
 /** One safely admitted page in discern's separately framed live Map. */
 export interface MapPage {
   routeKind: "map";
-  /** Site route rooted at `/map`. */
+  /** Overview route for the root, repository Markdown URL for an entry. */
   route: string;
   entry: DocEntry;
   /** Map-relative source path that resolves local links. */
@@ -169,12 +169,10 @@ export interface PublicMapSection {
 export interface PublicMapSite {
   landing: MapPage;
   pages: MapPage[];
-  byRoute: Map<string, MapPage>;
   bySourcePath: Map<string, MapPage>;
   sections: PublicMapSection[];
   /** Every discovered page rejected by the canonical tier/publish policy. */
   rejected: DocEntry[];
-  sitemapRoutes: string[];
 }
 
 /** The published docs site, derived once per process. */
@@ -183,7 +181,7 @@ export interface DocsSite {
   landing: DocsLanding;
   /** Every page in linear reading order (section indexes included). */
   pages: DocsPage[];
-  byRoute: Map<string, RoutedDocPage>;
+  byRoute: Map<string, DocsPage | DecisionPage>;
   /** Corpus-relative source path → page. Decision paths start with `_adr/`. */
   bySourcePath: Map<string, RoutedDocPage>;
   sections: DocsSection[];
@@ -198,8 +196,6 @@ export interface DocsSite {
   };
   /** discern's separately framed, safely admitted project Map. */
   publicMap: PublicMapSite;
-  /** Canonical HTML route source consumed by the sitemap implementation. */
-  sitemapRoutes: string[];
 }
 
 let sitePromise: Promise<DocsSite> | undefined;
@@ -271,12 +267,11 @@ async function buildDocsSite(): Promise<DocsSite> {
     byNumber.set(page.number, page);
   }
 
-  const byRoute = new Map<string, RoutedDocPage>();
+  const byRoute = new Map<string, DocsPage | DecisionPage>();
   const bySourcePath = new Map<string, RoutedDocPage>();
   for (
     const page of [
       ...projection.pages,
-      ...publicMap.pages,
       ...decisionPages,
     ]
   ) {
@@ -321,13 +316,6 @@ async function buildDocsSite(): Promise<DocsSite> {
       byNumber,
     },
     publicMap,
-    sitemapRoutes: [
-      landing.route,
-      ...projection.pages.map((page) => page.route),
-      DECISIONS_ROUTE,
-      ...decisionPages.map((page) => page.route),
-      ...publicMap.sitemapRoutes,
-    ],
   };
 }
 
@@ -403,15 +391,6 @@ function publicMapSectionSlug(dir: string): string {
   return dir.replace(/^\d+-/, "");
 }
 
-/** Derive one canonical public Map route without a site-owned page list. */
-function publicMapPageRoute(entry: DocEntry): string {
-  const route = publicMapExhibitRoute(entry.relToDocs);
-  if (route === undefined) {
-    throw new Error(`map: no registered section for ${entry.relToDocs}`);
-  }
-  return route;
-}
-
 /**
  * Project the complete discovered Map through its canonical tier and publish
  * policy. Discovery is intentionally widened first so protected directories
@@ -448,7 +427,7 @@ export function projectPublicMapPages(
     if (registration === undefined) return [];
     return [{
       routeKind: "map",
-      route: publicMapPageRoute(entry),
+      route: repositoryBlobUrl(`${MAP_REPO_REL}/${entry.relToDocs}`),
       entry,
       sourcePath: entry.relToDocs,
       sectionSlug: publicMapSectionSlug(registration.dir),
@@ -479,16 +458,14 @@ export function projectPublicMapPages(
       };
     },
   );
-  const byRoute = new Map<string, MapPage>();
   const bySourcePath = new Map<string, MapPage>([[
     landing.sourcePath,
     landing,
   ]]);
   for (const page of pages) {
-    if (byRoute.has(page.route)) {
-      throw new Error(`map: duplicate public route ${page.route}`);
+    if (bySourcePath.has(page.sourcePath)) {
+      throw new Error(`map: duplicate source ${page.sourcePath}`);
     }
-    byRoute.set(page.route, page);
     bySourcePath.set(page.sourcePath, page);
   }
   const reachable = sections.flatMap((section) => section.pages);
@@ -503,11 +480,9 @@ export function projectPublicMapPages(
   return {
     landing,
     pages,
-    byRoute,
     bySourcePath,
     sections,
     rejected,
-    sitemapRoutes: [landing.route, ...pages.map((page) => page.route)],
   };
 }
 
@@ -1061,7 +1036,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
   const contextLabel = map ? "/map" : "/docs";
   const corpusLabel = map ? "Live Map" : "Manual";
   const searchLabel = map ? "the live Map" : "the manual";
-  const searchEndpoint = `${rootRoute}/index.json`;
+  const searchEndpoint = DOCUMENT_SEARCH_ROUTES.manual;
   const navFoot = map
     ? `<a href="/docs">Product manual</a>
       <a href="${DECISIONS_ROUTE}">Project decisions</a>
@@ -1374,102 +1349,6 @@ ${article}
   });
 }
 
-/** Frame the Map as inspectable internal-use evidence, not product documentation. */
-function mapExhibitLabelHtml(): string {
-  return `<aside class="docs-history-label docs-map-label">
-    <span class="discern-kicker">Live project exhibit</span>
-    <p>This is the account discern's coding agents maintain of discern for
-    project work and human audit. discern is developed under its own practice,
-    so the Map is working evidence from internal use—not independent validation
-    or product documentation. <a href="/docs">Use the manual to learn and work
-    with discern.</a></p>
-  </aside>`;
-}
-
-/** One safely admitted Map page through the shared document shell. */
-export function mapShell(
-  site: DocsSite,
-  page: MapPage,
-  rendered: RenderedDoc,
-): string {
-  const article = decorateDocumentHtml(`${rendered.html}
-${sectionLeafIndexHtml(site, page)}`);
-  return shellFrame(site, {
-    htmlTitle: mapPageHtmlTitle(site, page),
-    description: page.entry.description,
-    current: page,
-    corpus: "map",
-    breadcrumb: page,
-    mainHtml: `${mapExhibitLabelHtml()}
-    <p class="docs-page-kind">${esc(pageKindLabel(page))}</p>
-    <article class="doc-body docs-map-body${
-      authoredHeadingNumberClass(rendered.toc)
-    }">
-${article}
-    </article>
-    ${pagerHtml(site, page)}
-    ${colophonHtml(page)}`,
-    tocHtml: tableOfContentsHtml(rendered.toc),
-  });
-}
-
-/**
- * Derive unique Map metadata titles without changing authored page headings.
- * Repeated titles are qualified by their registered section; a same-section
- * collision falls back to the stable public route.
- */
-export function mapPageHtmlTitle(site: DocsSite, page: MapPage): string {
-  const peers = site.publicMap.pages.filter((candidate) =>
-    candidate.entry.title === page.entry.title
-  );
-  if (peers.length === 1) {
-    return `${page.entry.title} · discern.sh Map`;
-  }
-  const sameSection = peers.filter((candidate) =>
-    candidate.entry.section === page.entry.section
-  );
-  const section = site.publicMap.sections.find((candidate) =>
-    candidate.dir === page.entry.section
-  );
-  const qualifier = sameSection.length === 1 && section !== undefined
-    ? section.title
-    : page.route.slice(`${PUBLIC_MAP_ROUTE}/`.length).replaceAll("/", " › ");
-  return `${page.entry.title} — ${qualifier} · discern.sh Map`;
-}
-
-/** The rooted public Map exhibit, sourced from the configured Map README. */
-export function mapIndexShell(
-  site: DocsSite,
-  rendered: RenderedDoc,
-): string {
-  const map = site.publicMap;
-  const pageCount = 1 + map.pages.length;
-  const main = `${mapExhibitLabelHtml()}
-  <article class="doc-body docs-map-body docs-map-index${
-    authoredHeadingNumberClass(rendered.toc)
-  }">
-${decorateDocumentHtml(rendered.html)}
-  </article>
-  <section class="docs-complete-browse" aria-label="Complete public Map">
-    <details>
-      <summary>Browse all ${pageCount} admitted Map pages</summary>
-      <div class="docs-chapters">
-        ${completeBrowseHtml(map.sections)}
-      </div>
-    </details>
-  </section>
-  ${colophonHtml(null, "map")}`;
-  return shellFrame(site, {
-    htmlTitle: `${map.landing.entry.title} · discern.sh Map`,
-    description: map.landing.entry.description,
-    current: null,
-    corpus: "map",
-    breadcrumb: null,
-    mainHtml: main,
-    tocHtml: tableOfContentsHtml(rendered.toc),
-  });
-}
-
 /** Explain decision status and route readers to current product documentation. */
 function historyLabelHtml(superseded: boolean): string {
   const status = superseded
@@ -1587,35 +1466,23 @@ export function docsLlmsSection(site: DocsSite): string {
 
 // ── The request handler ────────────────────────────────────────────────────
 
-const searchIndexCache = new Map<DocumentCorpus, string>();
+let searchIndexCache: string | undefined;
 
-/** Build and cache one isolated browser search corpus. */
-async function searchIndexJson(
-  site: DocsSite,
-  corpus: DocumentCorpus,
-): Promise<string> {
-  const cached = searchIndexCache.get(corpus);
-  if (cached !== undefined) return cached;
-  const root = corpus === "map" ? site.publicMap.landing : site.landing;
-  const pages = corpus === "map" ? site.publicMap.pages : site.pages;
-  const sections = corpus === "map" ? site.publicMap.sections : site.sections;
+/** Build and cache the published manual's browser search index. */
+async function searchIndexJson(site: DocsSite): Promise<string> {
+  if (searchIndexCache !== undefined) return searchIndexCache;
   const index = await buildSearchIndex([
-    {
-      route: root.route,
-      section: corpus === "map" ? "Live Map" : "Manual",
-      entry: root.entry,
-    },
-    ...pages.map((page) => ({
+    { route: site.landing.route, section: "Manual", entry: site.landing.entry },
+    ...site.pages.map((page) => ({
       route: page.route,
-      section: sections.find((section) =>
+      section: site.sections.find((section) =>
         section.slug === page.sectionSlug
       )?.title ?? "",
       entry: page.entry,
     })),
   ]);
-  const serialized = JSON.stringify(index);
-  searchIndexCache.set(corpus, serialized);
-  return serialized;
+  searchIndexCache = JSON.stringify(index);
+  return searchIndexCache;
 }
 
 /** Serve a cacheable successful body with its media type and optional negotiation variance. */
@@ -1657,11 +1524,8 @@ export async function serveDocuments(
 ): Promise<Response> {
   const site = await loadDocsSite();
 
-  if (path === "/docs/index.json") {
-    return respond(await searchIndexJson(site, "manual"), "application/json");
-  }
-  if (path === `${PUBLIC_MAP_ROUTE}/index.json`) {
-    return respond(await searchIndexJson(site, "map"), "application/json");
+  if (path === DOCUMENT_SEARCH_ROUTES.manual) {
+    return respond(await searchIndexJson(site), "application/json");
   }
 
   const wantsMd = path.endsWith(".md");
@@ -1691,9 +1555,8 @@ export async function serveDocuments(
         !wantsMd,
       );
     }
-    const rendered = await renderDoc(site.publicMap.landing, site);
     return respond(
-      mapIndexShell(site, rendered),
+      (await import("./ui/pages/MapPage.tsx")).renderMapPage(site.publicMap),
       "text/html; charset=utf-8",
       true,
     );
@@ -1730,8 +1593,6 @@ export async function serveDocuments(
   return respond(
     page.routeKind === "decision"
       ? decisionShell(site, page, rendered)
-      : page.routeKind === "map"
-      ? mapShell(site, page, rendered)
       : docsShell(site, page, rendered),
     "text/html; charset=utf-8",
     true,

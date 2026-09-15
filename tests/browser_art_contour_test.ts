@@ -11,7 +11,7 @@ import {
   defineContourRing,
 } from "../art/browser/contour.tsx";
 import { browserArtworkStylesheetName } from "../art/browser/registry.ts";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 import {
   ART_GALLERY_PATH,
   ART_STYLESHEET_PATHS,

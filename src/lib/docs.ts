@@ -439,32 +439,32 @@ export interface PublicDocSurface {
 export const PUBLIC_DOC_SURFACES: readonly PublicDocSurface[] = [
   {
     name: "website-navigation",
-    source: "site/docs.ts",
+    source: "site/docs.tsx",
     via: "loadDocsSite adapts the validated manual sections and front doors",
   },
   {
     name: "website-pages",
-    source: "site/docs.ts",
+    source: "site/docs.tsx",
     via: "rendered and raw Markdown routes share the validated site model",
   },
   {
     name: "website-search",
-    source: "site/docs.ts",
+    source: "site/docs.tsx",
     via: "the search builder receives only validated manual pages",
   },
   {
     name: "website-redirects",
-    source: "site/docs.ts",
+    source: "site/docs.tsx",
     via: "redirect claims come from validated destination pages",
   },
   {
     name: "website-sitemap",
-    source: "site/docs.ts",
+    source: "site/docs.tsx",
     via: "sitemap routes derive from validated manual pages",
   },
   {
     name: "website-llms",
-    source: "site/docs.ts",
+    source: "site/docs.tsx",
     via: "machine editions concatenate the validated site model",
   },
   {

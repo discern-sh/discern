@@ -15,7 +15,7 @@ import {
   browserArtworkStylesheetNames,
 } from "../art/browser/registry.ts";
 import { artGalleryEntries } from "../art/terminal/gallery.ts";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 import {
   ART_GALLERY_PATH,
   ART_STYLESHEET_PATHS,
@@ -67,7 +67,7 @@ async function neutralArtSources(): Promise<Array<[string, string]>> {
         "Neutral study vocabulary governs the browser-art tree, its gallery source pair, and conventionally named browser-art controls.",
       include: (path) =>
         path.startsWith("art/browser/") ||
-        path === "site/page-src/art-gallery.tsx" ||
+        path === "site/ui/pages/ArtGalleryPage.tsx" ||
         path === "site/page-src/art-gallery.css" ||
         /^tests\/browser_art_.+_test\.ts$/.test(path),
     },

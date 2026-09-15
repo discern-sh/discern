@@ -3,15 +3,18 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename } from "@std/path";
 import { discoverDocs, type DocEntry, isPublicDoc } from "../src/lib/docs.ts";
-import { MAP_SECTION_REGISTRY } from "../src/lib/paths.ts";
+import { MAP_SECTION_REGISTRY, numberedDocRoute } from "../src/lib/paths.ts";
 import {
   isPublicMapEntry,
   loadDocsSite,
   projectPublicMapPages,
   PUBLIC_MAP_ROUTE,
   rewriteLinks,
-} from "../site/docs.ts";
-import { handler } from "../site/serve.ts";
+} from "../site/docs.tsx";
+import { handler, liveHtmlRoutes } from "../site/serve.ts";
+import { siteRoutes } from "../site/routes.ts";
+import { repositoryBlobUrl } from "../src/shared/brand.ts";
+import { renderMapPage } from "../site/ui/pages/MapPage.tsx";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
@@ -134,71 +137,111 @@ Deno.test("protected directories and explicit withholding fail the Map predicate
   );
 });
 
-Deno.test("the public Map has rooted framing, navigation, breadcrumbs, and raw policy", async () => {
+Deno.test("the Map overview lists every admitted repository entry without document rails", async () => {
   const site = await loadDocsSite();
   const response = await get(PUBLIC_MAP_ROUTE);
   assertEquals(response.status, 200);
   const dom = new JSDOM(await response.text());
   const document = dom.window.document;
-  assertEquals(document.body.dataset.documentCorpus, "map");
+  assertEquals(document.querySelectorAll("main").length, 1);
   assertStringIncludes(
-    document.querySelector(".docs-map-label")?.textContent ?? "",
+    document.querySelector("[aria-label='Live project exhibit']")
+      ?.textContent ?? "",
     "working evidence from internal use",
   );
   assertEquals(
-    document.querySelector(".docs-map-label a")?.getAttribute("href"),
-    "/docs",
-  );
-  assertEquals(
-    [...document.querySelectorAll(".docs-nav-scroll [data-nav-page] > a")]
-      .map((link) => link.getAttribute("href")),
-    site.publicMap.pages.map((page) => page.route),
-  );
-  assertEquals(
-    document.querySelector("[data-search]")?.getAttribute(
-      "data-search-endpoint",
+    document.querySelector(
+      ".docs-nav, .docs-rail, [data-search], main details",
     ),
-    "/map/index.json",
+    null,
+  );
+  for (
+    const heading of [
+      "Where to start",
+      "The sections",
+      "Browsing and maintenance",
+    ]
+  ) {
+    assert(
+      ![...document.querySelectorAll("h1,h2,h3")].some((node) =>
+        node.textContent === heading
+      ),
+    );
+  }
+  assertEquals(
+    [...document.querySelectorAll("[data-map-entry]")].map((link) =>
+      link.getAttribute("href")
+    ),
+    site.publicMap.sections.flatMap(
+      (section) => [
+        section.index,
+        ...section.pages.filter((page) => !page.isIndex),
+      ],
+    ).map((page) => repositoryBlobUrl(`project/map/${page.sourcePath}`)),
   );
   dom.window.close();
-
-  for (const page of [site.publicMap.landing, ...site.publicMap.pages]) {
-    const raw = await Deno.readTextFile(page.entry.absPath);
-    const edition = await get(`${page.route}.md`);
-    assertEquals(edition.status, 200, page.route);
-    assertEquals(await edition.text(), raw, page.route);
-  }
+  const raw = await get(`${PUBLIC_MAP_ROUTE}.md`);
+  assertEquals(raw.status, 200);
+  assertEquals(
+    await raw.text(),
+    await Deno.readTextFile(site.publicMap.landing.entry.absPath),
+  );
 });
 
-Deno.test("manual and Map search indexes are exhaustive and isolated", async () => {
+Deno.test("Map entries enroll in the directory without creating site endpoints", async () => {
   const site = await loadDocsSite();
+  const entries = [site.publicMap.landing, ...site.publicMap.pages].map(
+    (page) => page.entry,
+  );
+  const fresh = entry(`${MAP_SECTION_REGISTRY[0]?.dir}/fresh-entry.md`);
+  const insertion =
+    entries.findIndex((item) => item.section === fresh.section) + 1;
+  entries.splice(insertion, 0, fresh);
+  const map = projectPublicMapPages(entries);
+  const dom = new JSDOM(renderMapPage(map));
+  assert(
+    dom.window.document.querySelector(
+      `a[href="${repositoryBlobUrl(fresh.path)}"]`,
+    ) !== null,
+  );
+  assertEquals(
+    siteRoutes({ ...site, publicMap: map }).map((route) => route.path),
+    siteRoutes(site).map((route) => route.path),
+  );
+  dom.window.close();
+});
+
+Deno.test("Map leaves, section indexes, raw editions, and search have no site endpoints", async () => {
+  const site = await loadDocsSite();
+  assertEquals(
+    liveHtmlRoutes(site).filter((route) => route.startsWith("/map")),
+    [PUBLIC_MAP_ROUTE],
+  );
+  const inventory = siteRoutes(site);
+  assert(!inventory.some((route) => route.path.startsWith("/map/")));
+  const retired = site.publicMap.pages.flatMap((page) => {
+    const route = numberedDocRoute(page.sourcePath, PUBLIC_MAP_ROUTE);
+    assert(route);
+    return [route, `${route}/`, `${route}.md`];
+  });
+  for (const path of [...retired, "/map/index.json"]) {
+    const response = await get(path);
+    assertEquals(response.status, 404, path);
+    await response.body?.cancel();
+  }
   const manual = await (await get("/docs/index.json")).json() as {
     pages: Array<{ route: string }>;
   };
-  const map = await (await get("/map/index.json")).json() as {
-    pages: Array<{ route: string }>;
-  };
-  assertEquals(
-    manual.pages.map((page) => page.route),
-    [site.landing.route, ...site.pages.map((page) => page.route)],
+  assertEquals(manual.pages.map((page) => page.route), [
+    site.landing.route,
+    ...site.pages.map((page) => page.route),
+  ]);
+  assert(
+    !(await (await get("/llms.txt")).text()).includes("https://discern.sh/map"),
   );
-  assertEquals(
-    map.pages.map((page) => page.route),
-    [
-      site.publicMap.landing.route,
-      ...site.publicMap.pages.map((page) => page.route),
-    ],
-  );
-  assert(manual.pages.every((page) => page.route.startsWith("/docs")));
-  assert(map.pages.every((page) => page.route.startsWith("/map")));
-
-  const llms = await (await get("/llms.txt")).text();
-  assert(!llms.includes("https://discern.sh/map"));
-  const manualHtml = await (await get("/docs")).text();
-  assert(!manualHtml.includes('href="/map/orientation"'));
 });
 
-Deno.test("Map links resolve inside the exhibit and protected paths never route", async () => {
+Deno.test("Map links resolve to the overview or repository and protected paths never route", async () => {
   const site = await loadDocsSite();
   const page = site.publicMap.pages.find((candidate) => !candidate.isIndex);
   assert(page !== undefined);

@@ -27,7 +27,7 @@ import {
   loadDocsSite,
   relatedDecisionCitations,
   rewriteLinks,
-} from "../site/docs.ts";
+} from "../site/docs.tsx";
 import {
   MANUAL_KIND_REGISTRY,
   MANUAL_SECTION_REGISTRY,
@@ -291,8 +291,9 @@ Deno.test("docs navigation foot keeps the three durable reference links visible"
       ...(decision === undefined ? [] : [decision.route]),
     ]
   ) {
-    const html = await (await get(route, BROWSER)).text();
-    const dom = new JSDOM(html);
+    const response = await get(route, BROWSER);
+    assertEquals(response.status, 200, route);
+    const dom = new JSDOM(await response.text());
     assertEquals(
       [...dom.window.document.querySelectorAll(".docs-nav-foot a")].map(
         (link) => [link.textContent?.trim(), link.getAttribute("href")],
@@ -467,7 +468,6 @@ Deno.test("document structure arrives before enhancement scripts can paint", asy
     "/docs",
     ...site.pages.map((page) => page.route),
     site.publicMap.landing.route,
-    ...site.publicMap.pages.map((page) => page.route),
     site.decisions.route,
     ...site.decisions.pages.map((page) => page.route),
   ];
@@ -475,8 +475,9 @@ Deno.test("document structure arrives before enhancement scripts can paint", asy
   let anchoredHeadings = 0;
 
   for (const route of routes) {
-    const html = await (await get(route, BROWSER)).text();
-    const dom = new JSDOM(html);
+    const response = await get(route, BROWSER);
+    assertEquals(response.status, 200, route);
+    const dom = new JSDOM(await response.text());
     const document = dom.window.document;
     for (const table of document.querySelectorAll("article.doc-body table")) {
       tables++;
@@ -1199,8 +1200,7 @@ Deno.test("every local link in every published page resolves — no dead ends", 
 /**
  * Flag absolute destinations an external reader could not reach from every
  * projection: a discern.sh path that is not a live route or declared schema
- * publication, or a repository link into Map content (which must travel
- * through the framed /map exhibit or a decision route instead).
+ * publication, or a repository link into protected Map content.
  */
 function crossCorpusLinkFailures(
   path: string,
@@ -1223,10 +1223,11 @@ function crossCorpusLinkFailures(
         /^\/(?:blob|tree)\/[^/]+\//,
         "",
       );
-      if (repoPath === "project/map" || repoPath.startsWith("project/map/")) {
+      if (/^project\/map\/(?:_internal|_private)(?:\/|$)/.test(repoPath)) {
         failures.push(
-          `${path}: ${match[0]} links Map content through the repository; ` +
-            "use the /map exhibit or a decision route",
+          `${path}: ${
+            match[0]
+          } links protected Map content through the repository`,
         );
       }
       continue;
@@ -1255,9 +1256,7 @@ Deno.test("cross-corpus links stay inside the public projection on every surface
   // The guard bites: each escape class is a named failure.
   const bad = crossCorpusLinkFailures(
     "fixture.md",
-    `[repo Map](${
-      repositoryBlobUrl("project/map/00-orientation/system-map.md")
-    }) ` +
+    `[repo Map](${repositoryBlobUrl("project/map/_private/secret.md")}) ` +
       "[gone](https://discern.sh/docs/retired-nowhere) " +
       "[unadmitted](https://discern.sh/map/internal/secret) " +
       "[unknown schema](https://discern.sh/schema/v9/discern-imaginary.schema.json)",
@@ -1269,9 +1268,9 @@ Deno.test("cross-corpus links stay inside the public projection on every surface
   assertEquals(
     crossCorpusLinkFailures(
       "fixture.md",
-      `[exhibit](https://discern.sh/map) [schema](${
-        [...schemaIds][0] ?? "https://discern.sh/schema/none"
-      })`,
+      `[exhibit](https://discern.sh/map) [source](${
+        repositoryBlobUrl("project/map/00-orientation/system-map.md")
+      }) [schema](${[...schemaIds][0] ?? "https://discern.sh/schema/none"})`,
       live,
       schemaIds,
     ),
@@ -1407,17 +1406,6 @@ Deno.test("served HTML hides bare source comments that llms-full.txt preserves",
     `<!-- BEGIN ${url} -->\n\n${body.trim()}\n\n<!-- END ${url} -->`,
   );
   for (const comment of sample.comments) assertStringIncludes(full, comment);
-});
-
-Deno.test("the sitemap source contains instructions and project-history routes", async () => {
-  const site = await loadDocsSite();
-  assertEquals(site.sitemapRoutes, [
-    "/docs",
-    ...site.pages.map((page) => page.route),
-    site.decisions.route,
-    ...site.decisions.pages.map((page) => page.route),
-    ...site.publicMap.sitemapRoutes,
-  ]);
 });
 
 Deno.test("docs 404s answer in the reader's own format", async () => {

@@ -8,9 +8,9 @@ import {
 } from "@std/assert";
 import { packageManifest } from "discern-design-system";
 import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
-import { loadDocsSite } from "../site/docs.ts";
+import { loadDocsSite } from "../site/docs.tsx";
 import { handler } from "../site/serve.ts";
-import { renderWorkflowMarkdown } from "../site/workflow.ts";
+import { renderWorkflowMarkdown } from "../site/workflow.tsx";
 import {
   WORKFLOW_COMPONENTS,
   WORKFLOW_DIRECTIVES,

@@ -1,16 +1,15 @@
 /** Development-only homepage artefact specimens, rendered to static HTML. */
 
-import type { ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import type { ReactElement, ReactNode } from "react";
 import {
   Badge,
   Brand,
   DataFigure,
   SkipLink,
 } from "discern-design-system/react";
-import { DISCERN_MARK } from "../brand.ts";
-import { SITE_APPEARANCE } from "../appearance.ts";
-import { pageDocument } from "./document.ts";
+import { DISCERN_MARK } from "../../brand.ts";
+import { SITE_APPEARANCE } from "../../appearance.ts";
+import { renderDocument } from "../Document.tsx";
 
 const PREVIEW_THEMES = ["light", "dark"] as const;
 
@@ -119,14 +118,14 @@ const PROOF_JOBS = [
 ] as const;
 
 /** The product name uses the visual system's one permitted brand-name mono treatment. */
-function DiscernName() {
+function DiscernName(): ReactElement {
   return <span className="specimen-brand-name">discern</span>;
 }
 
 /** Frame one artefact twice under deterministic token roots. */
 function SpecimenSection(
   { id, index, title, introduction, render }: SpecimenSectionProps,
-) {
+): ReactElement {
   const headingId = `${id}-title`;
   return (
     <section className="specimen-section" id={id} aria-labelledby={headingId}>
@@ -159,7 +158,7 @@ function SpecimenSection(
 }
 
 /** One worktree in the illustrative beta-opening plan. */
-function WaveTask({ task }: { readonly task: DelegationTask }) {
+function WaveTask({ task }: { readonly task: DelegationTask }): ReactElement {
   return (
     <article className={`wave-task wave-task--${task.mode}`}>
       <div className="wave-task__heading">
@@ -190,7 +189,7 @@ function WaveTask({ task }: { readonly task: DelegationTask }) {
 }
 
 /** Compact illustrative plan for opening a project to beta users. */
-export function DelegationWavePlan() {
+export function DelegationWavePlan(): ReactElement {
   return (
     <DataFigure
       className="delegation-figure"
@@ -267,7 +266,7 @@ export function DelegationWavePlan() {
 }
 
 /** Staged commissioning narrative from repository study to a fresh worktree probe. */
-export function CommissioningTimeline() {
+export function CommissioningTimeline(): ReactElement {
   return (
     <DataFigure
       className="commissioning-figure"
@@ -418,7 +417,7 @@ export function CommissioningTimeline() {
 }
 
 /** The two current values shared by the compact and annotated trajectories. */
-function StandardTrajectorySummary() {
+function StandardTrajectorySummary(): ReactElement {
   return (
     <div className="standard-trajectory__summary">
       <div>
@@ -440,7 +439,7 @@ function StandardTrajectorySummary() {
 }
 
 /** The shared visual trajectory without the specimen sheet's annotations. */
-function StandardTrajectoryChart() {
+function StandardTrajectoryChart(): ReactElement {
   return (
     <div className="standard-chart">
       <svg
@@ -491,7 +490,7 @@ function StandardTrajectoryChart() {
 }
 
 /** Dated internal trajectory of the real lint-suppression falling ceiling. */
-export function StandardTrajectory() {
+export function StandardTrajectory(): ReactElement {
   return (
     <DataFigure
       className="standard-figure"
@@ -584,7 +583,7 @@ export function StandardTrajectory() {
 }
 
 /** Exact-tree completion evidence from the landed homepage-brief amendment. */
-export function ProofSpecimen() {
+export function ProofSpecimen(): ReactElement {
   return (
     <DataFigure
       className="proof-figure"
@@ -757,7 +756,7 @@ export function ProofSpecimen() {
 }
 
 /** Static development page that lets the owner judge every artefact in both themes. */
-function SpecimenPreview() {
+function SpecimenPreview(): ReactElement {
   return (
     <>
       <SkipLink href="#specimens">Skip to specimens</SkipLink>
@@ -858,8 +857,8 @@ function SpecimenPreview() {
 
 /** Render the development-only specimen sheet with the shared document shell. */
 export function renderSpecimens(): string {
-  return pageDocument({
-    source: "specimens.tsx",
+  return renderDocument({
+    source: "site/ui/pages/SpecimensPage.tsx",
     title: "Homepage artefact specimens · discern",
     description: "Development-only dual-theme homepage artefact prototypes.",
     styles: [
@@ -868,6 +867,6 @@ export function renderSpecimens(): string {
       "specimens.css",
     ],
     scripts: [],
-    body: renderToStaticMarkup(<SpecimenPreview />),
+    children: <SpecimenPreview />,
   });
 }

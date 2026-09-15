@@ -14,11 +14,11 @@ Replacing it surfaced two serving-layer defects. The generated composition pages
 
 ## Decision
 
-`/` serves a purpose-built landing composition (`site/page-src/landing.tsx`) rendered from the published design system with the brief's fixed copy. The copy runs: the strapline, the install moment, the trust strip verbatim, the three pillars, the dual-address section, the objections, and the closing call to action. Every terminal frame on the page is genuine captured output from this repository's own gate, with elisions marked and nothing altered. The frames stage one story: a deliberately introduced one-character defect, the red verdict, the structured diagnostics, and the clean pass. The Marketing atlas remains at `/design-system-demo` as an explicitly labelled atlas, and the replaced stand-in is retired.
+`/` serves a purpose-built landing composition (`site/ui/pages/HomePage.tsx`) rendered from the published design system with the brief's fixed copy. The copy runs: the strapline, the install moment, the trust strip verbatim, the three pillars, the dual-address section, the objections, and the closing call to action. Every terminal frame on the page is genuine captured output from this repository's own gate, with elisions marked and nothing altered. The frames stage one story: a deliberately introduced one-character defect, the red verdict, the structured diagnostics, and the clean pass. The Marketing atlas remains at `/design-system-demo` as an explicitly labelled atlas, and the replaced stand-in is retired.
 
 `/install` joins the stable non-HTML endpoints and serves the repository's own `install.sh`. The command the page prints — `curl -fsSL https://discern.sh/install | sh` — is therefore true from the first deploy that carries it. The plaintext edition's synopsis drops the Homebrew line (no formula exists yet) for the same command.
 
-The landing page carries its exact title with no template suffix; every other HTML route keeps the `· discern.sh docs` template. The three generated pages share one document skeleton (`site/page-src/document.ts`). The skeleton places `data-discern-root` and the theme attribute together on `<html>`, matching the docs shell, so both palettes engage everywhere. The social card draws on the design system's dark palette and sets the strapline.
+The landing page carries its exact title with no template suffix; every other HTML route keeps the `· discern.sh docs` template. The three generated pages share one document skeleton (`site/ui/Document.tsx`). The skeleton places `data-discern-root` and the theme attribute together on `<html>`, matching the docs shell, so both palettes engage everywhere. The social card draws on the design system's dark palette and sets the strapline.
 
 ## Consequences
 

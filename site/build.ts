@@ -18,9 +18,9 @@ import {
 } from "./design_system.ts";
 import { SITE_APPEARANCE } from "./appearance.ts";
 import { MARKETING_PAGES } from "./marketing_pages.ts";
-import { renderDiscernBrand } from "./page-src/branding.tsx";
+import { renderDiscernBrand } from "./ui/components/Brand.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
-import { renderMarketingPage } from "./page-src/renderers.ts";
+import { renderMarketingPage } from "./renderers.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
@@ -40,6 +40,7 @@ export const COPIED_PAGE_ASSETS = [
   "campaign.css",
   "copy-prompt.js",
   "landing.css",
+  "map.css",
   "releases.css",
   "trust.css",
 ] as const;

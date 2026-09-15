@@ -11,7 +11,8 @@ import {
   DISCERN_MARK_OUTLINE_PATH,
   SELF_TITLED_PAGES,
 } from "../site/brand.ts";
-import { loadDocsSite, mapPageHtmlTitle } from "../site/docs.ts";
+import { siteRoutes } from "../site/routes.ts";
+import { loadDocsSite } from "../site/docs.tsx";
 import {
   handler,
   handlerWithRouting,
@@ -24,7 +25,7 @@ import {
   META_DESCRIPTION_MAX,
   META_DESCRIPTION_MIN,
   SITE_ORIGIN,
-} from "../site/seo.ts";
+} from "../site/seo.tsx";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -249,12 +250,6 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
       site.publicMap.landing.route,
       `${site.publicMap.landing.entry.title} · discern.sh Map`,
     ],
-    ...site.publicMap.pages.map((page) =>
-      [
-        page.route,
-        mapPageHtmlTitle(site, page),
-      ] as const
-    ),
   ]);
   const routes = liveHtmlRoutes(site);
   const seenTitles = new Set<string>();
@@ -342,8 +337,13 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
 
 Deno.test("every explicit Markdown edition declares its HTML canonical and noindex policy", async () => {
   const site = await loadDocsSite();
-  for (const route of site.sitemapRoutes) {
-    const response = await request(`${route}.md`);
+  for (
+    const edition of siteRoutes(site).filter((entry) =>
+      entry.format === "markdown"
+    )
+  ) {
+    const route = edition.path.slice(0, -".md".length);
+    const response = await request(edition.path);
     assertEquals(response.status, 200, route);
     assertEquals(
       response.headers.get("link"),

@@ -104,6 +104,89 @@ export interface CanonicalSetEntry {
 /** The closed set of closed sets. */
 export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
+    id: "site-marketing-pages",
+    title: "Public marketing pages",
+    what:
+      "Authored public compositions enrolled in build output, serving, prose checks, and the site route inventory.",
+    source: {
+      kind: "module",
+      module: "site/marketing_pages.ts",
+      exportName: "MARKETING_PAGES",
+    },
+    guards: [
+      "tests/site_routes_test.ts",
+      "tests/site_prose_test.ts",
+      "tests/site_design_system_runtime_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "Website composition is contributor infrastructure, not product vocabulary.",
+      },
+      featureCanon: {
+        absent:
+          "These pages present the product rather than adding an engine capability.",
+      },
+    },
+    members: async () =>
+      (await import("../site/marketing_pages.ts")).MARKETING_PAGES.map((page) =>
+        page.route
+      ),
+  },
+  {
+    id: "site-endpoints",
+    title: "Fixed public site endpoints",
+    what:
+      "Each fixed endpoint's format and exhaustive handler, with release and schema addresses derived from their product authorities.",
+    source: {
+      kind: "module",
+      module: "site/routes.ts",
+      exportName: "SITE_ENDPOINTS",
+    },
+    guards: ["tests/site_routes_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent: "HTTP endpoint enrollment is website implementation detail.",
+      },
+      featureCanon: {
+        absent:
+          "These endpoints project existing product and publication capabilities.",
+      },
+    },
+    members: async () =>
+      (await import("../site/routes.ts")).SITE_ENDPOINTS.map((endpoint) =>
+        endpoint.path
+      ),
+  },
+  {
+    id: "public-site-routes",
+    title: "Public site routes",
+    what:
+      "Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.",
+    source: {
+      kind: "module",
+      module: "site/routes.ts",
+      exportName: "loadSiteRouteInventory",
+    },
+    guards: ["tests/site_routes_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent: "The route inventory is a contributor navigation surface.",
+      },
+      featureCanon: {
+        absent:
+          "The inventory describes the public projections rather than a separate engine feature.",
+      },
+    },
+    members: async () =>
+      (await (await import("../site/routes.ts")).loadSiteRouteInventory()).map(
+        (route) => route.path,
+      ),
+  },
+  {
     id: "release-records",
     title: "Release records",
     what:
