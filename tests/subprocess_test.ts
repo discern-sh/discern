@@ -276,6 +276,32 @@ Deno.test("only an explicit read-only narrow Git host may clear inherited state"
   }
 });
 
+// A named env grant leaves full enumeration ungranted, as in preview tasks.
+// The fake host makes an attempted permission-prompting read fail deterministically.
+Deno.test({
+  name: "isolated Git fallback never tries ungranted environment enumeration",
+  permissions: { env: ["GIT_BIN"] },
+  fn(): void {
+    let enumerations = 0;
+    const host = {
+      get: () => undefined,
+      toObject: () => {
+        enumerations++;
+        return { FUTURE_CALLER_IDENTITY: "must remain unread" };
+      },
+    };
+    for (const variable of GIT_REPOSITORY_LOCATION_ENVIRONMENT) {
+      const plan = gitChildEnvironmentPlan(
+        { [variable]: "must not redirect", CALLER_SETTING: "kept" },
+        "isolated-read-only",
+        host,
+      );
+      assertEquals(enumerations, 0, "fallback must precede any full env read");
+      assertEquals(plan, { clearEnv: true, env: { CALLER_SETTING: "kept" } });
+    }
+  },
+});
+
 Deno.test("isolated Git hosts admit only the no-hook read registry", async () => {
   await withTempDir(async (dir) => {
     const fakeGit = join(dir, "git");

@@ -530,6 +530,11 @@ function sitePreviewTasks(
  * override's read before neutralizing its value.
  */
 const PREVIEW_ENV_PROBE = `
+let fullEnvironmentReads = 0;
+Deno.env.toObject = () => {
+  fullEnvironmentReads++;
+  throw new Deno.errors.NotCapable("preview has only named environment grants");
+};
 const [target, devSpecifier, entrySpecifier] = Deno.args;
 if (
   target === undefined || devSpecifier === undefined ||
@@ -550,6 +555,9 @@ const resolved = await dev.resolveSiteDevPort(
 );
 if (resolved !== discovered) {
   throw new Error("preview port resolution ignored the worktree identity");
+}
+if (fullEnvironmentReads !== 0) {
+  throw new Error("preview attempted " + fullEnvironmentReads + " full environment reads");
 }
 console.log("preview-port:" + resolved);
 `;
@@ -765,9 +773,9 @@ Deno.test("every preview task resolves worktree identity under its own permissio
       assert(
         probe.success,
         `task '${task.name}' cannot start from a linked worktree under its ` +
-          `own permission flags. Preview startup reads something the task's ` +
-          `--allow-env list in ${task.config} does not grant; add the ` +
-          `variable named below to that list.\n${probe.stderr}`,
+          `own permission flags in ${task.config}. Required named reads must ` +
+          `be declared; optional full-environment reads must use the isolated ` +
+          `read-only Git fallback without prompting.\n${probe.stderr}`,
       );
       assertStringIncludes(
         probe.stdout,
