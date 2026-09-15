@@ -1,5 +1,14 @@
 /** Validate a release tag and derive its native build matrix. */
 
+import { compareVersions, parseVersion } from "../src/shared/semver.ts";
+import {
+  type AuthoredRelease,
+  currentRelease,
+} from "../site/releases/records.ts";
+import type { Publication } from "../site/releases/model.ts";
+import { releaseLabel } from "../site/releases/render.ts";
+import { loadReleaseContext } from "./release_publication.ts";
+import { verifyReleaseMetadata } from "./release_metadata.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { BUILD_TARGETS, type BuildTarget } from "./build_targets.ts";
 import type { EnvReader } from "../src/shared/env.ts";
@@ -13,6 +22,8 @@ export interface ReleaseMatrixRow {
 
 export interface ReleasePlan {
   makeLatest: boolean;
+  body: string;
+  title: string;
   matrix: { include: ReleaseMatrixRow[] };
   prerelease: boolean;
   version: string;
@@ -20,6 +31,9 @@ export interface ReleasePlan {
 
 export interface ReleasePlanOptions {
   repositoryPrivate: boolean;
+  records: readonly AuthoredRelease[];
+  published: readonly Publication[];
+  ancestors: readonly string[];
   targets?: readonly BuildTarget[];
   version?: string;
 }
@@ -43,11 +57,27 @@ export function releasePlan(
       `release tag ${tag} does not match package version ${expectedTag}`,
     );
   }
-  const prerelease = version.includes("-");
+  const selected = currentRelease(options.records, version);
+  for (const published of options.published) {
+    currentRelease(options.records, published.version);
+    if (!options.ancestors.includes(published.version)) {
+      throw new Error(
+        `release ${tag} would regress the production catalogue: source must descend from published tag v${published.version}; compose the current release source before tagging`,
+      );
+    }
+  }
+  const prerelease = (parseVersion(version).prerelease?.length ?? 0) > 0;
+  const stable = options.published.filter((release) =>
+    (parseVersion(release.version).prerelease?.length ?? 0) === 0
+  );
+  const makeLatest = !prerelease &&
+    stable.every((release) => compareVersions(version, release.version) >= 0);
   return {
     version,
     prerelease,
-    makeLatest: !prerelease,
+    makeLatest,
+    body: `${selected.summary}\n\n${selected.body}\n`,
+    title: `discern ${releaseLabel(selected)}`,
     matrix: {
       include: targets.map((target) => ({
         gateBeforeBuild: target.gateBeforeBuild === true,
@@ -63,21 +93,31 @@ export function releasePlan(
 async function main(env: EnvReader = Deno.env): Promise<void> {
   const tag = Deno.args[0];
   const githubOutput = Deno.args[1];
-  if (tag === undefined || githubOutput === undefined) {
+  const snapshotPath = Deno.args[2];
+  const bodyPath = Deno.args[3];
+  if (
+    tag === undefined || githubOutput === undefined ||
+    snapshotPath === undefined || bodyPath === undefined
+  ) {
     throw new Error(
-      "usage: release_plan.ts <release-tag> <github-output-path>",
+      "usage: release_plan.ts <release-tag> <github-output-path> <github-releases-json> <release-body-path>",
     );
   }
   const repositoryPrivate = env.get("REPOSITORY_PRIVATE");
   if (repositoryPrivate !== "true" && repositoryPrivate !== "false") {
     throw new Error("REPOSITORY_PRIVATE must be exactly true or false");
   }
+  const context = await loadReleaseContext(snapshotPath);
+  await verifyReleaseMetadata();
   const plan = releasePlan(tag, {
+    ...context,
     repositoryPrivate: repositoryPrivate === "true",
   });
+  await Deno.writeTextFile(bodyPath, plan.body);
   await Deno.writeTextFile(
     githubOutput,
-    `version=${plan.version}\n` +
+    `title=${plan.title}\n` +
+      `version=${plan.version}\n` +
       `matrix=${JSON.stringify(plan.matrix)}\n` +
       `prerelease=${plan.prerelease}\n` +
       `make_latest=${plan.makeLatest}\n`,

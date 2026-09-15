@@ -15,10 +15,10 @@ on:
 permissions:
   contents: read
 
-# Never run two publishes for the same tag at once, and don't interrupt one
-# mid-upload — queue a re-run instead.
+# Serialize publication and deployment across tags so a stale run cannot
+# replace a newer release catalogue or latest stable target.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-production
   cancel-in-progress: false
 
 jobs:
@@ -41,15 +41,25 @@ jobs:
           deno-version-file: .dvmrc
           cache: true
 
+      - name: Observe published releases and assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' > "$RUNNER_TEMP/releases.json"
+
       - name: Validate tag and derive native build matrix
         id: plan
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
         run: >-
-          deno run --allow-read --allow-write --allow-env=REPOSITORY_PRIVATE
+          deno run --allow-read --allow-write --allow-run=git --allow-env=REPOSITORY_PRIVATE
           scripts/release_plan.ts
           "${RELEASE_TAG}" "${GITHUB_OUTPUT}"
+          "$RUNNER_TEMP/releases.json" "$RUNNER_TEMP/release-body.md"
+
+      - name: Validate the candidate site catalogue
+        run: deno task site:build
 
   build:
     timeout-minutes: 270
@@ -233,6 +243,33 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version-file: .dvmrc
+          cache: true
+
+      - name: Observe published releases and assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' > "$RUNNER_TEMP/releases.json"
+
+      - name: Derive release body and recheck publication ordering
+        id: publication-plan
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+        run: >-
+          deno run --allow-read --allow-write --allow-run=git --allow-env=REPOSITORY_PRIVATE
+          scripts/release_plan.ts "${RELEASE_TAG}" "${GITHUB_OUTPUT}"
+          "$RUNNER_TEMP/releases.json" "$RUNNER_TEMP/release-body.md"
+
       # merge-multiple flattens every artifact straight into dist/ (each
       # filename is already unique per target, so nothing collides) — no
       # separate flatten step needed.
@@ -247,8 +284,11 @@ jobs:
         with:
           files: dist/discern-*
           fail_on_unmatched_files: true
-          prerelease: ${{ needs.plan.outputs.prerelease }}
-          make_latest: ${{ needs.plan.outputs.make_latest }}
+          name: ${{ steps.publication-plan.outputs.title }}
+          body_path: ${{ runner.temp }}/release-body.md
+          generate_release_notes: false
+          prerelease: ${{ steps.publication-plan.outputs.prerelease }}
+          make_latest: ${{ steps.publication-plan.outputs.make_latest }}
 
   deploy-site:
     name: deploy discern.sh from release tag
@@ -273,6 +313,19 @@ jobs:
         with:
           deno-version-file: .dvmrc
           cache: true
+
+      - name: Observe published releases and assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' > "$RUNNER_TEMP/releases.json"
+
+      - name: Validate published assets and stage the catalogue observation
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          deno run --allow-read --allow-write --allow-run=git
+          scripts/release_site.ts "${RELEASE_TAG}" "$RUNNER_TEMP/releases.json"
 
       - name: Build the exact site revision
         run: deno task site:build

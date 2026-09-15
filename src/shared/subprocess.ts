@@ -221,6 +221,7 @@ export const GIT_TRANSPORT_BOUNDARY_ERROR =
 export const ISOLATED_GIT_READ_SUBCOMMANDS = [
   "cat-file",
   "ls-tree",
+  "merge-base",
   "rev-parse",
   "show",
 ] as const;

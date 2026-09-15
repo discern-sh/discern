@@ -17,7 +17,32 @@ import {
   type BuildTarget,
   releaseArtifactPaths,
 } from "../scripts/build_targets.ts";
-import { releasePlan } from "../scripts/release_plan.ts";
+import {
+  type ReleasePlan,
+  releasePlan as validatedReleasePlan,
+  type ReleasePlanOptions,
+} from "../scripts/release_plan.ts";
+import { parseReleaseRecords } from "../site/releases/records.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
+
+/** Matrix controls provide a valid authored record; publication cases live in releases_test. */
+function releasePlan(
+  tag: string,
+  options: Omit<ReleasePlanOptions, "records" | "published" | "ancestors">,
+): ReleasePlan {
+  const version = options.version ?? DISCERN_VERSION;
+  const records = tag === "vnext" ? [] : parseReleaseRecords([{
+    path: `${version}.md`,
+    markdown:
+      "---\nsummary: Native release fixture\n---\nVerified native artifacts.",
+  }]);
+  return validatedReleasePlan(tag, {
+    ...options,
+    records,
+    published: [],
+    ancestors: [],
+  });
+}
 import { smokeReleaseBinary } from "../scripts/release_smoke.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import {
@@ -146,11 +171,11 @@ Deno.test("release stability derives prerelease and latest behavior from the pac
   assertEquals(prerelease.makeLatest, false);
   assertStringIncludes(
     releaseSource,
-    "prerelease: ${{ needs.plan.outputs.prerelease }}",
+    "prerelease: ${{ steps.publication-plan.outputs.prerelease }}",
   );
   assertStringIncludes(
     releaseSource,
-    "make_latest: ${{ needs.plan.outputs.make_latest }}",
+    "make_latest: ${{ steps.publication-plan.outputs.make_latest }}",
   );
 });
 
