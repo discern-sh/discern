@@ -57,7 +57,7 @@
     "process-boundaries": "deno run --allow-read --allow-run=git scripts/process_boundaries.ts",
     "promise-effects": "deno run --allow-read --allow-run=deno,git scripts/promise_effects.ts",
     "test-real-delay-boundaries": "deno run --allow-read --allow-run=git scripts/test_real_delay_boundaries.ts",
-    "coverage": "deno run --allow-read --allow-write --allow-env --allow-run scripts/coverage.ts",
+    "coverage": "discern queue -- deno run --allow-read --allow-write --allow-env --allow-run --allow-net=127.0.0.1 scripts/coverage.ts",
     "prose": "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose.ts",
     "vale:sync": "deno run --allow-read --allow-write --allow-env --allow-run --allow-net=github.com,release-assets.githubusercontent.com scripts/vale_toolchain.ts",
     "vocab": "deno run --allow-read --allow-env scripts/vocab_signals.ts",

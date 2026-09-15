@@ -28,6 +28,7 @@ const result = await runOwnedChild(Deno.execPath(), {
 });
 console.log(JSON.stringify({
   interruptedBy: result.interruptedBy,
+  isolatedGroup: result.isolatedGroup,
   code: result.status.code,
   signal: result.status.signal,
   success: result.status.success,

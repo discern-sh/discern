@@ -10,7 +10,7 @@
  * before reporting; scratch cleanup is
  * awaited before success so the producer leaves no detached cleanup process.
  */
-import { dirname, fromFileUrl } from "@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
 import { ArtifactPathSchema } from "../src/engine/completion/evidence.ts";
 import { resolveContainedProjectWritePath } from "../src/shared/project_path.ts";
 import type { EnvReader } from "../src/shared/env.ts";
@@ -24,7 +24,8 @@ import {
   srcLineCoverage,
 } from "./coverage_lib.ts";
 import {
-  pruneAndShardProfiles,
+  type ProfileShardingSummary,
+  type pruneAndShardProfiles,
   reportShardCount,
 } from "./coverage_profiles.ts";
 import {
@@ -33,41 +34,52 @@ import {
 } from "./module_coverage_exceptions.ts";
 import { sourceModuleUniverse } from "./source_module_universe.ts";
 import { withToolTempDir } from "./temp_dir.ts";
+import { CoverageProfilePartitions } from "./coverage_partitions.ts";
+import { runTests } from "./run_tests.ts";
+import type { CoveragePartitionObserver } from "./test_partitions.ts";
+import { superviseSpawn } from "../src/engine/owned_child.ts";
+import {
+  INTERRUPT_SIGNALS,
+  reraiseInterrupt,
+} from "../src/engine/process_signals.ts";
 
 /** Build one `deno` subcommand invocation — the sole construction site. */
 function denoCommand(args: string[], io: Deno.CommandOptions): Deno.Command {
   return new Deno.Command(Deno.execPath(), { ...io, args });
 }
 
-/** Run a `deno` subcommand, returning its captured stdout (throws on failure). */
-async function deno(
-  args: string[],
-  opts: { capture?: boolean; cwd?: string } = {},
+/** Await one native coverage reporter through the shared child lifetime. */
+async function nativeLcov(
+  directory: string,
+  root: string,
+  signal: AbortSignal,
 ): Promise<string> {
-  const result = await denoCommand(args, {
-    stdout: opts.capture ? "piped" : "inherit",
-    stderr: "inherit",
-    ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
-  }).output();
-  if (!result.success) {
-    throw new Error(`deno ${args[0]} failed (exit ${result.code}).`);
+  const run = await superviseSpawn(
+    () =>
+      denoCommand(lcovReportArgs(directory, root), {
+        cwd: root,
+        stdin: "null",
+        stdout: "piped",
+        stderr: "inherit",
+      }).spawn(),
+    (child) => child.output(),
+    { isolatedGroup: false, resumeAfterInterrupt: true, signal },
+  );
+  if (!run.value.success) {
+    throw new Error(`deno coverage failed (exit ${run.value.code}).`);
   }
-  return opts.capture ? new TextDecoder().decode(result.stdout) : "";
+  return new TextDecoder().decode(run.value.stdout);
 }
 
 /**
- * Prune and shard the raw profiles, then run one report pass per populated
- * shard concurrently, returning their LCOV texts for the per-line union.
+ * Report completed profile shards concurrently, settling every native reader
+ * before returning LCOV or a reporting failure.
  */
 async function shardedLcovReports(
-  profile: string,
+  summary: ProfileShardingSummary,
   repoRoot: string,
+  signal: AbortSignal,
 ): Promise<string[]> {
-  const summary = await pruneAndShardProfiles(
-    profile,
-    srcCoverageUrlPrefix(repoRoot),
-    reportShardCount(navigator.hardwareConcurrency),
-  );
   console.error(
     `coverage profiles: ${summary.sharded} sharded across ` +
       `${summary.shardDirs.length} report passes; ${summary.pruned} non-src ` +
@@ -88,9 +100,7 @@ async function shardedLcovReports(
   );
   const reportStarted = SYSTEM_CLOCK.monotonicNow();
   const settled = await Promise.allSettled(
-    summary.shardDirs.map((dir) =>
-      deno(lcovReportArgs(dir, repoRoot), { capture: true, cwd: repoRoot })
-    ),
+    summary.shardDirs.map((dir) => nativeLcov(dir, repoRoot, signal)),
   );
   console.error(`coverage report cost: ${
     JSON.stringify({
@@ -115,19 +125,32 @@ async function shardedLcovReports(
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
-/** Run the canonical suite exactly once, collecting only raw V8 profiles. */
+/** Coverage provides ownership controls while the canonical runner owns selection. */
+export interface CoverageSuiteControls {
+  readonly signal: AbortSignal;
+  readonly coveragePartitions: CoveragePartitionObserver;
+}
+
+/** Run the canonical suite exactly once, collecting raw V8 profiles. */
 async function instrumentSuite(
   profile: string,
+  controls: CoverageSuiteControls,
   reporter: readonly string[] = [],
   repoRoot: string = REPO_ROOT,
 ): Promise<void> {
-  await deno([
-    "task",
-    "test",
+  const code = await runTests([
     `--coverage=${profile}`,
     "--coverage-raw-data-only",
     ...reporter,
-  ], { cwd: repoRoot });
+  ], {
+    root: repoRoot,
+    signal: controls.signal,
+    resumeAfterInterrupt: true,
+    coveragePartitions: controls.coveragePartitions,
+  });
+  if (code !== 0) {
+    throw new Error(`The instrumented test suite failed (exit ${code}).`);
+  }
 }
 
 /**
@@ -137,54 +160,109 @@ async function instrumentSuite(
  */
 export async function produceCoverage(
   repoRoot: string = REPO_ROOT,
-  runSuite: (profile: string) => Promise<void> = (profile) =>
-    instrumentSuite(profile, [], repoRoot),
+  runSuite: (
+    profile: string,
+    controls: CoverageSuiteControls,
+  ) => Promise<void> = (profile, controls) =>
+    instrumentSuite(profile, controls, [], repoRoot),
+  options: {
+    readonly signal?: AbortSignal;
+    readonly processProfiles?: typeof pruneAndShardProfiles;
+  } = {},
 ): Promise<string> {
   const started = SYSTEM_CLOCK.monotonicNow();
   let suiteFinished = started;
   let reportsFinished = started;
   let suiteAttempted = false;
+  const controller = new AbortController();
+  const signal = options.signal === undefined
+    ? controller.signal
+    : AbortSignal.any([controller.signal, options.signal]);
+  let interruptedBy: Deno.Signal | null = null;
+  const handlers = new Map<Deno.Signal, () => void>();
+  for (const interrupt of INTERRUPT_SIGNALS) {
+    const handler = (): void => {
+      interruptedBy ??= interrupt;
+      controller.abort();
+    };
+    handlers.set(interrupt, handler);
+    Deno.addSignalListener(interrupt, handler);
+  }
+  let outcome: { value: string } | { error: unknown };
   try {
-    return await withToolTempDir("coverage-profile", async (profile) => {
-      suiteAttempted = true;
-      let suiteFailure: { error: unknown } | undefined;
-      try {
-        await runSuite(profile);
-      } catch (error) {
-        suiteFailure = { error };
-      }
-      suiteFinished = SYSTEM_CLOCK.monotonicNow();
-      let lcov: string;
-      try {
-        const reports = await shardedLcovReports(profile, repoRoot);
-        lcov = reports.join("\n");
-        if (suiteFailure === undefined && lcov.trim() === "") {
-          throw new Error(
-            "The instrumented suite produced no reportable coverage. The profile inventory and native report diagnostics above distinguish missing inputs from filtered or unrecognized data; no successful coverage artifact is published.",
-          );
+    const value = await withToolTempDir(
+      "coverage-profile",
+      async (directory) => {
+        const profile = join(directory, "raw");
+        await Deno.mkdir(profile);
+        const profiles = new CoverageProfilePartitions({
+          raw: profile,
+          reports: join(directory, "reports"),
+          prefix: srcCoverageUrlPrefix(repoRoot),
+          shards: reportShardCount(navigator.hardwareConcurrency),
+          ...(options.processProfiles === undefined
+            ? {}
+            : { process: options.processProfiles }),
+        });
+        const stop = (): void => profiles.stop();
+        signal.addEventListener("abort", stop, { once: true });
+        try {
+          suiteAttempted = true;
+          let suiteFailure: { error: unknown } | undefined;
+          try {
+            signal.throwIfAborted();
+            await runSuite(profile, { signal, coveragePartitions: profiles });
+          } catch (error) {
+            suiteFailure = { error };
+          }
+          suiteFinished = SYSTEM_CLOCK.monotonicNow();
+          let lcov: string;
+          try {
+            signal.throwIfAborted();
+            const summary = await profiles.finish(suiteFailure === undefined);
+            signal.throwIfAborted();
+            const reports = await shardedLcovReports(summary, repoRoot, signal);
+            signal.throwIfAborted();
+            lcov = reports.join("\n");
+            if (suiteFailure === undefined && lcov.trim() === "") {
+              throw new Error(
+                "The instrumented suite produced no reportable coverage. The profile inventory and native report diagnostics above distinguish missing inputs from filtered or unrecognized data; no successful coverage artifact is published.",
+              );
+            }
+            if (suiteFailure !== undefined && reports.length > 0) {
+              console.error(
+                "Coverage from the failed suite is diagnostic only; no evidence is published.",
+              );
+              await coverageReadings(lcov, repoRoot);
+            }
+          } catch (reportFailure) {
+            signal.throwIfAborted();
+            if (suiteFailure !== undefined) {
+              throw new AggregateError(
+                [suiteFailure.error, reportFailure],
+                "the instrumented suite and its coverage reporting both failed",
+                { cause: reportFailure },
+              );
+            }
+            throw reportFailure;
+          } finally {
+            reportsFinished = SYSTEM_CLOCK.monotonicNow();
+          }
+          if (suiteFailure !== undefined) throw suiteFailure.error;
+          return lcov;
+        } finally {
+          await profiles.stopAndWait();
+          signal.removeEventListener("abort", stop);
         }
-        if (suiteFailure !== undefined && reports.length > 0) {
-          console.error(
-            "Coverage from the failed suite is diagnostic only; no evidence is published.",
-          );
-          await coverageReadings(lcov, repoRoot);
-        }
-      } catch (reportFailure) {
-        if (suiteFailure !== undefined) {
-          throw new AggregateError(
-            [suiteFailure.error, reportFailure],
-            "the instrumented suite and its coverage reporting both failed",
-            { cause: reportFailure },
-          );
-        }
-        throw reportFailure;
-      } finally {
-        reportsFinished = SYSTEM_CLOCK.monotonicNow();
-      }
-      if (suiteFailure !== undefined) throw suiteFailure.error;
-      return lcov;
-    });
+      },
+    );
+    outcome = { value };
+  } catch (error) {
+    outcome = { error };
   } finally {
+    for (const [interrupt, handler] of handlers) {
+      Deno.removeSignalListener(interrupt, handler);
+    }
     const finished = SYSTEM_CLOCK.monotonicNow();
     if (suiteAttempted) {
       console.error(`coverage producer cost: ${
@@ -205,6 +283,9 @@ export async function produceCoverage(
       );
     }
   }
+  if (interruptedBy !== null) reraiseInterrupt(interruptedBy);
+  if ("error" in outcome) throw outcome.error;
+  return outcome.value;
 }
 
 /** Extract every coverage reading using the existing LCOV parser and Git census. */
@@ -273,8 +354,10 @@ async function main(): Promise<void> {
       await coverageReadings(
         await produceCoverage(
           REPO_ROOT,
-          (profile) =>
-            instrumentSuite(profile, [`--reporter=${coverageReporter()}`]),
+          (profile, controls) =>
+            instrumentSuite(profile, controls, [
+              `--reporter=${coverageReporter()}`,
+            ]),
         ),
       ),
     );
@@ -289,7 +372,8 @@ async function main(): Promise<void> {
     const path = ArtifactPathSchema.parse(Deno.args[1]);
     const lcov = await produceCoverage(
       REPO_ROOT,
-      (profile) => instrumentSuite(profile, Deno.args.slice(2)),
+      (profile, controls) =>
+        instrumentSuite(profile, controls, Deno.args.slice(2)),
     );
     await writeCoverageArtifact(REPO_ROOT, path, lcov);
     console.error(`coverage artifact: ${path}`);

@@ -18,7 +18,8 @@
  *   merged pass — V8 range-tree merging is not per-line decomposable across
  *   partitions of one module's profiles, so URL-hash assignment is what
  *   keeps the sharded numbers exact. An opaque head routes by filename
- *   hash; the join's per-line union covers that degraded case.
+ *   hash; the producer reports all shards together when any header is opaque
+ *   because its module identity cannot establish a separate report boundary.
  * Identical recognized profiles are weighted before reporting. A bounded
  * identity budget limits memory; overflow and unfamiliar formats remain raw.
  * Scratch cleanup belongs to the producer's awaited temporary-directory lifetime.

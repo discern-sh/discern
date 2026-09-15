@@ -18,6 +18,7 @@ const DRIVER = fromFileUrl(
 
 interface DriverResult {
   readonly interruptedBy: Deno.Signal | null;
+  readonly isolatedGroup: boolean;
   readonly code: number;
   readonly signal: Deno.Signal | null;
   readonly success: boolean;
@@ -25,6 +26,7 @@ interface DriverResult {
 
 const DRIVER_RESULT_SCHEMA = z.object({
   interruptedBy: z.enum(["SIGINT", "SIGTERM"]).nullable(),
+  isolatedGroup: z.boolean(),
   code: z.number().int(),
   signal: z.enum(["SIGINT", "SIGTERM", "SIGKILL"]).nullable(),
   success: z.boolean(),
@@ -61,6 +63,7 @@ Deno.test("an owning interactive surface resumes after its child is interrupted"
   const result = await runDriver("SIGINT");
 
   assertEquals(result.interruptedBy, "SIGINT");
+  assertEquals(result.isolatedGroup, Deno.build.os !== "windows");
   assert(!result.success);
   assertEquals(result.signal, "SIGINT");
   assertEquals(result.code, 130);

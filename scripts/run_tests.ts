@@ -8,7 +8,11 @@ import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { fromFileUrl, join } from "@std/path";
 import type { EnvReader } from "../src/shared/env.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
-import { runTestPartitions, testPartitionCount } from "./test_partitions.ts";
+import {
+  type CoveragePartitionObserver,
+  runTestPartitions,
+  testPartitionCount,
+} from "./test_partitions.ts";
 import { discoverTestPriority } from "./test_priority.ts";
 import {
   loadTestDurationHints,
@@ -95,40 +99,62 @@ export function testWorkerEnvironment(
   return os === "darwin" ? { DENO_JOBS: "3" } : {};
 }
 
-if (import.meta.main) {
+/** Shared suite entry; task wrappers retain ownership of the test-queue permit. */
+export async function runTests(
+  forwarded: readonly string[],
+  options: {
+    readonly root?: string;
+    readonly signal?: AbortSignal;
+    readonly resumeAfterInterrupt?: boolean;
+    readonly coveragePartitions?: CoveragePartitionObserver;
+  } = {},
+): Promise<number> {
   const preflight = preflightTestRuntime();
   if (!preflight.ok) {
     console.error(testPreflightFailureMessage(preflight));
-    Deno.exit(1);
+    return 1;
   }
-
-  const identitySeed = await testIdentitySeed();
-  console.error(
-    testSeedAnnouncement(effectiveTestSeed(identitySeed, Deno.args)),
-  );
+  const root = options.root ?? REPO_ROOT;
+  const identitySeed = await testIdentitySeed(root);
+  const seed = effectiveTestSeed(identitySeed, forwarded);
+  console.error(testSeedAnnouncement(seed));
   const count = testPartitionCount(
     Deno.build.os,
     navigator.hardwareConcurrency,
-    Deno.args,
+    forwarded,
   );
-  const args = testCommandArgs(identitySeed, Deno.args);
+  const args = testCommandArgs(identitySeed, forwarded);
+  const childOptions = {
+    ...(options.root === undefined ? {} : { cwd: options.root }),
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+    ...(options.resumeAfterInterrupt === undefined
+      ? {}
+      : { resumeAfterInterrupt: options.resumeAfterInterrupt }),
+  };
   if (count > 1) {
     const concurrency = Math.min(count, navigator.hardwareConcurrency);
     const durations = await loadTestDurationHints(
-      join(REPO_ROOT, TEST_DURATION_HINTS_PATH),
+      join(root, TEST_DURATION_HINTS_PATH),
     );
     const result = await runTestPartitions(args, count, {
+      ...childOptions,
       concurrency,
-      seed: effectiveTestSeed(identitySeed, Deno.args),
-      priority: (signal) => discoverTestPriority(REPO_ROOT, signal),
+      seed,
+      priority: (signal) => discoverTestPriority(root, signal),
       ...(durations === undefined ? {} : { durations }),
+      ...(options.coveragePartitions === undefined
+        ? {}
+        : { coveragePartitions: options.coveragePartitions }),
     });
     if (result.report !== undefined) console.log(result.report);
-    Deno.exit(result.code);
+    return result.code;
   }
   const child = await runOwnedChild(Deno.execPath(), {
+    ...childOptions,
     args,
     env: testWorkerEnvironment(Deno.build.os),
   });
-  Deno.exit(child.status.code);
+  return child.status.code;
 }
+
+if (import.meta.main) Deno.exit(await runTests(Deno.args));

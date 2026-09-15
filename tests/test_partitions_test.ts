@@ -968,3 +968,59 @@ Deno.test("recorded durations order launched priority partitions without changin
     assert(oneFirst[1]?.includes("0_test.ts"));
   });
 });
+
+Deno.test("coverage settlement observations require raw profiles and an owned writer group", async () => {
+  await withTempDir(async (dir) => {
+    await seedNativeTests(dir, 2);
+    for (
+      const [index, variant] of [
+        { terminal: false, raw: true },
+        { terminal: true, raw: true },
+        { terminal: false, raw: false },
+      ].entries()
+    ) {
+      const started: number[] = [];
+      const settled: number[] = [];
+      const originalTerminal = Deno.stdin.isTerminal;
+      let terminalChecks = 0;
+      Deno.stdin.isTerminal = (): boolean => {
+        terminalChecks++;
+        return variant.terminal;
+      };
+      try {
+        const suite = await runTestPartitions(
+          testCommandArgs(42, [
+            "--no-config",
+            "--no-lock",
+            "--no-check",
+            "--reporter=junit",
+            `--coverage=${join(dir, `profiles-${index}`)}`,
+            ...(variant.raw ? ["--coverage-raw-data-only"] : []),
+            dir,
+          ]),
+          2,
+          {
+            cwd: dir,
+            coveragePartitions: {
+              started(count): void {
+                started.push(count);
+              },
+              settled(partition): void {
+                settled.push(partition);
+              },
+            },
+          },
+        );
+        assertEquals(suite.code, 0);
+        assertEquals((suite.report?.match(/<testcase\b/g) ?? []).length, 2);
+        const owned = !variant.terminal && Deno.build.os !== "windows" &&
+          variant.raw;
+        assertEquals(started, owned ? [2] : []);
+        assertEquals(settled.sort(), owned ? [1, 2] : []);
+        assert(terminalChecks > 0);
+      } finally {
+        Deno.stdin.isTerminal = originalTerminal;
+      }
+    }
+  });
+});

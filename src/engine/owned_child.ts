@@ -55,6 +55,8 @@ export interface OwnedChildOptions {
 }
 
 export interface OwnedChildResult {
+  /** This returned child led an owned POSIX group whose cleanup was awaited. */
+  readonly isolatedGroup: boolean;
   readonly status: Deno.CommandStatus;
   readonly interruptedBy: Deno.Signal | null;
 }
@@ -233,5 +235,5 @@ export async function runOwnedChild(
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     },
   );
-  return { status: run.value, interruptedBy: run.interruptedBy };
+  return { status: run.value, interruptedBy: run.interruptedBy, isolatedGroup };
 }
