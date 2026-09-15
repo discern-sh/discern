@@ -9,9 +9,9 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 
 export const LAUNCH_LOCKDOWN_AUDIT_REL =
-  "project/map/_private/planning/launch-lockdown-audit.md";
+  "project/map/_private/planning/launch-lockdown-workstreams/launch-lockdown-audit.md";
 export const LAUNCH_LOCKDOWN_AUDIT_SUMMARY_REL =
-  "project/map/_private/planning/launch-lockdown-audit-summary.md";
+  "project/map/_private/planning/launch-lockdown-workstreams/launch-lockdown-audit-summary.md";
 
 const SEVERITIES = ["High", "Medium", "Low"] as const;
 
