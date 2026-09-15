@@ -257,7 +257,7 @@ function UpdateSteps(
   if (model.status !== "update-available") return null;
   return (
     <Card
-      padding="lg"
+      padding="sm"
       id="update"
       className="releases-update"
       role="region"
@@ -278,6 +278,8 @@ function UpdateSteps(
                   {step.slice(0, commandIndex)}
                   <Command
                     command={INSTALL_COMMAND}
+                    copyLabel="Copy"
+                    copiedLabel="Copied"
                     className="releases-command"
                   />
                   {step.slice(commandIndex + INSTALL_COMMAND.length)}
