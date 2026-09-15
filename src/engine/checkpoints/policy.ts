@@ -61,7 +61,7 @@ import {
 } from "../../shared/generated_artifacts.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { resolvedScopePaths } from "../scopes/scope_paths.ts";
-import { integrationBranch } from "../worktree/git.ts";
+import { inspectCommitRef, integrationBranch } from "../worktree/git.ts";
 import type { ResolvedCheckpoint } from "./types.ts";
 
 type SeedTriggerField = Exclude<
@@ -495,15 +495,25 @@ export async function loadGoverningPolicy(
   expectedPredecessor?: string,
 ): Promise<GoverningPolicy> {
   const trunk = integrationBranch(config.repository.trunk);
-  const policyCommit = expectedPredecessor ??
-    await policyMergeBase(root, trunk);
+  const explicit = expectedPredecessor === undefined
+    ? undefined
+    : await inspectCommitRef(root, expectedPredecessor);
+  const policyCommit = expectedPredecessor === undefined
+    ? await policyMergeBase(root, trunk)
+    : explicit?.kind === "resolved"
+    ? explicit.commit
+    : undefined;
   if (policyCommit === undefined) {
     return {
       checkpoints: [],
       generatedGroups: [],
       drops: [policyCheckpointDrop(
-        "merge_base_unresolved",
-        `the merge-base with '${trunk}' could not be resolved; no checkpoints govern this run.`,
+        expectedPredecessor === undefined
+          ? "merge_base_unresolved"
+          : "governing_config_unreadable",
+        expectedPredecessor === undefined
+          ? `the merge-base with '${trunk}' could not be resolved; no checkpoints govern this run.`
+          : `the policy base '${expectedPredecessor}' does not resolve to one commit; pass an unambiguous commit reference. No checkpoints govern this run.`,
       )],
     };
   }

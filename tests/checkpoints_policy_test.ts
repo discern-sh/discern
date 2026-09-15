@@ -82,6 +82,41 @@ Deno.test("a branch editing its own checkpoint config is not governed by the edi
   });
 });
 
+Deno.test("explicit policy references resolve to one immutable commit before checkpoint input is built", async () => {
+  await withTempDir(async (dir) => {
+    await repoWithConfig(dir, configText("The referenced judgment."));
+    const commit = await gitOut(dir, "rev-parse", "HEAD");
+    await git(dir, "update-ref", "refs/discern/ci-policy-base", commit);
+    await git(dir, "tag", "-a", "release-policy", "-m", "policy");
+    for (
+      const ref of [
+        commit,
+        commit.slice(0, 12),
+        "main",
+        "refs/discern/ci-policy-base",
+        "release-policy",
+      ]
+    ) {
+      const policy = await loadGoverningPolicy(dir, LIVE, ref);
+      assertEquals(policy.policyCommit, commit, ref);
+      assertEquals(policy.drops, [], ref);
+      assertEquals(
+        policy.checkpoints[0]?.question,
+        "The referenced judgment.",
+        ref,
+      );
+    }
+    await git(dir, "tag", "main");
+    const tree = await gitOut(dir, "rev-parse", "HEAD^{tree}");
+    for (const ref of ["missing-policy", "main", tree]) {
+      const policy = await loadGoverningPolicy(dir, LIVE, ref);
+      assertEquals(policy.policyCommit, undefined, ref);
+      assertEquals(policy.checkpoints, [], ref);
+      assertEquals(policy.drops[0]?.reason, "governing_config_unreadable", ref);
+    }
+  });
+});
+
 Deno.test("instruction-economy resolves instruction sources from the governing config", async () => {
   await withTempDir(async (dir) => {
     await repoWithConfig(
