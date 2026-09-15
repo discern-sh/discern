@@ -62,7 +62,7 @@ The macOS jobs sign those binaries with Developer ID, run the smoke over the sig
 
 For a public repository, GitHub then records build provenance for the binary and checksum before artifact upload. The prelaunch private repository skips that step. Private and internal attestations require GitHub Enterprise Cloud. Full commit hashes pin every remote action in both workflows. A directory-wide guard enrolls future workflow files and steps in the same rule. See GitHub's [artifact-attestation instructions](https://docs.github.com/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) for independent verification.
 
-The site job checks out the same tag, runs the site build, and sends that source snapshot to `deno deploy --prod`. Re-run that workflow for the same tag to recover a failed deployment. Production deployments exclude arbitrary local checkouts.
+The site job checks out the same tag, observes the published release assets, stages the validated publication input, runs the site build, and sends that source snapshot to `deno deploy --prod`. The remote build consumes the same publication input. Re-run the same tag only while it satisfies the [release catalogue ordering contract](releases.md#publication-evidence). An older rerun cannot replace newer published history. Production deployments exclude arbitrary local checkouts.
 
 Before the first release, the setup can be exercised against a throwaway app:
 

@@ -53,6 +53,8 @@ The agent reviews the diff, prepares and commits it, and runs the gate. A second
 
 Updating the installed program and updating a project's setup are separate steps. discern does not check the network for newer releases or replace its own binary.
 
+Read [release notes](https://discern.sh/releases) before choosing an update. The release page compares a supplied version with published stable releases. Opening or fetching it contacts `discern.sh` with that version and no project data.
+
 ### 1. Replace and identify the binary
 
 Once you decide to install a newer version, use the supported installer described in [installation and setup](../00-start/first-success.md). Open a new shell and check which program will run:

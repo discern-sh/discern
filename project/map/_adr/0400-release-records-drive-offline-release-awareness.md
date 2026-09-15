@@ -18,7 +18,7 @@ A major/minor family may declare one optional `codename` in its earliest retaine
 
 Codegen emits only current-binary version/codename metadata. Its numeric value imports `deno.json`; it carries no runtime file lookup or release-history dependency. MCP protocol identity and numeric smoke checks keep using the numeric version. Reproducible builds contain no compile timestamp.
 
-`/releases`, `/releases.txt`, and `/releases.json` consume one pure comparison model. HTML is rendered on the server; text negotiation follows the site's existing policy. The JSON contract has an independent public schema major. Published stable records determine the default recommendation and installer target. Prereleases are separately classified history. Candidates in untagged source are identified as unpublished. Ahead versions receive no downgrade instruction; missing stable history supplies no default install recommendation. Retained history never promises completeness before its earliest record.
+`/releases`, `/releases.txt`, and `/releases.json` consume one pure comparison model. HTML is rendered on the server; text negotiation follows the site's existing policy. The JSON contract has an independent public schema major. Published stable records determine the default recommendation and installer target. Prerelease versions are separately classified history. Candidates in untagged source are identified as unpublished. Ahead versions receive no downgrade instruction; missing stable history supplies no default install recommendation. Retained history never promises completeness before its earliest record.
 
 ### Publication and ordering
 
@@ -38,7 +38,7 @@ Checking and installation are separate actions. A request authorizes the actions
 
 ## Consequences
 
-Notes and codenames have one reviewable authority. Site and release tooling may use publication observations; the compiled binary cannot acquire a network capability through them. Release operations pay for fresh remote observations, and publishing from a maintenance branch requires composing the current source first. A failed deployment can leave GitHub ahead of the visible site until the eligible tag is retried. The runbook treats that gap as incomplete publication.
+Notes and family names have one reviewable authority. Site and release tooling may use publication observations; the compiled binary cannot acquire a network capability through them. Release operations pay for fresh remote observations, and publishing from a maintenance branch requires composing the current source first. A failed deployment can leave GitHub ahead of the visible site until the eligible tag is retried. The release guide treats that gap as incomplete publication.
 
 The foundation implements records, comparison, routes, metadata, and workflow checks. Subsequent streams own human presentation, offline handoff and reminder state, project adoption, and installer replacement. They do not create competing release decisions.
 
