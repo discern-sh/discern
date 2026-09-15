@@ -247,6 +247,22 @@ Deno.test("launcher failure and missing clone state preserve a usable successful
     assertStringIncludes(text, plan.urls.json);
     assertEquals(result.data?.state_write.status, "skipped");
   }
+  let attempted = false;
+  const detectionFailure = await openInBrowser("https://example.test", {
+    os: "linux",
+    run: () => {
+      attempted = true;
+      return Promise.resolve({ success: true, code: 0, stderr: "" });
+    },
+  }, {
+    get: () => {
+      throw new Deno.errors.NotCapable("environment access denied");
+    },
+  });
+  assertEquals(attempted, false);
+  assertEquals(detectionFailure.status, "unsupported");
+  assert(detectionFailure.status === "unsupported");
+  assertStringIncludes(detectionFailure.message, "environment access denied");
   assertEquals(
     browserLaunch("https://discern.sh/releases?since=1.0.0", "linux", true),
     { command: "wslview", args: ["https://discern.sh/releases?since=1.0.0"] },

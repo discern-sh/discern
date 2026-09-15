@@ -203,7 +203,7 @@ Deno.test({
   fn: async (): Promise<void> => {
     assert((await Deno.permissions.query({ name: "run" })).state !== "granted");
     const url = "https://example.test/permission-boundary";
-    const result = await openInBrowser(url, { os: "linux" });
+    const result = await openInBrowser(url, { os: "linux", wsl: false });
     assertEquals(result.status, "failed");
     assert(result.status === "failed");
     assertEquals(result.launch, { command: "xdg-open", args: [url] });

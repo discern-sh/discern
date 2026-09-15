@@ -98,16 +98,17 @@ export async function openInBrowser(
   environment: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<BrowserOpenResult> {
   const os = options.os ?? Deno.build.os;
-  const wsl = options.wsl ??
-    (os === "linux" && Boolean(environment.get("WSL_DISTRO_NAME")));
-  const launch = browserLaunch(url, os, wsl);
-  if (launch === undefined) {
-    return {
-      status: "unsupported",
-      message: `browser opening is unavailable on ${os}`,
-    };
-  }
+  let launch: BrowserLaunch | undefined;
   try {
+    const wsl = options.wsl ??
+      (os === "linux" && Boolean(environment.get("WSL_DISTRO_NAME")));
+    launch = browserLaunch(url, os, wsl);
+    if (launch === undefined) {
+      return {
+        status: "unsupported",
+        message: `browser opening is unavailable on ${os}`,
+      };
+    }
     const result = await (options.run ?? runBrowserCommand)(
       launch.command,
       launch.args,
@@ -123,10 +124,12 @@ export async function openInBrowser(
         : result.stderr,
     };
   } catch (error) {
-    return {
-      status: "failed",
-      launch,
-      message: error instanceof Error ? error.message : String(error),
-    };
+    const message = error instanceof Error ? error.message : String(error);
+    return launch === undefined
+      ? {
+        status: "unsupported",
+        message: `browser launcher detection failed: ${message}`,
+      }
+      : { status: "failed", launch, message };
   }
 }
