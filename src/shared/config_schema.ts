@@ -25,6 +25,7 @@
  */
 
 import { z } from "@zod/zod";
+import { tryParseVersion } from "./semver.ts";
 import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
@@ -661,6 +662,15 @@ function discernWritten<T extends z.ZodType>(
 }
 
 const metaSection = z.strictObject({
+  managed_version: discernWritten(
+    "managed_version",
+    z.string().refine((value) => tryParseVersion(value) !== undefined, {
+      message:
+        "must be a strict numeric SemVer, without a tag prefix or codename",
+    }).optional().describe(
+      "Highest discern release whose successful setup or upgrade adopted managed material. Project evidence, independent of installed binaries, schema, and content currency.",
+    ),
+  ),
   schema_version: discernWritten(
     "schema_version",
     z.number().int().min(1).optional().describe(

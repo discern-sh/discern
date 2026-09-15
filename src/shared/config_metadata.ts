@@ -4,6 +4,7 @@
  * generated JSON Schema, template, and config reference.
  */
 export const DISCERN_WRITTEN_META = {
+  managed_version: { template: "omit" },
   schema_version: { template: "render" },
   bootstrapped: { template: "omit" },
   setup_completion: { template: "omit" },

@@ -396,9 +396,9 @@ revisit.
       "`discern scripts <name>` resolves the name literally, runs it from the project root with `DISCERN_ROOT`, `DISCERN_TOML`, `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK`, and forwards every argument. Other config stays available through `discern config get`.",
   },
   meta: {
-    what: "Installer bookkeeping.",
+    what: "Project setup and adoption evidence.",
     why:
-      "discern writes these keys while setting up or upgrading the project. They record schema and setup evidence; nothing here needs hand-editing.",
+      "discern writes these keys while setting up or upgrading the project. They record schema, setup provenance, and successful adoption of managed material. They do not describe what teammates have installed.",
     keys: Object.fromEntries(
       TEMPLATE_OMITTED_META_KEYS.map((key) => [key, { render: "omit" }]),
     ),

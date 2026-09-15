@@ -127,6 +127,7 @@ aliases:
   - "scripts"
   - "scripts.dir"
   - "meta"
+  - "meta.managed_version"
   - "meta.schema_version"
   - "meta.bootstrapped"
   - "meta.setup_completion"
@@ -558,12 +559,13 @@ Where your executable project scripts live. `discern scripts <name>` resolves th
 
 ## `[meta]`
 
-Installer bookkeeping. discern writes these keys while setting up or upgrading the project. They record schema and setup evidence; nothing here needs hand-editing.
+Project setup and adoption evidence. discern writes these keys while setting up or upgrading the project. They record schema, setup provenance, and successful adoption of managed material. They do not describe what teammates have installed.
 
-| Key                | Type                   | Default | Description                                                                                                                                               |
-| ------------------ | ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema_version`   | number                 | —       | The install schema version. `discern upgrade` bumps it; never edit it by hand. Written by discern.                                                        |
-| `bootstrapped`     | boolean                | `false` | true once `discern setup` has completed, which retires the one-time setup redirect. Written by discern.                                                   |
-| `setup_completion` | `proven` \| `unproven` | —       | Evidence recorded for the setup completion event: proven by the gate, or explicitly completed unproven. Written by discern.                               |
-| `setup_model`      | string                 | `""`    | The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it. Written by discern. |
-| `setup_version`    | string                 | `""`    | The discern version that ran setup, recorded for support triage. Written by discern.                                                                      |
+| Key                | Type                   | Default | Description                                                                                                                                                                                |
+| ------------------ | ---------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `managed_version`  | string                 | —       | Highest discern release whose successful setup or upgrade adopted managed material. Project evidence, independent of installed binaries, schema, and content currency. Written by discern. |
+| `schema_version`   | number                 | —       | The install schema version. `discern upgrade` bumps it; never edit it by hand. Written by discern.                                                                                         |
+| `bootstrapped`     | boolean                | `false` | true once `discern setup` has completed, which retires the one-time setup redirect. Written by discern.                                                                                    |
+| `setup_completion` | `proven` \| `unproven` | —       | Evidence recorded for the setup completion event: proven by the gate, or explicitly completed unproven. Written by discern.                                                                |
+| `setup_model`      | string                 | `""`    | The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it. Written by discern.                                  |
+| `setup_version`    | string                 | `""`    | The discern version that ran setup, recorded for support triage. Written by discern.                                                                                                       |

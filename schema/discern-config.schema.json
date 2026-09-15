@@ -1464,10 +1464,15 @@
       "additionalProperties": false
     },
     "meta": {
-      "description": "Installer bookkeeping.",
+      "description": "Project setup and adoption evidence.",
       "default": {},
       "type": "object",
       "properties": {
+        "managed_version": {
+          "description": "Highest discern release whose successful setup or upgrade adopted managed material. Project evidence, independent of installed binaries, schema, and content currency.",
+          "readOnly": true,
+          "type": "string"
+        },
         "schema_version": {
           "description": "The install schema version. `discern upgrade` bumps it; never edit it by hand.",
           "readOnly": true,
