@@ -201,6 +201,14 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
         }
         await Deno.mkdir(join(mapRoot, "development"), { recursive: true });
         await Deno.writeTextFile(
+          join(mapRoot, "README.md"),
+          "# Atlas\n\nRuns offline commands over local records.\n\n[Runtime](10-runtime/)\n[Storage](20-storage/)\n[Interface](30-interface/)\n[Development](development/)\n",
+        );
+        await Deno.writeTextFile(
+          join(mapRoot, "development", "README.md"),
+          "# Development\n\nVerify commands using local fixtures.\n\n[Gotchas](done-gate-gotchas.md)\n",
+        );
+        await Deno.writeTextFile(
           join(mapRoot, "development", "done-gate-gotchas.md"),
           "# Gate gotchas\n\nThe local fixture is offline. Follow the first Gate diagnostic.\n",
         );

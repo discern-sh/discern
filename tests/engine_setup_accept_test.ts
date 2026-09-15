@@ -654,8 +654,15 @@ Deno.test("setup done steers a non-setup branch to a manual merge, never `setup 
 
     await Deno.remove(defaultMapPath(dir), { recursive: true });
     await Deno.mkdir(defaultMapPath(dir));
-    await Deno.writeTextFile(defaultMapPath(dir, "README.md"), "# Real Map\n");
+    await Deno.writeTextFile(
+      defaultMapPath(dir, "README.md"),
+      "# Real Map\n\nRuns project commands.\n\n[Runtime](10-runtime/)\n[Orientation](orientation/)\n",
+    );
     await Deno.mkdir(defaultMapPath(dir, "orientation"));
+    await Deno.writeTextFile(
+      defaultMapPath(dir, "orientation", "README.md"),
+      "# Orientation\n\nProject constraints guide execution.\n\n[Principles](design-principles.md)\n",
+    );
     await Deno.writeTextFile(
       defaultMapPath(dir, "orientation", "design-principles.md"),
       "# Design principles\n\n## 1. First\n\nA.\n\n" +

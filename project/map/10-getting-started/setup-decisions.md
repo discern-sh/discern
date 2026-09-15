@@ -42,6 +42,8 @@ Setup writes a project overview and groups context into orientation, actual subs
 
 A page can summarize implementation to explain a contract or relationship. It must help a reader make a correct change, with links to evidence, rather than catalog methods and files. Agreed requirements remain distinct from observed behavior and open questions.
 
+Setup completes every selected page and links it from the root or its region. Structural completion checks reject empty explanations and unreachable current pages. The agent checks factual claims against evidence; these checks do not prove semantic accuracy. There is no minimum principle count, and a project without implementation can begin with a substantive root.
+
 ## Review what later sessions will inherit
 
 Before landing, the handoff explains where later agents start, other areas with distinct responsibilities, one important rule, active checks, and open work. The Proof that the finished change passed the project's checks (Proof) belongs to the exact commit and grants no landing authority. You may land, leave for review, or decline.

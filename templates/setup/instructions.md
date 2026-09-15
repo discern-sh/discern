@@ -223,7 +223,7 @@ The scaffold is a starting shape. The final map is determined by Step 1 evidence
 
 ```toml
 phase = "documentation draft"
-stable_target = "The design-principles draft states at least three project-specific decision rules, each grounded in current code or configuration and ready for the post-smoke recheck."
+stable_target = "The design-principles draft states the agreed project-specific decision rules, each grounded in current code or configuration and ready for the post-smoke recheck."
 intent = "Turn repeated architectural choices into concise principles that help a future agent decide, while retaining the authority evidence for final verification."
 files_to_read = [
   "{{map_dir}}orientation/design-principles.md",
@@ -231,7 +231,7 @@ files_to_read = [
   "current code and configuration at every cited boundary",
 ]
 must_do = [
-  "Replace the example with at least three project-specific principles that state a decision rule, its reason, and its practical consequence.",
+  "Replace the example with the agreed project-specific constraints, their reasons, and practical consequences. Do not invent principles to meet a count. If none are established, say so plainly or combine this topic into the orientation README.",
   "Attach or retain the code/config authority for every architecture, ownership, test-behavior, or command claim so Step 9 can recheck it after smoke wiring.",
   "Recheck each drafted claim against its authority now; label anything not yet verified as an open item in {{todo_path}} instead of asserting it.",
 ]
@@ -243,7 +243,7 @@ what_not_to_do = [
   "Do not write generic engineering virtues, discern's own principles, or historical bug commentary.",
   "Do not convert an unverified inference into confident present-tense prose.",
 ]
-completion_check = "design-principles.md holds at least 3 real principles (the EXAMPLE block replaced)."
+completion_check = "Any retained design-principles page explains the agreed constraints; no principle count is required."
 stop_conditions = [
   "Stop a principle when its claimed behavior cannot be located in current code/config or when the owner must choose between conflicting rules.",
 ]
@@ -311,7 +311,7 @@ files_to_read = [
   "{{todo_path}} and its item format",
 ]
 must_do = [
-  "Select one substantive primary-subsystem README in a folder named for its responsibility; its `## Start here`, `## Boundary`, and `## Important constraint` sections give the completion result a canonical qualitative summary.",
+  "Select a substantive primary-subsystem README in a folder named for its responsibility. Start here, Boundary, and Important constraint are useful headings, not mandatory content quotas. If no implementation exists yet, explain the agreed purpose and current limits in the root instead of inventing a subsystem.",
   "Keep a substantive root overview, orientation, real subsystem folders, development guidance, and the ADR home. Numbered folder prefixes are optional reading order; they carry no product meaning.",
   "Combine short orientation or development topics into their region README. Keep separate concepts, glossary, system overview, principles, getting-started, testing, and conventions pages when they serve distinct reader needs. Link existing project documentation instead of copying it.",
   "Select an additional page only for a genuinely distinct durable boundary when that page will reduce future repository reading; retain authority paths for every selected page.",
@@ -452,7 +452,7 @@ files_to_read = [
 ]
 must_do = [
   "Author final orientation from the subsystem evidence, including how the Map is used and where a new agent starts.",
-  "Author the substantive primary-subsystem README with non-empty `## Start here`, `## Boundary`, and `## Important constraint` sections; add only the distinct pages selected in Step 6.",
+  "Complete the root overview and the selected subsystem pages. Explain real boundaries and constraints; do not manufacture a surprising invariant. Link every retained page from its region README and make each region reachable from the root.",
   "Reconcile the development pages and the adoption ADR with the supported commands, Gate, worktree readiness, and smoke behavior proved in Step 7.",
   "After all documentation edits, target every architecture, ownership, test-behavior, and command claim and recheck it against current code/config; link the authority where useful.",
   "Replace a claim that cannot be verified with a clearly labeled concrete item in {{todo_path}}, then run `discern refresh` and `discern prepare --json`.",
@@ -463,11 +463,12 @@ authority_boundaries = [
 ]
 owner_moments = ["lasting-project-context", "documentation-claim-gap"]
 what_not_to_do = [
+  "Complete, combine, or remove every seeded draft; keep the reusable ADR template. Leave no skeleton notices or TODO asking a later session to finish the chosen starter map. Review each retained page as a new reader before handing it over.",
   "Do not preserve pre-smoke claims, skeleton notices, historical setup narration, or mechanically derivable inventories as independent prose.",
   "Do not claim an unverified architecture, ownership, test behavior, or command contract.",
   "Do not add a page or TODO merely to make the setup look comprehensive.",
 ]
-completion_check = "The final primary-subsystem README has non-empty Start here, Boundary, and Important constraint sections; an authored conventional gotchas page is wired through [project].gotchas_doc."
+completion_check = "Every selected current map page has an explanation and is reachable from the root; each region has a README, and an authored conventional gotchas page is wired through [project].gotchas_doc."
 stop_conditions = [
   "Stop when a claim remains unverifiable, refresh changes an unexpected authored source, or prepare reports a diagnostic.",
 ]

@@ -673,7 +673,11 @@ export function completionMessage(ctx: CompletionContext): string {
     : [
       `  • Later agents start in ${primary.title}: ${primary.start_here} The maintained project guide (Map) records it at \`${primary.page}\`.`,
       `  • That area's responsibility: ${primary.boundary}`,
-      `  • One important rule setup found: ${primary.non_obvious_invariant}`,
+      ...(primary.non_obvious_invariant
+        ? [
+          `  • One important rule setup found: ${primary.non_obvious_invariant}`,
+        ]
+        : []),
     ];
   const inventoryLines = [
     ...qualitativeLines,

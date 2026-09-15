@@ -26,10 +26,8 @@ import { KNOWN_JOBS } from "./capabilities.ts";
 import { type DiscernConfig, toCommandList } from "./config_schema.ts";
 import { normalizeMapDir } from "./map_path.ts";
 import { instructionSeedRel } from "./paths_registry.ts";
-import {
-  deriveSetupPrimarySubsystem,
-  readSetupOrientation,
-} from "./setup_project_context.ts";
+import { readSetupOrientation } from "./setup_project_context.ts";
+import { hasMapExplanation, setupMapIssues } from "./setup_map.ts";
 import { readTextIfExists } from "./fs_presence.ts";
 
 /** The conventional Gate-gotchas page the setup skeleton authors. */
@@ -99,7 +97,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     step: 4,
     name: "design_principles",
     describe:
-      "design-principles.md holds at least 3 real principles (the EXAMPLE block replaced).",
+      "Any retained design-principles page explains the agreed constraints; no principle count is required.",
     async evaluate({ root, config }): Promise<boolean> {
       const text = await readSetupOrientation(
         root,
@@ -109,12 +107,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
       if (text === undefined) {
         return true; // not laid here (existing-docs project) → N/A
       }
-      // The template shape is `## N. <name>` per principle; count level-2 headings,
-      // excluding the structural "What these add up to" section.
-      const headings = (text.match(/^##\s+.+$/gm) ?? []).filter(
-        (h) => !/what these add up to/i.test(h),
-      );
-      return headings.length >= 3;
+      return hasMapExplanation(text);
     },
   },
   {
@@ -177,9 +170,9 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     step: 9,
     name: "primary_subsystem_context",
     describe:
-      "The final primary-subsystem README has non-empty Start here, Boundary, and Important constraint sections; an authored conventional gotchas page is wired through [project].gotchas_doc.",
+      "Every selected current map page has an explanation and is reachable from the root; each region has a README, and an authored conventional gotchas page is wired through [project].gotchas_doc.",
     async evaluate({ root, config }): Promise<boolean> {
-      if ((await deriveSetupPrimarySubsystem(root, config.map.dir)) === null) {
+      if ((await setupMapIssues(root, config.map.dir)).length > 0) {
         return false;
       }
       const conventional = conventionalSetupGotchasDoc(config.map.dir);

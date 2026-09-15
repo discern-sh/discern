@@ -68,25 +68,27 @@ async function primaryRegionNames(
   return names.toSorted();
 }
 
-/** Derive the first reading-order subsystem only when every required semantic
- * section is present. */
+/** Derive a handoff from the first subsystem or the root of a new project.
+ * Structured sections enrich the summary but do not determine completion. */
 export async function deriveSetupPrimarySubsystem(
   root: string,
   mapDir: string,
 ): Promise<SetupPrimarySubsystem | null> {
-  const region = (await primaryRegionNames(root, mapDir))[0];
-  if (region === undefined) return null;
+  const region = (await primaryRegionNames(root, mapDir))[0] ?? "";
   const page = join(mapDir, region, "README.md");
   const markdown = await readTextIfExists(join(root, page));
   if (markdown === undefined) return null;
   const title = markdown.match(/^#\s+(.+?)\s*$/m)?.[1]?.trim();
-  const startHere = sectionParagraph(markdown, "Start here");
-  const boundary = sectionParagraph(markdown, "Boundary");
+  const startHere = sectionParagraph(markdown, "Start here") ?? `Read ${page}.`;
+  const boundary = sectionParagraph(markdown, "Boundary") ??
+    markdown.replaceAll(/<!--[\s\S]*?-->/g, "").split("\n").find((line) =>
+      /^[A-Za-z]/.test(line)
+    )?.trim();
   const invariant = sectionParagraph(markdown, "Important constraint") ??
-    sectionParagraph(markdown, "Non-obvious invariant");
+    sectionParagraph(markdown, "Non-obvious invariant") ?? "";
   if (
     title === undefined || title === "" || startHere === undefined ||
-    boundary === undefined || invariant === undefined
+    boundary === undefined
   ) {
     return null;
   }

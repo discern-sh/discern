@@ -568,7 +568,7 @@ Deno.test("the setup redirect and welcome leave root help once setup is recorded
     await Deno.mkdir(defaultMapPath(dir), { recursive: true });
     await Deno.writeTextFile(
       defaultMapPath(dir, "README.md"),
-      "# Real docs\n",
+      "# Real docs\n\nRuns configured commands.\n\n[Runtime](10-runtime/)\n",
     );
     await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
     await Deno.writeTextFile(
