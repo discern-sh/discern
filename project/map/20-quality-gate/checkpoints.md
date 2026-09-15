@@ -60,6 +60,8 @@ A declaration binds to its subject: the resolved definition plus the matched pat
 
 The policy for an effort is the `[checkpoints]` configuration at its merge-base with the trunk, so a branch edit cannot govern its own gate and a trunk landing cannot change a running effort. `discern update` advances the merge-base and with it the policy, and the Proof records the merge-base commit as the policy identity. Editing these tables on a branch governs other efforts once the edit lands, and `discern.toml` sits outside every configured scope, so the edit reaches owner review at acceptance. Governing resolution fails open: an entry the engine cannot resolve drops out instead of wedging the effort, and a structured checkpoint-drop record preserves why.
 
+CI can select an explicit policy base with `discern done --ci --standalone --policy-base <ref>`. The policy loader resolves that reference to an unambiguous commit before reading policy or building checkpoint input. Policy identity and `policy_commit` therefore use the immutable commit ID, including when the caller supplied a branch or annotated tag.
+
 ## Question sources and references
 
 A project checkpoint sets `question` or `question_file`; a built-in may inherit or override either. `.md` has no magic meaning in `question`. `reference` is a displayed, unloaded pointer.
