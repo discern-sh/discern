@@ -1,5 +1,7 @@
 /** Product-copy projections of one normalized release comparison. */
 import { escapeHtml, renderMarkdownHtml } from "../../src/lib/markdown.ts";
+import { siteAppearanceRootAttributes } from "../appearance.ts";
+import { designSystemAssetPath } from "../design_system.ts";
 import { RELEASE_TITLE } from "../brand.ts";
 import { UPDATE_SEQUENCE } from "../../src/shared/product_identity.ts";
 import type {
@@ -101,9 +103,15 @@ export function renderReleaseText(model: ReleaseComparison): string {
 
 /** A complete accessible shell; the shared handler adds canonical and security metadata. */
 function htmlShell(body: string): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${
+  return `<!doctype html><html lang="en" ${siteAppearanceRootAttributes()} data-discern-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${
     escapeHtml(RELEASE_TITLE)
-  }</title><meta name="description" content="Read discern release notes, compare your version with published stable releases, and review the steps for a project upgrade."></head><body><main><h1>discern releases</h1>${body}</main></body></html>`;
+  }</title><meta name="description" content="Read discern release notes, compare your version with published stable releases, and review the steps for a project upgrade."><link rel="stylesheet" href="${
+    designSystemAssetPath("compositions", "fonts.css")
+  }"><link rel="stylesheet" href="${
+    designSystemAssetPath("compositions", "discern.css")
+  }"><script defer src="${
+    designSystemAssetPath("compositions", "discern.js")
+  }"></script></head><body><main class="discern-article-layout discern-article-layout--no-navigation discern-article-layout--no-rail"><div class="discern-article-layout__columns"><div class="discern-article-layout__body"><h1>discern releases</h1>${body}</div></div></main></body></html>`;
 }
 
 /** Scope authored heading anchors to their release and section on a shared page. */

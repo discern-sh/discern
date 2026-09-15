@@ -27,7 +27,7 @@ A family can declare its name in its earliest retained record. An initial prerel
 
 No supplied version returns the retained index. Current, behind, ahead, and no-stable states have separate meanings. A prerelease can appear in history without becoming the default recommendation. An ahead version receives no downgrade instruction. History before the earliest retained published record is never claimed complete.
 
-The server renders query state from the model without client JavaScript. Opening or fetching a comparison contacts `discern.sh` with the supplied version and no project data. The installed binary contributes a URL; it makes no request. The common update sequence and installer command come from the product-identity authority.
+The server renders query state from the model without client JavaScript. The route uses the shared composition bundle and its article layout. Opening or fetching a comparison contacts `discern.sh` with the supplied version and no project data. The installed binary contributes a URL; it makes no request. The common update sequence and installer command come from the product-identity authority.
 
 ## Publication evidence
 
