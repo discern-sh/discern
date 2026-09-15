@@ -126,6 +126,12 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
     reason: "the public Map carries exact release-verification commands",
   },
   {
+    path: "project/map/_internal/hint-inventory.md",
+    counts: { "canonical-install-command": 1 },
+    reason:
+      "codegen projects the shared update sequence through the release authorization hint",
+  },
+  {
     path: "project/map/_internal/registry-atlas.md",
     counts: { "current-repository": 3 },
     reason: "codegen projects the security-disclosure registry",
