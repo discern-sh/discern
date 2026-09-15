@@ -14,15 +14,15 @@ Expose the package application runtime through discern's established terminal in
 
 Use the package testing export for generic PTY transport and bounded complete-frame capture. Keep a thin discern adapter for environment policy, independent infrastructure allowances, real-PTY declarations, and evidence. Keep product fixture construction and binary compilation in discern. Preserve the inline capture path and specialized harnesses until their callers can use an equivalent public package contract.
 
-Ordinary executable graphs exclude testing helpers, browser frameworks, and PTY launch dependencies. Public-import graph checks enforce this separation. A missing generic capability is addressed upstream. The serial Desk programme temporarily selects its retained source worktree in committed Deno configuration, with source-root and branch checks, locked transitive packages and source-derived license credits. The consumer validates current source while upstream agents edit and commit independently; commit identity, ancestry and source cleanliness are not acceptance conditions. This explicit owner-directed development mode keeps package iteration available across independently landed consumer stages. Final stage 4A integrates and proves the upstream work, coordinates authorized landing and immutable publication, then removes the link and restores registry-origin consumer checks.
+Ordinary executable graphs exclude testing helpers, browser frameworks, and PTY launch dependencies. Public-import graph checks enforce this separation. A missing generic capability is addressed upstream and consumed through an exact immutable release. The serial Desk programme's temporary source link ends with its 4A cutover to 0.33.0. Public-import checks admit only that registry origin, lock every transitive package and reject local overrides. Source-derived license credits remain generated from the selected dependency.
 
 ## Consequences
 
-Source commands temporarily require the retained package directory. An upstream edit changes the code used by subsequent consumer runs, so each gate result describes the source exercised during that run. The interim gate establishes local integration, not portable release consumption. The ordinary immutable package boundary resumes at 4A.
+Source commands require no retained package directory. The consumer's exact pin and Deno-generated lock identify the package exercised by the gate; later upstream edits cannot change those bytes.
 
 Application consumers can update a view and return from a foreground child without owning terminal mechanics. Pending native reads are tested through the actual forwarding and tracing layers, since synchronous fake reads cannot establish input ownership.
 
-Transport changes inherit package behavior and require consumer regressions for environment policy, readiness, compilation, cleanup, and test accounting. The complete-frame protocol refuses partial or oversized frames; it cannot replace an arbitrary cursor transcript interpreter. Consumer adoption therefore proceeds without changing desk composition, lifecycle semantics, or deferred text and chart adapters.
+Transport changes inherit package behavior and require consumer regressions for environment policy, readiness, compilation, cleanup, and test accounting. The complete-frame protocol refuses partial or oversized frames; it cannot replace an arbitrary cursor transcript interpreter. Transport adoption preserves lifecycle semantics and does not require unrelated text or chart cleanup.
 
 ## Alternatives considered
 

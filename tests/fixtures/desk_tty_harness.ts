@@ -671,6 +671,8 @@ export interface DeskTtyRunResult {
   readonly stderrBytes: Uint8Array;
   readonly rawBytes: Uint8Array;
   readonly frames: readonly DeskVisibleFrame[];
+  /** Raw named complete paints for the package capture protocol. */
+  readonly keyframes: Readonly<Record<string, string>>;
   readonly terminal: DeskTerminalEvidence;
 }
 
@@ -709,6 +711,7 @@ export async function runDeskTty(
   options: {
     readonly geometry: PtyGeometry;
     readonly colorMode?: DeskTtyColorMode;
+    readonly theme?: "light" | "dark";
     readonly input: readonly DeskTtyInputPhase[];
     readonly env?: Readonly<Record<string, string>>;
     readonly timeoutMs?: number;
@@ -809,7 +812,7 @@ export async function runDeskTty(
 
     const targetArgs = [
     "desk",
-    ...(colorMode === "color" ? ["--theme", "dark"] : []),
+    ...(colorMode === "color" ? ["--theme", options.theme ?? "dark"] : []),
     ...(colorMode === "no-color-flag" ? ["--no-color"] : []),
   ];
     const childArgs = [
@@ -872,6 +875,7 @@ export async function runDeskTty(
       stderrBytes: process.stderrBytes,
       rawBytes: process.transcriptBytes,
       frames,
+      keyframes: process.keyframes,
       terminal: {
         ...terminal,
         noChild: !(await processExists(terminal.childPid)),

@@ -16,7 +16,6 @@ import type {
   GateProofCheckStatus,
   LandingAuthorityData,
   StatusAdrCollision,
-  StatusData,
   StatusFleetCollision,
   StatusFleetEntry,
 } from "../../shared/result_schemas.ts";
@@ -54,40 +53,7 @@ import { gitDetails } from "./git_details.ts";
 
 export { taskLabel } from "../worktree/task_label.ts";
 
-/** Human decisions in priority order. */
-export const DESK_STATES = [
-  "needs_attention",
-  "ready_to_review",
-  "working",
-  "paused",
-  "empty",
-] as const;
-export type DeskState = (typeof DESK_STATES)[number];
-
-/**
- * The exhaustive decision-level adaptation of status's canonical row kinds.
- * Status remains the only owner of precedence; a future status kind cannot
- * compile until the desk consciously places it.
- */
-export const DESK_STATE_BY_STATUS_KIND = {
-  broken: "needs_attention",
-  "setup-incomplete": "needs_attention",
-  unreadable: "needs_attention",
-  failed: "needs_attention",
-  blocked: "needs_attention",
-  behind: "paused",
-  ready: "ready_to_review",
-  running: "working",
-  stale: "needs_attention",
-  "in-progress": "paused",
-  "proof-unreadable": "needs_attention",
-  "proof-unavailable": "needs_attention",
-  "proof-stale": "paused",
-  "needs-gate": "paused",
-  idle: "empty",
-} as const satisfies Readonly<Record<FleetRowStatusKind, DeskState>>;
-
-/** Every action the desk can represent, in menu order. */
+/** Supported Desk actions; the registry owns their contracts. */
 export const DESK_ACTIONS = [
   "recovery",
   "retry_setup",
@@ -111,14 +77,12 @@ export type DeskAction = (typeof DESK_ACTIONS)[number];
 
 /** Product groups in their fixed presentation order. */
 export const DESK_ACTION_GROUPS = [
-  "recommended",
   "work",
   "review",
   "manage",
   "danger",
 ] as const;
 export type DeskActionGroupId = (typeof DESK_ACTION_GROUPS)[number];
-type DeskBaseActionGroupId = Exclude<DeskActionGroupId, "recommended">;
 
 /** Confirmation behavior belongs to the action, not its dispatcher branch. */
 export type DeskConfirmationPolicy =
@@ -165,7 +129,7 @@ interface DeskActionLabelContext {
 }
 
 export interface DeskActionMetadata {
-  readonly group: DeskBaseActionGroupId;
+  readonly group: DeskActionGroupId;
   /** Whether this action's real effect boundary remains valid while status
    * reports another operation in this task. Applied centrally to every action. */
   readonly availableWhileRunning: boolean;
@@ -189,12 +153,10 @@ interface DeskActionOfferBase {
 
 export interface EnabledDeskAction extends DeskActionOfferBase {
   readonly availability: "enabled";
-  readonly recommended: boolean;
 }
 
 export interface DisabledDeskAction extends DeskActionOfferBase {
   readonly availability: "disabled";
-  readonly recommended: false;
   /** One observed condition that prevents an honest offer. */
   readonly reason: string;
 }
@@ -289,13 +251,10 @@ export type DeskCollision = DeskChangedFileCollision | DeskAdrCollision;
 
 /** A complete decision; renderers need no raw status-field interpretation. */
 export interface DeskDecision {
-  readonly state: DeskState;
   /** The status projection that supplied this decision's base meaning. */
   readonly statusKind: FleetRowStatusKind;
   readonly headline: string;
   readonly details: readonly DeskDetail[];
-  readonly needsHumanDecision: boolean;
-  readonly landingReady: boolean;
   readonly activity: DeskActivityFact;
   readonly proof: DeskProofFact;
   readonly authority: DeskAuthorityFact;
@@ -303,7 +262,6 @@ export interface DeskDecision {
   readonly recovery?: DeskRecoveryFact;
   /** Every canonical action, enabled or disabled, exactly once. */
   readonly actions: readonly DeskActionOffer[];
-  readonly recommendedAction?: DeskAction;
 }
 
 /** One selectable effort and its already-complete decision. */
@@ -317,50 +275,42 @@ export interface DeskRow {
   readonly decision: DeskDecision;
 }
 
-/** Main-checkout state carried by the board decision. */
-export interface DeskMainDecision {
-  readonly state: "clean" | "changed" | "unknown";
-  readonly headline: string;
+/** Discovery owns capabilities; status keeps authority over task and Proof facts. */
+export type DeskCapabilities = Pick<
+  DeskRow,
+  "scripts" | "scriptsUnavailableReason" | "agentLaunches" | "capabilityError"
+>;
+
+/** Apply discovered capabilities to the latest observed task before deriving offers. */
+export function withDeskCapabilities(
+  row: DeskRow,
+  inventory: DeskCapabilities,
+  trunk: string,
+  nowMs: number,
+): DeskRow {
+  return {
+    entry: row.entry,
+    task: row.task,
+    scripts: inventory.scripts,
+    agentLaunches: inventory.agentLaunches,
+    ...(inventory.scriptsUnavailableReason === undefined ? {} : {
+      scriptsUnavailableReason: inventory.scriptsUnavailableReason,
+    }),
+    ...(inventory.capabilityError === undefined ? {} : {
+      capabilityError: inventory.capabilityError,
+    }),
+    decision: {
+      ...row.decision,
+      actions: buildDeskDecision(row.entry, {
+        trunk,
+        nowMs,
+        ...inventory,
+      }).actions,
+    },
+  };
 }
 
-/** One bounded root-level fact that is not a selectable task. */
-export interface DeskBoardNotice {
-  readonly id: "unlanded" | "contained" | "reappeared" | "emergency";
-  readonly state: "attention" | "information";
-  readonly headline: string;
-  readonly detail?: string;
-  readonly nextAction?: string;
-}
-
-/** Complete root-board meaning; the view only maps these decisions to Components. */
-export interface DeskBoardDecision {
-  readonly project: string;
-  readonly main: DeskMainDecision;
-  readonly taskCount: number;
-  readonly needsPersonCount: number;
-  readonly readyToReviewCount: number;
-  /** Static in this wave; a later live-refresh stream replaces this value. */
-  readonly refreshedAge: "just now";
-  readonly notices: readonly DeskBoardNotice[];
-}
-
-/** The headings rendered for decision groups. */
-export function stateTitle(state: DeskState): string {
-  switch (state) {
-    case "needs_attention":
-      return "Needs attention";
-    case "ready_to_review":
-      return "Ready to review";
-    case "working":
-      return "Working";
-    case "paused":
-      return "Paused";
-    case "empty":
-      return "Empty";
-  }
-}
-
-/** Build the compact line used by today's board from decision-owned copy. */
+/** Share observed task facts with the one-shot worktree shell picker. */
 export function decisionSummary(decision: DeskDecision): string {
   return [decision.headline, ...decision.details.map((detail) => detail.text)]
     .join(" · ");
@@ -748,7 +698,7 @@ const NO_CONFIRMATION = { kind: "none" } as const;
 
 /**
  * The single action-fact authority. Menu labels, command evidence, availability,
- * recommendations, consequence accounts, and confirmation defaults all derive
+ * consequence accounts, and confirmation defaults all derive
  * from this exhaustive registry.
  */
 export const DESK_ACTION_REGISTRY = {
@@ -1029,7 +979,7 @@ export const DESK_ACTION_REGISTRY = {
   inspect: {
     group: "review",
     availableWhileRunning: true,
-    label: (_context: DeskActionLabelContext): string => "Review changes",
+    label: (_context: DeskActionLabelContext): string => "Proof and changes",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["git", "diff"],
       workingDirectory: "task",
@@ -1193,10 +1143,10 @@ export const DESK_ACTION_REGISTRY = {
   },
 } as const satisfies Readonly<Record<DeskAction, DeskActionMetadata>>;
 
-/** Represent every action once and retain only an enabled recommendation. */
+/** Represent every registered action once with its current availability. */
 function actionOffers(
   facts: DeskActionFacts,
-): { actions: DeskActionOffer[]; recommendedAction?: DeskAction } {
+): DeskActionOffer[] {
   const actions = DESK_ACTIONS.map((action): DeskActionOffer => {
     const metadata = DESK_ACTION_REGISTRY[action];
     const context: DeskActionLabelContext = {
@@ -1218,7 +1168,6 @@ function actionOffers(
         ? {}
         : { containedIn: facts.entry.contained_in }),
     };
-    const recommended = false;
     const base: DeskActionOfferBase = {
       action,
       group: metadata.group,
@@ -1230,21 +1179,14 @@ function actionOffers(
     const reason = runningReason(metadata.availableWhileRunning, facts) ??
       metadata.availability(facts);
     if (reason !== undefined) {
-      return { ...base, availability: "disabled", recommended: false, reason };
+      return { ...base, availability: "disabled", reason };
     }
     return {
       ...base,
       availability: "enabled",
-      recommended,
     };
   });
-  const recommended = actions.find((offer) => offer.recommended);
-  return {
-    actions,
-    ...(recommended === undefined
-      ? {}
-      : { recommendedAction: recommended.action }),
-  };
+  return actions;
 }
 
 export interface DeskDecisionOptions {
@@ -1288,7 +1230,6 @@ export function buildDeskDecision(
     })),
     ...adrCollisionsFor(entry, options.adrCollisions ?? []),
   ];
-  const state = DESK_STATE_BY_STATUS_KIND[presentation.kind];
   const effortGranted = authority.source === "effort-grant" &&
     authority.status === "granted";
   const offers = actionOffers({
@@ -1349,12 +1290,8 @@ export function buildDeskDecision(
   }
   const nextCondition = nextConditionDetail(presentation.kind, entry);
   if (nextCondition !== undefined) details.push(nextCondition);
-  const needsHumanDecision = state === "needs_attention" ||
-    entry.contained_in !== undefined ||
-    (state === "ready_to_review" && authority.status !== "granted");
   const recovery = recoveryFact(entry);
   return {
-    state,
     statusKind: presentation.kind,
     headline: headlineFor(
       presentation.kind,
@@ -1363,109 +1300,12 @@ export function buildDeskDecision(
       options.nowMs,
     ),
     details,
-    needsHumanDecision,
-    landingReady: presentation.landingReady,
     activity,
     proof,
     authority,
     collisions,
     ...(recovery === undefined ? {} : { recovery }),
-    actions: offers.actions,
-    ...(offers.recommendedAction === undefined
-      ? {}
-      : { recommendedAction: offers.recommendedAction }),
-  };
-}
-
-/** Build the complete root-board decision from one canonical status survey. */
-export function buildDeskBoardDecision(
-  data: StatusData,
-  rows: readonly DeskRow[],
-): DeskBoardDecision {
-  const project = data.project?.trim();
-  const mainEntry = (data.fleet ?? []).find((entry) => entry.is_main);
-  const main: DeskMainDecision = mainEntry === undefined
-    ? {
-      state: "unknown",
-      headline: "Main checkout state was not reported",
-    }
-    : mainEntry.clean === true
-    ? { state: "clean", headline: `${mainEntry.branch} is clean` }
-    : mainEntry.clean === false
-    ? {
-      state: "changed",
-      headline: mainEntry.changed_files === undefined
-        ? `${mainEntry.branch} has uncommitted changes`
-        : `${mainEntry.branch} has ${
-          plural(mainEntry.changed_files, "uncommitted change")
-        }`,
-    }
-    : {
-      state: "unknown",
-      headline: `${mainEntry.branch} state is unavailable`,
-    };
-  const notices: DeskBoardNotice[] = [];
-  for (const exception of data.emergency_validation ?? []) {
-    if (exception.state !== "outstanding") continue;
-    notices.push({
-      id: "emergency",
-      state: "attention",
-      headline: "Emergency integration has outstanding validation",
-      detail: `${exception.landing_id}: ${exception.reason}`,
-      nextAction: exception.next_action,
-    });
-  }
-  const unlanded = data.unlanded_branches ?? [];
-  if (unlanded.length > 0) {
-    const only = unlanded.length === 1 ? unlanded[0] : undefined;
-    notices.push({
-      id: "unlanded",
-      state: "attention",
-      headline: `${plural(unlanded.length, "branch", "branches")} ${
-        unlanded.length === 1 ? "has" : "have"
-      } no worktree`,
-      ...(only === undefined ? {} : { detail: only }),
-      nextAction: "Choose a branch under Work without a worktree.",
-    });
-  }
-  const contained = data.contained_refs ?? [];
-  if (contained.length > 0) {
-    const only = contained.length === 1 ? contained[0] : undefined;
-    notices.push({
-      id: "contained",
-      state: "information",
-      headline: `${
-        plural(contained.length, "reclaimed branch", "reclaimed branches")
-      } ${contained.length === 1 ? "remains" : "remain"} inside live work`,
-      ...(only === undefined ? {} : {
-        detail:
-          `${only.branch} remains inside ${only.contained_in} until it lands`,
-      }),
-    });
-  }
-  const reappeared = data.reappeared_worktree_paths ?? [];
-  if (reappeared.length > 0) {
-    notices.push({
-      id: "reappeared",
-      state: "attention",
-      headline: `${plural(reappeared.length, "removed worktree path")} ${
-        reappeared.length === 1 ? "is" : "are"
-      } present again`,
-      nextAction: "Review with discern worktree prune --dry-run.",
-    });
-  }
-  return {
-    project: project === undefined || project === ""
-      ? "Project identity unavailable"
-      : project,
-    main,
-    taskCount: rows.length,
-    needsPersonCount:
-      rows.filter((row) => row.decision.needsHumanDecision).length,
-    readyToReviewCount:
-      rows.filter((row) => row.decision.state === "ready_to_review").length,
-    refreshedAge: "just now",
-    notices,
+    actions: offers,
   };
 }
 

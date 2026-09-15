@@ -498,10 +498,7 @@ realPtyTest({
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: TASK_ACTION_READY,
-          chunks: [{ input: "/more\r\r" }],
-        }, {
-          waitFor: "› More actions",
-          chunks: [{ input: "/review\r\r" }],
+          chunks: [{ input: "/proof and changes\r\r" }],
         }, {
           waitFor: [
             "Review Review pager",
@@ -522,9 +519,6 @@ realPtyTest({
             "Review Review pager",
             "View actual diff",
           ),
-          chunks: [{ keys: ["escape"], allowLoneEscape: true }],
-        }, {
-          waitFor: "› More actions",
           chunks: [{ keys: ["escape"], allowLoneEscape: true }],
         }, {
           waitFor: TASK_ACTION_READY,

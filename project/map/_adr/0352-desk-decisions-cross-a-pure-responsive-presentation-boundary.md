@@ -4,7 +4,7 @@
 >
 > - **[ADR 0398](0398-the-desk-is-a-live-human-control-panel.md) — presentation:** supersedes urgency grouping, recommendations, the transactional list/pick loop and scrollback-dependent boards with a bounded live application. Lifecycle truth, identity, action safety and consent remain in force.
 
-**Status**: accepted. Extends the external terminal boundary from [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md), the Desk's canonical decision model from [ADR 0318](0318-the-desk-adapts-status-into-one-human-decision.md), and the human advisory channel from [ADR 0234](0234-tips-are-the-desks-human-advisory-channel.md).
+**Status**: presentation superseded by [ADR 0398](0398-the-desk-is-a-live-human-control-panel.md); lifecycle and consent contracts retained. Extends the external terminal boundary from [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md), the Desk's canonical decision model from [ADR 0318](0318-the-desk-adapts-status-into-one-human-decision.md), and the human advisory channel from [ADR 0234](0234-tips-are-the-desks-human-advisory-channel.md).
 
 ## Context
 
@@ -14,7 +14,7 @@ The canonical Desk decision now carries state, headline, activity, Proof, landin
 
 ## Decision
 
-[`src/engine/desk/view.ts`](../../../src/engine/desk/view.ts) is the Desk's pure product presentation boundary. It accepts complete `DeskDecision` and `DeskBoardDecision` values, action offers, an explicit terminal context, and an explicit viewport. It maps those values into public design-system Components and selection entries. It performs no process observation, filesystem reads, effects, action-legality checks, or status classification. [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts) retains surveys, prompts, dispatch, and lifecycle effects.
+`src/engine/desk/view.ts` (retired) is the Desk's pure product presentation boundary. It accepts complete `DeskDecision` and `DeskBoardDecision` values, action offers, an explicit terminal context, and an explicit viewport. It maps those values into public design-system Components and selection entries. It performs no process observation, filesystem reads, effects, action-legality checks, or status classification. [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts) retains surveys, prompts, dispatch, and lifecycle effects.
 
 The root board is a triage queue. It shows project and main-checkout state, task totals, counts needing a person or ready to review, static refresh age, and bounded fleet notices. Tasks follow canonical human-decision order. Each row carries its display title, headline, one relevant detail, and its recommended action when space permits. Desk and session commands occupy separate groups.
 

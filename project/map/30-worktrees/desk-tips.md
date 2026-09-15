@@ -30,7 +30,7 @@ Seen-state lives at `<git-common-dir>/discern/desk/tips.json`, beside the logboo
 
 ## What a tip may say
 
-Tips educate about capability; alarms about state belong to the board's own facts and `discern status`. Every action remains available without its tip. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction. The curriculum opener teaches task selection, finding work, and returning to the task list.
+Tips educate about capability; alarms about state belong to the task's visible status and `discern status`. Every action remains available without its tip. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction. The curriculum opener teaches task selection, finding work, and returning to the task list.
 
 ## Where it lives in code
 

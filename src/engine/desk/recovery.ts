@@ -177,7 +177,7 @@ export function parkConsequence(context: CleanupContext): DeskConsequence {
       ...(context.effortGranted ? ["Task landing grant"] : []),
       ...(context.proofRecorded ? ["Task-local Proof"] : []),
     ],
-    recoverable: ["Resume the retained branch from Work without a worktree"],
+    recoverable: ["Open commands and choose Resume for the retained branch"],
   };
 }
 

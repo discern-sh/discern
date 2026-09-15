@@ -8,7 +8,7 @@ import { userShell } from "../user_shell.ts";
 import type { DeskRuntime } from "./desk.ts";
 import { echoDeskCommand } from "./presentation.ts";
 import { deskSessionEnv } from "./session.ts";
-import { DESK_ROUTES } from "./view.ts";
+import { DESK_ROUTES } from "./contracts.ts";
 
 /** Inspect and enter main without presenting it as agent-owned task work. */
 export async function actOnMainCheckout(

@@ -69,6 +69,7 @@ const PRIMARY = [
   "accept",
   "submit",
   "drop",
+  "inspect",
 ] as const satisfies readonly DeskAction[];
 /** A semantic destination for one package choice. */
 function route(
@@ -146,7 +147,9 @@ function actionEntry(
   return {
     id: action,
     label: offer.label,
-    ...(offer.availability === "disabled" ? { description: offer.reason } : {}),
+    ...(offer.availability === "disabled"
+      ? { status: { content: "Unavailable", tone: "neutral" as const } }
+      : {}),
     value: {
       kind: "action",
       id: deskRowId(row),
@@ -178,7 +181,9 @@ export function deskApplicationView(
       }`,
     ),
     ...(snapshot.tip ? { tip: terminalLine(`Tip: ${snapshot.tip}`) } : {}),
-    help: `Arrows move  Enter  Tab  / find  ${DESK_KEYS[0].key} help`,
+    help: `Tab ${page === "overview" ? "commands" : "regions"}  / find  ${
+      DESK_KEYS[0].key
+    } help  Arrows move  Enter select`,
   };
   const back = route("Back", "back");
   if (
@@ -257,7 +262,11 @@ export function deskApplicationView(
       deskProofLabel(row),
       row.decision.authority.status === "granted"
         ? "Authorized"
-        : row.decision.authority.summary,
+        : row.decision.authority.status === "unknown"
+        ? "Authority unknown"
+        : row.decision.authority.status === "scope_limited"
+        ? "Scope limited"
+        : "Needs approval",
       deskSubmission(row, data),
     ].join(" · ");
     const summary = [
@@ -312,7 +321,7 @@ export function deskApplicationView(
           entries: [
             ...entries,
             ...(page === "more" ? [] : [
-              route("Proof and details", "details"),
+              route("Task details", "details"),
               route("More actions", "more"),
             ]),
             back,
@@ -322,11 +331,11 @@ export function deskApplicationView(
           `task:${deskRowId(row)}:${
             page === "details" ? "details" : "summary"
           }`,
-          page === "details" ? "Proof and details" : "Current work",
+          page === "details" ? "Task details" : "Current work",
           page === "details" ? detailLines : [
             ...summary,
             ...(row.decision.collisions.length
-              ? ["Advisory overlaps · Proof and details"]
+              ? ["Advisory overlaps · Task details"]
               : []),
           ].map(literal),
         ),

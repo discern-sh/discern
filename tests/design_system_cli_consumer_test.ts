@@ -1,4 +1,4 @@
-/** External-consumer contract for Discern's selected design-system CLI source. */
+/** External-consumer contract for Discern's published design-system CLI dependency. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { z } from "@zod/zod";
@@ -36,9 +36,7 @@ import {
   type TerminalApplicationOptions,
   type TerminalApplicationState,
   type TerminalApplicationView,
-  type TerminalIO,
   type TerminalMouseEvent,
-  type TerminalSize,
   transitionTerminalApplication,
   updateTerminalApplication,
 } from "discern-design-system/cli/interactive";
@@ -52,11 +50,12 @@ import { decodeWith } from "./decode_cli_result.ts";
 
 import {
   DESIGN_SYSTEM_ORIGIN,
+  DESIGN_SYSTEM_PACKAGE,
   DESIGN_SYSTEM_SPECIFIER as SELECTED_SPECIFIER,
+  DESIGN_SYSTEM_VERSION,
 } from "./design_system_dependency.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const encoder = new TextEncoder();
 const ANSI_PATTERN = new RegExp(
   `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
   "gu",
@@ -77,7 +76,7 @@ const DenoLockSchema = z.object({
     links: z.record(
       z.string(),
       z.object({ dependencies: z.array(z.string()).optional() }),
-    ),
+    ).optional(),
   }),
 });
 
@@ -127,54 +126,6 @@ function reactRuntimeModules(specifiers: readonly string[]): string[] {
   );
 }
 
-/** Queue-backed terminal that proves the public interactive path without real effects. */
-class ConsumerTerminal implements TerminalIO {
-  readonly writes: string[] = [];
-  readonly rawTransitions: boolean[] = [];
-  readonly #chunks: Uint8Array[];
-  readonly #capabilities: TerminalCapabilities;
-  readonly #size: TerminalSize;
-
-  constructor(
-    chunks: readonly string[],
-    capabilities: TerminalCapabilities = {
-      ansiControl: true,
-      colorDepth: "none",
-      columns: 60,
-      unicode: true,
-    },
-    size: TerminalSize = { columns: 60, rows: 24 },
-  ) {
-    this.#chunks = chunks.map((chunk) => encoder.encode(chunk));
-    this.#capabilities = capabilities;
-    this.#size = size;
-  }
-
-  isInteractive(): boolean {
-    return true;
-  }
-
-  capabilities(): TerminalCapabilities {
-    return this.#capabilities;
-  }
-
-  size(): TerminalSize {
-    return this.#size;
-  }
-
-  read(): Promise<Uint8Array | null> {
-    return Promise.resolve(this.#chunks.shift() ?? null);
-  }
-
-  setRawMode(enabled: boolean): void {
-    this.rawTransitions.push(enabled);
-  }
-
-  write(value: string): void {
-    this.writes.push(value);
-  }
-}
-
 /** Read one resolved Deno graph as external-consumer evidence. */
 async function moduleGraph(entrypoint: string): Promise<DenoInfo> {
   const output = await new Deno.Command(Deno.execPath(), {
@@ -197,7 +148,7 @@ function resolvedEdge(info: DenoInfo, specifier: string): string {
   return info.redirects?.[specifier] ?? specifier;
 }
 
-Deno.test("the selected source exposes the complete public reader contract", async () => {
+Deno.test("the selected release exposes the complete public reader contract", async () => {
   const config = decodeWith(
     DenoConfigSchema,
     await Deno.readTextFile(join(ROOT, "deno.json")),
@@ -207,8 +158,9 @@ Deno.test("the selected source exposes the complete public reader contract", asy
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   );
   assertEquals(config.imports["discern-design-system"], SELECTED_SPECIFIER);
-  assertEquals(lock.specifiers[SELECTED_SPECIFIER], undefined);
-  assert(SELECTED_SPECIFIER in lock.workspace.links);
+  assertEquals(lock.specifiers[SELECTED_SPECIFIER], DESIGN_SYSTEM_VERSION);
+  assertEquals(lock.workspace.links, undefined);
+  assert(DESIGN_SYSTEM_PACKAGE in lock.jsr);
 
   assertEquals(packageManifest.package, "@discern-sh/design-system");
   assert(packageManifest.components.length > 0);
@@ -267,7 +219,7 @@ Deno.test("the selected source exposes the complete public reader contract", asy
     { kind: "group-heading", id: "secondary", label: "Secondary" },
     { id: "two", label: "Two", value: "two" },
   ] as const satisfies readonly InteractionEntry<string>[];
-  const io = new ConsumerTerminal(["\x1b[B\r"]);
+  const io = new FakeTerminalIO(["\x1b[B\r"]);
   assertEquals(
     await requestSelection({
       label: "Pick",
@@ -304,7 +256,7 @@ Deno.test("the selected source exposes the complete public reader contract", asy
   assertEquals(browserIo.rawTransitions, [true, false]);
   assertEquals(browserIo.resizeListenerCount, 0);
 
-  const acknowledgementIo = new ConsumerTerminal(["\r"]);
+  const acknowledgementIo = new FakeTerminalIO(["\r"]);
   await requestAcknowledgement(
     { presentation: "compact" },
     { io: acknowledgementIo },
@@ -327,7 +279,7 @@ Deno.test("the selected source exposes the complete public reader contract", asy
     assertEquals(one.indexOf("One"), two.indexOf("Two"));
   }
 
-  const staticIo = new ConsumerTerminal([], {
+  const staticIo = new FakeTerminalIO([], {
     ansiControl: false,
     colorDepth: "none",
     columns: 60,
@@ -343,7 +295,8 @@ Deno.test("the selected source exposes the complete public reader contract", asy
   });
   assertEquals(staticIo.writes, []);
 
-  const shortIo = new ConsumerTerminal([], capabilities, {
+  const shortIo = new FakeTerminalIO([], {
+    ...capabilities,
     columns: 60,
     rows: 2,
   });
@@ -357,7 +310,7 @@ Deno.test("the selected source exposes the complete public reader contract", asy
   });
   assertEquals(shortIo.writes, []);
 
-  const hintedIo = new ConsumerTerminal([], {
+  const hintedIo = new FakeTerminalIO([], {
     ansiControl: false,
     colorDepth: "none",
     columns: 60,
@@ -574,7 +527,7 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
   assertStringIncludes(textarea, "line 12");
 });
 
-Deno.test("CLI design-system graphs stay within the selected source, lock-resolved, and React-free", async () => {
+Deno.test("CLI design-system graphs stay within the immutable release, lock-resolved, and React-free", async () => {
   const entrypoint = join(ROOT, "tests/fixtures/design_system_cli_graph.ts");
   const info = await moduleGraph(entrypoint);
   const lock = decodeWith(
@@ -627,12 +580,12 @@ Deno.test("CLI design-system graphs stay within the selected source, lock-resolv
     "discern-design-system/cli/projection",
   ]);
   const allowedOrigin = DESIGN_SYSTEM_ORIGIN;
-  const packageLock = lock.workspace.links[SELECTED_SPECIFIER];
+  const packageLock = lock.jsr[DESIGN_SYSTEM_PACKAGE];
   assert(packageLock !== undefined);
   const declaredNpmPackages = (packageLock.dependencies ?? []).flatMap(
     (dependency) =>
       dependency.startsWith("npm:")
-        ? [dependency.slice("npm:".length).replace(/@[^@]+$/u, "")]
+        ? [dependency.slice("npm:".length).replace(/(?!^)@[^@]+$/u, "")]
         : [],
   );
   for (const [publicRoot, resolvedRoot] of packageRoots) {

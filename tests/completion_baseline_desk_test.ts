@@ -5,7 +5,7 @@ import {
   actOnMainCheckout,
   showRecentCompleted,
 } from "../src/engine/desk/main_checkout.ts";
-import { DESK_ROUTES } from "../src/engine/desk/view.ts";
+import { DESK_ROUTES } from "../src/engine/desk/contracts.ts";
 import { makeOut } from "../src/engine/output.ts";
 import type { StatusData } from "../src/shared/result_schemas.ts";
 import { InteractionCancelled } from "../src/lib/terminal_interaction.ts";
@@ -84,7 +84,6 @@ function mainRuntime(patch: Partial<DeskRuntime>): DeskRuntime {
     readPreferences: unrelated,
     writePreferences: unrelated,
     recordTipShown: unrelated,
-    size: () => ({ columns: 100, rows: 40 }),
     ...patch,
   };
 }

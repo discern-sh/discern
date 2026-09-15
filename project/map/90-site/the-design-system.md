@@ -8,19 +8,19 @@ aliases:
 
 # The design-system dependency
 
-discern uses one exact `@discern-sh/design-system` alias. During the desk adoption programme it resolves through the retained development worktree described in [terminal applications](../80-development/terminal-applications.md#development-source-during-adoption); finalization restores an immutable JavaScript Registry (JSR) dependency. The [discern-sh/design-system](https://github.com/discern-sh/design-system) repository authors and releases the package. This repository owns the discern.sh integration and product compositions.
+discern uses one exact `@discern-sh/design-system` alias. It resolves to an immutable JavaScript Registry (JSR) release through the committed Deno lock. Ordinary commands need no package checkout. The [discern-sh/design-system](https://github.com/discern-sh/design-system) repository authors and releases the package. This repository owns the discern.sh integration and product compositions.
 
 ## Dependency boundary
 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.31.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.33.0"
 ```
 
-Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer Proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. The docs site's fenced-code renderer uses the same projection export. `deno.lock` records the linked package’s transitive dependencies. Those public exports are the complete consumer application programming interface (API); source paths, registry addresses, cache internals and distribution files never appear in consumer imports. The committed link is a temporary development resolution policy.
+Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer Proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. The docs site's fenced-code renderer uses the same projection export. `deno.lock` records the release integrity and its transitive dependencies. Those public exports are the complete consumer application programming interface (API); source paths, registry addresses, cache internals and distribution files never appear in consumer imports. Committed local dependency overrides are rejected.
 
-Package defects are fixed in the assigned package worktree; 4A finishes the upstream gate, landing and formal release before restoring the exact published dependency. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
+Package defects are fixed, proved and formally released in the package repository before discern adopts the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
 ## Local package iteration
 
@@ -40,13 +40,13 @@ Use a one-shot build when another process already serves the generated site:
 discern scripts site-design-system -- --build-only
 ```
 
-Pass an absolute checkout path after the script name to override the sibling checkout. The local link provides visual and integration evidence only. Ordinary builds and gates follow the committed source selection, including the temporary programme link. Preview overrides do not change the source selected for ordinary builds and gates. Final release requires the [development-source cutover](../80-development/terminal-applications.md#development-source-during-adoption).
+Pass an absolute checkout path after the script name to override the sibling checkout. The local link provides visual and integration evidence only. Ordinary builds and gates use the committed immutable dependency. Follow the [package adoption procedure](../80-development/terminal-applications.md#package-source-and-releases) before changing that pin.
 
 ## CLI-owned integration
 
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. [`terminal.ts`](../../../src/lib/terminal.ts) binds the shared product-blue hue as an explicit terminal Appearance independently from its light/dark ground; [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts) carries the same immutable facts into effectful requests. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern at those boundaries.
 
-Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves inside the selected source root; an external npm root must be declared by the package and resolve to an exact node in `deno.lock`. The temporary source binding admits the assigned worktree as its source evolves, including uncommitted edits. Mixed origins, undeclared overrides, source imports, unlocked parsers and testing modules in ordinary graphs cannot satisfy the guards. 4A restores immutable registry-origin assertions. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves inside the selected release’s registry origin; an external npm root must be declared by the package and resolve to an exact node in `deno.lock`. Mixed origins, local overrides, source imports, unlocked parsers and testing modules in ordinary graphs cannot satisfy the guards. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
 
 ## Release 0.23.0 declaration contract
 

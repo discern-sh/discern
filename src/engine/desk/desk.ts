@@ -115,12 +115,12 @@ import {
 import {
   agentLaunchArgs,
   buildAgentLaunches,
-  buildDeskDecision,
   DESK_ACTION_REGISTRY,
   type DeskAction,
   type DeskActionOffer,
   type DeskAgentLaunch,
   type DeskRow,
+  withDeskCapabilities,
 } from "./model.ts";
 import {
   type DeskPreferences,
@@ -138,8 +138,7 @@ import { readTipSeenState, writeTipSeenState } from "./tip_state.ts";
 import { TIPS } from "../../shared/tips.ts";
 import { observeShownTip } from "../../shared/result_capture.ts";
 import { DISCERN_VERSION } from "../../lib/version.ts";
-import { terminalSize } from "../../lib/text.ts";
-import { terminalContext, type TerminalSize } from "../../lib/terminal.ts";
+import { terminalContext } from "../../lib/terminal.ts";
 import { deskSessionEnv, inDeskSession } from "./session.ts";
 import {
   parseProjectScriptArguments,
@@ -164,7 +163,7 @@ import {
   type DeskReview,
   type DeskReviewFailure,
   type DeskReviewFile,
-} from "./view.ts";
+} from "./contracts.ts";
 import { liveDesk } from "./live.ts";
 import type { DeskChoice } from "./application_view.ts";
 import { resultPresenterForVerb } from "../../shared/result_contracts.ts";
@@ -365,8 +364,6 @@ export interface DeskRuntime {
   ): DeskMaybePromise<DeskPreferencesWriteResult>;
   /** Report a shown tip id for the session's logbook event. */
   recordTipShown(id: string): void;
-  /** The live viewport sampled once for each complete Desk composition. */
-  size(): TerminalSize;
 }
 
 const echoCommand = echoDeskCommand;
@@ -752,7 +749,6 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   writePreferences: (root, preferences) =>
     writeDeskPreferences(root, preferences),
   recordTipShown: (id) => observeShownTip(id),
-  size: () => terminalSize(),
 };
 
 /** Map a Git status token to the package FileChange vocabulary. */
@@ -2041,7 +2037,7 @@ async function dispatchAction(
         });
         out.warn(
           result.message ??
-            "Final checks did not pass. Read Proof and details.",
+            "Final checks did not pass.",
         );
       } else {out.ok(
           result.message ??
@@ -2251,7 +2247,7 @@ async function dispatchAction(
         )
       ) return false;
       await runtime.park(ctx, path);
-      out.ok(`Parked ${branch}. Resume it under Work without a worktree.`);
+      out.ok(`Parked ${branch}. Open commands and choose its Resume command.`);
       return true;
     }
     case "drop": {
@@ -2463,47 +2459,34 @@ export async function runDesk(
   const capabilities = async (row: DeskRow): Promise<DeskRow> => {
     const loaded = await loadWorktreeConfig(row.entry.path, runtime);
     if (loaded.config === undefined) {
-      return {
-        ...row,
-        capabilityError: loaded.error ?? "Task configuration unavailable",
-        decision: {
-          ...row.decision,
-          actions: buildDeskDecision(row.entry, {
-            trunk: config.repository.trunk,
-            nowMs: runtime.now(),
-            scripts: [],
-            agentLaunches: [],
-            capabilityError: loaded.error ?? "Task configuration unavailable",
-          }).actions,
+      return withDeskCapabilities(
+        row,
+        {
+          scripts: [],
+          agentLaunches: [],
+          capabilityError: loaded.error ?? "Task configuration unavailable",
         },
-      };
+        config.repository.trunk,
+        runtime.now(),
+      );
     }
     const detected = await runtime.detectAgents();
     const inventory = scriptInventory(
       row.entry.path,
       await runtime.scripts(row.entry.path, loaded.config),
     );
-    const agentLaunches = buildAgentLaunches(loaded.config, detected);
-    return {
-      ...row,
-      scripts: inventory.scripts,
-      ...(inventory.unavailableReason === undefined
-        ? {}
-        : { scriptsUnavailableReason: inventory.unavailableReason }),
-      agentLaunches,
-      decision: {
-        ...row.decision,
-        actions: buildDeskDecision(row.entry, {
-          trunk: config.repository.trunk,
-          nowMs: runtime.now(),
-          scripts: inventory.scripts,
-          agentLaunches,
-          ...(inventory.unavailableReason === undefined
-            ? {}
-            : { scriptsUnavailableReason: inventory.unavailableReason }),
-        }).actions,
+    return withDeskCapabilities(
+      row,
+      {
+        scripts: inventory.scripts,
+        ...(inventory.unavailableReason === undefined ? {} : {
+          scriptsUnavailableReason: inventory.unavailableReason,
+        }),
+        agentLaunches: buildAgentLaunches(loaded.config, detected),
       },
-    };
+      config.repository.trunk,
+      runtime.now(),
+    );
   };
   try {
     await runtime.application(liveDesk({

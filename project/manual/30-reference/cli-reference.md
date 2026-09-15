@@ -116,7 +116,7 @@ Interactive task supervision and worktree entry.
 
 ### `discern desk`
 
-Open the interactive task list: follow one recommended action, review Proof and changes, run final checks, or preview a lifecycle effect before confirming it. Bare `discern` opens the desk.
+Open the live desk: see tasks, review Proof and changes, open an agent, run Project Scripts, or review acceptance and worktree controls. Bare `discern` opens the desk.
 
 Usage: `discern desk [options]`
 

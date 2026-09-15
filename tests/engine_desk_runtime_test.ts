@@ -45,7 +45,7 @@ import {
   DESK_REVIEW_ROUTES,
   DESK_ROUTES,
   deskUnlandedRoute,
-} from "../src/engine/desk/view.ts";
+} from "../src/engine/desk/contracts.ts";
 import { DESK_ACTIONS, type DeskAction } from "../src/engine/desk/model.ts";
 import {
   DESK_SESSION_ENV,
@@ -455,7 +455,6 @@ function scriptedRuntime(
     readPreferences: () => ({ schema_version: 1 }),
     writePreferences: () => ({ status: "saved" }),
     recordTipShown: () => {},
-    size: () => ({ columns: 80, rows: 24 }),
     ...patch,
     status: async (root) => {
       const result = patch.status === undefined
@@ -2068,7 +2067,8 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
       "Project Scripts",
       "Accept",
       "Drop",
-      "Proof and details",
+      "Proof and changes",
+      "Task details",
       "More actions",
     ]
   ) assertStringIncludes(actionMenu, label);

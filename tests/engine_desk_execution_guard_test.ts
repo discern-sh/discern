@@ -65,7 +65,6 @@ const BOUNDARIES = {
   readPreferences: null,
   writePreferences: null,
   recordTipShown: null,
-  size: null,
 } satisfies Record<keyof DeskRuntime, string | null>;
 
 Deno.test("Desk task effects cross shared execution and never acquire direct operation locks", async () => {

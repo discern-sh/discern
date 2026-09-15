@@ -129,6 +129,16 @@ The script prints HTML paths under `.scratch/terminal-application/` and retains 
 
 Inspect each generated frame in the browser using the review procedure above. The native tests separately verify resizing, pending-read release, foreground child input, and application return.
 
+## Desk gallery
+
+Run the production desk against disposable fixture repositories and retain named complete frames:
+
+```sh
+discern queue -- deno run -A scripts/desk_capture.ts
+```
+
+The [capture script](../../../scripts/desk_capture.ts) covers empty and large fleets, long command lists, complete Proof reading and return, narrow and short viewports, light and dark themes, and the minimum-size notice. Its HTML index links separate terminal viewports. Render and inspect each relevant HTML frame before judging a change; these artifacts are review evidence, not fixed screenshot expectations. The [Desk PTY fixture](../../../tests/fixtures/desk_tty_harness.ts) retains raw named paints for the package capture helper and its specialized cursor accounting for inline foreground journeys.
+
 ## Flagship evidence
 
 The reviewed fixtures under [`tests/fixtures/terminal_captures/`](../../../tests/fixtures/terminal_captures/) cover `discern status`, `discern doctor`, root `--help`, and a successful six-job `discern done` summary at 80 by 24. Each command has normalized JSON capture data and its package-projected HTML. [`flagship_terminal_capture_test.ts`](../../../tests/flagship_terminal_capture_test.ts) captures each command once with one current-source binary, validates package projection, and compares both artifact forms byte for byte. Deterministic serialization and projection tests exercise repeatability without opening a second pseudo-terminal.

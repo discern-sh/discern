@@ -9,28 +9,22 @@ import { configSchema } from "../src/shared/config_schema.ts";
 import {
   GATE_PROOF_CHECK_STATUSES,
   type GateProofCheckStatus,
-  type StatusData,
   type StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import type { DetectedAgentBinary } from "../src/lib/detect_agents.ts";
 import {
   agentLaunchArgs,
   buildAgentLaunches,
-  buildDeskBoardDecision,
   buildDeskDecision,
   buildDeskRows,
   decisionSummary,
   DESK_ACTION_GROUPS,
   DESK_ACTION_REGISTRY,
   DESK_ACTIONS,
-  DESK_STATE_BY_STATUS_KIND,
-  DESK_STATES,
   type DeskAction,
   type DeskActionOffer,
   type DeskAgentLaunch,
   type DeskDecision,
-  type DeskState,
-  stateTitle,
   taskLabel,
 } from "../src/engine/desk/model.ts";
 import {
@@ -119,12 +113,10 @@ const AGENT_LAUNCH: DeskAgentLaunch = {
 const STATUS_KIND_CASES = [
   {
     kind: "broken",
-    state: "needs_attention",
     over: { broken: true },
   },
   {
     kind: "setup-incomplete",
-    state: "needs_attention",
     over: {
       setup: {
         state: "incomplete",
@@ -139,7 +131,6 @@ const STATUS_KIND_CASES = [
   },
   {
     kind: "unreadable",
-    state: "needs_attention",
     over: {
       git_unavailable: true,
       clean: undefined,
@@ -150,7 +141,6 @@ const STATUS_KIND_CASES = [
   },
   {
     kind: "failed",
-    state: "needs_attention",
     over: {
       ahead: 1,
       last_action: {
@@ -163,7 +153,6 @@ const STATUS_KIND_CASES = [
   },
   {
     kind: "blocked",
-    state: "needs_attention",
     over: {
       ahead: 1,
       last_action: {
@@ -179,17 +168,14 @@ const STATUS_KIND_CASES = [
     // Update. Only UNPROVEN work classifies behind — honored Proof routes to
     // acceptance, which composes the moved trunk itself.
     kind: "behind",
-    state: "paused",
     over: { ahead: 2, behind: 1 },
   },
   {
     kind: "ready",
-    state: "ready_to_review",
     over: { ahead: 2, gate_proof: { status: "honored" } },
   },
   {
     kind: "running",
-    state: "working",
     over: {
       ahead: 1,
       running: { verb: "done", started: minutesAgo(1), elapsed_ms: 42_000 },
@@ -197,12 +183,10 @@ const STATUS_KIND_CASES = [
   },
   {
     kind: "stale",
-    state: "needs_attention",
     over: { ahead: 1, last_activity: daysAgo(8) },
   },
   {
     kind: "in-progress",
-    state: "paused",
     over: {
       clean: false,
       changed_files: 2,
@@ -211,7 +195,6 @@ const STATUS_KIND_CASES = [
   },
   {
     kind: "proof-unreadable",
-    state: "needs_attention",
     over: {
       ahead: 1,
       gate_proof: { status: "read_failed", reason: "invalid marker" },
@@ -221,7 +204,6 @@ const STATUS_KIND_CASES = [
     // An unavailable inspection needs attention because the Desk cannot turn
     // missing observation into an ordinary "run the Gate" claim.
     kind: "proof-unavailable",
-    state: "needs_attention",
     over: {
       ahead: 1,
       gate_proof: { status: "unavailable", reason: "admin dir missing" },
@@ -230,7 +212,6 @@ const STATUS_KIND_CASES = [
   {
     // A stale Proof is paused: the known next condition is a Gate on this HEAD.
     kind: "proof-stale",
-    state: "paused",
     over: {
       ahead: 1,
       gate_proof: { status: "stale", recorded: "aaa", head: "bbb" },
@@ -238,17 +219,14 @@ const STATUS_KIND_CASES = [
   },
   {
     kind: "needs-gate",
-    state: "paused",
     over: { ahead: 1 },
   },
   {
     kind: "idle",
-    state: "empty",
     over: {},
   },
 ] as const satisfies ReadonlyArray<{
   readonly kind: FleetRowStatusKind;
-  readonly state: DeskState;
   readonly over: Partial<StatusFleetEntry>;
 }>;
 
@@ -257,11 +235,6 @@ Deno.test("every status kind maps to exactly one Desk decision state", () => {
     STATUS_KIND_CASES.map((testCase) => testCase.kind).sort(),
     [...FLEET_ROW_STATUS_KINDS].sort(),
     "a new status kind must add an explicit Desk fixture",
-  );
-  assertEquals(
-    [...new Set(STATUS_KIND_CASES.map((testCase) => testCase.state))].sort(),
-    [...DESK_STATES].sort(),
-    "the table must exercise every Desk state",
   );
   for (const testCase of STATUS_KIND_CASES) {
     const surveyEntry = entry(testCase.over);
@@ -280,12 +253,6 @@ Deno.test("every status kind maps to exactly one Desk decision state", () => {
       status.kind,
       `${testCase.kind}: Desk must consume status's classifier`,
     );
-    assertEquals(
-      decision.state,
-      DESK_STATE_BY_STATUS_KIND[status.kind],
-      `${testCase.kind}: the exhaustive adaptation is authoritative`,
-    );
-    assertEquals(decision.state, testCase.state, `${testCase.kind}: decision`);
   }
 });
 
@@ -294,7 +261,6 @@ Deno.test("status precedence boundaries remain identical in the Desk", () => {
     name: string;
     over: Partial<StatusFleetEntry>;
     kind: FleetRowStatusKind;
-    state: DeskState;
   }> = [
     {
       name: "broken outranks a running Gate",
@@ -303,7 +269,6 @@ Deno.test("status precedence boundaries remain identical in the Desk", () => {
         running: { verb: "done", started: minutesAgo(1), elapsed_ms: 1_000 },
       },
       kind: "broken",
-      state: "needs_attention",
     },
     {
       name: "running outranks a previous failed action and branch lag",
@@ -314,7 +279,6 @@ Deno.test("status precedence boundaries remain identical in the Desk", () => {
         running: { verb: "done", started: minutesAgo(1), elapsed_ms: 1_000 },
       },
       kind: "running",
-      state: "working",
     },
     {
       name: "stale work outranks dirty and behind facts",
@@ -327,7 +291,6 @@ Deno.test("status precedence boundaries remain identical in the Desk", () => {
         gate_proof: { status: "dirty" },
       },
       kind: "stale",
-      state: "needs_attention",
     },
     {
       name: "uncommitted work outranks branch lag",
@@ -338,26 +301,22 @@ Deno.test("status precedence boundaries remain identical in the Desk", () => {
         gate_proof: { status: "dirty" },
       },
       kind: "in-progress",
-      state: "paused",
     },
     {
       name: "branch lag pauses unproven work",
       over: { ahead: 2, behind: 1 },
       kind: "behind",
-      state: "paused",
     },
     {
       name:
         "honored Proof outranks branch lag: acceptance composes the moved trunk",
       over: { ahead: 2, behind: 1, gate_proof: { status: "honored" } },
       kind: "ready",
-      state: "ready_to_review",
     },
   ];
   for (const testCase of cases) {
     const decision = decide(testCase.over);
     assertEquals(decision.statusKind, testCase.kind, testCase.name);
-    assertEquals(decision.state, testCase.state, testCase.name);
   }
 });
 
@@ -435,25 +394,22 @@ Deno.test("running, failed, refused, partial, and successful outcomes stay factu
 // ── complete Proof and authority evidence ───────────────────────────────────
 
 const PROOF_CASES = [
-  { status: "honored", kind: "ready", state: "ready_to_review" },
-  { status: "report_only", kind: "needs-gate", state: "paused" },
-  { status: "missing", kind: "needs-gate", state: "paused" },
-  { status: "stale", kind: "proof-stale", state: "paused" },
-  { status: "dirty", kind: "needs-gate", state: "paused" },
+  { status: "honored", kind: "ready" },
+  { status: "report_only", kind: "needs-gate" },
+  { status: "missing", kind: "needs-gate" },
+  { status: "stale", kind: "proof-stale" },
+  { status: "dirty", kind: "needs-gate" },
   {
     status: "unavailable",
     kind: "proof-unavailable",
-    state: "needs_attention",
   },
   {
     status: "read_failed",
     kind: "proof-unreadable",
-    state: "needs_attention",
   },
 ] as const satisfies ReadonlyArray<{
   readonly status: GateProofCheckStatus;
   readonly kind: FleetRowStatusKind;
-  readonly state: DeskState;
 }>;
 
 Deno.test("every gate-Proof status reaches the decision without compatibility drift", () => {
@@ -475,7 +431,6 @@ Deno.test("every gate-Proof status reaches the decision without compatibility dr
     assertEquals(decision.proof.status, testCase.status, testCase.status);
     assertEquals(decision.proof.honored, testCase.status === "honored");
     assertEquals(decision.statusKind, testCase.kind, testCase.status);
-    assertEquals(decision.state, testCase.state, testCase.status);
   }
 });
 
@@ -489,7 +444,6 @@ Deno.test("the complete gate-Proof inspection outranks honored compatibility tex
   });
   assertEquals(decision.proof.status, "stale");
   assertEquals(decision.statusKind, "proof-stale");
-  assertEquals(decision.landingReady, false);
 });
 
 Deno.test("task activity and the exact Proof line cross the decision boundary", () => {
@@ -562,22 +516,18 @@ Deno.test("standing, effort, scoped, and absent authority remain distinct", () =
 
   assertEquals(effort.authority.source, "effort-grant");
   assertEquals(effort.authority.status, "granted");
-  assertEquals(effort.needsHumanDecision, false);
   assertEquals(offer(effort, "revoke_grant").availability, "enabled");
   assertEquals(offer(effort, "grant").availability, "disabled");
 
   assertEquals(standing.authority.source, "standing-grant");
   assertEquals(standing.authority.scopes, ["map"]);
-  assertEquals(standing.needsHumanDecision, false);
   assertEquals(offer(standing, "grant").availability, "enabled");
 
   assertEquals(scoped.authority.status, "scope_limited");
   assertEquals(scoped.authority.uncoveredPaths, ["src/main.ts"]);
-  assertEquals(scoped.needsHumanDecision, true);
   assertStringIncludes(scoped.authority.summary, "outside the standing grant");
 
   assertEquals(absent.authority.status, "unknown");
-  assertEquals(absent.needsHumanDecision, true);
 });
 
 // ── collision and desk-only capability evidence ─────────────────────────────
@@ -607,9 +557,6 @@ Deno.test("advisory collisions retain facts without changing state or recommendi
     },
   );
   assertEquals(decision.statusKind, "ready", "collision is not a row status");
-  assertEquals(decision.state, "ready_to_review");
-  assertEquals(decision.needsHumanDecision, true);
-  assertEquals(decision.recommendedAction, undefined);
   assertEquals(decision.collisions, [
     {
       kind: "changed_files",
@@ -638,7 +585,6 @@ Deno.test("advisory collisions retain facts without changing state or recommendi
     }],
   });
   assertEquals(unrelated.collisions, []);
-  assertEquals(unrelated.state, "paused");
 });
 
 Deno.test("a contained task names its live successor and offers reclaim", () => {
@@ -646,10 +592,7 @@ Deno.test("a contained task names its live successor and offers reclaim", () => 
     ahead: 2,
     contained_in: "agent/next-stage",
   });
-  assertEquals(decision.state, "paused");
   assertEquals(decision.headline, "Work continues in agent/next-stage");
-  assertEquals(decision.needsHumanDecision, true);
-  assertEquals(decision.recommendedAction, undefined);
   assertEquals(offer(decision, "reclaim").availability, "enabled");
   assertStringIncludes(
     offer(decision, "reclaim").label,
@@ -681,6 +624,8 @@ Deno.test("Park, Reclaim, and Drop retain distinct artifact contracts", () => {
   assert(parked.removes.includes("Task checkout"));
   assert(parked.removes.includes("Task landing grant"));
   assert(parked.removes.includes("Task-local Proof"));
+  assertStringIncludes(parked.recoverable.join(" "), "commands");
+  assertStringIncludes(parked.recoverable.join(" "), "Resume");
   assert(
     !parked.removes.some((fact) => fact.includes(`Branch ${task.branch}`)),
   );
@@ -716,20 +661,17 @@ const ACTION_CASES: ReadonlyArray<{
   name: string;
   decision: () => DeskDecision;
   enabled: readonly DeskAction[];
-  recommended?: DeskAction;
 }> = [
   {
     name: "broken checkout",
     decision: () => decide({ broken: true }),
     enabled: ["recovery", "jump", "drop"],
-    recommended: "recovery",
   },
   {
     name: "unreadable checkout",
     decision: () =>
       decide({ git_unavailable: true, clean: undefined, ahead: undefined }),
     enabled: ["recovery", "jump", "drop"],
-    recommended: "recovery",
   },
   {
     name: "missing checkout directory",
@@ -741,7 +683,6 @@ const ACTION_CASES: ReadonlyArray<{
         filesystem: { state: "missing" },
       }),
     enabled: ["recovery", "drop"],
-    recommended: "recovery",
   },
   {
     name: "repairable setup",
@@ -758,7 +699,6 @@ const ACTION_CASES: ReadonlyArray<{
         },
       }),
     enabled: ["recovery", "retry_setup", "jump", "drop"],
-    recommended: "recovery",
   },
   {
     name: "clean committed work awaiting final checks",
@@ -776,7 +716,6 @@ const ACTION_CASES: ReadonlyArray<{
       "park",
       "drop",
     ],
-    recommended: "done",
   },
   {
     name: "ready work with an effort grant",
@@ -799,7 +738,6 @@ const ACTION_CASES: ReadonlyArray<{
       "park",
       "drop",
     ],
-    recommended: "accept",
   },
   {
     name: "branch behind main",
@@ -816,7 +754,6 @@ const ACTION_CASES: ReadonlyArray<{
       "park",
       "drop",
     ],
-    recommended: "update",
   },
   {
     name: "contained branch",
@@ -834,7 +771,6 @@ const ACTION_CASES: ReadonlyArray<{
       "reclaim",
       "drop",
     ],
-    recommended: "reclaim",
   },
   {
     name: "task with scripts and an agent",
@@ -858,7 +794,6 @@ const ACTION_CASES: ReadonlyArray<{
       "grant",
       "drop",
     ],
-    recommended: "agent",
   },
   {
     name: "live discern operation",
@@ -897,16 +832,6 @@ Deno.test("every action is offered once with closed metadata and concrete availa
       `${testCase.name}: every action exactly once and in canonical order`,
     );
     assertEquals(enabledActions(decision), testCase.enabled, testCase.name);
-    assertEquals(
-      decision.recommendedAction,
-      undefined,
-      testCase.name,
-    );
-    assertEquals(
-      decision.actions.filter((candidate) => candidate.recommended).length,
-      0,
-      `${testCase.name}: at most one recommendation`,
-    );
     for (const candidate of decision.actions) {
       assert(candidate.label.trim().length > 0, `${candidate.action}: label`);
       assert(
@@ -943,7 +868,6 @@ Deno.test("every action is offered once with closed metadata and concrete availa
           candidate.reason.trim().length > 0,
           `${candidate.action}: concrete disabled reason`,
         );
-        assertEquals(candidate.recommended, false);
       } else {
         enabledPopulation.add(candidate.action);
       }
@@ -1003,7 +927,6 @@ Deno.test("a proven branch behind main keeps Accept enabled : the landing compos
   });
   assertEquals(offer(decision, "accept").availability, "enabled");
   assertEquals(offer(decision, "update").availability, "enabled");
-  assertEquals(decision.recommendedAction, undefined);
 });
 
 Deno.test("an unproven branch behind main disables Accept", () => {
@@ -1018,7 +941,6 @@ Deno.test("an unproven branch behind main disables Accept", () => {
     assertEquals(accept.reason, "1 commit behind main.");
   }
   assertEquals(offer(decision, "update").availability, "enabled");
-  assertEquals(decision.recommendedAction, undefined);
 });
 
 Deno.test("unknown divergence disables actions that require trustworthy counts", () => {
@@ -1045,81 +967,6 @@ Deno.test("unknown divergence disables actions that require trustworthy counts",
 });
 
 // ── row construction, ordering, and factual copy ────────────────────────────
-
-Deno.test("the board decision carries project, main, counts, and bounded notices", () => {
-  const main = entry({
-    branch: "main",
-    path: "/tmp/project",
-    is_main: true,
-    is_current: true,
-    clean: false,
-    changed_files: 2,
-  });
-  const fleet = [
-    main,
-    entry({ branch: "agent/attention", path: "/tmp/attention", broken: true }),
-    entry({
-      branch: "agent/ready",
-      path: "/tmp/ready",
-      ahead: 1,
-      gate_proof: { status: "honored" },
-      landing_authority: { kind: "authorized", source: "effort-grant" },
-    }),
-  ];
-  const taskRows = buildDeskRows(fleet, new Map(), new Map(), {
-    trunk: TRUNK,
-    nowMs: NOW,
-  });
-  const data: StatusData = {
-    location: "main",
-    root: "/tmp/project",
-    project: "demo",
-    worktree: null,
-    git: null,
-    standards: [],
-    fleet,
-    unlanded_branches: ["agent/orphan"],
-    contained_refs: [{
-      branch: "agent/reclaimed",
-      contained_in: "agent/ready",
-    }],
-    reappeared_worktree_paths: [{
-      path: "/tmp/returned",
-      removed_at: daysAgo(1),
-      kind: "directory",
-      contents: [],
-      contents_truncated: false,
-      entries: 0,
-    }],
-  };
-
-  assertEquals(buildDeskBoardDecision(data, taskRows), {
-    project: "demo",
-    main: { state: "changed", headline: "main has 2 uncommitted changes" },
-    taskCount: 2,
-    needsPersonCount: 1,
-    readyToReviewCount: 1,
-    refreshedAge: "just now",
-    notices: [{
-      id: "unlanded",
-      state: "attention",
-      headline: "1 branch has no worktree",
-      detail: "agent/orphan",
-      nextAction: "Choose a branch under Work without a worktree.",
-    }, {
-      id: "contained",
-      state: "information",
-      headline: "1 reclaimed branch remains inside live work",
-      detail: "agent/reclaimed remains inside agent/ready until it lands",
-    }, {
-      id: "reappeared",
-      state: "attention",
-      headline: "1 removed worktree path is present again",
-      nextAction: "Review with discern worktree prune --dry-run.",
-    }],
-  });
-});
-
 Deno.test("buildDeskRows excludes main, carries collisions, and sorts by title and stable identity", () => {
   const fleet = [
     entry({ is_main: true, branch: "main", path: "/p/main" }),
@@ -1184,14 +1031,6 @@ Deno.test("buildDeskRows excludes main, carries collisions, and sorts by title a
       "agent/working",
     ],
   );
-  assertEquals(rows.map((row) => row.decision.state), [
-    "ready_to_review",
-    "needs_attention",
-    "empty",
-    "paused",
-    "ready_to_review",
-    "working",
-  ]);
   assert(rows.every((row) => !row.entry.is_main));
   assertEquals(
     rows.find((row) => row.entry.branch === "agent/ready")?.scripts,
@@ -1223,20 +1062,8 @@ Deno.test("human copy names units, commands, and recency without lossy shorthand
   );
 
   const empty = decide();
-  assertEquals(empty.state, "empty");
   assertEquals(empty.headline, "No work to review");
 });
-
-Deno.test("state headings cover the canonical vocabulary", () => {
-  assertEquals(DESK_STATES.map(stateTitle), [
-    "Needs attention",
-    "Ready to review",
-    "Working",
-    "Paused",
-    "Empty",
-  ]);
-});
-
 Deno.test("taskLabel keeps task identity separate from its disambiguator", () => {
   assertEquals(
     taskLabel(entry({
