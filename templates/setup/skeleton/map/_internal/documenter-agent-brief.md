@@ -108,7 +108,7 @@ Cite the decision records under `_adr/` as liberally as reasoning requires — c
 
 1. **Use names that appear in code.** Do not invent abstractions. If a thing has no named type, describe it by the real pieces it is made of — name what is real.
 2. **Verify every file path before writing it.** Use a listing if uncertain. A hallucinated path is the most expensive defect to fix later.
-3. **No modal verbs about the system.** Banned: "should", "would", "could", "will eventually", "is intended to". Describe only what exists in code today. If something is half-built, write "Currently does X; does not yet do Y."
+3. **Distinguish evidence and intent.** Describe current behavior from code and tests; label agreed requirements as requirements and unresolved questions as open. A requirement is not evidence that the implementation satisfies it.
 4. **Cross-link with relative paths.** Never repeat the project-relative map root — you are already inside it.
 5. **Cross-link within your subtree liberally; do not link across subtrees.** Add inter-subtree links only when the map maintainer has verified both pages.
 6. **Glossary additions go in your summary, not your leaves.** If you find a term that ought to be glossary-defined, list it in your summary; do not append a glossary section to a leaf.

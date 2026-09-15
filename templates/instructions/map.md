@@ -1,10 +1,12 @@
 ## The Map & decisions
 
-`{{map_dir}}` is the agent-maintained **map**, browsable with **`discern_map`**. Agents use the map to learn and navigate the project; humans use the map to audit agent understanding. Update the map when the reader's mental model, a durable boundary, a supported workflow, or a product behavior changes.
+`{{map_dir}}` is the agent-maintained **map**, browsable with **`discern_map`**. It explains the current project with links to evidence. Agents use it to learn and navigate; humans use it to inspect agent understanding.
 
-Staleness is a defect, so keep the map current — a page is current when nothing in it is false. A map page must **reduce** the total amount of repository reading required to make a correct decision, so it should never restate what code, tests, or config already express — link the authority instead. Do not use the map to maintain independently mechanically derivable facts.
+Update the affected pages when a change alters a boundary, constraint, supported workflow, or product behavior. Explain the behavior and relationships a reader needs to make a correct change. Summarize implementation when it helps, and link the code, tests, configuration, or agreed requirement that supports the explanation. Name functions as entry points or to explain contracts; do not transcribe every method, symbol, or source file. Keep mechanically derivable inventories in their authority or generated reference.
 
-The map records what the code cannot say (boundaries, invariants, intent, where to start). The map should read in the present, not as change history. Significant, hard-to-reverse decisions belong as ADRs instead — save **Architecture Decision Records** under `{{map_dir}}_adr/`.
+Extend an existing section first. Split a child page for a distinct reader task. Create a region with its own README for a durable responsibility; ordinary features belong under their subsystem. Keep the root for the project overview and navigation. Follow the project's existing ordering; numeric prefixes are optional.
+
+Keep current behavior, agreed requirements, and unresolved questions distinct. The map describes the present; concrete outstanding work belongs in `{{todo_path}}`. Record significant decision rationale in **Architecture Decision Records** under `{{map_dir}}_adr/`. An ADR records a decision or approved exception; it does not authorize overriding an agreed requirement.
 
 <!-- discern:map-regions -->
 

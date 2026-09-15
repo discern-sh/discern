@@ -458,7 +458,7 @@ must_do = [
   "Replace a claim that cannot be verified with a clearly labeled concrete item in {{todo_path}}, then run `discern refresh` and `discern prepare --json`.",
 ]
 authority_boundaries = [
-  "The map records boundaries, invariants, intent, and navigation that code cannot express; code and config remain the behavior authority.",
+  "The map explains behavior, boundaries, constraints, and relationships with evidence; code and config remain the behavior authority. Agreed requirements describe what must hold, not proof that it already does.",
   "A hard-to-reverse or surprising architectural decision belongs in an ADR, not an orientation aside.",
 ]
 owner_moments = ["lasting-project-context", "documentation-claim-gap"]
@@ -476,6 +476,8 @@ recovery = [
 ]
 next_action = "discern setup step 10"
 ```
+
+Explain a contract rather than walking through symbols. For example, “parse reads the file, validate checks it, write saves it” adds little. “Validation completes before the output is replaced, so failed validation preserves the previous usable output” explains a boundary worth checking; link the implementation and failure tests. A small implementation summary is useful when it supports that explanation. Do not produce one map entry per source file or method.
 
 This is the last synthesis step because the configured smoke and worktree model now exist. Keep each page present tense and link to the authority instead of restating large command or file inventories.
 

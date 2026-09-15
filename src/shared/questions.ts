@@ -225,14 +225,14 @@ export const QUESTIONS: readonly Question[] = [
     question:
       "Read the changed documentation as its future reader. Does each changed " +
       "entry reduce the repository reading needed to make a correct decision — " +
-      "behavior, boundaries, intent, where to start — or does it restate what " +
-      "the code already says: symbol inventories, file-by-file summaries, " +
-      "change history?",
+      "behavior, boundaries, constraints, relationships, where to start — with links " +
+      "to evidence? Does it belong in the closest useful region, without method " +
+      "transcription, file-by-file inventories, or change history?",
     teach:
       "Documentation earns its place by what a reader no longer has to open. " +
-      "Record what the code cannot say, in the present tense, and cut anything " +
-      "a reader could regenerate mechanically from the code — derivable " +
-      "content is stale the day after it is written.",
+      "Summarize implementation when it explains a contract or relationship; link " +
+      "the authority instead of copying a derivable inventory. Distinguish " +
+      "observed behavior, agreed requirements, and unresolved questions.",
   },
   {
     id: "worktrees.resources",
