@@ -8,6 +8,7 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 /** Check the public adoption boundary, independent of the consumer's file or binding names. */
 function terminalMechanics(source: string): string[] {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });
