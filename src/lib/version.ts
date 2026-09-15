@@ -6,7 +6,7 @@
  * compiled installer reports the right version with no filesystem lookup.
  */
 
-import { parseVersion } from "../shared/semver.ts";
+import { tryParseVersion } from "../shared/semver.ts";
 import { RELEASE_METADATA } from "./release_metadata.ts";
 export { RELEASE_METADATA };
 
@@ -56,12 +56,8 @@ export const SCHEMA_VERSION = 1;
 /** Parse human output while returning only its strict numeric SemVer identity. */
 export function parseVersionOutput(raw: string): string | undefined {
   const match = raw.trim().match(/^discern (\S+)(?: — [^\r\n]+)?$/u);
-  if (match?.[1] === undefined) return undefined;
-  try {
-    parseVersion(match[1]);
-    return match[1];
-  } catch {
-    // discern-best-effort: version-output-parse-fallback
-    return undefined;
-  }
+  const version = match?.[1];
+  return version !== undefined && tryParseVersion(version) !== undefined
+    ? version
+    : undefined;
 }

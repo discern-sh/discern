@@ -1,10 +1,18 @@
 /** Strict SemVer parsing and precedence shared by release consumers. */
-import { compare, format, parse, type SemVer } from "@std/semver";
+import { compare, format, type SemVer, tryParse } from "@std/semver";
+
+/** Classify strict SemVer without treating invalid input as an exception. */
+export function tryParseVersion(value: string): SemVer | undefined {
+  const version = tryParse(value);
+  return version === undefined || format(version) !== value
+    ? undefined
+    : version;
+}
 
 /** Parse without accepting a tag prefix, whitespace, or numeric coercion. */
 export function parseVersion(value: string): SemVer {
-  const version = parse(value);
-  if (format(version) !== value) throw new Error(`invalid SemVer: ${value}`);
+  const version = tryParseVersion(value);
+  if (version === undefined) throw new Error(`invalid SemVer: ${value}`);
   return version;
 }
 

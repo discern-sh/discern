@@ -138,7 +138,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
 | [`secure-entropy-primitive-boundaries`](#secure-entropy-primitive-boundaries--secure-entropy-primitive-boundaries)    | `src/shared/entropy.ts#SECURE_ENTROPY_PRIMITIVE_BOUNDARIES`                       | 2       | —                | —                           |
-| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 189     | —                | —                           |
+| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 187     | —                | —                           |
 | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 13      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
@@ -4526,7 +4526,7 @@ Every direct WebCrypto UUID or byte-fill operation retained by the system secure
 Every named production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.
 
 - Source: `src/shared/best_effort.ts` — `BEST_EFFORT_BOUNDARIES`
-- Members: 189
+- Members: 187
   - `accept-post-convergence-clean-check-fallback`
   - `accept-post-landing-dirty-baseline-fallback`
   - `accept-post-landing-templates-fallback`
@@ -4647,7 +4647,6 @@ Every named production error discard, with its exact module, enclosing function,
   - `proof-standard-measurements-clear`
   - `proof-standard-measurements-record`
   - `providers-toml-decode-fallback`
-  - `release-check-version-parse-fallback`
   - `resource-ledger-decode-fallback`
   - `resource-ledger-entry-remove`
   - `retired-path-excess-record-remove`
@@ -4710,7 +4709,6 @@ Every named production error discard, with its exact module, enclosing function,
   - `third-party-package-license-decode-fallback`
   - `third-party-payload-compare-fallback`
   - `toml-number-probe-fallback`
-  - `version-output-parse-fallback`
   - `worktree-hook-live-ports-fallback`
   - `worktree-hook-port-warning-fallback`
   - `worktree-shell-drain-cancel`

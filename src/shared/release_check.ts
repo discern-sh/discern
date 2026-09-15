@@ -6,7 +6,7 @@ import { gitAdminStatePath } from "./git_admin_state.ts";
 import { ON_DISK_FORMATS } from "./on_disk_formats.ts";
 import { inspectOnDiskJsonFile, type OnDiskJsonRead } from "./on_disk_json.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "./clock.ts";
-import { parseVersion } from "./semver.ts";
+import { parseVersion, tryParseVersion } from "./semver.ts";
 
 export const RELEASE_REMINDER_DAYS = 14;
 export const RELEASE_REMINDER =
@@ -16,15 +16,9 @@ export const ReleaseCheckSchema = z.strictObject({
   schema_version: z.literal(ON_DISK_FORMATS.releaseCheck.version),
   first_seen_at: timestamp,
   last_handoff_at: timestamp.optional(),
-  version_when_handed_off: z.string().refine((value) => {
-    try {
-      parseVersion(value);
-      return true;
-    } catch {
-      // discern-best-effort: release-check-version-parse-fallback
-      return false;
-    }
-  }).optional(),
+  version_when_handed_off: z.string().refine((value) =>
+    tryParseVersion(value) !== undefined
+  ).optional(),
 }).refine((value) =>
   (value.last_handoff_at === undefined) ===
     (value.version_when_handed_off === undefined)
