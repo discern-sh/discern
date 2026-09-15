@@ -26,6 +26,11 @@ deno bundle --platform=deno --minify tests/fixtures/managed_version_baseline_ent
 ```
 
 The deterministic gzip archive and manifest are frozen evidence, not ordinary codegen outputs.
+The captured first-party code uses the repository [license](../../../LICENSE);
+bundled dependencies retain the [third-party notices](../../../THIRD_PARTY_NOTICES).
+The dependency versions are pinned by the capture revision's `deno.lock`.
+The archive stores the exact bundle bytes using gzip level 9 with a zero modification
+time and no source filename. Its SHA-256 and the unpacked SHA-256 are in the manifest.
 Changing the capture requires an explicit compatibility decision. Future
 released readers supersede this prepublication slice as the historical-engine
 test source without deleting its optional-key contract.

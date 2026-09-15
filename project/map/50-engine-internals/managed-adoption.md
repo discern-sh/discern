@@ -20,4 +20,4 @@ The [trunk check](../../../src/engine/managed_version.ts) retains the highest ad
 
 ## Where to verify
 
-The [team journeys](../../../tests/managed_version_journey_test.ts) cover the live command boundaries. The [frozen reader tests](../../../tests/managed_version_baseline_test.ts) exercise real captured code against newer material; comparison injection alone cannot prove backward parsing or older-template behavior. The compatibility slice remains separate from the final install corpus.
+The [team journeys](../../../tests/managed_version_journey_test.ts) cover the live command boundaries. The [frozen reader tests](../../../tests/managed_version_baseline_test.ts) exercise real captured code against newer material; comparison injection alone cannot prove backward parsing or older-template behavior. The compatibility slice remains separate from the final install corpus. The [installer journey](../../../tests/managed_version_installer_journey_test.ts) joins verified replacement, process restart, upgrade preview, failed refresh, and successful adoption through the production entrypoints.

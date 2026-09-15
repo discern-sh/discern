@@ -13,6 +13,7 @@ const INSTALL = fromFileUrl(new URL("../install.sh", import.meta.url));
 const DECODER = new TextDecoder();
 
 export interface InstallRun {
+  project: string;
   binDir: string;
   downloaderLog: string;
   stderr: string;
@@ -24,6 +25,10 @@ export interface InstallRun {
 }
 
 interface InstallOptions {
+  /** Source-CLI payload for the composed adoption journey; default cases stay inert. */
+  binaryCommand?: readonly string[];
+  /** Prepare project and prior process identity before the protected-tree snapshot. */
+  beforeInstall?: (project: string, target: string) => Promise<void>;
   installerSource?: string;
   badChecksum?: boolean;
   checksumContent?: "other-file" | "extra-file" | "empty";
@@ -179,9 +184,13 @@ esac
       version: installedVersion,
       ...(options.codename === undefined ? {} : { codename: options.codename }),
     });
-    const expectedBinary = `#!/bin/sh\nprintf '%s\\n' "$*" >> ${
-      shellQuote(join(root, "binary-invocations.log"))
-    }\nprintf '%s\\n' ${shellQuote(versionOutput)}\n`;
+    const expectedBinary = options.binaryCommand === undefined
+      ? `#!/bin/sh\nprintf '%s\\n' "$*" >> ${
+        shellQuote(join(root, "binary-invocations.log"))
+      }\nprintf '%s\\n' ${shellQuote(versionOutput)}\n`
+      : `#!/bin/sh\nexec ${
+        options.binaryCommand.map(shellQuote).join(" ")
+      } "$@"\n`;
     const fixtureBinary = join(root, "fixture-discern");
     await Deno.writeTextFile(fixtureBinary, expectedBinary);
     const dist = join(root, "dist");
@@ -295,6 +304,7 @@ esac
       installer = join(root, "installer-under-test.sh");
       await Deno.writeTextFile(installer, options.installerSource);
     }
+    await options.beforeInstall?.(project, dest);
     const excluded = new Set([binDir, downloaderLog]);
     const before = await protectedTree(root, excluded);
     const invocations = [];
@@ -328,6 +338,7 @@ esac
     const last = invocations.at(-1);
     assert(last !== undefined);
     return await fn({
+      project,
       binDir,
       downloaderLog: (await readTextIfExists(downloaderLog)) ?? "",
       ...last,
