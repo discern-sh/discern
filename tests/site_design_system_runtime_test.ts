@@ -37,6 +37,7 @@ import {
   DESIGN_SYSTEM_PACKAGE,
   DESIGN_SYSTEM_SPECIFIER,
   DESIGN_SYSTEM_VERSION,
+  reactRuntimeModules,
 } from "./design_system_dependency.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -127,14 +128,6 @@ const RUNTIME_MANIFEST_SCHEMA = z.object({
     ),
   }).passthrough(),
 }).passthrough();
-
-/** Select runtime React dependencies while excluding type-only package declarations. */
-function reactRuntimeModules(specifiers: readonly string[]): string[] {
-  return specifiers.filter((specifier) =>
-    !specifier.startsWith("npm:/@types/") &&
-    /(?:^|[/@-])react(?:-dom)?(?:[/.@-]|$)/i.test(specifier)
-  );
-}
 
 /** Read Deno's resolved module graph for one site entrypoint. */
 async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
@@ -310,7 +303,7 @@ Deno.test("the production server renders React without importing its browser ent
   const modules = await moduleSpecifiers(join(ROOT, "site/main.ts"));
   assert(reactRuntimeModules(modules).length > 0);
   assertEquals(
-    modules.filter((specifier) =>
+    reactRuntimeModules(modules).filter((specifier) =>
       /react-dom[^\s]*\/client(?:[.@/]|$)/.test(specifier)
     ),
     [],
