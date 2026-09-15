@@ -495,12 +495,18 @@ export async function statusResult(
   // The complete read-only tracked-refresh plan. This field is the one
   // authoritative answer to "would refresh change a tracked file?".
   const trackedRefreshPlan = await planTrackedRefresh(root, cfg);
-  if (trackedRefreshPlan.changes.length > 0) {
+  if (
+    trackedRefreshPlan.unavailable === undefined &&
+    trackedRefreshPlan.changes.length > 0
+  ) {
     data.pending_tracked_refresh = trackedRefreshPlan.changes.map((change) =>
       change.path
     );
   }
-  if (trackedRefreshPlan.errors.length > 0) {
+  if (
+    trackedRefreshPlan.unavailable === undefined &&
+    trackedRefreshPlan.errors.length > 0
+  ) {
     data.tracked_refresh_plan_errors = [...trackedRefreshPlan.errors];
   }
 
@@ -1162,15 +1168,20 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     ...ctx.providerHookDrift.map((entry) => entry.path),
     ...(ctx.adrIndex.kind === "stale" ? [ctx.adrIndex.path] : []),
   ]);
-  const remainingRefresh = ctx.trackedRefreshPlan.changes.filter((change) =>
-    change.modeChanged || !focused.has(change.path)
-  );
+  const remainingRefresh = ctx.trackedRefreshPlan.unavailable !== undefined
+    ? []
+    : ctx.trackedRefreshPlan.changes.filter((change) =>
+      change.modeChanged || !focused.has(change.path)
+    );
   if (remainingRefresh.length > 0) {
     hints.push(fire(HINTS["tracked-refresh-pending"], {
       paths: remainingRefresh.map((change) => change.path).join(", "),
     }));
   }
-  if (ctx.trackedRefreshPlan.errors.length > 0) {
+  if (
+    ctx.trackedRefreshPlan.unavailable === undefined &&
+    ctx.trackedRefreshPlan.errors.length > 0
+  ) {
     hints.push(fire(HINTS["tracked-refresh-plan-failed"], {
       reason: ctx.trackedRefreshPlan.errors.slice(0, 3).join("; "),
     }));

@@ -151,11 +151,13 @@ export interface TrackedRefreshChange {
 }
 
 /** The tracked projection consumed by status, Gate, acceptance, and update. */
-export interface TrackedRefreshPlan {
-  readonly unavailable?: string;
-  readonly changes: readonly TrackedRefreshChange[];
-  readonly errors: readonly string[];
-}
+export type TrackedRefreshPlan =
+  | { readonly unavailable: string }
+  | {
+    readonly unavailable?: undefined;
+    readonly changes: readonly TrackedRefreshChange[];
+    readonly errors: readonly string[];
+  };
 
 /** Render an unknown planning failure without losing its underlying reason. */
 function errText(error: unknown): string {
@@ -698,7 +700,7 @@ export async function planTrackedRefresh(
   const cfg = config ?? await loadConfig(root);
   const unavailable = managedMaterialBoundary(cfg);
   if (unavailable !== undefined) {
-    return { changes: [], errors: [], unavailable };
+    return { unavailable };
   }
   const plan = await planRefresh(root, { config: cfg, env });
   const repoPrefix = await repoPathPrefix(root);

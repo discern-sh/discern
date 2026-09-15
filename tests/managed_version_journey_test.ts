@@ -65,8 +65,13 @@ Deno.test("only applied successful upgrade adopts; preview and same-version reru
     assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), adopted);
     await git(dir, "add", "-A");
     await git(dir, "commit", "-m", "commit successful project adoption");
-    await Deno.writeTextFile(join(dir, "AGENTS.md"), "# Hand-edited managed material\n");
-    assert((await planTrackedRefresh(dir)).changes.some((change) => change.path === "AGENTS.md"));
+    await Deno.writeTextFile(
+      join(dir, "AGENTS.md"),
+      "# Hand-edited managed material\n",
+    );
+    const drift = await planTrackedRefresh(dir);
+    assert(drift.unavailable === undefined);
+    assert(drift.changes.some((change) => change.path === "AGENTS.md"));
   });
 });
 
@@ -106,9 +111,8 @@ Deno.test("newer project adoption guards every registered writer and Proof, incl
     assertEquals(effects, 0);
     assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), config);
     const plan = await planTrackedRefresh(dir);
-    assertEquals(plan.changes, []);
-    assertEquals(plan.errors, []);
     assert(plan.unavailable !== undefined);
+    assertEquals(Object.keys(plan), ["unavailable"]);
     const status = await statusResult(dir, { local: true });
     assert(status.ok);
     assertEquals(
@@ -117,13 +121,19 @@ Deno.test("newer project adoption guards every registered writer and Proof, incl
     );
     assertEquals(status.data?.pending_tracked_refresh, undefined);
     assertEquals(status.data?.tracked_refresh_plan_errors, undefined);
-    assertStringIncludes(renderCommandRefsCli(status.hints?.join("\n") ?? ""), "discern releases");
+    assertStringIncludes(
+      renderCommandRefsCli(status.hints?.join("\n") ?? ""),
+      "discern releases",
+    );
     const doctor = await doctorResult(dir);
     assertEquals(
       doctor.data?.managed_version?.state,
       "project-managed-by-newer",
     );
-    assertStringIncludes(renderCommandRefsCli(doctor.hints?.join("\n") ?? ""), "discern releases");
+    assertStringIncludes(
+      renderCommandRefsCli(doctor.hints?.join("\n") ?? ""),
+      "discern releases",
+    );
     assert(
       !doctor.data?.checks?.some((check) =>
         check.status === "fail" &&

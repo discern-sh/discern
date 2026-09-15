@@ -68,6 +68,7 @@ Deno.test("engine refresh: read-only plan and live apply share one tracked effec
     await Deno.chmod(join(dir, "AGENTS.md"), 0o755);
 
     const planned = await planTrackedRefresh(dir);
+    assert(planned.unavailable === undefined);
     assertEquals(planned.errors, []);
     const applied = await compileInstructions(
       dir,
@@ -79,7 +80,9 @@ Deno.test("engine refresh: read-only plan and live apply share one tracked effec
       planned.changes.map((change) => change.path).sort(),
       "plan and apply must remain two modes of the same refresh transformations",
     );
-    assertEquals((await planTrackedRefresh(dir)).changes, []);
+    const current = await planTrackedRefresh(dir);
+    assert(current.unavailable === undefined);
+    assertEquals(current.changes, []);
   });
 });
 
@@ -109,6 +112,7 @@ Deno.test("engine refresh: a new provider cannot hide established MCP drift", as
     );
 
     const planned = await planTrackedRefresh(dir);
+    assert(planned.unavailable === undefined);
     assertEquals(planned.errors, []);
     assert(
       planned.changes.some((change) => change.path === ".mcp.json"),
@@ -130,6 +134,7 @@ Deno.test("engine refresh: deleting an adopted MCP file is drift, not a first in
 
     await Deno.remove(join(dir, ".mcp.json"));
     const planned = await planTrackedRefresh(dir);
+    assert(planned.unavailable === undefined);
     assertEquals(planned.errors, []);
     assert(
       planned.changes.some((change) => change.path === ".mcp.json"),
@@ -154,6 +159,7 @@ Deno.test("engine refresh: first registration in a tracked shared MCP file stays
     await gitInit(dir);
 
     const planned = await planTrackedRefresh(dir);
+    assert(planned.unavailable === undefined);
     assertEquals(planned.errors, []);
     assert(
       !planned.changes.some((change) => change.path === ".mcp.json"),

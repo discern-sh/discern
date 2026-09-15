@@ -622,7 +622,10 @@ async function runCandidateGate(
   let trackedRefreshDiag: Diagnostic | undefined;
   if (failedStage === null) {
     const refreshPlan = await planTrackedRefresh(root, cfg);
-    if (refreshPlan.changes.length > 0 || refreshPlan.errors.length > 0) {
+    if (
+      refreshPlan.unavailable !== undefined || refreshPlan.changes.length > 0 ||
+      refreshPlan.errors.length > 0
+    ) {
       failedStage = "refresh_drift";
       trackedRefreshDiag = await trackedRefreshDiagnostic(root, refreshPlan);
     }
@@ -838,7 +841,10 @@ async function runCandidateGate(
   // config, mode, or provider-state change made while the jobs were running.
   if (failedStage === null) {
     const refreshPlan = await planTrackedRefresh(root, cfg);
-    if (refreshPlan.changes.length > 0 || refreshPlan.errors.length > 0) {
+    if (
+      refreshPlan.unavailable !== undefined || refreshPlan.changes.length > 0 ||
+      refreshPlan.errors.length > 0
+    ) {
       failedStage = "refresh_drift";
       trackedRefreshDiag = await trackedRefreshDiagnostic(root, refreshPlan);
     }

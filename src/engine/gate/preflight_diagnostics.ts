@@ -67,6 +67,14 @@ export async function trackedRefreshDiagnostic(
   root: string,
   plan: TrackedRefreshPlan,
 ): Promise<Diagnostic> {
+  if (plan.unavailable !== undefined) {
+    return {
+      tool: "refresh",
+      severity: "error",
+      message: plan.unavailable,
+      reproduce_cmd: "discern releases",
+    };
+  }
   const paths = plan.changes.map((change) => change.path);
   const details = plan.changes.map((change) => {
     const effects = [

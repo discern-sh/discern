@@ -57,6 +57,7 @@ import {
   materializeLocalRefreshArtifacts,
 } from "../engine/instructions.ts";
 import { planTrackedRefresh } from "../engine/tracked_refresh.ts";
+import { trunkManagedVersionBoundary } from "../engine/managed_version.ts";
 import { plainModeEnabled } from "../lib/terminal_interaction.ts";
 import type { CliModelProvider } from "../shared/cli_reference_codegen.ts";
 import type {
@@ -667,6 +668,28 @@ export async function runSetupAccept(
     );
   }
   const trackedRefresh = await planTrackedRefresh(root, landingConfig);
+  if (trackedRefresh.unavailable !== undefined) {
+    return emitAccept(opts, log, {
+      ok: false,
+      error: "precondition_failed",
+      message: trackedRefresh.unavailable,
+      data: setupAcceptData(branch, target, fastForward, validated.inspection),
+      code: 1,
+    });
+  }
+  const adoptionRefusal = await trunkManagedVersionBoundary(
+    root,
+    landingConfig,
+  );
+  if (adoptionRefusal !== undefined) {
+    return emitAccept(opts, log, {
+      ok: false,
+      error: "precondition_failed",
+      message: adoptionRefusal,
+      data: setupAcceptData(branch, target, fastForward, validated.inspection),
+      code: 1,
+    });
+  }
   if (
     trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0
   ) {

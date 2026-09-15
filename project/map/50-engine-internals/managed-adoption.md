@@ -14,7 +14,7 @@ The [config schema](../../../src/shared/config_schema.ts) owns the optional SemV
 
 [Upgrade](../../../src/commands/upgrade.ts) plans the monotonic value and includes it in the atomic completion write. [Setup completion](../../../src/commands/setup.ts) includes it in its recoverable marker transaction. A successful replay changes no fact. No standalone installer path owns the project.
 
-The [operation-effect registry](../../../src/shared/operation_effects.ts) enrolls public writers in the older-binary refusal. Internal refresh and skill plans guard their own materialization boundary. An unavailable tracked-refresh plan has no proposed rewrites or stale-file errors. Status and doctor disclose that uncertainty; completion and landing require currency evidence.
+The [operation-effect registry](../../../src/shared/operation_effects.ts) enrolls public writers in the older-binary refusal. Internal refresh and skill plans guard their own materialization boundary. An unavailable tracked-refresh plan has no proposed rewrites or stale-file errors; its distinct type forces consumers to acknowledge the evidence boundary before accessing a plan. Status and doctor disclose that uncertainty; completion and both landing paths require currency evidence.
 
 The [trunk check](../../../src/engine/managed_version.ts) retains the highest adoption across branches and reverts. A branch that lowers or deletes the fact must restore it or complete a newer upgrade before it can earn Proof or land.
 
