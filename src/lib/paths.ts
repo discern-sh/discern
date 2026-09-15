@@ -277,26 +277,6 @@ export function numberedDocRoute(
     .join("/");
 }
 
-/**
- * The public Map exhibit route for one Map-relative Markdown path, or
- * `undefined` when the path sits outside the registered numbered tiers. This
- * derivation is the single authority for `/map/...` route shape: the website
- * renders admitted pages at these routes, and cross-corpus links from the
- * manual to the Map exhibit are rewritten through it. It answers route shape
- * only — admission (publication, protected directories) stays with the
- * exhibit's own predicate.
- */
-export function publicMapExhibitRoute(relToMap: string): string | undefined {
-  const dir = relToMap.split("/")[0];
-  if (
-    relToMap !== "README.md" &&
-    !MAP_SECTION_REGISTRY.some((section) => section.dir === dir)
-  ) {
-    return undefined;
-  }
-  return numberedDocRoute(relToMap, "/map");
-}
-
 /** Resolve discern's fixed repository-owned manual source. */
 export function resolveRepositoryManualDir(root: string): ResolvedDir {
   return resolveDir(root, REPOSITORY_MANUAL_REL);

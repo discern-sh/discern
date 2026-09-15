@@ -424,4 +424,4 @@ The v1 result contract separates success, failure, previews, and applied effects
 
 Schemas use JSON Schema Draft 2020-12. The release source contains `types/discern-json.d.ts`, and the result schema publishes `x-discern-contracts` metadata for each verb's completion requirements and permitted advisories. Use these artifacts from the release you integrate with.
 
-For the rules used to publish and compare schema versions, see [Runtime data boundaries](https://discern.sh/map/development/runtime-data-boundaries). The compatibility checks cover required fields, defaults, types, reference paths, and contract unions; those publication details do not change how callers interpret a result.
+For the rules used to publish and compare schema versions, see [Runtime data boundaries](https://github.com/jackwh/discern/blob/main/project/map/80-development/runtime-data-boundaries.md). The compatibility checks cover required fields, defaults, types, reference paths, and contract unions; those publication details do not change how callers interpret a result.

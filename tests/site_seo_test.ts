@@ -12,7 +12,7 @@ import {
   SELF_TITLED_PAGES,
 } from "../site/brand.ts";
 import { siteRoutes } from "../site/routes.ts";
-import { loadDocsSite, mapPageHtmlTitle } from "../site/docs.tsx";
+import { loadDocsSite } from "../site/docs.tsx";
 import {
   handler,
   handlerWithRouting,
@@ -250,12 +250,6 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
       site.publicMap.landing.route,
       `${site.publicMap.landing.entry.title} · discern.sh Map`,
     ],
-    ...site.publicMap.pages.map((page) =>
-      [
-        page.route,
-        mapPageHtmlTitle(site, page),
-      ] as const
-    ),
   ]);
   const routes = liveHtmlRoutes(site);
   const seenTitles = new Set<string>();

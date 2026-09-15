@@ -96,7 +96,7 @@ Deno.test("the For Agents composition carries the complete public contract", () 
     );
   }
   assertEquals(document.querySelector('a[href="/agents.md"]'), null);
-  assertEquals(document.querySelector("[data-theme-toggle]"), null);
+  assert(document.querySelector("[data-theme-toggle]") !== null);
 });
 
 Deno.test("the page's advertised word ceiling is the gated standard, and holds", async () => {

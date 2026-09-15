@@ -1,6 +1,4 @@
 import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
-import { SiteFooter } from "../components/SiteFooter.tsx";
-import { SiteHeader } from "../components/SiteHeader.tsx";
 /** The public /agents campaign page, rendered to static HTML by site/build.ts. */
 
 import type { CSSProperties } from "react";
@@ -20,14 +18,6 @@ import {
   EVALUATION_INSTRUCTION,
 } from "../../page-src/agents-content.ts";
 import { renderDocument } from "../Document.tsx";
-import {
-  DISCERN_REPOSITORY_URL,
-  repositoryBlobUrl,
-} from "../../../src/shared/brand.ts";
-
-const GITHUB = DISCERN_REPOSITORY_URL;
-const LICENSE = repositoryBlobUrl("LICENSE");
-
 /** Provider files and marks, derived from the live native-provider registry. */
 const PROVIDER_OUTPUTS = AGENT_NAMES.map((name) => {
   const provider = PROVIDERS[name];
@@ -39,50 +29,6 @@ const PROVIDER_OUTPUTS = AGENT_NAMES.map((name) => {
     mask: silhouette.path,
   };
 });
-
-/** Keep the product name in its page-wide monospace treatment. */
-function DiscernName() {
-  return <span className="agents-brand-name">discern</span>;
-}
-
-/** Navigation for the machine-addressed campaign surface. */
-function AgentsMasthead() {
-  return (
-    <SiteHeader
-      className="agents-masthead"
-      brand={<DiscernName />}
-      brandMark={<span className="agents-masthead__mark">{DISCERN_MARK}</span>}
-      brandTypeface="mono"
-      brandMarkTreatment="plain"
-      navLabel="For coding agents"
-      navItems={[
-        { label: "Why discern", href: AGENTS_ROUTES.home },
-        { label: "Agent ergonomics", href: "#agent-ergonomics" },
-        { label: "Proof", href: "#proof" },
-        { label: "Machine guide", href: AGENTS_ROUTES.machineGuide },
-      ]}
-      actions={
-        <>
-          <a
-            className="agents-masthead__plaintext"
-            href={AGENTS_ROUTES.machineGuide}
-          >
-            llms.txt
-          </a>
-          <Button
-            className="agents-masthead__guide"
-            href={AGENTS_ROUTES.machineGuide}
-            variant="primary"
-          >
-            Read the machine guide
-          </Button>
-        </>
-      }
-      sticky
-      variant="campaign"
-    />
-  );
-}
 
 /** Shared editorial title rhythm for each movement. */
 function MovementHeader(
@@ -533,6 +479,15 @@ function NextActionsSection() {
           <pre><code>{CLOSING_ENVELOPE}</code></pre>
           <p className="agents-result-close__note">{next.plaintextNote}</p>
         </div>
+        <nav className="agents-reference-links" aria-label="Agent references">
+          {[
+            { label: "Quickstart", href: AGENTS_ROUTES.quickstart },
+            { label: "MCP and results", href: AGENTS_ROUTES.mcp },
+            { label: "Result schema", href: AGENTS_ROUTES.schema },
+            { label: "Canonical glossary", href: AGENTS_ROUTES.glossary },
+            { label: "Supported providers", href: AGENTS_ROUTES.providers },
+          ].map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}
+        </nav>
         <div className="agents-final">
           <span aria-hidden="true">{DISCERN_MARK}</span>
           <h2>{next.finalTitle}</h2>
@@ -547,60 +502,7 @@ function NextActionsSection() {
 function AgentsPage() {
   return (
     <div className="agents-page">
-      <MarketingLayout
-        header={<AgentsMasthead />}
-        footer={
-          <SiteFooter
-            className="agents-footer"
-            brand={<DiscernName />}
-            brandMark={
-              <span className="agents-footer__mark">{DISCERN_MARK}</span>
-            }
-            brandTypeface="mono"
-            brandMarkTreatment="plain"
-            description={AGENTS_CONTENT.next.signature}
-            groups={[
-              {
-                title: "Machine routes",
-                links: [
-                  { label: "llms.txt", href: AGENTS_ROUTES.machineGuide },
-                  { label: "Quickstart", href: AGENTS_ROUTES.quickstart },
-                  { label: "MCP and results", href: AGENTS_ROUTES.mcp },
-                  { label: "Result schema", href: AGENTS_ROUTES.schema },
-                ],
-              },
-              {
-                title: "Exact boundaries",
-                links: [
-                  { label: "Trust and data", href: AGENTS_ROUTES.trust },
-                  { label: "Canonical glossary", href: AGENTS_ROUTES.glossary },
-                  {
-                    label: "Supported providers",
-                    href: AGENTS_ROUTES.providers,
-                  },
-                  { label: "Human homepage", href: AGENTS_ROUTES.home },
-                  { label: "Source repository", href: GITHUB },
-                  { label: "License", href: LICENSE },
-                ],
-              },
-            ]}
-            legal={
-              <span className="agents-footer__legal">
-                Machine-readable orientation lives at{" "}
-                <a href={AGENTS_ROUTES.machineGuide}>
-                  <code>/llms.txt</code>
-                </a>.<br />
-                {PROVIDER_TRADEMARK_NOTICE}
-              </span>
-            }
-            meta={
-              <span className="agents-footer__meta">
-                © 2026 Jack Webb-Heller
-              </span>
-            }
-          />
-        }
-      >
+      <MarketingLayout>
         <AgentsHero />
         <RecognitionSection />
         <ErgonomicsSection />
@@ -610,6 +512,7 @@ function AgentsPage() {
         <AuthoritySection />
         <AbsencesSection />
         <NextActionsSection />
+        <p className="agents-trademark-notice">{PROVIDER_TRADEMARK_NOTICE}</p>
       </MarketingLayout>
     </div>
   );

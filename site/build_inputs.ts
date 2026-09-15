@@ -14,6 +14,7 @@ export const SITE_BUILD_INPUTS = [
   "site/page-src",
   "site/ui",
   "site/routes.ts",
+  "site/navigation.ts",
   "site/renderers.ts",
   "site/marketing_pages.ts",
   "project/manual",

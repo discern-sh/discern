@@ -10,7 +10,7 @@ The production server's React exclusion forces this split even though the site a
 
 ## Decision
 
-HTML-producing site modules use `.tsx`. React pages, shared layouts, and site adapters live under `site/ui/`; routing, content models, text projections, and build orchestration remain TypeScript. The shared `Document` renders complete HTML for both build-time marketing output and request-time release comparisons. `MarketingLayout` owns their shared landmarks. Page components consume the exact published design-system React adapters; they do not reconstruct package classes or component anatomy.
+HTML-producing site modules use `.tsx`. React pages, shared layouts, and site adapters live under `site/ui/`; routing, content models, text projections, and build orchestration remain TypeScript. The shared `Document` renders complete HTML for both build-time marketing output and request-time release comparisons. `MarketingLayout` owns their shared header, footer, and landmarks; the navigation destinations are centralized in `site/navigation.ts`. Page components consume the exact published design-system React adapters; they do not reconstruct package classes or component anatomy.
 
 React is allowed in the website server. Browser hydration is a separate decision: the current output uses HTML, CSS, package enhancements, and page-owned JavaScript. React effects and event handlers do not execute in that output. The terminal engine's dependency and process boundaries remain independent.
 

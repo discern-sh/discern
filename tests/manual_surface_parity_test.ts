@@ -163,7 +163,6 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
     ...site.pages,
     ...site.decisions.pages,
     site.publicMap.landing,
-    ...site.publicMap.pages,
   ]);
   assertEquals(table.issues, []);
   for (const [source, target] of redirects.redirects) {
@@ -361,7 +360,6 @@ This published fixture must join every complete delivery projection while the au
       ...enrolled.pages,
       ...real.decisions.pages,
       real.publicMap.landing,
-      ...real.publicMap.pages,
     ]);
     assertEquals(table.issues, []);
     assertEquals(table.redirects.get(retiredSource), fresh.route);

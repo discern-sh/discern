@@ -22,7 +22,7 @@ interface SiteDesignSystemBundle {
 export const DESIGN_SYSTEM_BUNDLES = {
   docs: {
     output: "pages/assets/design-system/docs/",
-    routes: ["/docs", "/map"],
+    routes: ["/docs"],
     groups: ["Docs"],
     components: [
       "icon",
@@ -39,7 +39,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
   },
   compositions: {
     output: "pages/assets/design-system/compositions/",
-    routes: ["/", "/agents", "/trust", RELEASE_ROUTES.html],
+    routes: ["/", "/agents", "/trust", "/map", RELEASE_ROUTES.html],
     groups: ["Marketing", "Editorial"],
     components: [
       "icon",

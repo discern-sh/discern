@@ -13,8 +13,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--public-marketing-pages)                                               | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 3       | —                | —                           |
-| [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 19      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 1153    | —                | —                           |
+| [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 908     | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 1       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -26,7 +26,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
 | [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 38      | —                | —                           |
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
-| [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 21      | —                | —                           |
+| [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 23      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
 | [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 24      | —                | —                           |
 | [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules)                         | `src/lib/paths.ts#MAP_TIER_PUBLICATION_POSTURES`                                  | 4       | —                | —                           |
@@ -115,7 +115,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 391     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 392     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 25      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -451,7 +451,7 @@ Authored public compositions enrolled in build output, serving, prose checks, an
 Each fixed endpoint's format and exhaustive handler, with release and schema addresses derived from their product authorities.
 
 - Source: `site/routes.ts` — `SITE_ENDPOINTS`
-- Members: 19
+- Members: 18
   - `/install`
   - `/llms.txt`
   - `/llms-full.txt`
@@ -459,7 +459,6 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
   - `/robots.txt`
   - `/.well-known/security.txt`
   - `/docs/index.json`
-  - `/map/index.json`
   - `/releases`
   - `/releases.txt`
   - `/releases.json`
@@ -480,7 +479,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 1153
+- Members: 908
   - `/`
   - `/agents`
   - `/trust`
@@ -491,7 +490,6 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/robots.txt`
   - `/.well-known/security.txt`
   - `/docs/index.json`
-  - `/map/index.json`
   - `/releases`
   - `/releases.txt`
   - `/releases.json`
@@ -603,252 +601,6 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/troubleshooting/crashes-and-local-state.md`
   - `/map`
   - `/map.md`
-  - `/map/orientation`
-  - `/map/orientation.md`
-  - `/map/orientation/concepts`
-  - `/map/orientation/concepts.md`
-  - `/map/orientation/design-principles`
-  - `/map/orientation/design-principles.md`
-  - `/map/orientation/trust-and-data`
-  - `/map/orientation/trust-and-data.md`
-  - `/map/orientation/secure-entropy`
-  - `/map/orientation/secure-entropy.md`
-  - `/map/orientation/the-practice`
-  - `/map/orientation/the-practice.md`
-  - `/map/orientation/system-map`
-  - `/map/orientation/system-map.md`
-  - `/map/orientation/glossary`
-  - `/map/orientation/glossary.md`
-  - `/map/getting-started`
-  - `/map/getting-started.md`
-  - `/map/getting-started/quickstart`
-  - `/map/getting-started/quickstart.md`
-  - `/map/getting-started/setup-decisions`
-  - `/map/getting-started/setup-decisions.md`
-  - `/map/getting-started/walkthrough`
-  - `/map/getting-started/walkthrough.md`
-  - `/map/getting-started/after-setup`
-  - `/map/getting-started/after-setup.md`
-  - `/map/getting-started/upgrade-discern`
-  - `/map/getting-started/upgrade-discern.md`
-  - `/map/quality-gate`
-  - `/map/quality-gate.md`
-  - `/map/quality-gate/when-the-gate-fails`
-  - `/map/quality-gate/when-the-gate-fails.md`
-  - `/map/quality-gate/standards`
-  - `/map/quality-gate/standards.md`
-  - `/map/quality-gate/complete-evidence`
-  - `/map/quality-gate/complete-evidence.md`
-  - `/map/quality-gate/checkpoints`
-  - `/map/quality-gate/checkpoints.md`
-  - `/map/quality-gate/the-proof`
-  - `/map/quality-gate/the-proof.md`
-  - `/map/quality-gate/proof-notes`
-  - `/map/quality-gate/proof-notes.md`
-  - `/map/quality-gate/strand-detection`
-  - `/map/quality-gate/strand-detection.md`
-  - `/map/quality-gate/ci`
-  - `/map/quality-gate/ci.md`
-  - `/map/quality-gate/improvement`
-  - `/map/quality-gate/improvement.md`
-  - `/map/quality-gate/patterns-completion-observations`
-  - `/map/quality-gate/patterns-completion-observations.md`
-  - `/map/quality-gate/coupling`
-  - `/map/quality-gate/coupling.md`
-  - `/map/quality-gate/patterns`
-  - `/map/quality-gate/patterns.md`
-  - `/map/quality-gate/tidy`
-  - `/map/quality-gate/tidy.md`
-  - `/map/quality-gate/concurrent-test-runs`
-  - `/map/quality-gate/concurrent-test-runs.md`
-  - `/map/quality-gate/practice-stats`
-  - `/map/quality-gate/practice-stats.md`
-  - `/map/quality-gate/validation-findings`
-  - `/map/quality-gate/validation-findings.md`
-  - `/map/quality-gate/patterns-decision-evidence`
-  - `/map/quality-gate/patterns-decision-evidence.md`
-  - `/map/quality-gate/pattern-investigations`
-  - `/map/quality-gate/pattern-investigations.md`
-  - `/map/quality-gate/checkpoint-recipes`
-  - `/map/quality-gate/checkpoint-recipes.md`
-  - `/map/worktrees`
-  - `/map/worktrees.md`
-  - `/map/worktrees/lifecycle`
-  - `/map/worktrees/lifecycle.md`
-  - `/map/worktrees/the-trunk`
-  - `/map/worktrees/the-trunk.md`
-  - `/map/worktrees/the-resources`
-  - `/map/worktrees/the-resources.md`
-  - `/map/worktrees/identity-and-env`
-  - `/map/worktrees/identity-and-env.md`
-  - `/map/worktrees/team-workflow`
-  - `/map/worktrees/team-workflow.md`
-  - `/map/worktrees/awaiting-the-fleet`
-  - `/map/worktrees/awaiting-the-fleet.md`
-  - `/map/worktrees/multi-repo-workspaces`
-  - `/map/worktrees/multi-repo-workspaces.md`
-  - `/map/worktrees/status`
-  - `/map/worktrees/status.md`
-  - `/map/worktrees/the-desk`
-  - `/map/worktrees/the-desk.md`
-  - `/map/worktrees/opening-worktrees`
-  - `/map/worktrees/opening-worktrees.md`
-  - `/map/worktrees/desk-tips`
-  - `/map/worktrees/desk-tips.md`
-  - `/map/worktrees/landing-authority`
-  - `/map/worktrees/landing-authority.md`
-  - `/map/worktrees/acceptance-recovery`
-  - `/map/worktrees/acceptance-recovery.md`
-  - `/map/worktrees/hand-work-back`
-  - `/map/worktrees/hand-work-back.md`
-  - `/map/worktrees/reclaiming-contained-worktrees`
-  - `/map/worktrees/reclaiming-contained-worktrees.md`
-  - `/map/worktrees/cleanup-ownership`
-  - `/map/worktrees/cleanup-ownership.md`
-  - `/map/worktrees/reappeared-worktree-paths`
-  - `/map/worktrees/reappeared-worktree-paths.md`
-  - `/map/worktrees/drop-recovery`
-  - `/map/worktrees/drop-recovery.md`
-  - `/map/worktrees/emergency-integration`
-  - `/map/worktrees/emergency-integration.md`
-  - `/map/agent-instructions`
-  - `/map/agent-instructions.md`
-  - `/map/agent-instructions/write-project-instructions`
-  - `/map/agent-instructions/write-project-instructions.md`
-  - `/map/agent-instructions/compile-and-check-instructions`
-  - `/map/agent-instructions/compile-and-check-instructions.md`
-  - `/map/skills`
-  - `/map/skills.md`
-  - `/map/skills/what-a-skill-is`
-  - `/map/skills/what-a-skill-is.md`
-  - `/map/skills/bundled-skills`
-  - `/map/skills/bundled-skills.md`
-  - `/map/skills/author-a-skill`
-  - `/map/skills/author-a-skill.md`
-  - `/map/skills/customize-or-exclude`
-  - `/map/skills/customize-or-exclude.md`
-  - `/map/skills/teach-the-project`
-  - `/map/skills/teach-the-project.md`
-  - `/map/engine-internals`
-  - `/map/engine-internals.md`
-  - `/map/engine-internals/config-access`
-  - `/map/engine-internals/config-access.md`
-  - `/map/engine-internals/the-document-model`
-  - `/map/engine-internals/the-document-model.md`
-  - `/map/engine-internals/local-durable-formats`
-  - `/map/engine-internals/local-durable-formats.md`
-  - `/map/engine-internals/migrations`
-  - `/map/engine-internals/migrations.md`
-  - `/map/engine-internals/the-result-envelope`
-  - `/map/engine-internals/the-result-envelope.md`
-  - `/map/engine-internals/emitting-output`
-  - `/map/engine-internals/emitting-output.md`
-  - `/map/engine-internals/the-templating-engine`
-  - `/map/engine-internals/the-templating-engine.md`
-  - `/map/engine-internals/the-logbook`
-  - `/map/engine-internals/the-logbook.md`
-  - `/map/engine-internals/process-output-and-exit-boundaries`
-  - `/map/engine-internals/process-output-and-exit-boundaries.md`
-  - `/map/engine-internals/promise-effect-ownership`
-  - `/map/engine-internals/promise-effect-ownership.md`
-  - `/map/engine-internals/subprocess-boundaries`
-  - `/map/engine-internals/subprocess-boundaries.md`
-  - `/map/engine-internals/experimental-behaviors`
-  - `/map/engine-internals/experimental-behaviors.md`
-  - `/map/engine-internals/operation-effects-and-locks`
-  - `/map/engine-internals/operation-effects-and-locks.md`
-  - `/map/engine-internals/managed-adoption`
-  - `/map/engine-internals/managed-adoption.md`
-  - `/map/agent-integrations`
-  - `/map/agent-integrations.md`
-  - `/map/agent-integrations/claude-code`
-  - `/map/agent-integrations/claude-code.md`
-  - `/map/agent-integrations/codex`
-  - `/map/agent-integrations/codex.md`
-  - `/map/agent-integrations/gemini`
-  - `/map/agent-integrations/gemini.md`
-  - `/map/agent-integrations/cursor`
-  - `/map/agent-integrations/cursor.md`
-  - `/map/agent-integrations/github-copilot`
-  - `/map/agent-integrations/github-copilot.md`
-  - `/map/reference`
-  - `/map/reference.md`
-  - `/map/reference/result-surfaces`
-  - `/map/reference/result-surfaces.md`
-  - `/map/reference/mcp-and-results`
-  - `/map/reference/mcp-and-results.md`
-  - `/map/reference/proof-note-format`
-  - `/map/reference/proof-note-format.md`
-  - `/map/reference/artifact-ownership`
-  - `/map/reference/artifact-ownership.md`
-  - `/map/reference/the-logbook`
-  - `/map/reference/the-logbook.md`
-  - `/map/reference/crash-reports`
-  - `/map/reference/crash-reports.md`
-  - `/map/reference/platforms-and-prereqs`
-  - `/map/reference/platforms-and-prereqs.md`
-  - `/map/reference/mcp-call-duration`
-  - `/map/reference/mcp-call-duration.md`
-  - `/map/reference/progress-and-reconnect`
-  - `/map/reference/progress-and-reconnect.md`
-  - `/map/reference/temp-files-and-retention`
-  - `/map/reference/temp-files-and-retention.md`
-  - `/map/reference/logbook-lifecycle`
-  - `/map/reference/logbook-lifecycle.md`
-  - `/map/reference/checkpoint-state`
-  - `/map/reference/checkpoint-state.md`
-  - `/map/reference/checkpoint-when-protocol`
-  - `/map/reference/checkpoint-when-protocol.md`
-  - `/map/reference/setup-command-boundaries`
-  - `/map/reference/setup-command-boundaries.md`
-  - `/map/reference/worktree-setup-step-recovery`
-  - `/map/reference/worktree-setup-step-recovery.md`
-  - `/map/development`
-  - `/map/development.md`
-  - `/map/development/ambient-process-state`
-  - `/map/development/ambient-process-state.md`
-  - `/map/development/done-gate-gotchas`
-  - `/map/development/done-gate-gotchas.md`
-  - `/map/development/install-surface`
-  - `/map/development/install-surface.md`
-  - `/map/development/maintenance`
-  - `/map/development/maintenance.md`
-  - `/map/development/for-humans`
-  - `/map/development/for-humans.md`
-  - `/map/development/getting-started`
-  - `/map/development/getting-started.md`
-  - `/map/development/canonical-sets`
-  - `/map/development/canonical-sets.md`
-  - `/map/development/testing`
-  - `/map/development/testing.md`
-  - `/map/development/terminal-applications`
-  - `/map/development/terminal-applications.md`
-  - `/map/development/reviewing-terminal-output`
-  - `/map/development/reviewing-terminal-output.md`
-  - `/map/development/canon-editor`
-  - `/map/development/canon-editor.md`
-  - `/map/development/code-conventions`
-  - `/map/development/code-conventions.md`
-  - `/map/development/runtime-data-boundaries`
-  - `/map/development/runtime-data-boundaries.md`
-  - `/map/development/duplication-census`
-  - `/map/development/duplication-census.md`
-  - `/map/development/test-execution-review`
-  - `/map/development/test-execution-review.md`
-  - `/map/site`
-  - `/map/site.md`
-  - `/map/site/releases`
-  - `/map/site/releases.md`
-  - `/map/site/authoring`
-  - `/map/site/authoring.md`
-  - `/map/site/design-system-consumption`
-  - `/map/site/design-system-consumption.md`
-  - `/map/site/publishing`
-  - `/map/site/publishing.md`
-  - `/map/site/the-design-system`
-  - `/map/site/the-design-system.md`
-  - `/map/site/the-docs-section`
-  - `/map/site/the-docs-section.md`
   - `/docs/decisions`
   - `/docs/decisions.md`
   - `/docs/decisions/0003-named-metric-standards`
@@ -1571,6 +1323,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0401-managed-adoption-keeps-currency-and-proof-separate.md`
   - `/docs/decisions/0402-site-layouts-use-server-rendered-react-components`
   - `/docs/decisions/0402-site-layouts-use-server-rendered-react-components.md`
+  - `/docs/decisions/0403-the-site-map-is-a-directory-of-repository-sources`
+  - `/docs/decisions/0403-the-site-map-is-a-directory-of-repository-sources.md`
   - `/docs/decisions/0001-project-owned-recipes`
   - `/docs/decisions/0001-project-owned-recipes.md`
   - `/docs/decisions/0002-first-class-side-gates`
@@ -1971,7 +1725,7 @@ Every native binary the release builds, executes, documents, checksums, attests,
 Every declared repository identity, canonical install command, or raw-installer command that cannot import the TypeScript authority, with an exact occurrence count and reason.
 
 - Source: `scripts/repository_literal_policy.ts` — `REPOSITORY_LITERAL_POLICIES`
-- Members: 21
+- Members: 23
   - `CLA.md`
   - `README.md`
   - `SECURITY.md`
@@ -1979,6 +1733,8 @@ Every declared repository identity, canonical install command, or raw-installer 
   - `project/manual/00-start/first-success.md`
   - `project/manual/30-reference/cli-reference.md`
   - `project/manual/30-reference/environment-variables.md`
+  - `project/manual/30-reference/files-and-ownership.md`
+  - `project/manual/30-reference/glossary.md`
   - `project/manual/30-reference/licenses.md`
   - `project/manual/30-reference/logbook.md`
   - `project/manual/30-reference/mcp-and-results.md`
@@ -4743,7 +4499,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 391
+- Members: 392
   - `0003`
   - `0005`
   - `0006`
@@ -5104,6 +4860,7 @@ The numbered decision records in the map, including records later superseded.
   - `0400`
   - `0401`
   - `0402`
+  - `0403`
   - `0001`
   - `0002`
   - `0004`

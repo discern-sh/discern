@@ -1,15 +1,10 @@
 import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
-import { SiteFooter } from "../components/SiteFooter.tsx";
-import { SiteHeader } from "../components/SiteHeader.tsx";
 /** The concise /trust bridge from public claims to inspectable evidence. */
 
 import { Button, Kicker } from "discern-design-system/react";
 import type { ClaimSlug } from "../../../scripts/brand/claims.ts";
-import { DISCERN_MARK, TRUST_DESCRIPTION, TRUST_TITLE } from "../../brand.ts";
+import { TRUST_DESCRIPTION, TRUST_TITLE } from "../../brand.ts";
 import { renderDocument } from "../Document.tsx";
-import { DISCERN_REPOSITORY_URL } from "../../../src/shared/brand.ts";
-
-const GITHUB = DISCERN_REPOSITORY_URL;
 
 /** One public claim group and the exact reader destinations that carry scope. */
 export interface TrustEvidenceGroup {
@@ -62,38 +57,6 @@ export const TRUST_EVIDENCE = [
   },
 ] as const satisfies readonly TrustEvidenceGroup[];
 
-/** Render the product name used in shared header and footer brand slots. */
-function DiscernName() {
-  return <span className="trust-brand-name">discern</span>;
-}
-
-/** Shared public navigation around the bounded trust gateway. */
-function TrustHeader() {
-  return (
-    <SiteHeader
-      className="trust-header"
-      brand={<DiscernName />}
-      brandMark={DISCERN_MARK}
-      brandTypeface="mono"
-      brandMarkTreatment="plain"
-      navLabel="Trust"
-      navItems={[
-        { label: "Home", href: "/" },
-        { label: "Manual", href: "/docs" },
-        { label: "Live Map", href: "/map" },
-        { label: "Source", href: GITHUB },
-      ]}
-      actions={
-        <Button href="/docs/start/evaluate-discern" variant="primary">
-          Evaluate discern
-        </Button>
-      }
-      sticky
-      variant="campaign"
-    />
-  );
-}
-
 /** One evidence group, kept short and routed to the authority for conditions. */
 function EvidenceGroup({ group, index }: {
   readonly group: TrustEvidenceGroup;
@@ -122,45 +85,7 @@ function EvidenceGroup({ group, index }: {
 function TrustPage() {
   return (
     <div className="trust-page">
-      <MarketingLayout
-        header={<TrustHeader />}
-        footer={
-          <SiteFooter
-            className="trust-footer"
-            brand={<DiscernName />}
-            brandMark={DISCERN_MARK}
-            brandTypeface="mono"
-            brandMarkTreatment="plain"
-            description="Inspect the evidence. Keep the decision."
-            groups={[
-              {
-                title: "Evidence",
-                links: [
-                  { label: "Live Map", href: "/map" },
-                  { label: "Project decisions", href: "/docs/decisions" },
-                  { label: "Source repository", href: GITHUB },
-                ],
-              },
-              {
-                title: "Manual",
-                links: [
-                  {
-                    label: "Evaluate discern",
-                    href: "/docs/start/evaluate-discern",
-                  },
-                  { label: "Proof", href: "/docs/understand/proof" },
-                  {
-                    label: "Local control",
-                    href: "/docs/understand/local-control",
-                  },
-                ],
-              },
-            ]}
-            legal={<a href="/docs/reference/licenses">Licenses</a>}
-            meta="© 2026 Jack Webb-Heller"
-          />
-        }
-      >
+      <MarketingLayout>
         <header className="trust-hero">
           <Kicker>Trust and evidence</Kicker>
           <h1>Confidence you can inspect.</h1>

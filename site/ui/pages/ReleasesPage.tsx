@@ -1,5 +1,5 @@
 /** Release comparison and history composed from the published React adapters. */
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 import {
   Button,
   Card,
@@ -27,9 +27,6 @@ import {
 } from "../../releases/presentation.ts";
 import { renderDocument } from "../Document.tsx";
 import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
-import { SiteHeader } from "../components/SiteHeader.tsx";
-import { SiteFooter } from "../components/SiteFooter.tsx";
-import { ThemeToggle } from "../components/ThemeToggle.tsx";
 import { Markdown } from "../components/Markdown.tsx";
 
 const RESULT_HEADINGS: Record<ReleaseComparison["status"], string> = {
@@ -295,47 +292,12 @@ function UpdateSteps(
   );
 }
 
-/** Release-specific navigation and body share the same marketing landmarks as other pages. */
-function ReleaseLayout(
-  { children }: { readonly children: ReactNode },
-): ReactElement {
-  return (
-    <MarketingLayout
-      mainClassName="releases-main"
-      header={
-        <SiteHeader
-          navLabel="Site"
-          navItems={[{ label: "Manual", href: "/docs" }, {
-            label: "Releases",
-            href: RELEASE_ROUTES.html,
-          }]}
-          actions={<ThemeToggle />}
-        />
-      }
-      footer={
-        <SiteFooter
-          description="The details are in the manual."
-          groups={[{
-            title: "Explore discern",
-            links: [{ label: "Read the manual", href: "/docs" }, {
-              label: "How discern works locally",
-              href: "/trust",
-            }],
-          }]}
-        />
-      }
-    >
-      {children}
-    </MarketingLayout>
-  );
-}
-
 /** The model determines content; React and the package determine markup. */
 function ReleasesPage(
   { model }: { readonly model: ReleaseComparison },
 ): ReactElement {
   return (
-    <ReleaseLayout>
+    <MarketingLayout mainClassName="releases-main">
       <section
         className="releases-hero"
         aria-labelledby="result-heading"
@@ -378,7 +340,7 @@ function ReleasesPage(
           <UpdateSteps model={model} />
         </div>
       </div>
-    </ReleaseLayout>
+    </MarketingLayout>
   );
 }
 
@@ -412,7 +374,7 @@ export function renderReleaseErrorHtml(error: ReleaseInputError): string {
     description:
       "Read discern release notes, compare your version with published stable releases, and review the steps for a project upgrade.",
     children: (
-      <ReleaseLayout>
+      <MarketingLayout mainClassName="releases-main">
         <section
           className="releases-hero"
           data-release-status="invalid"
@@ -431,7 +393,7 @@ export function renderReleaseErrorHtml(error: ReleaseInputError): string {
             <Button href={RELEASE_ROUTES.html}>Read all release notes</Button>
           </div>
         </section>
-      </ReleaseLayout>
+      </MarketingLayout>
     ),
   });
 }

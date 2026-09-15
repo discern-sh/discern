@@ -86,3 +86,5 @@ Do not add a filename directly to `done`, `status`, or acceptance. Those surface
 ## Adding operational agent copy
 
 Add the normal skill or setup source; the universe enrolls it. State facts in prose, bind classification and evidence in `AGENT_SURFACE_CONTRACTS`, generate voices through `scripts/brand/voice.ts`, then run `discern refresh`. Classification and relay completeness remain semantic review ([ADR 0267](../_adr/0267-operational-contracts-stay-outside-agent-copy.md)).
+
+Public React navigation has one destination authority in [`site/navigation.ts`](../../../site/navigation.ts) and one layout owner in [`MarketingLayout`](../../../site/ui/layouts/MarketingLayout.tsx). [`site_navigation_test.ts`](../../../tests/site_navigation_test.ts) compares the rendered headers and footers across every public React composition. Map directory membership continues to derive from the admitted map model; it adds repository links rather than site routes.

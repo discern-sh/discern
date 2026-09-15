@@ -40,6 +40,7 @@ export const COPIED_PAGE_ASSETS = [
   "campaign.css",
   "copy-prompt.js",
   "landing.css",
+  "map.css",
   "releases.css",
   "trust.css",
 ] as const;

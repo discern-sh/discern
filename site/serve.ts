@@ -247,7 +247,6 @@ async function loadSiteRouting(): Promise<SiteRouting> {
       ...site.pages,
       ...site.decisions.pages,
       site.publicMap.landing,
-      ...site.publicMap.pages,
     ],
     STATIC_REDIRECTS,
   );

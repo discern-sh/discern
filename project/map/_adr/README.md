@@ -378,6 +378,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0400 — Release records drive offline release awareness](0400-release-records-drive-offline-release-awareness.md)
 - [0401 — Managed adoption keeps currency and Proof separate](0401-managed-adoption-keeps-currency-and-proof-separate.md)
 - [0402 — Site layouts use server-rendered React components](0402-site-layouts-use-server-rendered-react-components.md)
+- [0403 — The site map is a directory of repository sources](0403-the-site-map-is-a-directory-of-repository-sources.md)
 
 <!-- END GENERATED: current ADR records -->
 

@@ -1,5 +1,7 @@
 # ADR 0314: The public manual and project Map are separate corpora on one document engine
 
+> **Map publication amendment:** [ADR 0403](0403-the-site-map-is-a-directory-of-repository-sources.md) keeps the public map as one overview linking to repository sources; individual map pages and map search are not site endpoints. The separate corpora and canonical publication predicate remain in force.
+
 **Status**: accepted; amends the source and audience model in [ADR 0130](0130-docs-site-renders-the-help-tree.md), extends the frontmatter contract in [ADR 0140](0140-validated-frontmatter-and-the-publish-predicate.md), and changes the staging source in [ADR 0142](0142-customer-binaries-carry-only-public-docs.md)
 
 ## Context

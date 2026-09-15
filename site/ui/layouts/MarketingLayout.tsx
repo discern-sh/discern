@@ -1,24 +1,24 @@
-/** Shared landmarks for public compositions; pages supply navigation and content. */
+/** Shared public navigation and landmarks around page-owned content. */
 import type { ReactElement, ReactNode } from "react";
 import { SkipLink } from "discern-design-system/react";
+import { SiteHeader } from "../components/SiteHeader.tsx";
+import { SiteFooter } from "../components/SiteFooter.tsx";
 
 interface MarketingLayoutProps {
-  readonly header: ReactNode;
-  readonly footer: ReactNode;
   readonly children: ReactNode;
   readonly mainClassName?: string;
 }
 
-/** Keep one main landmark and a working skip destination on every composition. */
+/** A new page inherits the same header, footer, and working skip destination. */
 export function MarketingLayout(
-  { header, footer, children, mainClassName }: MarketingLayoutProps,
+  { children, mainClassName }: MarketingLayoutProps,
 ): ReactElement {
   return (
     <>
       <SkipLink href="#main">Skip to content</SkipLink>
-      {header}
+      <SiteHeader />
       <main id="main" className={mainClassName}>{children}</main>
-      {footer}
+      <SiteFooter />
     </>
   );
 }

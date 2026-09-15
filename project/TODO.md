@@ -31,9 +31,10 @@ This tracked backlog publishes with the repository by design. It records inspect
 
 ## Public site follow-ups
 
+- [ ] **Review checkout locking for long-running project scripts.** Let a site watcher coexist with preparation in its worktree through an appropriate script capability or per-script locking policy, while preserving exclusion for scripts that mutate protected checkout state. Evidence: `src/engine/project_scripts.ts`; `src/engine/operation_execution.ts`; `src/engine/operation_lock.ts`; `project/scripts/site-watch`.
+
 - [ ] **Avoid an interactive permission prompt during site startup.** Use the restricted read-only Git environment fallback without prompting for unrestricted environment access when preview tasks resolve their worktree port under named permissions. Evidence: `src/shared/subprocess.ts`; `src/engine/worktree/identity.ts`; `site/dev.ts`; `tests/site_development_test.ts`.
 
-- [ ] **Decide whether the public Map ships at launch.** Review links to Map routes and choose between publishing the exhibit and linking to equivalent GitHub sources before launch. Evidence: `site/routes.ts`; `site/docs.tsx`.
 - [ ] **Convert the document shell to package React components.** Move the corpus shell into the shared site UI while retaining raw editions, workflow directives, glossary hooks, navigation, and search. Evidence: `site/docs.tsx`; `site/ui/`; `project/map/90-site/authoring.md`.
 - [ ] **Request upstream Markdown document-context controls.** Add public heading-depth and document ID-prefix controls covering headings, footnotes, and local links, then replace the temporary site adjustment after importing that package release. Evidence: `site/ui/components/Markdown.tsx`.
 - [ ] **Request upstream SiteHeader current-link semantics.** Extend the package navigation item API with current-page semantics while keeping the package responsible for anchor markup. Evidence: `site/ui/components/SiteHeader.tsx`; `site/ui/pages/ReleasesPage.tsx`.

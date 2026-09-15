@@ -1,26 +1,22 @@
-/** Product defaults for the package-owned site header. */
-import type { ComponentProps, ReactElement } from "react";
+/** One public header, rendered through the published design-system adapter. */
+import type { ReactElement } from "react";
 import { SiteHeader as PackageSiteHeader } from "discern-design-system/react";
 import { DISCERN_MARK } from "../../brand.ts";
+import { SITE_NAVIGATION } from "../../navigation.ts";
+import { ThemeToggle } from "./ThemeToggle.tsx";
 
-type SiteHeaderProps =
-  & Omit<ComponentProps<typeof PackageSiteHeader>, "brand">
-  & {
-    readonly brand?: ComponentProps<typeof PackageSiteHeader>["brand"];
-  };
-
-/** Pass component anatomy and accessibility through the published adapter. */
-export function SiteHeader(
-  { brand = "discern", ...props }: SiteHeaderProps,
-): ReactElement {
+/** Pages share destinations and controls rather than supplying navigation slots. */
+export function SiteHeader(): ReactElement {
   return (
     <PackageSiteHeader
-      brand={brand}
+      brand="discern"
       brandMark={DISCERN_MARK}
       brandTypeface="mono"
       brandMarkTreatment="plain"
       variant="campaign"
-      {...props}
+      navLabel="Site"
+      navItems={SITE_NAVIGATION}
+      actions={<ThemeToggle />}
     />
   );
 }

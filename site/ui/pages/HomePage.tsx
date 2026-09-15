@@ -16,9 +16,6 @@ import {
 } from "../../brand.ts";
 import { renderDocument } from "../Document.tsx";
 import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
-import { SiteHeader } from "../components/SiteHeader.tsx";
-import { SiteFooter } from "../components/SiteFooter.tsx";
-import { ThemeToggle } from "../components/ThemeToggle.tsx";
 
 const benefits = [
   {
@@ -67,23 +64,7 @@ export function renderLanding(): string {
 /** Homepage content composed through the shared marketing layout. */
 function HomePage() {
   return (
-    <MarketingLayout
-      header={
-        <SiteHeader
-          navLabel="Site"
-          navItems={[{ label: "Manual", href: "/docs" }]}
-          actions={<ThemeToggle />}
-        />
-      }
-      footer={
-        <SiteFooter
-          description=""
-          groups={[]}
-          legal={<a href="/docs">Read the manual</a>}
-          meta="© 2026 Jack Webb-Heller"
-        />
-      }
-    >
+    <MarketingLayout>
       <section className="homepage-artwork" aria-labelledby="homepage-title">
         <HarmonicBackdrop presence={1.8} />
         <div className="homepage-copy">

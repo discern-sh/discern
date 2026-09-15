@@ -7,10 +7,6 @@
   color: var(--discern-color-ink);
 }
 
-.trust-brand-name {
-  font-family: var(--discern-font-mono);
-}
-
 .trust-page main {
   width: min(100% - 2 * var(--discern-space-6), 72rem);
   margin-inline: auto;
@@ -151,9 +147,6 @@
 }
 
 @media print {
-  .trust-header,
-  .trust-footer,
-  .trust-skip,
   .trust-hero__actions {
     display: none !important;
   }

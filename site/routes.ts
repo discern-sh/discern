@@ -15,7 +15,6 @@ export const DOCUMENT_ROUTES = {
 } as const;
 export const DOCUMENT_SEARCH_ROUTES = {
   manual: `${DOCUMENT_ROUTES.manual}/index.json`,
-  map: `${DOCUMENT_ROUTES.map}/index.json`,
 } as const;
 export const PUBLIC_ASSET_PREFIX = "/assets/";
 
@@ -123,7 +122,6 @@ export function siteRoutes(
     site.landing,
     ...site.pages,
     site.publicMap.landing,
-    ...site.publicMap.pages,
     { route: site.decisions.route, entry: site.decisions.index },
     ...site.decisions.pages,
   ];

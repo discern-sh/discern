@@ -122,9 +122,6 @@ Deno.test("public marketing and representative document pages have no serious or
       section.pages.find((page) => !page.isIndex)?.route ?? section.index.route
     ),
     "/map",
-    ...site.publicMap.sections.map((section) =>
-      section.pages.find((page) => !page.isIndex)?.route ?? section.index.route
-    ),
     site.decisions.route,
     decision?.route,
   ].filter(

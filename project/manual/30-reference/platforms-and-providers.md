@@ -735,4 +735,4 @@ Copilot's local sandbox and pre-tool hooks are separate vendor features. discern
 
 discern uses the operating system's secure random source through WebCrypto for identifiers, nonces, and key material. This is separate from the deterministic worktree identities described above.
 
-For the implementation and its security boundaries, see [secure entropy in the project map](https://discern.sh/map/orientation/secure-entropy). The [files reference](files-and-ownership.md#runtime-state-inside-git) identifies local records and key storage.
+For the implementation and its security boundaries, see [secure entropy in the project map](https://github.com/jackwh/discern/blob/main/project/map/00-orientation/secure-entropy.md). The [files reference](files-and-ownership.md#runtime-state-inside-git) identifies local records and key storage.

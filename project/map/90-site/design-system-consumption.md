@@ -10,7 +10,7 @@ aliases:
 
 ## React authoring and HTML responses
 
-The site's React pages live in [`site/ui/`](../../../site/ui/). Marketing pages render at build time; Releases render on the server. Their shared document and layout components use the package's typed React adapters. The browser receives HTML, CSS, and explicit progressive enhancements, with no hydration ([ADR 0402](../_adr/0402-site-layouts-use-server-rendered-react-components.md)). See [Authoring site pages](authoring.md) for editing locations and the server/browser distinction.
+The site's React pages live in [`site/ui/`](../../../site/ui/). Marketing pages render at build time; Releases and the map directory render on the server. Their shared document and layout components use the package's typed React adapters. The browser receives HTML, CSS, and explicit progressive enhancements, with no hydration ([ADR 0402](../_adr/0402-site-layouts-use-server-rendered-react-components.md)). See [Authoring site pages](authoring.md) for editing locations and the server/browser distinction.
 
 Layout and display components render completely as semantic HTML. The package emits selection-scoped, framework-neutral enhancements for reusable component behavior. Page behavior remains page-owned. Product copy, routes, commands, bespoke artwork, docs rendering, and composition Cascading Style Sheets (CSS) remain in discern.
 
@@ -36,7 +36,7 @@ The marked Markdown is the authority for every command and outcome in the projec
 
 [`site/ui/pages/AgentsPage.tsx`](../../../site/ui/pages/AgentsPage.tsx) contains the public agent-native composition at `/agents`. It moves from context economy and callable operations through session continuity, isolated work, human authority, provider continuity, deterministic boundaries, and exact machine routes. Its provider compiler derives labels, instruction files, and marks from the same total agent and provider registries as the integrations themselves. The route therefore gains a newly supported provider without a copied marketing list. `/llms.txt` is the machine-readable handoff; the campaign has no overlapping Markdown companion.
 
-[`site/page-src/agents.css`](../../../site/page-src/agents.css) owns its `.agents-*` composition selectors. The page composes static package components through their typed slots and published CSS variables; consumer selectors never reach into package-owned classes. It uses the shared system-aware theme bootstrap without presenting its own theme toggle. [`site/renderers.ts`](../../../site/renderers.ts) exhaustively maps each `MARKETING_PAGES` route to its static renderer, so adding a registry member without a composition fails type checking.
+[`site/page-src/agents.css`](../../../site/page-src/agents.css) owns its `.agents-*` composition selectors. The page composes static package components through their typed slots and published CSS variables; consumer selectors never reach into package-owned classes. It uses the shared public navigation and system-aware theme control. [`site/renderers.ts`](../../../site/renderers.ts) exhaustively maps each `MARKETING_PAGES` route to its static renderer, so adding a registry member without a composition fails type checking.
 
 ## The trust composition
 

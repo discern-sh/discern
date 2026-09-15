@@ -7,6 +7,7 @@ import {
   sortedGlossary,
 } from "../scripts/glossary_registry.ts";
 import { renderManualGlossaryArtifact } from "../scripts/glossary_codegen.ts";
+import { repositoryTreeUrl } from "../src/shared/brand.ts";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
@@ -38,7 +39,7 @@ Deno.test("the public manual's glossary matches the term registry", async () => 
   const path = `${REPO_AUTHORED_PATHS.manual}/30-reference/glossary.md`;
   const rendered = renderManualGlossaryArtifact(manual);
   // Product follow-up links must work in the offline human manual, while
-  // contributor-only implementation reading can still use the Map exhibit.
+  // contributor-only implementation reading links to the repository.
   for (
     const destination of [
       "../20-understand/proof.md",
@@ -51,7 +52,10 @@ Deno.test("the public manual's glossary matches the term registry", async () => 
   ) {
     assertStringIncludes(rendered, `](${destination})`);
   }
-  assertStringIncludes(rendered, "https://discern.sh/map/engine-internals");
+  assertStringIncludes(
+    rendered,
+    repositoryTreeUrl("project/map/50-engine-internals/"),
+  );
   assertEquals(
     await Deno.readTextFile(path),
     await canonicalGeneratedMarkdown(path, rendered),

@@ -24,17 +24,17 @@ The public pages for discern live in this repository, so the gate checks the sit
 
 The main implementation boundaries are:
 
-| Piece                                                         | Role                                                                                    |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| [`site/docs.tsx`](../../../site/docs.tsx)                     | Adapts the shared document model to manual, Map, and decision route families.           |
-| [`site/search.ts`](../../../site/search.ts)                   | Builds the shared reader-visible search projection; each corpus receives its own index. |
-| [`site/seo.tsx`](../../../site/seo.tsx)                       | Canonical metadata, redirect validation, discovery files, and security policy.          |
-| [`site/marketing_pages.ts`](../../../site/marketing_pages.ts) | Enrolls every static public composition in build, serving, prose, and route guards.     |
-| [`site/design_system.ts`](../../../site/design_system.ts)     | Owns route bundles, package selections, assets, and theme.                              |
-| [`site/build.ts`](../../../site/build.ts)                     | Emits selected package bundles and static marketing shells.                             |
-| [`site/build_inputs.ts`](../../../site/build_inputs.ts)       | Defines the site-owned source boundary for watched builds.                              |
-| [`site/dev.ts`](../../../site/dev.ts)                         | Runs loopback-only previews and source-driven rebuilds.                                 |
-| [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts)     | Crawls the real handler across routes, links, metadata, raw editions, and redirects.    |
+| Piece                                                         | Role                                                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [`site/docs.tsx`](../../../site/docs.tsx)                     | Adapts the manual and decision routes and supplies the map directory model.          |
+| [`site/search.ts`](../../../site/search.ts)                   | Builds the reader-visible search projection for the published manual.                |
+| [`site/seo.tsx`](../../../site/seo.tsx)                       | Canonical metadata, redirect validation, discovery files, and security policy.       |
+| [`site/marketing_pages.ts`](../../../site/marketing_pages.ts) | Enrolls every static public composition in build, serving, prose, and route guards.  |
+| [`site/design_system.ts`](../../../site/design_system.ts)     | Owns route bundles, package selections, assets, and theme.                           |
+| [`site/build.ts`](../../../site/build.ts)                     | Emits selected package bundles and static marketing shells.                          |
+| [`site/build_inputs.ts`](../../../site/build_inputs.ts)       | Defines the site-owned source boundary for watched builds.                           |
+| [`site/dev.ts`](../../../site/dev.ts)                         | Runs loopback-only previews and source-driven rebuilds.                              |
+| [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts)     | Crawls the real handler across routes, links, metadata, raw editions, and redirects. |
 
 [The docs section](the-docs-section.md) owns the corpus boundaries, navigation, rendering, search, raw, and admission contracts. [Design-system consumption](design-system-consumption.md) owns static composition and package boundaries. [Publishing](publishing.md) owns local and release operation. [Authoring](authoring.md) explains the TSX structure, component boundary, and browser interaction model.
 
@@ -42,17 +42,17 @@ The main implementation boundaries are:
 
 [`siteRoutes`](../../../site/routes.ts) combines the marketing registry, fixed endpoint registry, and discovered document models. `liveHtmlRoutes` selects its HTML entries for the sitemap. Raw Markdown pairs derive from the same documents; release and schema endpoints retain their product authorities. The generated `project/map/_internal/registry-atlas.md` includes the marketing set, fixed endpoints, and complete public route inventory. The asset subtree is recorded as a namespace rather than a copied build-output list.
 
-Manual and map search use separate registry-owned endpoints. The llms editions project only the manual.
+Manual search uses its registry-owned endpoint. Map entries link to repository Markdown files from the single `/map` overview; they have no individual site routes or search endpoint. The llms editions project only the manual.
 
 Production's canonical origin is `https://discern.sh`, and page URLs have no trailing slash. Hypertext Transfer Protocol (HTTP), `www`, `.html`, trailing-slash, and `index.html` variants resolve with a 308 before routing. No pre-public manual address is claimed as history: every authored `redirect_from` list and [`STATIC_REDIRECTS`](../../../site/seo.tsx) starts empty. After publication, a moved destination owns its `redirect_from`; section-level moves live in `STATIC_REDIRECTS`. Both automatically cover `.md`. The combined registry rejects dead targets, collisions, chains, and loops ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)). A known route retired without a successor requires an explicit 410 tombstone.
 
 ## Reader negotiation
 
-Browsers receive Hypertext Markup Language (HTML). `/` and `/agents` negotiate the shared plaintext edition for command-line text clients; `/trust` is an ordinary non-negotiated brand page. `/releases` negotiates its own model-driven text projection; its explicit `.txt` and `.json` routes retain their formats. Manual, Map, and decision routes serve pristine Markdown to text clients and through their `.md` forms. Negotiated responses carry `Vary: Accept, User-Agent`.
+Browsers receive Hypertext Markup Language (HTML). `/` and `/agents` negotiate the shared plaintext edition for command-line text clients; `/trust` is an ordinary non-negotiated brand page. `/releases` negotiates its own model-driven text projection; its explicit `.txt` and `.json` routes retain their formats. Manual and decision routes, plus the map root, serve pristine Markdown to text clients and through their `.md` forms. Negotiated responses carry `Vary: Accept, User-Agent`.
 
 Rendered pages may remove frontmatter, source-only comments, and presentation-only markers. Their raw editions remain the authored bytes. Search is built from the same reader-visible Markdown projection as rendering, so source-only comments cannot become search vocabulary or snippets while literal examples inside inline or fenced code remain searchable.
 
-Generated manual references reuse the canonical definitions. Their follow-up links prefer human explanations in the offline manual; contributor-only reading can lead to the public map. [`scripts/manual_codegen.ts`](../../../scripts/manual_codegen.ts) owns these editorial destinations separately from public URL redirects, so a reading choice does not claim historical ownership of a route.
+Generated manual references reuse the canonical definitions. Their follow-up links prefer human explanations in the offline manual; contributor-only reading links to the corresponding repository file. [`scripts/manual_codegen.ts`](../../../scripts/manual_codegen.ts) owns these editorial destinations separately from public URL redirects, so a reading choice does not claim historical ownership of a route.
 
 ## Response contract
 
@@ -62,7 +62,7 @@ Every response class, including assets, redirects, and errors, receives the same
 
 ## Guards
 
-- [`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) enrolls every published manual page, admitted Map page, and public decision in rendering, route, raw, link, navigation, search-isolation, and admission checks.
+- [`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) enrolls every published manual page and public decision in document checks; [`site_map_test.ts`](../../../tests/site_map_test.ts) holds the map directory to its admitted sources and excludes individual map endpoints.
 - [`tests/site_search_test.ts`](../../../tests/site_search_test.ts) guards intent-aware ranking and reader-visible snippets, including arbitrary HTML comments outside code.
 - [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives canonical redirects, sitemap parity, metadata, and machine-edition boundaries from the live route model.
 - [`tests/site_accessibility_test.ts`](../../../tests/site_accessibility_test.ts) combines axe audits with focus, no-JavaScript, reduced-motion, forced-color, reflow, and print contracts.
@@ -73,6 +73,6 @@ Every response class, including assets, redirects, and errors, receives the same
 
 ## Current state
 
-The homepage, For Agents page, and trust gateway are static build output from typed sources. The manual and map use the same server-rendered reading shell but remain different corpora with different navigation, search endpoints, framing, raw policies, and machine reach. The map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
+The homepage, For Agents page, and trust gateway are static build output from typed sources. Manual and decision pages use the document reading shell. The map overview uses the shared React layout and links to repository sources; its entries have no individual website endpoints. The map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
 
 `deno task site:build` owns ignored output under `site/pages/`, and Deno Deploy runs that build before starting the handler. Never hand-edit generated shells or emitted design-system assets.
