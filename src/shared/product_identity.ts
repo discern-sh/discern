@@ -1,5 +1,7 @@
 /** Stable product, repository, and installer identity authorities. */
 
+import { parseVersion } from "./semver.ts";
+
 /** The product name used in protocol and generated-file identity. */
 export const DISCERN_NAME = "discern";
 
@@ -67,6 +69,7 @@ export const DISCERN_INSTALL_URL = `${DISCERN_URL}${DISCERN_INSTALL_ROUTE}`;
 export function releaseCheckUrls(
   version?: string,
 ): { html: string; json: string } {
+  if (version !== undefined) parseVersion(version);
   const query = version === undefined
     ? ""
     : `?${new URLSearchParams({ since: version })}`;

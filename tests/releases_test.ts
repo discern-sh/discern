@@ -134,7 +134,10 @@ Deno.test("SemVer precedence follows the standard across prereleases and metadat
       "2.3.0+",
       "2.3.0+hello world",
     ]
-  ) assertThrows(() => parseVersion(invalid));
+  ) {
+    assertThrows(() => parseVersion(invalid));
+    assertThrows(() => releaseCheckUrls(invalid));
+  }
 });
 
 Deno.test("record validation rejects the class with file diagnostics and deterministic sorting", async () => {

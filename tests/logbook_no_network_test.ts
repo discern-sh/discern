@@ -45,6 +45,8 @@ const ALLOWED_EXTERNAL_PREFIXES = [
   "@std/fs",
   "@std/toml",
   "@std/fmt",
+  // SemVer 1.0.8 is pure parsing/comparison; its package graph contains no I/O.
+  "@std/semver",
   "@zod/zod",
   "@cliffy/ansi",
   "discern-design-system/cli",
