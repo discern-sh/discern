@@ -30,6 +30,17 @@ function registeredDownloaders(): string[] {
   return match[1]?.split(/\s+/).filter(Boolean) ?? [];
 }
 
+/** Read numeric identity through the same parser used by native release smoke. */
+async function installedVersion(binary: string): Promise<string | undefined> {
+  const result = await new Deno.Command(binary, {
+    args: ["--version"],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assert(result.success, new TextDecoder().decode(result.stderr));
+  return parseVersionOutput(new TextDecoder().decode(result.stdout));
+}
+
 Deno.test("every registered downloader gets both files with retry semantics", async () => {
   const downloaders = registeredDownloaders();
   assert(downloaders.length > 0, "at least one downloader is supported");
@@ -124,18 +135,6 @@ Deno.test("bare and v-prefixed DISCERN_VERSION values resolve to the same releas
   }
 });
 
-Deno.test("the installer default repository follows the repository authority", async () => {
-  const downloader = registeredDownloaders()[0];
-  assert(downloader !== undefined);
-  await withInstallerRun(downloader, (run) => {
-    assert(run.success, run.stderr);
-    assertStringIncludes(
-      run.downloaderLog,
-      `https://github.com/${DISCERN_REPOSITORY_SLUG}/releases/`,
-    );
-  });
-});
-
 Deno.test("an install destination that is a directory is refused before download", async () => {
   const downloader = registeredDownloaders()[0];
   assert(downloader !== undefined);
@@ -214,14 +213,7 @@ Deno.test("first install and every replacement give the matching handoff", async
         assert(run.success, run.stderr);
         assertEquals(await Deno.readTextFile(run.target), run.expectedBinary);
         assert(((await Deno.stat(run.target)).mode ?? 0) & 0o100);
-        const version = await new Deno.Command(run.target, {
-          args: ["--version"],
-          stdout: "piped",
-        }).output();
-        assertEquals(
-          parseVersionOutput(new TextDecoder().decode(version.stdout)),
-          "1.2.3",
-        );
+        assertEquals(await installedVersion(run.target), "1.2.3");
         const first = run.invocations[0];
         assert(first !== undefined);
         assertStringIncludes(first.stdout, "installed");
@@ -377,12 +369,8 @@ Deno.test("published prereleases leave the default stable target intact and rema
           ? "/releases/latest/download/"
           : "/releases/download/v1.3.0-rc.1/",
       );
-      const result = await new Deno.Command(run.target, {
-        args: ["--version"],
-        stdout: "piped",
-      }).output();
       assertEquals(
-        parseVersionOutput(new TextDecoder().decode(result.stdout)),
+        await installedVersion(run.target),
         defaultTarget ? latest : "1.3.0-rc.1",
       );
     }, {

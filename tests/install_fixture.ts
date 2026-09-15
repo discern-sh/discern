@@ -6,6 +6,7 @@ import { humanVersion } from "../src/lib/version.ts";
 import { DISCERN_REPOSITORY_SLUG } from "../src/shared/product_identity.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
+import { writeExecutable } from "./engine_helpers.ts";
 import { createWorkflowChecksum } from "./release_workflow_fixture.ts";
 
 const INSTALL = fromFileUrl(new URL("../install.sh", import.meta.url));
@@ -103,7 +104,7 @@ export async function withInstallerRun<T>(
     await Deno.mkdir(admin, { recursive: true });
     await Deno.writeTextFile(
       join(project, "discern.toml"),
-      "[meta]\nmanaged_version = '1.0.0'\n",
+      "[meta]\nmanaged_version = '0.9.7'\n",
     );
     await Deno.writeTextFile(
       join(admin, "release-check.json"),
@@ -116,13 +117,12 @@ export async function withInstallerRun<T>(
     await Deno.writeTextFile(join(home, ".profile"), "# Keep my PATH\n");
     for (const command of ["git", "find"]) {
       const path = join(tools, command);
-      await Deno.writeTextFile(
+      await writeExecutable(
         path,
         `#!/bin/sh\nprintf '%s\\n' ${shellQuote(command)} >> ${
           shellQuote(join(root, "unexpected-commands.log"))
         }\nexit 99\n`,
       );
-      await Deno.chmod(path, 0o755);
     }
     const target = options.target ??
       BUILD_TARGETS.find((candidate) =>
@@ -135,13 +135,12 @@ export async function withInstallerRun<T>(
     for (const tool of ["chmod", "mkdir", "mktemp", "mv", "rm"]) {
       const path = join(tools, tool);
       if (options.fail === tool) {
-        await Deno.writeTextFile(path, "#!/bin/sh\nexit 1\n");
-        await Deno.chmod(path, 0o755);
+        await writeExecutable(path, "#!/bin/sh\nexit 1\n");
       } else {
         await Deno.symlink(await commandPath(tool), path);
       }
     }
-    await Deno.writeTextFile(
+    await writeExecutable(
       join(tools, "uname"),
       `#!/bin/sh
 case "$1" in
@@ -153,7 +152,6 @@ case "$1" in
 esac
 `,
     );
-    await Deno.chmod(join(tools, "uname"), 0o755);
     const hostChecksumTool = Deno.build.os === "darwin"
       ? "shasum"
       : "sha256sum";
@@ -169,11 +167,10 @@ esac
         : `[ "$1" = -a ] && [ "$2" = 256 ] || exit 93\nshift 2\nexec ${
           shellQuote(checksumCommand)
         } "$@"`;
-      await Deno.writeTextFile(
+      await writeExecutable(
         checksumAdapter,
         `#!/bin/sh\nset -eu\n${adapt}\n`,
       );
-      await Deno.chmod(checksumAdapter, 0o755);
     }
     const version = options.version ?? "latest";
     const installedVersion = options.publishedVersion ??
@@ -201,13 +198,14 @@ esac
       const manifest = await Deno.readTextFile(fixtureChecksum);
       // A valid checksum of unrelated bytes must not license this asset's replacement.
       const unrelatedName = "unrelated-integrity-input";
+      const unrelatedPath = join(dist, unrelatedName);
       await Deno.writeTextFile(
-        join(dist, unrelatedName),
+        unrelatedPath,
         "Other verified bytes\n",
       );
       const unrelated = (await Deno.readTextFile(
         await createWorkflowChecksum(root, unrelatedName),
-      )).replace(unrelatedName, join(dist, unrelatedName));
+      )).replace(unrelatedName, unrelatedPath);
       await Deno.writeTextFile(
         fixtureChecksum,
         options.checksumContent === "empty"
@@ -228,7 +226,7 @@ esac
       : `download/v${version.replace(/^v/, "")}`;
     const url = `${base}${selected}/${asset}`;
     const fakeDownloader = join(tools, downloader);
-    await Deno.writeTextFile(
+    await writeExecutable(
       fakeDownloader,
       `#!/bin/sh
 set -eu
@@ -258,20 +256,17 @@ case "$url" in
 esac
 `,
     );
-    await Deno.chmod(fakeDownloader, 0o755);
     const dest = join(binDir, "discern");
     if (options.destinationDirectory) await Deno.mkdir(dest);
     else if (options.existing || options.badChecksum) {
-      await Deno.writeTextFile(dest, "existing installation\n");
-      await Deno.chmod(dest, 0o755);
+      await writeExecutable(dest, "existing installation\n");
     }
     const shadowDir = join(root, "shadow");
     await Deno.mkdir(shadowDir);
-    await Deno.writeTextFile(
+    await writeExecutable(
       join(shadowDir, "discern"),
       "#!/bin/sh\nexit 99\n",
     );
-    await Deno.chmod(join(shadowDir, "discern"), 0o755);
     const path = [
       options.shadow ? shadowDir : undefined,
       options.binOnPath ? binDir : undefined,
@@ -322,15 +317,13 @@ esac
         before,
         "installer writes only its selected bin/staging area; projects, Git-admin state, and shell profiles stay intact",
       );
-      const debris = [];
       for await (const entry of Deno.readDir(binDir)) {
-        if (entry.name !== "discern") debris.push(entry.name);
+        assertEquals(
+          entry.name,
+          "discern",
+          "each invocation cleans staging, including failures",
+        );
       }
-      assertEquals(
-        debris,
-        [],
-        "each invocation cleans staging, including failures",
-      );
     }
     const last = invocations.at(-1);
     assert(last !== undefined);
