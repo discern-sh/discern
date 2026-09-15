@@ -766,7 +766,9 @@ const ACTION_CASES: ReadonlyArray<{
     enabled: [
       "done",
       "accept",
+      "submit",
       "follow_up",
+      "scripts",
       "jump",
       "inspect",
       "rename",
@@ -787,7 +789,9 @@ const ACTION_CASES: ReadonlyArray<{
     enabled: [
       "done",
       "accept",
+      "submit",
       "follow_up",
+      "scripts",
       "jump",
       "inspect",
       "rename",
@@ -801,8 +805,10 @@ const ACTION_CASES: ReadonlyArray<{
     name: "branch behind main",
     decision: () => decide({ ahead: 2, behind: 1 }),
     enabled: [
+      "submit",
       "update",
       "follow_up",
+      "scripts",
       "jump",
       "inspect",
       "rename",
@@ -818,7 +824,9 @@ const ACTION_CASES: ReadonlyArray<{
     enabled: [
       "done",
       "accept",
+      "submit",
       "follow_up",
+      "scripts",
       "jump",
       "inspect",
       "rename",
@@ -840,6 +848,7 @@ const ACTION_CASES: ReadonlyArray<{
         agentLaunches: [AGENT_LAUNCH],
       }),
     enabled: [
+      "submit",
       "agent",
       "follow_up",
       "scripts",
@@ -864,7 +873,9 @@ const ACTION_CASES: ReadonlyArray<{
     name: "empty task",
     decision: () => decide(),
     enabled: [
+      "submit",
       "follow_up",
+      "scripts",
       "jump",
       "inspect",
       "rename",

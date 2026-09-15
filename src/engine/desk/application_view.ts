@@ -67,6 +67,7 @@ const PRIMARY = [
   "grant",
   "revoke_grant",
   "accept",
+  "submit",
   "drop",
 ] as const satisfies readonly DeskAction[];
 /** A semantic destination for one package choice. */
@@ -132,10 +133,8 @@ export function deskSubmission(
     item.branch === row.entry.branch
   );
   return submission === undefined
-    ? "Not submitted"
-    : `Submitted ${submission.head.slice(0, 12)} · ${submission.readiness}${
-      submission.reason ? ` · ${submission.reason}` : ""
-    }`;
+    ? "Not queued"
+    : `Queued ${submission.head.slice(0, 12)} · ${submission.readiness}`;
 }
 /** Capture identity and the registered action without treating the menu as consent. */
 function actionEntry(
@@ -147,6 +146,7 @@ function actionEntry(
   return {
     id: action,
     label: offer.label,
+    ...(offer.availability === "disabled" ? { description: offer.reason } : {}),
     value: {
       kind: "action",
       id: deskRowId(row),
@@ -178,7 +178,7 @@ export function deskApplicationView(
       }`,
     ),
     ...(snapshot.tip ? { tip: terminalLine(`Tip: ${snapshot.tip}`) } : {}),
-    help: `↑↓ move  Enter  Tab  / find  ${DESK_KEYS[0].key} help`,
+    help: `Arrows move  Enter  Tab  / find  ${DESK_KEYS[0].key} help`,
   };
   const back = route("Back", "back");
   if (
@@ -253,12 +253,17 @@ export function deskApplicationView(
     };
   }
   if (row !== undefined && page !== "overview") {
+    const landingState = [
+      deskProofLabel(row),
+      row.decision.authority.status === "granted"
+        ? "Authorized"
+        : row.decision.authority.summary,
+      deskSubmission(row, data),
+    ].join(" · ");
     const summary = [
       ...(snapshot.message ? [snapshot.message] : []),
       row.decision.activity.summary,
-      deskProofLabel(row),
-      row.decision.authority.summary,
-      deskSubmission(row, data),
+      landingState,
     ];
     const primary = PRIMARY.filter((action) =>
       action === "grant"
@@ -269,7 +274,11 @@ export function deskApplicationView(
     );
     const entries = page === "more"
       ? DESK_ACTIONS.filter((action) =>
-        !PRIMARY.includes(action as typeof PRIMARY[number])
+        !PRIMARY.includes(action as typeof PRIMARY[number]) &&
+        (!["recovery", "retry_setup", "reclaim"].includes(action) ||
+          row.decision.actions.some((offer) =>
+            offer.action === action && offer.availability === "enabled"
+          ))
       ).map((action) => actionEntry(row, action))
       : primary.map((action) => actionEntry(row, action));
     const detailLines = [
@@ -277,6 +286,9 @@ export function deskApplicationView(
       `Branch: ${row.entry.branch}`,
       `Path: ${row.entry.path}`,
       `Identity: ${deskRowId(row)}`,
+      ...(data?.queue?.filter((item) =>
+        item.branch === row.entry.branch && item.reason
+      ).map((item) => `Queue: ${item.reason}`) ?? []),
       ...(row.entry.task?.brief ? [row.entry.task.brief] : []),
       ...row.decision.details.map((detail) => detail.text),
       ...(row.decision.proof.line ? [row.decision.proof.line] : []),
@@ -293,7 +305,9 @@ export function deskApplicationView(
         {
           kind: "choices",
           id: `task:${deskRowId(row)}:${page === "more" ? "more" : "actions"}`,
-          title: page === "more" ? "More actions" : "Task controls",
+          title: page === "more"
+            ? "More actions"
+            : `Task controls · ${landingState}`,
           search: true,
           entries: [
             ...entries,

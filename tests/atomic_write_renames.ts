@@ -30,6 +30,12 @@ export const REGISTERED_RENAMES = [
       "The signal handler must restore the executable synchronously before process exit.",
   },
   {
+    path: "scripts/coverage_partitions.ts",
+    enclosingFunction: "process",
+    reason:
+      "Settled profile shards move into unique partition directories within the same owned scratch lifetime; no durable state is replaced.",
+  },
+  {
     path: "scripts/coverage_profiles.ts",
     enclosingFunction: "pruneAndShardProfiles",
     reason:

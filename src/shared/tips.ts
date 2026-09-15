@@ -322,11 +322,11 @@ export const TIPS: readonly RegisteredTip[] = [
     id: "grant-once-green",
     when: "Two or more tasks are in flight and none is pre-authorized.",
     predicate: { kind: "no-landing-authority" },
-    features: ["consent-attestations"],
+    features: ["consent-attestations", "submission-only"],
     example: undefined,
     template: (): string =>
-      '"Pre-authorize landing" lets this task land a submitted green commit. ' +
-      "Permission alone does not submit work.",
+      '"Pre-authorize landing once green" grants permission. ' +
+      'Use "Join the landing queue" to submit the proven revision, or "Accept and land now" to start landing.',
   }),
 
   defineTip({

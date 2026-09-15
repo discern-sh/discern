@@ -206,6 +206,8 @@ export async function inspectDeskProjectScriptsWithConfig(
 }
 
 export interface RunProjectScriptOptions {
+  /** Bind a reviewed executable; configuration changes require another review. */
+  readonly expectedExecutable?: string;
   readonly json?: boolean;
   /** Additional environment values for the child process. */
   readonly env?: Record<string, string>;
@@ -290,6 +292,18 @@ export async function runProjectScriptAt(
   }
 
   const scriptFile = await literalProjectScriptPath(directory.abs, name);
+  if (
+    opts.expectedExecutable !== undefined &&
+    scriptFile !== opts.expectedExecutable
+  ) {
+    reportProjectScriptRefusal(
+      opts,
+      "script_not_a_command",
+      "The selected Project Script changed after review. Nothing ran.",
+      "Choose the script again to review its current executable.",
+    );
+    return 1;
+  }
   if (scriptFile !== undefined && await isExecutable(scriptFile)) {
     const mainBranch = integrationBranch(config.repository.trunk);
     const tomlPath = join(

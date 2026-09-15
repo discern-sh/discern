@@ -6366,7 +6366,19 @@
           "spellings": [
             "--dry-run"
           ],
-          "description": "Show the landing plan and the queue; touch nothing.",
+          "description": "Show the selected acceptance plan; touch nothing.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--queue-only"
+          ],
+          "description": "Record the current clean, proven revision in the landing queue and return without starting checks or landing. Reuses recorded authority; an active or later accept --target <effort> walk can pick it up.",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -6378,7 +6390,7 @@
           "spellings": [
             "--target"
           ],
-          "description": "Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with --confirmed.",
+          "description": "Select the effort by id, path, or branch, from any checkout. With --queue-only, record its current proven revision; otherwise start landing under applicable authority.",
           "type_definition": "<effort:string>",
           "arity": 1,
           "value_types": [

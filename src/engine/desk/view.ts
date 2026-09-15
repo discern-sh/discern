@@ -829,48 +829,6 @@ export function renderDeskAgentHandoff(
   return { text: handoff, rows: frameRows(handoff) };
 }
 
-/** Render one worktree-less branch before its read or resume actions. */
-export function renderDeskUnlandedBranchDetail(
-  branch: string,
-  trunk: string,
-  viewport: TerminalSize,
-  terminal: TerminalContext,
-): DeskRenderedFrame {
-  const width = viewportDimension(viewport.columns);
-  const heading = terminal.presenter.present(renderHeadingCli, {
-    text: terminalLine(branch),
-    level: 1,
-    leadingBlankLines: 0,
-    overflow: "wrap",
-    maxWidth: width,
-  });
-  const summary = terminal.presenter.present(renderResultSummaryCli, {
-    state: "declared",
-    fact: terminalLine("Committed branch has no worktree"),
-    nextAction: terminalLine("Resume in a worktree or inspect its commits"),
-    maxWidth: width,
-  });
-  const facts = terminal.presenter.present(renderTableCli, {
-    caption: terminalLine("Branch facts"),
-    layout: "responsive",
-    columns: [
-      { header: terminalLine("Fact") },
-      { header: terminalLine("Value") },
-    ],
-    rows: [
-      [terminalLine("Branch"), terminalLine(branch)],
-      [terminalLine("Compared with"), terminalLine(trunk)],
-      [terminalLine("Worktree"), terminalLine("None")],
-    ],
-    width,
-  });
-  const text = composeFrames(
-    [heading, summary, facts],
-    viewportDimension(viewport.rows),
-  );
-  return { text, rows: frameRows(text) };
-}
-
 /** Proof-first review composed only from package Components and stored evidence. */
 export function renderDeskReview(
   row: DeskRow,

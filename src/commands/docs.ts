@@ -587,6 +587,8 @@ function terminalBody(
 /** Options accepted by the `map` command (global flags folded in). */
 export interface DocsOptions {
   json: boolean;
+  /** Return destination when hosted by another suspended terminal application. */
+  returnLabel?: string;
   /** Exact quiet projection requested at the root, when one is active. */
   resultFormat?: "json" | "markdown" | "render" | undefined;
   noColor: boolean;
@@ -1035,6 +1037,7 @@ function docsCorpusPath(entry: DocEntry): string {
 async function docsMarkdownBrowserCorpus(
   desc: DocsVerb,
   projection: DocsBrowseProjection,
+  returnLabel?: string,
 ): Promise<DocsMarkdownBrowserCorpus> {
   const entries: MarkdownBrowserEntry<DocsBrowserChoice>[] = [];
   const sourcesByPath = new Map<string, string>();
@@ -1064,7 +1067,7 @@ async function docsMarkdownBrowserCorpus(
       entries.push({
         kind: "exit",
         id: item.id,
-        name: item.name,
+        name: returnLabel ?? item.name,
         ...(item.description === undefined
           ? {}
           : { description: item.description }),
@@ -1329,7 +1332,11 @@ async function browse(
   }
   let corpus: DocsMarkdownBrowserCorpus;
   try {
-    corpus = await docsMarkdownBrowserCorpus(desc, projection);
+    corpus = await docsMarkdownBrowserCorpus(
+      desc,
+      projection,
+      options.returnLabel,
+    );
   } catch (error) {
     log.error(docsBrowserFailureMessage(error));
     return 1;

@@ -28,7 +28,7 @@ export interface LiveDeskDependencies {
     choice: DeskChoice,
     data: StatusData,
     row?: DeskRow,
-  ) => Promise<string | void>;
+  ) => Promise<string | void | { path?: string; message?: string }>;
   readonly now: () => number;
   readonly trunk: string;
   /** A completed observation waits this long before the next begins. */
@@ -65,6 +65,7 @@ export function liveDesk(
   let tipSelected = false;
   let refreshJob: Promise<void> | undefined;
   let tipJob: Promise<void> | undefined;
+  let feedback: string | undefined;
   const publish = (focus?: string): void => {
     if (!alive) return;
     const view = deskApplicationView(snapshot, page, selectedId);
@@ -117,7 +118,7 @@ export function liveDesk(
       adrCollisions: data.adr_collisions ?? [],
     });
     const previous = snapshot.rows.find((row) => deskRowId(row) === selectedId);
-    let message: string | undefined;
+    let message: string | undefined = feedback;
     if (previous && !rows.some((row) => deskRowId(row) === selectedId)) {
       message = data.recent_completed_tasks?.some((task) =>
           task.branch === previous.entry.branch
@@ -229,6 +230,7 @@ export function liveDesk(
       generation++;
       capabilityGeneration++;
       cancelTimer();
+      feedback = undefined;
       let performed = false;
       let issue = false;
       try {
@@ -270,9 +272,20 @@ export function liveDesk(
           }
         }
         performed = true;
-        const path = await deps.perform(choice, data, row);
+        const outcome = await deps.perform(choice, data, row);
+        const path = typeof outcome === "string" ? outcome : outcome?.path;
         const after = await read();
         adopt(after);
+        if (typeof outcome === "object" && outcome.message !== undefined) {
+          feedback = [snapshot.message, outcome.message].filter((
+            message,
+            index,
+            all,
+          ) => message !== undefined && all.indexOf(message) === index).join(
+            ". ",
+          );
+          snapshot = { ...snapshot, message: feedback };
+        }
         if (path !== undefined) {
           const created = snapshot.rows.find((candidate) =>
             candidate.entry.path === path

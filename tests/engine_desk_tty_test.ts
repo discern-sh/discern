@@ -1,9 +1,15 @@
 /** Real-PTY characterisation of the complete package-backed Desk session. */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { measureText } from "discern-design-system/cli";
 import { runAgent } from "./engine_helpers.ts";
 import {
+  assertDeskTtyInputPhase,
   deskCollision,
   deskFailedAction,
   deskFleetEntry,
@@ -24,6 +30,10 @@ import {
 } from "./fixtures/desk_tty_harness.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
+import type {
+  PtyObservedOutput,
+  PtyOutputCondition,
+} from "./fixtures/pty_process.ts";
 
 const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9:;]*m`, "u");
@@ -137,6 +147,18 @@ function assertHealthySession(
   const exit = frame(result, "exit");
   assertEquals(exit.cursor.visible, true, exit.text);
   assertEquals(exit.alternateScreen, false, exit.text);
+  for (const mode of ["1000", "1006"]) {
+    const changes = exit.controls.filter((control) =>
+      control.action.endsWith(`-mouse-${mode}`)
+    );
+    if (changes.length > 0) {
+      assertEquals(
+        changes.at(-1)?.action,
+        `disable-mouse-${mode}`,
+        "the shared reader releases mouse input on return",
+      );
+    }
+  }
 }
 
 /** Select the last root action (Quit) after capturing the ready frame. */
@@ -213,18 +235,13 @@ realPtyTest({
           waitFor: "› More actions",
           chunks: [{ input: "/recovery\r\r" }],
         }, {
-          waitFor: [
-            "Task recovery needed",
-            "Setup repair",
-            "The task remains intact",
-          ],
+          waitFor: ["Recovery", "Tab choices/read  Esc back"],
           capture: textCapture(
             "recovery-detail",
-            "Task recovery needed",
-            "Setup repair",
-            "The task remains intact",
+            "Recovery",
+            "Tab choices/read  Esc back",
           ),
-          chunks: [{ keys: ["enter"] }],
+          chunks: [{ keys: ["escape"], allowLoneEscape: true }],
         }, {
           waitFor: "› More actions",
           chunks: [{ keys: ["escape"], allowLoneEscape: true }],
@@ -240,9 +257,8 @@ realPtyTest({
 
       assertHealthySession(result);
       const detail = frame(result, "recovery-detail");
-      assertStringIncludes(detail.text, "Task recovery needed");
-      assertStringIncludes(detail.text, "Setup repair");
-      assertStringIncludes(detail.text, "The task remains intact");
+      assertStringIncludes(detail.text, "Recovery");
+      assertStringIncludes(detail.text, "Back");
     });
   },
 });
@@ -298,26 +314,13 @@ realPtyTest({
           ],
           chunks: [{ keys: ["enter"] }],
         }, {
-          waitFor: ["Creation facts", title, brief, "Base commit"],
-          capture: textCapture(
-            "creation-preview",
-            "Creation facts",
-            title,
-            brief,
-            "Worktree id",
-            "No agent will open",
-          ),
-          chunks: [{ keys: ["right", "enter"] }],
-        }, {
-          waitFor: "Press Enter to continue.",
-          capture: textCapture(
-            "creation-report",
-            "Created identity",
-            title,
-            brief,
-            "Path",
-          ),
-          chunks: [{ keys: ["enter"] }],
+          waitFor: [
+            "Create task",
+            "Cancel",
+            "Tab choices/read  Esc back",
+          ],
+          capture: textCapture("creation-preview", "Create task", "Cancel"),
+          chunks: [{ keys: ["tab", "down", "enter"] }],
         }, {
           waitFor: "Task controls",
           capture: focusedCapture(
@@ -335,8 +338,8 @@ realPtyTest({
       assertHealthySession(result);
       assertUniqueFocus(frame(result, "creation-title-route"));
       assertStringIncludes(frame(result, "creation-preview").text, title);
-      assertStringIncludes(frame(result, "creation-preview").text, brief);
-      assertStringIncludes(frame(result, "creation-report").text, "Path");
+      assertStringIncludes(result.transcript, brief);
+
       assertStringIncludes(
         result.transcript,
         title,
@@ -395,15 +398,31 @@ realPtyTest({
           }, {
             waitFor: "New task title",
             chunks: [{
-              input: `${"\u007f".repeat(originalTitle.length)}${title}\r`,
+              input: `${"\u007f".repeat(originalTitle.length)}${title}`,
             }],
           }, {
-            waitFor: ["Task title plan", title, "Change"],
-            capture: textCapture("rename-preview", "Task title plan", title),
-            chunks: [{ keys: ["right", "enter"] }],
+            waitFor: ["New task title", title],
+            capture: textCapture("edited-form", title, "New task title"),
+            chunks: [{ resize: { columns: 80, rows: 24 } }],
           }, {
-            waitFor: "Press Enter to continue.",
+            waitFor: {
+              description: "the edited task title remains visible after resize",
+              test: (output: PtyObservedOutput): boolean =>
+                normaliseDeskTranscript("resized-form", output.stdout, {
+                  columns: 80,
+                  rows: 24,
+                }).text.includes(title),
+            },
+            capture: textCapture("resized-form", title, "New task title"),
             chunks: [{ keys: ["enter"] }],
+          }, {
+            waitFor: [
+              "Change task title",
+              title,
+              "Tab choices/read  Esc back",
+            ],
+            capture: textCapture("rename-preview", "Change task title", title),
+            chunks: [{ keys: ["tab", "down", "enter"] }],
           }, {
             waitFor: "› More actions",
             chunks: [{ keys: ["escape"], allowLoneEscape: true }],
@@ -418,6 +437,10 @@ realPtyTest({
         });
 
         assertHealthySession(result);
+        assertStringIncludes(frame(result, "edited-form").text, title);
+        assertEquals(frame(result, "edited-form").columns, 100);
+        assertStringIncludes(frame(result, "resized-form").text, title);
+        assertEquals(frame(result, "resized-form").columns, 80);
         assertStringIncludes(frame(result, "rename-preview").text, title);
         assertStringIncludes(result.transcript, title);
 
@@ -482,17 +505,16 @@ realPtyTest({
         }, {
           waitFor: [
             "Review Review pager",
-            "Stored Proof",
-            "View actual diff",
+            "Complete Proof",
+            "Tab choices/read  Esc back",
           ],
           capture: textCapture(
             "proof-review",
             "Proof: review pager fixture",
-            "Stored Proof",
-            "Open in editor",
+            "Complete Proof",
             "Back",
           ),
-          chunks: [{ keys: ["enter"] }],
+          chunks: [{ keys: ["tab", "down", "down", "down", "enter"] }],
         }, {
           waitFor: ["Review Review pager", "View actual diff"],
           capture: textCapture(
@@ -500,7 +522,7 @@ realPtyTest({
             "Review Review pager",
             "View actual diff",
           ),
-          chunks: [{ keys: ["end", "enter"] }],
+          chunks: [{ keys: ["escape"], allowLoneEscape: true }],
         }, {
           waitFor: "› More actions",
           chunks: [{ keys: ["escape"], allowLoneEscape: true }],
@@ -518,8 +540,7 @@ realPtyTest({
       const review = frame(result, "proof-review");
       const returned = frame(result, "pager-return");
       assertStringIncludes(review.text, "Proof: review pager fixture");
-      assertStringIncludes(review.text, "Stored Proof");
-      assertStringIncludes(review.text, "Open in editor");
+      assertStringIncludes(review.text, "Complete Proof");
       assertStringIncludes(review.text, "Back");
       assertStringIncludes(result.transcript, "diff --git");
       assertStringIncludes(result.transcript, "review.txt");
@@ -770,4 +791,155 @@ Deno.test("Desk PTY fleet builders materialise later-wave state through real aut
     assertEquals(result.data.fleet_collisions?.map((item) => item.total), [1]);
     assertEquals(result.data.unlanded_branches, ["agent/orphan-task-c0ffee"]);
   });
+});
+
+/** Read the visible document's scroll indicator, independent of its prose. */
+function manualDocumentStart(text: string): number {
+  if (!text.includes("Document") || !text.includes("Tab picker  Esc/q close")) {
+    return 0;
+  }
+  return Number(text.match(/\b(\d+)-\d+\/\d+\b/u)?.[1] ?? 0);
+}
+
+/** Observe the complete manual frame at the journey's initial geometry. */
+function manualDocumentReady(minimumStart: number): PtyOutputCondition {
+  return {
+    description:
+      `the manual displays a document starting at line ${minimumStart} or later`,
+    test: (output) =>
+      manualDocumentStart(
+        normaliseDeskTranscript(
+          "manual-readiness",
+          output.stdout,
+          { columns: 80, rows: 24 },
+        ).text,
+      ) >= minimumStart,
+  };
+}
+
+Deno.test("Desk PTY recipes separate resize from keyboard input before launching", () => {
+  const resize = { resize: { columns: 61, rows: 27 } };
+  const mixed: readonly DeskTtyInputPhase[] = [
+    { waitFor: "Inventory", chunks: [{ input: "filter" }, resize] },
+    { waitFor: "Review", chunks: [resize, { keys: ["down"] }] },
+    {
+      waitFor: "Editor",
+      chunks: [{ ...resize, input: new Uint8Array([97]), settleMs: 10 }],
+    },
+  ];
+  for (const phase of mixed) {
+    assertThrows(
+      () => assertDeskTtyInputPhase(phase),
+      TypeError,
+      "separate phases",
+    );
+  }
+  assertDeskTtyInputPhase({ waitFor: "Edited value", chunks: [resize] });
+  assertDeskTtyInputPhase({
+    waitFor: "Resized view",
+    chunks: [{ keys: ["enter"] }],
+  });
+  assertDeskTtyInputPhase({
+    waitFor: "View",
+    chunks: [{ ...resize, input: "" }],
+  });
+});
+
+Deno.test("manual readiness requires the latest visible scrolled frame", () => {
+  const opening = "Document\n1-12/200\nTab picker  Esc/q close";
+  const scrolled = "Document\n13-24/200\nTab picker  Esc/q close";
+  const observed = (stdout: string): PtyObservedOutput => ({
+    stdout,
+    stderr: "",
+    transcript: stdout,
+    phaseStdout: stdout,
+    phaseStderr: "",
+  });
+  const ready = manualDocumentReady(2);
+  assertEquals(ready.test(observed(opening)), false);
+  assertEquals(ready.test(observed("Document\n13-24/200")), false);
+  assertEquals(ready.test(observed(scrolled)), true);
+  assertEquals(
+    ready.test(observed(scrolled + "\x1b[2J\x1b[H" + opening)),
+    false,
+  );
+});
+
+realPtyTest({
+  name:
+    "Desk PTY: the offline manual keeps document focus and scroll through resize and returns to its command",
+  contracts: [
+    "resize-delivery",
+    "control-rendering",
+    "terminal-modes",
+    "line-discipline",
+  ],
+  canary: true,
+  ignore: PTY_UNAVAILABLE,
+  fn: async () => {
+    await withDeskTtyProject(deskFleetFixture(), async (project) => {
+      const result = await runDeskTty(project, {
+        geometry: { columns: 80, rows: 24 },
+        colorMode: "no-color-env",
+        input: [
+          { waitFor: EMPTY_ROOT_READY, chunks: [{ input: "\t/manual\r\r" }] },
+          {
+            waitFor: ["DISCERN DOCS", "Enter open/action  Esc cancel"],
+            chunks: [{ input: "Delegate substantial work" }],
+          },
+          {
+            waitFor: [
+              "Search: Delegate substantial work",
+              "10-guides/delegate-work.md",
+            ],
+            chunks: [{ keys: ["enter"] }],
+          },
+          {
+            waitFor: manualDocumentReady(1),
+            chunks: [{ keys: ["page-down"] }],
+          },
+          {
+            waitFor: manualDocumentReady(2),
+            capture: textCapture(
+              "scrolled-document",
+              "Document",
+              "Tab picker  Esc/q close",
+            ),
+            chunks: [{ resize: { columns: 40, rows: 24 } }],
+          },
+          {
+            waitFor: ["Document", "Tab picker  Esc/q close"],
+            capture: textCapture(
+              "resized-document",
+              "Document",
+              "Tab picker  Esc/q close",
+            ),
+            chunks: [{ input: "q" }],
+          },
+          {
+            waitFor: "Enter open/action  Esc cancel",
+            chunks: [{ keys: ["escape"], allowLoneEscape: true }],
+          },
+          {
+            waitFor: ["Desk commands / manual", "/ find"],
+            capture: focusedCapture("manual-return", "Read the manual"),
+            chunks: [{ input: "q" }],
+          },
+        ],
+      });
+      assertHealthySession(result);
+      const document = frame(result, "resized-document");
+      assertEquals(document.columns, 40);
+      assert(manualDocumentStart(frame(result, "scrolled-document").text) > 1);
+      assert(
+        manualDocumentStart(document.text) > 1,
+        "the resized document retains its scrolled position",
+      );
+      assertStringIncludes(
+        frame(result, "manual-return").text,
+        "Read the manual",
+      );
+      assertEquals(result.terminal.resizes, [{ columns: 40, rows: 24 }]);
+    });
+  },
 });

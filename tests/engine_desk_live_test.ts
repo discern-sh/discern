@@ -445,7 +445,25 @@ Deno.test("Proof, authority, submission revision, activity and advisory overlap 
   assertEquals(row.decision.proof.honored, true);
   assertEquals(row.decision.authority.status, "granted");
   assertEquals(row.decision.recommendedAction, undefined);
-  assertEquals(deskSubmission(row, fleet), "Not submitted");
+  assertEquals(deskSubmission(row, fleet), "Not queued");
+  const ordinary = new FakeTerminalIO([], { columns: 80, rows: 24 });
+  const controls = renderTerminalApplication(
+    updateTerminalApplication(
+      deskApplicationView(
+        { data: fleet, rows: [row], phase: "fresh" },
+        "task",
+        deskRowId(row),
+      ),
+    ),
+    ordinary.size(),
+    ordinary.capabilities(),
+    { theme: "dark" },
+  );
+  assertTerminalTextIncludes(
+    controls.frame,
+    "Proof valid · Authorized · Not queued",
+  );
+
   fleet.queue = [{
     effort: "alpha",
     branch: "agent/alpha",
@@ -479,7 +497,15 @@ Deno.test("Desk exposes every registered action once across primary and More con
         : []
     )
   );
-  assertEquals([...actions, "revoke_grant"].sort(), [...DESK_ACTIONS].sort());
+  assertEquals(
+    [...actions, "revoke_grant"].sort(),
+    DESK_ACTIONS.filter((action) =>
+      !["reclaim", "recovery", "retry_setup"].includes(action)
+    ).sort(),
+  );
+  for (const action of ["reclaim", "recovery", "retry_setup"] as const) {
+    assert(!actions.includes(action));
+  }
   const granted = buildDeskRows(
     [entry("alpha", {
       landing_authority: {

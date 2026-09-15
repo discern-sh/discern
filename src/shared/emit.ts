@@ -67,6 +67,21 @@ export function setResultMarkdownTerminalRenderer(
   resultMarkdownTerminalRenderer = renderer;
 }
 
+/** Project a result into the same authored reading source used by CLI output.
+ * Embedded readers supply their presenter explicitly and retain stdin ownership. */
+export function renderResultReading(
+  result: DiscernResult,
+  presenter: ResultMarkdownPresenter,
+  resolvePresenter?: ResultMarkdownPresenterResolver,
+): string {
+  const prepared = withFailureRecoveryHint(evaluateResultCompletion(result));
+  return renderResultMarkdown(
+    serializeResult(prepared),
+    presenter,
+    resolvePresenter,
+  );
+}
+
 /** Write a verb's selected quiet result to stdout. Also feeds the
  * observed-result seam, so the logbook recorder can lift per-step timings from
  * the same envelope the caller received. */
@@ -74,7 +89,6 @@ export function emitResult(result: DiscernResult): void {
   assertSetupResultNextAction(result);
   const prepared = withFailureRecoveryHint(evaluateResultCompletion(result));
   observeResult(prepared);
-  const serialized = serializeResult(prepared);
   const presenter = activeResultOutputFormat === "markdown"
     ? resultMarkdownPresenterResolver?.(prepared.verb)
     : undefined;
@@ -83,13 +97,13 @@ export function emitResult(result: DiscernResult): void {
       "internal result invariant: Markdown presenter resolver is not installed",
     );
   }
-  const markdown = presenter === undefined ? undefined : renderResultMarkdown(
-    serialized,
+  const markdown = presenter === undefined ? undefined : renderResultReading(
+    prepared,
     presenter,
     resultMarkdownPresenterResolver,
   ).trimEnd();
   const output = markdown === undefined
-    ? JSON.stringify(serialized)
+    ? JSON.stringify(serializeResult(prepared))
     : (resultMarkdownTerminalRenderer?.(markdown) ?? markdown).trimEnd();
   console.log(output);
 }

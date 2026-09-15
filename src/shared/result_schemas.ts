@@ -1663,7 +1663,29 @@ export const IntegrationJudgmentSchema = z.strictObject({
     "receipt a continuation must name, the decision kind that continues it, " +
     "and the checkpoint ids awaiting that decision.",
 });
+/** The revision a person or caller reviewed before submission. */
+export const SubmissionRevisionSchema = z.strictObject({
+  path: z.string(),
+  branch: z.string(),
+  head: z.string(),
+  proof: CompletionProofPointerSchema,
+});
+export type SubmissionRevision = z.infer<typeof SubmissionRevisionSchema>;
+
+/** Queue admission observes authority without starting or promising a landing. */
+const QueueSubmissionDataSchema = z.strictObject({
+  state: z.enum(["planned", "queued"]),
+  authority: LandingAuthorityDataSchema,
+  replaces: z.string().optional(),
+  submission_id: z.string().optional(),
+  submitted_at: z.string().optional(),
+});
+export type QueueSubmissionData = z.infer<typeof QueueSubmissionDataSchema>;
+
 export const AcceptDataSchema = z.strictObject({
+  revision: SubmissionRevisionSchema.optional(),
+  /** Present for accept --queue-only / MCP action: queue. */
+  submission: QueueSubmissionDataSchema.optional(),
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),
   /** Present on a judgment or variance stop over a retained composition. */
   integration_judgment: IntegrationJudgmentSchema.optional(),
@@ -3536,8 +3558,7 @@ export const TaskRenameOutputSchema = resultOutputSchema(
   TaskRenameDataSchema,
 );
 
-/** `accept` output: envelope + the landing-root `data` (present on an apply; a
- * dry-run preview carries none). */
+/** `accept` output: the reviewed revision on a preview and landing evidence on apply. */
 export const AcceptOutputSchema = resultOutputSchema(
   "accept",
   AcceptWireDataSchema,

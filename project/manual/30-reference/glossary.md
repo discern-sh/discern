@@ -267,7 +267,7 @@ How a [checkpoint](#checkpoint) presents its question. `stop` waits for a record
 
 ### Submission
 
-An effort's recorded request to land one exact commit. `discern accept` writes it from the effort's worktree, naming the effort, its branch, the committed revision, and the [Proof](#proof) that covers it, and stores it beside the effort grant under the worktree's Git administration so no branch can forge it. A later `discern accept` from the same effort replaces it, a landing consumes it, and dropping the worktree removes it. The landing queue lists submissions with honored [Proof](#proof) that have not landed, pre-authorized ones first; a green run its agent never submitted is absent and lands only by the owner's explicit act. See [landing authority](../20-understand/proof.md).
+An effort's recorded request to land one exact commit. `discern accept --queue-only` records it without starting a landing; `discern accept` records it and starts landing. Both select the effort from its worktree or with `--target`, naming its branch, the committed revision, and the [Proof](#proof) that covers it, and store the submission beside the effort grant under the worktree's Git administration so no branch can forge it. A later explicit submission from the same effort replaces it; a later commit or Proof alone does not. A landing consumes it, and dropping the worktree removes it. The landing queue lists submissions with honored [Proof](#proof) that have not landed, pre-authorized ones first; a green run its agent never submitted is absent and lands only by the owner's explicit act. See [landing authority](../20-understand/proof.md).
 
 ### Tidy
 

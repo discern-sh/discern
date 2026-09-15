@@ -12,7 +12,6 @@
 import { scriptedDeskEffects } from "./fixtures/desk_scripted_application.ts";
 import { fixtureEffortGrant } from "./effort_grant_fixtures.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { DISCERN_DOCS_URL } from "../src/shared/brand.ts";
 import {
   configSchema,
   type DiscernConfig,
@@ -53,6 +52,7 @@ import {
   deskSessionEnv,
 } from "../src/engine/desk/session.ts";
 import {
+  DropWouldDiscardWork,
   IdentityError,
   type LifecycleContext,
   type PreparedStart,
@@ -326,6 +326,56 @@ function scriptedRuntime(
     return values;
   };
   return {
+    screen: async (request) => {
+      output.stdout.push(
+        [
+          request.title,
+          request.source,
+          ...(request.actions?.map((action) => action.label) ?? []),
+        ].join("\n"),
+      );
+      if (request.title === "Stored brief") return "launch";
+      if (request.confirmation) {
+        return await confirm(
+            request.confirmation.question,
+            request.confirmation.options,
+          )
+          ? "apply"
+          : "back";
+      }
+      if (request.actions) {
+        const choice = await select({
+          message: request.title,
+          options: request.actions.map((a) => ({ name: a.label, value: a.id })),
+        });
+        assert(
+          choice === BACK ||
+            request.actions.some((action) => action.id === choice),
+          `Scripted choice ${
+            JSON.stringify(choice)
+          } is unavailable in ${request.title}`,
+        );
+        return choice;
+      }
+      return "back";
+    },
+    docs: () => 0,
+    submit: (path, options) => ({
+      ok: true,
+      verb: "accept",
+      data: {
+        revision: {
+          path,
+          branch: "agent/test",
+          head: "a".repeat(40),
+          proof: { candidate_id: "candidate", proof_id: "proof" },
+        },
+        submission: {
+          state: options.dryRun ? "planned" : "queued",
+          authority: { kind: "authorized", source: "effort-grant" },
+        },
+      },
+    }),
     canInteract: () => true,
     inDeskSession: () => false,
     findRoot: () => ROOT,
@@ -370,6 +420,7 @@ function scriptedRuntime(
     reclaimPlan: () => ({ title: "Reclaim plan", details: [], steps: [] }),
     git: () => ({ success: true, stdout: "", stderr: "" }),
     proof: () => ({ status: "missing" }),
+    landedProof: () => ({ status: "missing" }),
     pager: () => ({ shown: true }),
     editor: () => ({ reason: "No editor configured." }),
     openEditor: () => 0,
@@ -561,9 +612,9 @@ Deno.test("dirty main is inspectable without offering agent work", async () => {
   assertStringIncludes(pages[0] ?? "", "src/main.ts");
   assertStringIncludes(
     joined(output).replaceAll(/\s+/gu, " "),
-    "agent work remains in linked",
+    "Start task work in its own worktree",
   );
-  assertStringIncludes(joined(output), "worktrees.");
+  assertStringIncludes(joined(output), "worktree.");
 });
 
 Deno.test("recent completed tasks expose bounded local landing evidence", async () => {
@@ -581,11 +632,16 @@ Deno.test("recent completed tasks expose bounded local landing evidence", async 
       proof_line: "Proof: agent/completed abc1234 · gate passed",
     }],
   };
-  const choices = [DESK_ROUTES.recentCompleted, QUIT];
+  const choices = [DESK_ROUTES.recentCompleted, "0", BACK, QUIT];
   const menus: string[] = [];
   let pauses = 0;
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
+    git: () => ({
+      success: false,
+      stdout: "",
+      stderr: "Recorded revision is unavailable",
+    }),
     select: (options) => {
       menus.push(JSON.stringify(options.options));
       return choices.shift() ?? QUIT;
@@ -596,7 +652,7 @@ Deno.test("recent completed tasks expose bounded local landing evidence", async 
   });
 
   assertEquals(await runDesk({}, runtime), 0);
-  assertEquals(pauses, 1);
+  assertEquals(pauses, 0);
   assertStringIncludes(menus[0] ?? "", "Recent completed tasks");
   assertStringIncludes(joined(output), "agent/completed");
   assertStringIncludes(
@@ -604,6 +660,8 @@ Deno.test("recent completed tasks expose bounded local landing evidence", async 
     "Proof: agent/completed abc1234",
   );
   assertStringIncludes(joined(output), "gate passed");
+  assertStringIncludes(joined(output), "Stored Proof unavailable");
+  assertStringIncludes(joined(output), "Recorded revision is unavailable");
 });
 
 Deno.test("desk grants and revokes one effort only through its human action", async () => {
@@ -692,7 +750,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   assertEquals(revokes, [effort.path]);
   assertEquals(grantPlans, [{ path: effort.path, branch: effort.branch }]);
   assertEquals(revokePlans, [effort.path]);
-  assertEquals(pauses, 2);
+  assertEquals(pauses, 0);
   assertEquals(confirmations, [
     {
       message:
@@ -700,7 +758,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
       options: { defaultTo: false, noLabel: "Keep", yesLabel: "Allow" },
     },
     {
-      message: `Revoke landing pre-authorization for ${effort.branch}?`,
+      message: `Revoke pre-authorization for ${effort.branch}?`,
       options: { defaultTo: false, noLabel: "Keep", yesLabel: "Revoke" },
     },
   ]);
@@ -714,11 +772,11 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   );
   assertStringIncludes(
     joined(output),
-    `${effort.branch} is pre-authorized. A later submitted green revision may land without a further conversation. A variance, a standard proposal, or an emergency still needs you.`,
+    `Pre-authorized ${effort.branch}. No revision is queued.`,
   );
   assertStringIncludes(
     joined(output),
-    `Landing pre-authorization revoked for ${effort.branch}.`,
+    `Revoked pre-authorization for ${effort.branch}.`,
   );
   assert(
     !joined(output).includes("discern grant"),
@@ -1223,8 +1281,8 @@ Deno.test("expanded creation retains trunk, live-task, and unlanded bases", asyn
     assertStringIncludes(text, title.replaceAll(/\s+/gu, ""));
     assertStringIncludes(text, brief.replaceAll(/\s+/gu, ""));
     assertStringIncludes(text, testCase.base.replaceAll(/\s+/gu, ""));
-    assertStringIncludes(text, "demo_created_task");
-    assertStringIncludes(text, "Noagentwillopen");
+    assertStringIncludes(text, "recordthe displaytitle".replaceAll(" ", ""));
+    assertStringIncludes(text, "Noagentwilllaunch");
     assertStringIncludes(text, created?.path.replaceAll(/\s+/gu, "") ?? "");
   }
 });
@@ -1378,7 +1436,7 @@ Deno.test("task creation cannot approve future authored source", async () => {
   assertEquals(grants, 0);
   assertStringIncludes(
     joined(output),
-    "A later conversation must authorize landing",
+    "Landing permission is a separate decision",
   );
 });
 
@@ -1582,7 +1640,7 @@ Deno.test("an unlanded branch can be inspected or resumed by its exact ref", asy
           data: { ...statusData([main]), unlanded_branches: [branch] },
         }),
         select: (options) => {
-          if (String(options.message) === "Choose a branch action") {
+          if (String(options.message) === "Unlanded branch") {
             branchMenu = JSON.stringify(options.options);
           }
           return inspectChoices.shift() ?? QUIT;
@@ -1928,7 +1986,7 @@ Deno.test("desk explains missing configured agents and launches available argv i
   );
   assertStringIncludes(
     joined(output),
-    `Run: claude --continue (cwd: ${effort.path})`,
+    "Returned from Claude Code",
   );
 });
 
@@ -1947,6 +2005,8 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   const choices = [
     effort.path,
     "inspect",
+    "changes",
+    "proof",
     DESK_REVIEW_ROUTES.diff,
     DESK_REVIEW_ROUTES.back,
     "jump",
@@ -1969,6 +2029,10 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   }> = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
+    proof: () => ({
+      status: "honored",
+      proof: "Proof honored for this commit",
+    }),
     select: (options) => {
       menus.push(JSON.stringify(options.options));
       const choice = choices.shift();
@@ -2087,7 +2151,7 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   assertStringIncludes(scriptMenu.options, "deploy this checkout");
 
   const text = joined(output);
-  assertStringIncludes(text, "Run: discern scripts deploy (in scripted)");
+  assertStringIncludes(text, "Run: discern scripts deploy (in Scripted)");
   assertStringIncludes(text, "Project Script exited with status 7");
 });
 
@@ -2136,6 +2200,7 @@ Deno.test("desk collects and forwards literal arguments to a worktree Project Sc
     "publish-canary",
     ["--target", "review environment", "--literal=$HOME"],
     { [DESK_SESSION_ENV]: "1" },
+    undefined,
   ]]);
   const text = joined(output);
   assertTerminalTextIncludes(
@@ -2189,7 +2254,7 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
     args: ["--mode", "full scan"],
     env: { [DESK_SESSION_ENV]: "1" },
   }]);
-  assertEquals(pauses, 1);
+  assertEquals(pauses, 0);
   assertEquals(confirmations, [{
     defaultTo: false,
     noLabel: "Cancel",
@@ -2202,7 +2267,7 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
   const docsAt = rootMenu.indexOf("Read the manual");
   assert(startAt >= 0 && startAt < scriptAt && scriptAt < docsAt);
   const scriptMenu = menus.find((menu) =>
-    menu.message === "Choose a Project Script for demo"
+    menu.message.startsWith("Choose a Project Script for demo — project root")
   );
   assert(scriptMenu !== undefined);
   assertStringIncludes(scriptMenu.options, "health");
@@ -2220,34 +2285,37 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
   assertStringIncludes(joined(output), "Destructive policy: undeclared");
 });
 
-Deno.test("desk opens discern's online docs from the root menu", async () => {
-  const output = transcript();
-  const choices = [READ_DOCS, QUIT];
-  const menus: string[] = [];
-  const opened: string[] = [];
-  let pauses = 0;
-  const runtime = scriptedRuntime(output, {
-    select: (options) => {
-      menus.push(JSON.stringify(options.options));
-      return choices.shift() ?? QUIT;
-    },
-    openBrowser: (url) => {
-      opened.push(url);
-      return {
-        status: "opened",
-        launch: { command: "open", args: [url] },
-      };
-    },
-    pause: () => {
-      pauses++;
-    },
-  });
-
-  assertEquals(await runDesk({}, runtime), 0);
-  assertEquals(opened, [DISCERN_DOCS_URL]);
-  assertEquals(pauses, 1);
-  assertStringIncludes(menus[0] ?? "", "Read the manual");
-  assertStringIncludes(joined(output), `Opened ${DISCERN_DOCS_URL}.`);
+Deno.test("desk suspends into the shared manual and returns without a success pause", async () => {
+  for (const code of [0, 1]) {
+    const output = transcript();
+    const choices = [READ_DOCS, QUIT];
+    let opens = 0;
+    let pauses = 0;
+    assertEquals(
+      await runDesk(
+        {},
+        scriptedRuntime(output, {
+          select: () => choices.shift() ?? QUIT,
+          docs: () => {
+            opens++;
+            return code;
+          },
+          pause: () => {
+            pauses++;
+          },
+          openBrowser: () => {
+            throw new Error("Desk must use the shared offline manual browser");
+          },
+        }),
+      ),
+      0,
+    );
+    assertEquals(opens, 1);
+    assertEquals(pauses, 0);
+    if (code !== 0) {
+      assertStringIncludes(joined(output), "manual could not open");
+    }
+  }
 });
 
 Deno.test("desk final checks use the shared core and return to refreshed Proof", async () => {
@@ -2345,6 +2413,53 @@ Deno.test("desk final checks use the shared core and return to refreshed Proof",
   assertEquals(cancelledDoneCalls, 0);
 });
 
+Deno.test("Desk retains failed final-check and acceptance details in the shared reader", async () => {
+  for (const action of ["done", "accept"] as const) {
+    const output = transcript();
+    const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
+    const effort = fleetEntry("agent/reading", "/worktrees/reading", {
+      ahead: 1,
+      ...(action === "done"
+        ? { gate_proof: { status: "missing" as const } }
+        : {}),
+    });
+    const choices = [effort.path, action, BACK, QUIT];
+    const failure = {
+      ok: false as const,
+      verb: action,
+      error: "precondition_failed" as const,
+      message: "The selected revision needs another review.",
+      hints: ["Read the current Proof before retrying."],
+    };
+    const base = scriptedRuntime(output, {
+      status: () => ({ ok: true, data: statusData([main, effort]) }),
+      select: () => choices.shift() ?? QUIT,
+      done: () => failure,
+      accept: () => failure,
+    });
+    const readings: string[] = [];
+    assertEquals(
+      await runDesk({ cliModel: TEST_CLI_MODEL }, {
+        ...base,
+        screen: async (request) => {
+          if (
+            request.title === "Final checks did not pass" ||
+            request.title === "Acceptance did not finish"
+          ) {
+            readings.push(request.source);
+          }
+          return await base.screen(request);
+        },
+      }),
+      0,
+    );
+    assertEquals(readings.length, 1, `${action}: ${joined(output)}`);
+    assertStringIncludes(readings[0] ?? "", failure.message);
+    assertStringIncludes(readings[0] ?? "", failure.hints[0] ?? "");
+    assertEquals(choices, [], "the reader must return to the selected task");
+  }
+});
+
 Deno.test("every registered Desk action reaches its shared runtime effect", async () => {
   interface RuntimeActionCase {
     readonly entry?: Partial<StatusFleetEntry>;
@@ -2359,8 +2474,9 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
       entry: { broken: true },
       choices: ["recovery", BACK, QUIT],
       runtime: (effects: DeskAction[]) => ({
-        pause: () => {
+        screen: () => {
           effects.push("recovery");
+          return "back";
         },
       }),
     },
@@ -2391,6 +2507,31 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
         done: () => {
           effects.push("done");
           return { ok: true, verb: "done" };
+        },
+      }),
+    },
+    submit: {
+      entry: { ahead: 1 },
+      choices: ["submit", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        submit: (path, options) => {
+          if (!options.dryRun) effects.push("submit");
+          return {
+            ok: true,
+            verb: "accept",
+            data: {
+              revision: {
+                path,
+                branch: "agent/test",
+                head: "a".repeat(40),
+                proof: { candidate_id: "candidate", proof_id: "proof" },
+              },
+              submission: {
+                state: options.dryRun ? "planned" : "queued",
+                authority: { kind: "authorized" },
+              },
+            },
+          };
         },
       }),
     },
@@ -2543,7 +2684,7 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
       }),
     },
   };
-  assertEquals(Object.keys(cases), [...DESK_ACTIONS]);
+  assertEquals(Object.keys(cases).sort(), [...DESK_ACTIONS].sort());
 
   for (const action of DESK_ACTIONS) {
     const output = transcript();
@@ -2622,7 +2763,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   );
   assertEquals(updatePlanCalls, 1);
   assertEquals(updateCalls, [{}]);
-  assertEquals(updatePauses, 1);
+  assertEquals(updatePauses, 0);
   assertEquals(confirmationOptions, [{
     defaultTo: false,
     noLabel: "Keep",
@@ -2665,7 +2806,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   // attestation (ADR 0134) — never a bare, consent-less landing.
   assertEquals(acceptPlanCalls, 1);
   assertEquals(appliedAccept, [{ confirmed: true, cliModel: TEST_CLI_MODEL }]);
-  assertEquals(acceptPauses, 1);
+  assertEquals(acceptPauses, 0);
 
   const dropOutput = transcript();
   const abandoned = fleetEntry("agent/abandoned", "/worktrees/abandoned", {
@@ -2697,7 +2838,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
           dropTargets.push(target);
           dropCalls.push(opts);
           if (!(opts.dryRun ?? false) && !(opts.force ?? false)) {
-            throw new WorktreeGitError("unlanded work would be discarded");
+            throw new DropWouldDiscardWork("unlanded work would be discarded");
           }
         },
         pause: () => {
@@ -2713,14 +2854,17 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     abandoned.path,
     abandoned.path,
   ]);
-  assertEquals(dropPauses, 1);
+  assertEquals(dropPauses, 0);
   assertEquals(dropConfirmations, [{
     defaultTo: false,
     noLabel: "Keep",
     yesLabel: "Drop",
   }]);
   assertStringIncludes(joined(dropOutput), "unlanded work would be discarded");
-  assertStringIncludes(joined(dropOutput), "--force");
+  assertStringIncludes(
+    joined(dropOutput),
+    "uncommitted files have no automatic recovery",
+  );
   assertStringIncludes(
     joined(dropOutput),
     `discern worktree drop ${abandoned.path}`,
@@ -2813,9 +2957,9 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   const message = confirmMessages.join("\n");
   assertStringIncludes(message, "stage-a");
   assertStringIncludes(message, "agent/stage-a");
-  assertStringIncludes(message, "KEPT");
-  assertStringIncludes(message, "agent/stage-b");
-  assertStringIncludes(message, "gate Proof included");
+  assertStringIncludes(message, "keep");
+  assertStringIncludes(joined(declinedOutput), "agent/stage-b");
+  assertStringIncludes(joined(declinedOutput), "Task checkout");
   assertEquals(confirmOptions, [{
     defaultTo: false,
     noLabel: "Keep",
@@ -2849,8 +2993,8 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   // same-named worktree directories, and the reclaim must hit exactly the
   // row the confirmation named.
   assertEquals(reclaims, ["/worktrees/stage-a"]);
-  assertEquals(pauses, 1);
-  assertStringIncludes(joined(output), "Branch agent/stage-a kept");
+  assertEquals(pauses, 0);
+  assertStringIncludes(joined(output), "Branch agent/stage-a remains");
 });
 
 Deno.test("desk rotates the tip across sessions through the seen-state", async () => {
@@ -2896,4 +3040,48 @@ Deno.test("desk survives a tip-state failure with a tipless header, no warning",
     "a failed tip read renders no tip line",
   );
   assertEquals(output.stderr, [], "and warns about nothing");
+});
+
+Deno.test("Drop never turns a generic refusal into destructive force consent", async () => {
+  const effort = fleetEntry("agent/refused-drop", "/worktrees/refused-drop", {
+    ahead: 1,
+  });
+  for (
+    const error of [
+      new WorktreeGitError("The checkout is locked."),
+      new Error("The target is unavailable."),
+    ]
+  ) {
+    const output = transcript();
+    const choices = [effort.path, "drop", BACK, QUIT];
+    const calls: unknown[] = [];
+    let typed = false;
+    assertEquals(
+      await runDesk(
+        {},
+        scriptedRuntime(output, {
+          status: () => ({
+            ok: true,
+            data: statusData([
+              fleetEntry("main", ROOT, { is_main: true }),
+              effort,
+            ]),
+          }),
+          select: () => choices.shift() ?? QUIT,
+          input: () => {
+            typed = true;
+            return effort.branch;
+          },
+          drop: (_ctx, _target, options) => {
+            calls.push(options);
+            throw error;
+          },
+        }),
+      ),
+      0,
+    );
+    assertEquals(calls, [{}]);
+    assertEquals(typed, false);
+    assertStringIncludes(joined(output), error.message);
+  }
 });

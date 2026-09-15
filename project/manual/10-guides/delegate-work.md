@@ -79,9 +79,9 @@ Independent tasks can land separately. A staged change can build on earlier chec
 
 The planning agent records that arrangement in the briefs and gives each dependent task the exact branch identity returned when its prerequisite starts. You do not need to coordinate the moment of handover yourself.
 
-Starting work and approving its landing are separate decisions, and review before landing is a choice you make per task rather than a turn every task owes you. A task whose scope you have already granted can finish its checks and land on its own; a task you want to see first stops at its Proof and waits. Ask the planning agent to state which is which in each brief. A later task's approval does not automatically approve earlier work included in it. [Proof, review, and authority](../20-understand/proof.md) explains how those decisions accompany the completed change.
+Starting work and approving its landing are separate decisions, and review before landing is a choice you make per task rather than a turn every task owes you. A task whose scope you have already granted can finish its checks and land on its own; a task you want to see first stops at its Proof—the evidence for its exact checked commit—and waits. Ask the planning agent to state which is which in each brief. A later task's approval does not automatically approve earlier work included in it. [Proof, review, and authority](../20-understand/proof.md) explains how those decisions accompany the completed change.
 
-The agents coordinate the rest without you. A finished task submits its proven commit for landing, an agent waiting for a sibling holds one call until the sibling is ready, and a task you pre-authorized lands as soon as its agent submits a green commit. A brief does not need to ask for a separate test run before the full check, a message to you when an independent task is ready to land, or a preview kept open until landing; none of them changes what the checks prove or what acceptance decides.
+The agents coordinate the rest without you. A finished task submits its proven commit for landing, an agent waiting for a sibling holds one call until the sibling is ready, and a task you pre-authorized can land when its agent starts acceptance on a green commit. Explicit queue-only submission waits for an active or later acceptance walk. A brief does not need to ask for a separate test run before the full check, a message to you when an independent task is ready to land, or a preview kept open until landing; none of them changes what the checks prove or what acceptance decides.
 
 ## 5. Start the agreed tasks
 
@@ -113,6 +113,20 @@ From the main checkout, bare `discern` opens the desk. It lists the fleet—the 
 
 The selected task opens its main controls. More actions contains secondary operations; Proof and details holds evidence. Activation checks current state and explains any refusal. The table below follows the live desk registry.
 
+Read the manual opens the same offline document browser as `discern docs`. Search for a page, follow its links, and return to the desk with the same task selected. In action reviews, Tab moves between the reading region and choices; Escape returns without activating a choice.
+
+### Queue a proven task
+
+On the selected task, **Accept and land now** submits the reviewed revision and starts the existing landing path. It may wait for another landing or check the combination with newer shared work. It then considers other authorized submissions.
+
+Join the landing queue records that proven revision without running checks or starting a landing. The flow reuses a grant or asks you to pre-authorize the effort explicitly. An active or later acceptance walk may pick it up. Use “Accept and land now” to start a walk when none is running; queueing schedules no background run and promises no delay.
+
+Pre-authorizing an effort alone does not queue a revision. After the agent has stopped, grant permission if needed, then explicitly choose **Join the landing queue**. Revoking permission keeps the submission visible awaiting authority. A later commit or green `done` does not replace the queued commit; review and submit the new revision explicitly. Unmet checkpoints and changed standard limits still require your separate, exact approval.
+
+A later edit makes the current Proof stale because the work no longer matches the checked commit. The agent renews that evidence before the new revision can be submitted.
+
+The command-line equivalent is `discern accept --queue-only` from the proven worktree. Use `discern accept --queue-only --dry-run` to review its revision and authority.
+
 <!-- BEGIN DESK ACTION REGISTRY -->
 
 | Id             | Group  | Contextual label                                                       | Command evidence                     | Confirmation                                                     |
@@ -120,7 +134,8 @@ The selected task opens its main controls. More actions contains secondary opera
 | `recovery`     | Work   | Show recovery steps                                                    | `discern status --all`               | None                                                             |
 | `retry_setup`  | Manage | Retry setup                                                            | `discern worktree setup`             | No by default; Retry                                             |
 | `done`         | Work   | Run final checks                                                       | `discern done`                       | No by default; Run                                               |
-| `accept`       | Review | Accept                                                                 | `discern accept`                     | No by default; Land                                              |
+| `accept`       | Review | Accept and land now                                                    | `discern accept`                     | No by default; Land                                              |
+| `submit`       | Review | Join the landing queue                                                 | `discern accept --queue-only`        | No by default; Queue                                             |
 | `update`       | Manage | Update branch from &lt;trunk&gt;                                       | `discern update`                     | No by default; Update                                            |
 | `agent`        | Work   | Start or resume agent                                                  | `<configured-agent>`                 | None                                                             |
 | `follow_up`    | Work   | Start a follow-up from this task                                       | `discern start --from <branch>`      | None                                                             |
@@ -128,7 +143,7 @@ The selected task opens its main controls. More actions contains secondary opera
 | `jump`         | Work   | Open a shell                                                           | `<user-shell>`                       | None                                                             |
 | `inspect`      | Review | Review changes                                                         | `git diff`                           | None                                                             |
 | `rename`       | Manage | Change task title                                                      | `discern worktree rename <title>`    | No by default; Change                                            |
-| `grant`        | Manage | Pre-authorize landing                                                  | `discern desk`                       | No by default; Allow                                             |
+| `grant`        | Manage | Pre-authorize landing once green                                       | `discern desk`                       | No by default; Allow                                             |
 | `revoke_grant` | Manage | Revoke pre-authorization                                               | `discern desk`                       | No by default; Revoke                                            |
 | `reclaim`      | Manage | Reclaim checkout, keep branch (work contained in &lt;later-branch&gt;) | `discern worktree prune --contained` | No by default; Reclaim                                           |
 | `park`         | Manage | Park checkout, keep branch                                             | `discern worktree park <path>`       | No by default; Park                                              |

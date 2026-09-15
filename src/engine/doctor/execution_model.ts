@@ -9,7 +9,7 @@
  *    ({@link buildGatePlan}, {@link buildPreparePlan}, {@link stageGroup},
  *    {@link buildStandardPlan}) — a test asserts they are byte-derived, so they can
  *    never drift from what the gate actually runs;
- *  - `update` and `accept` use representative, config-derived inputs with their REAL
+ *  - `update` and both `accept` modes use representative inputs with their REAL
  *    pure plan projections. Runtime identities stay descriptive, while those ordered
  *    operation cores and project commands cannot drift from execution. Worktree verbs
  *    without a complete projection retain a config-derived conditional model.
@@ -51,6 +51,7 @@ import { planStandardJobsFromConfig } from "../gate/standards_gate.ts";
 import {
   acceptPlanToEngine,
   FULL_REFRESH_STEP_NOTE,
+  submissionPlanToEngine,
   updatePlanToEngine,
 } from "../worktree/plan.ts";
 
@@ -131,7 +132,7 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "task-metadata": {
     actor: "discern",
     hint:
-      "A built-in write to the worktree's Git-admin task record. It changes human task wording or records the creation source without changing Git identity.",
+      "A built-in write to Git-admin task records. It changes task wording, records the creation source, or queues a proven revision without changing Git identity.",
   },
   "setup-step": {
     actor: "project",
@@ -571,6 +572,27 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
+/** Queue admission uses the same pure projection as the public submission operation. */
+function queueAcceptanceVerb(): VerbPlan {
+  const projected = submissionPlanToEngine({
+    path: "the worktree directory",
+    branch: "the worktree branch",
+    head: "the proven revision",
+    authority: "the current landing authority",
+    unchanged: false,
+  });
+  return {
+    verb: "accept --queue-only",
+    when:
+      "When joining the landing queue with a clean, proven revision. Revalidate Proof and required decisions; record the submission without starting checks or landing.",
+    steps: projected.steps.map((planned) =>
+      annotatePlanStep(planned, {
+        condition: "unless the same revision and Proof are already queued",
+      })
+    ),
+  };
+}
+
 /** `worktree prune` — the garbage-collection sweep (lifecycle.ts `worktreePrune`):
  * remove positively-owned merged worktrees and owned stale paths, then reclaim
  * the resources of any worktree that vanished without a clean teardown. */
@@ -625,6 +647,7 @@ export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
     ensureVerb(cfg),
     updateVerb(cfg),
     acceptVerb(cfg),
+    queueAcceptanceVerb(),
     pruneVerb(cfg),
   ];
 }

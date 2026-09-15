@@ -374,6 +374,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0395 — Integration judgments continue the retained landing](0395-integration-judgments-continue-the-retained-landing.md)
 - [0397 — Terminal applications and test transports stay package-owned](0397-terminal-applications-and-test-transports-stay-package-owned.md)
 - [0398 — The Desk is a live human control panel](0398-the-desk-is-a-live-human-control-panel.md)
+- [0399 — Acceptance can queue a proven revision without starting landing](0399-acceptance-can-queue-without-starting-landing.md)
 
 <!-- END GENERATED: current ADR records -->
 

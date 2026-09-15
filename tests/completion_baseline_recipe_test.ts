@@ -7,8 +7,22 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join, toFileUrl } from "@std/path";
+import { basename, dirname, join, toFileUrl } from "@std/path";
 import { produceCoverage } from "../scripts/coverage.ts";
+import {
+  type ProfileShardingSummary,
+  pruneAndShardProfiles,
+  RawCoverageProfileSchema,
+} from "../scripts/coverage_profiles.ts";
+import { runTestPartitions } from "../scripts/test_partitions.ts";
+import { testCommandArgs } from "../scripts/run_tests.ts";
+import { lcovReportArgs } from "../scripts/coverage_lib.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+import {
+  processAllowance,
+  settlePending,
+  waitForPendingCondition,
+} from "./waiting.ts";
 import { runShell } from "../src/shared/subprocess.ts";
 import { srcLineCoverage } from "../scripts/coverage_lib.ts";
 import { sourceModuleUniverse } from "../scripts/source_module_universe.ts";
@@ -444,4 +458,253 @@ Deno.test("a successful suite without reportable profiles cannot publish coverag
     "no reportable coverage",
   );
   assertEquals(await pathExists(profile), false);
+});
+
+Deno.test({
+  name:
+    "coverage overlaps settled native partitions and preserves every native observation",
+  // Early processing requires the owned POSIX process-group boundary.
+  ignore: Deno.build.os === "windows" || Deno.stdin.isTerminal(),
+  fn: async () => {
+    const allowance = processAllowance();
+    for (
+      const variant of [
+        { budget: 128 * 1024 * 1024, opaque: false },
+        { budget: 128 * 1024 * 1024, opaque: true },
+      ]
+    ) {
+      await withTempDir(async (directory) => {
+        const root = await Deno.realPath(directory);
+        await Deno.mkdir(join(root, "src"));
+        await Deno.writeTextFile(
+          join(root, "src/choose.ts"),
+          "export function choose(n: number): number {\n  if (n > 0) {\n    if (n > 1) return 2;\n    return 1;\n  }\n  return 0;\n}\n",
+        );
+        await Deno.writeTextFile(
+          join(root, "fast_test.ts"),
+          "import {choose} from './src/choose.ts';\nDeno.test('fast branches', () => { choose(1); choose(2); });\n",
+        );
+        await Deno.writeTextFile(
+          join(root, "slow_test.ts"),
+          `
+import {choose} from './src/choose.ts';
+Deno.test('late branch', async () => {
+  const watcher = Deno.watchFs('.');
+  try {
+    try { await Deno.stat('processing-started'); }
+    catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      for await (const event of watcher) {
+        if (event.paths.some((path) => path.endsWith('/processing-started'))) break;
+      }
+    }
+  } finally { watcher.close(); }
+  choose(0);
+});\n`,
+        );
+        const reference = join(root, "reference");
+        const controller = new AbortController();
+        let processingStarted = false;
+        let duplicate: Uint8Array | undefined;
+        let profilePath = "";
+        let attempts = 0;
+        let opaqueObserved = false;
+        const settlements: boolean[] = [];
+        const pending = produceCoverage(root, async (profile, controls) => {
+          attempts++;
+          profilePath = profile;
+          const suite = await runTestPartitions(
+            testCommandArgs(42, [
+              "--no-config",
+              "--no-lock",
+              "--no-check",
+              "--reporter=junit",
+              `--coverage=${profile}`,
+              "--coverage-raw-data-only",
+              root,
+            ]),
+            2,
+            {
+              cwd: root,
+              seed: 42,
+              concurrency: 2,
+              signal: controls.signal,
+              coveragePartitions: {
+                started(count): void {
+                  controls.coveragePartitions.started(count);
+                },
+                settled(index): void {
+                  settlements.push(processingStarted);
+                  controls.coveragePartitions.settled(index);
+                },
+              },
+            },
+          );
+          assertEquals(suite.code, 0);
+          assertEquals(suite.selection, "complete");
+          assertEquals((suite.report?.match(/<testcase\b/g) ?? []).length, 2);
+        }, {
+          signal: controller.signal,
+          processProfiles: async (
+            path,
+            prefix,
+            shards,
+          ): Promise<ProfileShardingSummary> => {
+            if (basename(path).startsWith("test-shard-")) {
+              const copy = join(reference, basename(path));
+              await Deno.mkdir(copy, { recursive: true });
+              const inputs: { name: string; bytes: Uint8Array }[] = [];
+              for await (const entry of Deno.readDir(path)) {
+                if (!entry.isFile || !entry.name.endsWith(".json")) continue;
+                const bytes = await Deno.readFile(join(path, entry.name));
+                inputs.push({ name: entry.name, bytes });
+                const raw = decodeWith(
+                  RawCoverageProfileSchema,
+                  new TextDecoder().decode(bytes),
+                );
+                if (raw.url.startsWith(prefix)) duplicate ??= bytes;
+              }
+              assert(duplicate !== undefined);
+              // Equal basenames and byte-identical observations cross partitions.
+              let collision = duplicate;
+              if (variant.opaque) {
+                const { url, ...rest } = decodeWith(
+                  RawCoverageProfileSchema,
+                  new TextDecoder().decode(duplicate),
+                );
+                collision = new TextEncoder().encode(
+                  JSON.stringify({ url, ...rest }),
+                );
+              }
+              await Deno.writeFile(join(path, "collision.json"), collision);
+              inputs.push({ name: "collision.json", bytes: collision });
+              for (const input of inputs) {
+                await Deno.writeFile(join(copy, input.name), input.bytes);
+              }
+              processingStarted = true;
+              await Deno.writeTextFile(
+                join(root, "processing-started"),
+                "ready",
+              );
+            }
+            const result = await pruneAndShardProfiles(
+              path,
+              prefix,
+              shards,
+              4,
+              variant.budget,
+            );
+            opaqueObserved ||= result.opaque > 0;
+            return result;
+          },
+        });
+        let lcov: string;
+        try {
+          await waitForPendingCondition(
+            pending,
+            () => processingStarted,
+            "coverage processing to release the unfinished native partition",
+            { allowance },
+          );
+          lcov = await settlePending(
+            pending,
+            "overlapped native coverage to finish",
+            { allowance },
+          );
+        } finally {
+          controller.abort();
+          await Promise.allSettled([pending]);
+        }
+        assertEquals(attempts, 1);
+        assertEquals(settlements, [false, true]);
+        assertEquals(opaqueObserved, variant.opaque);
+        assertEquals(await pathExists(profilePath), false);
+        assertEquals(await pathExists(dirname(profilePath)), false);
+        const native = await new Deno.Command(Deno.execPath(), {
+          args: lcovReportArgs(reference, root),
+          cwd: root,
+          stdout: "piped",
+          stderr: "inherit",
+        }).output();
+        assert(native.success);
+        assertEquals(
+          canonicalLcov(lcov),
+          canonicalLcov(new TextDecoder().decode(native.stdout)),
+        );
+      });
+    }
+  },
+});
+
+Deno.test("coverage producer drains active processing before failure or cancellation removes scratch", async () => {
+  for (const cancel of [false, true]) {
+    const allowance = processAllowance();
+    const controller = new AbortController();
+    const release = Promise.withResolvers<void>();
+    let entered = false;
+    let exited = false;
+    let returned = false;
+    let calls = 0;
+    let raw = "";
+    const pending = produceCoverage(REPO_ROOT, (profile, controls) => {
+      raw = profile;
+      controls.coveragePartitions.started(2);
+      controls.coveragePartitions.settled(1);
+      controls.coveragePartitions.settled(2);
+      return Promise.resolve();
+    }, {
+      signal: controller.signal,
+      processProfiles: async (directory, prefix, shards) => {
+        calls++;
+        entered = true;
+        await release.promise;
+        // The producer must keep the directory alive for all active IO.
+        await Deno.writeTextFile(join(directory, "active-io-finished"), "yes");
+        exited = true;
+        if (!cancel) throw new Error("injected profile processing failure");
+        return await pruneAndShardProfiles(directory, prefix, shards);
+      },
+    }).then(
+      () => {
+        returned = true;
+        return { kind: "success" as const };
+      },
+      (error: unknown) => {
+        returned = true;
+        return { kind: "failure" as const, error };
+      },
+    );
+    try {
+      await waitForPendingCondition(
+        pending,
+        () => entered,
+        "active coverage processing",
+        { allowance },
+      );
+      if (cancel) controller.abort();
+      await Promise.resolve();
+      assertEquals(returned, false);
+      assertEquals(exited, false);
+      assertEquals(await pathExists(raw), true);
+    } finally {
+      release.resolve();
+      await Promise.allSettled([pending]);
+    }
+    const result = await settlePending(
+      pending,
+      "coverage cleanup after processing",
+      { allowance },
+    );
+    assertEquals(result.kind, "failure");
+    assert(result.kind === "failure");
+    assert(
+      cancel
+        ? result.error instanceof DOMException
+        : result.error instanceof AggregateError,
+    );
+    assertEquals(calls, 1);
+    assertEquals(exited, true);
+    assertEquals(await pathExists(raw), false);
+    assertEquals(await pathExists(dirname(raw)), false);
+  }
 });

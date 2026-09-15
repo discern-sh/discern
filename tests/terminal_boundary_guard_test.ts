@@ -1567,14 +1567,6 @@ interface ExactOutlawException {
 
 const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
   {
-    file: "src/engine/desk/presentation.ts",
-    rule: "raw-terminal-control-literal",
-    authority: "clearDeskBoard",
-    count: 1,
-    reason:
-      "Desk owns one full-screen clear/home product effect on an admitted TTY.",
-  },
-  {
     file: "src/shared/color_env.ts",
     rule: "constructed-terminal-control",
     authority: "<module>",
@@ -2542,27 +2534,25 @@ Deno.test("Cliffy lock law retains only the command-owned transitive closure", (
 });
 
 Deno.test("exact terminal exceptions reject a second violation in an exempt authority", () => {
-  const deskException = EXACT_OUTLAW_EXCEPTIONS.filter((entry) =>
-    entry.file === "src/engine/desk/presentation.ts"
-  );
-  assertEquals(deskException.length, 1);
-  const baseline = [{
-    file: "src/engine/desk/presentation.ts",
-    rule: "raw-terminal-control-literal",
-    authority: "clearDeskBoard",
-  }];
+  const exception = EXACT_OUTLAW_EXCEPTIONS[0];
+  assert(exception !== undefined);
+  const finding = {
+    file: exception.file,
+    rule: exception.rule,
+    authority: exception.authority,
+  };
+  const baseline = Array.from({ length: exception.count }, () => finding);
   assertEquals(
-    unappliedOutlawFindingsWithExceptions(baseline, deskException),
+    unappliedOutlawFindingsWithExceptions(baseline, [exception]),
     [],
   );
   assertThrows(
     () =>
-      unappliedOutlawFindingsWithExceptions(
-        [...baseline, ...baseline],
-        deskException,
-      ),
+      unappliedOutlawFindingsWithExceptions([...baseline, finding], [
+        exception,
+      ]),
     Error,
-    "src/engine/desk/presentation.ts:clearDeskBoard raw-terminal-control-literal exception moved, became stale, or changed count",
+    `${exception.file}:${exception.authority} ${exception.rule} exception moved, became stale, or changed count`,
   );
 });
 

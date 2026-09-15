@@ -206,6 +206,11 @@ Deno.test("the repository's habitual and targeted test commands stay queue-wrapp
     "discern queue -- deno run --allow-read --allow-write --allow-env --allow-run --allow-net=127.0.0.1 scripts/run_tests.ts",
   );
 
+  assertEquals(
+    denoConfig.tasks?.coverage,
+    "discern queue -- deno run --allow-read --allow-write --allow-env --allow-run --allow-net=127.0.0.1 scripts/coverage.ts",
+  );
+
   const testingGuide = await Deno.readTextFile(
     join(REPO_AUTHORED_PATHS.map, "80-development", "testing.md"),
   );

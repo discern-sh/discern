@@ -951,10 +951,14 @@ export function attachEngineCommands(
         "--reason <text> to review an explicit exception against actual trunk. " +
         "Emergency integration requires fresh exact owner confirmation and issues no passing Proof.",
     )
-    .option("--dry-run", "Show the landing plan and the queue; touch nothing.")
+    .option("--dry-run", "Show the selected acceptance plan; touch nothing.")
+    .option(
+      "--queue-only",
+      "Record the current clean, proven revision in the landing queue and return without starting checks or landing. Reuses recorded authority; an active or later accept --target <effort> walk can pick it up.",
+    )
     .option(
       "--target <effort:string>",
-      "Select the effort by id, path, or branch, from any checkout. An owner lands a never-submitted green run this way, with --confirmed.",
+      "Select the effort by id, path, or branch, from any checkout. With --queue-only, record its current proven revision; otherwise start landing under applicable authority.",
     )
     .option(
       "--prepare",

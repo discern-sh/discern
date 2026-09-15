@@ -2104,6 +2104,17 @@ Interactive example:
 
 > 2 branches hold unlanded work with no worktree: agent/old-task, agent/paused-task. Resume one with `discern start --from <branch>`, or delete an abandoned branch after review.
 
+## `submit-start-walk`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: A proven revision is recorded without starting a landing walk.
+
+Rendered example:
+
+> An active or later acceptance walk can pick up this revision. To start a walk, run discern accept --target agent/example.
+
 ## `test-job-not-configured`
 
 - Category: `notice`

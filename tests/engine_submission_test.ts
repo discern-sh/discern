@@ -8,6 +8,7 @@ import { dirname, isAbsolute, join } from "@std/path";
 import { readSubmission } from "../src/engine/worktree/submission.ts";
 import {
   clearSubmission,
+  clearSubmissionIfCurrent,
   recordSubmission,
 } from "../src/engine/worktree/submission_writer.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
@@ -65,6 +66,12 @@ Deno.test("a submission is recorded beside the grant, replaced, and consumed", a
     assert(replaced.status === "submitted");
     assertEquals(replaced.submission.id, second.id, "a later accept replaces");
 
+    await clearSubmissionIfCurrent(worktree, first.id);
+    assertEquals(
+      await readSubmission(worktree),
+      replaced,
+      "a walk cannot clear a replacement submission",
+    );
     await clearSubmission(worktree);
     assertEquals(await readSubmission(worktree), { status: "missing" });
     await clearSubmission(worktree); // absence is settled, not an error

@@ -119,6 +119,16 @@ export async function recordIgnoredFileBaseline(
   });
 }
 
+/** Bind a removal review to the same bounded ignored-root fingerprints used by drift inspection. */
+export async function ignoredRemovalFingerprint(
+  cwd: string,
+): Promise<string | undefined> {
+  const roots = await snapshotIgnoredRoots(cwd);
+  return roots === undefined
+    ? undefined
+    : await hashText(JSON.stringify(roots));
+}
+
 /** Compare the current ignored roots with the setup-time baseline. */
 export async function inspectIgnoredFileChanges(
   cwd: string,

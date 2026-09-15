@@ -14,7 +14,7 @@ This tracked backlog publishes with the repository by design. It records inspect
 
 ## Gate performance and reliability
 
-- [ ] **Reduce coverage-report overhead.** Reduce profile filesystem costs using a new matched-input approach after the recorded disposal and concurrency comparisons failed to improve large-corpus elapsed time, while preserving complete native LCOV evidence. Evidence: `scripts/coverage.ts`; `scripts/coverage_profiles.ts`; `project/map/_private/gate-performance.md`.
+- [ ] **Stabilize queue-history readiness.** Make the queue-history regression wait for the observation it asserts: the initial waiting line precedes the optional activity read, so releasing the slot holder on that line can erase the expected history. Preserve the real capacity-wait boundary. Evidence: `tests/engine_queue_test.ts`; `src/engine/test_run_slots.ts`; `project/map/_private/coverage-partition-overlap-live.json`.
 
 ## Setup and recovery
 

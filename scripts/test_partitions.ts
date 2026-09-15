@@ -443,6 +443,14 @@ async function admittedPriority(
   return { ...priority, files };
 }
 
+/** Coverage owns processing after the native child boundary settles its writers. */
+export interface CoveragePartitionObserver {
+  /** Declare the complete fixed admission set before reporting any settlement. */
+  started(count: number): void;
+  /** This partition's owned process-group cleanup has finished. */
+  settled(index: number): void;
+}
+
 /** Refill bounded native process slots and settle every active child on failure. */
 async function runPartitionChildren(
   args: readonly string[],
@@ -452,6 +460,7 @@ async function runPartitionChildren(
   order: readonly number[],
   selections: readonly (readonly string[])[],
   progress?: PartitionProgressReporter,
+  coverage?: CoveragePartitionObserver,
 ): Promise<{ code: number; completed: number }> {
   const runtimeArgs = args.includes("--no-check") ? args : [
     ...args.filter((arg) => !/^--(?:no-)?check(?:=|$)/.test(arg)),
@@ -461,6 +470,7 @@ async function runPartitionChildren(
   let cursor = 0;
   let code = 0;
   let completed = 0;
+  let coverageStarted = false;
   const failures: unknown[] = [];
   const worker = async (): Promise<void> => {
     while (!options.signal?.aborted) {
@@ -481,6 +491,13 @@ async function runPartitionChildren(
           ),
         });
         completed++;
+        if (coverage !== undefined && child.isolatedGroup) {
+          if (!coverageStarted) {
+            coverage.started(reports.length);
+            coverageStarted = true;
+          }
+          coverage.settled(index + 1);
+        }
         if (!child.status.success) code = 1;
         if (progress !== undefined) {
           let text: string | undefined;
@@ -535,6 +552,10 @@ export async function runTestPartitions(
     readonly env?: Readonly<Record<string, string>>;
     readonly signal?: AbortSignal;
     readonly concurrency?: number;
+    /** Let a coverage owner settle its IO and cleanup before reraising. */
+    readonly resumeAfterInterrupt?: boolean;
+    /** Raw coverage only; children without owned groups retain bulk processing. */
+    readonly coveragePartitions?: CoveragePartitionObserver;
     readonly seed?: number;
     readonly priority?: (
       signal: AbortSignal,
@@ -638,6 +659,10 @@ export async function runTestPartitions(
         ),
         allocation.selections,
         progress,
+        args.includes("--coverage-raw-data-only") &&
+          args.filter((arg) => arg.startsWith("--coverage=")).length === 1
+          ? options.coveragePartitions
+          : undefined,
       );
       const seconds = (SYSTEM_CLOCK.monotonicNow() - started) / 1000;
       if (!args.includes("--reporter=junit")) {
@@ -668,7 +693,10 @@ export async function runTestPartitions(
         ? undefined
         : combineJunitReports(texts, seconds, partitionCount, signal.aborted);
       // Preserve settled diagnostics before restoring killed-by-signal status.
-      if (interruptedBy !== null && report !== undefined) console.log(report);
+      if (
+        interruptedBy !== null && report !== undefined &&
+        !options.resumeAfterInterrupt
+      ) console.log(report);
       return {
         code: complete ? code : 1,
         selection: complete ? "complete" : "incomplete",
@@ -680,6 +708,8 @@ export async function runTestPartitions(
       Deno.removeSignalListener(interrupt, handler);
     }
   }
-  if (interruptedBy !== null) reraiseInterrupt(interruptedBy);
+  if (interruptedBy !== null && !options.resumeAfterInterrupt) {
+    reraiseInterrupt(interruptedBy);
+  }
   return result;
 }

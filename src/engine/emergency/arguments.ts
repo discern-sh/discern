@@ -15,20 +15,34 @@ type EmergencyArguments =
 /** Require the explicit action before interpreting emergency fields; ordinary consent stays separate. */
 export function emergencyArguments(
   action: string | undefined,
-  fields: {
-    readonly [
-      K in
-        | "reason"
-        | "confirmation"
-        | "recover"
-        | "confirmed"
-        | "dryRun"
-        | "prepare"
-        | "preparation"
-        | "met"
-    ]?: EmergencyOptions[K] | undefined;
-  },
+  fields:
+    & { readonly queueOnly?: boolean | undefined }
+    & {
+      readonly [
+        K in
+          | "reason"
+          | "confirmation"
+          | "recover"
+          | "confirmed"
+          | "dryRun"
+          | "prepare"
+          | "preparation"
+          | "met"
+      ]?: EmergencyOptions[K] | undefined;
+    },
 ): EmergencyArguments {
+  if (fields.queueOnly && action !== undefined) {
+    return {
+      kind: "refusal",
+      result: {
+        ok: false,
+        verb: "accept",
+        error: "invalid_arguments",
+        message:
+          "--queue-only cannot be combined with an acceptance action. Use it alone to record the proven revision without landing.",
+      },
+    };
+  }
   let message: string | undefined;
   if (action !== undefined && action !== EMERGENCY_ACCEPT_ACTION) {
     message =
@@ -124,6 +138,7 @@ export function acceptDeclarationArguments(
 export function acceptRequestFields(
   o: {
     readonly target?: string | undefined;
+    readonly queueOnly?: boolean | undefined;
     readonly dryRun?: boolean | undefined;
     readonly confirmed?: boolean | undefined;
     readonly variance?: string[] | undefined;
@@ -135,6 +150,7 @@ export function acceptRequestFields(
 ): Omit<AcceptRequest, "cliModel" | "signal"> {
   return {
     ...(o.target === undefined ? {} : { target: o.target }),
+    ...(o.queueOnly ? { queueOnly: true } : {}),
     dryRun: o.dryRun ?? false,
     confirmed: o.confirmed ?? false,
     variance: o.variance ?? [],

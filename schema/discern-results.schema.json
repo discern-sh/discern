@@ -28955,6 +28955,151 @@
             {
               "type": "object",
               "properties": {
+                "revision": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "branch": {
+                      "type": "string"
+                    },
+                    "head": {
+                      "type": "string"
+                    },
+                    "proof": {
+                      "type": "object",
+                      "properties": {
+                        "candidate_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "proof_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "candidate_id",
+                        "proof_id"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "branch",
+                    "head",
+                    "proof"
+                  ]
+                },
+                "submission": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "planned",
+                        "queued"
+                      ]
+                    },
+                    "authority": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "authorized",
+                            "conversation-required"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "conversation",
+                            "standing-grant",
+                            "effort-grant"
+                          ]
+                        },
+                        "scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "standing_scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "uncovered": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              },
+                              "scopes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "generated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "scopes"
+                            ]
+                          }
+                        },
+                        "uncovered_scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "uncovered_unscoped_total": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "uncovered_generated_total": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "warnings": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    },
+                    "replaces": {
+                      "type": "string"
+                    },
+                    "submission_id": {
+                      "type": "string"
+                    },
+                    "submitted_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "authority"
+                  ]
+                },
                 "checkpoint_preparation": {
                   "type": "object",
                   "properties": {

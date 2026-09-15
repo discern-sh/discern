@@ -594,3 +594,40 @@ Deno.test("policy-created failures retain registered recovery across every effec
   const evaluated = evaluateResultCompletion(result);
   assertEquals(evaluated.hints?.[0], result.hints?.[0]);
 });
+
+Deno.test("accept queue-only succeeds only with its recorded submission and no landing claim", () => {
+  const revision = {
+    path: "/task",
+    branch: "agent/task",
+    head: "a".repeat(40),
+    proof: { candidate_id: "candidate", proof_id: "proof" },
+  };
+  const submission = {
+    state: "queued",
+    submission_id: "record",
+    submitted_at: "2026-09-14T00:00:00Z",
+    authority: { kind: "conversation-required" },
+  };
+  assertEquals(
+    evaluateResultCompletion({
+      ok: true,
+      verb: "accept",
+      data: { revision, submission },
+    }).ok,
+    true,
+  );
+  for (
+    const data of [
+      { submission },
+      { revision, submission: { ...submission, state: "planned" } },
+      { revision, submission: { ...submission, submission_id: "" } },
+      { revision, submission: { ...submission, submitted_at: "" } },
+      { revision, submission, landing: { trunk_landed: true } },
+    ]
+  ) {
+    assertEquals(
+      evaluateResultCompletion({ ok: true, verb: "accept", data }).ok,
+      false,
+    );
+  }
+});

@@ -115,6 +115,11 @@ function policy(
   };
 }
 
+const ACCEPT_QUEUE = policy(
+  ["discern-checkout-mutation", "discern-common-mutation"],
+  "phased",
+  "required",
+);
 const OBSERVATION = policy(["observation"], "none", "none");
 const CHECKOUT_REQUIRED = policy(
   ["discern-checkout-mutation"],
@@ -416,6 +421,15 @@ export const OPERATION_EFFECTS = {
   enter: OBSERVATION,
 } as const satisfies Readonly<Record<string, OperationEffectPolicy>>;
 
+/** Interactive actions have their own identities without inventing CLI verbs. */
+export const INTERACTIVE_OPERATION_EFFECTS = {
+  "desk grant": policy(["discern-common-mutation"], "phased", "required"),
+  "desk revoke": policy(["discern-common-mutation"], "phased", "required"),
+  "desk agent": PROJECT_COMMAND,
+  "desk shell": PROJECT_COMMAND,
+  "desk editor": PROJECT_COMMAND,
+} as const satisfies Readonly<Record<string, OperationEffectPolicy>>;
+
 /**
  * Command paths whose canonical policy requires a faithful preview. The
  * operation registry, not the current CLI flags, owns this membership.
@@ -461,7 +475,12 @@ export function operationEffectPolicy(
 ):
   | (OperationEffectPolicy & { readonly lock: OperationLockBoundary })
   | undefined {
-  const policy = OPERATION_EFFECTS[command as keyof typeof OPERATION_EFFECTS];
+  const policy = command === "accept" && facts.flags?.includes("queue-only")
+    ? ACCEPT_QUEUE
+    : OPERATION_EFFECTS[command as keyof typeof OPERATION_EFFECTS] ??
+      INTERACTIVE_OPERATION_EFFECTS[
+        command as keyof typeof INTERACTIVE_OPERATION_EFFECTS
+      ];
   if (policy === undefined) return undefined;
   const lock = facts.dryRun === true ||
       (policy.lockWhen !== undefined &&

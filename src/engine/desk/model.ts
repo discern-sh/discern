@@ -93,6 +93,7 @@ export const DESK_ACTIONS = [
   "retry_setup",
   "done",
   "accept",
+  "submit",
   "update",
   "agent",
   "follow_up",
@@ -310,6 +311,7 @@ export interface DeskRow {
   readonly entry: StatusFleetEntry;
   readonly task: DeskTaskLabel;
   readonly scripts: readonly DeskProjectScript[];
+  readonly scriptsUnavailableReason?: string;
   readonly agentLaunches: readonly DeskAgentLaunch[];
   readonly capabilityError?: string;
   readonly decision: DeskDecision;
@@ -732,11 +734,6 @@ function hasAvailableAgent(facts: DeskActionFacts): boolean {
   );
 }
 
-/** Whether at least one project-authored script can run. */
-function hasAvailableScript(facts: DeskActionFacts): boolean {
-  return facts.scripts.some((script) => script.availability !== "disabled");
-}
-
 /** One static consequence record without repeated mutable arrays. */
 function consequences(
   keeps: readonly string[],
@@ -830,7 +827,7 @@ export const DESK_ACTION_REGISTRY = {
   accept: {
     group: "review",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string => "Accept",
+    label: (_context: DeskActionLabelContext): string => "Accept and land now",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "accept"],
       workingDirectory: "task",
@@ -838,7 +835,11 @@ export const DESK_ACTION_REGISTRY = {
     consequence: (context: DeskActionLabelContext): DeskConsequence =>
       consequences(
         ["Committed history on the trunk"],
-        [`Fast-forward ${context.trunk} and converge its checkout`],
+        [
+          `Start acceptance onto ${context.trunk}; wait for another landing if needed`,
+          "If the trunk moved, check the combination before landing",
+          "After this task lands, walk other authorized submissions",
+        ],
         ["Task checkout", `Branch ${context.branch}`, "Task-local resources"],
         ["Landing records Proof in Git notes before cleanup"],
       ),
@@ -853,6 +854,34 @@ export const DESK_ACTION_REGISTRY = {
         facts.entry,
         "The task is not healthy enough to land. Follow its recovery steps first.",
         committedWorkReason(facts, true),
+      ),
+  },
+  submit: {
+    group: "review",
+    availableWhileRunning: false,
+    label: (_context: DeskActionLabelContext): string =>
+      "Join the landing queue",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "accept", "--queue-only"],
+      workingDirectory: "task",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Trunk, author work, current Proof, and existing grants"],
+        ["Record the reviewed revision for an active or later acceptance walk"],
+        [],
+        ["Queueing starts no landing or scheduled run; Accept starts a walk"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Cancel",
+      yesLabel: "Queue",
+    },
+    availability: (facts: DeskActionFacts): string | undefined =>
+      healthyActionAvailability(
+        facts.entry,
+        "Repair this task before submitting its revision.",
       ),
   },
   update: {
@@ -969,13 +998,10 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Run",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      (isUnhealthy(facts.entry)
-        ? "Follow the task's recovery steps before running a Project Script."
-        : capabilityReason(facts)) ??
-        (hasAvailableScript(facts)
-          ? undefined
-          : facts.scriptsUnavailableReason ??
-            "No Project Scripts are available in this task."),
+      healthyActionAvailability(
+        facts.entry,
+        "Restore the checkout before running a Project Script.",
+      ),
   },
   jump: {
     group: "work",
@@ -1055,7 +1081,7 @@ export const DESK_ACTION_REGISTRY = {
     // point, so a Gate run cannot make this human authority choice unsafe.
     availableWhileRunning: true,
     label: (_context: DeskActionLabelContext): string =>
-      "Pre-authorize landing",
+      "Pre-authorize landing once green",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "desk"],
       workingDirectory: "main",

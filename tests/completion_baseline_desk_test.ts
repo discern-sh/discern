@@ -18,6 +18,18 @@ function unrelated(): never {
 /** Enumerate the runtime port so new effects require an explicit fixture decision. */
 function mainRuntime(patch: Partial<DeskRuntime>): DeskRuntime {
   return {
+    screen: async (request) =>
+      request.actions === undefined
+        ? "back"
+        : await (patch.select ?? (() => "\x00back"))({
+          message: request.title,
+          options: request.actions.map((action) => ({
+            name: action.label,
+            value: action.id,
+          })),
+        }),
+    docs: () => 0,
+    submit: () => ({ ok: false, verb: "accept", error: "precondition_failed" }),
     canInteract: unrelated,
     inDeskSession: unrelated,
     findRoot: unrelated,
@@ -53,6 +65,7 @@ function mainRuntime(patch: Partial<DeskRuntime>): DeskRuntime {
     reclaimPlan: unrelated,
     git: unrelated,
     proof: unrelated,
+    landedProof: unrelated,
     pager: unrelated,
     editor: unrelated,
     openEditor: unrelated,
@@ -163,8 +176,10 @@ Deno.test("main-checkout actions diagnose Git, pager, shell, and editor failures
   }
   assertStringIncludes(pages[0] ?? "", "No local changes.");
   assertStringIncludes(pages[0] ?? "", "No tracked diff.");
-  await showRecentCompleted(out, MAIN, runtime);
-  assertEquals(pauses, 8);
+  actions.push(DESK_ROUTES.back);
+  await showRecentCompleted("/project", MAIN, runtime);
+  assertEquals(actions, []);
+  assertEquals(pauses, 7);
 });
 
 Deno.test("main-checkout selection handles cancellation but propagates other failures", async () => {

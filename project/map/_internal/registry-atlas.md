@@ -36,7 +36,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`acceptance-transaction-boundaries`](#acceptance-transaction-boundaries--acceptance-transaction-boundaries)          | `src/engine/worktree/acceptance_transaction.ts#ACCEPTANCE_TRANSACTION_BOUNDARIES` | 3       | —                | node `worktrees`            |
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
-| [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 16      | —                | node `desk`                 |
+| [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 17      | —                | node `desk`                 |
 | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 36      | —                | —                           |
 | [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                          | `src/shared/on_disk_formats.ts#ON_DISK_FORMATS`                                   | 34      | —                | —                           |
 | [`git-footprint`](#git-footprint--clone-local-git-footprint)                                                          | `src/engine/git_footprint.ts#DISCERN_GIT_FOOTPRINT`                               | 10      | —                | —                           |
@@ -65,10 +65,10 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 18      | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 5       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 5       | —                | —                           |
-| [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 19      | —                | —                           |
+| [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 20      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 5       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 199     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 200     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 44      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
@@ -85,7 +85,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 40      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 53      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 144     | —                | —                           |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 145     | —                | —                           |
 | [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                    | `scripts/feature_registry.ts#HUMAN_BENEFIT_CANON`                                 | 46      | —                | —                           |
 | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                    | `scripts/feature_registry.ts#AGENT_BENEFIT_CANON`                                 | 24      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
@@ -110,7 +110,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 387     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 388     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 25      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -130,7 +130,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 23      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 20      | —                | —                           |
-| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 21      | —                | —                           |
+| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 23      | —                | —                           |
 | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                           | `tests/real_pty.ts#REAL_PTY_CONTRACTS`                                            | 8       | —                | —                           |
 | [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 48      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
@@ -144,7 +144,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 3       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 131     | —                | node `canonical-sets`       |
 
-131 sets · 186 guard tests · 72 committed artifacts.
+131 sets · 187 guard tests · 72 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -215,6 +215,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/engine_agent_wiring_test.ts`                | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/engine_child_lineage_guard_test.ts`         | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/engine_consent_gate_test.ts`                | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs), [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `tests/engine_desk_execution_guard_test.ts`        | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/engine_desk_model_test.ts`                  | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/engine_desk_runtime_test.ts`                | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/engine_desk_tips_test.ts`                   | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -1001,11 +1002,12 @@ The worktree lifecycle verbs that require `discern.toml` at the Git repository r
 The desk's per-worktree action vocabulary and menu order. The legality table exercises every member, and the runtime test checks each interactive effect boundary.
 
 - Source: `src/engine/desk/model.ts` — `DESK_ACTIONS`
-- Members: 16
+- Members: 17
   - `recovery`
   - `retry_setup`
   - `done`
   - `accept`
+  - `submit`
   - `update`
   - `agent`
   - `follow_up`
@@ -1018,7 +1020,7 @@ The desk's per-worktree action vocabulary and menu order. The legality table exe
   - `reclaim`
   - `park`
   - `drop`
-- Guards: `tests/engine_desk_model_test.ts`, `tests/engine_desk_runtime_test.ts`
+- Guards: `tests/engine_desk_model_test.ts`, `tests/engine_desk_runtime_test.ts`, `tests/engine_desk_execution_guard_test.ts`
 - Glossary: not enrolled — the Desk reference documents these menu actions in context
 - Feature canon: described by the `desk` node
 
@@ -1881,10 +1883,11 @@ The shipped capability modules whose importers are restricted: attributed commit
 Every authored Deno rename outside the atomic replacement capability, identified by source path and enclosing function with the reason its move semantics are intentional.
 
 - Source: `tests/atomic_write_renames.ts` — `REGISTERED_RENAMES`
-- Members: 19
+- Members: 20
   - `tests/completion_public_diagnostics_test.ts#Deno.test("E11 dirty deletion and rename retain public diagnostics without completion records")`
   - `scripts/build.ts#stageBundledManual`
   - `scripts/cli_install.ts#writeExecutableSync`
+  - `scripts/coverage_partitions.ts#process`
   - `scripts/coverage_profiles.ts#pruneAndShardProfiles`
   - `scripts/vale_toolchain.ts#reclaimStaleLock`
   - `scripts/vale_toolchain.ts#ensureVale`
@@ -1942,7 +1945,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 199
+- Members: 200
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -2102,6 +2105,7 @@ The advisory hint registry: every hint string enters results through it.
   - `accept-refresh-failed`
   - `accept-convergence-changed-tracked`
   - `lifecycle-convergence-failed`
+  - `submit-start-walk`
   - `accept-relay-landing-proof`
   - `accept-publish-proof-note`
   - `update-summary-fallback`
@@ -2602,7 +2606,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 144
+- Members: 145
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -2648,6 +2652,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `start`
   - `update`
   - `accept`
+  - `submission-only`
   - `integration-landings`
   - `landing-turn`
   - `landing-queue-walk`
@@ -3482,7 +3487,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 387
+- Members: 388
   - `0003`
   - `0005`
   - `0006`
@@ -3839,6 +3844,7 @@ The numbered decision records in the map, including records later superseded.
   - `0395`
   - `0397`
   - `0398`
+  - `0399`
   - `0001`
   - `0002`
   - `0004`
@@ -4329,7 +4335,9 @@ Every genuine JavaScript timer interval in executable tests, with its exact modu
 Every elapsed shell wait in executable test source, with its exact enclosing scope, argument, occurrence count, and reviewed polling or timing contract.
 
 - Source: `tests/test_shell_wait_boundaries.ts` — `TEST_SHELL_WAIT_BOUNDARIES`
-- Members: 21
+- Members: 23
+  - `["tests/engine_desk_operation_test.ts","paused production Desk script exposes its actual lease, cancels durably, and releases the next action","60"]`
+  - `["tests/engine_desk_queue_test.ts","Desk replaces a submission while another effort's acceptance checks are running","0.01"]`
   - `["tests/engine_integration_landing_test.ts","a sibling completes while an integration landing's resource teardown runs","0.1"]`
   - `["tests/engine_integration_landing_test.ts","a sibling completion publishes while an integration gate runs","0.1"]`
   - `["tests/engine_integration_recovery_test.ts","a running done in the author checkout is never deadlocked by acceptance","0.1"]`

@@ -8829,6 +8829,36 @@ export type DiscernAcceptResult = DiscernResultState & {
   message?: string;
   verb: "accept";
   data?: {
+    revision?: {
+      path: string;
+      branch: string;
+      head: string;
+      proof: {
+        candidate_id: string;
+        proof_id: string;
+      };
+    };
+    submission?: {
+      state: "planned" | "queued";
+      authority: {
+        kind: "authorized" | "conversation-required";
+        source?: "conversation" | "standing-grant" | "effort-grant";
+        scopes?: Array<string>;
+        standing_scopes?: Array<string>;
+        uncovered?: Array<{
+          path: string;
+          scopes: Array<string>;
+          generated?: boolean;
+        }>;
+        uncovered_scopes?: Array<string>;
+        uncovered_unscoped_total?: number;
+        uncovered_generated_total?: number;
+        warnings?: Array<string>;
+      };
+      replaces?: string;
+      submission_id?: string;
+      submitted_at?: string;
+    };
     checkpoint_preparation?: {
       policy?: string;
       outstanding?: Array<{

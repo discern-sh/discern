@@ -1,6 +1,10 @@
 /** Shared read-only diagnosis for branch-removing Drop and branch-keeping Park. */
 
-import { basename } from "@std/path";
+import { ignoredRemovalFingerprint } from "./ignored.ts";
+import { basename, join } from "@std/path";
+import { runGit } from "../../shared/subprocess.ts";
+import { sha256Hex } from "../../shared/sha256.ts";
+import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { isKnownGitCount } from "../../shared/git_count.ts";
 import type { LifecycleContext } from "./lifecycle.ts";
 import { loadIdentitySettings } from "./identity.ts";
@@ -20,6 +24,51 @@ import { entriesForWorktree } from "./resources.ts";
 import { classifyAutomaticBranchOwnership } from "./ownership.ts";
 import type { DropPlan } from "./plan.ts";
 import { resolveWorktreeTarget } from "./target_resolution.ts";
+
+/** Bind destructive review to changed content, including untracked files and symlinks. */
+async function removalState(path: string): Promise<string> {
+  const [status, diff] = await Promise.all([
+    runGit(["status", "--porcelain=v1", "-z", "--untracked-files=all"], {
+      cwd: path,
+    }),
+    runGit(["diff", "--no-ext-diff", "--no-textconv", "--binary", "HEAD"], {
+      cwd: path,
+    }),
+  ]);
+  if (!status.success || !diff.success) {
+    throw new WorktreeGitError(
+      "The checkout contents could not be read. Restore access before reviewing removal.",
+    );
+  }
+  const files: string[] = [];
+  for (const entry of parsePorcelainZ(status.stdout)) {
+    if (entry.status !== "??") continue;
+    try {
+      const file = join(path, entry.path);
+      const stat = await Deno.lstat(file);
+      const contents = stat.isSymlink
+        ? await Deno.readLink(file)
+        : JSON.stringify(Array.from(await Deno.readFile(file)));
+      files.push(`${entry.path}\0${await sha256Hex(contents)}`);
+    } catch (error) {
+      throw new WorktreeGitError(
+        `Could not read ${entry.path} for removal review: ${
+          error instanceof Error ? error.message : String(error)
+        }. Restore access and review again.`,
+        { cause: error },
+      );
+    }
+  }
+  const ignored = await ignoredRemovalFingerprint(path);
+  if (ignored === undefined) {
+    throw new WorktreeGitError(
+      "Ignored files could not be read for removal review. Restore access and review again.",
+    );
+  }
+  return await sha256Hex(
+    JSON.stringify([status.stdout, diff.stdout, files, ignored]),
+  );
+}
 
 /**
  * Resolve a worktree and retain every uncertainty as a blocker. The caller
@@ -139,7 +188,11 @@ export async function buildRemovalPlan(
     (!trunkExists || !(await commitIsMerged(ctx.root, match.head, trunk)));
   const deleteBranch = deletableLineOfWork && branchOwnership.owned;
 
+  const state = match.snapshot === undefined
+    ? undefined
+    : await removalState(match.path);
   return {
+    ...(state === undefined ? {} : { state }),
     targetPath: match.path,
     id: resolvedId ?? basename(match.path),
     branch: match.branch,

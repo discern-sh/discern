@@ -434,6 +434,8 @@ async function assertDeskInterruptReapsAndResumes(
   signal: Deno.Signal,
 ): Promise<void> {
   await withTempDir(async (root) => {
+    await scaffoldEngine(root, { agents: [] });
+    await gitInit(root);
     const pidFile = join(root, "desk_child.pid");
     const output = await new Deno.Command("deno", {
       args: repoSourceRunArgs(DESK_DRIVER, [

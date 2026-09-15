@@ -587,7 +587,7 @@ export interface DeskTtyCapture {
 }
 
 export interface DeskTtyInputPhase {
-  readonly waitFor: string | readonly [string, ...string[]];
+  readonly waitFor: PtyInputPhase["waitFor"];
   readonly capture?: DeskTtyCapture;
   readonly chunks: readonly [DeskTtyInputChunk, ...DeskTtyInputChunk[]];
 }
@@ -690,6 +690,19 @@ interface ChildTerminalEvidence {
   readonly resizeError?: string | undefined;
 }
 
+/** Require a visible-state observation between keyboard input and resizing. */
+export function assertDeskTtyInputPhase(phase: DeskTtyInputPhase): void {
+  const resizes = phase.chunks.some((chunk) => chunk.resize !== undefined);
+  const types = phase.chunks.some((chunk) =>
+    (chunk.keys?.length ?? 0) > 0 || (chunk.input?.length ?? 0) > 0
+  );
+  if (resizes && types) {
+    throw new TypeError(
+      "Desk PTY keyboard input and resize need separate phases. Observe the changed screen before the next effect.",
+    );
+  }
+}
+
 /** Drive the real source CLI and return raw streams plus semantic screens. */
 export async function runDeskTty(
   project: DeskTtyProject,
@@ -702,6 +715,7 @@ export async function runDeskTty(
   },
 ): Promise<DeskTtyRunResult> {
   assertGeometry(options.geometry);
+  for (const phase of options.input) assertDeskTtyInputPhase(phase);
   const colorMode = options.colorMode ?? "color";
   return await withTempDir(async (runDir) => {
     const resultPath = join(runDir, "terminal.json");
@@ -709,14 +723,18 @@ export async function runDeskTty(
     await Deno.mkdir(resizeDir);
     const resizeTimeline: DeskTerminalResize[] = [];
     const captureGeometry = new Map<string, PtyGeometry>();
+    const captureResizeCount = new Map<string, number>();
+    let plannedResizeCount = 0;
     let expectedGeometry = options.geometry;
     let resizeSequence = 0;
     const input: PtyInputPhase[] = options.input.map((phase) => {
     const phaseGeometry = expectedGeometry;
+    const phaseResizeCount = plannedResizeCount;
     const capture = phase.capture;
     if (capture !== undefined) {
       assertDeskCapture(capture);
       captureGeometry.set(capture.name, phaseGeometry);
+      captureResizeCount.set(capture.name, phaseResizeCount);
     }
     const steps = phase.chunks.map((chunk) => {
       if (chunk.settleMs !== undefined) assertSettle(chunk.settleMs);
@@ -728,6 +746,7 @@ export async function runDeskTty(
       if (resized !== undefined) {
         assertGeometry(resized);
         expectedGeometry = resized;
+        plannedResizeCount += 1;
       }
       return {
         ...(chunk.settleMs === undefined ? {} : { delayMs: chunk.settleMs }),
@@ -777,9 +796,7 @@ export async function runDeskTty(
                     capture.name,
                     output.transcript,
                     options.geometry,
-                    resizeTimeline.filter((resize) =>
-                      resize.transcriptOffset < output.transcript.length
-                    ),
+                    resizeTimeline.slice(0, phaseResizeCount),
                     phaseGeometry,
                   ),
                 ),
@@ -835,9 +852,7 @@ export async function runDeskTty(
         name,
         transcript,
         options.geometry,
-        resizeTimeline.filter((resize) =>
-          resize.transcriptOffset < transcript.length
-        ),
+        resizeTimeline.slice(0, captureResizeCount.get(name)),
         captureGeometry.get(name),
       )
     );
@@ -1215,6 +1230,9 @@ function csiOperation(raw: string, offset: number): ScreenOperation {
       raw,
       action: final === "h" ? "enter-alternate-screen" : "leave-alternate-screen",
     };
+  }
+  if ((body === "?1000" || body === "?1006") && (final === "h" || final === "l")) {
+    return { offset, raw, action: `${final === "h" ? "enable" : "disable"}-mouse-${body.slice(1)}` };
   }
   if (body === "?2004" && (final === "h" || final === "l")) {
     return {

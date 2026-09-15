@@ -331,8 +331,7 @@ Deno.test("nested root: finish fires the changed scope's gate", async () => {
 // lock the refusal in as the shape's contract: if a future change makes `start`
 // half-work here instead, this is the test that catches it.
 
-Deno.test("nested root: start refuses with the actionable repository-shape message", async () => {
-  assertEquals(WORKTREE_LIFECYCLE_REPO_ROOT_VERBS, ["start", "accept"]);
+Deno.test("nested root: worktree lifecycle verbs refuse with the actionable repository-shape message", async () => {
   await withTempDir(async (repo) => {
     const app = await scaffoldNested(
       repo,
@@ -347,10 +346,15 @@ Deno.test("nested root: start refuses with the actionable repository-shape messa
         "\n",
       ),
     );
-    const r = await runAgent(app, ["start", "--json"]);
-    assert(r.code !== 0, `start must refuse under a nested root: ${r.output}`);
-    assertStringIncludes(r.output, "repository");
-    assertTerminalTextIncludes(r.output, "move discern.toml");
+    for (const verb of WORKTREE_LIFECYCLE_REPO_ROOT_VERBS) {
+      const r = await runAgent(app, [verb, "--json"]);
+      assert(
+        r.code !== 0,
+        `${verb} must refuse under a nested root: ${r.output}`,
+      );
+      assertStringIncludes(r.output, "repository");
+      assertTerminalTextIncludes(r.output, "move discern.toml");
+    }
   });
 });
 
