@@ -1123,11 +1123,11 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: —
-- Emitting context: The running binary differs from the project's recorded adoption, or adoption is absent.
+- Emitting context: The running discern binary version differs from the version recorded in the project.
 
 Rendered example:
 
-> This project has no recorded managed-version adoption. Run `discern upgrade --dry-run` to preview adoption; a successful `discern upgrade` records it.
+> This project hasn't recorded which discern version last updated its managed files. Run `discern upgrade --dry-run` to preview the update, then `discern upgrade` to apply it.
 
 ## `materialized-skills-missing`
 

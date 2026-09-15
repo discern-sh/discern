@@ -340,8 +340,8 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ### Choose when to upgrade
 
-- **Value:** The tool does not change itself in the middle of project work. Upgrades can be scheduled and reviewed, and teammates can share which version the project adopted without tracking each other's installed programs.
-- **Mechanism:** The offline release handoff provides stable-release URLs and local reminders; the binary performs no network check. Successful setup or upgrade records monotonic project adoption. Older binaries protect newer managed material, and doctor distinguishes that advisory from a hard schema refusal. Replacing the binary alone leaves project adoption unchanged.
+- **Value:** Choose a convenient time to update, review what will change, and bring teammates along.
+- **Mechanism:** Release notes show what's new, upgrade previews show the project changes, and discern tells teammates when their version needs updating.
 - **Product basis:** Upgrade and migrations · Doctor · Release information when requested.
 
 ### Uninstall cleanly and keep everything you wrote

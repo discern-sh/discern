@@ -30,6 +30,8 @@ File ownership is an operational term for edit and overwrite authority. It does 
 
 The coding agent creates and maintains provider-local files. discern only ignores their registered paths. Other untracked provider files have no entry.
 
+Within the shared `discern.toml`, `meta.managed_version` is maintained by successful setup and upgrade. The [adoption boundary](../50-engine-internals/managed-adoption.md) governs its version checks and protects the recorded value during landing.
+
 ## License for discern-authored portions
 
 The discern-authored portions of every canonical project artifact are available immediately under [Apache-2.0](https://discern.sh/docs/reference/licenses). The inventory's authored-portions column derives from the write-boundary registry, so a future registered destination joins the grant automatically. Project, user, provider, and third-party portions keep their existing terms.
@@ -51,8 +53,6 @@ The complete registered-path inventory is generated from the source-path and pro
 Path overrides change placement. The ownership bucket still determines edit and overwrite authority ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 
 ## How Git treats registered paths
-
-`meta.managed_version` is discern-written adoption evidence in the shared config. A successful setup or upgrade may advance it; the installer never writes it. The [adoption boundary](../50-engine-internals/managed-adoption.md) prevents an older binary from replacing newer managed material and prevents a branch from deleting or lowering trunk adoption. Matching versions still require the normal managed-file currency checks.
 
 Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). The tracked-refresh plan also covers discern's managed portions of tracked shared files, including generated attributes and provider integrations. `done` and `accept` require an empty plan before landing. After landing, acceptance materializes only ignored or local artifacts ([ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md)).
 

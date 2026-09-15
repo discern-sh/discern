@@ -105,15 +105,9 @@ The upgrade is complete when the intended version is installed, no migrations re
 
 ### Share an upgrade with teammates
 
-When you upgrade a project, commit the changes with your team. The `managed_version` field in `discern.toml` records the newest discern version used to update its managed files.
+When you upgrade a project, commit the changes with your team. The `managed_version` field in `discern.toml` records the newest discern version used to update its managed files; it does not track what teammates have installed.
 
-A teammate who pulls those changes with an older discern version will see a message explaining how to update. They can still check status and run project tests. Updating discern lets them refresh the managed files and finish work through the gate again.
-
-The steps are the same: check releases, install the update, restart coding-agent sessions, then preview and apply `discern upgrade`. Development builds may be ahead of the latest public release; check the release page before choosing a version.
-
-Installing discern updates the program on one machine. Running `discern upgrade` updates the chosen project. The committed version helps teammates coordinate that project update; it does not track what anyone has installed.
-
-You can run `discern upgrade` again on the same version to repair missing or changed managed files. The recorded version stays at the highest version the project has adopted. The [configuration reference](../30-reference/config-reference.md#meta) explains the version fields.
+A teammate using an older discern version will see a message explaining how to update. They check releases, install the update, and restart their coding-agent sessions. They preview and apply `discern upgrade` in the project.
 
 ## Remove discern from the repository
 

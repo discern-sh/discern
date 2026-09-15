@@ -61,8 +61,6 @@ The update reminder is stored locally too. It does not send information to disce
 
 ## What discern may write
 
-A project records the newest discern version used to update its managed files. Committing that version helps teammates know when to update their own copy. It does not track what they have installed.
-
 Setup explains its proposed changes before you approve them. Its footprint includes the root `discern.toml`, authored material under `discern/` by default, and the instruction and integration files for your selected coding tools. Later operations also create task workspaces and keep local evidence in Git's administrative storage.
 
 The full [files and ownership reference](../30-reference/files-and-ownership.md) identifies the managed paths and how to change them. Your own material in shared settings files stays outside discern's marked sections or owned keys.

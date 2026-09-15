@@ -559,7 +559,7 @@ Where your executable project scripts live. `discern scripts <name>` resolves th
 
 ## `[meta]`
 
-Project setup and adoption evidence. discern writes these keys while setting up or upgrading the project. They record schema, setup provenance, and successful adoption of managed material. They do not describe what teammates have installed.
+Project setup and adoption evidence. discern writes these keys while setting up or upgrading the project. They record schema and setup evidence; nothing here needs hand-editing.
 
 | Key                | Type                   | Default | Description                                                                                                                                                                                |
 | ------------------ | ---------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

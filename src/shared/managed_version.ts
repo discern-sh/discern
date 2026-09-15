@@ -99,15 +99,13 @@ function managedVersionAdviceTemplate(
     case "equal":
       return undefined;
     case "unknown":
-      return `This project has no recorded managed-version adoption. Run ${
+      return `This project hasn't recorded which discern version last updated its managed files. Run ${
         discernCommand("upgrade", flag("dry-run"))
-      } to preview adoption; a successful ${
-        discernCommand("upgrade")
-      } records it.`;
+      } to preview the update, then ${discernCommand("upgrade")} to apply it.`;
     case "running-newer":
-      return `This project last adopted discern ${comparison.managed}; this binary is ${comparison.running}. Run ${
+      return `This project was last upgraded with discern ${comparison.managed}; this binary is ${comparison.running}. Preview the changes with ${
         discernCommand("upgrade", flag("dry-run"))
-      }, then ${discernCommand("upgrade")} to adopt its managed material.`;
+      }, then run ${discernCommand("upgrade")}.`;
     case "project-managed-by-newer":
       return `This project was last upgraded with discern ${comparison.managed}; this binary is ${comparison.running}. Check releases before changing discern-managed files: run ${
         discernCommand("releases")

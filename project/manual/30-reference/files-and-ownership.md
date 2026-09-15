@@ -38,8 +38,6 @@ The coding tool creates and maintains provider-local files, such as its machine-
 
 ## Repository boundary
 
-`[meta].managed_version` in `discern.toml` is a committed project-adoption fact written by successful setup or upgrade. It records the highest release whose managed material the project adopted. The installer never edits it. It contains no teammate inventory or telemetry. A rollback retains this highest value; the gate refuses a branch that deletes or lowers the trunk's value.
-
 Each Git repository has one discern installation and one `discern.toml` at its root. In a monorepo, that file can assign different checks to different paths. A folder that is itself a separate Git repository can have its own installation. A second `discern.toml` in an ordinary nested folder has no effect.
 
 ## License for discern-authored portions

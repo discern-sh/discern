@@ -157,8 +157,8 @@ A coding agent can preview effects, distinguish Proof from permission, and stop 
 
 ### Manage the installation lifecycle
 
-- **Agent value:** A coding agent can set up, verify, diagnose, upgrade, configure, and remove discern through explicit lifecycle operations whose retained and removed effects are visible. It can distinguish project adoption from its running version and route an older session to the release handoff without proposing backward writes.
-- **Why it follows:** One install surface owns setup, doctor, the offline release handoff, upgrade, uninstall, configuration editing, and license reporting. Successful adoption records the highest managed version, while schema compatibility and byte-level currency keep separate authorities. An older engine discloses unavailable currency and declines ordinary Proof; safe status and project tests remain available.
+- **Agent value:** A coding agent can set up, verify, diagnose, upgrade, configure, and remove discern with a preview of the changes. It gets a clear next step when its discern version is older than the project's.
+- **Why it follows:** Lifecycle commands share configuration and file ownership rules. Upgrade records the discern version in the project; an older version directs the agent to check releases before changing managed files.
 - **Boundary:** Lifecycle verbs manage discern's declared footprint and provider integrations, not arbitrary project files or provider state outside their ownership contract.
 - **Direct product basis:** Install and lifecycle · Agent-driven setup · Observable incompleteness · Provider-aware activation recovery · Doctor · Release information when requested · Upgrade and migrations · Uninstall · Config without a parser · Licenses and notices.
 - **Agent hints:** `release-check-sequence` · `ensure-main-worktree-first` · `setup-improvement-after-activation`.

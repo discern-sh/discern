@@ -885,7 +885,7 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "The running binary differs from the project's recorded adoption, or adoption is absent.",
+      "The running discern binary version differs from the version recorded in the project.",
     example: {
       advice: managedVersionAdvice(
         { state: "unknown", running: "1.2.7" },

@@ -1826,15 +1826,14 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "upgrade",
         title: "Upgrade and migrations",
         what:
-          "`discern upgrade` reconciles the project's managed material with the running binary and applies validated, idempotent config migrations. Successful setup or upgrade records the highest adopted SemVer in `meta.managed_version`; `--check` includes pending adoption and dry-run shows its proposed value. Older binaries refuse backward managed writes and ordinary Proof when currency is unverified, while status and project tests remain available. The schema version retains its independent hard format boundary.",
+          "`discern upgrade` updates discern's project files for the version you're running. Preview the changes with `--dry-run`, then apply them while keeping your authored instructions and skills.",
         why:
-          "Committed adoption travels with the project, protects newer managed material, and preserves the distinction between format compatibility, managed-file currency, and installed programs.",
+          "Teams can keep their project setup current and see when they need to update discern.",
         plain: {
           title: "Updating between versions",
           what:
-            "`discern upgrade` brings discern-managed files up to date for the running program. A successful setup or upgrade records the highest version the project adopted. An older program can report status and run project tests, but cannot replace newer managed files or claim it verified them. A settings format it cannot understand still stops the operation. Preview shows the proposed adoption without changing files.",
-          why:
-            "Teammates can see the version the project adopted and avoid rewriting its managed files backward. The shared record says nothing about what each person has installed.",
+            "After installing an update, ask your coding agent to preview and apply it to your project. discern keeps the instructions and how-to guides you've written.",
+          why: "Teammates see when they need to update discern.",
         },
         surfaces: ["verb:upgrade"],
       },
@@ -3452,9 +3451,9 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         id: "planned-upgrades",
         title: "Choose when to upgrade",
         value:
-          "The tool does not change itself in the middle of project work. Upgrades can be scheduled and reviewed, and teammates can share which version the project adopted without tracking each other's installed programs.",
+          "Choose a convenient time to update, review what will change, and bring teammates along.",
         whyItFollows:
-          "The offline release handoff provides stable-release URLs and local reminders; the binary performs no network check. Successful setup or upgrade records monotonic project adoption. Older binaries protect newer managed material, and doctor distinguishes that advisory from a hard schema refusal. Replacing the binary alone leaves project adoption unchanged.",
+          "Release notes show what's new, upgrade previews show the project changes, and discern tells teammates when their version needs updating.",
         drawsOn: ["upgrade", "doctor", "release-awareness"],
       },
       {
@@ -4038,9 +4037,9 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         id: "manage-the-installation-lifecycle",
         title: "Manage the installation lifecycle",
         value:
-          "A coding agent can set up, verify, diagnose, upgrade, configure, and remove discern through explicit lifecycle operations whose retained and removed effects are visible. It can distinguish project adoption from its running version and route an older session to the release handoff without proposing backward writes.",
+          "A coding agent can set up, verify, diagnose, upgrade, configure, and remove discern with a preview of the changes. It gets a clear next step when its discern version is older than the project's.",
         whyItFollows:
-          "One install surface owns setup, doctor, the offline release handoff, upgrade, uninstall, configuration editing, and license reporting. Successful adoption records the highest managed version, while schema compatibility and byte-level currency keep separate authorities. An older engine discloses unavailable currency and declines ordinary Proof; safe status and project tests remain available.",
+          "Lifecycle commands share configuration and file ownership rules. Upgrade records the discern version in the project; an older version directs the agent to check releases before changing managed files.",
         boundary:
           "Lifecycle verbs manage discern's declared footprint and provider integrations, not arbitrary project files or provider state outside their ownership contract.",
         drawsOn: [
