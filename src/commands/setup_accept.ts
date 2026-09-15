@@ -673,7 +673,10 @@ export async function runSetupAccept(
       ok: false,
       error: "precondition_failed",
       message: trackedRefresh.unavailable,
-      data: setupAcceptData(branch, target, fastForward, validated.inspection),
+      data: {
+        ...setupAcceptData(branch, target, fastForward, validated.inspection),
+        next_action: "discern releases",
+      },
       code: 1,
     });
   }
@@ -686,7 +689,10 @@ export async function runSetupAccept(
       ok: false,
       error: "precondition_failed",
       message: adoptionRefusal,
-      data: setupAcceptData(branch, target, fastForward, validated.inspection),
+      data: {
+        ...setupAcceptData(branch, target, fastForward, validated.inspection),
+        next_action: "discern upgrade --dry-run",
+      },
       code: 1,
     });
   }

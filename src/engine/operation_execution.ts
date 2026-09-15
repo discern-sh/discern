@@ -1,7 +1,12 @@
 /** Shared public execution: journal before exclusion, retain the delivered result. */
 import { runGit } from "../shared/subprocess.ts";
 import { CommonPublicationExecutionError } from "../shared/operation_execution_boundary.ts";
-import { loadConfig } from "../shared/config_schema.ts";
+import { RawConfig } from "../shared/config_read.ts";
+import { configFailureResult } from "../shared/config_failure.ts";
+import { inspectRecordedSchema, isRecordedSchemaNewer } from "../lib/schema.ts";
+import { SCHEMA_VERSION } from "../lib/version.ts";
+import { tryParseVersion } from "../shared/semver.ts";
+import { withSetupResultNextAction } from "../shared/setup_next_action.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import {
   managedMaterialBoundary,
@@ -157,22 +162,43 @@ async function assertOperationAdoption(
     invocation.command !== "done"
   ) return;
   if (await resolveConfigPath(root) === undefined) return;
-  const config = await loadConfig(root);
-  const currency = managedMaterialBoundary(config);
-  const regression =
-    invocation.command === "done" || invocation.command === "accept" ||
-      invocation.command === "setup accept"
-      ? await trunkManagedVersionBoundary(root, config)
+  const verb = invocation.resultVerb ?? invocation.command;
+  try {
+    // This read classifies only adoption. Each verb retains its own strict config
+    // validation and recovery, including setup's repair of incomplete metadata.
+    const raw = await RawConfig.load(root);
+    const schema = inspectRecordedSchema(raw.raw());
+    if (
+      schema.status === "valid" &&
+      isRecordedSchemaNewer(schema.value, SCHEMA_VERSION)
+    ) return;
+    const managed = raw.get("meta.managed_version");
+    const currency = tryParseVersion(managed) === undefined
+      ? undefined
+      : managedMaterialBoundary({ meta: { managed_version: managed } });
+    const checksTrunk = invocation.command === "done" ||
+      invocation.command === "accept" || invocation.command === "setup accept";
+    const regression = currency === undefined && checksTrunk
+      ? await trunkManagedVersionBoundary(root)
       : undefined;
-  const message = currency === undefined ? regression : currency +
-    " Managed-artifact currency and ordinary Proof are unavailable to this binary. Safe reads and `discern test` remain available.";
-  if (message !== undefined) {
-    throw new OperationLockError({
-      ok: false,
-      verb: invocation.resultVerb ?? invocation.command,
-      error: "precondition_failed",
-      message,
-    });
+    const message = currency === undefined ? regression : currency +
+      " Managed-artifact currency and ordinary Proof are unavailable to this binary. Safe reads and `discern test` remain available.";
+    if (message !== undefined) {
+      throw new OperationLockError(withSetupResultNextAction(
+        {
+          ok: false,
+          verb,
+          error: "precondition_failed",
+          message,
+        },
+        currency === undefined
+          ? "discern upgrade --dry-run"
+          : "discern releases",
+      ));
+    }
+  } catch (error) {
+    if (configFailureResult(verb, error) !== undefined) return;
+    throw error;
   }
 }
 

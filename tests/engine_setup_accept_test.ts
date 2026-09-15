@@ -109,6 +109,32 @@ async function proofPath(dir: string): Promise<string> {
   return path;
 }
 
+Deno.test("adoption preflight preserves setup acceptance's missing and invalid config recovery", async () => {
+  await withTempDir(async (dir) => {
+    const path = join(dir, "discern.toml");
+    for (
+      const [text, error, action] of [
+        [undefined, "not_initialized", "discern setup verify"],
+        ["[meta\ninvalid", "invalid_config", "discern doctor"],
+        [
+          '[meta]\nschema_version = "one"\n',
+          "invalid_config",
+          "discern doctor",
+        ],
+      ] as const
+    ) {
+      if (text !== undefined) await Deno.writeTextFile(path, text);
+      const run = await runAgent(dir, ["setup", "accept", "--json"]);
+      assertEquals(run.code, 1, run.output);
+      const result = decodeCliResult(run.stdout, "setup accept");
+      assertEquals(result.error, error);
+      assertResultDataKey(result, "next_action");
+      assertEquals(result.data.next_action, action);
+      assertEquals(await readTextIfExists(path), text);
+    }
+  });
+});
+
 Deno.test("setup accept refuses read-only on one proved setup branch, then fast-forwards it onto main", async (t) => {
   await withTempDir(async (dir) => {
     // One proved setup branch serves every read-only refusal. Each step

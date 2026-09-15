@@ -1,7 +1,7 @@
 /**
  * **Raw, untyped** dotted-key access to a parsed `discern.toml`. The engine reads
  * the config through the typed schema (`config_schema.ts`, `loadConfig`); this
- * module is the narrow exception for the two jobs that genuinely need an
+ * module is the narrow exception for the narrow jobs that genuinely need an
  * un-validated, generic reader and must NOT trip schema validation:
  *
  *   - `discern config <get|array|has|subsections|keys> <key>` — the Project-Script-facing
@@ -9,6 +9,9 @@
  *   - the Standard baseline, which reads an *older* config out of
  *     `git show main:discern.toml` and compares its definition and bound without
  *     requiring that trunk config to satisfy the current complete schema.
+ *
+ *   - adoption preflight, which reads only version evidence before the selected
+ *     verb applies its own strict validation and setup/migration recovery.
  *
  * It carries no schema knowledge, so there is nothing here to drift. The TOML
  * syntax diagnostics and the typed loader live in `config_schema.ts`; the errors

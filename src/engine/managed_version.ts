@@ -79,7 +79,9 @@ async function compareWithTrunk(
     if (!ref.success) return undefined;
     return `Could not read the shared branch's managed-version evidence: ${recorded.reason}. Restore access to the trunk before proving or landing this branch.`;
   }
-  if (recorded.kind === "parse_failed") return recorded.reason;
+  // The established governing-config check owns malformed policy and its hard
+  // refusal. Adoption must not replace that diagnostic with an unrelated one.
+  if (recorded.kind === "parse_failed") return undefined;
   return managedVersionRegression(
     recordedManagedVersion(recorded.text),
     proposed,

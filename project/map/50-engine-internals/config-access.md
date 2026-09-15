@@ -14,6 +14,10 @@ _How one schema, one paths registry, and one comment-preserving writer read, res
 
 The binary parses `discern.toml` with strict `@std/toml` and validates it against the Zod schema in [`config_schema.ts`](../../../src/shared/config_schema.ts) ([ADR 0026](../_adr/0026-typed-config-schema.md)). Everything that describes the config derives from that schema: the generated [config reference](https://discern.sh/docs/reference/config-reference), the editor JSON Schema, and the rules the engine enforces. `deno task codegen` rewrites the satellites. The project's final quality check (the gate) rejects drift.
 
+The optional `meta.managed_version` records successful project adoption. Its [adoption boundary](managed-adoption.md) is separate from schema compatibility and byte-level currency. The first-public schema recognizes the key even when the initial scaffold omits it.
+
+Adoption preflight uses the [raw reader](../../../src/shared/config_read.ts) only to classify version evidence. The selected verb retains strict validation and its own recovery. This preserves setup's incomplete-metadata repair while preventing it from bypassing a readable newer adoption. A valid newer schema keeps its existing hard refusal; malformed governing configuration keeps the established policy diagnostic.
+
 ## The config template and its prose
 
 The shipped `templates/discern.toml.tmpl` is a generated file ([ADR 0363](../_adr/0363-the-config-template-is-generated-from-the-schema-and-a-prose-registry.md)). [`config_template_codegen.ts`](../../../src/shared/config_template_codegen.ts) renders it from the schema's per-key `describe()` prose and the [config prose registry](../../../src/shared/config_prose.ts), which owns each documented unit's what and why, an optional detail table, worked examples, seeded entries, and the per-key hints the scaffold shows. A section's schema description is the registry's `what`. `deno task codegen` writes the template; the codegen sync test and the repository's `[generated.codegen]` group hold the committed copy equal to the renderer.
@@ -21,8 +25,6 @@ The shipped `templates/discern.toml.tmpl` is a generated file ([ADR 0363](../_ad
 Every unit renders in one shape: a ruled banner with What, Why, Params for a named-table family, and a Help line naming `discern config explain <unit>`, then the keys under their descriptions or the family's seeds and one commented example. [`config_prose_test.ts`](../../../tests/config_prose_test.ts) holds the registry's key set equal to the schema's documented units, validates every example and seed against the live schema, and holds each rendered description to three wrapped lines. The manual's config reference renders the same registry prose, and [`config_explain.ts`](../../../src/shared/config_explain.ts) serves it with the schema's reference facts and the project's current value.
 
 ## Setup config documents
-
-The optional `meta.managed_version` records successful project adoption. Its [adoption boundary](managed-adoption.md) is separate from schema compatibility and byte-level currency. The first-public schema recognizes the key even when the initial scaffold omits it.
 
 The bounded JSON recipe consumed only by `setup begin --config` derives from the config schema building blocks. Its strict `configDocSchema` generates the published authoring schema and is the runtime validator exported as `configDocRuntimeSchema`; unknown root or nested keys fail instead of being discarded. [`decodeConfigDoc`](../../../src/lib/config_doc.ts) is the setup path, and one version check refuses an unsupported major.
 

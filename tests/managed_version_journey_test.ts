@@ -16,7 +16,7 @@ import {
 } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
-import { DISCERN_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { OPERATION_EFFECTS } from "../src/shared/operation_effects.ts";
 import { executeOperation } from "../src/engine/operation_execution.ts";
 import { OperationLockError } from "../src/engine/operation_lock.ts";
@@ -109,6 +109,48 @@ Deno.test("newer project adoption guards every registered writer and Proof, incl
       }
     }
     assertEquals(effects, 0);
+    // Setup has a stricter result contract than generic operation refusals.
+    // Every setup writer must carry the actual release handoff through the CLI.
+    for (
+      const [command] of guarded.filter(([command]) =>
+        command.startsWith("setup ")
+      )
+    ) {
+      const run = await runCli([...command.split(" "), "--json"], dir);
+      assertEquals(run.code, 1, run.stdout + run.stderr);
+      const result = decodeCliResult(run.stdout, command);
+      assertResultDataKey(result, "next_action");
+      assertEquals(result.data.next_action, "discern releases");
+    }
+    // Incomplete metadata repair must not bypass a readable newer adoption.
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      config.replace("schema_version = 1", 'schema_version = "one"'),
+    );
+    const repair = await runCli(
+      ["setup", "begin", "--confirmed", "--json"],
+      dir,
+    );
+    assertEquals(repair.code, 1, repair.stdout + repair.stderr);
+    assertStringIncludes(repair.stdout, "99.0.0");
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      'schema_version = "one"',
+    );
+    // A valid newer schema keeps its hard refusal, ahead of adoption advice.
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      config.replace(
+        "schema_version = 1",
+        `schema_version = ${SCHEMA_VERSION + 1}`,
+      ),
+    );
+    const schema = await runCli(["upgrade", "--dry-run", "--json"], dir);
+    assertEquals(
+      decodeCliResult(schema.stdout, "upgrade").error,
+      "schema_version_too_new",
+    );
+    await Deno.writeTextFile(join(dir, "discern.toml"), config);
     assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), config);
     const plan = await planTrackedRefresh(dir);
     assert(plan.unavailable !== undefined);
@@ -192,9 +234,13 @@ Deno.test("atomic adoption replacement failure preserves the previous config byt
     try {
       await assertRejects(
         () =>
-          writeDiscernToml(path, before.replace('"0.0.1"', '"1.0.0"'), {
-            atomic: true,
-          }),
+          writeDiscernToml(
+            path,
+            before.replace('"0.0.1"', `"${DISCERN_VERSION}"`),
+            {
+              atomic: true,
+            },
+          ),
         Deno.errors.PermissionDenied,
       );
       assertEquals(await Deno.readTextFile(path), before);
