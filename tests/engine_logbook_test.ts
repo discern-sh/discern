@@ -114,6 +114,17 @@ Deno.test("logbook: landing effects are lifted from the result's own landing blo
   });
 });
 
+/** The shared status fixture has missing managed output and no adoption record. */
+const FRESH_STATUS_HINT_IDS = [
+  HINTS["generated-agent-files-missing"].id,
+  HINTS["materialized-skills-missing"].id,
+  HINTS["status-start-on-trunk"].id,
+  HINTS["status-continue-own-effort"].id,
+  HINTS["status-no-active-worktrees"].id,
+  HINTS["managed-version-adoption"].id,
+  HINTS["status-full-structured-detail"].id,
+];
+
 /** Stable hint identities from the exact result an MCP caller received. */
 function deliveredHintIds(
   result: { structuredContent: Record<string, unknown> },
@@ -194,12 +205,7 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
     );
     assertEquals(event.flags, ["local"]);
     assertEquals(event.hint_ids, [
-      HINTS["generated-agent-files-missing"].id,
-      HINTS["materialized-skills-missing"].id,
-      HINTS["status-start-on-trunk"].id,
-      HINTS["status-continue-own-effort"].id,
-      HINTS["status-no-active-worktrees"].id,
-      HINTS["status-full-structured-detail"].id,
+      ...FRESH_STATUS_HINT_IDS,
     ]);
     assertEquals(event.change, {
       files: 0,
@@ -307,12 +313,7 @@ Deno.test("logbook: a human-rendered verb records the ids on its observed result
     const events = verbEvents(await readEvents(dir));
     assertEquals(events.length, 1);
     assertEquals(events[0]?.hint_ids, [
-      HINTS["generated-agent-files-missing"].id,
-      HINTS["materialized-skills-missing"].id,
-      HINTS["status-start-on-trunk"].id,
-      HINTS["status-continue-own-effort"].id,
-      HINTS["status-no-active-worktrees"].id,
-      HINTS["status-full-structured-detail"].id,
+      ...FRESH_STATUS_HINT_IDS,
     ]);
   });
 });
@@ -1012,12 +1013,7 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
     );
     assertEquals(event.hint_ids, [
       HINTS["mcp-version-mismatch"].id,
-      HINTS["generated-agent-files-missing"].id,
-      HINTS["materialized-skills-missing"].id,
-      HINTS["status-start-on-trunk"].id,
-      HINTS["status-continue-own-effort"].id,
-      HINTS["status-no-active-worktrees"].id,
-      HINTS["status-full-structured-detail"].id,
+      ...FRESH_STATUS_HINT_IDS,
     ]);
     assert(
       event.driver !== undefined && event.driver.session !== undefined &&

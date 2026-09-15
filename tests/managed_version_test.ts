@@ -6,7 +6,7 @@ import {
   managedVersionRegression,
   planManagedVersionAdoption,
 } from "../src/shared/managed_version.ts";
-import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { MIGRATIONS } from "../src/lib/migrations.ts";
 import { TEMPLATE_OMITTED_META_KEYS } from "../src/shared/config_metadata.ts";
 
@@ -35,7 +35,7 @@ Deno.test("the schema-1 baseline recognizes optional managed adoption and reject
   assertEquals(MIGRATIONS, []);
   assert(TEMPLATE_OMITTED_META_KEYS.includes("managed_version"));
   assertEquals(configSchema.parse({}).meta.managed_version, undefined);
-  for (const value of ["1.0.0", "1.2.7-rc.2+build.9"]) {
+  for (const value of [DISCERN_VERSION, "1.2.7-rc.2+build.9"]) {
     assertEquals(
       parseConfig(`[meta]\nmanaged_version = "${value}"\n`).issues,
       [],

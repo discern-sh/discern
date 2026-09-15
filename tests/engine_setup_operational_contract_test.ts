@@ -1,5 +1,6 @@
 /** Registry-driven guards for setup's bounded operational journey. */
 
+import { commitSetupAuthoring } from "./fixtures/setup_completion_harness.ts";
 import {
   assert,
   assertEquals,
@@ -757,6 +758,7 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
       !SetupDoneOutputSchema.safeParse(contradictory).success,
       "a forced result must not validate with pre-activation improvement advice",
     );
+    await commitSetupAuthoring(dir);
     const human = await runAgent(dir, ["setup", "done", "--unproven"]);
     assertEquals(human.code, 0, human.output);
     assert(human.output.length <= SETUP_RESULT_MAX_CHARS);

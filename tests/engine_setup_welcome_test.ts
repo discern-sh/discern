@@ -10,6 +10,7 @@
  * engine_setup_test.ts; this file owns the welcome + verify surfaces.
  */
 
+import { commitSetupAuthoring } from "./fixtures/setup_completion_harness.ts";
 import {
   assert,
   assertEquals,
@@ -623,6 +624,7 @@ Deno.test("unproven setup completion withholds activation and improvement withou
     assertTerminalTextIncludes(done.stdout, "activation handoff are withheld");
     assert(!done.stdout.includes("start a fresh Claude Code session"));
     assert(!done.stdout.includes("discern improvement"));
+    await commitSetupAuthoring(dir);
     const d = decodeSetupDoneData(
       (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
     );
@@ -644,6 +646,7 @@ Deno.test("setup done serves the completion message at parity across the human r
     await scaffoldEngine(dir, { bootstrapped: false }); // agents: [claude_code]
     await gitInit(dir);
     const human = (await runAgent(dir, ["setup", "done", "--unproven"])).stdout;
+    await commitSetupAuthoring(dir);
     const res = decodeCliResult(
       (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
       "setup done",

@@ -3332,7 +3332,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     // When this preparation changes tracked files, the caller reviews and commits
     // them first. The required refresh still runs again against the marker-bearing
     // commit, where any further change is a transaction failure.
-    const refreshFailure = await refreshSetupInstructions(root, opts.json);
+    const refreshFailure = await refreshSetupInstructions(root);
     if (refreshFailure !== undefined) {
       return emitDonePreMarkerFailure(
         opts.json,
@@ -3360,7 +3360,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     predecessorHead = finalPin.head;
   }
   if (opts.unproven) {
-    const refreshFailure = await refreshSetupInstructions(root, opts.json);
+    const refreshFailure = await refreshSetupInstructions(root);
     if (refreshFailure !== undefined) {
       return emitDonePreMarkerFailure(opts.json, "refresh", refreshFailure);
     }
@@ -3530,12 +3530,13 @@ async function finalSetupTreeDrift(
 /** Run setup's instruction refresh and return one bounded failure description. */
 async function refreshSetupInstructions(
   root: string,
-  json: boolean,
 ): Promise<string | undefined> {
   try {
+    // Setup owns activation guidance; generic refresh hints must not invite a
+    // restart before setup has established its own completion/Proof boundary.
     const refreshed = await compileInstructions(
       root,
-      new Logger({ json, noColor: false, humanStream: "stdout" }),
+      new Logger({ json: true, noColor: false }),
     );
     const errors = instructionRefreshErrors(refreshed);
     return errors.length === 0
@@ -3558,7 +3559,7 @@ async function proveFinalSetupTree(
   cliModel: CliModelProvider,
   rerunMainGate: boolean,
 ): Promise<FinalSetupProof> {
-  const refreshFailure = await refreshSetupInstructions(root, json);
+  const refreshFailure = await refreshSetupInstructions(root);
   if (refreshFailure !== undefined) {
     return {
       ok: false,

@@ -13,6 +13,7 @@
  * suite owns the embeds-verbatim property and the enrolment.
  */
 
+import { commitSetupAuthoring } from "./fixtures/setup_completion_harness.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
@@ -63,6 +64,8 @@ interface TwoLaneDriver {
   argv: string[];
   /** The expected exit code (the consent refusal exits 1 by design). */
   code: number;
+  /** Commit a first run's managed output when the next observation is a replay. */
+  settle?: (dir: string) => Promise<void>;
 }
 
 const DRIVERS: Record<string, TwoLaneDriver> = {
@@ -79,6 +82,7 @@ const DRIVERS: Record<string, TwoLaneDriver> = {
     fixture: unfinishedSetupRepo,
     argv: ["setup", "done", "--unproven"],
     code: 0,
+    settle: commitSetupAuthoring,
   },
 };
 
@@ -136,6 +140,7 @@ for (const [id, driver] of Object.entries(DRIVERS)) {
           typeof instructions === "string" && instructions.length > 0,
           `the driver must produce a non-empty instructions: ${json.stdout}`,
         );
+        await driver.settle?.(dir);
         const human = await runAgent(dir, driver.argv);
         assertEquals(human.code, driver.code, human.output);
         assertStringIncludes(

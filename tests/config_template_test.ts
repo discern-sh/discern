@@ -33,6 +33,7 @@ import {
 } from "../src/shared/config_schema.ts";
 import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
+import { CONFIG_PROSE } from "../src/shared/config_prose.ts";
 import { TEMPLATE_WIDTH } from "../src/shared/config_template_codegen.ts";
 
 /** The real committed config template text. */
@@ -230,7 +231,7 @@ Deno.test("extracts the last section ([scripts]) up to EOF, trailing blanks trim
 Deno.test("[meta] closes the file with its own doc block; [project] never pulls the preamble in", async () => {
   const meta = sectionBlockFromTemplate(await realTemplate(), "meta");
   assertExists(meta);
-  assertStringIncludes(meta, "# What:    Installer bookkeeping.");
+  assertStringIncludes(meta, `# What:    ${CONFIG_PROSE.meta.what}`);
   assertStringIncludes(meta, "# The install schema version");
   assertStringIncludes(meta, "schema_version =");
   // [project] carries its own banner below the file preamble; the blank line

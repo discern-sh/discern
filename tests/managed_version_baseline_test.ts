@@ -7,6 +7,7 @@ import { git, gitInit } from "./engine_helpers.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import { renderConfigSchemaJson } from "../src/shared/config_codegen.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { parseVersion } from "../src/shared/semver.ts";
 
 const fixture = fromFileUrl(
   new URL("./fixtures/managed-version-baseline/", import.meta.url),
@@ -29,6 +30,14 @@ const Reader = z.object({
       .optional(),
   }).optional(),
 });
+
+/** Read the frozen version and schema from the capture, independently of this binary. */
+async function readManifest(): Promise<z.infer<typeof Manifest>> {
+  return decodeWith(
+    Manifest,
+    await Deno.readTextFile(join(fixture, "manifest.json")),
+  );
+}
 
 /** SHA-256 for the pinned archive, unpacked executable, and template inputs. */
 async function digest(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
@@ -71,10 +80,7 @@ async function readFrozen(root: string): Promise<z.infer<typeof Reader>> {
 }
 
 Deno.test("first-public adoption reader and template are immutable compatibility inputs", async () => {
-  const manifest = decodeWith(
-    Manifest,
-    await Deno.readTextFile(join(fixture, "manifest.json")),
-  );
+  const manifest = await readManifest();
   for (const [path, expected] of Object.entries(manifest.files)) {
     const actual = await digest(await Deno.readFile(join(fixture, path)));
     assertEquals(actual, expected, `frozen input changed: ${path}`);
@@ -100,8 +106,10 @@ Deno.test("first-public adoption reader and template are immutable compatibility
 Deno.test("frozen reader recognizes future adoption, skips old-template comparison, and withholds Proof", async () => {
   await withTempDir(async (root) => {
     const configPath = join(root, "discern.toml");
+    const manifest = await readManifest();
+    const newer = `${parseVersion(manifest.version).major + 1}.0.0`;
     const config =
-      '[meta]\nschema_version = 1\nbootstrapped = true\nmanaged_version = "2.0.0"\n[project]\nagents = ["codex"]\n';
+      `[meta]\nschema_version = ${manifest.schema}\nbootstrapped = true\nmanaged_version = "${newer}"\n[project]\nagents = ["codex"]\n`;
     await Deno.writeTextFile(configPath, config);
     await Deno.writeTextFile(
       join(root, "AGENTS.md"),
@@ -109,14 +117,17 @@ Deno.test("frozen reader recognizes future adoption, skips old-template comparis
     );
     await gitInit(root);
     const ahead = await readFrozen(root);
-    assertEquals(ahead.running, "1.0.0");
+    assertEquals(ahead.running, manifest.version);
     assertEquals(ahead.comparison?.state, "project-managed-by-newer");
     assertStringIncludes(ahead.boundary ?? "", "discern releases");
     assertEquals(ahead.currency?.state, "unverified");
     assertEquals(ahead.gate?.steps, []);
     assertEquals(await Deno.readTextFile(configPath), config);
 
-    await Deno.writeTextFile(configPath, config.replace('"2.0.0"', '"1.0.0"'));
+    await Deno.writeTextFile(
+      configPath,
+      config.replace(`"${newer}"`, `"${manifest.version}"`),
+    );
     await git(root, "add", "-A");
     await git(root, "commit", "-m", "same-version drift fixture");
     const equal = await readFrozen(root);
@@ -126,7 +137,10 @@ Deno.test("frozen reader recognizes future adoption, skips old-template comparis
 
     await Deno.writeTextFile(
       configPath,
-      config.replace("schema_version = 1", "schema_version = 2"),
+      config.replace(
+        `schema_version = ${manifest.schema}`,
+        `schema_version = ${manifest.schema + 1}`,
+      ),
     );
     assertEquals((await readFrozen(root)).error, "schema_version_too_new");
     await Deno.writeTextFile(

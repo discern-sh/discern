@@ -19,6 +19,7 @@
  *     for reactivation or improvement before landing.
  */
 
+import { commitSetupAuthoring } from "./fixtures/setup_completion_harness.ts";
 import {
   assert,
   assertEquals,
@@ -412,6 +413,8 @@ Deno.test("setup done terminal, JSON, and Markdown agree on the applicable denom
     assertTerminalTextIncludes(terminal.stdout, "build");
     assertTerminalTextIncludes(terminal.stdout, "does not apply");
 
+    // Review and commit the newly adopted managed output before clean replay.
+    await commitSetupAuthoring(dir);
     const result = decodeCliResult(
       (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
       "setup done",
