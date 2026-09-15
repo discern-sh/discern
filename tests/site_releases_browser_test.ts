@@ -5,7 +5,6 @@ import { Buffer } from "buffer";
 import { handlerWithRouting } from "../site/serve.ts";
 import { INSTALL_COMMAND } from "../src/shared/product_identity.ts";
 import { launchBrowser } from "./browser_helpers.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import {
   releasePageCatalogue,
   releasePageRouting,
@@ -13,12 +12,7 @@ import {
 
 Deno.test(
   "release notes and update instructions remain usable across browser modes",
-  async (
-    _test,
-    evidence = Deno.env.get(
-      DISCERN_ENVIRONMENT_VARIABLES.releaseReviewDirectory,
-    ),
-  ) => {
+  async () => {
     const routing = await releasePageRouting(releasePageCatalogue());
     const browser = await launchBrowser();
     try {
@@ -111,12 +105,6 @@ Deno.test(
             fits,
             `${mode.name}: installer text must wrap within its readable box`,
           );
-          if (evidence !== undefined) {
-            await Deno.mkdir(evidence, { recursive: true });
-            await page.screenshot({
-              path: `${evidence}/${mode.name}-viewport.png`,
-            });
-          }
           await page.keyboard.press("Tab");
           assertEquals(
             await page.locator(":focus").getAttribute("href"),
@@ -129,13 +117,6 @@ Deno.test(
             exact: true,
           }).click();
           assert(await page.locator("#update-heading").isVisible());
-          if (evidence !== undefined) {
-            await Deno.mkdir(evidence, { recursive: true });
-            await page.screenshot({
-              path: `${evidence}/${mode.name}.png`,
-              fullPage: true,
-            });
-          }
           if (mode.javaScriptEnabled) {
             assertEquals(
               await page.locator("html").getAttribute("data-discern-theme"),

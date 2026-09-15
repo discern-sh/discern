@@ -10,7 +10,7 @@ import { parseVersion, tryParseVersion } from "./semver.ts";
 
 export const RELEASE_REMINDER_DAYS = 14;
 export const RELEASE_REMINDER =
-  `It has been at least ${RELEASE_REMINDER_DAYS} calendar days since this clone's adoption or last release handoff. You can check the release notes.`;
+  "It’s time to check for a new discern release. See what’s changed.";
 const timestamp = z.iso.datetime();
 export const ReleaseCheckSchema = z.strictObject({
   schema_version: z.literal(ON_DISK_FORMATS.releaseCheck.version),

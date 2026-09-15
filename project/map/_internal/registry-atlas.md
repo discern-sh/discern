@@ -21,9 +21,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 26      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 20      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
-| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 39      | —                | —                           |
+| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 38      | —                | —                           |
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
-| [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 22      | —                | —                           |
+| [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 21      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
 | [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 24      | —                | —                           |
 | [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules)                         | `src/lib/paths.ts#MAP_TIER_PUBLICATION_POSTURES`                                  | 4       | —                | —                           |
@@ -696,7 +696,7 @@ The lifecycle sequence that leads schema-deferred clients through status, worktr
 Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.
 
 - Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`
-- Members: 39
+- Members: 38
   - `DISCERN_REPO`
   - `DISCERN_VERSION`
   - `DISCERN_BIN_DIR`
@@ -716,7 +716,6 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS`
   - `DISCERN_CRASH_PROBE`
   - `DISCERN_INTERACTION_TRACE`
-  - `DISCERN_RELEASE_REVIEW_DIR`
   - `DISCERN_HOME`
   - `DISCERN_TEMPLATES_DIR`
   - `DISCERN_DOCS_DIR`
@@ -761,7 +760,7 @@ Every native binary the release builds, executes, documents, checksums, attests,
 Every declared repository identity, canonical install command, or raw-installer command that cannot import the TypeScript authority, with an exact occurrence count and reason.
 
 - Source: `scripts/repository_literal_policy.ts` — `REPOSITORY_LITERAL_POLICIES`
-- Members: 22
+- Members: 21
   - `CLA.md`
   - `README.md`
   - `SECURITY.md`
@@ -780,7 +779,6 @@ Every declared repository identity, canonical install command, or raw-installer 
   - `project/map/10-getting-started/upgrade-discern.md`
   - `project/map/70-reference/crash-reports.md`
   - `project/map/70-reference/platforms-and-prereqs.md`
-  - `project/map/_internal/hint-inventory.md`
   - `project/map/_internal/registry-atlas.md`
   - `site/text/discern.txt`
   - `src/shared/product_identity.ts`

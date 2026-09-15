@@ -376,7 +376,7 @@ export function deskApplicationView(
       ...route(
         "Check for updates",
         "releases",
-        "Opens release info in your browser; sends running version to discern.sh.",
+        "See what's new and whether an upgrade is available.",
       ),
       ...(data?.release_reminder
         ? { status: { content: "Due", tone: "neutral" as const } }

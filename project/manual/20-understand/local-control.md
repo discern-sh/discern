@@ -33,9 +33,7 @@ There is no additional model call or model bill from discern itself. Your coding
 
 The discern executable makes no network requests of its own. The installer uses the network to download it, and you choose when to download an update.
 
-`discern releases` and the desk's **Check for updates** action hand you the [release page](https://discern.sh/releases). The action describes its browser handoff before you select it. The browser or your authorized agent tool makes the external request; the application payload contains only this process's version number. Ordinary network information, such as the client's IP address, still accompanies that request.
-
-Checking and installation follow your request. A request to check needs no repeat approval; a request to check and install covers both actions within its scope. A proactive reminder authorizes neither. The handoff command and desk action install nothing. [Checking release information](../10-guides/maintain-or-remove-discern.md#check-release-information) explains the sequence.
+Checking for updates opens the [release page](https://discern.sh/releases) in your browser, or your agent can read it for you. You choose whether to install an update. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#check-release-information) shows how.
 
 Other parts of your workflow can still connect:
 
@@ -59,11 +57,11 @@ You can turn recording off with `[project].logbook = false`. Sealing or removing
 
 A landed change's **Proof** is also recorded locally by default, as a note attached to its Git commit. You can explicitly configure fetching of other Proof notes through ordinary Git transport; publishing notes remains a separate Git action. discern does not automatically upload them. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) gives the sharing and removal commands.
 
-The release reminder has its own clone-local clock, shared by linked worktrees and unaffected by logbook settings. It records first adoption and the most recent handoff, including the running version. It does not record completed navigation, a fetch, or update availability. After 14 UTC calendar days, doctor, status, and the desk may offer an advisory. Reading it changes no state. Uninstall removes the clock.
+The update reminder is stored locally too. It does not send information to discern.
 
 ## What discern may write
 
-A successful setup or upgrade records `meta.managed_version` in the shared project configuration. Committing that number lets another clone recognize that its running binary is older than the release the project adopted. It does not report what teammates have installed. It identifies a SemVer adoption event, not exact source bytes, a gate run, or proof that a public binary exists.
+A project records the newest discern version used to update its managed files. Committing that version helps teammates know when to update their own copy. It does not track what they have installed.
 
 Setup explains its proposed changes before you approve them. Its footprint includes the root `discern.toml`, authored material under `discern/` by default, and the instruction and integration files for your selected coding tools. Later operations also create task workspaces and keep local evidence in Git's administrative storage.
 

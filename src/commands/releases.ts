@@ -10,8 +10,8 @@ import { findRoot } from "../shared/env.ts";
 import { SYSTEM_CLOCK } from "../shared/clock.ts";
 import { observeTerminalStreams } from "../lib/terminal_interaction.ts";
 import { Logger } from "../lib/log.ts";
-import { RESULT_MARKDOWN_PRESENTERS } from "../shared/result_markdown.ts";
-import { emitResult, renderResultReading } from "../shared/emit.ts";
+import { printReleases } from "../shared/release_presentation.ts";
+import { emitResult } from "../shared/emit.ts";
 import { fire, HINTS, hintTexts } from "../shared/hints.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { ReleasesData } from "../shared/result_schemas.ts";
@@ -109,7 +109,7 @@ export async function applyReleases(
     hints: hintTexts([fire(HINTS["release-check-sequence"])]),
     message: `${
       plan.dryRun
-        ? "Would hand off release information for"
+        ? "Would open release information for"
         : "Release information for"
     } ${
       humanVersion({
@@ -144,11 +144,15 @@ export async function runReleases(
     dryRun: options.dryRun ?? false,
   });
   if (options.json || options.markdown) emitResult(result);
-  else {new Logger({ json: false, noColor: false }).line(
-      renderResultReading(
-        { ...result, hints: [] },
-        RESULT_MARKDOWN_PRESENTERS.releases,
-      ),
-    );}
+  else {
+    printReleases(
+      result,
+      new Logger({
+        json: false,
+        noColor: false,
+        humanStream: "stdout",
+      }),
+    );
+  }
   return 0;
 }

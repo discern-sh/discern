@@ -409,7 +409,7 @@ export function buildCli(
     .version(DISCERN_VERSION)
     .versionOption(
       "-V, --version",
-      "Print this process's discern version and optional codename.",
+      "Print the discern version.",
       () => writeStdout(`${humanVersion()}\n`),
     )
     .usage("<command> [options]")
@@ -682,7 +682,7 @@ export function buildCli(
   root
     .command("releases")
     .description(
-      "Open release information in the browser, sending this process's version to discern.sh. Always print the URL; never fetch or install.",
+      "Open discern's release information in the browser, see what's changed, and whether an upgrade is available.",
     )
     .option(
       "--dry-run",

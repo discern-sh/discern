@@ -19,7 +19,7 @@ Before starting, commit or stash uncommitted tracked changes in the project. The
 
 ## Check release information
 
-Run `discern releases` or choose **Check for updates** in the desk. The shared [handoff core](../../../src/commands/releases.ts) supplies HTML and JSON URLs using the running process's numeric version. An ordinary terminal invocation or explicit desk action attempts a browser launch; every result retains the URLs. JSON, Markdown, non-terminal, and dry-run invocations never launch. Dry-run also writes no state.
+Run `discern releases` or choose **Check for updates** in the desk. The shared [handoff core](../../../src/commands/releases.ts) supplies HTML and JSON URLs using the running process's numeric version. An ordinary terminal invocation or explicit desk action attempts a browser launch. The terminal prints the browser URL; structured results retain both addresses. JSON, Markdown, non-terminal, and dry-run invocations never launch. Dry-run also writes no state.
 
 The [public maintenance guide](https://discern.sh/docs/guides/maintain-or-remove-discern#check-release-information) explains request-scoped checking and installation. The [shared update sequence](../../../src/shared/product_identity.ts) owns their order. Use the stable recommendation, keep prereleases separate, and avoid installation advice when there is no stable target or the supplied version is ahead.
 

@@ -51,27 +51,21 @@ The agent reviews the diff, prepares and commits it, and runs the gate. A second
 
 ## Check release information
 
-Ask your agent to **check for updates**, or choose **Check for updates** from the desk commands. You can also run:
+Ask your agent to **check for updates**, choose **Check for updates** from the desk, or run:
 
 ```sh
 discern releases
 ```
 
-The command prints browser and JSON addresses for this running process's version. In an ordinary terminal it also tries to open the browser. The desk action opens the same information and retains a readable result until you return. Opening the address sends the version number to `discern.sh`; no project data is included. The binary makes no network request and installs nothing.
+The release page shows what's changed and whether an upgrade is available. The command opens it in your browser and prints the link so you can open it yourself if needed.
 
-An agent uses `discern releases --json` and fetches the returned JSON address with its permitted network tool. Your request to check already authorizes that check. **Check and install the latest stable version** authorizes both within your requested scope; a request to check alone does not authorize installation. A reminder alone requires your decision before either action.
-
-Read the stable recommendation and notes. The page labels prereleases separately. If no stable release is published, there is no default installation target; a version ahead of the published stable release receives no downgrade advice.
-
-The clone can show a reminder after 14 UTC calendar days. Successful setup or upgrade starts its local clock; a release handoff resets it. A handoff records neither a completed fetch nor known update availability. Showing a reminder does not dismiss it. Linked worktrees share the clock, and turning the logbook off does not affect it.
-
-`--dry-run` writes no timestamp and opens no browser. JSON, Markdown, and non-terminal invocations open no browser. If the launcher is unavailable, use the printed URL. A failed local timestamp write leaves the URL usable.
+You can ask your agent to check and install an update in one request. If you only ask for a check, it will report what it finds and leave installation for you to decide. discern may remind you to check every couple of weeks.
 
 ## Upgrade the project
 
 Updating the installed program and updating a project's setup are separate steps. discern does not check the network for newer releases or replace its own binary.
 
-Read [release notes](https://discern.sh/releases) before choosing an update. The release page compares a supplied version with published stable releases. Opening or fetching it contacts `discern.sh` with that version and no project data.
+Read the [release notes](https://discern.sh/releases) before choosing an update.
 
 ### 1. Replace and identify the binary
 
@@ -82,7 +76,7 @@ command -v discern
 discern --version
 ```
 
-Human version output may include a codename after the version number. Names do not affect version comparison. Restart agent and MCP sessions after replacing the binary so the next project operation uses the new process.
+Restart your coding-agent sessions after installation so they use the new version.
 
 If the project reports a schema newer than the installed program, install a version that understands it. The schema describes the configuration format; an older program will refuse to stamp it backward.
 
@@ -111,15 +105,15 @@ The upgrade is complete when the intended version is installed, no migrations re
 
 ### Share an upgrade with teammates
 
-A successful setup or upgrade records `[meta].managed_version` in `discern.toml`. It is the highest discern release whose managed material the project adopted. Commit it with the reviewed managed-file changes.
+When you upgrade a project, commit the changes with your team. The `managed_version` field in `discern.toml` records the newest discern version used to update its managed files.
 
-When another teammate pulls that commit, their running binary compares itself with the recorded value. An older binary explains both versions and routes them to `discern releases`. It can still report status and run `discern test`, but it refuses to replace newer managed files or issue ordinary Proof without being able to verify their currency.
+A teammate who pulls those changes with an older discern version will see a message explaining how to update. They can still check status and run project tests. Updating discern lets them refresh the managed files and finish work through the gate again.
 
-The teammate checks releases, installs a suitable verified binary within their authorization, and restarts agent and MCP sessions. Binary replacement alone does not adopt the project. They preview and apply `discern upgrade` in the chosen project; only successful adoption records or advances the value. Development builds and prereleases may be ahead of every public stable release, so the release page must establish a suitable target before installation.
+The steps are the same: check releases, install the update, restart coding-agent sessions, then preview and apply `discern upgrade`. Development builds may be ahead of the latest public release; check the release page before choosing a version.
 
-If the running binary is newer, the project has not yet adopted its managed material. Preview the upgrade before applying it. If the versions have equal SemVer precedence, the advisory clears and normal managed-file drift checks continue. A same-version upgrade remains useful for reconciliation and preserves the existing value, including build metadata.
+Installing discern updates the program on one machine. Running `discern upgrade` updates the chosen project. The committed version helps teammates coordinate that project update; it does not track what anyone has installed.
 
-This committed number shares project history, not an inventory of installed programs. It is independent of `schema_version`, which controls hard format compatibility, and `setup_version`, which records setup provenance. It does not identify exact executable bytes or prove a public release exists.
+You can run `discern upgrade` again on the same version to repair missing or changed managed files. The recorded version stays at the highest version the project has adopted. The [configuration reference](../30-reference/config-reference.md#meta) explains the version fields.
 
 ## Remove discern from the repository
 

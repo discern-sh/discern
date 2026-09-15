@@ -178,7 +178,7 @@ Git stores drop recovery through ordinary refs under `refs/discern/recovery/`. G
 
 Ordinary acceptance fast-forwards the trunk and creates its marker under `refs/worktree/discern/acceptance-transactions/<transaction-id>` in the same ref transaction. An interrupted landing resumes from that marker and the worktree's journal without repeating the landing.
 
-Release reminders use this clone-local record independently of the logbook. The interval is 14 UTC calendar days from the last handoff, or first adoption when no handoff is recorded. Setup and upgrade seed first-seen evidence only on success. An applied release handoff records its timestamp and numeric version. Reading or showing an advisory writes nothing. Missing, invalid, unreadable, future, or newer-format evidence supplies no reminder age. State writes are best-effort; a newer schema remains intact. Uninstall removes this record with the common runtime namespace.
+This local record supports update reminders and is shared by linked worktrees. Successful setup or upgrade starts the clock; opening release information resets it. A reminder can appear after 14 UTC calendar days. Viewing the reminder leaves it in place. Turning off the logbook does not affect it, and uninstall removes the record.
 
 ## Git refs
 

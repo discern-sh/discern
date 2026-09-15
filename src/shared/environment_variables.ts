@@ -279,15 +279,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
     },
   },
 
-  releaseReviewDirectory: {
-    name: "DISCERN_RELEASE_REVIEW_DIR",
-    group: "repository-development",
-    documentation: {
-      public: false,
-      reason:
-        "Retains screenshots from the release-page browser review in a chosen local directory.",
-    },
-  },
   home: {
     name: "DISCERN_HOME",
     group: "repository-development",

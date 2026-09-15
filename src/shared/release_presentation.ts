@@ -1,37 +1,45 @@
-/** Authored release-handoff presentation shared by CLI and desk result readers. */
+/** Release information for terminal, Markdown, and desk readers. */
+import type { Logger } from "../lib/log.ts";
+import type { DiscernResult } from "./result.ts";
 import type { ResultMarkdownPresentation } from "./result_markdown.ts";
-import { ReleasesDataSchema } from "./result_schemas.ts";
+import { type ReleasesData, ReleasesDataSchema } from "./result_schemas.ts";
 import { text } from "./result_markdown_values.ts";
 
-/** Keep both addresses visible regardless of browser availability. */
+/** Explain the browser action and keep the manual fallback useful. */
+function browserMessage(data: ReleasesData, dryRun: boolean): string {
+  if (dryRun) return "Would open this page to check for updates:";
+  if (data.launch_succeeded) return "Opening release notes in your browser:";
+  if (data.launch_message !== undefined) {
+    return "Couldn't open your browser. Use this link to check for updates:";
+  }
+  return "See what's changed and check for updates:";
+}
+
+/** The terminal shows the version and useful next action, without a report wrapper. */
+export function printReleases(
+  result: DiscernResult<ReleasesData>,
+  log: Logger,
+): void {
+  log.result(result);
+  log.heading(result.message ?? "Release information");
+  if (result.data === undefined) return;
+  log.info(browserMessage(result.data, result.dry_run === true));
+  log.line(result.data.urls.html);
+}
+
+/** Structured readers retain both addresses for browser or tool use. */
 export function presentReleases(
   result: Readonly<Record<string, unknown>>,
 ): ResultMarkdownPresentation {
-  const state = text(result.message) ?? "Release information handoff.";
+  const state = text(result.message) ?? "Release information.";
   const parsed = ReleasesDataSchema.safeParse(result.data);
   if (!parsed.success) return { state };
-  const data = parsed.data;
-  const write = data.state_write;
   return {
     state,
     evidence: [
-      `Browser: ${data.urls.html}`,
-      `JSON: ${data.urls.json}`,
-      data.launch_attempted === true
-        ? data.launch_succeeded === true
-          ? "The browser launcher accepted the URL. Navigation was not verified."
-          : `The browser launcher failed: ${
-            data.launch_message ?? "unavailable"
-          }. Open the URL yourself.`
-        : "No browser launch was attempted.",
-      write.status === "saved"
-        ? "The clone-local handoff timestamp was recorded."
-        : `Local timestamp: ${write.status}${
-          write.reason ? ` — ${write.reason}` : ""
-        }.`,
-    ],
-    boundary: [
-      "The binary made no network request and installed nothing. Opening either URL sends only this process's version number as application data to discern.sh. A supplied version does not prove the on-disk binary; the timestamp does not prove a fetch.",
+      browserMessage(parsed.data, result.dry_run === true),
+      `Browser: ${parsed.data.urls.html}`,
+      `JSON: ${parsed.data.urls.json}`,
     ],
   };
 }

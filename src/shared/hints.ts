@@ -1,4 +1,3 @@
-import { UPDATE_SEQUENCE } from "./product_identity.ts";
 import { managedVersionAdvice } from "./managed_version.ts";
 import {
   appendHintTexts,
@@ -904,11 +903,9 @@ export const HINTS = {
       "A release handoff is requested or clone-local release reminder evidence is due.",
     example: undefined,
     template: (): string =>
-      `Check the user's current authorization. A request to check releases already authorizes the external check; proceed without asking again. If only this proactive reminder prompted the action, ask whether the owner wants a check before making an external request. Explain that the check sends only this process's version number to discern.sh. Run ${
+      `When asked to check for updates, run ${
         discernCommand("releases", flag("json"))
-      } (or choose --markdown) if you do not already have its URLs, then fetch its JSON URL with your approved external network tool. Report the stable recommendation, supplied version, optional names, and relevant notes; label prereleases separately. No stable recommendation means no default install target; an ahead version receives no downgrade advice. A supplied version does not prove the on-disk binary, and a local handoff timestamp does not prove a completed fetch. Install only when the user's request also covers installation; otherwise ask before that separate action. Honor the requested scope and actual tool permissions. A check-and-install request already covers both actions. For an authorized installation with an appropriate stable target, use the shared sequence: ${
-        UPDATE_SEQUENCE.join(" ")
-      }`,
+      } and fetch the returned JSON URL. Report whether an update is available and what's changed. Ask before checking if this reminder is the only prompt. If installation was requested, follow the release page's update steps without asking again; otherwise ask before installing. Don't recommend downgrading or treating a prerelease as a stable update.`,
   }),
 
   "status-fleet-logbook-disabled": defineHint({

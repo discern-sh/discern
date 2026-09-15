@@ -45,7 +45,7 @@ Use the real handler with the synthetic catalogue in [`tests/release_page_fixtur
 
 [`tests/site_releases_test.ts`](../../../tests/site_releases_test.ts) checks landmarks, heading hierarchy, version anchors, inherited names, dates, publication classes, update eligibility, selectable commands, and every normalized status. It also enrolls the actual catalogue and checks query metadata, error semantics, HEAD, and negotiated text. Static content and accessibility are checked before any page JavaScript runs.
 
-[`tests/site_releases_browser_test.ts`](../../../tests/site_releases_browser_test.ts) uses the repository's Chromium test runner with responses from the production handler. One shared fixture covers desktop, narrow-screen dark mode, and a 320-pixel no-JavaScript journey. It checks document overflow, command wrapping, keyboard skip navigation, theme switching, and rendered contrast. Set `DISCERN_RELEASE_REVIEW_DIR` to retain screenshots from that journey. Screenshots support visual judgment; they are not pixel assertions.
+[`tests/site_releases_browser_test.ts`](../../../tests/site_releases_browser_test.ts) uses the repository's Chromium test runner with responses from the production handler. One shared fixture covers desktop, narrow-screen dark mode, and a 320-pixel no-JavaScript journey. It checks document overflow, command wrapping, keyboard skip navigation, theme switching, and rendered contrast. Review screenshots separately when judging visual changes.
 
 ## Publication evidence
 

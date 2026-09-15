@@ -1893,11 +1893,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "release-awareness",
         title: "Release information when requested",
         what:
-          "`discern releases` and the desk's Check for updates action hand off the running version to release URLs. The binary never fetches or installs. A clone-local clock offers a reminder after 14 UTC calendar days, independent of the logbook. Human version output includes an optional compiled codename.",
+          "`discern releases` and the desk's Check for updates action open release notes in your browser, showing what changed and whether an upgrade is available. A local reminder prompts you to check every couple of weeks. You choose when to install.",
         plain: {
           title: "Choose when to check releases",
           what:
-            "Open release notes from the terminal or desk. The browser receives only the running version number as application data. A local reminder can prompt a check; checking and installing follow the actions the person requested.",
+            "See what's new and check for updates from the terminal or desk. A local reminder prompts you every couple of weeks. You choose when to install.",
         },
         surfaces: ["verb:releases"],
       },

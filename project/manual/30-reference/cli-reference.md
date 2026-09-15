@@ -778,7 +778,7 @@ Usage: `discern licenses [options]`
 
 ### `discern releases`
 
-Open release information in the browser, sending this process's version to discern.sh. Always print the URL; never fetch or install.
+Open discern's release information in the browser, see what's changed, and whether an upgrade is available.
 
 Usage: `discern releases [options]`
 

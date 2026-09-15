@@ -127,7 +127,7 @@ A tool that installs and runs an agent development practice in a project. One se
 
 ### discern version
 
-The version of the running discern process. `discern --version` shows its semantic version and optional codename. `discern releases` supplies release information URLs using the numeric version. That process identity does not establish which program is now on disk. Re-running the installer supplies a newer program; `discern upgrade` then updates the project's installation to match.
+The version of discern you are running, shown by `discern --version`. Use `discern releases` to see what's new and check for updates. The installer updates the program; `discern upgrade` updates the project's setup to match.
 
 ### Effort
 

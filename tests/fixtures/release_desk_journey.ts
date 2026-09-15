@@ -133,7 +133,7 @@ export async function releaseDeskJourney(
     if (resize) {
       assertStringIncludes(
         returned.text,
-        "sends running version to discern.sh.",
+        "whether an upgrade is available.",
       );
     }
     assert(

@@ -32,7 +32,7 @@ import { doctorResult } from "../src/commands/doctor.ts";
 import { ReleasesOutputSchema } from "../src/shared/result_schemas.ts";
 import { serializeResult } from "../src/shared/result_serialization.ts";
 import { addWorktree, gitInit, scaffoldEngine } from "./engine_helpers.ts";
-import { runCli, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 
 const first = Date.parse("2026-08-01T23:59:59Z");
 const due = Date.parse("2026-08-15T00:00:00Z");
@@ -88,6 +88,19 @@ Deno.test("release plans exhaust invocation modes without effects during plannin
           );
           assertEquals(result.data?.network_request, false);
           assertEquals(result.data?.launch_attempted, launches === 1);
+          const reading = renderResultReading(
+            result,
+            resultPresenterForVerb("releases"),
+          );
+          assertStringIncludes(
+            reading,
+            dryRun
+              ? "Would open this page"
+              : launches === 1
+              ? "Opening release notes"
+              : "See what's changed",
+          );
+          assert(!reading.includes("Navigation was not verified"));
           assert(
             ReleasesOutputSchema.safeParse(serializeResult(result)).success,
           );
@@ -245,6 +258,7 @@ Deno.test("launcher failure and missing clone state preserve a usable successful
     );
     assertStringIncludes(text, plan.urls.html);
     assertStringIncludes(text, plan.urls.json);
+    assertStringIncludes(text, "Couldn't open your browser");
     assertEquals(result.data?.state_write.status, "skipped");
   }
   let attempted = false;
@@ -353,7 +367,16 @@ Deno.test("release CLI works outside projects, prints each projection, and dry-r
       const result = await runCli(["releases", ...flags], root);
       assertEquals(result.code, 0, result.stderr);
       assertStringIncludes(result.stdout, `since=${DISCERN_VERSION}`);
-      assertStringIncludes(result.stdout, "releases.json");
+      if (flags.length > 0) {
+        assertStringIncludes(result.stdout, "releases.json");
+      } else {
+        assertTerminalTextIncludes(result.stdout, "See what's changed");
+        assert(!result.stdout.includes("##"));
+        assert(!result.stdout.includes("Authority and boundaries"));
+        assert(!result.stdout.includes("timestamp"));
+        assert(!result.stdout.includes("releases.json"));
+        assert(result.stdout.trim().split("\n").length <= 5);
+      }
     }
     await scaffoldEngine(root, { agents: [] });
     await gitInit(root);
@@ -389,20 +412,18 @@ Deno.test("failed timestamp writes remain honest and authorization guidance sepa
     result,
     resultPresenterForVerb("releases"),
   );
-  assertStringIncludes(reading, "write denied");
-  assert(!reading.includes("timestamp was recorded"));
+  assertStringIncludes(reading, result.data?.urls.html ?? "missing");
+  assert(!reading.includes("timestamp"));
   const guidance = fire(HINTS["release-check-sequence"]);
   assertEquals(guidance.id, "release-check-sequence");
   for (
     const contract of [
-      "already authorizes the external check; proceed without asking again",
-      "If only this proactive reminder prompted the action, ask whether the owner wants a check",
-      "only this process's version number",
-      "approved external network tool",
-      "No stable recommendation means no default install target",
-      "ahead version receives no downgrade advice",
-      "Install only when the user's request also covers installation",
-      "A check-and-install request already covers both actions",
+      "fetch the returned JSON URL",
+      "Report whether an update is available",
+      "Ask before checking if this reminder is the only prompt",
+      "If installation was requested",
+      "without asking again; otherwise ask before installing",
+      "Don't recommend downgrading or treating a prerelease as a stable update",
     ]
   ) assertStringIncludes(guidance.text, contract);
 });

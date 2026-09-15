@@ -159,9 +159,9 @@ After setup, detectors can add recent logbook observations to `hints[]`. They in
 
 ## Release information
 
-In the desk, **Desk commands** includes **Check for updates**, including when no tasks exist. Selecting it opens release information in your browser and sends this running process's version number to `discern.sh`. Its result keeps the URL readable if the launcher fails. Escape returns to the live desk.
+In the desk, **Desk commands** includes **Check for updates**, including when no tasks exist. Selecting it opens release notes in your browser so you can see what's changed and check for updates. Its result keeps the URL readable if the launcher fails. Escape returns to the live desk.
 
-A clone-local reminder may appear beside the action after 14 UTC calendar days. It does not change task sorting or indicate that an update is available. Status routes the same eligibility as an agent hint; doctor keeps it advisory without changing health. [The maintenance guide](../10-guides/maintain-or-remove-discern.md#check-release-information) explains checking, installation, and local timestamps.
+A reminder may appear after 14 days. It invites you to check; it does not mean an update is available or that anything is wrong with your installation. [The maintenance guide](../10-guides/maintain-or-remove-discern.md#check-release-information) explains how to check and update.
 
 ## Checkout identity and environment
 

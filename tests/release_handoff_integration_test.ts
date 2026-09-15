@@ -2,7 +2,6 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { releasesResult } from "../src/commands/releases.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
-import { UPDATE_SEQUENCE } from "../src/shared/product_identity.ts";
 import { fire, HINTS } from "../src/shared/hints.ts";
 import { loadReleaseCatalogue } from "../site/releases/catalogue.ts";
 import { compareReleases, comparisonSchema } from "../site/releases/model.ts";
@@ -40,7 +39,8 @@ Deno.test("release handoff composes with the production page, JSON, and shared u
   const page = await html.text();
   assertStringIncludes(page, `data-release-status="${expected.status}"`);
   assertStringIncludes(page, DISCERN_VERSION);
-  for (const step of UPDATE_SEQUENCE) {
-    assertStringIncludes(fire(HINTS["release-check-sequence"]).text, step);
-  }
+  assertStringIncludes(
+    fire(HINTS["release-check-sequence"]).text,
+    "follow the release page's update steps",
+  );
 });

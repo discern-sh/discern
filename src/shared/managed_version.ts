@@ -111,7 +111,7 @@ function managedVersionAdviceTemplate(
     case "project-managed-by-newer":
       return `This project was last upgraded with discern ${comparison.managed}; this binary is ${comparison.running}. Check releases before changing discern-managed files: run ${
         discernCommand("releases")
-      }. Confirm a suitable stable release exists before installing within the user's authorization, then restart agent and MCP sessions. A newer development or prerelease adoption may be ahead of public stable releases.`;
+      }. After installing a suitable update, restart your coding-agent sessions. Development builds may be ahead of the latest public release.`;
   }
 }
 
