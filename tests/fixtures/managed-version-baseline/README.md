@@ -1,36 +1,33 @@
 # First-public adoption compatibility slice
 
-This immutable fixture freezes the schema-1 reader and adoption boundary before
-publication. No discern release was published when 3A captured it on September
-15, 2026. It is not a released binary or lock-down 7A's final install corpus.
-7A must retain this reader/key/template contract when freezing that corpus.
+This immutable snapshot preserves the schema-1 reader and its templates from
+before publication. It tests how captured code reads a newer project, checks
+managed files, and decides whether it can issue Proof. Relabelling the current
+engine as an older version cannot establish those behaviors.
 
-`reader.js.gz` archives the production entrypoint in
-`../managed_version_baseline_entry.ts`, including its strict config parser,
+`snapshot.json.gz` holds a JSON object mapping relative file paths to their
+captured UTF-8 contents: the self-contained reader bundle, config template, and
+instruction templates. Tests verify the archive and member hashes in
+`manifest.json`, unpack it once into a temporary directory, and execute the reader
+in fresh processes. Keep the snapshot compressed so repository searches find the
+live template sources. To inspect it, decompress and parse the JSON or use the
+test's `readSnapshot` helper; each member is ordinary source text.
+
+The reader was bundled from
+[`managed_version_baseline_entry.ts`](../managed_version_baseline_entry.ts) with
+`deno bundle --platform=deno --minify`. Its code includes the strict config parser,
 SemVer implementation, compiled numeric version, instruction-currency checker,
-and Gate planner. It contains no runtime imports or machine-specific paths.
-The instruction templates and config template are frozen alongside it. Tests
-execute the bundle with this template root in a fresh process; they do not
-inject a version into the current parser.
+and Gate planner, with no runtime imports or machine-specific paths. Packing
+preserves every captured byte; gzip uses level 9 and a zero modification time.
+The snapshot is retained evidence, not a codegen output to refresh after edits.
+Changing its contents requires an explicit compatibility decision.
 
-The hash manifest pins every executable and template input, including the unpacked reader. Tests unpack the captured JavaScript into a temporary directory and run it unchanged. The archive is retained engine evidence, separate from the authored test code. This fixture covers
-reader acceptance, older-template currency, and the Proof boundary. Broader
-version matrices use the current pure comparison core. It deliberately excludes
-installer files, skill materialization, setup machinery, and the final install
-footprint; those retain their own authorities.
+No discern release was published when this snapshot was captured on September
+15, 2026. It is a compatibility slice, not a released binary or lock-down 7A's
+final install corpus. It excludes installer files, skills, and setup machinery.
+7A retains this reader/key/template contract in its final corpus; supported
+released engines become the historical test source when available.
 
-Capture command:
-
-```sh
-deno bundle --platform=deno --minify tests/fixtures/managed_version_baseline_entry.ts --output tests/fixtures/managed-version-baseline/reader.js.fixture
-```
-
-The deterministic gzip archive and manifest are frozen evidence, not ordinary codegen outputs.
 The captured first-party code uses the repository [license](../../../LICENSE);
 bundled dependencies retain the [third-party notices](../../../THIRD_PARTY_NOTICES).
-The dependency versions are pinned by the capture revision's `deno.lock`.
-The archive stores the exact bundle bytes using gzip level 9 with a zero modification
-time and no source filename. Its SHA-256 and the unpacked SHA-256 are in the manifest.
-Changing the capture requires an explicit compatibility decision. Future
-released readers supersede this prepublication slice as the historical-engine
-test source without deleting its optional-key contract.
+Dependency versions are pinned by the capture revision's `deno.lock`.
