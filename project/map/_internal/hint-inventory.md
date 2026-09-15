@@ -1118,6 +1118,17 @@ Rendered example:
 
 > Inspect its current branch and Proof. Logbook finding: The same worktree has been refused 3 times.
 
+## `managed-version-adoption`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: The running binary differs from the project's recorded adoption, or adoption is absent.
+
+Rendered example:
+
+> This project has no recorded managed-version adoption. Run `discern upgrade --dry-run` to preview adoption; a successful `discern upgrade` records it.
+
 ## `materialized-skills-missing`
 
 - Category: `next-step`

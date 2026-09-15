@@ -26,6 +26,7 @@
  */
 
 import { dirname, join, relative } from "@std/path";
+import { assertManagedMaterialWritable } from "../shared/managed_version.ts";
 import { copy, ensureDir, walk } from "@std/fs";
 import {
   type DiscernConfig,
@@ -639,6 +640,7 @@ export async function planMaterializeSkills(
   dirs: readonly string[],
   options: PlanMaterializeSkillsOptions = {},
 ): Promise<SkillMaterializationPlan> {
+  assertManagedMaterialWritable(config);
   const byName = await resolveSkillsByName(root, config, options.templatesDir);
   const prospective = options.prospectiveAuthoredSkill;
   if (prospective !== undefined) {
@@ -683,6 +685,7 @@ export async function applySkillMaterializationOperation(
   operation: SkillMaterializationOperation,
   config: DiscernConfig,
 ): Promise<Omit<MaterializeResult, "errors">> {
+  assertManagedMaterialWritable(config);
   if (operation.kind === "stale") {
     await removeAny(operation.targetAbs, operation.removeDirectory === true);
     return { copied: 0, linked: 0, pruned: 1 };
@@ -808,6 +811,7 @@ export async function planEjectSkill(
   config: DiscernConfig,
   name: string,
 ): Promise<EjectSkillPlan> {
+  assertManagedMaterialWritable(config);
   const bundledDir = await resolveBundledSkillsDir();
   const srcAbs = join(bundledDir, name);
   if (!(await lstatIfExists(srcAbs))?.isDirectory) {
@@ -832,6 +836,7 @@ export async function planEjectSkill(
 export async function applyEjectSkillPlan(
   plan: EjectSkillPlan,
 ): Promise<EjectResult> {
+  assertManagedMaterialWritable(plan.config);
   if (await lstatIfExists(plan.destAbs) !== undefined) {
     throw new Error(
       `an authored skill already exists at ${plan.destRel} — remove it first to re-eject`,

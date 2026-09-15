@@ -77,6 +77,11 @@ import {
 } from "../lib/agent_gitattributes.ts";
 import { checkProviderHooksCurrent } from "../lib/provider_hooks.ts";
 import {
+  compareManagedVersion,
+  managedVersionAdvice,
+} from "../shared/managed_version.ts";
+import { managedMaterialBoundary } from "../engine/managed_version.ts";
+import {
   allInstructionFilePaths,
   providerFor,
   providersWithHooks,
@@ -499,6 +504,7 @@ export async function runChecks(
   if (config === undefined) {
     return normalizeChecks(checks);
   }
+  const currencyUnavailable = managedMaterialBoundary(config);
 
   // Setup provenance (ADR 0075) — informational, shown only when recorded: which model
   // and discern version ran setup, for support triage. Advisory; discern can't verify a
@@ -720,11 +726,13 @@ export async function runChecks(
   // from Git once, then every group is matched through the shared accessor.
   {
     const groups = resolveGeneratedGroups(config);
-    const attributes = await planDiscernGitattributesBlock(
-      destDir,
-      config,
-      agentFilePaths(config),
-    );
+    const attributes = currencyUnavailable !== undefined
+      ? { operations: [], refused: [] }
+      : await planDiscernGitattributesBlock(
+        destDir,
+        config,
+        agentFilePaths(config),
+      );
     if (attributes.operations.length > 0 || attributes.refused.length > 0) {
       const details: string[] = [];
       if (attributes.operations.length > 0) {
@@ -1077,104 +1085,105 @@ export async function runChecks(
     });
   }
 
-  let renderedInstructionFiles = new Set<string>();
-  let instructionRenderError: string | undefined;
-  try {
-    renderedInstructionFiles = new Set(
-      (await renderAgentFiles(destDir, config)).keys(),
+  if (currencyUnavailable === undefined) {
+    let renderedInstructionFiles = new Set<string>();
+    let instructionRenderError: string | undefined;
+    try {
+      renderedInstructionFiles = new Set(
+        (await renderAgentFiles(destDir, config)).keys(),
+      );
+    } catch (error) {
+      instructionRenderError = error instanceof Error
+        ? error.message
+        : String(error);
+    }
+
+    const providerHookDrift = await checkProviderHooksCurrent(destDir, config);
+    const hookDriftByAgent = new Map(
+      providerHookDrift.map((entry) => [entry.agent, entry]),
     );
-  } catch (error) {
-    instructionRenderError = error instanceof Error
-      ? error.message
-      : String(error);
-  }
 
-  const providerHookDrift = await checkProviderHooksCurrent(destDir, config);
-  const hookDriftByAgent = new Map(
-    providerHookDrift.map((entry) => [entry.agent, entry]),
-  );
+    // 8b. agent integrations — per CONFIGURED agent, the integration surfaces the
+    // provider registry wires today (instruction file, skills dir, MCP, worktree hooks).
+    // Makes per-agent coverage EXPLICIT rather than a silent gap: MCP/hooks are
+    // Claude-only because Codex/Gemini use different mechanisms (their config files /
+    // the absence of a worktree-hook event), so an operator can SEE why an agent lacks
+    // a surface instead of suspecting a bug. An unknown agent name is a real error.
+    for (const name of resolveConfiguredAgents(config)) {
+      const provider = providerFor(name);
+      if (provider === undefined) {
+        checks.push({
+          name: `agent: ${name}`,
+          ok: false,
+          detail: `configured agent "${name}" is not one discern knows`,
+          fix: `use a known agent (${AGENT_NAMES.join(", ")}) or remove it`,
+        });
+        continue;
+      }
+      const mcp = provider.mcp;
+      const instructionPath = provider.instructionFile.path;
+      const instructionWired = instructionRenderError === undefined &&
+        renderedInstructionFiles.has(instructionPath);
+      const hookDrift = hookDriftByAgent.get(name);
+      const hooksWired = provider.hooks !== undefined &&
+        hookDrift === undefined;
+      const wired = [
+        instructionWired ? `instructions ${instructionPath}` : undefined,
+        provider.skillsDir ? `skills ${provider.skillsDir.path}` : undefined,
+        mcp.kind === "wired" ? "mcp" : undefined,
+        hooksWired ? "hooks" : undefined,
+      ].filter((s): s is string => s !== undefined);
+      // Surfaces NOT wired, each stated explicitly so a gap is visible, not silent:
+      // a `pending` MCP is committable and names the file discern will write into once
+      // authored; an absent hooks surface uses the agent's own mechanism.
+      const notWired = [
+        instructionRenderError !== undefined
+          ? `instructions ${instructionPath} (render error)`
+          : !instructionWired
+          ? `instructions ${instructionPath} (not rendered)`
+          : undefined,
+        mcp.kind === "pending"
+          ? `mcp → ${mcp.targetFile} (committable; not yet wired)`
+          : undefined,
+        provider.hooks === undefined
+          ? "hooks (own mechanism)"
+          : hookDrift !== undefined
+          ? `hooks ${hookDrift.path} (${hookDrift.reason})`
+          : undefined,
+      ].filter((s): s is string => s !== undefined);
+      let detail = `wired: ${wired.join(", ")}`;
+      if (notWired.length > 0) {
+        detail += `; not wired: ${notWired.join(", ")}`;
+      }
+      // One-time trust: discern can wire everything into the repo, but several agents
+      // gate committed MCP/hooks behind trusting the folder — so the tools won't appear
+      // until then. Surface it for an agent with a committable surface (wired/pending
+      // MCP, or hooks), naming the exact action, so the gap between "wired" and "active"
+      // is visible (deliverable 5). An agent with no committable surface has nothing to
+      // trust, so the clause is omitted.
+      const hasCommittableSurface = mcp.kind !== "none" ||
+        provider.hooks !== undefined;
+      if (hasCommittableSurface) {
+        detail += provider.trust.required
+          ? `; trust: one-time — ${renderProviderTrustCli(provider.trust)}`
+          : `; trust: not required — ${renderProviderTrustCli(provider.trust)}`;
+      }
+      checks.push({ name: `agent: ${provider.label}`, ok: true, detail });
+    }
 
-  // 8b. agent integrations — per CONFIGURED agent, the integration surfaces the
-  // provider registry wires today (instruction file, skills dir, MCP, worktree hooks).
-  // Makes per-agent coverage EXPLICIT rather than a silent gap: MCP/hooks are
-  // Claude-only because Codex/Gemini use different mechanisms (their config files /
-  // the absence of a worktree-hook event), so an operator can SEE why an agent lacks
-  // a surface instead of suspecting a bug. An unknown agent name is a real error.
-  for (const name of resolveConfiguredAgents(config)) {
-    const provider = providerFor(name);
-    if (provider === undefined) {
+    for (const drift of providerHookDrift) {
       checks.push({
-        name: `agent: ${name}`,
+        name: `agent hooks: ${drift.label}`,
         ok: false,
-        detail: `configured agent "${name}" is not one discern knows`,
-        fix: `use a known agent (${AGENT_NAMES.join(", ")}) or remove it`,
+        detail: drift.detail === undefined
+          ? `${drift.path} is ${drift.reason}`
+          : `${drift.path} is ${drift.reason}: ${drift.detail}`,
+        fix: drift.reason === "unreadable"
+          ? `repair ${drift.path}, then run \`discern refresh\``
+          : `run \`discern refresh\` to re-seed ${drift.path}`,
       });
-      continue;
     }
-    const mcp = provider.mcp;
-    const instructionPath = provider.instructionFile.path;
-    const instructionWired = instructionRenderError === undefined &&
-      renderedInstructionFiles.has(instructionPath);
-    const hookDrift = hookDriftByAgent.get(name);
-    const hooksWired = provider.hooks !== undefined &&
-      hookDrift === undefined;
-    const wired = [
-      instructionWired ? `instructions ${instructionPath}` : undefined,
-      provider.skillsDir ? `skills ${provider.skillsDir.path}` : undefined,
-      mcp.kind === "wired" ? "mcp" : undefined,
-      hooksWired ? "hooks" : undefined,
-    ].filter((s): s is string => s !== undefined);
-    // Surfaces NOT wired, each stated explicitly so a gap is visible, not silent:
-    // a `pending` MCP is committable and names the file discern will write into once
-    // authored; an absent hooks surface uses the agent's own mechanism.
-    const notWired = [
-      instructionRenderError !== undefined
-        ? `instructions ${instructionPath} (render error)`
-        : !instructionWired
-        ? `instructions ${instructionPath} (not rendered)`
-        : undefined,
-      mcp.kind === "pending"
-        ? `mcp → ${mcp.targetFile} (committable; not yet wired)`
-        : undefined,
-      provider.hooks === undefined
-        ? "hooks (own mechanism)"
-        : hookDrift !== undefined
-        ? `hooks ${hookDrift.path} (${hookDrift.reason})`
-        : undefined,
-    ].filter((s): s is string => s !== undefined);
-    let detail = `wired: ${wired.join(", ")}`;
-    if (notWired.length > 0) {
-      detail += `; not wired: ${notWired.join(", ")}`;
-    }
-    // One-time trust: discern can wire everything into the repo, but several agents
-    // gate committed MCP/hooks behind trusting the folder — so the tools won't appear
-    // until then. Surface it for an agent with a committable surface (wired/pending
-    // MCP, or hooks), naming the exact action, so the gap between "wired" and "active"
-    // is visible (deliverable 5). An agent with no committable surface has nothing to
-    // trust, so the clause is omitted.
-    const hasCommittableSurface = mcp.kind !== "none" ||
-      provider.hooks !== undefined;
-    if (hasCommittableSurface) {
-      detail += provider.trust.required
-        ? `; trust: one-time — ${renderProviderTrustCli(provider.trust)}`
-        : `; trust: not required — ${renderProviderTrustCli(provider.trust)}`;
-    }
-    checks.push({ name: `agent: ${provider.label}`, ok: true, detail });
   }
-
-  for (const drift of providerHookDrift) {
-    checks.push({
-      name: `agent hooks: ${drift.label}`,
-      ok: false,
-      detail: drift.detail === undefined
-        ? `${drift.path} is ${drift.reason}`
-        : `${drift.path} is ${drift.reason}: ${drift.detail}`,
-      fix: drift.reason === "unreadable"
-        ? `repair ${drift.path}, then run \`discern refresh\``
-        : `run \`discern refresh\` to re-seed ${drift.path}`,
-    });
-  }
-
   // 9. gotchas doc resolves — if [project].gotchas_doc is set, the file the gate
   // points a failing agent at must exist.
   {
@@ -1316,8 +1325,19 @@ export async function doctorResult(
   );
   const checks = await runChecks(destDir);
   const cfg = await loadModelConfig(destDir);
+  const adoption = compareManagedVersion(
+    DISCERN_VERSION,
+    cfg?.meta.managed_version,
+  );
+  const adoptionAdvice = managedVersionAdvice(adoption, "references");
+  const currencyUnavailable = cfg === undefined
+    ? undefined
+    : managedMaterialBoundary(cfg);
   const ok = checks.every((c) => c.status !== "fail");
   const hints = [
+    ...(adoptionAdvice === undefined
+      ? []
+      : [fire(HINTS["managed-version-adoption"], { advice: adoptionAdvice })]),
     ...(midSetup(cfg) ? [fire(HINTS["setup-unfinished-doctor"])] : []),
     ...(!ok ? [fire(HINTS["doctor-failed-checks"])] : []),
     ...(cfg !== undefined && options.verbose !== true
@@ -1329,6 +1349,10 @@ export async function doctorResult(
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
     data: {
       discern_version: DISCERN_VERSION,
+      managed_version: adoption,
+      ...(currencyUnavailable === undefined
+        ? {}
+        : { managed_currency_unavailable: currencyUnavailable }),
       ...(releaseDue ? { release_reminder: RELEASE_REMINDER } : {}),
       environment: await doctorEnvironment(),
       checks,
@@ -1692,6 +1716,9 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   const healthy = checks.every((c) => c.status !== "fail");
   const env = result.data?.environment ?? await doctorEnvironment();
   const cfg = await loadModelConfig(destDir);
+  const adoptionAdvice = result.data?.managed_version === undefined
+    ? undefined
+    : managedVersionAdvice(result.data.managed_version);
   const groups: DoctorHumanGroup[] = [
     {
       id: "environment",
@@ -1719,6 +1746,9 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
       id: "doctor-checks",
       items: [
         (): void => renderDoctorChecks(log, checks, terminal),
+        ...(adoptionAdvice === undefined
+          ? []
+          : [(): void => log.detail(adoptionAdvice)]),
         ...(result.data?.release_reminder
           ? [(): void =>
             log.detail(

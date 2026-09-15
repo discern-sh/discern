@@ -1,4 +1,5 @@
 import { UPDATE_SEQUENCE } from "./product_identity.ts";
+import { managedVersionAdvice } from "./managed_version.ts";
 import {
   appendHintTexts,
   firedHintsFromTexts,
@@ -878,6 +879,21 @@ export const HINTS = {
       "Continue a fleet worktree only if this effort created it. Review " +
       "feedback and resumed sessions keep that assignment. Never claim a " +
       "worktree from another effort because it is idle or clean.",
+  }),
+
+  "managed-version-adoption": defineHint({
+    id: "managed-version-adoption",
+    category: "next-step",
+    audience: "all",
+    when:
+      "The running binary differs from the project's recorded adoption, or adoption is absent.",
+    example: {
+      advice: managedVersionAdvice(
+        { state: "unknown", running: "1.2.7" },
+        "references",
+      ) ?? "",
+    },
+    template: ({ advice }: { advice: string }): string => advice,
   }),
 
   "release-check-sequence": defineHint({

@@ -16,6 +16,7 @@ export const OPERATION_EFFECT_CLASSES = [
   "discern-git-mutation",
   "project-command",
   "external-setup",
+  "managed-artifact-write",
 ] as const;
 
 /** One operation effect class. */
@@ -132,7 +133,7 @@ const PROJECT_COMMAND = policy(
   "disclose",
 );
 const EXTERNAL_CHECKOUT_REQUIRED = policy(
-  ["discern-checkout-mutation", "external-setup"],
+  ["managed-artifact-write", "discern-checkout-mutation", "external-setup"],
   "checkout",
   "required",
 );
@@ -145,6 +146,7 @@ const EXTERNAL_CHECKOUT_REQUIRED = policy(
 export const OPERATION_EFFECTS = {
   accept: policy(
     [
+      "managed-artifact-write",
       "discern-checkout-mutation",
       "discern-common-mutation",
       "discern-git-mutation",
@@ -219,7 +221,12 @@ export const OPERATION_EFFECTS = {
     "required",
   ),
   prepare: policy(
-    ["discern-checkout-mutation", "project-command", "external-setup"],
+    [
+      "managed-artifact-write",
+      "discern-checkout-mutation",
+      "project-command",
+      "external-setup",
+    ],
     "checkout",
     "disclose",
   ),
@@ -230,7 +237,7 @@ export const OPERATION_EFFECTS = {
     "disclose",
   ),
   refresh: policy(
-    ["discern-checkout-mutation", "external-setup"],
+    ["managed-artifact-write", "discern-checkout-mutation", "external-setup"],
     "checkout",
     "required",
   ),
@@ -245,6 +252,7 @@ export const OPERATION_EFFECTS = {
   setup: OBSERVATION,
   "setup accept": policy(
     [
+      "managed-artifact-write",
       "discern-checkout-mutation",
       "discern-common-mutation",
       "discern-git-mutation",
@@ -256,6 +264,7 @@ export const OPERATION_EFFECTS = {
   ),
   "setup begin": policy(
     [
+      "managed-artifact-write",
       "discern-checkout-mutation",
       "discern-common-mutation",
       "discern-git-mutation",
@@ -270,6 +279,7 @@ export const OPERATION_EFFECTS = {
   ),
   "setup done": policy(
     [
+      "managed-artifact-write",
       "discern-checkout-mutation",
       "discern-common-mutation",
       "discern-git-mutation",
@@ -307,6 +317,7 @@ export const OPERATION_EFFECTS = {
   ),
   start: policy(
     [
+      "managed-artifact-write",
       "discern-common-mutation",
       "discern-git-mutation",
       "project-command",
@@ -336,6 +347,7 @@ export const OPERATION_EFFECTS = {
   ),
   update: policy(
     [
+      "managed-artifact-write",
       "discern-checkout-mutation",
       "discern-git-mutation",
       "project-command",
@@ -345,7 +357,7 @@ export const OPERATION_EFFECTS = {
     "required",
   ),
   upgrade: policy(
-    ["discern-checkout-mutation", "external-setup"],
+    ["managed-artifact-write", "discern-checkout-mutation", "external-setup"],
     "checkout",
     "required",
     { lockWhen: { unlessFlags: ["check"] } },
@@ -363,6 +375,7 @@ export const OPERATION_EFFECTS = {
   ),
   "worktree ensure": policy(
     [
+      "managed-artifact-write",
       "discern-checkout-mutation",
       "discern-git-mutation",
       "project-command",
@@ -380,6 +393,7 @@ export const OPERATION_EFFECTS = {
   "worktree hook": OBSERVATION,
   "worktree hook create": policy(
     [
+      "managed-artifact-write",
       "discern-checkout-mutation",
       "discern-git-mutation",
       "project-command",

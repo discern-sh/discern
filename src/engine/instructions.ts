@@ -8,6 +8,10 @@
  */
 
 import { ensureDir } from "@std/fs";
+import {
+  assertManagedMaterialWritable,
+  managedMaterialBoundary,
+} from "./managed_version.ts";
 import { dirname } from "@std/path";
 import {
   applyMaterializeSkillsPlan,
@@ -311,6 +315,7 @@ export async function applyRefreshPlan(
   plan: RefreshPlan,
   log = new Logger({ json: true, noColor: true }),
 ): Promise<RefreshApplyResult> {
+  assertManagedMaterialWritable(await loadConfig(plan.root));
   const summary = emptySummary(plan.errors.map((error) => error.message));
   const steps: StepResult[] = [];
   const failedBoundaries = new Set<string>();
@@ -414,6 +419,15 @@ export async function refreshResult(
   logger = new Logger({ json: true, noColor: true }),
   options: RefreshResultOptions = {},
 ): Promise<DiscernResult<RefreshData>> {
+  const message = managedMaterialBoundary(await loadConfig(root));
+  if (message !== undefined) {
+    return {
+      ok: false,
+      verb: "refresh",
+      error: "precondition_failed",
+      message,
+    };
+  }
   const plan = await planRefresh(root, options);
   if (options.dryRun === true) {
     const summary = plannedSummary(plan);
@@ -482,6 +496,7 @@ export async function materializeLocalRefreshArtifacts(
   const log = logger ??
     new Logger({ json: false, noColor: false, humanStream: "stdout" });
   const config: DiscernConfig = await loadConfig(root);
+  assertManagedMaterialWritable(config);
   const materialized = await applyMaterializeSkillsPlan(
     await planMaterializeSkills(
       root,

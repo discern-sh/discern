@@ -15,6 +15,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 1       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
+| [`managed-version-states`](#managed-version-states--managed-version-comparison-states)                                | `src/shared/managed_version.ts#MANAGED_VERSION_STATES`                            | 4       | —                | —                           |
 | [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 67      | —                | —                           |
 | [`side-restricted-operations`](#side-restricted-operations--side-restricted-operations)                               | `src/engine/worktree/side_restrictions.ts#SIDE_RESTRICTED_OPS`                    | 9       | —                | node `worktrees`            |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 26      | —                | node `plan-apply`           |
@@ -69,7 +70,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 20      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 5       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 201     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 202     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 44      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
@@ -111,7 +112,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 389     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 390     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 25      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -143,9 +144,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 13      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 3       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 132     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 133     | —                | node `canonical-sets`       |
 
-132 sets · 188 guard tests · 74 committed artifacts.
+133 sets · 191 guard tests · 74 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -281,6 +282,9 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/logbook_powered_test.ts`                    | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/logbook_routing_test.ts`                    | [`logbook-events`](#logbook-events--logbook-events), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/logbook_test.ts`                            | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events), [`logbook-lifecycle-actions`](#logbook-lifecycle-actions--logbook-lifecycle-actions), [`error-slugs`](#error-slugs--result-error-slugs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `tests/managed_version_baseline_test.ts`           | [`managed-version-states`](#managed-version-states--managed-version-comparison-states)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `tests/managed_version_journey_test.ts`            | [`managed-version-states`](#managed-version-states--managed-version-comparison-states)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `tests/managed_version_test.ts`                    | [`managed-version-states`](#managed-version-states--managed-version-comparison-states)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `tests/manual_curation_test.ts`                    | [`manual-pages`](#manual-pages--published-manual-pages), [`manual-sections`](#manual-sections--manual-sections), [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/manual_doc_checkpoint_test.ts`              | [`manual-sections`](#manual-sections--manual-sections), [`manual-kinds`](#manual-kinds--manual-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/manual_policy_test.ts`                      | [`manual-kinds`](#manual-kinds--manual-kinds), [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners), [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations), [`manual-benefit-exclusions`](#manual-benefit-exclusions--manual-benefit-exclusions)                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -493,6 +497,20 @@ Every top-level verb kept out of the operator help listing carries a reason and 
 - Guards: `tests/engine_help_groups_test.ts`, `tests/spoiler_guard_test.ts`
 - Glossary: not enrolled — the hidden-verb registry documents help visibility, its reason, and its revival condition for each existing verb
 - Feature canon: not enrolled — the verbs set already enrolls every member; hiding changes only its help listing
+
+## `managed-version-states` — Managed-version comparison states
+
+The local comparison between this running binary and optional committed project-adoption evidence.
+
+- Source: `src/shared/managed_version.ts` — `MANAGED_VERSION_STATES`
+- Members: 4
+  - `unknown`
+  - `equal`
+  - `running-newer`
+  - `project-managed-by-newer`
+- Guards: `tests/managed_version_test.ts`, `tests/managed_version_journey_test.ts`, `tests/managed_version_baseline_test.ts`
+- Glossary: not enrolled — The adoption model explains comparison states together rather than treating each state as a separate product term.
+- Feature canon: not enrolled — These states implement the existing explicit-upgrade boundary.
 
 ## `operation-effects` — Operation effects
 
@@ -1968,7 +1986,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 201
+- Members: 202
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -1996,6 +2014,7 @@ The advisory hint registry: every hint string enters results through it.
   - `status-ready-uncovered-authority`
   - `status-missing-done-proof`
   - `fleet-ownership`
+  - `managed-version-adoption`
   - `release-check-sequence`
   - `status-fleet-logbook-disabled`
   - `status-no-active-worktrees`
@@ -3515,7 +3534,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 389
+- Members: 390
   - `0003`
   - `0005`
   - `0006`
@@ -3874,6 +3893,7 @@ The numbered decision records in the map, including records later superseded.
   - `0398`
   - `0399`
   - `0400`
+  - `0401`
   - `0001`
   - `0002`
   - `0004`
@@ -4791,10 +4811,11 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 132
+- Members: 133
   - `release-records`
   - `verbs`
   - `hidden-verbs`
+  - `managed-version-states`
   - `operation-effects`
   - `side-restricted-operations`
   - `dry-run-verbs`

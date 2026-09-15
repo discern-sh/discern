@@ -90,6 +90,12 @@ import {
 } from "../../lib/provider_hooks.ts";
 import { Logger } from "../../lib/log.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
+import { DISCERN_VERSION } from "../../lib/version.ts";
+import {
+  compareManagedVersion,
+  managedVersionAdvice,
+} from "../../shared/managed_version.ts";
+import { managedMaterialBoundary } from "../managed_version.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
@@ -358,8 +364,18 @@ export async function statusResult(
   const fleetLed = includeFleet && location === "main";
 
   const releaseDue = releaseReminderDue(await inspectReleaseCheck(root), nowMs);
+  const adoption = compareManagedVersion(
+    DISCERN_VERSION,
+    cfg.meta.managed_version,
+  );
+  const adoptionAdvice = managedVersionAdvice(adoption, "references");
+  const currencyUnavailable = managedMaterialBoundary(cfg);
   const completionRecovery = await completionRecoveryStatus(root);
   const data: StatusData = {
+    managed_version: adoption,
+    ...(currencyUnavailable === undefined
+      ? {}
+      : { managed_currency_unavailable: currencyUnavailable }),
     ...completionRecovery.data,
     ...(releaseDue ? { release_reminder: RELEASE_REMINDER } : {}),
     location,
@@ -449,7 +465,7 @@ export async function statusResult(
   // a hint so a drifted or not-yet-built AGENTS.md is noticed at orientation, never
   // an unverified pass/fail.
   const instructionDrift: InstructionDriftEntry[] =
-    await checkInstructionCurrent(
+    currencyUnavailable !== undefined ? [] : await checkInstructionCurrent(
       root,
       cfg,
     );
@@ -457,13 +473,17 @@ export async function statusResult(
   // The same read-only currency check, for the MATERIALIZED skills (ADR 0034,
   // extended to skills). A drifted or not-yet-materialized skills dir is
   // noticed at orientation through its registered hint.
-  const skillsDrift: SkillsDriftEntry[] = await checkSkillsCurrent(root, cfg);
+  const skillsDrift: SkillsDriftEntry[] = currencyUnavailable !== undefined
+    ? []
+    : await checkSkillsCurrent(root, cfg);
 
   // Provider integration currency. Hook files are provider-owned settings that
   // `discern refresh` re-seeds through registry-declared merge strategies. Surface
   // missing/stale hook files during orientation just like generated instructions and
   // materialized skills, but keep status read-only.
-  const providerHookDrift = await checkProviderHooksCurrent(root, cfg);
+  const providerHookDrift = currencyUnavailable !== undefined
+    ? []
+    : await checkProviderHooksCurrent(root, cfg);
 
   // The maintained ADR index — the same read-only currency shape, for the
   // record lists a refresh keeps between markers in the ADR README. Advisory
@@ -739,6 +759,7 @@ export async function statusResult(
     providerHookDrift,
     adrIndex,
     trackedRefreshPlan,
+    adoptionAdvice,
     trackedIgnoredArtifacts,
     untrackedInstructions,
     setupPending,
@@ -1012,6 +1033,7 @@ interface HintContext {
   adrIndex: AdrIndexState;
   /** Complete read-only plan for refresh-managed tracked files. */
   trackedRefreshPlan: TrackedRefreshPlan;
+  adoptionAdvice: string | undefined;
   /** Discern-owned ignored artifacts currently tracked by Git. */
   trackedIgnoredArtifacts: TrackedDiscernIgnoredArtifacts;
   /** Compiled instruction files untracked and not ignored — commit recommended. */
@@ -1451,6 +1473,11 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // The checkpoint obligation account rides last, after every observation
   // about the broader current state.
   hints.push(...ctx.checkpointPreview);
+  if (ctx.adoptionAdvice !== undefined) {
+    hints.push(
+      fire(HINTS["managed-version-adoption"], { advice: ctx.adoptionAdvice }),
+    );
+  }
   if (ctx.releaseDue) hints.push(fire(HINTS["release-check-sequence"]));
 
   return hints;

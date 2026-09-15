@@ -157,6 +157,7 @@ import {
   WorktreeResultError,
 } from "./git.ts";
 import { deriveIdentity } from "./identity.ts";
+import { committedManagedVersionBoundary } from "../managed_version.ts";
 import { hasIgnoredFileChanges, inspectIgnoredFileChanges } from "./ignored.ts";
 import {
   inspectLandingAuthority,
@@ -442,6 +443,7 @@ function refuseMovedOnDecisions(
 
 /** Refuse acceptance while refresh still has tracked work to commit. */
 function trackedRefreshAcceptRefusal(plan: TrackedRefreshPlan): string {
+  if (plan.unavailable !== undefined) return plan.unavailable;
   const paths = plan.changes.map((change) => change.path);
   const planned = paths.length > 0
     ? ` Running \`discern refresh\` would change: ${paths.join(", ")}.`
@@ -501,6 +503,16 @@ async function buildAcceptPlan(
       );
     }
   }
+  if (direct) {
+    const managedBoundary = await committedManagedVersionBoundary(
+      effort.path,
+      effort.trunk,
+      subject.head,
+    );
+    if (managedBoundary !== undefined) {
+      throw new WorktreeGitError(managedBoundary);
+    }
+  }
   if (subject.atHead && direct) {
     const merged = await assertResolvedTrunkMerged(effort.path, effort.trunk);
     if (merged.kind === "behind") refuseTrunkMoved(effort);
@@ -515,7 +527,10 @@ async function buildAcceptPlan(
       effort.path,
       effort.ctx.config,
     );
-    if (trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0) {
+    if (
+      trackedRefresh.unavailable !== undefined ||
+      trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0
+    ) {
       throw new WorktreeGitError(trackedRefreshAcceptRefusal(trackedRefresh));
     }
   }

@@ -73,6 +73,10 @@ import {
 import { checkInstructionCurrent } from "../instruction_render.ts";
 import { checkSkillsCurrent } from "../../lib/skills.ts";
 import { Logger } from "../../lib/log.ts";
+import {
+  assertManagedMaterialWritable,
+  managedMaterialBoundary,
+} from "../../shared/managed_version.ts";
 
 interface PrepareRefreshRun {
   readonly ok: boolean;
@@ -176,6 +180,7 @@ async function runPrepareGate(
   }
 > {
   const cfg = await loadConfig(root);
+  assertManagedMaterialWritable(cfg);
   const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
   const plan = buildPreparePlan(cfg);
   const groups = [...plan.beforeRefresh, ...plan.afterRefresh];
@@ -340,6 +345,15 @@ export async function prepareResult(
   root: string,
   signal?: AbortSignal,
 ): Promise<DiscernResult> {
+  const message = managedMaterialBoundary(await loadConfig(root));
+  if (message !== undefined) {
+    return {
+      ok: false,
+      verb: "prepare",
+      error: "precondition_failed",
+      message,
+    };
+  }
   return (await runPrepareGate(root, { kind: "quiet-result" }, signal)).result;
 }
 

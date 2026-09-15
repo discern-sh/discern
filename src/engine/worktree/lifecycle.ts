@@ -17,6 +17,7 @@
  * for identity-dependent convergence.
  */
 import { withTrackedRun } from "../jobs/interrupt.ts";
+import { assertManagedMaterialWritable } from "../../shared/managed_version.ts";
 import { withWorktreeOwnership } from "../operation_lock.ts";
 
 import {
@@ -1949,6 +1950,7 @@ export async function buildUpdatePlan(
   ctx: LifecycleContext,
   from?: string,
 ): Promise<UpdatePlan> {
+  assertManagedMaterialWritable(ctx.config);
   await assertOpSide("update", ctx.cwd);
   const run = makeGitRunner(ctx);
   const current = (await run(["branch", "--show-current"])).stdout.trim();

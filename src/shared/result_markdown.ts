@@ -1055,6 +1055,7 @@ const presentDoctor: ResultMarkdownPresenter = (result) => {
         : `${plural(problems.length, "doctor check")} need attention.`,
     ),
     evidence: unique([
+      text(data.managed_currency_unavailable),
       text(data.release_reminder),
       text(data.discern_version) === undefined
         ? undefined
@@ -1814,6 +1815,7 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
   return {
     state: defaultState(result, state),
     evidence: unique([
+      text(data.managed_currency_unavailable),
       ...emergencyValidationFacts(data),
       landedExceptionFact(data),
       text(data.root) === undefined ? undefined : `Root: ${code(data.root)}.`,

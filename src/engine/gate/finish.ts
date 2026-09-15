@@ -191,6 +191,10 @@ import {
   writePreflightFailureMessage,
 } from "../../shared/write_preflight.ts";
 import { planTrackedRefresh } from "../tracked_refresh.ts";
+import {
+  managedMaterialBoundary,
+  trunkManagedVersionBoundary,
+} from "../managed_version.ts";
 
 /** Candidate coordination wraps the gate's existing plan, judgment and validation seams. */
 async function runGate(
@@ -1763,6 +1767,18 @@ export async function finishResult(
   root: string,
   opts: FinishResultOptions,
 ): Promise<DiscernResult<GateData>> {
+  const managedConfig = await loadConfig(root);
+  const managedBoundary = managedMaterialBoundary(managedConfig) ??
+    await trunkManagedVersionBoundary(root, managedConfig);
+  if (managedBoundary !== undefined) {
+    return {
+      ok: false,
+      verb: "done",
+      error: "precondition_failed",
+      message: managedBoundary +
+        " This binary cannot issue ordinary Proof for this tree. Run `discern test` for the configured test stage.",
+    };
+  }
   const treeRefusal = await completionTreeRefusal(root, opts.standalone);
   if (treeRefusal !== undefined) return treeRefusal;
   const mode = opts.ci === true ? "report" as const : "strict" as const;

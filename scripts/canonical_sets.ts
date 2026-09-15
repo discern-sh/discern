@@ -202,6 +202,37 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "managed-version-states",
+    title: "Managed-version comparison states",
+    what:
+      "The local comparison between this running binary and optional committed project-adoption evidence.",
+    source: {
+      kind: "module",
+      module: "src/shared/managed_version.ts",
+      exportName: "MANAGED_VERSION_STATES",
+    },
+    guards: [
+      "tests/managed_version_test.ts",
+      "tests/managed_version_journey_test.ts",
+      "tests/managed_version_baseline_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "The adoption model explains comparison states together rather than treating each state as a separate product term.",
+      },
+      featureCanon: {
+        absent:
+          "These states implement the existing explicit-upgrade boundary.",
+      },
+    },
+    members: async () => [
+      ...(await import("../src/shared/managed_version.ts"))
+        .MANAGED_VERSION_STATES,
+    ],
+  },
+  {
     id: "operation-effects",
     title: "Operation effects",
     what:

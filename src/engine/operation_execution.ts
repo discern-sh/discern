@@ -1,6 +1,12 @@
 /** Shared public execution: journal before exclusion, retain the delivered result. */
 import { runGit } from "../shared/subprocess.ts";
 import { CommonPublicationExecutionError } from "../shared/operation_execution_boundary.ts";
+import { loadConfig } from "../shared/config_schema.ts";
+import { resolveConfigPath } from "../lib/paths.ts";
+import {
+  managedMaterialBoundary,
+  trunkManagedVersionBoundary,
+} from "./managed_version.ts";
 
 import type { DiscernResult } from "../shared/result.ts";
 import { withResultObserver } from "../shared/result_capture.ts";
@@ -40,6 +46,13 @@ export async function executeOperation<T>(
   options: { resumeAfterInterrupt?: boolean } = {},
 ): Promise<T> {
   const policy = operationEffectPolicy(invocation.command, invocation);
+  // Refuse without journal effects, then recheck after acquiring exclusion: a
+  // preceding operation may have adopted a newer version while this one waited.
+  await assertOperationAdoption(root, invocation);
+  const guardedBody = async (signal: AbortSignal): Promise<T> => {
+    await assertOperationAdoption(root, invocation);
+    return await body(signal);
+  };
   const observable = !invocation.dryRun &&
     ((policy !== undefined && policy.lock !== "none") ||
       (policy?.lockWhen === undefined &&
@@ -48,7 +61,7 @@ export async function executeOperation<T>(
     return await withOperationLock(
       root,
       invocation,
-      () => body(externalSignal ?? new AbortController().signal),
+      () => guardedBody(externalSignal ?? new AbortController().signal),
     );
   }
   return await withTrackedRun(externalSignal, async (signal) => {
@@ -86,7 +99,7 @@ export async function executeOperation<T>(
                   const value = await withOperationLock(
                     root,
                     invocation,
-                    () => body(signal),
+                    () => guardedBody(signal),
                   );
                   return {
                     kind: "returned" as const,
@@ -131,6 +144,36 @@ export async function executeOperation<T>(
     if (outcome.kind === "threw") throw outcome.error;
     return outcome.value;
   }, options);
+}
+
+/** Registry-driven writer protection; adoption is not a universal runtime floor. */
+async function assertOperationAdoption(
+  root: string,
+  invocation: OperationInvocation,
+): Promise<void> {
+  const policy = operationEffectPolicy(invocation.command, invocation);
+  if (
+    !policy?.effects.includes("managed-artifact-write") &&
+    invocation.command !== "done"
+  ) return;
+  if (await resolveConfigPath(root) === undefined) return;
+  const config = await loadConfig(root);
+  const currency = managedMaterialBoundary(config);
+  const regression =
+    invocation.command === "done" || invocation.command === "accept" ||
+      invocation.command === "setup accept"
+      ? await trunkManagedVersionBoundary(root, config)
+      : undefined;
+  const message = currency === undefined ? regression : currency +
+    " Managed-artifact currency and ordinary Proof are unavailable to this binary. Safe reads and `discern test` remain available.";
+  if (message !== undefined) {
+    throw new OperationLockError({
+      ok: false,
+      verb: invocation.resultVerb ?? invocation.command,
+      error: "precondition_failed",
+      message,
+    });
+  }
 }
 
 /** A delegated child belongs to its live lease owner's journal. The parent

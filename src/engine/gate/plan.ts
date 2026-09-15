@@ -13,6 +13,7 @@
  */
 
 import { type DiscernConfig, toCommand } from "../../shared/config_schema.ts";
+import { managedMaterialBoundary } from "../../shared/managed_version.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
 import {
@@ -102,6 +103,7 @@ export interface JobGroup {
  * spawns; executed by `executeGatePlan`; serialized to the ADR-0004 report.
  */
 export interface GatePlan {
+  unavailable?: string;
   mode: GateMode;
   groups: JobGroup[];
   /** The never-loosen verification of [standards] limits against the trunk runs as
@@ -396,6 +398,19 @@ export function generatedGroup(cfg: DiscernConfig): JobGroup | undefined {
  * the pure plan so execution, structured results, and doctor share one order.
  */
 export function buildPreparePlan(cfg: DiscernConfig): PreparePlan {
+  const unavailable = managedMaterialBoundary(cfg);
+  if (unavailable !== undefined) {
+    return {
+      beforeRefresh: [],
+      refresh: {
+        kind: "refresh",
+        label: BUILT_IN_STEP_LABELS.completeRefresh,
+        disposition: "gate",
+        note: unavailable,
+      },
+      afterRefresh: [],
+    };
+  }
   const beforeRefresh: JobGroup[] = [];
   const fix = stageGroup(cfg, "fix");
   if (fix !== undefined) beforeRefresh.push(fix);
@@ -493,13 +508,15 @@ export function buildGatePlan(
   mode: GateMode = "strict",
   previewActions: PreviewActionData[] = [],
 ): GatePlan {
-  return composeGatePlan(
+  const plan = composeGatePlan(
     buildStageGroups(cfg, standardJobs),
     scopeGatesGroup(planScopeGates(cfg, changed)),
     changed,
     mode,
     previewActions,
   );
+  const unavailable = managedMaterialBoundary(cfg);
+  return unavailable === undefined ? plan : { ...plan, unavailable };
 }
 
 // ── the `done` result (a DiscernResult serialization of plan + results) ───────
@@ -763,6 +780,16 @@ export async function buildGateResultWithHints(
  * plan cannot predict.
  */
 export function gatePlanToEngine(plan: GatePlan): EnginePlan {
+  if (plan.unavailable !== undefined) {
+    return {
+      title: "Gate Proof unavailable",
+      details: [
+        plan.unavailable,
+        "Use discern test for the configured test stage.",
+      ],
+      steps: [],
+    };
+  }
   const steps: PlanStep[] = [];
   if (plan.mergeCheck) {
     steps.push({

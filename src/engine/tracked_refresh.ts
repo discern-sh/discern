@@ -7,6 +7,10 @@
  * plan therefore feeds preview, apply, status, and Gate convergence checks.
  */
 
+import {
+  assertManagedMaterialWritable,
+  managedMaterialBoundary,
+} from "./managed_version.ts";
 import { join, relative } from "@std/path";
 import { adrIndexState } from "../lib/adr_index.ts";
 import {
@@ -148,6 +152,7 @@ export interface TrackedRefreshChange {
 
 /** The tracked projection consumed by status, Gate, acceptance, and update. */
 export interface TrackedRefreshPlan {
+  readonly unavailable?: string;
   readonly changes: readonly TrackedRefreshChange[];
   readonly errors: readonly string[];
 }
@@ -353,6 +358,7 @@ export async function planRefresh(
   env: EnvReader = options.env ?? Deno.env,
 ): Promise<RefreshPlan> {
   const config = options.config ?? await loadConfig(root);
+  assertManagedMaterialWritable(config);
   const effects: RefreshEffect[] = [];
   const errors: RefreshPlanningError[] = [];
   const warnings: string[] = [];
@@ -689,7 +695,12 @@ export async function planTrackedRefresh(
   config?: DiscernConfig,
   env: EnvReader = Deno.env,
 ): Promise<TrackedRefreshPlan> {
-  const plan = await planRefresh(root, { config, env });
+  const cfg = config ?? await loadConfig(root);
+  const unavailable = managedMaterialBoundary(cfg);
+  if (unavailable !== undefined) {
+    return { changes: [], errors: [], unavailable };
+  }
+  const plan = await planRefresh(root, { config: cfg, env });
   const repoPrefix = await repoPathPrefix(root);
   const candidates = plan.effects.filter((effect): effect is Extract<
     RefreshEffect,
