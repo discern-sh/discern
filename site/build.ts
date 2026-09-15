@@ -6,6 +6,8 @@
  * React runtime.
  */
 
+import { buildReleaseCatalogue } from "./releases/catalogue.ts";
+
 import {
   type BuildSummary,
   emitDesignSystemRuntime,
@@ -28,6 +30,7 @@ export const GENERATED_SITE_OUTPUTS = [
   ...MARKETING_PAGES.map((page) => page.page),
   "pages/assets/design-system/",
   "pages/fragments/",
+  "pages/release-catalogue.json",
 ] as const;
 
 /** Page-owned assets copied verbatim into the compositions bundle. */
@@ -96,6 +99,7 @@ export async function buildSite(): Promise<void> {
     await removeIfPresent(new URL(output, SITE_ROOT));
   }
 
+  await buildReleaseCatalogue();
   await Deno.mkdir(ASSET_ROOT, { recursive: true });
   await Deno.mkdir(FRAGMENT_ROOT, { recursive: true });
   await emitBundle("docs");
