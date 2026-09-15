@@ -1037,13 +1037,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "desk",
         title: "The desk",
         what:
-          "Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, runs Project Scripts from the main checkout or a selected worktree, opens configured coding-agent CLIs found on `PATH`, links to the online manual, pre-authorizes one effort to land once green, and keeps task controls reachable while observations refresh, owning the child sessions it launches.",
+          "Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, runs Project Scripts from the main checkout or a selected worktree, opens configured coding-agent CLIs found on `PATH`, opens the offline manual, pre-authorizes one effort to land once green, and keeps task controls reachable while observations refresh, owning the child sessions it launches.",
         why:
           "The maintainer can inspect and act on the fleet from one interactive surface.",
         plain: {
           title: "The desk",
           what:
-            "Running `discern` on its own opens the desk for the person in charge: one interactive view over all the work in progress. It starts tasks, runs the project's own tools from the main or a separate working copy, opens the online manual, opens any of the recognized coding-agent programs found in the computer's standard installed-program list (called `PATH`), records permission in advance for one task to join the main shared version once it passes, and keeps each task's controls reachable while work changes — staying responsible for the sessions it starts.",
+            "Running `discern` on its own opens the desk for the person in charge: one interactive view over all the work in progress. It starts tasks, runs the project's own tools from the main or a separate working copy, opens the offline manual, opens any of the recognized coding-agent programs found in the computer's standard installed-program list (called `PATH`), records permission in advance for one task to join the main shared version once it passes, and keeps each task's controls reachable while work changes — staying responsible for the sessions it starts.",
           why:
             "The person in charge can inspect and act on every task from one interactive view.",
         },
