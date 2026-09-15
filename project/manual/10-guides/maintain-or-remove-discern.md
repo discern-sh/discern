@@ -99,7 +99,7 @@ discern upgrade --check
 discern upgrade --dry-run
 ```
 
-`--check` reports whether migrations are pending. A migration brings older configuration into the format the installed version expects. The dry run shows those changes and the refresh of discern's generated and shared files.
+`--check` reports pending adoption as well as migration and managed-scaffold changes. A migration brings older configuration into the format the running version expects. The dry run shows the previous and proposed `meta.managed_version` values and writes nothing.
 
 ### 3. Apply, review, and prove
 
@@ -108,6 +108,18 @@ Your agent runs `discern upgrade`, inspects the changes, and follows any partial
 It then uses [Finish and land a change](finish-and-land-a-change.md) to prepare the result for review. After landing, restart coding-tool sessions so their discern connection loads the installed version and current setup. The agent checks `discern doctor`, `discern upgrade --check`, and the fresh connection.
 
 The upgrade is complete when the intended version is installed, no migrations remain, and the changed setup has passed its checks and works in a fresh session.
+
+### Share an upgrade with teammates
+
+A successful setup or upgrade records `[meta].managed_version` in `discern.toml`. It is the highest discern release whose managed material the project adopted. Commit it with the reviewed managed-file changes.
+
+When another teammate pulls that commit, their running binary compares itself with the recorded value. An older binary explains both versions and routes them to `discern releases`. It can still report status and run `discern test`, but it refuses to replace newer managed files or issue ordinary Proof without being able to verify their currency.
+
+The teammate checks releases, installs a suitable verified binary within their authorization, and restarts agent and MCP sessions. Binary replacement alone does not adopt the project. They preview and apply `discern upgrade` in the chosen project; only successful adoption records or advances the value. Development builds and prereleases may be ahead of every public stable release, so the release page must establish a suitable target before installation.
+
+If the running binary is newer, the project has not yet adopted its managed material. Preview the upgrade before applying it. If the versions have equal SemVer precedence, the advisory clears and normal managed-file drift checks continue. A same-version upgrade remains useful for reconciliation and preserves the existing value, including build metadata.
+
+This committed number shares project history, not an inventory of installed programs. It is independent of `schema_version`, which controls hard format compatibility, and `setup_version`, which records setup provenance. It does not identify exact executable bytes or prove a public release exists.
 
 ## Remove discern from the repository
 

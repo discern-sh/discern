@@ -63,6 +63,8 @@ The release reminder has its own clone-local clock, shared by linked worktrees a
 
 ## What discern may write
 
+A successful setup or upgrade records `meta.managed_version` in the shared project configuration. Committing that number lets another clone recognize that its running binary is older than the release the project adopted. It does not report what teammates have installed. It identifies a SemVer adoption event, not exact source bytes, a gate run, or proof that a public binary exists.
+
 Setup explains its proposed changes before you approve them. Its footprint includes the root `discern.toml`, authored material under `discern/` by default, and the instruction and integration files for your selected coding tools. Later operations also create task workspaces and keep local evidence in Git's administrative storage.
 
 The full [files and ownership reference](../30-reference/files-and-ownership.md) identifies the managed paths and how to change them. Your own material in shared settings files stays outside discern's marked sections or owned keys.

@@ -376,6 +376,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0398 — The Desk is a live human control panel](0398-the-desk-is-a-live-human-control-panel.md)
 - [0399 — Acceptance can queue a proven revision without starting landing](0399-acceptance-can-queue-without-starting-landing.md)
 - [0400 — Release records drive offline release awareness](0400-release-records-drive-offline-release-awareness.md)
+- [0401 — Managed adoption keeps currency and Proof separate](0401-managed-adoption-keeps-currency-and-proof-separate.md)
 
 <!-- END GENERATED: current ADR records -->
 

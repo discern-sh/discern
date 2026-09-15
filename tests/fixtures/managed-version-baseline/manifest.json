@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "schema": 1,
+  "files": {
+    "discern.toml.tmpl": "7f3b3e81fcde6770e08accd29814a0d509450c9a10caa120ae32eed525bd08f9",
+    "templates/instructions/base.md": "5279e02ff9b08735ac22d8d45ed8184dea252d3728230e273db273ef545967f9",
+    "templates/instructions/checkpoints.md": "743349eb5533f1e23e0bfedc11d9922ab1a0ed320e34bca4ad7a6724e8b8503a",
+    "templates/instructions/map.md": "eff43420ff043ff9ac97b86d81b2d2a5fa35224e1a7ae5f768f51f4050d22e48",
+    "templates/instructions/skills.md": "734d785ddc4ad5d8d2996f7ac65a62a48d07783919c5feba67c634ba39c273cc",
+    "templates/instructions/standards.md": "0f01705f3dfeb1767e966de90d1493dba65b76d71d4cf4dd744fe6eafd778238",
+    "templates/instructions/worktrees.md": "65f53c5a17192f2ac7da019e0b14041a8bbce2642d629c852dc4a8b4d9f816d8",
+    "reader.js.gz": "76408b88d8097e4526672b5e9e179c38b4006f3ee6c9ecb8a7dfb163afe61f9f"
+  },
+  "unpacked_reader_sha256": "db90a3d0365c284b89d09bfd7e83ffc2c9c598ae3c9e1a8010450e97d85e7461"
+}

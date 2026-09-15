@@ -56,6 +56,8 @@ discern upgrade --dry-run
 
 The preview lists pending schema migrations and any managed config or `.gitignore` reconciliation. It also states that instructions and skills would refresh. It writes nothing.
 
+It includes the exact previous and proposed `meta.managed_version`. Missing adoption is pending even when every managed byte matches. Successful upgrade records the higher SemVer precedence; equal precedence preserves the existing value. The [adoption model](../50-engine-internals/managed-adoption.md) owns this boundary and its distinction from installed binaries and content currency.
+
 Review the plan and the clean git status. `--allow-dirty` bypasses the clean-tree guard, but use it only when another snapshot already makes the working changes recoverable.
 
 ## 3. Apply the project upgrade
@@ -95,3 +97,5 @@ discern upgrade --check
 `discern doctor` checks the complete installation and integrations. `discern upgrade --check` exits successfully when the project's schema, fixed config scaffold, managed banners, `.gitignore` block, and managed `.gitattributes` fragment match the installed binary. It checks fragment currency. Doctor separately diagnoses effective per-path attributes. Neither command queries the network for a newer release.
 
 Commit the reviewed upgrade diff. If the agent files changed, keep them in the same commit as their source and the migration changes.
+
+The committed adoption fact travels to teammates through Git. An older schema-capable binary can read status and run the test stage, while its managed-file writers and ordinary Proof remain unavailable. The [team upgrade sequence](https://discern.sh/docs/guides/maintain-or-remove-discern#share-an-upgrade-with-teammates) separates release checking, verified installation, session restart, and successful project adoption.

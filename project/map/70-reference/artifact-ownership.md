@@ -52,6 +52,8 @@ Path overrides change placement. The ownership bucket still determines edit and 
 
 ## How Git treats registered paths
 
+`meta.managed_version` is discern-written adoption evidence in the shared config. A successful setup or upgrade may advance it; the installer never writes it. The [adoption boundary](../50-engine-internals/managed-adoption.md) prevents an older binary from replacing newer managed material and prevents a branch from deleting or lowering trunk adoption. Matching versions still require the normal managed-file currency checks.
+
 Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). The tracked-refresh plan also covers discern's managed portions of tracked shared files, including generated attributes and provider integrations. `done` and `accept` require an empty plan before landing. After landing, acceptance materializes only ignored or local artifacts ([ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md)).
 
 Project rules outside `.gitattributes`' discern markers remain unchanged, including nested and Git-local attributes. `setup`, `refresh`, and `upgrade` rebuild the block from `discern.toml`, the source-path registry, and the active agent registry. A rebuild replaces hand edits inside the block ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md), [ADR 0259](../_adr/0259-generated-groups-opt-in-to-review-metadata.md)).
