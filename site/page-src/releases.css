@@ -1,0 +1,379 @@
+/* The release task's layout; component styling belongs to the package. */
+@layer discern.components {
+  .releases-page {
+    margin: 0;
+    min-block-size: 100svh;
+    display: flex;
+    flex-direction: column;
+    background: var(--discern-color-canvas);
+    color: var(--discern-color-ink);
+  }
+
+  .releases-chrome,
+  .releases-main {
+    inline-size: min(calc(100% - 3rem), 76rem);
+    margin-inline: auto;
+  }
+
+  .releases-main {
+    flex: 1;
+    padding-block-end: clamp(4rem, 9vw, 8rem);
+  }
+
+  .releases-main :where(a, button, pre):focus-visible {
+    outline: 2px solid var(--discern-color-ink);
+    outline-offset: 4px;
+  }
+
+  .releases-main :where(h2, article, section) {
+    scroll-margin-block-start: 2rem;
+  }
+
+  .releases-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
+    align-items: center;
+    gap: clamp(2rem, 5vw, 5rem);
+    padding-block: clamp(3.5rem, 7vw, 7rem);
+    border-block-end: 1px solid var(--discern-color-border);
+  }
+
+  .releases-intro:only-child {
+    grid-column: 1 / -1;
+    max-inline-size: 51rem;
+  }
+
+  .releases-eyebrow {
+    margin: 0 0 var(--discern-space-5);
+    color: var(--discern-color-ink-muted);
+  }
+
+  .releases-title {
+    margin: 0 0 var(--discern-space-6);
+    max-inline-size: 18ch;
+    font-family: var(--discern-font-display);
+    font-size: clamp(2.4rem, 4.8vw, 4.5rem);
+    line-height: 1.06;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+
+  .releases-result-summary {
+    max-inline-size: 51ch;
+    font-size: 1.125rem;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+  }
+
+  .releases-context {
+    max-inline-size: 55ch;
+    color: var(--discern-color-ink-muted);
+  }
+
+  .releases-disclosure {
+    max-inline-size: 66ch;
+    margin-block: var(--discern-space-6) 0;
+    color: var(--discern-color-ink-muted);
+    font-family: var(--discern-font-ui);
+    font-size: var(--discern-font-size-sm);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+
+  .releases-comparison dl {
+    display: grid;
+    gap: var(--discern-space-6);
+    margin: 0;
+  }
+
+  .releases-comparison dt {
+    margin-block-end: var(--discern-space-2);
+    color: var(--discern-color-ink-muted);
+    font-family: var(--discern-font-ui);
+    font-size: var(--discern-font-size-sm);
+  }
+
+  .releases-comparison dd {
+    display: grid;
+    gap: var(--discern-space-1);
+    margin: 0;
+    font-size: 1.65rem;
+  }
+
+  .releases-comparison > a {
+    margin-block-start: var(--discern-space-8);
+  }
+
+  .releases-version {
+    font-family: var(--discern-font-mono);
+    letter-spacing: -0.045em;
+    overflow-wrap: anywhere;
+  }
+
+  .releases-codename {
+    font-family: var(--discern-font-ui);
+    font-size: 1rem;
+    font-weight: var(--discern-font-weight-body);
+    color: var(--discern-color-ink-muted);
+    letter-spacing: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .releases-applicable {
+    padding-block: var(--discern-space-8);
+    border-block-end: 1px solid var(--discern-color-border);
+  }
+
+  .releases-applicable h2 {
+    margin-block: 0 var(--discern-space-5);
+    font-family: var(--discern-font-ui);
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .releases-applicable ol {
+    display: grid;
+    gap: var(--discern-space-3);
+    padding-inline-start: 1.5rem;
+    margin: 0;
+  }
+
+  .releases-applicable li {
+    padding-inline-start: var(--discern-space-2);
+  }
+
+  .releases-applicable li a {
+    margin-inline-end: var(--discern-space-4);
+    font-family: var(--discern-font-mono);
+    overflow-wrap: anywhere;
+  }
+
+  .releases-applicable li span {
+    color: var(--discern-color-ink-muted);
+    font-size: var(--discern-font-size-sm);
+  }
+
+  .releases-layout {
+    display: grid;
+    grid-template-columns: 13rem minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(2rem, 5vw, 5rem);
+    padding-block-start: clamp(2.5rem, 5vw, 5rem);
+  }
+
+  .releases-rail {
+    position: sticky;
+    top: 2rem;
+    max-block-size: calc(100svh - 4rem);
+    overflow-y: auto;
+    padding: var(--discern-space-2);
+    font-family: var(--discern-font-ui);
+    font-size: var(--discern-font-size-sm);
+  }
+
+  .releases-rail-group {
+    margin-block-end: var(--discern-space-6);
+  }
+
+  .releases-rail-title {
+    font-weight: var(--discern-font-weight-strong);
+  }
+
+  .releases-rail ul {
+    list-style: none;
+    padding: 0;
+    margin-block: var(--discern-space-2) 0;
+  }
+
+  .releases-rail a {
+    display: inline-block;
+    padding-block: var(--discern-space-2);
+    color: var(--discern-color-ink-muted);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+
+  .releases-rail a:hover {
+    color: var(--discern-color-ink);
+    text-decoration: underline;
+  }
+
+  .releases-formats {
+    display: flex;
+    gap: var(--discern-space-5);
+    margin-block-start: var(--discern-space-8);
+    padding-block-start: var(--discern-space-4);
+    border-block-start: 1px solid var(--discern-color-border);
+  }
+
+  .releases-content {
+    min-inline-size: 0;
+  }
+
+  .releases-section-heading {
+    margin-block: 0 var(--discern-space-8);
+    font-family: var(--discern-font-ui);
+    font-size: 1.1rem;
+  }
+
+  .releases-history + .releases-history {
+    margin-block-start: var(--discern-space-12);
+  }
+
+  .releases-entry {
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 1fr);
+    gap: var(--discern-space-6);
+    padding-block: var(--discern-space-8) var(--discern-space-12);
+    border-block-start: 1px solid var(--discern-color-border);
+  }
+
+  .releases-entry-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--discern-space-3);
+    color: var(--discern-color-ink-muted);
+    font-family: var(--discern-font-ui);
+    font-size: var(--discern-font-size-sm);
+  }
+
+  .releases-entry-content {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .releases-entry h3 {
+    margin: 0;
+    font-size: 1.75rem;
+    line-height: 1.3;
+  }
+
+  .releases-entry h3 a {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--discern-space-2) var(--discern-space-4);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .releases-entry h3 a:hover {
+    text-decoration: underline;
+  }
+
+  .releases-summary {
+    margin-block: var(--discern-space-4) var(--discern-space-6);
+    font-size: 1.125rem;
+    line-height: 1.6;
+  }
+
+  .releases-notes {
+    color: var(--discern-color-ink-muted);
+    line-height: 1.75;
+  }
+
+  .releases-notes :where(h4, h5, h6) {
+    color: var(--discern-color-ink);
+    font-family: var(--discern-font-ui);
+    font-size: 1rem;
+    margin-block: var(--discern-space-6) var(--discern-space-3);
+  }
+
+  .releases-notes :where(pre, table) {
+    max-inline-size: 100%;
+    overflow-x: auto;
+  }
+
+  .releases-notes pre {
+    white-space: pre-wrap;
+  }
+
+  .releases-update {
+    margin-block-start: var(--discern-space-8);
+  }
+
+  .releases-update h2 {
+    font-size: 1.4rem;
+  }
+
+  .releases-update ol {
+    display: grid;
+    gap: var(--discern-space-5);
+    padding-inline-start: 1.5rem;
+    margin-block: var(--discern-space-8);
+  }
+
+  .releases-update li {
+    padding-inline-start: var(--discern-space-2);
+    overflow-wrap: anywhere;
+  }
+
+  .releases-command {
+    margin-block: var(--discern-space-3);
+  }
+
+  .releases-command code {
+    inline-size: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 54rem) {
+    .releases-hero {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .releases-comparison {
+      max-inline-size: 32rem;
+    }
+
+    .releases-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .releases-rail {
+      position: static;
+      max-block-size: none;
+    }
+
+    .releases-rail ul {
+      display: flex;
+      flex-wrap: wrap;
+      column-gap: var(--discern-space-5);
+    }
+  }
+
+  @media (max-width: 36rem) {
+    .releases-entry {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .releases-entry-meta {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .releases-applicable li span {
+      display: block;
+      margin-block-start: var(--discern-space-1);
+    }
+  }
+
+  @media print {
+    .releases-rail {
+      position: static;
+      max-block-size: none;
+    }
+
+    .releases-layout,
+    .releases-hero {
+      display: block;
+    }
+
+    .releases-comparison {
+      margin-block-start: 2rem;
+    }
+  }
+}

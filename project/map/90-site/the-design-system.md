@@ -116,14 +116,14 @@ Mixed Result summaries compose through the package's group renderer, which align
 
 [`site/design_system.ts`](../../../site/design_system.ts) contains the complete integration. Its `DESIGN_SYSTEM_BUNDLES` table declares:
 
-| Bundle         | Routes                       | Selection                                              | Optional assets |
-| -------------- | ---------------------------- | ------------------------------------------------------ | --------------- |
-| `docs`         | `/docs` and its descendants  | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
-| `compositions` | `/`, `/agents`, and `/trust` | Marketing, Editorial, and shared display parts         | fonts           |
+| Bundle         | Routes                                    | Selection                                              | Optional assets |
+| -------------- | ----------------------------------------- | ------------------------------------------------------ | --------------- |
+| `docs`         | `/docs` and its descendants               | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
+| `compositions` | `/`, `/agents`, `/trust`, and `/releases` | Marketing, Editorial, and shared display parts         | fonts           |
 
 The table also owns the emitted public directories. Beside it, [`SITE_APPEARANCE`](../../../site/appearance.ts) is the single browser Appearance authority: it selects the package's symmetric scope CSS and names the Accent roots and hue 255 that retain discern's blue identity. [`site/build.ts`](../../../site/build.ts) passes that scope selection and each bundle selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a schema-4 manifest, and the requested assets. The production marketing and docs document builders put the shared root contract on `<html>`; nested fixed-theme specimen and art roots reuse its Accent activation and inherit the hue. The discern integration reads package outputs instead of copying the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 
-The docs shell loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The `/`, `/agents`, and `/trust` pages load the full selected bundle from `/assets/design-system/compositions/`. Each marketing document loads the package behavior script emitted for that selection. Both bundles select fonts; neither selects the optional grain asset. Generated output stays ignored beneath `site/pages/assets/design-system/`.
+The docs shell loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The `/`, `/agents`, `/trust`, and `/releases` pages load the full selected bundle from `/assets/design-system/compositions/`. Each document in that bundle loads the package behavior script emitted for its selection. The release page uses the public semantic class contract at request time; the other marketing pages use build-time adapters. Both bundles select fonts; neither selects the optional grain asset. Generated output stays ignored beneath `site/pages/assets/design-system/`.
 
 ### Output coverage
 
@@ -137,6 +137,6 @@ The docs bundle selects the `Docs` group plus the shared `icon`, `icon-button`, 
 
 Both bundles select the Core `Brand` component, which brings its `Logo` dependency with it. [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the canonical public lockup: the decorative `◮`, the visible `discern` name, the `mono` typeface, and an optional context tagline. The docs shell reuses its statically rendered markup. Both marketing compositions pass the same mark and name treatment into the Marketing `SiteHeader` campaign variant.
 
-The homepage composes its campaign sections locally from package Button, Badge, Kicker, Logo cloud, Site header, Site footer, Skip link, and Window components. Provider assets, page copy, bespoke section layouts, and the inner product evidence remain consumer content; shared component scale, spacing, chrome, colour-scheme handling, and responsive behavior come from the published package. The browser receives semantic HTML, selected CSS, and any framework-neutral behavior script declared by that selection, with no React runtime.
+The homepage and release page select the monochrome Appearance; the other page families retain the explicit site Accent. Their [compositions](design-system-consumption.md) own product content and page layout. Shared component styling, assets, and behavior stay in the immutable package. The browser receives semantic HTML and local assets without a React runtime.
 
 The static page boundary, marketing compositions, build commands, and manifest-driven consumer guards are recorded separately in [design-system-consumption.md](design-system-consumption.md).

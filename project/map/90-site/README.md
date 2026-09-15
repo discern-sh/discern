@@ -40,7 +40,7 @@ The main implementation boundaries are:
 
 ## Route authority
 
-There is no copied site route list. [`liveHtmlRoutes(site)`](../../../site/serve.ts) combines the static `PAGES` projection with `DocsSite.sitemapRoutes`. The latter derives the manual, decision, and public-Map routes from their source models. A published document therefore joins its declared browser, raw, metadata, and sitemap surfaces without a second site-side registry.
+There is no copied site route list. [`liveHtmlRoutes(site)`](../../../site/serve.ts) combines the static `PAGES` projection, the shared release HTML route, and `DocsSite.sitemapRoutes`. The latter derives the manual, decision, and public-Map routes from their source models. A published document therefore joins its declared browser, raw, metadata, and sitemap surfaces without a second site-side registry.
 
 The stable non-HTML endpoints are `/docs/index.json`, `/map/index.json`, `/install`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/robots.txt`, and `/.well-known/security.txt`. Manual search uses `/docs/index.json`; Map search uses `/map/index.json`. The llms editions project only the manual.
 
@@ -48,7 +48,7 @@ Production's canonical origin is `https://discern.sh`, and page URLs have no tra
 
 ## Reader negotiation
 
-Browsers receive Hypertext Markup Language (HTML). `/` and `/agents` negotiate the shared plaintext edition for command-line text clients; `/trust` is an ordinary non-negotiated brand page. Manual, Map, and decision routes serve pristine Markdown to text clients and through their `.md` forms. Negotiated responses carry `Vary: Accept, User-Agent`.
+Browsers receive Hypertext Markup Language (HTML). `/` and `/agents` negotiate the shared plaintext edition for command-line text clients; `/trust` is an ordinary non-negotiated brand page. `/releases` negotiates its own model-driven text projection; its explicit `.txt` and `.json` routes retain their formats. Manual, Map, and decision routes serve pristine Markdown to text clients and through their `.md` forms. Negotiated responses carry `Vary: Accept, User-Agent`.
 
 Rendered pages may remove frontmatter, source-only comments, and presentation-only markers. Their raw editions remain the authored bytes. Search is built from the same reader-visible Markdown projection as rendering, so source-only comments cannot become search vocabulary or snippets while literal examples inside inline or fenced code remain searchable.
 
@@ -56,7 +56,7 @@ Generated manual references reuse the canonical definitions. Their follow-up lin
 
 ## Response contract
 
-Every successful HTML response receives a canonical link, a bounded description, Open Graph and Twitter fields, and the static branded card. Document pages add breadcrumb metadata. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
+Every successful HTML response and complete release-input error page receives a canonical link, a bounded description, Open Graph and Twitter fields, and the static branded card. Document pages add breadcrumb metadata. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
 
 Every response class, including assets, redirects, and errors, receives the same nonce-based same-origin Content Security Policy, `nosniff`, no-referrer, permissions restrictions, and framing denial. The policy admits no third-party resource origins. Unknown routes and missing files return 404.
 
@@ -68,6 +68,8 @@ Every response class, including assets, redirects, and errors, receives the same
 - [`tests/site_accessibility_test.ts`](../../../tests/site_accessibility_test.ts) combines axe audits with focus, no-JavaScript, reduced-motion, forced-color, reflow, and print contracts.
 - [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) starts the production handler on a real socket and crawls every canonical and raw route, link, anchor, redirect variant, and response class.
 - [`tests/site_prose_test.ts`](../../../tests/site_prose_test.ts) enrolls every `MARKETING_PAGES` composition in its declared public register. The manual has its separate product-voice corpus.
+
+- [Release-page guards](releases.md#visual-and-accessibility-review) cover normalized comparison states, query metadata, no-JavaScript operation, and the real browser journey.
 
 ## Current state
 

@@ -56,6 +56,8 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "window",
       "skip-link",
       "harmonic-backdrop",
+      "card",
+      "command",
     ],
     assets: ["fonts"],
   },

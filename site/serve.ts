@@ -423,7 +423,10 @@ async function finalizeResponse(
   const contentType = headers.get("content-type") ?? "";
   let body: BodyInit | null = headOnly ? null : response.body;
 
-  if (response.status === 200 && contentType.includes("text/html")) {
+  // Release input errors are complete pages with the same chrome and theme bootstrap.
+  const completeHtmlPage = response.status === 200 ||
+    (path === RELEASE_ROUTES.html && response.status === 400);
+  if (completeHtmlPage && contentType.includes("text/html")) {
     headers.set("link", `<${canonicalUrl(path)}>; rel="canonical"`);
     if (!headOnly) {
       body = decorateHtmlPage(await response.text(), path, nonce);

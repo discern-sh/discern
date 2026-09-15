@@ -26,6 +26,8 @@ Local preview processes identify themselves only at `127.0.0.1`. A new one-shot 
 
 Deno Deploy runs the same build task before it starts the handler through the [`site/main.ts`](../../../site/main.ts) `Deno.serve` entrypoint. The current Deno Deploy runs an entrypoint with `deno run`, as described below. A build failure stops the deployment before the revision receives traffic.
 
+The [release-page review journey](releases.md#visual-and-accessibility-review) exercises published comparisons through the production handler using synthetic records. A normal local build has no publication snapshot and therefore labels its authored notes as unpublished. Keep fixture publication evidence out of the source and deployment input.
+
 ## Canonical domains and removals
 
 The handler folds Hypertext Transfer Protocol (HTTP) and `www.discern.sh` onto `https://discern.sh` with a 308 after the request reaches the application. Attach both apex and `www` as custom domains in Deno Deploy, provision Transport Layer Security (TLS) for both, and create every Domain Name System (DNS) record Deploy supplies. The same handler resolves canonical path variants in one hop ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)). No pre-public manual route is claimed as a historical redirect; the explicit redirect registry starts empty.

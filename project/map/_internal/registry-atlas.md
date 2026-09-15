@@ -20,7 +20,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 25      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 20      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
-| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 38      | —                | —                           |
+| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 39      | —                | —                           |
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
 | [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 21      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
@@ -675,7 +675,7 @@ The lifecycle sequence that leads schema-deferred clients through status, worktr
 Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.
 
 - Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`
-- Members: 38
+- Members: 39
   - `DISCERN_REPO`
   - `DISCERN_VERSION`
   - `DISCERN_BIN_DIR`
@@ -695,6 +695,7 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS`
   - `DISCERN_CRASH_PROBE`
   - `DISCERN_INTERACTION_TRACE`
+  - `DISCERN_RELEASE_REVIEW_DIR`
   - `DISCERN_HOME`
   - `DISCERN_TEMPLATES_DIR`
   - `DISCERN_DOCS_DIR`

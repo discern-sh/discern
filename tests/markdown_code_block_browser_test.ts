@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { basename, fromFileUrl, join, toFileUrl } from "@std/path";
 import { emitDesignSystemRuntime } from "discern-design-system/runtime";
-import { type Browser, chromium } from "playwright-core";
+import { launchBrowser } from "./browser_helpers.ts";
 import { renderWorkflowMarkdown } from "../site/workflow.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -25,39 +25,6 @@ function encodeBase64(bytes: Uint8Array): string {
     );
   }
   return btoa(chunks.join(""));
-}
-
-/** Launch an installed or Playwright-managed Chromium browser. */
-async function launchBrowser(): Promise<Browser> {
-  const attempts: Array<{
-    readonly label: string;
-    readonly options: Parameters<typeof chromium.launch>[0];
-  }> = [
-    {
-      label: "installed Google Chrome",
-      options: { channel: "chrome", headless: true },
-    },
-    {
-      label: "Playwright-managed Chromium",
-      options: { headless: true },
-    },
-  ];
-  const failures: string[] = [];
-  for (const attempt of attempts) {
-    try {
-      return await chromium.launch(attempt.options);
-    } catch (error) {
-      failures.push(
-        `${attempt.label}: ${
-          error instanceof Error ? error.message.split("\n")[0] : String(error)
-        }`,
-      );
-    }
-  }
-  throw new Error(
-    `No compatible Chromium browser was available. Install Google Chrome, ` +
-      `or run the Playwright Chromium installer.\n${failures.join("\n")}`,
-  );
 }
 
 /** Build the real docs composition around one fenced-code fixture. */
