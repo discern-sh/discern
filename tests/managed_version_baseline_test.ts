@@ -1,6 +1,6 @@
 /** Execute frozen production code, never the current parser with an older label. */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { dirname, fromFileUrl, join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit } from "./engine_helpers.ts";
@@ -8,10 +8,11 @@ import { configSchema } from "../src/shared/config_schema.ts";
 import { renderConfigSchemaJson } from "../src/shared/config_codegen.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { parseVersion } from "../src/shared/semver.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-const fixture = fromFileUrl(
-  new URL("./fixtures/managed-version-baseline/", import.meta.url),
-);
+const fixtureRel = "tests/fixtures/managed-version-baseline";
+const fixture = join(REPO_ROOT, fixtureRel);
 const Manifest = z.object({
   version: z.string(),
   schema: z.number(),
@@ -100,11 +101,25 @@ async function readFrozen(
 Deno.test("first-public adoption reader and template are immutable compatibility inputs", async () => {
   const snapshot = await readSnapshot();
   // Keep the capture archived so repository searches find the live templates.
-  const entries = await Array.fromAsync(Deno.readDir(fixture));
-  assertEquals(entries.map((entry) => entry.name).sort(), [
+  const files = await structuralGuardScope({
+    guard:
+      "tests/managed_version_baseline_test.ts#archived-compatibility-inputs",
+    universe: {
+      kind: "specialized",
+      name: "text including historical fixtures",
+      text: true,
+      reason:
+        "Historical template fixtures are excluded from the authored-text universe.",
+    },
+    narrow: {
+      reason:
+        "The compatibility snapshot keeps only its manifest and inspection notes as loose text.",
+      include: (rel) => rel.startsWith(`${fixtureRel}/`),
+    },
+  });
+  assertEquals(files.map((rel) => rel.slice(fixtureRel.length + 1)), [
     "README.md",
     "manifest.json",
-    "snapshot.json.gz",
   ]);
   // Release guard: the recognized optional key must survive in the public reader.
   assertEquals(configSchema.parse({}).meta.managed_version, undefined);
