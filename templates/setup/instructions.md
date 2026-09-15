@@ -226,7 +226,7 @@ phase = "documentation draft"
 stable_target = "The design-principles draft states at least three project-specific decision rules, each grounded in current code or configuration and ready for the post-smoke recheck."
 intent = "Turn repeated architectural choices into concise principles that help a future agent decide, while retaining the authority evidence for final verification."
 files_to_read = [
-  "{{map_dir}}00-orientation/design-principles.md",
+  "{{map_dir}}orientation/design-principles.md",
   "the Step 1 authority paths supporting each proposed principle",
   "current code and configuration at every cited boundary",
 ]
@@ -311,7 +311,9 @@ files_to_read = [
   "{{todo_path}} and its item format",
 ]
 must_do = [
-  "Select one substantive primary-subsystem README as the first numbered subsystem region in Map reading order; its exact `## Start here`, `## Boundary`, and `## Non-obvious invariant` sections give the completion result a canonical qualitative summary.",
+  "Select one substantive primary-subsystem README in a folder named for its responsibility; its `## Start here`, `## Boundary`, and `## Important constraint` sections give the completion result a canonical qualitative summary.",
+  "Keep a substantive root overview, orientation, real subsystem folders, development guidance, and the ADR home. Numbered folder prefixes are optional reading order; they carry no product meaning.",
+  "Combine short orientation or development topics into their region README. Keep separate concepts, glossary, system overview, principles, getting-started, testing, and conventions pages when they serve distinct reader needs. Link existing project documentation instead of copying it.",
   "Select an additional page only for a genuinely distinct durable boundary when that page will reduce future repository reading; retain authority paths for every selected page.",
   "Identify only concrete unresolved decisions or defects for {{todo_path}}, each with evidence and consequence; select none when nothing remains open.",
   "Recheck every proposed architecture, ownership, test-behavior, and command claim against code/config before it enters the final page plan.",
@@ -340,6 +342,8 @@ next_action = "discern setup step 7"
 Calibrated applications of the same heuristic:
 
 {{scope_examples}}
+
+As the project grows, update an existing section first. Split a child page when a distinct reader task needs it. Create a region only for a durable responsibility; an ordinary feature belongs under its subsystem, not as a new root Markdown file.
 
 These are boundary examples, not target counts. A project with one durable subsystem gets one substantive subsystem page. A project with several independent boundaries may justify several; neither case earns filler TODOs.
 
@@ -443,13 +447,13 @@ intent = "Turn the evidence and proved behavior into the smallest complete final
 files_to_read = [
   "the Step 1 evidence inventory and Step 6 bounded page plan",
   "the Step 7 Gate, smoke, and readiness configuration that now exists",
-  "{{map_dir}}README.md, 00-orientation/, 80-development/, and _adr/",
+  "{{map_dir}}README.md, orientation/, development/, and _adr/",
   "{{instruction_path}} and {{todo_path}}",
 ]
 must_do = [
   "Author final orientation from the subsystem evidence, including how the Map is used and where a new agent starts.",
-  "Author the substantive primary-subsystem README with non-empty `## Start here`, `## Boundary`, and `## Non-obvious invariant` sections; add only the distinct pages selected in Step 6.",
-  "Reconcile the 80-development pages and the adoption ADR with the supported commands, Gate, worktree readiness, and smoke behavior proved in Step 7.",
+  "Author the substantive primary-subsystem README with non-empty `## Start here`, `## Boundary`, and `## Important constraint` sections; add only the distinct pages selected in Step 6.",
+  "Reconcile the development pages and the adoption ADR with the supported commands, Gate, worktree readiness, and smoke behavior proved in Step 7.",
   "After all documentation edits, target every architecture, ownership, test-behavior, and command claim and recheck it against current code/config; link the authority where useful.",
   "Replace a claim that cannot be verified with a clearly labeled concrete item in {{todo_path}}, then run `discern refresh` and `discern prepare --json`.",
 ]
@@ -463,7 +467,7 @@ what_not_to_do = [
   "Do not claim an unverified architecture, ownership, test behavior, or command contract.",
   "Do not add a page or TODO merely to make the setup look comprehensive.",
 ]
-completion_check = "The final primary-subsystem README has non-empty Start here, Boundary, and Non-obvious invariant sections; an authored conventional gotchas page is wired through [project].gotchas_doc."
+completion_check = "The final primary-subsystem README has non-empty Start here, Boundary, and Important constraint sections; an authored conventional gotchas page is wired through [project].gotchas_doc."
 stop_conditions = [
   "Stop when a claim remains unverifiable, refresh changes an unexpected authored source, or prepare reports a diagnostic.",
 ]

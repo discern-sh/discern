@@ -19,8 +19,8 @@ You may not be the only documenter agent working in parallel. Do not stretch you
 ## Read first (mandatory, in this order)
 
 1. **`README.md` at the map root** — the map's table of contents. Confirms your subtree's position and its neighbours.
-2. **`00-orientation/concepts.md`** — the canonical naming source. Use its declared term casing verbatim. Do not introduce synonyms.
-3. **`00-orientation/glossary.md`** — precise definitions. Cross-link to entries here; do **not** redefine terms in your leaves.
+2. **`orientation/concepts.md`** — the canonical naming source. Use its declared term casing verbatim. Do not introduce synonyms.
+3. **`orientation/glossary.md`** — precise definitions. Cross-link to entries here; do **not** redefine terms in your leaves.
 4. **Your scope manifest** at `_internal/scopes/{your-subtree}.md`. It lists the source files to read, the area you own, and known integration points / overlap warnings.
 5. **The source files** listed in your manifest. Read whole files where they are small. For large directories, get a listing first and read the most central files in full; sample the rest.
 
@@ -60,7 +60,7 @@ The mechanism, step by step. Inline `[file](relative/path)` for every code claim
 
 ## Key concepts
 
-Bullet list of glossary terms relevant to this leaf, each a cross-link: `[Term](../00-orientation/glossary.md#term)`. Do not redefine here.
+Bullet list of glossary terms relevant to this leaf, each a cross-link: `[Term](../orientation/glossary.md#term)`. Do not redefine here.
 
 ## Where it lives in code
 

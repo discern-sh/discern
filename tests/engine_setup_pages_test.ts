@@ -303,13 +303,13 @@ async function layMarkerFreeProject(
   await scaffoldEngine(dir, { bootstrapped: false });
   await gitInit(dir);
   await git(dir, "checkout", "-b", "discern-setup");
-  await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
+  await Deno.mkdir(defaultMapPath(dir, "orientation"), {
     recursive: true,
   });
   await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
   await Deno.mkdir(join(dir, "discern"), { recursive: true });
   await Deno.writeTextFile(
-    defaultMapPath(dir, "00-orientation", "design-principles.md"),
+    defaultMapPath(dir, "orientation", "design-principles.md"),
     principles,
   );
   await Deno.writeTextFile(
@@ -400,8 +400,8 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
     assertEquals(res.data.gate_proven, true);
     assertEquals(res.data.inventory.map_regions.count, 2);
     assertEquals(res.data.inventory.map_regions.items, [
-      "00-orientation",
       "10-runtime",
+      "orientation",
     ]);
     assert(res.data.inventory.project_context.primary_subsystem !== null);
     assertEquals(
@@ -480,7 +480,7 @@ async function writePrinciples(
 ): Promise<void> {
   const path = join(
     root,
-    `${normalizeMapDir(config.map.dir)}00-orientation/design-principles.md`,
+    `${normalizeMapDir(config.map.dir)}orientation/design-principles.md`,
   );
   await Deno.mkdir(dirname(path), { recursive: true });
   await Deno.writeTextFile(path, body);
@@ -633,7 +633,7 @@ Deno.test("the final documentation check binds a conventional gotchas page to it
     await Deno.mkdir(join(root, base.map.dir, "10-runtime"), {
       recursive: true,
     });
-    await Deno.mkdir(join(root, base.map.dir, "80-development"), {
+    await Deno.mkdir(join(root, base.map.dir, "development"), {
       recursive: true,
     });
     await Deno.writeTextFile(
@@ -647,7 +647,7 @@ Deno.test("the final documentation check binds a conventional gotchas page to it
         "## Non-obvious invariant\n\nPreserve child status.\n",
     );
     await Deno.writeTextFile(
-      join(root, base.map.dir, "80-development", "done-gate-gotchas.md"),
+      join(root, base.map.dir, "development", "done-gate-gotchas.md"),
       "# Gate gotchas\n",
     );
 
@@ -661,7 +661,7 @@ Deno.test("the final documentation check binds a conventional gotchas page to it
     assertEquals(await check.evaluate({ root, config: wired }), true);
 
     await Deno.remove(
-      join(root, base.map.dir, "80-development", "done-gate-gotchas.md"),
+      join(root, base.map.dir, "development", "done-gate-gotchas.md"),
     );
     assertEquals(
       await check.evaluate({ root, config: base }),

@@ -53,7 +53,12 @@ async function primaryRegionNames(
   const names: string[] = [];
   try {
     for await (const entry of Deno.readDir(join(root, mapDir))) {
-      if (entry.isDirectory && /^[1-7]\d-.+/.test(entry.name)) {
+      if (
+        entry.isDirectory && !entry.name.startsWith("_") &&
+        !["orientation", "development"].includes(
+          entry.name.replace(/^\d+-/, ""),
+        )
+      ) {
         names.push(entry.name);
       }
     }
@@ -77,7 +82,8 @@ export async function deriveSetupPrimarySubsystem(
   const title = markdown.match(/^#\s+(.+?)\s*$/m)?.[1]?.trim();
   const startHere = sectionParagraph(markdown, "Start here");
   const boundary = sectionParagraph(markdown, "Boundary");
-  const invariant = sectionParagraph(markdown, "Non-obvious invariant");
+  const invariant = sectionParagraph(markdown, "Important constraint") ??
+    sectionParagraph(markdown, "Non-obvious invariant");
   if (
     title === undefined || title === "" || startHere === undefined ||
     boundary === undefined || invariant === undefined
@@ -112,12 +118,11 @@ export async function deriveSetupProjectContext(
   mapDir: string,
   instructionSources: readonly string[],
 ): Promise<SetupProjectContext> {
-  const principlesPath = join(
+  const principlesText = await readSetupOrientation(
     root,
     mapDir,
-    "00-orientation/design-principles.md",
+    "design-principles.md",
   );
-  const principlesText = await readTextIfExists(principlesPath);
   const principles = principlesText === undefined
     ? []
     : setupPrincipleNames(principlesText);
@@ -126,4 +131,27 @@ export async function deriveSetupProjectContext(
     principles: { count: principles.length, items: principles },
     instruction_sources: [...instructionSources],
   };
+}
+
+/** Read a setup orientation page with optional numeric ordering prefixes. */
+export async function readSetupOrientation(
+  root: string,
+  mapDir: string,
+  leaf: string,
+): Promise<string | undefined> {
+  try {
+    const regions = [];
+    for await (const entry of Deno.readDir(join(root, mapDir))) {
+      if (
+        entry.isDirectory && entry.name.replace(/^\d+-/, "") === "orientation"
+      ) regions.push(entry.name);
+    }
+    for (const region of regions.toSorted()) {
+      const text = await readTextIfExists(join(root, mapDir, region, leaf));
+      if (text !== undefined) return text;
+    }
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+  return undefined;
 }

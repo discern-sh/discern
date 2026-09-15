@@ -199,9 +199,9 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
               `## Non-obvious invariant\n\n${invariant}\n`,
           );
         }
-        await Deno.mkdir(join(mapRoot, "80-development"), { recursive: true });
+        await Deno.mkdir(join(mapRoot, "development"), { recursive: true });
         await Deno.writeTextFile(
-          join(mapRoot, "80-development", "done-gate-gotchas.md"),
+          join(mapRoot, "development", "done-gate-gotchas.md"),
           "# Gate gotchas\n\nThe local fixture is offline. Follow the first Gate diagnostic.\n",
         );
         await Deno.writeTextFile(
@@ -334,7 +334,7 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
           "10-runtime",
           "20-storage",
           "30-interface",
-          "80-development",
+          "development",
         ]);
         const completed = await harness.snapshot();
         assert(completed.config?.includes("bootstrapped = true"));

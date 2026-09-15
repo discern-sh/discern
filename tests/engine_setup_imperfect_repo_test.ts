@@ -590,7 +590,7 @@ Deno.test("re-begin never imports a surviving agent file that matches discern's 
     const survivor = await Deno.readTextFile(survivorPath);
     assertStringIncludes(
       survivor,
-      "`00-orientation` — Orientation",
+      "`orientation` — Orientation",
       "setup must return with instructions compiled from the map skeleton it laid",
     );
 

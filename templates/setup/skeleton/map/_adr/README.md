@@ -2,7 +2,7 @@
 
 This directory holds the project's **Architecture Decision Records (ADRs)** — short documents that capture a significant decision, the context that forced it, and the reasoning behind it. An ADR answers the question a future reader will ask: _"why on earth was it done this way?"_
 
-**This file is the canonical ADR format for the project.** Other instructions — the [design principles](../00-orientation/design-principles.md) (whose override mechanism is "write an ADR"), the `discern-write-adr` skill — points here rather than restating the format. There is exactly one home for "how we write ADRs", and it is this page.
+**This file is the canonical ADR format for the project.** Other instructions — the [design principles](../orientation/design-principles.md) (whose override mechanism is "write an ADR"), the `discern-write-adr` skill — points here rather than restating the format. There is exactly one home for "how we write ADRs", and it is this page.
 
 To start a new ADR, copy [`0000-template.md`](0000-template.md).
 
@@ -68,7 +68,7 @@ Write an ADR when **all three** of these are true:
 
 If a decision is easy to reverse, skip it — you will just reverse it. If it is not surprising, nobody will wonder why. If there was no real alternative, there is nothing to record beyond "we did the obvious thing".
 
-There is one decision you should _always_ consider an ADR for: **overriding a [design principle](../00-orientation/design-principles.md)**. The principles are hard requirements; bending one on purpose is exactly the "hard to reverse, surprising, deliberate trade-off" case this directory exists for.
+There is one decision you should _always_ consider an ADR for: **overriding a [design principle](../orientation/design-principles.md)**. The principles are hard requirements; bending one on purpose is exactly the "hard to reverse, surprising, deliberate trade-off" case this directory exists for.
 
 ### What qualifies
 
@@ -84,5 +84,5 @@ There is one decision you should _always_ consider an ADR for: **overriding a [d
 
 ## After writing one
 
-- Link the ADR from whatever it touches: the [design principle](../00-orientation/design-principles.md) it overrides or grounds, and the subsystem doc whose behavior it explains. An ADR nobody can find from the code it governs is half-wasted.
+- Link the ADR from whatever it touches: the [design principle](../orientation/design-principles.md) it overrides or grounds, and the subsystem doc whose behavior it explains. An ADR nobody can find from the code it governs is half-wasted.
 - If the decision changes something the map describes, update those pages too — the map says what _is_, the ADR says _why_.

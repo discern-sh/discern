@@ -8,13 +8,14 @@
  */
 
 import { join } from "@std/path";
+import { discoverDocs, docRegions } from "../lib/docs.ts";
 import type { DiscernConfig } from "./config_schema.ts";
 import type { SetupAssurance } from "./setup_assurance.ts";
 import {
   deriveSetupProjectContext,
   type SetupProjectContext,
 } from "./setup_project_context.ts";
-import { readDirIfExists, readTextIfExists } from "./fs_presence.ts";
+import { readTextIfExists } from "./fs_presence.ts";
 
 export interface SetupCompletionInventory {
   project_context: SetupProjectContext;
@@ -28,12 +29,10 @@ export interface SetupCompletionInventory {
   };
 }
 
-/** Read the configured top-level numbered Map regions in stable path order. */
+/** Use the same region inventory as map browsing and compiled instructions. */
 async function mapRegions(root: string, mapDir: string): Promise<string[]> {
-  const names = (await readDirIfExists(join(root, mapDir)) ?? [])
-    .filter((entry) => entry.isDirectory && /^\d{2}-.+/.test(entry.name))
-    .map((entry) => entry.name);
-  return names.toSorted();
+  const tree = await discoverDocs({ cwd: root, dir: mapDir });
+  return docRegions(tree?.entries ?? []).map((region) => region.name);
 }
 
 /** Extract every open checkbox from the configured ledger in source order. */

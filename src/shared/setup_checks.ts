@@ -26,12 +26,15 @@ import { KNOWN_JOBS } from "./capabilities.ts";
 import { type DiscernConfig, toCommandList } from "./config_schema.ts";
 import { normalizeMapDir } from "./map_path.ts";
 import { instructionSeedRel } from "./paths_registry.ts";
-import { deriveSetupPrimarySubsystem } from "./setup_project_context.ts";
+import {
+  deriveSetupPrimarySubsystem,
+  readSetupOrientation,
+} from "./setup_project_context.ts";
 import { readTextIfExists } from "./fs_presence.ts";
 
 /** The conventional Gate-gotchas page the setup skeleton authors. */
 export function conventionalSetupGotchasDoc(mapDir: string): string {
-  return `${normalizeMapDir(mapDir)}80-development/done-gate-gotchas.md`;
+  return `${normalizeMapDir(mapDir)}development/done-gate-gotchas.md`;
 }
 
 /** What a completion predicate reads: the project root and its loaded config. */
@@ -98,9 +101,10 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     describe:
       "design-principles.md holds at least 3 real principles (the EXAMPLE block replaced).",
     async evaluate({ root, config }): Promise<boolean> {
-      const text = await readFileOr(
+      const text = await readSetupOrientation(
         root,
-        `${normalizeMapDir(config.map.dir)}00-orientation/design-principles.md`,
+        config.map.dir,
+        "design-principles.md",
       );
       if (text === undefined) {
         return true; // not laid here (existing-docs project) → N/A
@@ -173,7 +177,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     step: 9,
     name: "primary_subsystem_context",
     describe:
-      "The final primary-subsystem README has non-empty Start here, Boundary, and Non-obvious invariant sections; an authored conventional gotchas page is wired through [project].gotchas_doc.",
+      "The final primary-subsystem README has non-empty Start here, Boundary, and Important constraint sections; an authored conventional gotchas page is wired through [project].gotchas_doc.",
     async evaluate({ root, config }): Promise<boolean> {
       if ((await deriveSetupPrimarySubsystem(root, config.map.dir)) === null) {
         return false;

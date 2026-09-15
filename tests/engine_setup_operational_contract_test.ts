@@ -164,24 +164,14 @@ Deno.test("setup pages form one sequential numbered journey", () => {
   );
 });
 
-Deno.test("the shipped Map seed promises a scope-manifest template, not pre-created manifests", async () => {
-  const mapReadme = await Deno.readTextFile(
-    join(REAL_TEMPLATES, "setup", "skeleton", "map", "README.md"),
+Deno.test("the shipped Map seed teaches a responsibility hierarchy with optional numbering", async () => {
+  const body = await Deno.readTextFile(
+    join(REAL_TEMPLATES, "setup/skeleton/map/README.md"),
   );
-  const documenter = await Deno.readTextFile(
-    join(
-      REAL_TEMPLATES,
-      "setup",
-      "skeleton",
-      "map",
-      "_internal",
-      "documenter-agent-brief.md",
-    ),
-  );
-  assertStringIncludes(mapReadme, "template");
-  assertStringIncludes(mapReadme, "create a scope manifest");
-  assertStringIncludes(documenter, "skill creates or refreshes");
-  assert(!mapReadme.includes("per-subtree scope manifests"));
+  assertStringIncludes(body, "Extend the closest existing section first");
+  assertStringIncludes(body, "Numbered folders are an optional reading order");
+  assertStringIncludes(body, "orientation/README.md");
+  assertStringIncludes(body, "development/README.md");
 });
 
 Deno.test("every setup human moment carries its complete semantic contract", () => {
@@ -686,7 +676,7 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await Deno.mkdir(
-      join(dir, SOURCE_PATHS.map.defaultPath, "00-orientation"),
+      join(dir, SOURCE_PATHS.map.defaultPath, "orientation"),
       {
         recursive: true,
       },
@@ -704,7 +694,7 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
       join(
         dir,
         SOURCE_PATHS.map.defaultPath,
-        "00-orientation",
+        "orientation",
         "design-principles.md",
       ),
       "# Design principles\n\n## 1. Preserve status\n\nA rule.\n\n" +
@@ -726,7 +716,7 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
     assert(done.stdout.length <= SETUP_RESULT_MAX_CHARS);
     assertEquals(inventory.map_regions, {
       count: 2,
-      items: ["00-orientation", "10-runtime"],
+      items: ["10-runtime", "orientation"],
     });
     assertEquals(inventory.ledger_items, {
       count: 2,
@@ -779,11 +769,11 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
 Deno.test("setup qualitative completion context derives from the first durable subsystem authority", async () => {
   await withTempDir(async (dir) => {
     const mapDir = "discern/map";
-    await Deno.mkdir(join(dir, mapDir, "00-orientation"), {
+    await Deno.mkdir(join(dir, mapDir, "orientation"), {
       recursive: true,
     });
     await Deno.mkdir(join(dir, mapDir, "10-runtime"), { recursive: true });
-    await Deno.mkdir(join(dir, mapDir, "80-development"), {
+    await Deno.mkdir(join(dir, mapDir, "development"), {
       recursive: true,
     });
     await Deno.writeTextFile(
@@ -793,7 +783,7 @@ Deno.test("setup qualitative completion context derives from the first durable s
         "## Non-obvious invariant\n\nPreserve child status.\n",
     );
     await Deno.writeTextFile(
-      join(dir, mapDir, "00-orientation", "design-principles.md"),
+      join(dir, mapDir, "orientation", "design-principles.md"),
       "# Principles\n\n## 1. Preserve status\n\nText.\n\n" +
         "## 2. Plan effects\n\nText.\n\n" +
         "## What these add up to\n\nSummary.\n",
@@ -887,8 +877,7 @@ Deno.test("every shipped start description states that start returns a path", as
   );
   for (
     const rel of [
-      "setup/skeleton/map/80-development/README.md",
-      "setup/skeleton/map/80-development/getting-started.md",
+      "setup/skeleton/map/development/getting-started.md",
     ]
   ) {
     assert(
