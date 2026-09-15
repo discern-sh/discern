@@ -5,10 +5,9 @@ export { DISCERN_MARK } from "../src/shared/brand.ts";
 export const DISCERN_FAVICON_PATH = "/assets/favicon.svg";
 
 /** Homepage metadata shared by its renderer, SEO checks, and smoke crawl. */
-export const LANDING_TITLE =
-  "discern — A Software Engineering Tool for Coding Agents";
+export const LANDING_TITLE = "discern";
 export const LANDING_DESCRIPTION =
-  "Give coding agents a consistent way to handle substantial software tasks, work in isolation, run project checks, and return exact evidence while you keep control of what ships.";
+  "Visit the discern manual for setup instructions, guides, and full product documentation.";
 
 /** Exact metadata for the public agent-ergonomics composition. */
 export const AGENTS_TITLE =

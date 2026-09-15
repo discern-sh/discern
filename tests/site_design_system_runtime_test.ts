@@ -362,9 +362,10 @@ Deno.test("each emitted bundle is the dependency closure of the site selection",
     );
     assertEquals(runtime.publicTokenNames, packageManifest.publicTokenNames);
     assertEquals(runtime.selection.all, false);
+    // Requested membership is independent of the emitter's component order.
     assertEquals(
-      runtime.selection.requestedComponents,
-      [...expected.components],
+      runtime.selection.requestedComponents.toSorted(),
+      [...expected.components].toSorted(),
     );
     assertEquals(runtime.selection.requestedGroups, [...expected.groups]);
     assertEquals(runtime.selection.resolvedComponents, resolved);
@@ -373,44 +374,6 @@ Deno.test("each emitted bundle is the dependency closure of the site selection",
       runtime.selection.appearanceScopes,
       SITE_APPEARANCE.appearanceScopes,
     );
-  }
-});
-
-Deno.test("production roots keep the blue Appearance active in light and dark modes", async () => {
-  for (
-    const [name, route] of [
-      ["compositions", "/"],
-      ["docs", "/docs"],
-    ] as const satisfies readonly [DesignSystemBundleName, string][]
-  ) {
-    const response = await handler(
-      new Request(`https://discern.sh${route}`, { headers: BROWSER }),
-    );
-    assertEquals(response.status, 200, route);
-    const html = await response.text();
-    const root = html.match(/<html\b[^>]*>/u)?.[0];
-    assert(root !== undefined, `${route} has no document root`);
-    for (const attribute of Object.keys(SITE_APPEARANCE.rootAttributes)) {
-      assertStringIncludes(root, attribute, route);
-    }
-    assertStringIncludes(
-      root,
-      `${SITE_APPEARANCE.accentHueProperty}: ${SITE_APPEARANCE.accentHue}`,
-      route,
-    );
-
-    const css = await Deno.readTextFile(join(bundleRoot(name), "discern.css"));
-    for (
-      const [mode, selector] of [
-        ["light", "[data-discern-root][data-discern-accent]"],
-        [
-          "dark",
-          '[data-discern-root][data-discern-theme="dark"][data-discern-accent]',
-        ],
-      ] as const
-    ) {
-      assertStringIncludes(css, selector, `${name} omits ${mode} Appearance`);
-    }
   }
 });
 

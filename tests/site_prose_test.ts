@@ -4,7 +4,6 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join, resolve } from "@std/path";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { renderAgents } from "../site/page-src/agents.tsx";
-import { COPY_PROMPT_TEXT } from "../site/page-src/campaign.tsx";
 import { renderLanding } from "../site/page-src/landing.tsx";
 import { renderTrust } from "../site/page-src/trust.tsx";
 import { proseWordCount } from "../scripts/prose_lib.ts";
@@ -58,18 +57,14 @@ Deno.test("the For Agents projection uses the agent register", () => {
   );
 });
 
-Deno.test("the homepage projection measures prose once and excludes artefact data", () => {
+Deno.test("the homepage projection measures the launch headline once", () => {
   const pages = projectSiteProse();
   const homepage = pages.find(({ route }) => route === "/");
   assert(homepage !== undefined);
-  assertStringIncludes(
-    homepage.prose,
-    "Let coding agents handle more of the work. Keep control of what ships.",
-  );
   assertEquals(
-    homepage.prose.split(COPY_PROMPT_TEXT).length - 1,
+    homepage.prose.split("Software worth putting your name to.").length - 1,
     1,
-    "repeated prompt output is one authored prose block",
+    "the homepage headline contributes one authored prose block",
   );
   assert(siteProseReadingGrade(pages) > 0);
 });

@@ -36,8 +36,7 @@ export const COPIED_PAGE_ASSETS = [
   "agents.js",
   "campaign.css",
   "copy-prompt.js",
-  "clarity-first.css",
-  "clarity-first.js",
+  "landing.css",
   "trust.css",
 ] as const;
 
