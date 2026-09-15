@@ -14,6 +14,7 @@ const OWNED_CLASSES = new Set(
 function markupViolations(path: string, text: string): string[] {
   const project = new Project({
     useInMemoryFileSystem: true,
+    compilerOptions: { noLib: true },
     skipAddingFilesFromTsConfig: true,
   });
   const source = project.createSourceFile(path, text);
