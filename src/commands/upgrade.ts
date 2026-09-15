@@ -14,7 +14,7 @@
  *   5. reconcile the config-derived `.gitattributes` block;
  *   6. recompile the instructions — which re-materializes the bundled skills into
  *      `.claude/skills/` and writes the per-provider agent files;
- *   7. stamp the new `[meta].schema_version` into the config.
+ *   7. atomically stamp the schema and, after complete refresh, managed adoption.
  *
  * Your config values, instruction sources, authored skills, and project scripts are never
  * rewritten. The clean-tree git guard keeps the upgrade revertible.
@@ -945,12 +945,12 @@ function renderUpgradeSummary(
   // project to match the installed binary; getting a NEWER binary is separate.
   log.group("upgrade-next-steps");
   log.info(
-    `This refreshed your project to match the installed discern (${DISCERN_VERSION}). ${newerDiscernHint().text}`,
+    `This command uses the installed discern (${DISCERN_VERSION}). ${newerDiscernHint().text}`,
   );
   log.info(restartAgentsHint().text);
 }
 
-/** Stamp `[meta].schema_version` into the config at `configPath`, in place. */
+/** Complete the schema and optional successful adoption in one atomic write. */
 async function stampUpgradeCompletion(
   configPath: string,
   version: number,
