@@ -1,4 +1,4 @@
-/** External-consumer contract for Discern's selected design-system CLI source. */
+/** External-consumer contract for Discern's published design-system CLI dependency. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { z } from "@zod/zod";
@@ -50,7 +50,9 @@ import { decodeWith } from "./decode_cli_result.ts";
 
 import {
   DESIGN_SYSTEM_ORIGIN,
+  DESIGN_SYSTEM_PACKAGE,
   DESIGN_SYSTEM_SPECIFIER as SELECTED_SPECIFIER,
+  DESIGN_SYSTEM_VERSION,
 } from "./design_system_dependency.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -74,7 +76,7 @@ const DenoLockSchema = z.object({
     links: z.record(
       z.string(),
       z.object({ dependencies: z.array(z.string()).optional() }),
-    ),
+    ).optional(),
   }),
 });
 
@@ -146,7 +148,7 @@ function resolvedEdge(info: DenoInfo, specifier: string): string {
   return info.redirects?.[specifier] ?? specifier;
 }
 
-Deno.test("the selected source exposes the complete public reader contract", async () => {
+Deno.test("the selected release exposes the complete public reader contract", async () => {
   const config = decodeWith(
     DenoConfigSchema,
     await Deno.readTextFile(join(ROOT, "deno.json")),
@@ -156,8 +158,9 @@ Deno.test("the selected source exposes the complete public reader contract", asy
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   );
   assertEquals(config.imports["discern-design-system"], SELECTED_SPECIFIER);
-  assertEquals(lock.specifiers[SELECTED_SPECIFIER], undefined);
-  assert(SELECTED_SPECIFIER in lock.workspace.links);
+  assertEquals(lock.specifiers[SELECTED_SPECIFIER], DESIGN_SYSTEM_VERSION);
+  assertEquals(lock.workspace.links, undefined);
+  assert(DESIGN_SYSTEM_PACKAGE in lock.jsr);
 
   assertEquals(packageManifest.package, "@discern-sh/design-system");
   assert(packageManifest.components.length > 0);
@@ -524,7 +527,7 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
   assertStringIncludes(textarea, "line 12");
 });
 
-Deno.test("CLI design-system graphs stay within the selected source, lock-resolved, and React-free", async () => {
+Deno.test("CLI design-system graphs stay within the immutable release, lock-resolved, and React-free", async () => {
   const entrypoint = join(ROOT, "tests/fixtures/design_system_cli_graph.ts");
   const info = await moduleGraph(entrypoint);
   const lock = decodeWith(
@@ -577,12 +580,12 @@ Deno.test("CLI design-system graphs stay within the selected source, lock-resolv
     "discern-design-system/cli/projection",
   ]);
   const allowedOrigin = DESIGN_SYSTEM_ORIGIN;
-  const packageLock = lock.workspace.links[SELECTED_SPECIFIER];
+  const packageLock = lock.jsr[DESIGN_SYSTEM_PACKAGE];
   assert(packageLock !== undefined);
   const declaredNpmPackages = (packageLock.dependencies ?? []).flatMap(
     (dependency) =>
       dependency.startsWith("npm:")
-        ? [dependency.slice("npm:".length).replace(/@[^@]+$/u, "")]
+        ? [dependency.slice("npm:".length).replace(/(?!^)@[^@]+$/u, "")]
         : [],
   );
   for (const [publicRoot, resolvedRoot] of packageRoots) {

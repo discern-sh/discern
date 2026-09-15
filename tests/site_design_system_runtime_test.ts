@@ -33,15 +33,11 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 
 import {
-  assertDevelopmentWorktree,
-  DESIGN_SYSTEM_BRANCH,
+  DESIGN_SYSTEM_ORIGIN,
+  DESIGN_SYSTEM_PACKAGE,
   DESIGN_SYSTEM_SPECIFIER,
   DESIGN_SYSTEM_VERSION,
-  DESIGN_SYSTEM_WORKTREE,
 } from "./design_system_dependency.ts";
-
-import { git as fixtureGit, gitInit } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -64,8 +60,7 @@ interface DenoConfig {
 function committedLocalOverrideViolations(config: DenoConfig): string[] {
   return [
     ...(config.workspace === undefined ? [] : ["workspace"]),
-    ...(config.links ?? []).filter((path) => path !== DESIGN_SYSTEM_WORKTREE)
-      .map((path) => `links:${path}`),
+    ...(config.links === undefined ? [] : ["links"]),
   ];
 }
 
@@ -82,7 +77,7 @@ const DENO_CONFIG_SCHEMA = z.object({
 const DENO_LOCK_SCHEMA = z.object({
   specifiers: z.record(z.string(), z.string()),
   jsr: z.record(z.string(), z.json()),
-  workspace: z.object({ links: z.record(z.string(), z.json()) }),
+  workspace: z.object({ links: z.record(z.string(), z.json()).optional() }),
 }).passthrough();
 
 const DENO_INFO_SCHEMA = z.object({
@@ -233,48 +228,25 @@ function componentOwnedSelectors(
   return [...selectors].toSorted();
 }
 
-Deno.test("the committed-override detector catches a freshly named linked package", () => {
-  assertEquals(
-    committedLocalOverrideViolations({
-      imports: {},
-      links: ["../future-component-system"],
-    }),
-    ["links:../future-component-system"],
-  );
+Deno.test("committed dependency containers cannot replace the immutable package", () => {
+  for (const key of ["links", "workspace"] as const) {
+    for (const paths of [[], ["../future-component-system"]]) {
+      assertEquals(
+        committedLocalOverrideViolations({ imports: {}, [key]: paths }),
+        [key],
+      );
+    }
+  }
+  assertEquals(committedLocalOverrideViolations({ imports: {} }), []);
 });
 
-Deno.test("development worktree binding accepts evolving source and rejects a different branch", async () => {
-  await withTempDir(async (root) => {
-    const branch = "agent/future-library";
-    const source = join(root, "module.ts");
-    await Deno.writeTextFile(source, "export const value = 1;\n");
-    await gitInit(root);
-    await fixtureGit(root, "switch", "-c", branch);
-    await assertDevelopmentWorktree(root, branch);
-
-    await Deno.writeTextFile(source, "export const value = 2;\n");
-    await fixtureGit(root, "commit", "-am", "Advance library source");
-    await assertDevelopmentWorktree(root, branch);
-
-    await Deno.writeTextFile(source, "export const value = 3;\n");
-    await Deno.writeTextFile(join(root, "new-module.ts"), "export {};\n");
-    await assertDevelopmentWorktree(root, branch);
-    await fixtureGit(root, "add", "module.ts");
-    await assertDevelopmentWorktree(root, branch);
-    await assertRejects(() =>
-      assertDevelopmentWorktree(root, "agent/other-library")
-    );
-  });
-});
-
-Deno.test("Discern binds one exact design-system development worktree", async () => {
+Deno.test("Discern binds one exact immutable design-system release", async () => {
   const config = decodeWith(
     DENO_CONFIG_SCHEMA,
     await Deno.readTextFile(join(ROOT, "deno.json")),
   );
   assertEquals(committedLocalOverrideViolations(config), []);
-  assertEquals(config.links, [DESIGN_SYSTEM_WORKTREE]);
-  await assertDevelopmentWorktree(DESIGN_SYSTEM_WORKTREE, DESIGN_SYSTEM_BRANCH);
+  assertEquals(config.links, undefined);
   assertEquals(
     Object.entries(config.imports).filter(([key, value]) =>
       key.includes("design-system") || value.includes("design-system")
@@ -290,11 +262,19 @@ Deno.test("Discern binds one exact design-system development worktree", async ()
     DENO_LOCK_SCHEMA,
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   );
-  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], undefined);
-  assert(`${DESIGN_SYSTEM_SPECIFIER}` in lock.workspace.links);
+  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], DESIGN_SYSTEM_VERSION);
+  assertEquals(lock.workspace.links, undefined);
+  assert(DESIGN_SYSTEM_PACKAGE in lock.jsr);
+  const packageModules = (await moduleSpecifiers(join(ROOT, "site/main.ts")))
+    .filter((specifier) =>
+      specifier.startsWith("https://jsr.io/@discern-sh/design-system/")
+    );
+  assert(packageModules.length > 0);
   assertEquals(
-    `@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}` in lock.jsr,
-    false,
+    packageModules.filter((specifier) =>
+      !specifier.startsWith(DESIGN_SYSTEM_ORIGIN)
+    ),
+    [],
   );
 
   const sourceFiles = await structuralGuardScope({

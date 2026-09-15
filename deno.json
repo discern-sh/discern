@@ -5,7 +5,9 @@
   "license": "FSL-1.1-ALv2",
   "minimumDependencyAge": {
     "age": "P1D",
-    "exclude": ["jsr:@discern-sh/design-system"]
+    "exclude": [
+      "jsr:@discern-sh/design-system"
+    ]
   },
   "deploy": {
     "build": "deno task site:build",
@@ -15,7 +17,12 @@
     }
   },
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext", "deno.ns"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext",
+      "deno.ns"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -196,8 +203,5 @@
       "templates/",
       "tests/fixtures/"
     ]
-  },
-  "links": [
-    "/Users/jack/Sites/discern-design-system.worktrees/calm-1a-prerequisites-dafbe4"
-  ]
+  }
 }
