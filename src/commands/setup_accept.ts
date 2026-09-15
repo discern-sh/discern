@@ -668,22 +668,11 @@ export async function runSetupAccept(
     );
   }
   const trackedRefresh = await planTrackedRefresh(root, landingConfig);
-  if (trackedRefresh.unavailable !== undefined) {
-    return emitAccept(opts, log, {
-      ok: false,
-      error: "precondition_failed",
-      message: trackedRefresh.unavailable,
-      data: {
-        ...setupAcceptData(branch, target, fastForward, validated.inspection),
-        next_action: "discern releases",
-      },
-      code: 1,
-    });
-  }
-  const adoptionRefusal = await trunkManagedVersionBoundary(
-    root,
-    landingConfig,
-  );
+  const adoptionRefusal = trackedRefresh.unavailable ??
+    await trunkManagedVersionBoundary(
+      root,
+      landingConfig,
+    );
   if (adoptionRefusal !== undefined) {
     return emitAccept(opts, log, {
       ok: false,
@@ -691,13 +680,16 @@ export async function runSetupAccept(
       message: adoptionRefusal,
       data: {
         ...setupAcceptData(branch, target, fastForward, validated.inspection),
-        next_action: "discern upgrade --dry-run",
+        next_action: trackedRefresh.unavailable === undefined
+          ? "discern upgrade --dry-run"
+          : "discern releases",
       },
       code: 1,
     });
   }
   if (
-    trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0
+    trackedRefresh.unavailable === undefined &&
+    (trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0)
   ) {
     const pending = trackedRefresh.changes.map((change) => change.path);
     return emitAccept(opts, log, {

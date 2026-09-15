@@ -24,7 +24,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { runUpgrade } from "../src/commands/upgrade.ts";
+import { captureUpgrade } from "./fixtures/upgrade_capture.ts";
 import type { Migration } from "../src/lib/migrations.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
@@ -38,8 +38,6 @@ import {
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { gitInit } from "./engine_helpers.ts";
-
-const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
 Deno.test("upgrade --check help enumerates every exit-affecting reconciliation family", async () => {
   await withTempDir(async (dir) => {
@@ -373,38 +371,13 @@ Deno.test("upgrade truncates the dirty-change list past ten entries", async () =
 
 // ---- in-process: human migrations-applied summary -------------------------
 
-/**
- * Run `runUpgrade` in-process against `dir` with a synthetic chain and human
- * (non-JSON) output, capturing what it writes to stderr. `dir` is passed as the
- * command's `cwd`, and we swap `console.error` to capture the human summary
- * lines. `--allow-dirty` skips the clean-tree guard for the throwaway install.
- */
+/** Capture the applying migration journey's human summary. */
 async function upgradeHumanIn(
   dir: string,
   registry?: Migration[],
 ): Promise<{ code: number; err: string }> {
-  const originalError = console.error;
-  let err = "";
-  console.error = (...args: unknown[]) => {
-    err += args.map((a) => String(a)).join(" ") + "\n";
-  };
-  try {
-    const code = await runUpgrade({
-      json: false,
-      noColor: true,
-      dryRun: false,
-      check: false,
-      allowDirty: true,
-      registry,
-      currentSchema: registry === undefined
-        ? undefined
-        : SYNTHETIC_CURRENT_SCHEMA,
-      cwd: dir,
-    });
-    return { code, err };
-  } finally {
-    console.error = originalError;
-  }
+  const result = await captureUpgrade(dir, { registry, json: false });
+  return { code: result.code, err: result.stderr };
 }
 
 Deno.test("upgrade (human) reports the migrations it applied", async () => {

@@ -10,19 +10,15 @@ import { assert, assertEquals, assertExists } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
-import { gitInit } from "./engine_helpers.ts";
+import { git, gitInit } from "./engine_helpers.ts";
 
-/** Run a git command in `dir`, throwing on failure. */
-async function git(dir: string, ...args: string[]): Promise<void> {
-  const r = await new Deno.Command("git", {
-    args,
-    cwd: dir,
-    stdout: "null",
-    stderr: "null",
-  }).output();
-  if (!r.success) {
-    throw new Error(`git ${args.join(" ")} failed`);
-  }
+/** Dirty the tracked config while preserving its parsed meaning. */
+async function dirtyConfig(dir: string): Promise<void> {
+  const path = join(dir, "discern.toml");
+  await Deno.writeTextFile(
+    path,
+    `${await Deno.readTextFile(path)}\n# local edit\n`,
+  );
 }
 
 /** A fresh install committed into a new git repo — a clean starting tree. */
@@ -54,12 +50,7 @@ Deno.test("upgrade refuses a tree with uncommitted tracked changes", async () =>
   await withTempDir(async (dir) => {
     await initCommittedRepo(dir);
     // Dirty a tracked file.
-    await Deno.writeTextFile(
-      join(dir, "discern.toml"),
-      `${await Deno.readTextFile(
-        join(dir, "discern.toml"),
-      )}\n# local edit\n`,
-    );
+    await dirtyConfig(dir);
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1);
     const res = decodeCliResult(r.stdout, "upgrade");
@@ -77,12 +68,7 @@ Deno.test("upgrade refuses a tree with uncommitted tracked changes", async () =>
 Deno.test("upgrade --allow-dirty overrides the guard", async () => {
   await withTempDir(async (dir) => {
     await initCommittedRepo(dir);
-    await Deno.writeTextFile(
-      join(dir, "discern.toml"),
-      `${await Deno.readTextFile(
-        join(dir, "discern.toml"),
-      )}\n# local edit\n`,
-    );
+    await dirtyConfig(dir);
     const r = await runCli(["upgrade", "--allow-dirty", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
     assertEquals(decodeCliResult(r.stdout, "upgrade").ok, true);
@@ -104,12 +90,7 @@ Deno.test("upgrade --check is never blocked by a dirty tree", async () => {
   await withTempDir(async (dir) => {
     await initCommittedRepo(dir);
     assertEquals((await runCli(["upgrade", "--json"], dir)).code, 0);
-    await Deno.writeTextFile(
-      join(dir, "discern.toml"),
-      `${await Deno.readTextFile(
-        join(dir, "discern.toml"),
-      )}\n# local edit\n`,
-    );
+    await dirtyConfig(dir);
     // --check writes nothing, so the guard does not apply: it reports sync state.
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);

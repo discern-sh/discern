@@ -44,7 +44,10 @@ import { inspectGateProof } from "../src/engine/gate/proof.ts";
 import { SETUP_RESULT_MAX_CHARS } from "../src/shared/setup_pages.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
-import { readyForSetupDone } from "./fixtures/setup_completion_harness.ts";
+import {
+  commitSetupAuthoring,
+  readyForSetupDone,
+} from "./fixtures/setup_completion_harness.ts";
 import { realPtyTest } from "./real_pty.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
@@ -80,8 +83,7 @@ async function assertIncompleteWithoutProof(
 Deno.test("setup done refuses denied planned writes before refresh, commit, worktree probe, or Gate", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "touch ../done-gate-ran");
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    await commitSetupAuthoring(dir);
     const configPath = join(dir, "discern.toml");
     const configBefore = await Deno.readTextFile(configPath);
     const headBefore = await gitOut(dir, "rev-parse", "HEAD");
@@ -118,8 +120,7 @@ realPtyTest({
   fn: async () => {
     await withTempDir(async (dir) => {
       await readyForDone(dir, "true");
-      await git(dir, "add", "-A");
-      await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+      await commitSetupAuthoring(dir);
 
       const done = await runAgentPty(dir, ["setup", "done"], {
         env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
@@ -159,8 +160,7 @@ Deno.test("setup done blocks when the refresh proof only partially completes", a
     await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
     // Committed sabotage: the clean-tree precondition passes, so the failure
     // surfaces at the refresh stage of the proof, not as uncommitted work.
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    await commitSetupAuthoring(dir);
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
@@ -184,8 +184,7 @@ Deno.test("setup done blocks when the refresh proof only partially completes", a
 Deno.test("setup done doctor and marker-commit failures leave setup incomplete without current Proof", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "discern-test-command-that-does-not-exist");
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    await commitSetupAuthoring(dir);
     const headBefore = await gitOut(dir, "rev-parse", "HEAD");
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
@@ -200,8 +199,7 @@ Deno.test("setup done doctor and marker-commit failures leave setup incomplete w
 
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true");
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    await commitSetupAuthoring(dir);
     const headBefore = await gitOut(dir, "rev-parse", "HEAD");
     await writeExecutable(
       join(dir, ".git", "hooks", "pre-commit"),
@@ -223,8 +221,7 @@ Deno.test("setup done doctor and marker-commit failures leave setup incomplete w
 Deno.test("setup done rollback bypasses commit hooks and leaves no transaction history", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "false");
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    await commitSetupAuthoring(dir);
     const headBefore = await gitOut(dir, "rev-parse", "HEAD");
     await writeExecutable(
       join(dir, ".git", "hooks", "pre-commit"),
@@ -544,8 +541,7 @@ Deno.test("setup done catches an untracked footprint file whose path git quotes 
 
     // Commit ALL the authored setup, so the ONLY uncommitted thing is the non-ASCII doc
     // below — the clean-tree check has exactly one path to catch, and it is a quoted one.
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    await commitSetupAuthoring(dir);
 
     // An untracked authored doc inside the footprint (the configured map tree) whose
     // name carries a non-ASCII byte, so git quotes it in line-oriented porcelain output.
@@ -731,8 +727,7 @@ Deno.test("setup done refuses when the gate is red, recording nothing; --unprove
       dir,
       'case "$PWD" in *".worktrees/"*) true ;; *) false ;; esac',
     ); // green in the probe, red in the final checkout
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    await commitSetupAuthoring(dir);
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);

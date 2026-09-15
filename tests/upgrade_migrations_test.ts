@@ -9,7 +9,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { runUpgrade } from "../src/commands/upgrade.ts";
+import { captureUpgrade } from "./fixtures/upgrade_capture.ts";
 import type { Migration } from "../src/lib/migrations.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { HINTS } from "../src/shared/hints.ts";
@@ -85,92 +85,28 @@ async function upgradeIn(dir: string, registry?: Migration[]): Promise<number> {
   return (await upgradeJsonIn(dir, registry)).code;
 }
 
-/** Capture one applying upgrade's JSON envelope without leaking its console output. */
+/** Capture one applying upgrade's JSON envelope. */
 async function upgradeJsonIn(
   dir: string,
   registry?: Migration[],
 ): Promise<{ code: number; stdout: string }> {
-  const originalLog = console.log;
-  let stdout = "";
-  console.log = (...args: unknown[]) => {
-    stdout += args.map((a) => String(a)).join(" ") + "\n";
-  };
-  try {
-    const code = await runUpgrade({
-      json: true,
-      noColor: true,
-      dryRun: false,
-      check: false,
-      allowDirty: true,
-      registry,
-      currentSchema: registry === undefined
-        ? undefined
-        : SYNTHETIC_CURRENT_SCHEMA,
-      cwd: dir,
-    });
-    return { code, stdout };
-  } finally {
-    console.log = originalLog;
-  }
+  return await captureUpgrade(dir, { registry });
 }
 
-/** Capture a read-only migration check's JSON envelope without applying the plan. */
+/** Capture a read-only migration check without applying the plan. */
 async function upgradeCheckJsonIn(
   dir: string,
   registry?: Migration[],
-): Promise<{
-  code: number;
-  stdout: string;
-}> {
-  const originalLog = console.log;
-  let stdout = "";
-  console.log = (...args: unknown[]) => {
-    stdout += args.map((a) => String(a)).join(" ") + "\n";
-  };
-  try {
-    const code = await runUpgrade({
-      json: true,
-      noColor: true,
-      dryRun: false,
-      check: true,
-      allowDirty: true,
-      registry,
-      currentSchema: registry === undefined
-        ? undefined
-        : SYNTHETIC_CURRENT_SCHEMA,
-      cwd: dir,
-    });
-    return { code, stdout };
-  } finally {
-    console.log = originalLog;
-  }
+): Promise<{ code: number; stdout: string }> {
+  return await captureUpgrade(dir, { registry, check: true });
 }
 
-/** Capture a synthetic migration preview's JSON envelope while preserving the filesystem. */
+/** Capture a synthetic migration preview while preserving the filesystem. */
 async function upgradeDryRunJsonIn(
   dir: string,
   registry: Migration[],
 ): Promise<{ code: number; stdout: string }> {
-  const originalLog = console.log;
-  let stdout = "";
-  console.log = (...args: unknown[]) => {
-    stdout += args.map((arg) => String(arg)).join(" ") + "\n";
-  };
-  try {
-    const code = await runUpgrade({
-      json: true,
-      noColor: true,
-      dryRun: true,
-      check: false,
-      allowDirty: true,
-      registry,
-      currentSchema: SYNTHETIC_CURRENT_SCHEMA,
-      cwd: dir,
-    });
-    return { code, stdout };
-  } finally {
-    console.log = originalLog;
-  }
+  return await captureUpgrade(dir, { registry, dryRun: true });
 }
 
 Deno.test("upgrade and upgrade --check refuse absent or invalid schema metadata without writing", async () => {
