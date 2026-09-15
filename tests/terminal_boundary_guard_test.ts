@@ -1685,6 +1685,14 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
       "The effectful package request graph receives the product Appearance from the terminal authority.",
   },
   {
+    file: "scripts/desk_capture.ts",
+    rule: "direct-theme-threading",
+    authority: "capture",
+    count: 2,
+    reason:
+      "The production review fixture selects matching child theme flags and package HTML appearance for its named-state evidence.",
+  },
+  {
     file: "scripts/terminal_capture.ts",
     rule: "direct-theme-threading",
     authority: "parseOptions",
