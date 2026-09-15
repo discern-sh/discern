@@ -23,7 +23,7 @@ aliases:
 
 discern's setup belongs to your project. You can inspect it, keep it current, or remove its wiring while retaining the instructions, skills, and project knowledge you have written.
 
-Choose the task you need: [diagnose a problem](#diagnose-the-installation), [format discern's files](#format-discern-owned-surfaces), [upgrade](#upgrade-the-project), or [remove discern](#remove-discern-from-the-repository). Your agent can handle most maintenance; removal includes a terminal operation for you.
+Choose the task you need: [diagnose a problem](#diagnose-the-installation), [format discern's files](#format-discern-owned-surfaces), [check releases](#check-release-information), [upgrade](#upgrade-the-project), or [remove discern](#remove-discern-from-the-repository). Your agent can handle most maintenance; removal includes a terminal operation for you.
 
 ## Diagnose the installation
 
@@ -49,6 +49,24 @@ Tidy covers the configured instruction sources, map, TODO ledger, and root confi
 
 The agent reviews the diff, prepares and commits it, and runs the gate. A second tidy preview should report no changes. For a narrower task, `discern tidy md` or `discern tidy toml` formats only the selected type.
 
+## Check release information
+
+Ask your agent to **check for updates**, or choose **Check for updates** from the desk commands. You can also run:
+
+```sh
+discern releases
+```
+
+The command prints browser and JSON addresses for this running process's version. In an ordinary terminal it also tries to open the browser. The desk action opens the same information and retains a readable result until you return. Opening the address sends the version number to `discern.sh`; no project data is included. The binary makes no network request and installs nothing.
+
+An agent uses `discern releases --json` and fetches the returned JSON address with its permitted network tool. Your request to check already authorizes that check. **Check and install the latest stable version** authorizes both within your requested scope; a request to check alone does not authorize installation. A reminder alone requires your decision before either action.
+
+Read the stable recommendation and notes. The page labels prereleases separately. If no stable release is published, there is no default installation target; a version ahead of the published stable release receives no downgrade advice.
+
+The clone can show a reminder after 14 UTC calendar days. Successful setup or upgrade starts its local clock; a release handoff resets it. A handoff records neither a completed fetch nor known update availability. Showing a reminder does not dismiss it. Linked worktrees share the clock, and turning the logbook off does not affect it.
+
+`--dry-run` writes no timestamp and opens no browser. JSON, Markdown, and non-terminal invocations open no browser. If the launcher is unavailable, use the printed URL. A failed local timestamp write leaves the URL usable.
+
 ## Upgrade the project
 
 Updating the installed program and updating a project's setup are separate steps. discern does not check the network for newer releases or replace its own binary.
@@ -60,9 +78,11 @@ Read [release notes](https://discern.sh/releases) before choosing an update. The
 Once you decide to install a newer version, use the supported installer described in [installation and setup](../00-start/first-success.md). Open a new shell and check which program will run:
 
 ```sh
-which discern
+command -v discern
 discern --version
 ```
+
+Human version output may include a codename after the version number. Names do not affect version comparison. Restart agent and MCP sessions after replacing the binary so the next project operation uses the new process.
 
 If the project reports a schema newer than the installed program, install a version that understands it. The schema describes the configuration format; an older program will refuse to stamp it backward.
 

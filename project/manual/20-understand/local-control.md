@@ -33,7 +33,9 @@ There is no additional model call or model bill from discern itself. Your coding
 
 The discern executable makes no network requests of its own. The installer uses the network to download it, and you choose when to download an update.
 
-The [release page](https://discern.sh/releases) is an external check performed by your browser or an authorized client. It receives the supplied discern version and no project data.
+`discern releases` and the desk's **Check for updates** action hand you the [release page](https://discern.sh/releases). The action describes its browser handoff before you select it. The browser or your authorized agent tool makes the external request; the application payload contains only this process's version number. Ordinary network information, such as the client's IP address, still accompanies that request.
+
+Checking and installation follow your request. A request to check needs no repeat approval; a request to check and install covers both actions within its scope. A proactive reminder authorizes neither. The handoff command and desk action install nothing. [Checking release information](../10-guides/maintain-or-remove-discern.md#check-release-information) explains the sequence.
 
 Other parts of your workflow can still connect:
 
@@ -56,6 +58,8 @@ The record lives in Git's administrative storage rather than tracked project fil
 You can turn recording off with `[project].logbook = false`. Sealing or removing existing history uses an owner command that asks for confirmation in a terminal. The reference explains those choices and which features depend on recording.
 
 A landed change's **Proof** is also recorded locally by default, as a note attached to its Git commit. You can explicitly configure fetching of other Proof notes through ordinary Git transport; publishing notes remains a separate Git action. discern does not automatically upload them. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) gives the sharing and removal commands.
+
+The release reminder has its own clone-local clock, shared by linked worktrees and unaffected by logbook settings. It records first adoption and the most recent handoff, including the running version. It does not record completed navigation, a fetch, or update availability. After 14 UTC calendar days, doctor, status, and the desk may offer an advisory. Reading it changes no state. Uninstall removes the clock.
 
 ## What discern may write
 

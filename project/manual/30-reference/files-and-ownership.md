@@ -144,6 +144,7 @@ These local working records live under `discern/` inside Git's administrative di
 | `discern/drop-recovery.lock`                       | repository | Advisory lock serializing the bounded drop-recovery ref transaction.                                                                       |
 | `discern/crash/`                                   | repository | Crash reports.                                                                                                                             |
 | `discern/test-slots/`                              | repository | Fleet test-run cap lock files.                                                                                                             |
+| `discern/release-check.json`                       | repository | First adoption and optional last release-handoff timestamp and version.                                                                    |
 | `discern/desk/tips.json`                           | repository | Desk tip evidence.                                                                                                                         |
 | `discern/desk/preferences.json`                    | repository | Desk display preferences.                                                                                                                  |
 | `discern/parked-tasks/`                            | repository | Branch-keyed task wording retained while `discern worktree park` removes the checkout.                                                     |
@@ -174,6 +175,8 @@ Repository records use the common Git directory; worktree records disappear with
 Git stores drop recovery through ordinary refs under `refs/discern/recovery/`. Git can therefore choose its files-based or `reftable` storage format. The newest 32 refs keep committed tips reachable after their worktree branches are deleted. They remain local unless a person configures transport. `discern uninstall` leaves them in place because a ref may be the only remaining name for user-authored commits. Review and delete them with `git update-ref -d <ref>` when that recovery history is no longer needed ([ADR 0271](https://discern.sh/docs/decisions/0271-destructive-drops-retain-bounded-recovery-refs)).
 
 Ordinary acceptance fast-forwards the trunk and creates its marker under `refs/worktree/discern/acceptance-transactions/<transaction-id>` in the same ref transaction. An interrupted landing resumes from that marker and the worktree's journal without repeating the landing.
+
+Release reminders use this clone-local record independently of the logbook. The interval is 14 UTC calendar days from the last handoff, or first adoption when no handoff is recorded. Setup and upgrade seed first-seen evidence only on success. An applied release handoff records its timestamp and numeric version. Reading or showing an advisory writes nothing. Missing, invalid, unreadable, future, or newer-format evidence supplies no reminder age. State writes are best-effort; a newer schema remains intact. Uninstall removes this record with the common runtime namespace.
 
 ## Git refs
 

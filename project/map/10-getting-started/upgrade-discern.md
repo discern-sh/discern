@@ -17,6 +17,14 @@ discern does not check the network for updates and never updates itself. You cho
 
 Before starting, commit or stash uncommitted tracked changes in the project. The upgrade command checks for a clean tree so its changes remain reviewable and revertible ([ADR 0014](../_adr/0014-versioned-migration-system.md)).
 
+## Check release information
+
+Run `discern releases` or choose **Check for updates** in the desk. The shared [handoff core](../../../src/commands/releases.ts) supplies HTML and JSON URLs using the running process's numeric version. An ordinary terminal invocation or explicit desk action attempts a browser launch; every result retains the URLs. JSON, Markdown, non-terminal, and dry-run invocations never launch. Dry-run also writes no state.
+
+The [public maintenance guide](https://discern.sh/docs/guides/maintain-or-remove-discern#check-release-information) explains request-scoped checking and installation. The [shared update sequence](../../../src/shared/product_identity.ts) owns their order. Use the stable recommendation, keep prereleases separate, and avoid installation advice when there is no stable target or the supplied version is ahead.
+
+The binary makes no network request. The browser or an authorized agent tool sends the running version to `discern.sh`. That version does not establish which binary is on disk. The [local clock](../../../src/shared/release_check.ts) records adoption and handoff, without claiming a fetch or an available update. Doctor, status, and the desk only read it.
+
 ## 1. Replace the binary
 
 Run the same installer used for the first install:
@@ -30,9 +38,11 @@ It downloads the latest released binary and checksum for your operating system a
 Confirm which binary the shell sees:
 
 ```sh
-which discern
+command -v discern
 discern --version
 ```
+
+Human version output includes the compiled codename when the release family has one. Numeric fields and protocol identities keep plain SemVer. Restart agent and MCP sessions after replacement, before applying project changes.
 
 If the project reports that its schema is newer than the binary, repeat this step. An older binary refuses to downgrade a project created or upgraded by a newer one.
 

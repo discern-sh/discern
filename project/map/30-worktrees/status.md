@@ -106,3 +106,7 @@ After setup, detectors can add recent logbook observations to `hints[]`. They in
 - Fleet worktrees belong to separate efforts. A clean sibling remains occupied until its owner lands or drops it.
 - A reappeared worktree path is no longer an active fleet member. Review its contents and close any program still writing there before confirmed prune.
 - The dashboard and Markdown result are projections. Default JSON and MCP are also bounded for orientation; request verbose structured status only when exact full collections are needed.
+
+## Release reminder
+
+Status reads [release handoff evidence](../../../src/shared/release_check.ts) through its observation boundary and routes the registered `release-check-sequence` hint when the UTC calendar interval is due. The hint preserves the current request's authorization: proceed with an already requested check, ask if only the reminder prompted it, and install only within installation authority. It carries no claim that an update exists. The optional `release_reminder` fact also supplies the desk's advisory; neither observer writes the clock. Logbook settings do not change this evidence.

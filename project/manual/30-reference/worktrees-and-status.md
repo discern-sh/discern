@@ -25,6 +25,7 @@ Find the current state of a task, interpret a status field, or look up the ident
 | Find                                               | Go to                                                       |
 | -------------------------------------------------- | ----------------------------------------------------------- |
 | The next action for a task                         | [Status and session hints](#status-and-session-hints)       |
+| Release information and reminders                  | [Release information](#release-information)                 |
 | A status field or a missing result                 | [Structured result](#structured-result)                     |
 | A task's port, branch, resource name, or test seed | [Read the derived identity](#read-the-derived-identity)     |
 | Which environment values a new worktree receives   | [Inherit selected env values](#inherit-selected-env-values) |
@@ -96,6 +97,7 @@ CLI JSON, MCP `structuredContent`, and the status resource use the same structur
 | `data.fleet`                                          | In orientation mode, the main row plus at most six non-main samples.                                                                                                                                                                                    |
 | `data.fleet_total`                                    | The complete non-main task count, including omitted rows.                                                                                                                                                                                               |
 | `data.queue`                                          | The landing queue in order: one row per submission with honored Proof that has not landed. Each row carries `effort`, `branch`, 1-based `position`, the submitted commit, whether a grant covers it, and one `reason` sentence when it cannot land yet. |
+| `data.release_reminder`                               | Optional clone-local advisory; does not change health or establish update availability.                                                                                                                                                                 |
 | `data.operation`                                      | Present while a long operation this checkout started is still running: its `verb`, `branch`, the `discern progress` `handle` that reads it back, and the `latest` sentence it recorded.                                                                 |
 | `data.fleet[].landed_checkout`                        | Present when that task's submitted commit has landed and its worktree stayed: one `message` with why it stayed and the command that finishes cleanup.                                                                                                   |
 | `data.pending_tracked_refresh`                        | Tracked paths that ordinary refresh would change.                                                                                                                                                                                                       |
@@ -152,6 +154,12 @@ After setup, detectors can add recent logbook observations to `hints[]`. They in
 - Fleet worktrees belong to separate efforts. A clean sibling remains occupied until its owner lands or discards it; its maintenance state appears under Owner attention.
 - A reappeared worktree path is no longer an active fleet member. Review its contents and close any program still writing there before confirmed prune.
 - The dashboard and Markdown result are projections. Default JSON and MCP are also bounded for orientation; request verbose structured status only when exact full collections are needed.
+
+## Release information
+
+The **Desk commands** region in the desk includes **Check for updates**, including when no tasks exist. Selecting it opens release information in your browser and sends this running process's version number to `discern.sh`. Its result keeps the URL readable if the launcher fails. Escape returns to the live desk.
+
+A clone-local reminder may appear beside the action after 14 UTC calendar days. It does not change task sorting or indicate that an update is available. Status routes the same eligibility as an agent hint; doctor keeps it advisory without changing health. [The maintenance guide](../10-guides/maintain-or-remove-discern.md#check-release-information) explains checking, installation, and local timestamps.
 
 ## Checkout identity and environment
 

@@ -98,6 +98,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/drop-recovery.lock`                       | repository | Advisory lock serializing the bounded drop-recovery ref transaction.                                                  |
 | `discern/crash/`                                   | repository | Crash reports.                                                                                                        |
 | `discern/test-slots/`                              | repository | Fleet test-run cap lock files.                                                                                        |
+| `discern/release-check.json`                       | repository | First adoption and optional last release-handoff timestamp and version.                                               |
 | `discern/desk/tips.json`                           | repository | Desk tip evidence.                                                                                                    |
 | `discern/desk/preferences.json`                    | repository | Last agent and task-creation path defaults.                                                                           |
 | `discern/temp-artifact-sweep`                      | repository | Temp-retention sweep stamp and cursor.                                                                                |
@@ -127,6 +128,8 @@ Repository records use the common Git directory; worktree records disappear with
 Git stores drop recovery through ordinary refs under `refs/discern/recovery/`. Git can therefore choose its files-based or `reftable` storage format. The newest 32 refs keep committed tips reachable after their worktree branches are deleted. They remain local unless a person configures transport. `discern uninstall` leaves them in place because a ref may be the only remaining name for user-authored commits. Review and delete them with `git update-ref -d <ref>` when that recovery history is no longer needed ([ADR 0271](../_adr/0271-destructive-drops-retain-bounded-recovery-refs.md)).
 
 Acceptance atomically moves the trunk and `refs/worktree/discern/acceptance-transactions/<id>` under an advisory lock. Rollback reverses both; Git reaps the ref with the worktree. The marker keeps landed authority spent after a trunk reset or reflog expiry.
+
+Release reminders use this clone-local record independently of the logbook. The interval is 14 UTC calendar days from the last handoff, or first adoption when no handoff is recorded. Setup and upgrade seed first-seen evidence only on success. An applied release handoff records its timestamp and numeric version. Reading or showing an advisory writes nothing. Missing, invalid, unreadable, future, or newer-format evidence supplies no reminder age. State writes are best-effort; a newer schema remains intact. Uninstall removes this record with the common runtime namespace.
 
 ## Git refs
 

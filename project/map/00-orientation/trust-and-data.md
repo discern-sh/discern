@@ -73,3 +73,9 @@ discern does not limit what your coding agent can read, run, or change. The agen
 
 - [Files & ownership](../70-reference/artifact-ownership.md): the enforced footprint, who owns each file, and how to remove it.
 - [Design principles](design-principles.md): declared write paths (7) and the provable footprint (13).
+
+## Release handoff
+
+`discern releases` and the desk's **Check for updates** action construct release URLs without fetching. The browser or an authorized agent tool sends only the running version number as application data to `discern.sh`. A local timestamp records a handoff; it cannot prove navigation, a completed check, or update availability. Checking and installing follow the current request's scope. A proactive reminder supplies no authority.
+
+The [common Git-admin record](../../../src/shared/release_check.ts) is shared by linked worktrees, independent of the logbook, and removed by uninstall. Its 14-day UTC calendar interval drives read-only advisories. See [release checking and upgrades](../10-getting-started/upgrade-discern.md).

@@ -17,6 +17,12 @@ Individual worktree operations are available through Model Context Protocol (MCP
 
 For direct movement between checkouts, [`discern enter`](opening-worktrees.md) opens a one-shot picker from any checkout and starts a child shell at the matching project-relative directory.
 
+## Check for updates
+
+**Check for updates** is among the root desk commands, available with an empty fleet and before any reminder is due. Its description explains that the browser receives release information and sends the running version to `discern.sh`. Activation authorizes that handoff and its local timestamp. The action uses the [release core](../../../src/commands/releases.ts) through the shared desk executor, then shows the same result in the package-owned reader. Escape returns to the live desk with input and focus restored. A launcher failure retains readable URLs.
+
+The advisory beside the action comes from status's clone-local clock. It does not enter tip history or change task ordering. The next observation after a recorded handoff removes it without a restart. Rendering, refreshing, and reading state have no release effects. Installation is a separate requested action.
+
 ## Start a task
 
 The overview has a task list and `Desk commands`. Tab reaches either region, including one hidden by a short terminal. Commands include Start, Project Scripts for the project root, main-checkout inspection, the landing queue, recent completions and the manual. The manual opens the same offline Markdown browser as `discern docs`. The desk suspends before the browser acquires stdin. Search, internal links, anchors, reading position, and external-link decisions belong to that shared browser. Escape returns to the desk.

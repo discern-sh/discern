@@ -29,7 +29,7 @@ export const TRUST_EVIDENCE = [
     claims: ["no-model-inside", "local-logbook"],
     title: "Local, with the boundary stated",
     summary:
-      "discern is a local deterministic program. It contains no AI model, needs no API key, and makes no network requests of its own. Its Logbook keeps bounded metadata on the machine; your coding agent, project commands, and chosen integrations retain their own network and permission boundaries.",
+      "discern is a local deterministic program. It contains no AI model, needs no API key, and makes no network requests of its own. Release checking opens a browser or uses an authorized agent tool; the application payload contains only the running version number. Clone-local reminders record handoffs, without establishing update availability. Checking and installing follow the actions you requested. Its Logbook keeps bounded metadata on the machine; your coding agent, project commands, and chosen integrations retain their own network and permission boundaries.",
     links: [
       { label: "Local control", href: "/docs/understand/local-control" },
       {
