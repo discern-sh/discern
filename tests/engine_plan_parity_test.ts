@@ -767,6 +767,14 @@ const PROBES: Record<string, DryRunProbe> = {
   },
 
   // ── data-preview members: the fs-plan / payload previews ──
+  "releases": {
+    envelope: "data-preview",
+    arrange: async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      return { cwd: dir, dry: ["releases", "--dry-run", "--json"] };
+    },
+  },
   "patterns reset": {
     envelope: "data-preview",
     arrange: async (dir) => {

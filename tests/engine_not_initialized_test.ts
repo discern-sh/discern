@@ -34,6 +34,12 @@ type OutsideSpec =
   | { skip: string };
 
 const SPEC: Record<string, OutsideSpec> = {
+  releases: {
+    run: ["releases"],
+    verb: "releases",
+    expect: "envelope",
+    ok: true,
+  },
   // Engine verbs behind the requireRoot chokepoint — the uniform refusal.
   done: { run: ["done"], verb: "done", expect: "not_initialized" },
   prepare: { run: ["prepare"], verb: "prepare", expect: "not_initialized" },

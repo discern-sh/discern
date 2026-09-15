@@ -106,6 +106,7 @@ const FROZEN_V1_GIT_CONVENTIONS = {
 } as const;
 
 const FROZEN_V1_GIT_ADMIN_STATE = {
+  releaseCheck: ["discern/release-check.json", "common", "file", false],
   completionRecords: [
     "discern/completion/records",
     "common",

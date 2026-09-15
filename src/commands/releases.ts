@@ -107,7 +107,11 @@ export async function applyReleases(
       network_request: false,
     },
     hints: hintTexts([fire(HINTS["release-check-sequence"])]),
-    message: `Release information for ${
+    message: `${
+      plan.dryRun
+        ? "Would hand off release information for"
+        : "Release information for"
+    } ${
       humanVersion({
         version: plan.version,
         ...(plan.codename === undefined ? {} : { codename: plan.codename }),

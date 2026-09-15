@@ -138,6 +138,7 @@ function topLevelVerb(commandPath: string): string {
  * here adds `--json` and therefore receives the same one-envelope protocol.
  */
 const PROJECT_CASES: readonly PurityCase[] = [
+  { commandPath: "releases", envelopeVerb: "releases", args: ["releases"] },
   { commandPath: "discern", envelopeVerb: "discern", args: [] },
   {
     commandPath: "help",

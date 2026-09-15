@@ -77,6 +77,7 @@ import { testResult } from "../src/engine/gate/test_job.ts";
 import { standardsResult } from "../src/engine/gate/standards.ts";
 import { standardsProposeResult } from "../src/engine/gate/standard_proposals.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
+import { releasesResult } from "../src/commands/releases.ts";
 import { impactResult } from "../src/engine/scopes/scopes.ts";
 import {
   emitCompletionFailure,
@@ -792,6 +793,24 @@ Deno.test("DatalessEnvelopeSchema forbids a data payload (the data-less SSOT gua
     !DatalessEnvelopeSchema.safeParse({ ...base, data: { x: 1 } }).success,
   );
   assert(EnvelopeSchema.safeParse({ ...base, data: { x: 1 } }).success);
+});
+
+const RELEASES_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "release handoff applied and preview results are faithful without a repository",
+  ["releases"],
+)(async ({ expectFaithful }) => {
+  for (const dryRun of [false, true]) {
+    expectFaithful(
+      "releases",
+      await releasesResult(undefined, {
+        mode: "json",
+        stdinTty: false,
+        stdoutTty: false,
+        dryRun,
+      }),
+      `release handoff dryRun=${dryRun}`,
+    );
+  }
 });
 
 const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
@@ -2170,6 +2189,7 @@ const WORKTREE_PARK_FAITHFULNESS_CASE = defineFaithfulnessCase(
  * the same entry; each running case reconciles only its own local calls.
  */
 const FAITHFULNESS_CASES: readonly FaithfulnessCase[] = [
+  RELEASES_FAITHFULNESS_CASE,
   PROGRESS_FAITHFULNESS_CASE,
   ROOT_COMMANDS_FAITHFULNESS_CASE,
   SETUP_MAINTENANCE_FAITHFULNESS_CASE,

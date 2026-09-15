@@ -124,6 +124,8 @@ const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
     "an exec-style resource wrapper whose child command is supplied at invocation time",
   refresh:
     "one direct convergence operation already shown inside modeled workflows",
+  releases:
+    "an offline URL handoff with a fixed local timestamp and optional browser launch, not a configurable workflow sequence",
   scripts:
     "a project-owned command discovered at runtime, with no closed sequence",
   setup: INSTALLER_ABSENCE,
