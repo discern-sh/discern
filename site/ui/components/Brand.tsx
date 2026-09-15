@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Brand } from "discern-design-system/react";
-import { DISCERN_MARK } from "../brand.ts";
+import { DISCERN_MARK } from "../../brand.ts";
 
 export interface DiscernBrandProps {
   /** Optional context set beneath the product name, such as a publication. */

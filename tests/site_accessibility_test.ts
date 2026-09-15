@@ -8,7 +8,7 @@ import { assertEquals } from "@std/assert";
 import axe from "axe-core";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { decorateDocumentHtml, loadDocsSite } from "../site/docs.ts";
+import { decorateDocumentHtml, loadDocsSite } from "../site/docs.tsx";
 import { handler, PAGES } from "../site/serve.ts";
 
 const BROWSER = {

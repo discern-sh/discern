@@ -13,6 +13,7 @@
  * bytes — the same bytes `discern docs <leaf> --raw` prints.
  */
 
+import { DOCUMENT_ROUTES, DOCUMENT_SEARCH_ROUTES } from "./routes.ts";
 import { fromFileUrl, join, relative } from "@std/path";
 import {
   adrRecords,
@@ -53,22 +54,22 @@ import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { repositoryBlobUrl, repositoryTreeUrl } from "../src/shared/brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
 import { siteAppearanceRootAttributes } from "./appearance.ts";
-import { decorateDocumentHtml } from "./document_html.ts";
+import { decorateDocumentHtml } from "./document_html.tsx";
 import {
   authoredHeadingNumberClass,
   tableOfContentsHtml,
   type TocItem,
-} from "./document_toc.ts";
+} from "./document_toc.tsx";
 import { buildSearchIndex } from "./search.ts";
 import {
   THEME_BOOTSTRAP,
   THEME_SCRIPT_PATH,
   THEME_STYLESHEET_PATH,
 } from "./theme.ts";
-import { renderWorkflowMarkdown } from "./workflow.ts";
+import { renderWorkflowMarkdown } from "./workflow.tsx";
 
-export { decorateDocumentHtml } from "./document_html.ts";
-export type { TocItem } from "./document_toc.ts";
+export { decorateDocumentHtml } from "./document_html.tsx";
+export type { TocItem } from "./document_toc.tsx";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const MANUAL_DIR = resolveRepositoryManualDir(REPO_ROOT).abs;
@@ -76,8 +77,8 @@ const MAP_DIR = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
 const ADR_DIR = join(MAP_DIR, "_adr");
 const MANUAL_REPO_REL = relative(REPO_ROOT, MANUAL_DIR);
 const MAP_REPO_REL = relative(REPO_ROOT, MAP_DIR);
-const DECISIONS_ROUTE = "/docs/decisions";
-export const PUBLIC_MAP_ROUTE = "/map";
+const DECISIONS_ROUTE = DOCUMENT_ROUTES.decisions;
+export const PUBLIC_MAP_ROUTE = DOCUMENT_ROUTES.map;
 const GLOSSARY_SOURCE_PATH = "30-reference/glossary.md";
 const DISCERN_BRAND_FRAGMENT = new URL(
   "pages/fragments/brand.html",
@@ -174,7 +175,6 @@ export interface PublicMapSite {
   sections: PublicMapSection[];
   /** Every discovered page rejected by the canonical tier/publish policy. */
   rejected: DocEntry[];
-  sitemapRoutes: string[];
 }
 
 /** The published docs site, derived once per process. */
@@ -198,8 +198,6 @@ export interface DocsSite {
   };
   /** discern's separately framed, safely admitted project Map. */
   publicMap: PublicMapSite;
-  /** Canonical HTML route source consumed by the sitemap implementation. */
-  sitemapRoutes: string[];
 }
 
 let sitePromise: Promise<DocsSite> | undefined;
@@ -321,13 +319,6 @@ async function buildDocsSite(): Promise<DocsSite> {
       byNumber,
     },
     publicMap,
-    sitemapRoutes: [
-      landing.route,
-      ...projection.pages.map((page) => page.route),
-      DECISIONS_ROUTE,
-      ...decisionPages.map((page) => page.route),
-      ...publicMap.sitemapRoutes,
-    ],
   };
 }
 
@@ -507,7 +498,6 @@ export function projectPublicMapPages(
     bySourcePath,
     sections,
     rejected,
-    sitemapRoutes: [landing.route, ...pages.map((page) => page.route)],
   };
 }
 
@@ -1061,7 +1051,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
   const contextLabel = map ? "/map" : "/docs";
   const corpusLabel = map ? "Live Map" : "Manual";
   const searchLabel = map ? "the live Map" : "the manual";
-  const searchEndpoint = `${rootRoute}/index.json`;
+  const searchEndpoint = DOCUMENT_SEARCH_ROUTES[frame.corpus];
   const navFoot = map
     ? `<a href="/docs">Product manual</a>
       <a href="${DECISIONS_ROUTE}">Project decisions</a>
@@ -1657,10 +1647,10 @@ export async function serveDocuments(
 ): Promise<Response> {
   const site = await loadDocsSite();
 
-  if (path === "/docs/index.json") {
+  if (path === DOCUMENT_SEARCH_ROUTES.manual) {
     return respond(await searchIndexJson(site, "manual"), "application/json");
   }
-  if (path === `${PUBLIC_MAP_ROUTE}/index.json`) {
+  if (path === DOCUMENT_SEARCH_ROUTES.map) {
     return respond(await searchIndexJson(site, "map"), "application/json");
   }
 

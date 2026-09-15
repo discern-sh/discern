@@ -445,6 +445,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         // The pattern covers the inflection family a single phrase can't.
         phrase: "harness",
         pattern: String.raw`\bharness(?:es|ing)?\b`,
+        allowed: [{
+          path: "project/map/_internal/registry-atlas.md",
+          reason:
+            "the generated public-route inventory preserves historical ADR URL slugs",
+        }],
       },
     ],
   },

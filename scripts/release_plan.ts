@@ -6,7 +6,7 @@ import {
   currentRelease,
 } from "../site/releases/records.ts";
 import type { Publication } from "../site/releases/model.ts";
-import { releaseLabel } from "../site/releases/render.ts";
+import { releaseLabel } from "../site/releases/presentation.ts";
 import { loadReleaseContext } from "./release_publication.ts";
 import { verifyReleaseMetadata } from "./release_metadata.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";

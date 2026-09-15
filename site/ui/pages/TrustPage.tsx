@@ -1,17 +1,13 @@
+import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
+import { SiteFooter } from "../components/SiteFooter.tsx";
+import { SiteHeader } from "../components/SiteHeader.tsx";
 /** The concise /trust bridge from public claims to inspectable evidence. */
 
-import { renderToStaticMarkup } from "react-dom/server";
-import {
-  Button,
-  Kicker,
-  SiteFooter,
-  SiteHeader,
-  SkipLink,
-} from "discern-design-system/react";
-import type { ClaimSlug } from "../../scripts/brand/claims.ts";
-import { DISCERN_MARK, TRUST_DESCRIPTION, TRUST_TITLE } from "../brand.ts";
-import { pageDocument } from "./document.ts";
-import { DISCERN_REPOSITORY_URL } from "../../src/shared/brand.ts";
+import { Button, Kicker } from "discern-design-system/react";
+import type { ClaimSlug } from "../../../scripts/brand/claims.ts";
+import { DISCERN_MARK, TRUST_DESCRIPTION, TRUST_TITLE } from "../../brand.ts";
+import { renderDocument } from "../Document.tsx";
+import { DISCERN_REPOSITORY_URL } from "../../../src/shared/brand.ts";
 
 const GITHUB = DISCERN_REPOSITORY_URL;
 
@@ -126,9 +122,45 @@ function EvidenceGroup({ group, index }: {
 function TrustPage() {
   return (
     <div className="trust-page">
-      <SkipLink className="trust-skip" href="#main">Skip to content</SkipLink>
-      <TrustHeader />
-      <main id="main">
+      <MarketingLayout
+        header={<TrustHeader />}
+        footer={
+          <SiteFooter
+            className="trust-footer"
+            brand={<DiscernName />}
+            brandMark={DISCERN_MARK}
+            brandTypeface="mono"
+            brandMarkTreatment="plain"
+            description="Inspect the evidence. Keep the decision."
+            groups={[
+              {
+                title: "Evidence",
+                links: [
+                  { label: "Live Map", href: "/map" },
+                  { label: "Project decisions", href: "/docs/decisions" },
+                  { label: "Source repository", href: GITHUB },
+                ],
+              },
+              {
+                title: "Manual",
+                links: [
+                  {
+                    label: "Evaluate discern",
+                    href: "/docs/start/evaluate-discern",
+                  },
+                  { label: "Proof", href: "/docs/understand/proof" },
+                  {
+                    label: "Local control",
+                    href: "/docs/understand/local-control",
+                  },
+                ],
+              },
+            ]}
+            legal={<a href="/docs/reference/licenses">Licenses</a>}
+            meta="© 2026 Jack Webb-Heller"
+          />
+        }
+      >
         <header className="trust-hero">
           <Kicker>Trust and evidence</Kicker>
           <h1>Confidence you can inspect.</h1>
@@ -189,53 +221,19 @@ function TrustPage() {
             </li>
           </ul>
         </aside>
-      </main>
-      <SiteFooter
-        className="trust-footer"
-        brand={<DiscernName />}
-        brandMark={DISCERN_MARK}
-        brandTypeface="mono"
-        brandMarkTreatment="plain"
-        description="Inspect the evidence. Keep the decision."
-        groups={[
-          {
-            title: "Evidence",
-            links: [
-              { label: "Live Map", href: "/map" },
-              { label: "Project decisions", href: "/docs/decisions" },
-              { label: "Source repository", href: GITHUB },
-            ],
-          },
-          {
-            title: "Manual",
-            links: [
-              {
-                label: "Evaluate discern",
-                href: "/docs/start/evaluate-discern",
-              },
-              { label: "Proof", href: "/docs/understand/proof" },
-              {
-                label: "Local control",
-                href: "/docs/understand/local-control",
-              },
-            ],
-          },
-        ]}
-        legal={<a href="/docs/reference/licenses">Licenses</a>}
-        meta="© 2026 Jack Webb-Heller"
-      />
+      </MarketingLayout>
     </div>
   );
 }
 
 /** Render /trust as framework-free static HTML. */
 export function renderTrust(): string {
-  return pageDocument({
-    source: "trust.tsx",
+  return renderDocument({
+    source: "site/ui/pages/TrustPage.tsx",
     title: TRUST_TITLE,
     description: TRUST_DESCRIPTION,
     styles: ["fonts.css", "discern.css", "trust.css"],
     scripts: ["discern.js"],
-    body: renderToStaticMarkup(<TrustPage />),
+    children: <TrustPage />,
   });
 }

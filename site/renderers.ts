@@ -1,9 +1,9 @@
 /** Static renderers for every registry-owned marketing route. */
 
-import type { MarketingRoute } from "../marketing_pages.ts";
-import { renderAgents } from "./agents.tsx";
-import { renderLanding } from "./landing.tsx";
-import { renderTrust } from "./trust.tsx";
+import type { MarketingRoute } from "./marketing_pages.ts";
+import { renderAgents } from "./ui/pages/AgentsPage.tsx";
+import { renderLanding } from "./ui/pages/HomePage.tsx";
+import { renderTrust } from "./ui/pages/TrustPage.tsx";
 
 const MARKETING_RENDERERS = {
   "/": renderLanding,

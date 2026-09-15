@@ -16,7 +16,7 @@ The public pages for discern live in this repository, so the gate checks the sit
 
 | Surface                  | Authority                                                                                                                          | Public role                                                                                     |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `/`, `/agents`, `/trust` | [`MARKETING_PAGES`](../../../site/marketing_pages.ts) and the typed compositions under [`site/page-src/`](../../../site/page-src/) | Desire, agent-native orientation, and the short trust gateway.                                  |
+| `/`, `/agents`, `/trust` | [`MARKETING_PAGES`](../../../site/marketing_pages.ts) and the typed compositions under [`site/ui/pages/`](../../../site/ui/pages/) | Desire, agent-native orientation, and the short trust gateway.                                  |
 | `/releases`              | [Release records and comparison](releases.md)                                                                                      | Release history and stable recommendations rendered from the shared comparison model.           |
 | `/docs`                  | The validated manual projection from `project/manual/`                                                                             | Current product documentation, exact reference, and recovery.                                   |
 | `/map`                   | The configured Map filtered by canonical tier and publication policy                                                               | Inspectable evidence of the account discern's agents maintain for project work and human audit. |
@@ -26,9 +26,9 @@ The main implementation boundaries are:
 
 | Piece                                                         | Role                                                                                    |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| [`site/docs.ts`](../../../site/docs.ts)                       | Adapts the shared document model to manual, Map, and decision route families.           |
+| [`site/docs.tsx`](../../../site/docs.tsx)                     | Adapts the shared document model to manual, Map, and decision route families.           |
 | [`site/search.ts`](../../../site/search.ts)                   | Builds the shared reader-visible search projection; each corpus receives its own index. |
-| [`site/seo.ts`](../../../site/seo.ts)                         | Canonical metadata, redirect validation, discovery files, and security policy.          |
+| [`site/seo.tsx`](../../../site/seo.tsx)                       | Canonical metadata, redirect validation, discovery files, and security policy.          |
 | [`site/marketing_pages.ts`](../../../site/marketing_pages.ts) | Enrolls every static public composition in build, serving, prose, and route guards.     |
 | [`site/design_system.ts`](../../../site/design_system.ts)     | Owns route bundles, package selections, assets, and theme.                              |
 | [`site/build.ts`](../../../site/build.ts)                     | Emits selected package bundles and static marketing shells.                             |
@@ -36,15 +36,15 @@ The main implementation boundaries are:
 | [`site/dev.ts`](../../../site/dev.ts)                         | Runs loopback-only previews and source-driven rebuilds.                                 |
 | [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts)     | Crawls the real handler across routes, links, metadata, raw editions, and redirects.    |
 
-[The docs section](the-docs-section.md) owns the corpus boundaries, navigation, rendering, search, raw, and admission contracts. [Design-system consumption](design-system-consumption.md) owns static composition and package boundaries. [Publishing](publishing.md) owns local and release operation.
+[The docs section](the-docs-section.md) owns the corpus boundaries, navigation, rendering, search, raw, and admission contracts. [Design-system consumption](design-system-consumption.md) owns static composition and package boundaries. [Publishing](publishing.md) owns local and release operation. [Authoring](authoring.md) explains the TSX structure, component boundary, and browser interaction model.
 
 ## Route authority
 
-There is no copied site route list. [`liveHtmlRoutes(site)`](../../../site/serve.ts) combines the static `PAGES` projection, the shared release HTML route, and `DocsSite.sitemapRoutes`. The latter derives the manual, decision, and public-Map routes from their source models. A published document therefore joins its declared browser, raw, metadata, and sitemap surfaces without a second site-side registry.
+[`siteRoutes`](../../../site/routes.ts) combines the marketing registry, fixed endpoint registry, and discovered document models. `liveHtmlRoutes` selects its HTML entries for the sitemap. Raw Markdown pairs derive from the same documents; release and schema endpoints retain their product authorities. The generated `project/map/_internal/registry-atlas.md` includes the marketing set, fixed endpoints, and complete public route inventory. The asset subtree is recorded as a namespace rather than a copied build-output list.
 
-The stable non-HTML endpoints are `/docs/index.json`, `/map/index.json`, `/install`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/robots.txt`, and `/.well-known/security.txt`. Manual search uses `/docs/index.json`; Map search uses `/map/index.json`. The llms editions project only the manual.
+Manual and map search use separate registry-owned endpoints. The llms editions project only the manual.
 
-Production's canonical origin is `https://discern.sh`, and page URLs have no trailing slash. Hypertext Transfer Protocol (HTTP), `www`, `.html`, trailing-slash, and `index.html` variants resolve with a 308 before routing. No pre-public manual address is claimed as history: every authored `redirect_from` list and [`STATIC_REDIRECTS`](../../../site/seo.ts) starts empty. After publication, a moved destination owns its `redirect_from`; section-level moves live in `STATIC_REDIRECTS`. Both automatically cover `.md`. The combined registry rejects dead targets, collisions, chains, and loops ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)). A known route retired without a successor requires an explicit 410 tombstone.
+Production's canonical origin is `https://discern.sh`, and page URLs have no trailing slash. Hypertext Transfer Protocol (HTTP), `www`, `.html`, trailing-slash, and `index.html` variants resolve with a 308 before routing. No pre-public manual address is claimed as history: every authored `redirect_from` list and [`STATIC_REDIRECTS`](../../../site/seo.tsx) starts empty. After publication, a moved destination owns its `redirect_from`; section-level moves live in `STATIC_REDIRECTS`. Both automatically cover `.md`. The combined registry rejects dead targets, collisions, chains, and loops ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)). A known route retired without a successor requires an explicit 410 tombstone.
 
 ## Reader negotiation
 

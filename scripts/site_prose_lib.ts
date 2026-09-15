@@ -9,7 +9,7 @@ import { resolve } from "@std/path";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
-import { renderMarketingPage } from "../site/page-src/renderers.ts";
+import { renderMarketingPage } from "../site/renderers.ts";
 import {
   countProse,
   fleschKincaidGrade,

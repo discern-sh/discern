@@ -3,7 +3,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 
 const ALIGNMENT_CSS = new URL("../art/browser/alignment.css", import.meta.url);
 const GALLERY_CSS = new URL(

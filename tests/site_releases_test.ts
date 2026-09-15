@@ -17,6 +17,7 @@ import { handlerWithRouting } from "../site/serve.ts";
 import {
   releasePageCatalogue,
   releasePageRouting,
+  releaseUpdateSteps,
 } from "./release_page_fixtures.ts";
 
 /** Audit HTML without executing site JavaScript; comparison and notes must already exist. */
@@ -100,9 +101,7 @@ async function assertPage(
       INSTALL_COMMAND,
     );
     assertEquals(
-      [...document.querySelectorAll("#update li")].map((step) =>
-        step.textContent?.replace(/\s+/g, " ").trim()
-      ),
+      releaseUpdateSteps(document),
       [...UPDATE_SEQUENCE],
     );
     assertEquals(

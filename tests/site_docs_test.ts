@@ -27,7 +27,7 @@ import {
   loadDocsSite,
   relatedDecisionCitations,
   rewriteLinks,
-} from "../site/docs.ts";
+} from "../site/docs.tsx";
 import {
   MANUAL_KIND_REGISTRY,
   MANUAL_SECTION_REGISTRY,
@@ -1407,17 +1407,6 @@ Deno.test("served HTML hides bare source comments that llms-full.txt preserves",
     `<!-- BEGIN ${url} -->\n\n${body.trim()}\n\n<!-- END ${url} -->`,
   );
   for (const comment of sample.comments) assertStringIncludes(full, comment);
-});
-
-Deno.test("the sitemap source contains instructions and project-history routes", async () => {
-  const site = await loadDocsSite();
-  assertEquals(site.sitemapRoutes, [
-    "/docs",
-    ...site.pages.map((page) => page.route),
-    site.decisions.route,
-    ...site.decisions.pages.map((page) => page.route),
-    ...site.publicMap.sitemapRoutes,
-  ]);
 });
 
 Deno.test("docs 404s answer in the reader's own format", async () => {

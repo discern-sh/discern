@@ -16,7 +16,7 @@ import {
   CIRCUIT_VERTICES,
   type CircuitPoint,
 } from "../art/browser/circuit.tsx";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 
 const ARTWORK_CSS = new URL("../art/browser/circuit.css", import.meta.url);
 

@@ -13,13 +13,13 @@ aliases:
 
 ## Authorities and route families
 
-[`site/docs.ts`](../../../site/docs.ts) discovers each corpus, asks its shared model to decide what is published, and adapts the result to browser routes. It does not maintain page allowlists.
+[`site/docs.tsx`](../../../site/docs.tsx) discovers each corpus, asks its shared model to decide what is published, and adapts the result to browser routes. It does not maintain page allowlists.
 
 | Route family                         | Source and policy                                                            | Reader promise                                                                                |
 | ------------------------------------ | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `/docs` and `/docs/<section>/<page>` | [`buildManualProjection`](../../../src/lib/manual.ts) over `project/manual/` | Current tutorials, guides, explanations, reference, and troubleshooting.                      |
 | `/docs/index.json`                   | Every published manual page                                                  | Manual-only local search.                                                                     |
-| `/map` and `/map/<section>/<page>`   | The configured Map filtered by [`isPublicMapEntry`](../../../site/docs.ts)   | A live, inspectable internal-use account—not product documentation or independent validation. |
+| `/map` and `/map/<section>/<page>`   | The configured Map filtered by [`isPublicMapEntry`](../../../site/docs.tsx)  | A live, inspectable internal-use account—not product documentation or independent validation. |
 | `/map/index.json`                    | Every admitted Map page                                                      | Map-only local search.                                                                        |
 | `/docs/decisions` and its records    | Published `_adr/` records                                                    | Labelled project history.                                                                     |
 

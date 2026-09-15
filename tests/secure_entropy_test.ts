@@ -6,7 +6,7 @@ import {
   SYSTEM_SECURE_ENTROPY,
 } from "../src/shared/entropy.ts";
 import { generateWorktreeId } from "../src/engine/worktree/identity.ts";
-import { responseNonce } from "../site/seo.ts";
+import { responseNonce } from "../site/seo.tsx";
 import { mcpSessionId } from "../src/engine/mcp/server.ts";
 import { fakeSecureEntropy, TEST_SECURE_UUID } from "./fake_secure_entropy.ts";
 

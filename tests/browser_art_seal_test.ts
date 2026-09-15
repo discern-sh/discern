@@ -9,7 +9,7 @@ import {
   SEAL_SCATTER_LIMITS,
   SEAL_TRIANGLE,
 } from "../art/browser/seal.tsx";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 
 const ARTWORK_CSS = new URL("../art/browser/seal.css", import.meta.url);
 

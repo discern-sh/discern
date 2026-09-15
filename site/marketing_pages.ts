@@ -18,7 +18,7 @@ export const MARKETING_PAGES = [
   {
     route: "/",
     page: "pages/index.html",
-    source: "site/page-src/landing.tsx",
+    source: "site/ui/pages/HomePage.tsx",
     register: "brand",
     prose: "guarded",
     negotiable: true,
@@ -26,7 +26,7 @@ export const MARKETING_PAGES = [
   {
     route: "/agents",
     page: "pages/agents.html",
-    source: "site/page-src/agents.tsx",
+    source: "site/ui/pages/AgentsPage.tsx",
     register: "agent",
     prose: "guarded",
     negotiable: true,
@@ -34,7 +34,7 @@ export const MARKETING_PAGES = [
   {
     route: "/trust",
     page: "pages/trust.html",
-    source: "site/page-src/trust.tsx",
+    source: "site/ui/pages/TrustPage.tsx",
     register: "brand",
     prose: "guarded",
     negotiable: false,

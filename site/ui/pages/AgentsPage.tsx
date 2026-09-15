@@ -1,34 +1,29 @@
+import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
+import { SiteFooter } from "../components/SiteFooter.tsx";
+import { SiteHeader } from "../components/SiteHeader.tsx";
 /** The public /agents campaign page, rendered to static HTML by site/build.ts. */
 
 import type { CSSProperties } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import {
-  Badge,
-  Button,
-  Kicker,
-  SiteFooter,
-  SiteHeader,
-  SkipLink,
-} from "discern-design-system/react";
+import { Badge, Button, Kicker } from "discern-design-system/react";
 import {
   PROVIDER_TRADEMARK_NOTICE,
   providerBrandSilhouette,
   PROVIDERS,
-} from "../../src/lib/providers.ts";
-import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
-import { AGENTS_DESCRIPTION, AGENTS_TITLE, DISCERN_MARK } from "../brand.ts";
+} from "../../../src/lib/providers.ts";
+import { AGENT_NAMES } from "../../../src/shared/agent_catalogue.ts";
+import { AGENTS_DESCRIPTION, AGENTS_TITLE, DISCERN_MARK } from "../../brand.ts";
 import {
   AGENTS_CONTENT,
   AGENTS_EVIDENCE,
   AGENTS_ROUTES,
   CLOSING_ENVELOPE,
   EVALUATION_INSTRUCTION,
-} from "./agents-content.ts";
-import { pageDocument } from "./document.ts";
+} from "../../page-src/agents-content.ts";
+import { renderDocument } from "../Document.tsx";
 import {
   DISCERN_REPOSITORY_URL,
   repositoryBlobUrl,
-} from "../../src/shared/brand.ts";
+} from "../../../src/shared/brand.ts";
 
 const GITHUB = DISCERN_REPOSITORY_URL;
 const LICENSE = repositoryBlobUrl("LICENSE");
@@ -552,9 +547,60 @@ function NextActionsSection() {
 function AgentsPage() {
   return (
     <div className="agents-page">
-      <SkipLink href="#main">Skip to content</SkipLink>
-      <AgentsMasthead />
-      <main id="main">
+      <MarketingLayout
+        header={<AgentsMasthead />}
+        footer={
+          <SiteFooter
+            className="agents-footer"
+            brand={<DiscernName />}
+            brandMark={
+              <span className="agents-footer__mark">{DISCERN_MARK}</span>
+            }
+            brandTypeface="mono"
+            brandMarkTreatment="plain"
+            description={AGENTS_CONTENT.next.signature}
+            groups={[
+              {
+                title: "Machine routes",
+                links: [
+                  { label: "llms.txt", href: AGENTS_ROUTES.machineGuide },
+                  { label: "Quickstart", href: AGENTS_ROUTES.quickstart },
+                  { label: "MCP and results", href: AGENTS_ROUTES.mcp },
+                  { label: "Result schema", href: AGENTS_ROUTES.schema },
+                ],
+              },
+              {
+                title: "Exact boundaries",
+                links: [
+                  { label: "Trust and data", href: AGENTS_ROUTES.trust },
+                  { label: "Canonical glossary", href: AGENTS_ROUTES.glossary },
+                  {
+                    label: "Supported providers",
+                    href: AGENTS_ROUTES.providers,
+                  },
+                  { label: "Human homepage", href: AGENTS_ROUTES.home },
+                  { label: "Source repository", href: GITHUB },
+                  { label: "License", href: LICENSE },
+                ],
+              },
+            ]}
+            legal={
+              <span className="agents-footer__legal">
+                Machine-readable orientation lives at{" "}
+                <a href={AGENTS_ROUTES.machineGuide}>
+                  <code>/llms.txt</code>
+                </a>.<br />
+                {PROVIDER_TRADEMARK_NOTICE}
+              </span>
+            }
+            meta={
+              <span className="agents-footer__meta">
+                © 2026 Jack Webb-Heller
+              </span>
+            }
+          />
+        }
+      >
         <AgentsHero />
         <RecognitionSection />
         <ErgonomicsSection />
@@ -564,62 +610,20 @@ function AgentsPage() {
         <AuthoritySection />
         <AbsencesSection />
         <NextActionsSection />
-      </main>
-      <SiteFooter
-        className="agents-footer"
-        brand={<DiscernName />}
-        brandMark={<span className="agents-footer__mark">{DISCERN_MARK}</span>}
-        brandTypeface="mono"
-        brandMarkTreatment="plain"
-        description={AGENTS_CONTENT.next.signature}
-        groups={[
-          {
-            title: "Machine routes",
-            links: [
-              { label: "llms.txt", href: AGENTS_ROUTES.machineGuide },
-              { label: "Quickstart", href: AGENTS_ROUTES.quickstart },
-              { label: "MCP and results", href: AGENTS_ROUTES.mcp },
-              { label: "Result schema", href: AGENTS_ROUTES.schema },
-            ],
-          },
-          {
-            title: "Exact boundaries",
-            links: [
-              { label: "Trust and data", href: AGENTS_ROUTES.trust },
-              { label: "Canonical glossary", href: AGENTS_ROUTES.glossary },
-              { label: "Supported providers", href: AGENTS_ROUTES.providers },
-              { label: "Human homepage", href: AGENTS_ROUTES.home },
-              { label: "Source repository", href: GITHUB },
-              { label: "License", href: LICENSE },
-            ],
-          },
-        ]}
-        legal={
-          <span className="agents-footer__legal">
-            Machine-readable orientation lives at{" "}
-            <a href={AGENTS_ROUTES.machineGuide}>
-              <code>/llms.txt</code>
-            </a>.<br />
-            {PROVIDER_TRADEMARK_NOTICE}
-          </span>
-        }
-        meta={
-          <span className="agents-footer__meta">© 2026 Jack Webb-Heller</span>
-        }
-      />
+      </MarketingLayout>
     </div>
   );
 }
 
 /** Render the /agents composition for static serving. */
 export function renderAgents(): string {
-  return pageDocument({
-    source: "agents.tsx",
+  return renderDocument({
+    source: "site/ui/pages/AgentsPage.tsx",
     sourceComment: "Hello. Machine-readable orientation lives at /llms.txt",
     title: AGENTS_TITLE,
     description: AGENTS_DESCRIPTION,
     styles: ["fonts.css", "discern.css", "agents.css"],
     scripts: ["discern.js", "agents.js"],
-    body: renderToStaticMarkup(<AgentsPage />),
+    children: <AgentsPage />,
   });
 }

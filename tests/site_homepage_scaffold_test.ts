@@ -5,8 +5,11 @@ import { fromFileUrl, join } from "@std/path";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 import { renderToStaticMarkup } from "react-dom/server";
-import { COPY_PROMPT_TEXT, CopyPrompt } from "../site/page-src/campaign.tsx";
-import { renderLanding } from "../site/page-src/landing.tsx";
+import {
+  COPY_PROMPT_TEXT,
+  CopyPrompt,
+} from "../site/ui/components/CopyPrompt.tsx";
+import { renderLanding } from "../site/ui/pages/HomePage.tsx";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 

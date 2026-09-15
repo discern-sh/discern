@@ -10,7 +10,7 @@ import {
   projectPublicMapPages,
   PUBLIC_MAP_ROUTE,
   rewriteLinks,
-} from "../site/docs.ts";
+} from "../site/docs.tsx";
 import { handler } from "../site/serve.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 // @ts-types="@types/jsdom"

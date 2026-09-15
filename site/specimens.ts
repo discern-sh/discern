@@ -18,8 +18,8 @@ import {
   BROWSER_ARTWORKS,
   browserArtworkStylesheetName,
 } from "../art/browser/registry.ts";
-import { renderArtGallery } from "./page-src/art-gallery.tsx";
-import { renderSpecimens } from "./page-src/specimens.tsx";
+import { renderArtGallery } from "./ui/pages/ArtGalleryPage.tsx";
+import { renderSpecimens } from "./ui/pages/SpecimensPage.tsx";
 import { handler } from "./serve.ts";
 import { fromFileUrl } from "@std/path";
 import { designSystemAssetPath } from "./design_system.ts";

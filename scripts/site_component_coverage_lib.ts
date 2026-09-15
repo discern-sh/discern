@@ -5,7 +5,7 @@ import {
   DESIGN_SYSTEM_BUNDLES,
   type DesignSystemBundleName,
 } from "../site/design_system.ts";
-import { loadDocsSite } from "../site/docs.ts";
+import { loadDocsSite } from "../site/docs.tsx";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
 
 export interface ManifestComponent {

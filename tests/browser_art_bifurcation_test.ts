@@ -7,7 +7,7 @@ import {
   BIFURCATION_TERMINALS,
   BIFURCATION_TOPOLOGY,
 } from "../art/browser/bifurcation.tsx";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 
 const BIFURCATION_CSS = new URL(
   "../art/browser/bifurcation.css",

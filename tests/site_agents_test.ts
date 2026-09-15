@@ -13,7 +13,7 @@ import {
   AGENTS_ROUTES,
   CLOSING_ENVELOPE,
 } from "../site/page-src/agents-content.ts";
-import { renderAgents } from "../site/page-src/agents.tsx";
+import { renderAgents } from "../site/ui/pages/AgentsPage.tsx";
 import {
   handler,
   renderTextEdition,

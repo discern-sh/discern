@@ -31,7 +31,7 @@ The server renders query state from the model without client JavaScript. The rou
 
 ## The human page
 
-[`render.ts`](../../../site/releases/render.ts) consumes the normalized result directly. Its framework-neutral markup uses the package's public semantic class contract for site chrome, the version card, labels, and installer command. It imports neither React nor a second version parser. [`site/page-src/releases.css`](../../../site/page-src/releases.css) owns spacing, the history rail, responsive layout, and command wrapping. The site build copies that sheet beside the selected runtime; generated assets remain outputs.
+[`ReleasesPage.tsx`](../../../site/ui/pages/ReleasesPage.tsx) consumes the normalized result through package React components and the shared document/layout. Cards, commands, headings, tags, and site chrome inherit package anatomy directly. Release Markdown uses the package renderer with scoped anchors and heading depth. [`presentation.ts`](../../../site/releases/presentation.ts) shares wording and section order with the plain-text projection. [`site/page-src/releases.css`](../../../site/page-src/releases.css) owns composition spacing and responsive layout; the build copies it beside the selected package runtime.
 
 The result leads the page. A supplied version and the latest stable version have distinct labels. Family names stay beside full numeric versions. The applicable list links into the complete notes; published stable, prerelease, and unpublished histories remain separate. No disclosure control hides release content. Desktop navigation stays beside the notes, becomes ordinary flow on narrow screens, and uses native anchors throughout.
 

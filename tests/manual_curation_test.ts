@@ -15,7 +15,7 @@ import {
   stageBundledManual,
   stripManualSourceComments,
 } from "../scripts/build.ts";
-import { loadDocsSite } from "../site/docs.ts";
+import { loadDocsSite } from "../site/docs.tsx";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";

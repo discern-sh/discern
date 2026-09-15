@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { basename, fromFileUrl, join, toFileUrl } from "@std/path";
 import { emitDesignSystemRuntime } from "discern-design-system/runtime";
 import { launchBrowser } from "./browser_helpers.ts";
-import { renderWorkflowMarkdown } from "../site/workflow.ts";
+import { renderWorkflowMarkdown } from "../site/workflow.tsx";
 import { withTempDir } from "./helpers.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));

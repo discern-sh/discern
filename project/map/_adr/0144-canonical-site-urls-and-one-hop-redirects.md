@@ -12,7 +12,7 @@ Redirects have two different owners. A moved page knows its own historical addre
 
 The canonical production origin is `https://discern.sh`. HTML routes use no trailing slash and no `.html` suffix. HTTP, `www`, trailing-slash, and `index.html` variants return 308 to the final apex URL in one response. Every successful HTML page names itself with a canonical link; an explicit `.md` edition points to the HTML URL with a `Link` header and carries `X-Robots-Tag: noindex, follow`.
 
-Destination-owned `redirect_from` claims feed the shared validated document registry. `site/seo.ts` combines that registry with an explicit static map for section moves, derives matching `.md` redirects, and refuses dead targets, live-route collisions, double claims, chains, and loops. The site has no historical redirects before launch, so both registries begin empty; the slug freeze starts their maintenance obligation.
+Destination-owned `redirect_from` claims feed the shared validated document registry. `site/seo.tsx` combines that registry with an explicit static map for section moves, derives matching `.md` redirects, and refuses dead targets, live-route collisions, double claims, chains, and loops. The site has no historical redirects before launch, so both registries begin empty; the slug freeze starts their maintenance obligation.
 
 When a published heading changes, the page retains the old fragment as an explicit alias anchor beside the new heading. Fragment compatibility is page content, not server routing.
 

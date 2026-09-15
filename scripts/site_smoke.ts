@@ -2,7 +2,7 @@
 
 import { JSDOM } from "jsdom";
 import { SELF_TITLED_PAGES } from "../site/brand.ts";
-import { loadDocsSite, relatedDecisionCitations } from "../site/docs.ts";
+import { loadDocsSite, relatedDecisionCitations } from "../site/docs.tsx";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
 import { SECURITY_DISCLOSURE, securityTxt } from "../site/security.ts";
 import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
@@ -13,7 +13,7 @@ import {
   META_DESCRIPTION_MIN,
   SITE_ORIGIN,
   STATIC_REDIRECTS,
-} from "../site/seo.ts";
+} from "../site/seo.tsx";
 
 const BROWSER_HEADERS = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",

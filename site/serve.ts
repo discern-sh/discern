@@ -21,8 +21,14 @@ import {
   loadDocsSite,
   PUBLIC_MAP_ROUTE,
   serveDocuments,
-} from "./docs.ts";
-import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
+} from "./docs.tsx";
+import {
+  PUBLIC_ASSET_PREFIX,
+  SITE_ENDPOINTS,
+  type SiteEndpoint,
+  siteRoutes,
+} from "./routes.ts";
+import { renderNotFoundPage } from "./ui/pages/NotFoundPage.tsx";
 import {
   applySecurityHeaders,
   buildSiteRedirectTable,
@@ -35,12 +41,11 @@ import {
   sitemapXml,
   type SiteRedirectTable,
   STATIC_REDIRECTS,
-} from "./seo.ts";
-import { SECURITY_DISCLOSURE, securityTxt } from "./security.ts";
+} from "./seo.tsx";
+import { securityTxt } from "./security.ts";
 import { MARKETING_PAGES } from "./marketing_pages.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
-import { DISCERN_INSTALL_ROUTE } from "../src/shared/brand.ts";
 
 import { RELEASE_ROUTES } from "../src/shared/product_identity.ts";
 import { loadReleaseCatalogue } from "./releases/catalogue.ts";
@@ -48,13 +53,6 @@ import type { CatalogueRecord } from "./releases/model.ts";
 import { releaseResponse } from "./releases/response.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
-const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
-  PUBLIC_SCHEMA_PUBLICATIONS.map((publication) => [
-    new URL(publication.id).pathname,
-    publication.artifactPath,
-  ]),
-);
-
 /** Routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
 export const PAGES: Readonly<
   Record<
@@ -202,14 +200,7 @@ function notFound(asText: boolean): Response {
       },
     );
   }
-  const body =
-    `<!doctype html><meta charset="utf-8"><title>404 · discern</title>` +
-    `<body style="font-family:ui-monospace,monospace;padding:4rem 1.5rem;color:#1A1814;background:#FBFAF7">` +
-    `<p style="max-width:34rem;line-height:1.7">404 — no such page.<br>` +
-    `Available pages: <a href="/">discern.sh</a> · ` +
-    `<a href="/agents">/agents</a> · ` +
-    `<a href="/trust">/trust</a> · <a href="/docs">/docs</a> · ` +
-    `<a href="/map">/map</a> · <a href="/llms.txt">/llms.txt</a></p>`;
+  const body = renderNotFoundPage();
   return new Response(body, {
     status: 404,
     headers: { "content-type": "text/html; charset=utf-8" },
@@ -240,11 +231,9 @@ let routingPromise: Promise<SiteRouting> | undefined;
 
 /** The HTML route set. Published docs already passed through isPublicDoc. */
 export function liveHtmlRoutes(site: DocsSite): string[] {
-  return [
-    ...Object.keys(PAGES),
-    RELEASE_ROUTES.html,
-    ...site.sitemapRoutes,
-  ];
+  return siteRoutes(site).filter((route) => route.format === "html").map(
+    (route) => route.path,
+  );
 }
 
 /** Assemble live routes and validate every static and authored redirect against them. */
@@ -326,56 +315,59 @@ function permanentRedirect(location: string): Response {
   });
 }
 
+/** Serve every registered fixed endpoint through an exhaustive handler choice. */
+async function endpointResponse(
+  req: Request,
+  endpoint: SiteEndpoint,
+  routing: SiteRouting,
+): Promise<Response> {
+  switch (endpoint.kind) {
+    case "file":
+      return await serveFile(endpoint.file);
+    case "release":
+      return releaseResponse(
+        req,
+        endpoint.path,
+        wantsText(req),
+        routing.releases ?? await loadReleaseCatalogue(),
+      );
+    case "search":
+      return await serveDocuments(endpoint.path, wantsText(req));
+    case "llms":
+      return await llmsTxt(routing.site);
+    case "llms-full":
+      return await llmsFullTxt(routing.site);
+    case "security":
+    case "sitemap":
+    case "robots":
+      return new Response(
+        endpoint.kind === "security"
+          ? securityTxt()
+          : endpoint.kind === "sitemap"
+          ? sitemapXml(routing.liveRoutes)
+          : robotsTxt(),
+        {
+          status: 200,
+          headers: {
+            "content-type": endpoint.format === "xml"
+              ? "application/xml; charset=utf-8"
+              : "text/plain; charset=utf-8",
+            "cache-control": "public, max-age=300",
+          },
+        },
+      );
+  }
+}
+
 /** Dispatch schemas, installer, docs, fixed pages, and declared assets. */
 async function routeResponse(
   req: Request,
   path: string,
   routing: SiteRouting,
 ): Promise<Response> {
-  if (Object.values(RELEASE_ROUTES).some((route) => route === path)) {
-    return releaseResponse(
-      req,
-      path,
-      wantsText(req),
-      routing.releases ?? await loadReleaseCatalogue(),
-    );
-  }
-  const publicSchema = PUBLIC_SCHEMA_ROUTES.get(path);
-  if (publicSchema !== undefined) {
-    return await serveFile(`../${publicSchema}`);
-  }
-
-  // The canonical install command serves the repository's own installer, so
-  // the command on every public surface is true from the first deploy.
-  if (path === DISCERN_INSTALL_ROUTE) return await serveFile("../install.sh");
-  if (path === SECURITY_DISCLOSURE.route) {
-    return new Response(securityTxt(), {
-      status: 200,
-      headers: {
-        "content-type": "text/plain; charset=utf-8",
-        "cache-control": "public, max-age=300",
-      },
-    });
-  }
-  if (path === "/llms.txt") return await llmsTxt(routing.site);
-  if (path === "/llms-full.txt") return await llmsFullTxt(routing.site);
-  if (path === "/sitemap.xml") {
-    return new Response(sitemapXml(routing.liveRoutes), {
-      status: 200,
-      headers: {
-        "content-type": "application/xml; charset=utf-8",
-        "cache-control": "public, max-age=300",
-      },
-    });
-  }
-  if (path === "/robots.txt") {
-    return new Response(robotsTxt(), {
-      status: 200,
-      headers: {
-        "content-type": "text/plain; charset=utf-8",
-        "cache-control": "public, max-age=300",
-      },
-    });
+  const endpoint = SITE_ENDPOINTS.find((entry) => entry.path === path);
+  if (endpoint !== undefined) {
+    return await endpointResponse(req, endpoint, routing);
   }
 
   if (path === "/docs" || path === "/docs.md" || path.startsWith("/docs/")) {
@@ -401,7 +393,7 @@ async function routeResponse(
 
   // Only the declared asset subtree is a static fallback. Raw page filenames
   // never become a second public URL for an HTML page.
-  if (path.startsWith("/assets/")) {
+  if (path.startsWith(PUBLIC_ASSET_PREFIX)) {
     try {
       return await serveFile(`pages${path}`);
     } catch {

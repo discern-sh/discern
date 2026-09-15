@@ -1,16 +1,15 @@
 /** Development-only homepage artefact specimens, rendered to static HTML. */
 
 import type { ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import {
   Badge,
   Brand,
   DataFigure,
   SkipLink,
 } from "discern-design-system/react";
-import { DISCERN_MARK } from "../brand.ts";
-import { SITE_APPEARANCE } from "../appearance.ts";
-import { pageDocument } from "./document.ts";
+import { DISCERN_MARK } from "../../brand.ts";
+import { SITE_APPEARANCE } from "../../appearance.ts";
+import { renderDocument } from "../Document.tsx";
 
 const PREVIEW_THEMES = ["light", "dark"] as const;
 
@@ -858,8 +857,8 @@ function SpecimenPreview() {
 
 /** Render the development-only specimen sheet with the shared document shell. */
 export function renderSpecimens(): string {
-  return pageDocument({
-    source: "specimens.tsx",
+  return renderDocument({
+    source: "site/ui/pages/SpecimensPage.tsx",
     title: "Homepage artefact specimens · discern",
     description: "Development-only dual-theme homepage artefact prototypes.",
     styles: [
@@ -868,6 +867,6 @@ export function renderSpecimens(): string {
       "specimens.css",
     ],
     scripts: [],
-    body: renderToStaticMarkup(<SpecimenPreview />),
+    children: <SpecimenPreview />,
   });
 }

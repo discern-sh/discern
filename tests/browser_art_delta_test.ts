@@ -11,7 +11,7 @@ import {
   DELTA_GATE_TICK_COUNT,
   DELTA_MERGE,
 } from "../art/browser/delta.tsx";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 
 const ARTWORK_CSS = new URL("../art/browser/delta.css", import.meta.url);
 

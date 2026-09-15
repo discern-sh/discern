@@ -24,9 +24,9 @@ import {
 } from "../site/design_system.ts";
 import { SITE_APPEARANCE } from "../site/appearance.ts";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
-import { renderDiscernBrand } from "../site/page-src/branding.tsx";
+import { renderDiscernBrand } from "../site/ui/components/Brand.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
-import { renderMarketingPage } from "../site/page-src/renderers.ts";
+import { renderMarketingPage } from "../site/renderers.ts";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -306,18 +306,12 @@ Deno.test("Discern binds one exact immutable design-system release", async () =>
   assertEquals(violations, []);
 });
 
-Deno.test("the production site import graph remains React-free", async () => {
-  const newSibling = "https://example.test/vendor/react-dom@99/server";
+Deno.test("the production server renders React without importing its browser entrypoint", async () => {
+  const modules = await moduleSpecifiers(join(ROOT, "site/main.ts"));
+  assert(reactRuntimeModules(modules).length > 0);
   assertEquals(
-    reactRuntimeModules([
-      "https://example.test/new-server.ts",
-      newSibling,
-    ]),
-    [newSibling],
-  );
-  assertEquals(
-    reactRuntimeModules(
-      await moduleSpecifiers(join(ROOT, "site/main.ts")),
+    modules.filter((specifier) =>
+      /react-dom[^\s]*\/client(?:[.@/]|$)/.test(specifier)
     ),
     [],
   );

@@ -4,7 +4,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { z } from "@zod/zod";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { renderSpecimens } from "../site/page-src/specimens.tsx";
+import { renderSpecimens } from "../site/ui/pages/SpecimensPage.tsx";
 import {
   SPECIMEN_STYLESHEET_PATH,
   specimenHandler,

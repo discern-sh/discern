@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Dependency releases:** Discern now consumes later immutable design-system packages; `deno.json` holds the live pin. The reader-contract delta ([ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)) stands: Discern consumes the package's Markdown browser as well as its static renderer, supplying admitted, terminal-policy-adjusted source and a closed product link resolver, while the package reuses its Markdown model for document layout, heading targets, links, pane scrolling, and mouse hit regions. The Markdown model, renderer, and browser contracts are otherwise unchanged by the newer releases, whose locale and motif-register policies and terminal frame polish flow through the same bound presenter and interaction runtime.
+> - **React site authoring:** React is permitted in the website server, and release notes use the package Markdown component. Manual workflow and glossary hooks remain a separate browser projection contract; terminal Markdown delegation is unchanged. See [ADR 0402](0402-site-layouts-use-server-rendered-react-components.md).
 
 **Status**: accepted; supersedes [ADR 0015](./_superseded/0015-map-browser.md)
 

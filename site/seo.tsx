@@ -9,7 +9,7 @@
 import { buildRedirectRegistry } from "../src/lib/docs.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { SELF_TITLED_PAGES, SOCIAL_PAGE_METADATA } from "./brand.ts";
-import type { DocsSite } from "./docs.ts";
+import type { DocsSite } from "./docs.tsx";
 import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,

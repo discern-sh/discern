@@ -11,7 +11,7 @@ import {
   INTERFERENCE_VERTICES,
   type InterferencePoint,
 } from "../art/browser/interference.tsx";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 
 const ARTWORK_CSS = new URL("../art/browser/interference.css", import.meta.url);
 

@@ -4,7 +4,7 @@ import { assert, assertEquals } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 import { QUORUM_SEATS } from "../art/browser/quorum.tsx";
-import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
+import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
 
 const ARTWORK_CSS = new URL("../art/browser/quorum.css", import.meta.url);
 
