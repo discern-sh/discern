@@ -412,7 +412,28 @@ Deno.test("every release projection and fixed route enrolls future records and s
       "release note anchors stay unique across sections",
     );
     const sections = releaseSections(model);
+    const visibleStatus =
+      html.querySelector("[data-release-status]")?.textContent ?? "";
+    assert(
+      !visibleStatus.includes("Status:"),
+      "HTML explains the status in prose",
+    );
+    assertEquals(
+      visibleStatus.includes("These notes start at"),
+      model.history_coverage.before_earliest_known,
+      "history gaps matter only when the comparison predates the available notes",
+    );
+    const disclosure = [...html.querySelectorAll("details")].find((element) =>
+      element.textContent?.includes("discern.sh")
+    );
+    assert(disclosure, "network details remain available on request");
+    assert(
+      !disclosure.open,
+      "network details do not interrupt the release notes",
+    );
+    assertStringIncludes(disclosure.textContent ?? "", "No project data");
     for (const section of sections) {
+      assert(section.records.length > 0, "empty release sections are omitted");
       assertEquals(
         [...html.querySelectorAll(
           `[data-release-group="${section.key}"] [data-release-version]`,
@@ -421,7 +442,38 @@ Deno.test("every release projection and fixed route enrolls future records and s
       );
     }
     assertStringIncludes(renderReleaseText(model), `Status: ${model.status}`);
+    if (since === undefined) {
+      assertEquals(
+        [...html.querySelectorAll("[data-release-version]")].map((element) =>
+          element.getAttribute("data-release-version")
+        ),
+        sections.flatMap((section) =>
+          section.records.map((record) => record.version)
+        ),
+      );
+      assertEquals(
+        html.querySelectorAll("[data-release-version]").length,
+        catalogue.length,
+        "the index presents each release once",
+      );
+    }
   }
+  const pending = compareReleases(releaseCatalogue(records, []));
+  const pendingHtml = new JSDOM(renderReleaseHtml(pending)).window.document;
+  assertEquals(
+    [...pendingHtml.querySelectorAll("[data-release-group]")].map((element) =>
+      element.getAttribute("data-release-group")
+    ),
+    ["candidates"],
+    "an unpublished catalogue shows the upcoming notes without empty history sections",
+  );
+  assertStringIncludes(pendingHtml.body.textContent ?? "", "Not released yet.");
+  assert(!pendingHtml.body.textContent?.includes(INSTALL_COMMAND));
+  assertEquals(
+    pendingHtml.querySelector(`a[href="${pending.urls.installer}"]`),
+    null,
+    "an unpublished catalogue offers notes without an install action",
+  );
   assert(routes.liveRoutes.includes(RELEASE_ROUTES.html));
   for (const route of [RELEASE_ROUTES.text, RELEASE_ROUTES.json]) {
     assert(!routes.liveRoutes.includes(route));

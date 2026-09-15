@@ -82,9 +82,9 @@ export function releaseCheckUrls(
 /** Common update sequence consumed by release guidance and later local handoffs. */
 export const UPDATE_SEQUENCE = [
   "Read the release notes.",
-  `Install the recommended stable binary with ${INSTALL_COMMAND}.`,
-  "Verify the executable your shell resolves with command -v discern and check discern --version.",
-  "Restart agent and MCP sessions so they use the new executable.",
-  "Preview an upgrade in an explicitly chosen project, then apply it when authorized.",
-  "Review and commit the project's upgrade diff.",
+  `Install the latest stable version with ${INSTALL_COMMAND}.`,
+  "Run command -v discern to check which copy will run, then discern --version to check its version.",
+  "Restart your agent and MCP sessions so they use the new version.",
+  "Choose the project you want to update. Preview its upgrade, then apply the changes you want.",
+  "Review and commit the changes to your project.",
 ] as const;

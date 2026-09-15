@@ -11,16 +11,7 @@ import type {
 } from "./model.ts";
 
 const CHECK_DISCLOSURE =
-  "Opening or fetching this page contacts discern.sh and includes the supplied discern version. It sends no project data. The binary makes no network request.";
-const STATUS_TEXT: Record<ReleaseComparison["status"], string> = {
-  index: "Release history",
-  current: "Your version matches the latest stable release.",
-  "update-available": "A newer stable release is available.",
-  ahead:
-    "Your version is ahead of the stable line. No downgrade is recommended.",
-  "no-stable-release":
-    "No stable release is published. There is no default installation recommendation.",
-};
+  "Version checks use discern.sh. When a link includes your discern version, the site uses it to show what has changed. No project data is sent, and discern itself stays offline.";
 
 /** Decorate a numeric identity without changing its meaning. */
 export function releaseLabel(
@@ -38,37 +29,49 @@ export function releaseSections(
   return [
     {
       key: "applicable",
-      title: "Applicable stable releases",
+      title: `Changes since ${model.since}`,
       records: model.applicable,
     },
-    { key: "stable", title: "Stable history", records: model.history.stable },
+    { key: "stable", title: "Release notes", records: model.history.stable },
     {
       key: "prereleases",
-      title: "Prerelease history",
+      title: "Preview releases",
       records: model.history.prereleases,
     },
     {
       key: "candidates",
-      title: "Unpublished candidates",
+      title: "Upcoming releases",
       records: model.history.candidates,
     },
-  ];
+  ].filter((section) =>
+    section.records.length > 0 &&
+    (section.key !== "applicable" || model.since !== undefined)
+  );
 }
 
 /** Shared state copy contains no presentation markup. */
 function comparisonText(model: ReleaseComparison): string[] {
+  const latest = model.latest_stable === undefined
+    ? ""
+    : releaseLabel(model.latest_stable);
+  const statusText: Record<ReleaseComparison["status"], string> = {
+    index: `discern ${latest} is the latest stable release.`,
+    current: `discern ${model.since} is up to date.`,
+    "update-available":
+      `discern ${latest} is available. See what's changed since ${model.since} below.`,
+    ahead:
+      `discern ${model.since} is newer than the latest stable release (${latest}).`,
+    "no-stable-release": model.since === undefined
+      ? "The first stable release is still to come."
+      : `There isn't a stable release to compare with discern ${model.since} yet.`,
+  };
   return [
-    `Status: ${model.status}`,
-    STATUS_TEXT[model.status],
-    ...(model.since === undefined ? [] : [`Supplied version: ${model.since}`]),
-    ...(model.latest_stable === undefined
-      ? []
-      : [`Latest stable: ${releaseLabel(model.latest_stable)}`]),
-    "This catalogue contains retained history. Earlier releases may be absent.",
+    statusText[model.status],
     ...(model.history_coverage.before_earliest_known
-      ? ["Your version is older than the earliest retained published record."]
+      ? [
+        `These notes start at discern ${model.history_coverage.earliest_known}. Changes between ${model.since} and that version aren't covered here.`,
+      ]
       : []),
-    CHECK_DISCLOSURE,
   ];
 }
 
@@ -76,25 +79,28 @@ function comparisonText(model: ReleaseComparison): string[] {
 export function renderReleaseText(model: ReleaseComparison): string {
   return [
     "discern releases",
+    `Status: ${model.status}`,
     ...comparisonText(model),
     ...releaseSections(model).flatMap((
       section,
     ) => [
       section.title,
-      ...(section.records.length === 0 ? ["None."] : section.records.flatMap((
+      ...section.records.flatMap((
         record,
       ) => [
         releaseLabel(record),
         record.publication === "candidate"
-          ? "Not published."
+          ? "Not released yet."
           : `Published: ${record.date}`,
         record.summary,
         record.body,
-      ])),
+      ]),
     ]),
     ...(model.recommendation === undefined
       ? []
-      : ["Update sequence", ...UPDATE_SEQUENCE]),
+      : ["How to update", ...UPDATE_SEQUENCE]),
+    "About version checks",
+    CHECK_DISCLOSURE,
     `Check: ${model.urls.html}`,
     `JSON: ${model.urls.json}`,
     `Installer: ${model.urls.installer}`,
@@ -141,31 +147,32 @@ export function renderReleaseHtml(model: ReleaseComparison): string {
     }</section>` +
       releaseSections(model).map((section, index) =>
         `<section data-release-group="${section.key}" aria-labelledby="release-section-${index}"><h2 id="release-section-${index}">${section.title}</h2>${
-          section.records.length === 0
-            ? "<p>None.</p>"
-            : section.records.map((record) =>
-              `<article data-release-version="${
-                escapeHtml(record.version)
-              }"><h3>${escapeHtml(releaseLabel(record))}</h3><p>${
-                record.publication === "candidate"
-                  ? "Not published."
-                  : `Published: ${escapeHtml(record.date ?? "")}`
-              }</p><p>${escapeHtml(record.summary)}</p>${
-                renderNotes(record, index)
-              }</article>`
-            ).join("")
+          section.records.map((record) =>
+            `<article data-release-version="${
+              escapeHtml(record.version)
+            }"><h3>${escapeHtml(releaseLabel(record))}</h3><p>${
+              record.publication === "candidate"
+                ? "Not released yet."
+                : `Published: ${escapeHtml(record.date ?? "")}`
+            }</p><p>${escapeHtml(record.summary)}</p>${
+              renderNotes(record, index)
+            }</article>`
+          ).join("")
         }</section>`
       ).join("") +
       (model.recommendation === undefined
         ? ""
-        : `<section><h2>Update sequence</h2><ol>${
+        : `<section><h2>How to update</h2><ol>${
           UPDATE_SEQUENCE.map((step) => `<li>${escapeHtml(step)}</li>`).join("")
         }</ol></section>`) +
+      `<details><summary>About version checks</summary><p>${CHECK_DISCLOSURE}</p></details>` +
       `<nav aria-label="Release formats"><a href="${
         escapeHtml(model.urls.json)
-      }">JSON</a> · <a href="${
-        escapeHtml(model.urls.installer)
-      }">Installer</a></nav>`,
+      }">JSON</a>${
+        model.recommendation === undefined
+          ? ""
+          : ` · <a href="${escapeHtml(model.urls.installer)}">Installer</a>`
+      }</nav>`,
   );
 }
 
