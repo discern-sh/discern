@@ -177,23 +177,19 @@ Deno.test("bites: a stale fenced command fails; a project-script verb passes", a
   assertEquals(scripted, []);
 });
 
-Deno.test("bites: a published page linking into _internal/ fails; publish: false opts the page out", async () => {
-  const internal = { [`${MAP}/_internal/notes.md`]: "# Notes\n" };
-  const leak = await fixtureFindings({
-    ...internal,
+Deno.test("local supporting pages need no publication metadata and retain integrity checks", async () => {
+  const sound = await fixtureFindings({
+    [`${MAP}/_internal/notes.md`]: "# Notes\n\nA current project constraint.\n",
     [`${MAP}/README.md`]: "# Map\n\nSee [notes](_internal/notes.md).\n",
   });
-  const boundary = ruleFindings(leak, "audience-boundary");
-  assertEquals(boundary.length, 1);
-  assert(boundary[0]?.includes("_internal/"), boundary[0]);
-
-  // The page-level withhold is the escape: an internal-leaning page says so.
-  const withheld = await fixtureFindings({
-    ...internal,
-    [`${MAP}/README.md`]:
-      "---\npublish: false\n---\n\n# Map\n\nSee [notes](_internal/notes.md).\n",
+  assertEquals(sound, []);
+  const broken = await fixtureFindings({
+    [`${MAP}/_internal/notes.md`]: "# Notes\n\n[Missing](missing.md)\n",
+    [`${MAP}/_support/guide.md`]: "# Guide\n\n[Missing](missing.md)\n",
+    [`${MAP}/_adr/0001-history.md`]: "# History\n\n[Former](removed.md)\n",
+    [`${MAP}/_private/draft.md`]: "# Draft\n\n[Future](planned.md)\n",
   });
-  assertEquals(withheld, []);
+  assertEquals(ruleFindings(broken, "dead-link").length, 2);
 });
 
 Deno.test("bites: a citation of a missing or excluded skill fails; non-citation spellings pass", async () => {

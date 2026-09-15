@@ -1749,3 +1749,28 @@ Deno.test("resolveDoc treats a whitespace-only target as a miss", async () => {
     assertEquals(resolveDoc(tree, "./", dir).kind, "none");
   });
 });
+
+Deno.test("map finds current supporting pages while history and private pages require a target", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    for (const folder of ["_internal", "_support", "_private"]) {
+      await Deno.mkdir(join(dir, "docs", folder), { recursive: true });
+      await Deno.writeTextFile(
+        join(dir, "docs", folder, "notes.md"),
+        `# Notes\n\n${folder} uniqueconstraint\n`,
+      );
+    }
+    const search = decodeMapData(
+      (await runCli(["map", "--search", "uniqueconstraint", "--json"], dir))
+        .stdout,
+      "results",
+    );
+    assertEquals(search.results.length, 2);
+    for (const folder of ["_internal", "_private"]) {
+      const page = await runCli(["map", `${folder}/notes`, "--json"], dir);
+      assertEquals(page.code, 0, page.stdout);
+    }
+    const pub = await runCli(["map", "--export", "public"], dir);
+    assert(!pub.stdout.includes("uniqueconstraint"));
+  });
+});

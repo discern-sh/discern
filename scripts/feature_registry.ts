@@ -1429,13 +1429,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "docs-integrity",
         title: "The docs integrity preflight",
         what:
-          "Every `discern done` validates the map's substance before the jobs run: intra-map links and heading anchors against the shared renderer, fenced `discern` examples against the live verb and flag registry (Project Scripts included), frontmatter blocks against the readers' shape rules, published pages against the `_internal`/`_private` audience boundary, and skill citations against the effective skill set.",
+          "Every `discern done` checks the map's structural integrity before the jobs run: intra-map links and heading anchors against the shared renderer, fenced `discern` examples against the live verb and flag registry (Project Scripts included), optional frontmatter blocks against the readers' shape rules and skill citations against the effective skill set.",
         why:
           "A rename breaks the docs loudly, in the same change, instead of quietly a month later — and an excluded skill cannot stay recommended by live prose.",
         plain: {
           title: "Checking that the guide still works",
           what:
-            "Every `discern done` examines the guide's substance before the work runs. It checks that links between pages and to their sections resolve, and that examples containing `discern` match the real list of instructions and choices (the project's own instructions included). It also checks that the small details at the top of each page follow their agreed shape, that published pages respect the rule of who may read `_internal` and `_private` material, and that mentions of how-to guides match the set now in force.",
+            "Every `discern done` checks the guide's references before the work runs. It checks that links between pages and to their sections resolve, and that examples containing `discern` match the real list of instructions and choices (the project's own instructions included). It also checks that optional metadata at the top of a page has the expected shape and that mentions of how-to guides match the set now in force.",
           why:
             "A renamed thing breaks the written instructions loudly, in the same change, instead of quietly a month later — and a withdrawn how-to guide cannot stay recommended by live text.",
         },

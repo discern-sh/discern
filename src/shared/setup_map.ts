@@ -1,3 +1,4 @@
+import { mapPageKind } from "../lib/map_policy.ts";
 /** Structural completion of the selected map; factual accuracy remains a review. */
 import { dirname, join, resolve } from "@std/path";
 import { discoverDocs } from "../lib/docs.ts";
@@ -26,9 +27,7 @@ export async function setupMapIssues(
   });
   const entries =
     tree?.entries.filter((entry) =>
-      !entry.relToDocs.split("/").some((part) =>
-        part === "_adr" || part === "_private"
-      )
+      mapPageKind(entry.relToDocs) === "current"
     ) ?? [];
   const pages = new Map(
     entries.map((entry) => [entry.absPath, entry]),

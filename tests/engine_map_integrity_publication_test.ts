@@ -21,36 +21,22 @@ import {
   writeMapPage,
 } from "./engine_map_integrity_shared.ts";
 
-Deno.test("done --json: a published page linking into _internal/ fails; publish: false opts it out", async () => {
+Deno.test("done --json: local map links to current supporting pages need no publication metadata", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // The target exists — the finding is the audience boundary, not a dead link.
     await writeMapPage(
       dir,
-      "_internal/documenter-agent-brief.md",
-      "# Documenter brief\n",
+      "_internal/notes.md",
+      "# Notes\n\nCurrent supporting context.\n",
     );
-    const page = await writeMapPage(
+    await writeMapPage(
       dir,
       "tour.md",
-      "# Tour\n\nSee the [documenter brief](_internal/documenter-agent-brief.md).\n",
+      "# Tour\n\nSee [notes](_internal/notes.md).\n",
     );
-    const output = await expectMapIntegrityFailure(dir);
-    assertStringIncludes(output, "audience-boundary");
-    assertStringIncludes(output, "_internal/");
-    assertStringIncludes(output, "publish: false"); // the escape is named
-
-    // Declaring the page internal-facing is the sanctioned escape.
-    await Deno.writeTextFile(
-      page,
-      "---\npublish: false\n---\n\n# Tour\n\nSee the " +
-        "[documenter brief](_internal/documenter-agent-brief.md).\n",
-    );
-    assertEquals(
-      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
-      0,
-    );
+    const result = await runAgent(dir, ["done", "--standalone", "--json"]);
+    assertEquals(result.code, 0, result.output);
   });
 });
 

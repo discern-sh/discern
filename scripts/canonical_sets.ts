@@ -28,6 +28,7 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 
+import { SKILL_CITATION_TOKEN } from "../src/lib/docs_integrity.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
 import { VOICE_ENFORCEMENT_COVERAGE_PAGE_REL } from "./brand/vale.ts";
@@ -4643,7 +4644,17 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
       );
     } else {
       lines.push(`- Members: ${members.length}`);
-      lines.push(...members.map((member) => `  - ${markdownCodeSpan(member)}`));
+      lines.push(
+        ...members.map((member) =>
+          `  - ${
+            markdownCodeSpan(
+              SKILL_CITATION_TOKEN.test(member)
+                ? JSON.stringify(member)
+                : member,
+            )
+          }`
+        ),
+      );
     }
     lines.push(`- Guards: ${pathList(entry.guards)}`);
     if (entry.artifacts.length > 0) {

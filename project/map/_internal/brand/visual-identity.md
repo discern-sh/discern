@@ -63,9 +63,9 @@ Rules that travel with the mark:
 
 The aspiration that ◮ becomes a recognized signal of project seriousness remains a strategic hypothesis in [`claims-and-evidence.md`](claims-and-evidence.md); do not present the mark as an established public meaning.
 
-## The design system: `discern-design-system`
+## The design system: `@discern-sh/design-system`
 
-The Editorial Engineering aesthetic is implemented by the in-house **`discern-design-system`** package: an independently versioned library, maintained in its own repository and published on JSR as `@discern-sh/design-system` (ADR 0139). The public site and terminal interface consume the same exact pinned release, so a package-owned visual change requires an explicit dependency update.
+The Editorial Engineering aesthetic is implemented by the in-house **`@discern-sh/design-system`** package: an independently versioned library, maintained in its own repository and published on JSR as `@discern-sh/design-system` (ADR 0139). The public site and terminal interface consume the same exact pinned release, so a package-owned visual change requires an explicit dependency update.
 
 What the package means for the brand:
 

@@ -1,3 +1,4 @@
+import { localMapEntries } from "../lib/map_policy.ts";
 /**
  * `discern map` and `discern docs` — browse and read a documentation tree.
  *
@@ -502,8 +503,7 @@ function internalScope(
  * spells, on every surface including MCP: the records are public (the site
  * publishes them), only tucked out of the default browse, so a caller who
  * already spells the buried segment is never refused for omitting the flag.
- * `_internal` / `_private` carry a real audience boundary and are never
- * widened this way.
+ * Map-specific current and private discovery is applied separately.
  */
 function targetNamesAdrSubtree(target: string | undefined): boolean {
   return target !== undefined &&
@@ -545,14 +545,18 @@ async function publicVerbTree(
 /**
  * Apply the verb's browse policy to a discovered tree. `docs` is the published
  * product manual plus an explicitly requested checkout-only subtree such as
- * `--adr`; `map` is the agents' own tree and keeps everything.
+ * `--adr`; `map` admits current supporting pages and explicitly selected history or private pages.
  */
 async function verbTree(
   desc: DocsVerb,
   tree: DocsTree,
   corpus: "map" | "manual" | "decisions",
+  target?: string,
+  all = false,
 ): Promise<DocsTree> {
-  if (desc.verb === "map") return tree;
+  if (desc.verb === "map") {
+    return { ...tree, entries: localMapEntries(tree.entries, target, all) };
+  }
   return await publicVerbTree(desc, tree, corpus);
 }
 
@@ -1772,12 +1776,14 @@ async function treeResult(
     : await discoverDocs({
       cwd,
       dir: resolved.dir,
-      includeInternal: internal,
+      includeInternal: desc.verb === "map" ? true : internal,
     });
   const tree = discovered === undefined ? undefined : await verbTree(
     desc,
     discovered,
     resolved.kind === "ok" ? resolved.corpus : "map",
+    opts.target,
+    opts.internal === true,
   );
   if (!tree) {
     return {
@@ -2172,11 +2178,16 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   }
   const discovered = resolved.kind === "missing"
     ? undefined
-    : await discoverDocs({ cwd, dir: resolved.dir, includeInternal: internal });
+    : await discoverDocs({
+      cwd,
+      dir: resolved.dir,
+      includeInternal: desc.verb === "map" ? true : internal,
+    });
   const tree = discovered === undefined ? undefined : await verbTree(
     desc,
     discovered,
     resolved.kind === "ok" ? resolved.corpus : "map",
+    options.target,
   );
   if (!tree) {
     log.error(terminalLine(desc.missingTree(options)));

@@ -135,7 +135,7 @@ export const BRAND_DOCUMENTS = [
     file: "visual-identity.md",
     status: "Canonical",
     job:
-      `Records the visual system: the Editorial Engineering aesthetic, the ${DISCERN_MARK} mark, its recursive extended language, and the \`discern-design-system\` package.`,
+      `Records the visual system: the Editorial Engineering aesthetic, the ${DISCERN_MARK} mark, its recursive extended language, and the \`@discern-sh/design-system\` package.`,
     mode: { kind: "generated", render: renderVisualIdentityDoc },
   },
   {

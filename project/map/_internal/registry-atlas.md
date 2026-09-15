@@ -2310,15 +2310,15 @@ The skills the binary ships and materializes into a project.
 
 - Source: `src/lib/skills.ts` — `bundledSkillNames`
 - Members: 9
-  - `discern-await-the-fleet`
-  - `discern-clear-the-decks`
-  - `discern-cure-a-bug`
-  - `discern-delegate-work`
-  - `discern-place-a-checkpoint`
-  - `discern-set-the-standard`
-  - `discern-teach-the-project`
-  - `discern-write-adr`
-  - `discern-write-it-once`
+  - `"discern-await-the-fleet"`
+  - `"discern-clear-the-decks"`
+  - `"discern-cure-a-bug"`
+  - `"discern-delegate-work"`
+  - `"discern-place-a-checkpoint"`
+  - `"discern-set-the-standard"`
+  - `"discern-teach-the-project"`
+  - `"discern-write-adr"`
+  - `"discern-write-it-once"`
 - Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/instruction_corpus_guard_test.ts`
 - Glossary: the "Skill" entry carries the concept
 - Feature canon: claimed as the `skill` surface set
@@ -2877,7 +2877,7 @@ The shipped capability modules whose importers are restricted: attributed commit
 
 - Source: `tests/writer_boundaries.ts` — `RESTRICTED_WRITER_MODULES`
 - Members: 5
-  - `discern-authored-commit`
+  - `"discern-authored-commit"`
   - `effort-grant-human-writer`
   - `effort-grant-cleanup`
   - `acceptance-transaction`

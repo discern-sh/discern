@@ -7,6 +7,7 @@ publish: true
 kind: guide
 aliases:
   - guide-maintain-project-map
+  - maintain-project-map
   - map maintenance
 ---
 
@@ -47,6 +48,14 @@ The map explains how the project's parts fit together and links to the authoriti
 A subsystem page might connect a data boundary to its tests, the approved decision behind it, and a recovery procedure. It need not copy those sources. The questions worth preserving depend on the project: data handling, failure recovery, compatibility, or release dependencies may matter without needing a separate page for each.
 
 For a large documentation effort, the agent can use the existing delegation workflow with ordinary task briefs. Projects can keep their own editorial instructions or skills when they need a particular house style.
+
+## Keep local context separate from publication
+
+A map needs ordinary Markdown; frontmatter is optional. A project can keep current supporting material under `_internal`, where agents can search and read it. Those pages receive the same integrity checks as other current map pages.
+
+Decision records under `_adr` preserve history and can be opened by their target. `_private` stays outside default discovery; an explicit target can retrieve it. Neither name provides access control over the repository. Other underscore folder names do not make a page historical or exempt from current-page checks.
+
+Publication is a separate choice. Filtered exports still respect publication metadata and their selected scope. discern's own manual and public map directory have their own publication rules; your local map does not inherit the manual's frontmatter requirements.
 
 ## Review the result
 

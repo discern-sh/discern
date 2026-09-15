@@ -1,3 +1,4 @@
+import { localMapEntries } from "../src/lib/map_policy.ts";
 /** End-to-end parity for every projection of the canonical product manual. */
 
 import {
@@ -176,13 +177,14 @@ Deno.test("manual delivery leaves the configured project Map contract intact", a
   const discovered = await discoverDocs({
     cwd: REPO_ROOT,
     dir: REPO_AUTHORED_PATHS.map,
+    includeInternal: true,
   });
   assert(discovered !== undefined);
   const index = await mapResult(REPO_ROOT);
   assert(index.ok && index.data?.docs !== undefined);
   assertEquals(
     index.data.docs.map((doc) => doc.target),
-    discovered.entries.map(canonicalDocTarget),
+    localMapEntries(discovered.entries).map(canonicalDocTarget),
   );
 
   for (
