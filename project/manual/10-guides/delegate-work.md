@@ -111,7 +111,7 @@ The handoff is ready when you understand the proposed tasks, each fresh agent ha
 
 From the main checkout, bare `discern` opens the desk. It lists the fleet—the project's worktrees—in a stable order and keeps task controls available while observations refresh. Use `discern status --verbose` when you need the full evidence behind a row. A clean worktree still belongs to its effort.
 
-The selected task opens its main controls. More actions contains secondary operations; Proof and details holds evidence. Activation checks current state and explains any refusal. The table below follows the live desk registry.
+The selected task opens its main controls. **Proof and changes** opens the complete Proof, changed files, commits, and actual diff, including a clear explanation when Proof is absent. **Task details** holds identity and observed status; **More actions** contains secondary operations. Activation checks current state and explains any refusal. The table below follows the live desk registry.
 
 Read the manual opens the same offline document browser as `discern docs`. Search for a page, follow its links, and return to the desk with the same task selected. In action reviews, Tab moves between the reading region and choices; Escape returns without activating a choice.
 
@@ -141,7 +141,7 @@ The command-line equivalent is `discern accept --queue-only` from the proven wor
 | `follow_up`    | Work   | Start a follow-up from this task                                       | `discern start --from <branch>`      | None                                                             |
 | `scripts`      | Work   | Project Scripts                                                        | `discern scripts <name>`             | No by default; Run                                               |
 | `jump`         | Work   | Open a shell                                                           | `<user-shell>`                       | None                                                             |
-| `inspect`      | Review | Review changes                                                         | `git diff`                           | None                                                             |
+| `inspect`      | Review | Proof and changes                                                      | `git diff`                           | None                                                             |
 | `rename`       | Manage | Change task title                                                      | `discern worktree rename <title>`    | No by default; Change                                            |
 | `grant`        | Manage | Pre-authorize landing once green                                       | `discern desk`                       | No by default; Allow                                             |
 | `revoke_grant` | Manage | Revoke pre-authorization                                               | `discern desk`                       | No by default; Revoke                                            |

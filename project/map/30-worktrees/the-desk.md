@@ -41,13 +41,15 @@ After creation, the desk opens the new row. `Refresh` runs another status survey
 
 The desk is a bounded terminal application ([ADR 0398](../_adr/0398-the-desk-is-a-live-human-control-panel.md)). The package owns its viewport, scrolling, search, resizing and foreground handoff. It displays two regions beside each other when wide enough, stacks them when tall enough, and otherwise shows the active region. Below the package minimum it displays a resize notice. No essential overview or task control depends on terminal history.
 
-Tasks sort by their case-folded display title, then stable identity. Activity, overlaps and Proof changes do not impose an urgency ranking. Each row shows a recognizable title, observed activity and a short Proof indicator. Duplicate titles carry an identity suffix. An `i` indicates advisory overlaps; **Proof and details** holds their paths. An overlap does not block a task or recommend an action.
+Tasks sort by their case-folded display title, then stable identity. Activity, overlaps and Proof changes do not impose an urgency ranking. Each row shows a recognizable title, observed activity and a short Proof indicator. Duplicate titles carry an identity suffix. An `i` indicates advisory overlaps; **Task details** holds their paths. An overlap does not block a task or recommend an action.
 
 Activity, Proof validity, landing authority and submission are separate facts. A green pre-authorized task can say **Not queued**. The landing queue renders status's submitted revisions, readiness and authority, including an older submitted revision when the branch has newer work. Running operations retain their progress handle. Outstanding emergency exceptions remain available in the queue view. Ending an operation never implies acceptance.
 
 ## Choose a task control
 
-Selecting a task opens **Start or resume agent**, **Project Scripts**, **Pre-authorize landing once green** or **Revoke pre-authorization**, **Accept and land now**, **Join the landing queue**, and **Drop**. **Proof and details** retains branch, path, stable identity and observed evidence. **More actions** contains the remaining registered actions, including recovery, final checks, update, review, title changes, shell, follow-up and cleanup. The [action registry](../../../src/engine/desk/model.ts) owns their contracts; the [manual](https://discern.sh/docs/guides/delegate-work#inspect-decisions-from-the-desk) lists them.
+Selecting a task opens **Start or resume agent**, **Project Scripts**, **Pre-authorize landing once green** or **Revoke pre-authorization**, **Accept and land now**, **Join the landing queue**, **Drop**, and **Proof and changes**. **Task details** retains branch, path, stable identity and observed evidence. **More actions** contains the remaining registered actions, including recovery, final checks, update, title changes, shell, follow-up and cleanup. The [action registry](../../../src/engine/desk/model.ts) owns their contracts; the [manual](https://discern.sh/docs/guides/delegate-work#inspect-decisions-from-the-desk) lists them.
+
+Unavailable actions carry a short label. Activating one opens its current reason; agent setup instructions stay out of the ordinary controls.
 
 A menu is advisory. Activation observes current status again and validates the captured identity, branch and absolute path before dispatch. The existing lifecycle plan/apply core rechecks at its effect boundary. Reading and consent routes open on their content, so a short terminal shows the plan before the choices. Tab switches between reading and choices; Escape returns. A refused action opens a bounded reading view with its reason. It never falls through to the next row after removal.
 
@@ -55,7 +57,7 @@ Press `/` to find entries using the package editor. Enter leaves editing and pre
 
 ## Observe without stopping navigation
 
-The initial frame appears before fleet discovery. One status observation runs at a time; the next starts five seconds after completion. Refresh and Retry use that same observation slot. Fleet reads use bounded workers. Agent and script discovery is limited to the selected task, with one capability read at a time. Review Git reads and stored Proof documents wait for their intentional action route.
+The initial frame appears before fleet discovery. Completed agent and script discovery applies to the latest task facts even when a status observation finishes first. One status observation runs at a time; the next starts five seconds after completion. Refresh and Retry use that same observation slot. Fleet reads use bounded workers. Agent and script discovery is limited to the selected task, with one background capability read at a time. A control that needs agent or script configuration rechecks that inventory before execution; other controls do not wait for it. Review Git reads and stored Proof documents wait for their intentional action route.
 
 Immutable updates retain task identity, focus, search, selection and reading position. Back and foreground return use the package's retained region state. Obsolete observations cannot publish after a newer generation or session cancellation. A recoverable observation failure keeps the last good fleet and marks it stale with Retry; an initial failure remains an unknown fleet. Fatal application failures alone end the session.
 
@@ -77,7 +79,7 @@ The main checkout remains a project boundary. Its detail can inspect `git status
 
 `Run final checks` calls the same gate core as `discern done`. The task control remains `Accept` regardless of Proof state. A pass refreshes the task with its new Proof; submission and landing remain separate observations.
 
-**Proof and changes** starts with Proof currency, authority, and a small change summary. Separate reading routes expose the complete Proof and changed files and commits. Long content scrolls inside its reading region. Failed and unknown reads stay explicit.
+**Proof and changes** starts with Proof currency, authority, and a small change summary. Separate reading routes expose the complete Proof and changed files and commits. The primary **Proof and changes** control opens this review directly, including when no Proof exists. Long content scrolls inside its reading region. Failed and unknown reads stay explicit.
 
 `View actual diff` opens `git diff --no-ext-diff --color=always <trunk>...HEAD` in the [shared pager](../../../src/lib/pager.ts), then returns to review. `Open in editor` runs an available simple command from `$VISUAL` or `$EDITOR`; unsafe values stay disabled with a reason.
 
@@ -99,7 +101,7 @@ The cleanup actions preserve separate contracts:
 
 | Action  | Keeps                                                               | Removes                                                                                 | Later route                                                                                    |
 | ------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Park    | Task branch, committed work, title, brief, and creation source      | Checkout, recorded resources, worktree Proof, landing grant, and other worktree records | Resume the branch from **Work without a worktree**.                                            |
+| Park    | Task branch, committed work, title, brief, and creation source      | Checkout, recorded resources, worktree Proof, landing grant, and other worktree records | Choose **Resume** for that branch in Desk commands.                                            |
 | Reclaim | Contained branch, containing live branch, and commits carried there | Contained checkout, recorded resources, worktree Proof, grant, and task metadata        | The retained branch self-cleans after its containing work lands; it also remains resumable.    |
 | Drop    | Trunk, other tasks, and a bounded recovery ref for a deleted branch | Checkout, owned branch, resources, metadata, grant, Proof, and selected work            | Recover committed branch tips from the recovery ref; uncommitted files have no automatic path. |
 
@@ -109,7 +111,7 @@ Before review, a Project Script asks for an optional argument line. Spaces separ
 
 The agent picker retains configured providers whose binary is missing from `PATH`, with a focused reason. Available actions keep the provider-owned labels and commands.
 
-Before launch, the AgentHandoff presentation shows the stored brief. The desk appends that brief to provider command arguments when the provider registry declares a documented prompt option with a separate argument value. Current provider entries declare no such option. The handoff therefore asks the person to copy the brief and leaves the configured command arguments unchanged.
+Before launch, the agent handoff shows the stored brief. The desk appends that brief to provider command arguments when the provider registry declares a documented prompt option with a separate argument value. Current provider entries declare no such option. The handoff therefore asks the person to copy the brief and leaves the configured command arguments unchanged.
 
 Session state stays outside discern, and resume arguments come from the provider registry. Scripts, agents, and shells inherit the selected checkout's terminal and return to a fresh survey. Each task effect enters `executeOperation` under its own command identity and selected absolute target. Its journal begins before ownership or capacity waits; contention names the actual lease and progress handle. Cancellation retains its result before returning control. Short results survive the return without an automatic pause; failures retain the detailed output. Failed final checks and acceptance use the [shared result reading boundary](../../../src/shared/emit.ts), including its registered recovery action, before the package reader opens. Their process groups stop with the desk ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)).
 
@@ -131,9 +133,9 @@ Before setup completes, bare `discern` keeps showing the setup welcome. From ins
 
 ## Where it lives in code
 
-Start with [`live.ts`](../../../src/engine/desk/live.ts) for observation and routing, [`application_view.ts`](../../../src/engine/desk/application_view.ts) for bounded composition, and [`model.ts`](../../../src/engine/desk/model.ts) for status adaptation and action availability. [`desk.ts`](../../../src/engine/desk/desk.ts) owns shared effects; [`view.ts`](../../../src/engine/desk/view.ts) composes their foreground reviews. [`preferences.ts`](../../../src/engine/desk/preferences.ts) owns convenience defaults. [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts) is the production prompt boundary, including sequential composition.
+Start with [`live.ts`](../../../src/engine/desk/live.ts) for observation and routing, [`application_view.ts`](../../../src/engine/desk/application_view.ts) for bounded composition, and [`model.ts`](../../../src/engine/desk/model.ts) for status adaptation and action availability. [`desk.ts`](../../../src/engine/desk/desk.ts) owns shared effects; [`reading.ts`](../../../src/engine/desk/reading.ts) places their evidence and choices in the package application. [`contracts.ts`](../../../src/engine/desk/contracts.ts) holds product routes and review facts. [`preferences.ts`](../../../src/engine/desk/preferences.ts) owns convenience defaults. [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts) is the production prompt boundary, including sequential composition.
 
-The subsystem has focused [model](../../../tests/engine_desk_model_test.ts), [view](../../../tests/engine_desk_view_test.ts), [runtime](../../../tests/engine_desk_runtime_test.ts), [prompt-boundary](../../../tests/terminal_interaction_test.ts), and [real-terminal](../../../tests/engine_desk_tty_test.ts) tests.
+The subsystem has focused [model](../../../tests/engine_desk_model_test.ts), [live application](../../../tests/engine_desk_live_test.ts), [runtime](../../../tests/engine_desk_runtime_test.ts), [prompt-boundary](../../../tests/terminal_interaction_test.ts), and [real-terminal](../../../tests/engine_desk_tty_test.ts) tests.
 
 ## Current state and gotchas
 
@@ -142,3 +144,5 @@ The subsystem has focused [model](../../../tests/engine_desk_model_test.ts), [vi
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A row's menu is advisory. The invoked lifecycle core rechecks every precondition before changing state.
 - Degraded checkouts retain recovery in More actions. A shell requires a present directory. Drop remains a separate destructive offer and requires force when work cannot be verified.
+
+The [Desk terminal guard](../../../tests/engine_desk_terminal_guard_test.ts) enrolls authored modules in this subtree. It rejects raw terminal transport, control bytes, and generic foundation imports while admitting product state, routes, consent, and component composition. The full-screen evidence renderers have no fallback route.

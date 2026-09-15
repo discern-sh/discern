@@ -4,7 +4,7 @@
 >
 > - **[ADR 0398](0398-the-desk-is-a-live-human-control-panel.md) — presentation:** supersedes urgency grouping, recommendations, the transactional list/pick loop and scrollback-dependent boards with a bounded live application. Lifecycle truth, identity, action safety and consent remain in force.
 
-**Status**: accepted; extends the Desk in [ADR 0119](0119-bare-discern-opens-the-operators-desk.md), consumes the Fleet row projection from [ADR 0255](0255-status-is-a-measured-responsive-dashboard.md), and preserves the landing-risk separation from [ADR 0281](0281-main-fleet-status-is-a-decision-brief.md).
+**Status**: presentation superseded by [ADR 0398](0398-the-desk-is-a-live-human-control-panel.md); lifecycle and consent contracts retained; extends the Desk in [ADR 0119](0119-bare-discern-opens-the-operators-desk.md), consumes the Fleet row projection from [ADR 0255](0255-status-is-a-measured-responsive-dashboard.md), and preserves the landing-risk separation from [ADR 0281](0281-main-fleet-status-is-a-decision-brief.md).
 
 ## Context
 

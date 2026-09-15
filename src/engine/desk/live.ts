@@ -10,7 +10,12 @@ import type { TerminalApplicationContext } from "discern-design-system/cli/inter
 import type { TerminalApplicationOptions } from "../../lib/terminal_interaction.ts";
 import { isInteractionCancelled } from "../../lib/terminal_interaction.ts";
 import type { StatusData } from "../../shared/result_schemas.ts";
-import { buildDeskRows, type DeskRow, deskRowId } from "./model.ts";
+import {
+  buildDeskRows,
+  type DeskRow,
+  deskRowId,
+  withDeskCapabilities,
+} from "./model.ts";
 import {
   DESK_KEYS,
   deskApplicationView,
@@ -62,6 +67,7 @@ export function liveDesk(
   let timer: TimeoutHandle | undefined;
   let survey: Promise<StatusData> | undefined;
   let detail: Promise<void> | undefined;
+  let detailId: string | undefined;
   let tipSelected = false;
   let refreshJob: Promise<void> | undefined;
   let tipJob: Promise<void> | undefined;
@@ -133,7 +139,11 @@ export function liveDesk(
       capabilityGeneration++;
     }
     snapshot = {
-      rows,
+      rows: rows.map((row) =>
+        previous && deskRowId(row) === deskRowId(previous)
+          ? withDeskCapabilities(row, previous, deps.trunk, deps.now())
+          : row
+      ),
       data,
       phase: "fresh",
       ...(snapshot.tip === undefined ? {} : { tip: snapshot.tip }),
@@ -143,12 +153,17 @@ export function liveDesk(
     publish();
   };
   const loadDetail = (): void => {
+    if (detail !== undefined) {
+      if (selectedId !== detailId) capabilityGeneration++;
+      return;
+    }
+    if (selectedId === undefined || foreground) return;
     capabilityGeneration++;
-    if (detail !== undefined || selectedId === undefined || foreground) return;
     const row = snapshot.rows.find((row) => deskRowId(row) === selectedId);
     if (row === undefined) return;
     const run = capabilityGeneration;
     const id = selectedId;
+    detailId = id;
     const started = SYSTEM_CLOCK.monotonicNow();
     detail = deps.capabilities(row).then((current) => {
       if (!alive || run !== capabilityGeneration || selectedId !== id) return;
@@ -156,11 +171,13 @@ export function liveDesk(
       const fresh = snapshot.rows.find((candidate) =>
         deskRowId(candidate) === id
       );
-      if (fresh?.entry !== row.entry) return;
+      if (fresh === undefined) return;
       snapshot = {
         ...snapshot,
         rows: snapshot.rows.map((candidate) =>
-          deskRowId(candidate) === id ? current : candidate
+          deskRowId(candidate) === id
+            ? withDeskCapabilities(fresh, current, deps.trunk, deps.now())
+            : candidate
         ),
       };
       publish();
@@ -236,7 +253,6 @@ export function liveDesk(
       try {
         // An in-flight observation may predate the click; a fresh read begins after it.
         if (survey !== undefined) await Promise.allSettled([survey]);
-        if (detail !== undefined) await detail;
         const data = await read();
         adopt(data);
         let row: DeskRow | undefined;

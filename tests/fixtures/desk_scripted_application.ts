@@ -4,7 +4,7 @@ import { FakeTerminalIO } from "discern-design-system/cli/interactive/testing";
 import type { TerminalApplicationOptions, SelectionRequestOptions } from "../../src/lib/terminal_interaction.ts";
 import type { DeskChoice } from "../../src/engine/desk/application_view.ts";
 import { DESK_ACTIONS, type DeskAction } from "../../src/engine/desk/model.ts";
-import { DESK_ROUTES, deskUnlandedRoute } from "../../src/engine/desk/view.ts";
+import { DESK_ROUTES, deskUnlandedRoute } from "../../src/engine/desk/contracts.ts";
 import type { StatusData } from "../../src/shared/result_schemas.ts";
 const tokens: Record<string,string> = {back:DESK_ROUTES.back,quit:DESK_ROUTES.quit,retry:DESK_ROUTES.refresh,start:DESK_ROUTES.startTask,scripts:DESK_ROUTES.runProjectScript,main:DESK_ROUTES.mainCheckout,recent:DESK_ROUTES.recentCompleted,docs:DESK_ROUTES.readDocs};
 /** Exercise foreground effect code with old semantic fixtures without claiming input/painting coverage. */

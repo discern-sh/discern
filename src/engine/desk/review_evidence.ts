@@ -2,7 +2,7 @@
 
 import { commandEvidence } from "../../shared/command_evidence.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
-import type { DeskReviewFailure } from "./view.ts";
+import type { DeskReviewFailure } from "./contracts.ts";
 import type { DeskRuntime } from "./desk.ts";
 
 interface ReviewGitRead {

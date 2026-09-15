@@ -6,7 +6,7 @@
 > - **[ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md) — interaction:** the transactional list → pick → act → loop and lifecycle-core authority survive. `src/lib/terminal_interaction.ts` now maps the product flow into the published package's interaction graph; the package owns terminal I/O, editing, painting, cancellation, and restoration, while discern still owns interaction admission, decision state, action legality, orchestration, and effects. The shared admission policy includes global `--json` alongside `--plain`, CI, and both stream attachments; the named Desk also refuses its local JSON option before entering that path. The later Desk programme may enrich the product decision model without moving lifecycle truth or reusable terminal mechanics.
 > - **[ADR 0398](0398-the-desk-is-a-live-human-control-panel.md) — presentation:** supersedes urgency grouping, recommendations, the transactional list/pick loop and scrollback-dependent boards with a bounded live application. Lifecycle truth, identity, action safety and consent remain in force.
 
-**Status**: accepted. Builds on [ADR 0036](0036-unify-setup.md) (the pre-setup redirect), [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope), and [ADR 0027](0027-plan-apply-engine-execution.md) (plan/apply).
+**Status**: presentation superseded by [ADR 0398](0398-the-desk-is-a-live-human-control-panel.md); lifecycle and consent contracts retained. Builds on [ADR 0036](0036-unify-setup.md) (the pre-setup redirect), [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope), and [ADR 0027](0027-plan-apply-engine-execution.md) (plan/apply).
 
 ## Context
 
