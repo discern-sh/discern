@@ -4171,6 +4171,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/file_lock_guard_test.ts":
+    "requires every authored production use of native file-lock primitives to share explicit release ownership rather than guarding a project-defined member set",
   "tests/engine_desk_terminal_guard_test.ts":
     "holds every authored Desk module to the package application adoption boundary rather than guarding a closed member set",
   "tests/operation_lock_sync_guard_test.ts":

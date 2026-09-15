@@ -11,6 +11,7 @@
  */
 
 import { dirname } from "@std/path";
+import { FileLock, type FileLockIO } from "../../shared/file_lock.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import {
   pruneStaleTempArtifacts,
@@ -53,7 +54,7 @@ const MAX_STATE_BYTES = 4_096;
 
 /** Read the repository throttle cursor, treating missing or malformed state as a fresh sweep. */
 async function readState(
-  file: Deno.FsFile,
+  file: FileLockIO,
 ): Promise<
   | { readonly status: "recorded"; readonly state: TempArtifactSweepState }
   | { readonly status: "missing" }
@@ -110,16 +111,16 @@ async function readState(
 }
 
 /** Advance through partial filesystem writes until the complete sweep state is persisted. */
-async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
+async function writeAll(file: FileLockIO, bytes: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < bytes.length) {
     offset += await file.write(bytes.subarray(offset));
   }
 }
 
-/** Atomically persist the next sweep time and cursor through a temporary sibling. */
+/** Persist the next sweep time and cursor through the protected file descriptor. */
 async function writeState(
-  file: Deno.FsFile,
+  file: FileLockIO,
   state: TempArtifactSweepState,
 ): Promise<void> {
   const bytes = ENCODER.encode(
@@ -155,9 +156,9 @@ export async function sweepDueTempArtifacts(
     return { kind: "unavailable" };
   }
 
-  let file: Deno.FsFile;
+  let file: FileLock;
   try {
-    file = await Deno.open(path, {
+    file = await FileLock.open(path, {
       create: true,
       read: true,
       write: true,
@@ -169,7 +170,7 @@ export async function sweepDueTempArtifacts(
   try {
     let acquired: boolean;
     try {
-      acquired = await file.tryLock(true);
+      acquired = await file.tryAcquire();
     } catch {
       return { kind: "unavailable" };
     }
@@ -178,7 +179,7 @@ export async function sweepDueTempArtifacts(
     }
 
     const now = opts.now ?? SYSTEM_CLOCK.wallNow();
-    const read = await readState(file);
+    const read = await readState(file.io);
     if (read.status === "newer") {
       return { kind: "newer", reason: read.reason };
     }
@@ -194,7 +195,7 @@ export async function sweepDueTempArtifacts(
     // the lock and the next run waits for the next interval instead of
     // immediately repeating the same expensive page.
     const cursor = prior?.cursor;
-    await writeState(file, {
+    await writeState(file.io, {
       version: ON_DISK_FORMATS.tempArtifactSweep.version,
       lastSweepAt: now,
       cursor,
@@ -204,7 +205,7 @@ export async function sweepDueTempArtifacts(
       now,
       ...(cursor === undefined ? {} : { cursor }),
     });
-    await writeState(file, {
+    await writeState(file.io, {
       version: ON_DISK_FORMATS.tempArtifactSweep.version,
       lastSweepAt: now,
       cursor: prune.cursor,

@@ -7,6 +7,7 @@
  * read, update, expiry, and capacity pruning across CLI and MCP processes.
  */
 
+import { FileLock } from "../../shared/file_lock.ts";
 import { join } from "@std/path";
 import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { statIfExists } from "../../shared/fs_presence.ts";
@@ -169,16 +170,16 @@ async function withStoreLock<T>(
   if (directory === undefined) {
     return undefined;
   }
-  let lock: Deno.FsFile | undefined;
+  let lock: FileLock | undefined;
   try {
     await Deno.mkdir(directory, { recursive: true, mode: 0o700 });
-    lock = await Deno.open(join(directory, LOCK_FILE), {
+    lock = await FileLock.open(join(directory, LOCK_FILE), {
       create: true,
       read: true,
       write: true,
       mode: 0o600,
     });
-    await lock.lock(true);
+    await lock.acquire();
     return await run(directory);
   } catch {
     // discern-best-effort: continuation-store-lock-fallback

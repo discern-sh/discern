@@ -30,6 +30,7 @@
  * long-horizon trends outlive the raw lines they came from.
  */
 
+import { FileLock } from "../../shared/file_lock.ts";
 import { dirname, join } from "@std/path";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { ensureDir } from "@std/fs";
@@ -435,7 +436,7 @@ export async function withLogbookLifecycleLock<T>(
 ): Promise<T> {
   const path = logbookLifecycleLockPath(commonGitDir);
   await ensureDir(dirname(path));
-  const lock = await Deno.open(path, {
+  const lock = await FileLock.open(path, {
     create: true,
     read: true,
     write: true,
@@ -443,7 +444,7 @@ export async function withLogbookLifecycleLock<T>(
   });
   let acquired = false;
   try {
-    acquired = await lock.tryLock(true);
+    acquired = await lock.tryAcquire();
     if (!acquired) {
       throw new LogbookLifecycleBusyError();
     }
