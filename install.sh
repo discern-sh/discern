@@ -8,7 +8,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 #
 # Detects your OS/arch, fetches the matching binary from the latest GitHub
-# release (or $DISCERN_VERSION), verifies its SHA-256 checksum, and installs it
+# stable release (or $DISCERN_VERSION), verifies its SHA-256 checksum, and installs it
 # to a writable bin dir. POSIX sh; needs curl (or wget) and sha256sum (or shasum).
 #
 # Environment overrides:
@@ -72,6 +72,16 @@ download() {
 }
 
 verify_checksum() {
+    # A sidecar must attest only this asset, never another path or a file set.
+    checksum_lines=0
+    while IFS=' ' read -r digest name extra || [ -n "$digest$name$extra" ]; do
+        [ "$checksum_lines" -eq 0 ] || return 1
+        [ "$name" = "$asset" ] || [ "$name" = "*$asset" ] || return 1
+        [ -z "$extra" ] && [ "${#digest}" -eq 64 ] || return 1
+        case "$digest" in *[!0-9a-fA-F]*) return 1 ;; esac
+        checksum_lines=1
+    done < "$1/$2"
+    [ "$checksum_lines" -eq 1 ] || return 1
     case "$checksum_tool" in
         sha256sum) (cd "$1" && sha256sum -c "$2" >/dev/null 2>&1) ;;
         shasum) (cd "$1" && shasum -a 256 -c "$2" >/dev/null 2>&1) ;;
@@ -117,10 +127,15 @@ else
     die "no writable install dir. Set DISCERN_BIN_DIR to a directory on your PATH."
 fi
 mkdir -p "$bin_dir" || die "could not create install dir: $bin_dir"
+bin_dir=$(cd "$bin_dir" && pwd -P) || die "could not resolve install dir: $bin_dir"
 
 dest="$bin_dir/discern"
 if [ -d "$dest" ]; then
     die "install destination is a directory: $dest"
+fi
+replacing=false
+if [ -e "$dest" ] || [ -L "$dest" ]; then
+    replacing=true
 fi
 stage_dir=$(mktemp -d "$bin_dir/.discern-install.XXXXXX") || \
     die "could not create a staging directory in $bin_dir"
@@ -136,35 +151,59 @@ checksum_path="$stage_dir/$checksum_name"
 # --- download and verify --------------------------------------------------
 info "downloading ${BOLD}${asset}${RESET} from ${REPO} (${VERSION})"
 if ! download "$url" "$binary_path"; then
-    die "download failed: $url"
+    die "download failed: $url; $dest was not changed."
 fi
 if ! download "$url.sha256" "$checksum_path"; then
-    die "checksum download failed: $url.sha256"
+    die "checksum download failed: $url.sha256; $dest was not changed."
 fi
 if ! verify_checksum "$stage_dir" "$checksum_name"; then
     die "checksum verification failed for $asset; the existing installation was not changed."
 fi
 
 # --- install --------------------------------------------------------------
-chmod +x "$binary_path"
-mv "$binary_path" "$dest" || die "could not move binary into $bin_dir"
+chmod +x "$binary_path" || die "could not make the staged binary executable; $dest was not changed."
+mv -f "$binary_path" "$dest" || die "could not replace $dest; replacement did not complete."
 
-info "installed ${BOLD}discern${RESET} to ${dest}"
+if [ "$replacing" = true ]; then
+    info "updated ${BOLD}discern${RESET} at ${dest} (binary replacement)"
+else
+    info "installed ${BOLD}discern${RESET} to ${dest}"
+fi
 
 # --- truthful PATH handoff ------------------------------------------------
-if resolved=$(command -v discern 2>/dev/null) && [ "$resolved" = "$dest" ]; then
+resolved=$(command -v discern 2>/dev/null) || resolved=""
+resolved_dest=""
+if [ -n "$resolved" ]; then
+    resolved_dir=$(cd "${resolved%/*}" 2>/dev/null && pwd -P) || resolved_dir=""
+    resolved_dest="$resolved_dir/${resolved##*/}"
+fi
+if [ "$resolved_dest" = "$dest" ]; then
+    path_ready=true
+elif [ -n "$resolved" ]; then
+    path_ready=false
+    printf '%s!%s PATH resolves discern to %s before %s.\n' \
+        "$RED" "$RESET" "$resolved" "$dest" >&2
+    printf '  Put %s first in your shell profile, then open a new shell.\n' \
+        "$bin_dir" >&2
+    printf '  Verify afterward with: command -v discern, then discern --version.\n' >&2
+else
+    path_ready=false
+    printf '%s!%s %s is not on PATH. Add this line to your shell profile, then open a new shell:\n' \
+        "$RED" "$RESET" "$bin_dir" >&2
+    printf "    export PATH=\"%s:\$PATH\"\n" "$bin_dir" >&2
+    printf '  Verify afterward with: command -v discern, then discern --version.\n' >&2
+fi
+
+if [ "$replacing" = true ]; then
+    printf '\nAfter resolving any PATH warning:\n'
+    printf '  %s\n' \
+        'Run command -v discern to check which copy will run, then discern --version to check its version.' \
+        'Restart open coding-agent and MCP sessions so they use the new version.' \
+        'In the project you want to update, run discern upgrade --dry-run to preview the changes, then discern upgrade to apply them.' \
+        'Review and commit the changes to your project.'
+elif [ "$path_ready" = true ]; then
     printf '\n%sNext:%s tell your coding agent to run %sdiscern%s — it sets up the project for you.\n' \
         "$GREEN" "$RESET" "$BOLD" "$RESET"
     printf '      Setup is a one-time, high-leverage step, so point your %smost capable model%s at it.\n' \
         "$BOLD" "$RESET"
-elif [ -n "${resolved:-}" ]; then
-    printf '%s!%s PATH resolves discern to %s before %s.\n' \
-        "$RED" "$RESET" "$resolved" "$dest" >&2
-    printf '  Put %s first in your shell profile, then open a new shell and run discern --version.\n' \
-        "$bin_dir" >&2
-else
-    printf '%s!%s %s is not on PATH. Add this line to your shell profile, then open a new shell:\n' \
-        "$RED" "$RESET" "$bin_dir" >&2
-    printf "    export PATH=\"%s:\$PATH\"\n" "$bin_dir" >&2
-    printf '  Verify afterward with: discern --version\n' >&2
 fi

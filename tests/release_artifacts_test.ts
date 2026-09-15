@@ -23,7 +23,7 @@ import {
   type ReleasePlanOptions,
 } from "../scripts/release_plan.ts";
 import { parseReleaseRecords } from "../site/releases/records.ts";
-import { DISCERN_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION, humanVersion } from "../src/lib/version.ts";
 
 /** Matrix controls provide a valid authored record; publication cases live in releases_test. */
 function releasePlan(
@@ -253,6 +253,7 @@ interface FakeOptions {
   scaffoldMap?: boolean;
   truncatedLicenseKey?: string;
   version?: string;
+  versionOutput?: string;
 }
 
 /** Single-quote fixture paths safely for generated POSIX shell commands. */
@@ -338,7 +339,9 @@ async function writeFakeDiscern(
 set -eu
 case "$1" in
   --version)
-    printf '%s\\n' 'discern ${version}'
+    printf '%s\\n' ${
+      shellQuote(options.versionOutput ?? humanVersion({ version }))
+    }
     ;;
   docs)
     if [ "$#" -ge 3 ] && [ "$2" = "30-reference/config-reference" ] && [ "$3" = "--raw" ]; then
@@ -375,18 +378,36 @@ ${options.embeddedLeak === undefined ? "" : `# ${options.embeddedLeak}`}
 
 Deno.test("release smoke proves version, licenses, bundled docs, and setup assets", async () => {
   await withTempDir(async (dir) => {
-    await smokeReleaseBinary(await writeFakeDiscern(dir), "1.2.3");
+    for (const codename of [undefined, "Test family"]) {
+      const versionOutput = humanVersion({
+        version: "1.2.3",
+        ...(codename === undefined ? {} : { codename }),
+      });
+      await smokeReleaseBinary(
+        await writeFakeDiscern(dir, { versionOutput }),
+        "1.2.3",
+      );
+    }
   }, { prefix: "release-smoke-test-" });
 });
 
 Deno.test("release smoke rejects an unrelated future binary with the wrong version", async () => {
   await withTempDir(async (dir) => {
-    const binary = await writeFakeDiscern(dir, { version: "9.9.9" });
-    await assertRejects(
-      () => smokeReleaseBinary(binary, "1.2.3"),
-      Error,
-      "does not match discern 1.2.3",
-    );
+    for (
+      const versionOutput of [
+        humanVersion({ version: "9.9.9", codename: "Test family" }),
+        "another-tool 1.2.3",
+        "1.2.3",
+        "discern 1.2.3\nextra output",
+      ]
+    ) {
+      const binary = await writeFakeDiscern(dir, { versionOutput });
+      await assertRejects(
+        () => smokeReleaseBinary(binary, "1.2.3"),
+        Error,
+        "does not match discern 1.2.3",
+      );
+    }
   }, { prefix: "release-smoke-test-" });
 });
 
