@@ -27,7 +27,7 @@ A missing policy ref is a refusal. A remote-tracking ref or the latest trunk doe
 
 ## Wrapped test tasks
 
-The configured test producer owns instrumentation, reporting, and child cleanup. The root recipe runs `deno task coverage` once; coverage consumers use its captured metrics. CI selects its reporter through the declared environment variable. The evaluator counts physical producer executions independently of consumer results.
+The configured test producer owns instrumentation, reporting, and child cleanup. The root recipe runs `deno task coverage` once; coverage consumers use its captured metrics. Hosted lanes select JUnit through the declared reporter environment variable. Test names and fixture output belong to the diagnostic report; only emissions outside it supply measurements. The evaluator counts physical producer executions independently of consumer results.
 
 ## Require the result
 
