@@ -490,7 +490,9 @@
 # product-wide registry codegen family. Its compact index still derives from
 # the authored audit and regenerates before checks like every other artifact.
 [generated.launch_audit_summary]
-  paths = ["${map.dir}_private/planning/launch-lockdown-audit-summary.md"]
+  paths = [
+    "${map.dir}_private/planning/launch-lockdown-workstreams/launch-lockdown-audit-summary.md",
+  ]
   run = "deno task launch-audit-summary"
   linguist_generated = true
 
