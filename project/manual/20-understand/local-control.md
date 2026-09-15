@@ -33,6 +33,8 @@ There is no additional model call or model bill from discern itself. Your coding
 
 The discern executable makes no network requests of its own. The installer uses the network to download it, and you choose when to download an update.
 
+The [release page](https://discern.sh/releases) is an external check performed by your browser or an authorized client. It receives the supplied discern version and no project data.
+
 Other parts of your workflow can still connect:
 
 - Your coding agent may send context to its model provider under that tool's settings.

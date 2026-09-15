@@ -226,6 +226,7 @@ const VOYAGE_PUBLICATION: PublicSchemaPublication = {
  * decision, while adding a publication requires consciously adding its row.
  */
 const FROZEN_V1_PUBLICATION_MAJORS = [
+  ["schema/discern-releases.schema.json", 1],
   ["schema/discern-config.schema.json", 1],
   ["schema/discern-setup-config.schema.json", 1],
   ["schema/discern-results.schema.json", 1],

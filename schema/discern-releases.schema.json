@@ -1,0 +1,326 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "number",
+          "const": 1
+        },
+        "since": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "index",
+            "current",
+            "update-available",
+            "ahead",
+            "no-stable-release"
+          ]
+        },
+        "latest_stable": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+            },
+            "codename": {
+              "type": "string"
+            },
+            "publication": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "prerelease",
+                "candidate"
+              ]
+            }
+          },
+          "required": [
+            "version",
+            "summary",
+            "body",
+            "publication"
+          ],
+          "additionalProperties": false
+        },
+        "applicable": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "body": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "codename": {
+                "type": "string"
+              },
+              "publication": {
+                "type": "string",
+                "enum": [
+                  "stable",
+                  "prerelease",
+                  "candidate"
+                ]
+              }
+            },
+            "required": [
+              "version",
+              "summary",
+              "body",
+              "publication"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "history": {
+          "type": "object",
+          "properties": {
+            "stable": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "codename": {
+                    "type": "string"
+                  },
+                  "publication": {
+                    "type": "string",
+                    "enum": [
+                      "stable",
+                      "prerelease",
+                      "candidate"
+                    ]
+                  }
+                },
+                "required": [
+                  "version",
+                  "summary",
+                  "body",
+                  "publication"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "prereleases": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "codename": {
+                    "type": "string"
+                  },
+                  "publication": {
+                    "type": "string",
+                    "enum": [
+                      "stable",
+                      "prerelease",
+                      "candidate"
+                    ]
+                  }
+                },
+                "required": [
+                  "version",
+                  "summary",
+                  "body",
+                  "publication"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "candidates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "codename": {
+                    "type": "string"
+                  },
+                  "publication": {
+                    "type": "string",
+                    "enum": [
+                      "stable",
+                      "prerelease",
+                      "candidate"
+                    ]
+                  }
+                },
+                "required": [
+                  "version",
+                  "summary",
+                  "body",
+                  "publication"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "stable",
+            "prereleases",
+            "candidates"
+          ],
+          "additionalProperties": false
+        },
+        "history_coverage": {
+          "type": "object",
+          "properties": {
+            "earliest_known": {
+              "type": "string"
+            },
+            "before_earliest_known": {
+              "type": "boolean"
+            },
+            "complete": {
+              "type": "boolean",
+              "const": false
+            }
+          },
+          "required": [
+            "before_earliest_known",
+            "complete"
+          ],
+          "additionalProperties": false
+        },
+        "urls": {
+          "type": "object",
+          "properties": {
+            "html": {
+              "type": "string",
+              "format": "uri"
+            },
+            "json": {
+              "type": "string",
+              "format": "uri"
+            },
+            "installer": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "required": [
+            "html",
+            "json",
+            "installer"
+          ],
+          "additionalProperties": false
+        },
+        "recommendation": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string"
+            },
+            "codename": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "version"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "status",
+        "applicable",
+        "history",
+        "history_coverage",
+        "urls"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "number",
+          "const": 1
+        },
+        "error": {
+          "type": "string",
+          "const": "invalid-since"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "error",
+        "message"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$id": "https://discern.sh/schema/v1/discern-releases.schema.json",
+  "x-discern-compatibility-policy": "result-output"
+}

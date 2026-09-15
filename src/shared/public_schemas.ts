@@ -10,6 +10,12 @@ function publicSchemaId<const Major extends number, const Name extends string>(
   return `https://discern.sh/schema/v${major}/${name}`;
 }
 
+export const RELEASE_SCHEMA_MAJOR = 1;
+export const RELEASE_SCHEMA_ID = publicSchemaId(
+  RELEASE_SCHEMA_MAJOR,
+  "discern-releases.schema.json",
+);
+
 export const CONFIG_SCHEMA_MAJOR = 1;
 export const CONFIG_SCHEMA_ID = publicSchemaId(
   CONFIG_SCHEMA_MAJOR,
@@ -127,6 +133,15 @@ export interface PublicSchemaPublication {
 }
 
 export const PUBLIC_SCHEMA_PUBLICATIONS = [
+  {
+    id: RELEASE_SCHEMA_ID,
+    artifactPath: "schema/discern-releases.schema.json",
+    major: RELEASE_SCHEMA_MAJOR,
+    compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    label: "Release comparison",
+    contract:
+      "Stable recommendations and classified release history shared by HTML, text, and JSON.",
+  },
   {
     id: CONFIG_SCHEMA_ID,
     artifactPath: "schema/discern-config.schema.json",

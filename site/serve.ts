@@ -42,6 +42,11 @@ import { PROVIDERS } from "../src/lib/providers.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import { DISCERN_INSTALL_ROUTE } from "../src/shared/brand.ts";
 
+import { RELEASE_ROUTES } from "../src/shared/product_identity.ts";
+import { loadReleaseCatalogue } from "./releases/catalogue.ts";
+import type { CatalogueRecord } from "./releases/model.ts";
+import { releaseResponse } from "./releases/response.ts";
+
 const SITE_ROOT = new URL("./", import.meta.url);
 const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
   PUBLIC_SCHEMA_PUBLICATIONS.map((publication) => [
@@ -226,6 +231,7 @@ function decodePath(pathname: string): string | null {
 
 export interface SiteRouting {
   site: DocsSite;
+  releases?: readonly CatalogueRecord[];
   liveRoutes: readonly string[];
   redirects: SiteRedirectTable;
 }
@@ -236,6 +242,7 @@ let routingPromise: Promise<SiteRouting> | undefined;
 export function liveHtmlRoutes(site: DocsSite): string[] {
   return [
     ...Object.keys(PAGES),
+    RELEASE_ROUTES.html,
     ...site.sitemapRoutes,
   ];
 }
@@ -258,7 +265,12 @@ async function loadSiteRouting(): Promise<SiteRouting> {
   if (redirects.issues.length > 0) {
     throw new Error(`unsafe site redirects:\n${redirects.issues.join("\n")}`);
   }
-  return { site, liveRoutes, redirects };
+  return {
+    site,
+    liveRoutes,
+    redirects,
+    releases: await loadReleaseCatalogue(),
+  };
 }
 
 /** Share one routing snapshot across requests for the process lifetime. */
@@ -320,6 +332,14 @@ async function routeResponse(
   path: string,
   routing: SiteRouting,
 ): Promise<Response> {
+  if (Object.values(RELEASE_ROUTES).some((route) => route === path)) {
+    return releaseResponse(
+      req,
+      path,
+      wantsText(req),
+      routing.releases ?? await loadReleaseCatalogue(),
+    );
+  }
   const publicSchema = PUBLIC_SCHEMA_ROUTES.get(path);
   if (publicSchema !== undefined) {
     return await serveFile(`../${publicSchema}`);
@@ -468,6 +488,7 @@ async function handleRequest(
   const routing = routingFixture ?? await siteRouting();
   const addressable = new Set([
     ...routing.liveRoutes,
+    ...Object.values(RELEASE_ROUTES),
     ...routing.redirects.redirects.keys(),
   ]);
   const variant = canonicalPathVariant(decoded, addressable);

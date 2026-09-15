@@ -104,6 +104,43 @@ export interface CanonicalSetEntry {
 /** The closed set of closed sets. */
 export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
+    id: "release-records",
+    title: "Release records",
+    what:
+      "Authored Markdown release notes, family names, and the records enrolled in every release projection.",
+    source: {
+      kind: "module",
+      module: "site/releases/records.ts",
+      exportName: "loadReleaseRecords",
+    },
+    guards: ["tests/releases_test.ts"],
+    artifacts: [
+      {
+        path: "src/lib/release_metadata.ts",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: "schema/discern-releases.schema.json",
+        kind: "generated-file",
+        banner: false,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "Release records are publishing inputs, not a separate product concept.",
+      },
+      featureCanon: {
+        absent:
+          "The release-awareness programme owns the later CLI feature enrollment.",
+      },
+    },
+    members: async () =>
+      (await (await import("../site/releases/records.ts")).loadReleaseRecords())
+        .map((record) => record.version),
+  },
+  {
     id: "verbs",
     title: "Top-level verbs",
     what:

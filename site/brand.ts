@@ -1,8 +1,12 @@
+import { RELEASE_ROUTES } from "../src/shared/product_identity.ts";
+
 /** Brand primitives shared by the site's generated and request-time shells. */
 export { DISCERN_MARK } from "../src/shared/brand.ts";
 
 /** One theme-aware, drawn favicon shared by every public page. */
 export const DISCERN_FAVICON_PATH = "/assets/favicon.svg";
+
+export const RELEASE_TITLE = "discern releases";
 
 /** Homepage metadata shared by its renderer, SEO checks, and smoke crawl. */
 export const LANDING_TITLE = "discern";
@@ -48,6 +52,7 @@ export const SELF_TITLED_PAGES: Readonly<Record<string, string>> = {
   "/": LANDING_TITLE,
   "/agents": AGENTS_TITLE,
   "/trust": TRUST_TITLE,
+  [RELEASE_ROUTES.html]: RELEASE_TITLE,
 };
 
 /** Canonical 100-unit geometry for drawn derivatives of the Unicode mark. */

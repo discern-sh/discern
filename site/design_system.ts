@@ -4,6 +4,7 @@ import type {
   ComponentGroup,
   RuntimeAssetSelection,
 } from "discern-design-system";
+import { RELEASE_ROUTES } from "../src/shared/product_identity.ts";
 import { WORKFLOW_COMPONENTS } from "./workflow_registry.ts";
 
 interface SiteDesignSystemBundle {
@@ -38,7 +39,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
   },
   compositions: {
     output: "pages/assets/design-system/compositions/",
-    routes: ["/", "/agents", "/trust"],
+    routes: ["/", "/agents", "/trust", RELEASE_ROUTES.html],
     groups: ["Marketing", "Editorial"],
     components: [
       "icon",

@@ -22,6 +22,7 @@
  * Run: `deno task build` (optionally `deno task build <target>` to build one).
  */
 
+import { verifyReleaseMetadata } from "./release_metadata.ts";
 import { ensureDir, walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { discoverDocs } from "../src/lib/docs.ts";
@@ -306,6 +307,7 @@ async function verifyDarwinSignature(
 
 /** Build all targets, or just the one named on the command line. */
 async function main(): Promise<void> {
+  await verifyReleaseMetadata();
   const distDir = "dist";
   await ensureDir(distDir);
 

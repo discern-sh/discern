@@ -1414,6 +1414,7 @@
       "jsr:@std/fmt@^1.0.10",
       "jsr:@std/fs@^1.0.13",
       "jsr:@std/path@^1.0.8",
+      "jsr:@std/semver@^1.0.8",
       "jsr:@std/testing@^1.0.19",
       "jsr:@std/toml@^1.0.2",
       "jsr:@std/yaml@^1.0.5",

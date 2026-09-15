@@ -1,5 +1,7 @@
 /** Stable product, repository, and installer identity authorities. */
 
+import { parseVersion } from "./semver.ts";
+
 /** The product name used in protocol and generated-file identity. */
 export const DISCERN_NAME = "discern";
 
@@ -52,3 +54,37 @@ export const DISCERN_RAW_INSTALL_URL =
 /** The one canonical public install command. */
 export const INSTALL_COMMAND =
   `curl -fsSL ${DISCERN_URL}${DISCERN_INSTALL_ROUTE} | sh`;
+
+/** First-party release comparison addresses; GitHub's collection remains separate. */
+export const RELEASE_ROUTES = {
+  html: "/releases",
+  text: "/releases.txt",
+  json: "/releases.json",
+} as const;
+export const DISCERN_RELEASE_CHECK_URL = `${DISCERN_URL}${RELEASE_ROUTES.html}`;
+export const DISCERN_RELEASE_JSON_URL = `${DISCERN_URL}${RELEASE_ROUTES.json}`;
+export const DISCERN_INSTALL_URL = `${DISCERN_URL}${DISCERN_INSTALL_ROUTE}`;
+
+/** Encode only the supplied binary version in the shared browser/client handoff. */
+export function releaseCheckUrls(
+  version?: string,
+): { html: string; json: string } {
+  if (version !== undefined) parseVersion(version);
+  const query = version === undefined
+    ? ""
+    : `?${new URLSearchParams({ since: version })}`;
+  return {
+    html: `${DISCERN_RELEASE_CHECK_URL}${query}`,
+    json: `${DISCERN_RELEASE_JSON_URL}${query}`,
+  };
+}
+
+/** Common update sequence consumed by release guidance and later local handoffs. */
+export const UPDATE_SEQUENCE = [
+  "Read the release notes.",
+  `Install the latest stable version with ${INSTALL_COMMAND}.`,
+  "Run command -v discern to check which copy will run, then discern --version to check its version.",
+  "Restart your agent and MCP sessions so they use the new version.",
+  "Choose the project you want to update. Preview its upgrade, then apply the changes you want.",
+  "Review and commit the changes to your project.",
+] as const;
