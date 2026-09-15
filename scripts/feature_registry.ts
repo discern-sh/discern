@@ -1826,15 +1826,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "upgrade",
         title: "Upgrade and migrations",
         what:
-          "`discern upgrade` brings the project in line with the binary that runs it: versioned, idempotent config migrations that validate before the schema version is stamped, refusal of configs newer than the binary, and reconciliation of the fixed `discern.toml` scaffold and the marked `.gitignore` block. `--check` previews without touching anything.",
+          "`discern upgrade` reconciles the project's managed material with the running binary and applies validated, idempotent config migrations. Successful setup or upgrade records the highest adopted SemVer in `meta.managed_version`; `--check` includes pending adoption and dry-run shows its proposed value. Older binaries refuse backward managed writes and ordinary Proof when currency is unverified, while status and project tests remain available. The schema version retains its independent hard format boundary.",
         why:
-          "The binary carries its versioned migration path and refuses a configuration newer than itself.",
+          "Committed adoption travels with the project, protects newer managed material, and preserves the distinction between format compatibility, managed-file currency, and installed programs.",
         plain: {
           title: "Updating between versions",
           what:
-            "`discern upgrade` brings the project in line with the program that runs it: numbered, repeat-safe settings updates that discern checks before recording the new format version, refusal of settings written by a newer discern, and repair of the fixed parts of `discern.toml` and the marked discern section of `.gitignore`. `--check` previews without touching anything.",
+            "`discern upgrade` brings discern-managed files up to date for the running program. A successful setup or upgrade records the highest version the project adopted. An older program can report status and run project tests, but cannot replace newer managed files or claim it verified them. A settings format it cannot understand still stops the operation. Preview shows the proposed adoption without changing files.",
           why:
-            "The program carries its versioned update path and refuses settings written by a newer version.",
+            "Teammates can see the version the project adopted and avoid rewriting its managed files backward. The shared record says nothing about what each person has installed.",
         },
         surfaces: ["verb:upgrade"],
       },
@@ -3452,9 +3452,9 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         id: "planned-upgrades",
         title: "Choose when to upgrade",
         value:
-          "The tool does not change itself in the middle of project work. Upgrades can be scheduled, reviewed, migrated repeatedly without duplicate effects, and checked against a clear installation diagnosis.",
+          "The tool does not change itself in the middle of project work. Upgrades can be scheduled and reviewed, and teammates can share which version the project adopted without tracking each other's installed programs.",
         whyItFollows:
-          "The offline release handoff provides stable-release URLs and local reminders; the binary performs no network check. `discern upgrade` applies idempotent validated migrations before stamping the new schema, and `discern doctor` reports the current installation with a fix for each problem.",
+          "The offline release handoff provides stable-release URLs and local reminders; the binary performs no network check. Successful setup or upgrade records monotonic project adoption. Older binaries protect newer managed material, and doctor distinguishes that advisory from a hard schema refusal. Replacing the binary alone leaves project adoption unchanged.",
         drawsOn: ["upgrade", "doctor", "release-awareness"],
       },
       {
@@ -4038,9 +4038,9 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         id: "manage-the-installation-lifecycle",
         title: "Manage the installation lifecycle",
         value:
-          "A coding agent can set up, verify, diagnose, upgrade, configure, and remove discern through explicit lifecycle operations whose retained and removed effects are visible.",
+          "A coding agent can set up, verify, diagnose, upgrade, configure, and remove discern through explicit lifecycle operations whose retained and removed effects are visible. It can distinguish project adoption from its running version and route an older session to the release handoff without proposing backward writes.",
         whyItFollows:
-          "One install surface owns setup and its observability, doctor, the offline release handoff, upgrade, uninstall, configuration editing, and license reporting; setup proves its worktree path before declaring readiness.",
+          "One install surface owns setup, doctor, the offline release handoff, upgrade, uninstall, configuration editing, and license reporting. Successful adoption records the highest managed version, while schema compatibility and byte-level currency keep separate authorities. An older engine discloses unavailable currency and declines ordinary Proof; safe status and project tests remain available.",
         boundary:
           "Lifecycle verbs manage discern's declared footprint and provider integrations, not arbitrary project files or provider state outside their ownership contract.",
         drawsOn: [
