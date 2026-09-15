@@ -74,7 +74,7 @@ Some choices need more than a standing rule. Suppose you decide people should be
 
 An **Architecture Decision Record**, or **ADR**, preserves that account: what you decided, why, and what follows from it. The map and relevant instructions can link to the record. A later agent can understand the choice before proposing to reverse it.
 
-The bundled `discern-write-adr` skill helps record decisions that are significant or difficult to reverse. Ordinary implementation details do not all need their own decision record.
+The bundled `discern-write-adr` skill helps record decisions that are significant or difficult to reverse. Hard-to-reverse choices, surprising designs, and important trade-offs are useful signals; a decision need not meet all three. Ordinary implementation details do not all need their own decision record. An ADR records an approved exception to an agreed requirement; it does not grant that approval.
 
 ## Choose the home that does the job
 

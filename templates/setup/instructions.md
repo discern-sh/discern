@@ -464,7 +464,7 @@ authority_boundaries = [
 ]
 owner_moments = ["lasting-project-context", "documentation-claim-gap"]
 what_not_to_do = [
-  "Complete, combine, or remove every seeded draft; keep the reusable ADR template. Leave no skeleton notices or TODO asking a later session to finish the chosen starter map. Review each retained page as a new reader before handing it over.",
+  "Complete, combine, or remove every seeded draft; keep the reusable ADR template and complete the adoption record’s Context, Decision, and Consequences from this project’s setup choices, retaining its provenance sentence. Leave no skeleton notices or TODO asking a later session to finish the chosen starter map. Review each retained page as a new reader before handing it over.",
   "Do not preserve pre-smoke claims, skeleton notices, historical setup narration, or mechanically derivable inventories as independent prose.",
   "Do not claim an unverified architecture, ownership, test behavior, or command contract.",
   "Do not add a page or TODO merely to make the setup look comprehensive.",

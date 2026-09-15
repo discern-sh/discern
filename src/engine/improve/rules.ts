@@ -543,25 +543,14 @@ const MAP: Category = {
             detail: `no ${ctx.mapDir} tree with a README.md`,
           },
     },
-    {
-      kind: "deterministic",
-      id: "map.adrs",
-      title: "Architecture decisions recorded",
-      weight: 1,
-      fix:
-        "record significant decisions under the configured map root's _adr/ directory (the discern-write-adr skill helps)",
-      teach:
-        "ADRs capture WHY a hard-to-reverse or surprising decision was made, so it " +
-        "isn't silently re-litigated later. A project with none is losing that memory. " +
-        "Record the next notable decision under the configured map root's _adr/ directory.",
-      evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
-        ctx.adrCount > 0
-          ? { status: "pass", detail: `${ctx.adrCount} ADR(s) recorded` }
-          : {
-            status: "fail",
-            detail: `no ADRs under ${ctx.mapDir}_adr/`,
-          },
-    },
+    subjective("map.adrs", {
+      title: "Significant decision reasons remain available",
+      against: (ctx): ReviewEvidence => ({
+        source: `${ctx.mapDir}_adr/`,
+        excerpt:
+          `${ctx.adrCount} records present; review whether important rationale is missing`,
+      }),
+    }),
     subjective("map.current", {
       title: "The map still matches the code",
       against: (ctx): ReviewEvidence | undefined =>

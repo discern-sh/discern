@@ -24,15 +24,11 @@ Complete the seeded record before the ADR you came to write. Replace its `setup 
 
 ## 1. Decide whether it's actually an ADR
 
-Per `{{map_dir}}_adr/README.md`, write one only when **all three** are true:
+Use `{{map_dir}}_adr/README.md` to judge whether future work needs the decision's reasoning: constraints, rejected alternatives, or consequences that would be costly to rediscover. Hard-to-reverse choices, surprising designs, and important trade-offs are strong signals, not three mandatory tests. A routine implementation detail usually needs no record.
 
-1. **Hard to reverse** — changing your mind later is costly.
-2. **Surprising without context** — a future reader will wonder why.
-3. **A real trade-off** — there were genuine alternatives and you picked one for specific reasons.
+For example, an intermediate file may look redundant but preserve recovery after a failed write. Record why the simpler alternative was rejected so a future agent does not remove the safeguard while simplifying the code.
 
-If any fails, say so and stop — an easy-to-reverse, unsurprising, or alternative-free decision is not worth an ADR. The one case to _always_ consider: a decision that **overrides a design principle** under `{{map_dir}}00-orientation/design-principles.md`. The principles are hard requirements; bending one deliberately is exactly what an ADR is for.
-
-When in doubt, ask the user the three questions above rather than guessing.
+Find the project's agreed principles through the map rather than assuming a folder name. A decision that conflicts with a requirement needs the owner's decision. An ADR records an approved exception or a proposal; it does not authorize the exception. Use the conversation's existing decisions and ask only when material intent or authority is missing.
 
 ---
 
@@ -63,7 +59,7 @@ Keep it as short as the decision allows — a paragraph that names the decision 
 
 An ADR nobody can find from the code it governs is half-wasted. After writing:
 
-- If it **overrides or grounds a design principle**, link it from that principle in `{{map_dir}}00-orientation/design-principles.md`.
+- If it **overrides or grounds a design principle**, link it from the principle’s existing authority.
 - If it explains a subsystem's behavior, link it from that subtree's doc.
 - If it **supersedes** an earlier ADR, set the older one's status to `superseded by ADR-NNNN` and link forward — leave the old file in place as the record of what was once true.
 - If the decision changes something the map describes, update those pages too (the map says what _is_; the ADR says _why_).

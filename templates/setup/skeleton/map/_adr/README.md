@@ -2,7 +2,7 @@
 
 This directory holds the project's **Architecture Decision Records (ADRs)** — short documents that capture a significant decision, the context that forced it, and the reasoning behind it. An ADR answers the question a future reader will ask: _"why on earth was it done this way?"_
 
-**This file is the canonical ADR format for the project.** Other instructions — the [design principles](../orientation/design-principles.md) (whose override mechanism is "write an ADR"), the `discern-write-adr` skill — points here rather than restating the format. There is exactly one home for "how we write ADRs", and it is this page.
+**This file is the canonical ADR format for the project.** Project instructions and the `discern-write-adr` skill point here for the format. There is exactly one home for "how we write ADRs", and it is this page.
 
 To start a new ADR, copy [`0000-template.md`](0000-template.md).
 
@@ -60,15 +60,11 @@ Include only the sections that add value. A trivial ADR may be Title + Status + 
 
 ## When to write one
 
-Write an ADR when **all three** of these are true:
+Write an ADR for a significant decision when future work needs its reasoning: the constraints, alternatives, or consequences that would be costly to rediscover. A hard-to-reverse choice, a surprising design, or an important trade-off is a strong signal. These are alternatives, not three required conditions.
 
-1. **Hard to reverse** — the cost of changing your mind later is meaningful.
-2. **Surprising without context** — a future reader will look at the code and wonder why it was done this way.
-3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons.
+For example, a seemingly redundant intermediate file may preserve recoverability after a failed write. A future agent could remove it while simplifying the code unless the rejected alternative and its cost are recorded. That reasoning earns a record; a routine rename usually does not.
 
-If a decision is easy to reverse, skip it — you will just reverse it. If it is not surprising, nobody will wonder why. If there was no real alternative, there is nothing to record beyond "we did the obvious thing".
-
-There is one decision you should _always_ consider an ADR for: **overriding a [design principle](../orientation/design-principles.md)**. The principles are hard requirements; bending one on purpose is exactly the "hard to reverse, surprising, deliberate trade-off" case this directory exists for.
+An agreed project requirement remains binding. If a proposed decision conflicts with one, obtain the owner's decision first. An ADR records an approved exception or a proposal; writing it does not grant permission.
 
 ### What qualifies
 
@@ -84,5 +80,5 @@ There is one decision you should _always_ consider an ADR for: **overriding a [d
 
 ## After writing one
 
-- Link the ADR from whatever it touches: the [design principle](../orientation/design-principles.md) it overrides or grounds, and the subsystem doc whose behavior it explains. An ADR nobody can find from the code it governs is half-wasted.
+- Link the ADR from whatever it touches: the agreed principle it grounds or records an approved exception to, and the subsystem doc whose behavior it explains. An ADR nobody can find from the code it governs is half-wasted.
 - If the decision changes something the map describes, update those pages too — the map says what _is_, the ADR says _why_.

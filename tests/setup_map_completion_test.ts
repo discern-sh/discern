@@ -51,3 +51,28 @@ Deno.test("setup selects no invented subsystem for an empty project", () => {
     ledgerItems: [],
   });
 });
+
+Deno.test("setup requires a completed adoption record while retaining the reusable ADR template", async () => {
+  await withTempDir(async (root) => {
+    await Deno.mkdir(join(root, "map", "_adr"), { recursive: true });
+    await Deno.writeTextFile(
+      join(root, "map", "README.md"),
+      "# Project\n\nA local command runner.\n",
+    );
+    await Deno.writeTextFile(
+      join(root, "map", "_adr", "0000-template.md"),
+      "# Template\n\n## Context\n",
+    );
+    const adoption = join(root, "map", "_adr", "0001-adopt-discern.md");
+    await Deno.writeTextFile(
+      adoption,
+      "# Adoption\n\n## Context\n\n<!-- author this -->\n\n## Decision\n\nAdopt discern.\n\n## Consequences\n\nReview the gate.\n",
+    );
+    assertEquals((await setupMapIssues(root, "map")).length, 1);
+    await Deno.writeTextFile(
+      adoption,
+      "# Adoption\n\n## Context\n\nChanges need repeatable verification.\n\n## Decision\n\nAdopt discern.\n\n## Consequences\n\nMaintain the declared checks.\n",
+    );
+    assertEquals(await setupMapIssues(root, "map"), []);
+  });
+});

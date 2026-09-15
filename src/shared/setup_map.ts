@@ -76,5 +76,22 @@ export async function setupMapIssues(
       issues.push(`${entry.section} needs a region README.md.`);
     }
   }
+  const adoption = tree?.entries.find((entry) =>
+    entry.relToDocs === "_adr/0001-adopt-discern.md"
+  );
+  if (adoption !== undefined) {
+    const body = await Deno.readTextFile(adoption.absPath);
+    for (const heading of ["Context", "Decision", "Consequences"]) {
+      const section =
+        body.split(new RegExp(`^## ${heading}\\s*$`, "mi"))[1]?.split(
+          /^## /m,
+        )[0] ?? "";
+      if (!hasMapExplanation(section)) {
+        issues.push(
+          `${adoption.path} needs completed ${heading.toLowerCase()}.`,
+        );
+      }
+    }
+  }
   return [...new Set(issues)];
 }

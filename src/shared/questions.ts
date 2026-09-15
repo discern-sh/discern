@@ -206,6 +206,19 @@ export const QUESTIONS: readonly Question[] = [
       "Update inaccurate explanations and their navigation; `discern map --list` shows the tree.",
   },
   {
+    id: "map.adrs",
+    violations: "accrued",
+    question:
+      "Consider the project's significant decisions. Can a future agent find the constraints, " +
+      "rejected alternatives, and consequences needed to avoid reversing an intentional choice? " +
+      "A project with no such unrecorded decisions can satisfy this question; record counts and " +
+      "the seeded adoption ADR alone do not answer it.",
+    teach:
+      "Record reasoning when rediscovering it would affect consequential work. Link the ADR " +
+      "from the relevant map explanation. An ADR records a decision or approved exception; " +
+      "it does not authorize overriding an agreed requirement.",
+  },
+  {
     id: "map.navigation",
     violations: "accrued",
     question:
