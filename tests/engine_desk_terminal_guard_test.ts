@@ -20,9 +20,17 @@ function terminalMechanics(source: string): string[] {
     ]
   ) {
     const module = declaration.getModuleSpecifierValue() ?? "";
+    const typeOnly = declaration.isTypeOnly();
     const names = Node.isImportDeclaration(declaration)
       ? declaration.getNamedImports().map((item) => item.getName())
       : declaration.getNamedExports().map((item) => item.getName());
+    const values = typeOnly
+      ? []
+      : Node.isImportDeclaration(declaration)
+      ? declaration.getNamedImports().filter((item) => !item.isTypeOnly())
+        .map((item) => item.getName())
+      : declaration.getNamedExports().filter((item) => !item.isTypeOnly())
+        .map((item) => item.getName());
     if (
       /^(?:node:)?(?:tty|readline)(?:\/|$)/u.test(module) ||
       /(?:terminal_painter|\/lib\/text)\.ts$/u.test(module)
@@ -31,35 +39,29 @@ function terminalMechanics(source: string): string[] {
     }
     if (module === "discern-design-system/cli") {
       if (
-        (names.length === 0 ||
-          names.some((name) =>
+        !typeOnly && (names.length === 0 ||
+          values.some((name) =>
             name !== "createCliBlock" && !/^render.+Cli$/u.test(name)
           ))
       ) {
         findings.push("CLI foundation belongs in the package application");
       }
       if (
-        Node.isImportDeclaration(declaration) &&
+        !typeOnly && Node.isImportDeclaration(declaration) &&
         (declaration.getNamespaceImport() || declaration.getDefaultImport())
       ) {
         findings.push("opaque CLI import bypasses component composition");
       }
     } else if (module.startsWith("discern-design-system/cli/")) {
       if (
-        names.length === 0 || names.some((name) =>
-          ![
-            "TerminalApplicationContext",
-            "TerminalApplicationView",
-            "InteractionEntry",
-          ].includes(name)
-        )
+        !typeOnly && (names.length === 0 || values.length > 0)
       ) {
         findings.push(
           "interactive mechanics belong behind the terminal interaction adapter",
         );
       }
       if (
-        Node.isImportDeclaration(declaration) &&
+        !typeOnly && Node.isImportDeclaration(declaration) &&
         (declaration.getNamespaceImport() || declaration.getDefaultImport())
       ) {
         findings.push("opaque interaction import bypasses the adapter");
@@ -178,7 +180,7 @@ Deno.test("Desk boundary rejects renamed future input, painting and layout imple
   ) assertEquals(terminalMechanics(source).length > 0, true, source);
   assertEquals(
     terminalMechanics(
-      'import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli"; const rows = tasks.map(task => ({ id: task.id, label: task.title })); const view = createCliBlock(renderMarkdownCli, {source: consent});',
+      'import type { TerminalApplicationState as ProductState } from "discern-design-system/cli/interactive"; import { type CliBlock, createCliBlock, renderMarkdownCli } from "discern-design-system/cli"; const rows = tasks.map(task => ({ id: task.id, label: task.title })); const view = createCliBlock(renderMarkdownCli, {source: consent});',
     ),
     [],
   );
