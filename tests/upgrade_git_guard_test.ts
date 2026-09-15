@@ -103,6 +103,7 @@ Deno.test("upgrade ignores untracked files (they don't block recovery)", async (
 Deno.test("upgrade --check is never blocked by a dirty tree", async () => {
   await withTempDir(async (dir) => {
     await initCommittedRepo(dir);
+    assertEquals((await runCli(["upgrade", "--json"], dir)).code, 0);
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       `${await Deno.readTextFile(

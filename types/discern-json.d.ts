@@ -2091,6 +2091,10 @@ export type DiscernUpgradeResult = DiscernResultState & {
   message?: string;
   verb: "upgrade";
   data?: {
+    managed_version?: {
+      previous: string | null;
+      adopted: string | null;
+    };
     check?: boolean;
     schema?: {
       recorded?: number;
@@ -2474,6 +2478,12 @@ export type DiscernDoctorResult = DiscernResultState & {
   message?: string;
   verb: "doctor";
   data?: {
+    managed_version?: {
+      state: "unknown" | "equal" | "running-newer" | "project-managed-by-newer";
+      running: string;
+      managed?: string;
+    };
+    managed_currency_unavailable?: string;
     release_reminder?: string;
     discern_version: string;
     environment: {
@@ -7952,6 +7962,12 @@ export type DiscernStatusResult = DiscernResultState & {
   message?: string;
   verb: "status";
   data?: {
+    managed_version?: {
+      state: "unknown" | "equal" | "running-newer" | "project-managed-by-newer";
+      running: string;
+      managed?: string;
+    };
+    managed_currency_unavailable?: string;
     release_reminder?: string;
     emergency_validation?: Array<{
       landing_id: string;

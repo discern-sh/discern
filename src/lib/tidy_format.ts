@@ -3,6 +3,7 @@ import { frontmatterParseIssue, readFrontmatterBlock } from "./frontmatter.ts";
 import { indentToml } from "./toml_indent.ts";
 import { fileExists } from "../shared/fs_presence.ts";
 import { fromFileUrl } from "@std/path";
+import { atomicReplaceBytes } from "../shared/atomic_write.ts";
 
 /** Pinned embedded plugin versions. An upgrade changes discern's convention. */
 export const MARKDOWN_PLUGIN_VERSION = "0.22.1";
@@ -271,8 +272,18 @@ export async function formatTomlText(
 export async function writeDiscernToml(
   filePath: string,
   fileText: string,
+  options: { atomic?: boolean } = {},
 ): Promise<void> {
-  await Deno.writeTextFile(filePath, await formatTomlText(filePath, fileText));
+  const text = await formatTomlText(filePath, fileText);
+  if (options.atomic === true) {
+    await atomicReplaceBytes(filePath, new TextEncoder().encode(text), {
+      mode: (await Deno.stat(filePath)).mode ?? 0o644,
+      exactMode: true,
+      sync: true,
+    });
+  } else {
+    await Deno.writeTextFile(filePath, text);
+  }
 }
 
 /** Canonicalize UTF-8 config bytes for a generic filesystem plan writer. */

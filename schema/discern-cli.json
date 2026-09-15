@@ -916,7 +916,7 @@
           "spellings": [
             "--check"
           ],
-          "description": "Report pending config migrations, fixed config scaffold or managed-banner drift, and discern-owned .gitignore or .gitattributes block drift; exit non-zero for any; write nothing; no network.",
+          "description": "Report pending managed-version adoption, config migrations, fixed config scaffold or managed-banner drift, and discern-owned .gitignore or .gitattributes block drift; exit non-zero for any; write nothing; no network.",
           "type_definition": "",
           "arity": 0,
           "value_types": [],

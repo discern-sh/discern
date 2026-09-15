@@ -13,6 +13,7 @@ import {
 } from "../engine/gate/proof.ts";
 import { worktreeState } from "../lib/git.ts";
 import { SCHEMA_VERSION } from "../lib/version.ts";
+import type { ManagedVersionAdoption } from "../shared/managed_version.ts";
 import {
   commitDiscernChanges,
   DISCERN_AUTHORED_COMMIT_SITES,
@@ -72,6 +73,7 @@ export async function commitCompletionMarker(
   completion: "proven" | "unproven",
   previousCompletion: "proven" | "unproven" | undefined,
   schemaWasMissing: boolean,
+  adoption?: ManagedVersionAdoption,
 ): Promise<MarkerCommitOutcome> {
   if ((await worktreeState(root)).kind === "not-a-repo") {
     return { state: "no-git" };
@@ -103,6 +105,12 @@ export async function commitCompletionMarker(
   const allowedRemoved = new Set(
     promoting ? [`${evidenceKey} = "unproven"`] : [`${markerKey} = false`],
   );
+  if (adoption !== undefined && adoption.previous !== adoption.adopted) {
+    expectedAdded.add(`managed_version = "${adoption.adopted}"`);
+    if (adoption.previous !== null) {
+      allowedRemoved.add(`managed_version = "${adoption.previous}"`);
+    }
+  }
   const removedCountMatches = promoting
     ? removed.length === allowedRemoved.size
     : removed.length <= allowedRemoved.size;

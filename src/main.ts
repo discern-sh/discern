@@ -617,7 +617,7 @@ export function buildCli(
     )
     .option(
       "--check",
-      "Report pending config migrations, fixed config scaffold or managed-banner drift, and discern-owned .gitignore or .gitattributes block drift; exit non-zero for any; write nothing; no network.",
+      "Report pending managed-version adoption, config migrations, fixed config scaffold or managed-banner drift, and discern-owned .gitignore or .gitattributes block drift; exit non-zero for any; write nothing; no network.",
     )
     .option(
       "--allow-dirty",

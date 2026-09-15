@@ -27,6 +27,8 @@ import { join } from "@std/path";
 import { runUpgrade } from "../src/commands/upgrade.ts";
 import type { Migration } from "../src/lib/migrations.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { TomlEditor } from "../src/lib/toml_edit.ts";
 import {
   assertTerminalTextIncludes,
   readTarget,
@@ -205,6 +207,7 @@ Deno.test("upgrade refuses an absent templates dir before stamping (--json)", as
     assertResultDataKey(res, "config_reconciled");
     assertStringIncludes(res.message, "schema was not stamped");
     assertEquals(res.data.config_reconciled, []);
+    assertEquals((await loadConfig(dir)).meta.managed_version, undefined);
   });
 });
 
@@ -277,6 +280,18 @@ Deno.test("upgrade --json reports a partial refresh as top-level not-ok while ke
     assertEquals(refresh.effects_preserved, true);
     assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
     assertEquals(await Deno.readTextFile(join(dir, ".mcp.json")), malformed);
+    assertEquals((await loadConfig(dir)).meta.managed_version, undefined);
+    // The same partial refresh must preserve an earlier successful adoption too.
+    const configPath = join(dir, "discern.toml");
+    const editor = new TomlEditor(await Deno.readTextFile(configPath));
+    editor.setString("meta.managed_version", "0.0.1+retained");
+    await Deno.writeTextFile(configPath, editor.toString());
+    const retry = await runCli(["upgrade", "--allow-dirty", "--json"], dir);
+    assertEquals(retry.code, 1, retry.stdout + retry.stderr);
+    assertEquals(
+      (await loadConfig(dir)).meta.managed_version,
+      "0.0.1+retained",
+    );
   });
 });
 
@@ -285,6 +300,7 @@ Deno.test("upgrade --json reports a partial refresh as top-level not-ok while ke
 Deno.test("upgrade --check (human) confirms an in-sync install and exits zero", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
+    assertEquals((await runCli(["upgrade", "--allow-dirty"], dir)).code, 0);
     const r = await runCli(["upgrade", "--check"], dir);
     assertEquals(r.code, 0, r.stderr);
     // The ok line is the human rendering of `ok: true` (no JSON envelope).

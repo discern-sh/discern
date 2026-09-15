@@ -37,6 +37,7 @@ import { allInstructionFilePaths, providerFor } from "../src/lib/providers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { INSTRUCTIONS_H1 } from "./engine_setup_shared.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import { inspectGateProof } from "../src/engine/gate/proof.ts";
@@ -69,6 +70,7 @@ async function assertIncompleteWithoutProof(
     await Deno.readTextFile(join(dir, "discern.toml")),
   );
   assertEquals(config.meta.bootstrapped, false, context);
+  assertEquals(config.meta.managed_version, undefined, context);
   assert(
     (await inspectGateProof(dir)).status !== "honored",
     `${context}: a failed completion must not leave current Proof`,
@@ -351,6 +353,10 @@ Deno.test("setup done --json: one green completion refuses uncommitted authoring
         );
         assertStringIncludes(config, "bootstrapped = true");
         assertStringIncludes(config, 'setup_completion = "proven"');
+        assertEquals(
+          parseConfigOrThrow(config).meta.managed_version,
+          DISCERN_VERSION,
+        );
       },
     );
 

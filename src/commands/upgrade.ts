@@ -21,6 +21,11 @@
  */
 
 import { writeReleaseCheck } from "../shared/release_check.ts";
+import { managedMaterialBoundary } from "../engine/managed_version.ts";
+import {
+  type ManagedVersionAdoption,
+  planManagedVersionAdoption,
+} from "../shared/managed_version.ts";
 
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
@@ -229,6 +234,25 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   if (isRecordedSchemaNewer(migrateFrom, currentSchema)) {
     return refuseNewerSchema(log, migrateFrom, currentSchema);
   }
+  const initialConfig = parseConfig(tomlText).config;
+  if (initialConfig !== undefined) {
+    const boundary = managedMaterialBoundary(initialConfig);
+    if (boundary !== undefined) {
+      if (options.json) {
+        log.result({
+          ok: false,
+          verb: "upgrade",
+          error: "precondition_failed",
+          message: boundary,
+        });
+      } else log.error(boundary);
+      return 1;
+    }
+  }
+  const adoption = planManagedVersionAdoption(
+    DISCERN_VERSION,
+    initialConfig?.meta.managed_version,
+  );
   const pending = pendingMigrations(
     migrateFrom,
     currentSchema,
@@ -245,7 +269,6 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const pendingReconciliationJson = currentReconciliation.operations.map(
     operationToJson,
   );
-  const initialConfig = parseConfig(tomlText).config;
   const currentGitignoreReconciliation = await planDiscernGitignoreBlock(
     destDir,
     initialConfig,
@@ -269,7 +292,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   // schema, fixed config scaffold, managed banners, and discern-owned Git file
   // blocks match this build.
   if (options.check) {
-    const ok = pending.length === 0 &&
+    const ok = adoption.previous === adoption.adopted && pending.length === 0 &&
       currentReconciliation.operations.length === 0 &&
       currentReconciliation.templateAvailable &&
       currentGitignoreReconciliation.operations.length === 0 &&
@@ -283,6 +306,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         ]),
         data: {
           check: true,
+          managed_version: adoption,
           discern_version: DISCERN_VERSION,
           schema: { recorded: migrateFrom, current: currentSchema },
           pending_migrations: pendingJson,
@@ -308,6 +332,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       );
       log.info(newerDiscernHint().text);
     } else {
+      if (adoption.previous !== adoption.adopted) {
+        log.info(
+          `Pending managed-version adoption: ${
+            adoption.previous ?? "absent"
+          } → ${adoption.adopted}.`,
+        );
+      }
       if (pending.length > 0) {
         log.error(
           `Install schema is v${migrateFrom}, but this build expects v${currentSchema}.`,
@@ -369,6 +400,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         verb: "upgrade",
         dry_run: true,
         data: {
+          managed_version: adoption,
           pending_migrations: pendingJson,
           pending_reconciliation: pendingReconciliationJson,
           config_template_available: currentReconciliation.templateAvailable,
@@ -384,6 +416,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         },
       });
     } else {
+      log.info(
+        `Would adopt managed_version: ${
+          adoption.previous ?? "absent"
+        } → ${adoption.adopted}.`,
+      );
       if (pending.length > 0) {
         log.group("migrations");
         log.info(`Would run ${pending.length} migration(s):`);
@@ -664,7 +701,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     instructionRefresh.status === "complete";
 
   // 3. Stamp the new schema version into the config (now at its migrated path).
-  await stampSchema(newConfigPath, currentSchema);
+  // The completion write is one atomic replacement. A partial refresh keeps the
+  // previous adoption fact; retrying upgrade converges the remaining effects.
+  await stampUpgradeCompletion(
+    newConfigPath,
+    currentSchema,
+    fullyCompiled ? adoption : undefined,
+  );
 
   const resultFields = {
     verb: "upgrade" as const,
@@ -674,6 +717,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     ),
     data: {
       discern_version: DISCERN_VERSION,
+      managed_version: fullyCompiled
+        ? adoption
+        : { previous: adoption.previous, adopted: adoption.previous },
       // `from` is the pre-upgrade schema; the install now records `current`
       // (the stamp ran above), so reporting it as still "recorded" would mislead.
       schema: { from: migrateFrom, current: currentSchema },
@@ -713,13 +759,20 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       ok: false,
       error: "partial_refresh",
       message:
-        `${instructionsErrors.length} required instruction artifact(s) failed; applied migrations and the schema stamp remain, and data.instruction_refresh names the safe retry.`,
+        `${instructionsErrors.length} required instruction artifact(s) failed; applied migrations and the schema stamp remain. Managed-version adoption did not advance. Fix the reported artifacts, then run \`discern upgrade\` to complete adoption.`,
       ...resultFields,
     };
   if (result.ok) await writeReleaseCheck(destDir);
   if (options.json) {
     log.result(result);
     return result.ok ? 0 : 1;
+  }
+  if (result.ok) {
+    log.ok(
+      `Managed-version adoption: ${
+        adoption.previous ?? "absent"
+      } → ${adoption.adopted}.`,
+    );
   }
 
   if (applied.length > 0) {
@@ -884,7 +937,7 @@ function renderUpgradeSummary(
     );
     for (const error of instructionErrors) log.detail(error);
     log.info(
-      "Applied migrations and the schema stamp remain. Fix the reported artifact failure, then run `discern refresh` safely.",
+      "Applied migrations and the schema stamp remain; managed_version did not advance. Fix the reported artifact failure, then run `discern upgrade` to complete adoption.",
     );
   }
   log.ok(`install stamped at schema ${currentSchema}`);
@@ -898,13 +951,19 @@ function renderUpgradeSummary(
 }
 
 /** Stamp `[meta].schema_version` into the config at `configPath`, in place. */
-async function stampSchema(
+async function stampUpgradeCompletion(
   configPath: string,
   version: number,
+  adoption?: ManagedVersionAdoption,
 ): Promise<void> {
   const editor = new TomlEditor(await Deno.readTextFile(configPath));
   stampSchemaVersion(editor, version);
-  await writeDiscernToml(configPath, editor.toString());
+  if (adoption !== undefined) {
+    editor.setString("meta.managed_version", adoption.adopted);
+  }
+  const text = editor.toString();
+  parseConfigOrThrow(text);
+  await writeDiscernToml(configPath, text, { atomic: true });
 }
 
 /** Project a config reconciliation operation onto its public JSON fields. */

@@ -47,19 +47,23 @@ async function setSchema(dir: string, version: number): Promise<void> {
   await Deno.writeTextFile(p, replaced);
 }
 
-Deno.test("upgrade --check passes on a fresh, in-sync install", async () => {
+Deno.test("upgrade --check reports pending adoption on a byte-current unfinished setup", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(["upgrade", "--check", "--json"], dir);
-    assertEquals(r.code, 0, r.stderr);
+    assertEquals(r.code, 1, r.stderr);
     const res = decodeCliResult(r.stdout, "upgrade");
     assertResultDataKey(res, "check");
     assert(res.data.schema !== undefined);
-    assertEquals(res.ok, true);
+    assertEquals(res.ok, false);
     assertEquals(res.verb, "upgrade");
     assertEquals(res.data.check, true);
     assertEquals((await inspectReleaseCheck(dir)).status, "missing");
     assertEquals(res.data.pending_migrations, []);
+    assertEquals(res.data.managed_version, {
+      previous: null,
+      adopted: DISCERN_VERSION,
+    });
     assertEquals(res.data.schema.recorded, res.data.schema.current);
   });
 });
@@ -69,7 +73,7 @@ Deno.test("upgrade --check writes nothing", async () => {
     await setup(dir);
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const r = await runCli(["upgrade", "--check", "--json"], dir);
-    assertEquals(r.code, 0, r.stderr);
+    assertEquals(r.code, 1, r.stderr);
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
       before,
@@ -147,6 +151,7 @@ Deno.test("upgrade --check refuses a config from a newer schema", async () => {
 Deno.test("upgrade --check (human) confirms an up-to-date install and exits zero", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
+    assertEquals((await runCli(["upgrade", "--allow-dirty"], dir)).code, 0);
     const r = await runCli(["upgrade", "--check"], dir);
     assertEquals(r.code, 0, r.stderr);
     assertTerminalTextIncludes(r.stderr, "up to date");
@@ -156,6 +161,7 @@ Deno.test("upgrade --check (human) confirms an up-to-date install and exits zero
 Deno.test("upgrade --check on a current install tells the truth: version, channel, no network", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
+    assertEquals((await runCli(["upgrade", "--allow-dirty"], dir)).code, 0);
 
     // Human surface: the installed version and the one real update channel —
     // never an implied network poll (discern makes no network requests).

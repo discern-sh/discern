@@ -26,6 +26,10 @@
  */
 
 import { writeReleaseCheck } from "../shared/release_check.ts";
+import {
+  type ManagedVersionAdoption,
+  planManagedVersionAdoption,
+} from "../shared/managed_version.ts";
 
 import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
@@ -3355,6 +3359,12 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     }
     predecessorHead = finalPin.head;
   }
+  if (opts.unproven) {
+    const refreshFailure = await refreshSetupInstructions(root, opts.json);
+    if (refreshFailure !== undefined) {
+      return emitDonePreMarkerFailure(opts.json, "refresh", refreshFailure);
+    }
+  }
 
   // The final-tree transaction starts here. Preserve the original bytes and Proof
   // so an exactly-owned rollback can restore the sampled predecessor. The marker is
@@ -3365,6 +3375,10 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const originalConfig = await Deno.readTextFile(path);
   const proofBefore = await snapshotGateProof(root);
   const editor = new TomlEditor(originalConfig);
+  const adoption = planManagedVersionAdoption(
+    DISCERN_VERSION,
+    doneCfg.meta.managed_version,
+  );
   const setupCompletion = opts.unproven ? "unproven" : "proven";
   // Completion is the migration boundary for installs assembled through older
   // or deliberately minimal setup inputs. Keep the metadata pair atomic: once
@@ -3375,7 +3389,8 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   }
   editor.setBool(BOOTSTRAPPED_KEY, true);
   editor.setString(SETUP_COMPLETION_KEY, setupCompletion);
-  await writeDiscernToml(path, editor.toString());
+  editor.setString("meta.managed_version", adoption.adopted);
+  await writeDiscernToml(path, editor.toString(), { atomic: true });
 
   // Unproven completion remains an explicit bypass and retains the
   // established best-effort marker commit. A normal completion requires the exact
@@ -3386,6 +3401,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     setupCompletion,
     doneCfg.meta.setup_completion,
     schemaWasMissing,
+    adoption,
   );
   if (opts.unproven) {
     return await emitSetupDoneSuccess(root, await loadConfig(root), opts, {
@@ -3407,6 +3423,9 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
         originalConfig,
         predecessorHead,
       );
+    if (rollback.state === "retained") {
+      await restoreFailedAdoption(path, adoption);
+    }
     return emitDoneGateFailure(
       opts.json,
       "marker_commit",
@@ -3418,7 +3437,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
           : "The marker state was retained because discern could not prove a safe rollback.",
         nextAction: "discern setup done",
         recovery: rollback.state === "retained"
-          ? `${rollback.detail}. Re-run \`discern setup done\`; it will inspect and validate any retained marker instead of creating a duplicate.`
+          ? `${rollback.detail}. This attempt's adoption was retracted. Review and commit the retained changes, then run \`discern upgrade --dry-run\` and \`discern upgrade\` before retrying \`discern setup done\`.`
           : "The setup branch is back at its sampled predecessor. Correct the Git hook, signing, or identity failure and retry.",
       },
     );
@@ -3432,6 +3451,9 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   );
   if (!completion.ok) {
     const rollback = await rollbackCompletionMarker(markerCommit, proofBefore);
+    if (rollback.state === "retained") {
+      await restoreFailedAdoption(path, adoption);
+    }
     return emitDoneGateFailure(
       opts.json,
       completion.stage,
@@ -3443,7 +3465,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
           : "discern retained the exact marker-bearing state because safe ownership or preservation could not be proved.",
         nextAction: completion.nextAction,
         recovery: rollback.state === "retained"
-          ? `${rollback.detail}. ${completion.recovery}`
+          ? `${rollback.detail}. This attempt's adoption was retracted. Review and commit the retained changes, then run \`discern upgrade --dry-run\` and \`discern upgrade\` before retrying \`discern setup done\`. ${completion.recovery}`
           : completion.recovery,
         diagnostics: completion.diagnostics,
       },
@@ -3458,6 +3480,23 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     effectsPerformed: true,
     gateRan: true,
   });
+}
+
+/** Retract only this invocation's adoption when wider Git rollback is unsafe.
+ * Other config edits remain available for review; an independently advanced
+ * value is never overwritten. The caller still reports incomplete setup. */
+async function restoreFailedAdoption(
+  path: string,
+  adoption: ManagedVersionAdoption,
+): Promise<void> {
+  if (adoption.previous === adoption.adopted) return;
+  const text = await Deno.readTextFile(path);
+  const current = parseConfigOrThrow(text).meta.managed_version;
+  if (current !== adoption.adopted) return;
+  const editor = new TomlEditor(text);
+  if (adoption.previous === null) editor.deleteKey("meta.managed_version");
+  else editor.setString("meta.managed_version", adoption.previous);
+  await writeDiscernToml(path, editor.toString(), { atomic: true });
 }
 
 /** The final-tree transaction either returns the canonical honored Proof or the

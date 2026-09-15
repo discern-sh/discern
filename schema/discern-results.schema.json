@@ -6219,6 +6219,35 @@
             {
               "type": "object",
               "properties": {
+                "managed_version": {
+                  "type": "object",
+                  "properties": {
+                    "previous": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "adopted": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "previous",
+                    "adopted"
+                  ]
+                },
                 "check": {
                   "type": "boolean"
                 },
@@ -7547,6 +7576,33 @@
             {
               "type": "object",
               "properties": {
+                "managed_version": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "equal",
+                        "running-newer",
+                        "project-managed-by-newer"
+                      ]
+                    },
+                    "running": {
+                      "type": "string"
+                    },
+                    "managed": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "running"
+                  ]
+                },
+                "managed_currency_unavailable": {
+                  "type": "string"
+                },
                 "release_reminder": {
                   "type": "string"
                 },
@@ -25814,6 +25870,33 @@
             {
               "type": "object",
               "properties": {
+                "managed_version": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "equal",
+                        "running-newer",
+                        "project-managed-by-newer"
+                      ]
+                    },
+                    "running": {
+                      "type": "string"
+                    },
+                    "managed": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "running"
+                  ]
+                },
+                "managed_currency_unavailable": {
+                  "type": "string"
+                },
                 "release_reminder": {
                   "type": "string"
                 },

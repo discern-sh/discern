@@ -1,4 +1,5 @@
 import { EmergencyDataSchema, EmergencyValidationSchema } from "./emergency.ts";
+import { MANAGED_VERSION_STATES } from "./managed_version.ts";
 import { IgnoredFileChangeSummarySchema } from "./ignored_file_changes.ts";
 import {
   CompleteProofEvidenceSchema,
@@ -2066,7 +2067,15 @@ const reappearedWorktreePathSchema = z.strictObject({
 /** `status` — the full situation payload. The local-only heavy blocks
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
+const ManagedVersionComparisonSchema = z.strictObject({
+  state: z.enum(MANAGED_VERSION_STATES),
+  running: z.string(),
+  managed: z.string().optional(),
+});
+
 export const StatusDataSchema = z.strictObject({
+  managed_version: ManagedVersionComparisonSchema.optional(),
+  managed_currency_unavailable: z.string().optional(),
   release_reminder: z.string().optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   location: z.enum(LOCATIONS),
@@ -2303,6 +2312,8 @@ export const ProviderTrustDataSchema = z.strictObject({
 /** `doctor` — the install-verification payload. `execution_model` is the per-verb
  * ordered step list (optional: omitted only when no config can be read at all). */
 export const DoctorDataSchema = z.strictObject({
+  managed_version: ManagedVersionComparisonSchema.optional(),
+  managed_currency_unavailable: z.string().optional(),
   release_reminder: z.string().optional(),
   discern_version: z.string(),
   environment: DoctorEnvironmentSchema,
@@ -3360,6 +3371,10 @@ const upgradeSchemaSnapshotSchema = z.strictObject({
 
 /** `upgrade` — read-only checks, dry-runs, apply summaries, and refusal details. */
 export const UpgradeDataSchema = z.strictObject({
+  managed_version: z.strictObject({
+    previous: z.string().nullable(),
+    adopted: z.string().nullable(),
+  }).optional(),
   check: z.boolean().optional(),
   schema: upgradeSchemaSnapshotSchema.optional(),
   pending_migrations: z.array(migrationStepSchema).optional(),
