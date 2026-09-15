@@ -7,6 +7,13 @@
  * resolve through the engine's own config reader.
  */
 
+import { SYSTEM_CLOCK } from "../shared/clock.ts";
+import {
+  inspectReleaseCheck,
+  RELEASE_REMINDER,
+  releaseReminderDue,
+} from "../shared/release_check.ts";
+
 import { join } from "@std/path";
 import { z } from "@zod/zod";
 import {
@@ -1301,8 +1308,12 @@ async function loadModelConfig(
  */
 export async function doctorResult(
   destDir: string,
-  options: { verbose?: boolean } = {},
+  options: { verbose?: boolean; nowMs?: number } = {},
 ): Promise<DiscernResult<DoctorData>> {
+  const releaseDue = releaseReminderDue(
+    await inspectReleaseCheck(destDir),
+    options.nowMs ?? SYSTEM_CLOCK.wallNow(),
+  );
   const checks = await runChecks(destDir);
   const cfg = await loadModelConfig(destDir);
   const ok = checks.every((c) => c.status !== "fail");
@@ -1318,6 +1329,7 @@ export async function doctorResult(
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
     data: {
       discern_version: DISCERN_VERSION,
+      ...(releaseDue ? { release_reminder: RELEASE_REMINDER } : {}),
       environment: await doctorEnvironment(),
       checks,
       ...(cfg === undefined ? {} : {
@@ -1705,7 +1717,15 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     },
     {
       id: "doctor-checks",
-      items: [(): void => renderDoctorChecks(log, checks, terminal)],
+      items: [
+        (): void => renderDoctorChecks(log, checks, terminal),
+        ...(result.data?.release_reminder
+          ? [(): void =>
+            log.detail(
+              `${result.data?.release_reminder} Run discern releases.`,
+            )]
+          : []),
+      ],
     },
     {
       id: "doctor-verdict",

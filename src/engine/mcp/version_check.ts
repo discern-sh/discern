@@ -1,3 +1,4 @@
+import { parseVersionOutput } from "../../lib/version.ts";
 /**
  * Version handshake for the long-lived MCP server.
  *
@@ -195,8 +196,7 @@ function defaultStatKey(path: string): string | undefined {
  */
 export function parseDiscernVersion(raw: string): string | undefined {
   const clean = stripAnsi(raw).trim();
-  const match = clean.match(/^discern\s+(\d[\w.+-]*)/);
-  return match?.[1];
+  return parseVersionOutput(clean);
 }
 
 /** Real probe: spawn `<execPath> --version` (colour off) and parse its output. */

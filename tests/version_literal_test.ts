@@ -1,3 +1,4 @@
+import { parseVersionOutput } from "../src/lib/version.ts";
 /**
  * Guard against duplicating the package version in source. `deno.json` is the
  * single source; code imports `DISCERN_VERSION` from `src/lib/version.ts`. The ban
@@ -149,7 +150,7 @@ Deno.test("every version-reporting surface derives from DISCERN_VERSION", async 
     const surfaces: ReadonlyArray<[string, string | undefined]> = [
       [
         "cli --version",
-        cliVersion.stdout.trim().match(/^discern (\S+)$/)?.[1],
+        parseVersionOutput(cliVersion.stdout),
       ],
       ["doctor --json data.discern_version", doctorJson.data.discern_version],
       [

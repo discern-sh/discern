@@ -1054,6 +1054,7 @@ const presentDoctor: ResultMarkdownPresenter = (result) => {
         : `${plural(problems.length, "doctor check")} need attention.`,
     ),
     evidence: unique([
+      text(data.release_reminder),
       text(data.discern_version) === undefined
         ? undefined
         : `discern version: ${code(data.discern_version)}.`,
@@ -2119,6 +2120,37 @@ const presentSkillsEject: ResultMarkdownPresenter = (result) => {
   };
 };
 
+/** Keep both addresses visible regardless of browser availability. */
+function presentReleases(
+  result: Readonly<Record<string, unknown>>,
+): ResultMarkdownPresentation {
+  const data = dataOf(result);
+  const urls = object(data.urls) ?? {};
+  const write = object(data.state_write) ?? {};
+  return {
+    state: text(result.message) ?? "Release information handoff.",
+    evidence: [
+      `Browser: ${text(urls.html) ?? "unavailable"}`,
+      `JSON: ${text(urls.json) ?? "unavailable"}`,
+      data.launch_attempted === true
+        ? data.launch_succeeded === true
+          ? "The browser launcher accepted the URL. Navigation was not verified."
+          : `The browser launcher failed: ${
+            text(data.launch_message) ?? "unavailable"
+          }. Open the URL yourself.`
+        : "No browser launch was attempted.",
+      write.status === "saved"
+        ? "The clone-local handoff timestamp was recorded."
+        : `Local timestamp: ${text(write.status) ?? "unavailable"}${
+          text(write.reason) ? ` — ${text(write.reason)}` : ""
+        }.`,
+    ],
+    boundary: [
+      "The binary made no network request and installed nothing. Opening either URL sends only this process's version number as application data to discern.sh. A supplied version does not prove the on-disk binary; the timestamp does not prove a fetch.",
+    ],
+  };
+}
+
 /**
  * Presenter families selected explicitly by every result-contract entry.
  * Sharing a family is intentional; registered contracts never fall through to
@@ -2135,6 +2167,7 @@ export const RESULT_MARKDOWN_PRESENTERS = {
   uninstall: presentUninstall,
   doctor: presentDoctor,
   inventory: presentInventory,
+  releases: presentReleases,
   docs: presentDocs,
   config: presentConfig,
   gate: presentGate,

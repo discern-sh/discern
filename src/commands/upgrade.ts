@@ -20,6 +20,8 @@
  * rewritten. The clean-tree git guard keeps the upgrade revertible.
  */
 
+import { writeReleaseCheck } from "../shared/release_check.ts";
+
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
 import { notInitializedResult } from "../shared/env.ts";
@@ -714,6 +716,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         `${instructionsErrors.length} required instruction artifact(s) failed; applied migrations and the schema stamp remain, and data.instruction_refresh names the safe retry.`,
       ...resultFields,
     };
+  if (result.ok) await writeReleaseCheck(destDir);
   if (options.json) {
     log.result(result);
     return result.ok ? 0 : 1;

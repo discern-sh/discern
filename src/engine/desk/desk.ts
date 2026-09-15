@@ -1,3 +1,4 @@
+import { releasesResult } from "../../commands/releases.ts";
 import {
   executeDeskOperation,
   runDeskInteractiveChild,
@@ -2576,6 +2577,29 @@ export async function runDesk(
               return await actOnMainCheckout(out, root, data, runtime);
             case "recent":
               return await showRecentCompleted(root, data, runtime);
+            case "releases": {
+              const result = await executeDeskOperation(root, {
+                command: "releases",
+              }, () =>
+                releasesResult(root, {
+                  mode: "desk",
+                  stdinTty: true,
+                  stdoutTty: true,
+                  dryRun: false,
+                }, {
+                  now: runtime.now,
+                  open: async (url) => await runtime.openBrowser(url),
+                }));
+              await runtime.screen({
+                title: "Release information",
+                source: renderResultReading(
+                  { ...result, hints: [] },
+                  resultPresenterForVerb("releases"),
+                  resultPresenterForVerb,
+                ),
+              });
+              return;
+            }
             case "docs":
               return await openDeskManual(out, runtime);
           }

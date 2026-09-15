@@ -2067,6 +2067,7 @@ const reappearedWorktreePathSchema = z.strictObject({
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
 export const StatusDataSchema = z.strictObject({
+  release_reminder: z.string().optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   location: z.enum(LOCATIONS),
   root: z.string(),
@@ -2302,6 +2303,7 @@ export const ProviderTrustDataSchema = z.strictObject({
 /** `doctor` — the install-verification payload. `execution_model` is the per-verb
  * ordered step list (optional: omitted only when no config can be read at all). */
 export const DoctorDataSchema = z.strictObject({
+  release_reminder: z.string().optional(),
   discern_version: z.string(),
   environment: DoctorEnvironmentSchema,
   checks: z.array(CheckSchema),
@@ -3242,6 +3244,35 @@ const firstPartyLegalDocumentSchema = z.strictObject({
   path: z.string(),
   text: z.string(),
 });
+
+/** Offline release handoff facts; launcher success does not establish navigation. */
+export const ReleasesDataSchema = z.strictObject({
+  running_version: z.string(),
+  codename: z.string().optional(),
+  urls: z.strictObject({ html: z.string(), json: z.string() }),
+  repository_state: z.enum([
+    "recorded",
+    "missing",
+    "malformed",
+    "unavailable",
+    "newer",
+    "outside-repository",
+  ]),
+  launch_eligible: z.boolean(),
+  launch_attempted: z.boolean(),
+  launch_succeeded: z.boolean(),
+  launch_message: z.string().optional(),
+  state_write: z.strictObject({
+    status: z.enum(["saved", "unchanged", "unavailable", "newer", "skipped"]),
+    reason: z.string().optional(),
+  }),
+  network_request: z.literal(false),
+});
+export type ReleasesData = z.infer<typeof ReleasesDataSchema>;
+export const ReleasesOutputSchema = resultOutputSchema(
+  "releases",
+  ReleasesDataSchema,
+);
 
 /** `licenses` — first-party documents and bundled components. */
 export const LicensesDataSchema = z.strictObject({

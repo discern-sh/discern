@@ -2474,6 +2474,7 @@ export type DiscernDoctorResult = DiscernResultState & {
   message?: string;
   verb: "doctor";
   data?: {
+    release_reminder?: string;
     discern_version: string;
     environment: {
       discern: string;
@@ -2544,6 +2545,171 @@ export type DiscernDoctorResult = DiscernResultState & {
         condition?: string;
       }>;
     }>;
+  } | {
+    issues: Array<{
+      kind?: "unknown_root_section";
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernReleasesResult = DiscernResultState & {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "instructions-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "task-metadata"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "instructions-check"
+      | "skills-check"
+      | "tracked-refresh-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "task-metadata"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    advisory?: {
+      kind:
+        | "acceptance-cleanup-incomplete"
+        | "checkpoint-evidence-dropped"
+        | "checkout-clean-observation-unavailable"
+        | "doctor-warning"
+        | "execution-cap-unavailable"
+        | "generated-attribute-pattern-untranslated"
+        | "ignored-file-observation-unavailable"
+        | "landing-authority-unverified"
+        | "optional-resource-unavailable"
+        | "proof-recording-unavailable"
+        | "setup-unproven-completion"
+        | "setup-machinery-commit-failed"
+        | "setup-marker-commit-failed"
+        | "standards-limits-unverified"
+        | "uninstall-strip-incomplete";
+      evidence: Array<string>;
+      next_action: string;
+    };
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
+  hints?: Array<string>;
+  advisories?: Array<{
+    kind:
+      | "acceptance-cleanup-incomplete"
+      | "checkpoint-evidence-dropped"
+      | "checkout-clean-observation-unavailable"
+      | "doctor-warning"
+      | "execution-cap-unavailable"
+      | "generated-attribute-pattern-untranslated"
+      | "ignored-file-observation-unavailable"
+      | "landing-authority-unverified"
+      | "optional-resource-unavailable"
+      | "proof-recording-unavailable"
+      | "setup-unproven-completion"
+      | "setup-machinery-commit-failed"
+      | "setup-marker-commit-failed"
+      | "standards-limits-unverified"
+      | "uninstall-strip-incomplete";
+    evidence: Array<string>;
+    next_action: string;
+  }>;
+  error?: string;
+  message?: string;
+  verb: "releases";
+  data?: {
+    running_version: string;
+    codename?: string;
+    urls: {
+      html: string;
+      json: string;
+    };
+    repository_state:
+      | "recorded"
+      | "missing"
+      | "malformed"
+      | "unavailable"
+      | "newer"
+      | "outside-repository";
+    launch_eligible: boolean;
+    launch_attempted: boolean;
+    launch_succeeded: boolean;
+    launch_message?: string;
+    state_write: {
+      status: "saved" | "unchanged" | "unavailable" | "newer" | "skipped";
+      reason?: string;
+    };
+    network_request: false;
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
@@ -7786,6 +7952,7 @@ export type DiscernStatusResult = DiscernResultState & {
   message?: string;
   verb: "status";
   data?: {
+    release_reminder?: string;
     emergency_validation?: Array<{
       landing_id: string;
       head: string;
@@ -11031,6 +11198,7 @@ export type DiscernCliJsonResult =
   | DiscernUpgradeResult
   | DiscernUninstallResult
   | DiscernDoctorResult
+  | DiscernReleasesResult
   | DiscernLicensesResult
   | DiscernTriangleResult
   | DiscernMapResult
@@ -11085,6 +11253,7 @@ export interface DiscernResultByVerb {
   upgrade: DiscernUpgradeResult;
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
+  releases: DiscernReleasesResult;
   licenses: DiscernLicensesResult;
   triangle: DiscernTriangleResult;
   map: DiscernMapResult;
@@ -11140,6 +11309,7 @@ export interface DiscernResultByCommand {
   upgrade: DiscernUpgradeResult;
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
+  releases: DiscernReleasesResult;
   licenses: DiscernLicensesResult;
   triangle: DiscernTriangleResult;
   map: DiscernMapResult;

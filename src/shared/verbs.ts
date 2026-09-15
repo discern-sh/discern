@@ -49,6 +49,7 @@ export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
   "help",
   "config",
   "licenses",
+  "releases",
   "triangle",
 ]);
 

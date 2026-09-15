@@ -16,6 +16,7 @@ aliases:
   - "discern upgrade"
   - "discern uninstall"
   - "discern doctor"
+  - "discern releases"
   - "discern licenses"
   - "discern map"
   - "discern docs"
@@ -86,14 +87,14 @@ Find a command, check its options, or look up how the terminal reader works. You
 
 ## Find a command
 
-| Area                | Commands                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Your desk           | [`desk`](#discern-desk), [`enter`](#discern-enter)                                                                                                                                                                                                                                                                                                                                      |
-| Agentic loop        | [`status`](#discern-status), [`prepare`](#discern-prepare), [`done`](#discern-done), [`test`](#discern-test), [`progress`](#discern-progress), [`queue`](#discern-queue), [`tidy`](#discern-tidy)                                                                                                                                                                                       |
-| Worktree lifecycle  | [`start`](#discern-start), [`update`](#discern-update), [`await`](#discern-await), [`accept`](#discern-accept), [`worktree`](#discern-worktree-subcommand), [`identity`](#discern-identity)                                                                                                                                                                                             |
-| Project Scripts     | [`scripts`](#discern-scripts)                                                                                                                                                                                                                                                                                                                                                           |
-| Setup & maintenance | [`setup`](#discern-setup-subcommand), [`upgrade`](#discern-upgrade), [`doctor`](#discern-doctor), [`config`](#discern-config-subcommand), [`refresh`](#discern-refresh), [`uninstall`](#discern-uninstall)                                                                                                                                                                              |
-| Inspect & explore   | [`improvement`](#discern-improvement), [`standards`](#discern-standards), [`checkpoints`](#discern-checkpoints), [`skills`](#discern-skills-subcommand), [`impact`](#discern-impact), [`coupling`](#discern-coupling), [`patterns`](#discern-patterns), [`map`](#discern-map), [`docs`](#discern-docs), [`help`](#discern-help), [`licenses`](#discern-licenses), [`mcp`](#discern-mcp) |
+| Area                | Commands                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Your desk           | [`desk`](#discern-desk), [`enter`](#discern-enter)                                                                                                                                                                                                                                                                                                                                                                       |
+| Agentic loop        | [`status`](#discern-status), [`prepare`](#discern-prepare), [`done`](#discern-done), [`test`](#discern-test), [`progress`](#discern-progress), [`queue`](#discern-queue), [`tidy`](#discern-tidy)                                                                                                                                                                                                                        |
+| Worktree lifecycle  | [`start`](#discern-start), [`update`](#discern-update), [`await`](#discern-await), [`accept`](#discern-accept), [`worktree`](#discern-worktree-subcommand), [`identity`](#discern-identity)                                                                                                                                                                                                                              |
+| Project Scripts     | [`scripts`](#discern-scripts)                                                                                                                                                                                                                                                                                                                                                                                            |
+| Setup & maintenance | [`setup`](#discern-setup-subcommand), [`upgrade`](#discern-upgrade), [`doctor`](#discern-doctor), [`config`](#discern-config-subcommand), [`refresh`](#discern-refresh), [`uninstall`](#discern-uninstall)                                                                                                                                                                                                               |
+| Inspect & explore   | [`improvement`](#discern-improvement), [`standards`](#discern-standards), [`checkpoints`](#discern-checkpoints), [`skills`](#discern-skills-subcommand), [`impact`](#discern-impact), [`coupling`](#discern-coupling), [`patterns`](#discern-patterns), [`map`](#discern-map), [`docs`](#discern-docs), [`help`](#discern-help), [`licenses`](#discern-licenses), [`releases`](#discern-releases), [`mcp`](#discern-mcp) |
 
 For options shared by commands, see [Global options](#global-options). For keyboard and mouse controls, see [Interactive documentation reader](#interactive-documentation-reader). To interpret a returned status code, see [Exit behavior](#exit-behavior).
 
@@ -774,6 +775,16 @@ Usage: `discern help [command...] [options]`
 Print discern's licenses and bundled third-party software notices.
 
 Usage: `discern licenses [options]`
+
+### `discern releases`
+
+Open release information in the browser, sending this process's version to discern.sh. Always print the URL; never fetch or install.
+
+Usage: `discern releases [options]`
+
+| Option      | Description                                                                  |
+| ----------- | ---------------------------------------------------------------------------- |
+| `--dry-run` | Show the release handoff without opening a browser or recording a timestamp. |
 
 ### `discern mcp`
 

@@ -87,6 +87,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  releaseCheck: {
+    path: "discern/release-check.json",
+    scope: "common",
+    kind: "file",
+    validation: false,
+  },
   deskTips: {
     path: "discern/desk/tips.json",
     scope: "common",

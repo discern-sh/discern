@@ -163,6 +163,7 @@ plaintext
 prefixer
 prepend(?:s|ed|ing)?
 preprints?
+prereleases
 previewable
 pushback
 rasterised

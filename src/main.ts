@@ -10,7 +10,7 @@
 import { loadModule } from "./shared/module_loading.ts";
 import { Command, ValidationError } from "@cliffy/command";
 import { setColorEnabled as setStdColorEnabled } from "@std/fmt/colors";
-import { DISCERN_VERSION } from "./lib/version.ts";
+import { DISCERN_VERSION, humanVersion } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
 import { Logger } from "./lib/log.ts";
 import {
@@ -409,8 +409,8 @@ export function buildCli(
     .version(DISCERN_VERSION)
     .versionOption(
       "-V, --version",
-      "Print the installed discern version.",
-      () => writeStdout(`discern ${DISCERN_VERSION}\n`),
+      "Print this process's discern version and optional codename.",
+      () => writeStdout(`${humanVersion()}\n`),
     )
     .usage("<command> [options]")
     .description(
@@ -676,6 +676,26 @@ export function buildCli(
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         verbose: options.verbose ?? false,
+      });
+    }));
+
+  root
+    .command("releases")
+    .description(
+      "Open release information in the browser, sending this process's version to discern.sh. Always print the URL; never fetch or install.",
+    )
+    .option(
+      "--dry-run",
+      "Show the release handoff without opening a browser or recording a timestamp.",
+    )
+    .action(recordedExit("releases", async (options) => {
+      const { runReleases } = await loadModule(() =>
+        import("./commands/releases.ts")
+      );
+      return await runReleases({
+        json: options.json ?? false,
+        markdown: options.markdown ?? false,
+        dryRun: options.dryRun ?? false,
       });
     }));
 

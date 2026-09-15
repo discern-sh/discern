@@ -194,6 +194,11 @@ export const OPERATION_EFFECTS = {
   impact: OBSERVATION,
   improvement: OBSERVATION,
   licenses: OBSERVATION,
+  releases: policy(
+    ["discern-common-mutation", "external-setup"],
+    "none",
+    "required",
+  ),
   map: policy(
     ["observation", "discern-checkout-mutation"],
     "checkout",

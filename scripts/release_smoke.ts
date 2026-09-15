@@ -1,3 +1,4 @@
+import { parseVersionOutput } from "../src/lib/version.ts";
 /** Execute the binary-only release seams before an artifact can be uploaded. */
 
 import { ensureDir } from "@std/fs";
@@ -284,7 +285,7 @@ export async function smokeReleaseBinary(
       GIT_TERMINAL_PROMPT: "0",
     };
     const version = await run(binary, ["--version"], temp);
-    if (version.stdout.trim() !== `discern ${expectedVersion}`) {
+    if (parseVersionOutput(version.stdout) !== expectedVersion) {
       throw new Error(
         `compiled version ${
           JSON.stringify(version.stdout.trim())

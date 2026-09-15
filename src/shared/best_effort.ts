@@ -1289,6 +1289,17 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "Provider registration owns only its exact keys and rebuilds them from canonical configuration without trusting malformed optional settings.",
   },
+  "release-check-version-parse-fallback": {
+    path: "src/shared/release_check.ts",
+    enclosingFunction: "<module>",
+    operation:
+      "classify malformed persisted SemVer as invalid reminder evidence",
+    kind: "direct",
+    shape: "sync",
+    observability: { kind: "unobservable" },
+    reason:
+      "Invalid local evidence cannot establish age; the record decoder reports malformed state.",
+  },
   "resource-ledger-decode-fallback": {
     path: "src/engine/worktree/resources.ts",
     enclosingFunction: "parseResourceEntry",
@@ -1937,6 +1948,16 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     observability: { kind: "unobservable" },
     reason:
       "The probe deliberately maps grammar rejection to false so callers normalize the numeric value before writing TOML.",
+  },
+  "version-output-parse-fallback": {
+    path: "src/lib/version.ts",
+    enclosingFunction: "parseVersionOutput",
+    operation: "classify an invalid version output as unknown identity",
+    kind: "direct",
+    shape: "sync",
+    observability: { kind: "unobservable" },
+    reason:
+      "Unrecognized executable output contributes no numeric identity to a mismatch observation.",
   },
   "worktree-hook-live-ports-fallback": {
     path: "src/lib/worktree_hooks.ts",

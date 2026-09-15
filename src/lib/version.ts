@@ -6,7 +6,9 @@
  * compiled installer reports the right version with no filesystem lookup.
  */
 
-export { RELEASE_METADATA } from "./release_metadata.ts";
+import { parseVersion } from "../shared/semver.ts";
+import { RELEASE_METADATA } from "./release_metadata.ts";
+export { RELEASE_METADATA };
 
 import denoJson from "../../deno.json" with { type: "json" };
 import { DISCERN_ISSUES_URL, INSTALL_COMMAND } from "../shared/brand.ts";
@@ -14,6 +16,15 @@ import { DISCERN_RELEASE_CHECK_URL } from "../shared/product_identity.ts";
 
 /** The current discern version, e.g. "1.0.0". */
 export const DISCERN_VERSION: string = denoJson.version;
+
+/** Human decoration keeps numeric protocol identity separate. */
+export function humanVersion(
+  metadata: { version: string; codename?: string } = RELEASE_METADATA,
+): string {
+  return `discern ${metadata.version}${
+    metadata.codename === undefined ? "" : ` — ${metadata.codename}`
+  }`;
+}
 
 /**
  * The one honest way to get a newer discern binary, cited verbatim by every
@@ -41,3 +52,16 @@ export const ISSUES_URL = DISCERN_ISSUES_URL;
  * squashed before publication, so the production migration chain is empty.
  */
 export const SCHEMA_VERSION = 1;
+
+/** Parse human output while returning only its strict numeric SemVer identity. */
+export function parseVersionOutput(raw: string): string | undefined {
+  const match = raw.trim().match(/^discern (\S+)(?: — [^\r\n]+)?$/u);
+  if (match?.[1] === undefined) return undefined;
+  try {
+    parseVersion(match[1]);
+    return match[1];
+  } catch {
+    // discern-best-effort: version-output-parse-fallback
+    return undefined;
+  }
+}

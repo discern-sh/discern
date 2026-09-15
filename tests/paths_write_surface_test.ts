@@ -67,6 +67,10 @@ const STD_FS_MUTATION_IMPORT =
  * registries and checks the actual writes.
  */
 const WRITE_SITE_HOMES = new Map<string, string>([
+  [
+    "src/shared/release_check.ts",
+    "the registered common Git-admin releaseCheck clock, replaced through the atomic JSON writer",
+  ],
   // discern.toml (the config writer) + the seed scaffold
   [
     "src/lib/fs_plan.ts",

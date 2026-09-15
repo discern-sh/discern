@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md); the outcome-first accounts are the [Human Benefit Canon](feature-canon-human-benefits.md) and [Agent Benefit Canon](feature-canon-agent-benefits.md)._
 
-10 main areas · 145 detailed entries · 11 statements of benefit · 81 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 146 detailed entries · 11 statements of benefit · 82 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -186,6 +186,7 @@ _A project adopts discern through one tracked root file and can remove its wirin
 - **Putting a file somewhere is permission to write there** — discern and its coding agents write only where the chosen placement gives permission: a file at its usual named location carries built-in permission, a setting you pointed elsewhere gives explicit permission for that place, and every other location is off-limits — enforced by a broad design test.
 - **Removal** — `discern uninstall` removes the wiring discern laid down — worked out from the same ownership list — and keeps `discern.toml`, your instruction text, and the project guide. _Leaving costs one instruction and loses no authored work._
 - **Changing settings without interpreting the file** — `discern config` edits `discern.toml` while keeping its comments and layout — `set`, `set-job`, `set-scope`, and `set-standard` — and reads it back with `get`, `array`, `has`, `subsections`, and `keys`, so other instructions and coding agents never have to work out the file's special writing rules themselves.
+- **Choose when to check releases** — Open release notes from the terminal or desk. The browser receives only the running version number as application data. A local reminder can prompt a check; checking and installing follow the actions the person requested.
 - **Licenses and notices** — `discern licenses` prints discern's own terms, the separate Apache-2.0 terms for material it writes into a project, and the required notices for other people's work carried inside discern. The program builds those answers from its real legal files and included components instead of a hand-kept list.
 
 ## Ways to use discern and consistent results
@@ -252,6 +253,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `progress` — progress
 - `queue` — gate
 - `refresh` — instructions
+- `releases` — release-awareness
 - `scripts` — project-scripts
 - `setup` — setup
 - `skills` — skills

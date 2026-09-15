@@ -1,11 +1,3 @@
-import { observeFleet } from "../../shared/fleet_observation.ts";
-import {
-  completionRecoveryStatus,
-  completionStatusPresentation,
-} from "./completion_recovery.ts";
-import { callingCheckoutRunningOperation } from "./running_operation.ts";
-import { landedExceptionStatus } from "./landed_exception.ts";
-import { submissionRows } from "../worktree/submissions_view.ts";
 /**
  * `status` — the situation/orientation verb: *what is true right now, and what
  * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
@@ -26,6 +18,20 @@ import { submissionRows } from "../worktree/submissions_view.ts";
  * one task-labelled row per active worktree. `--all` adds the fleet from a worktree;
  * `--local` suppresses it from the main checkout.
  */
+
+import {
+  inspectReleaseCheck,
+  RELEASE_REMINDER,
+  releaseReminderDue,
+} from "../../shared/release_check.ts";
+import { observeFleet } from "../../shared/fleet_observation.ts";
+import {
+  completionRecoveryStatus,
+  completionStatusPresentation,
+} from "./completion_recovery.ts";
+import { callingCheckoutRunningOperation } from "./running_operation.ts";
+import { landedExceptionStatus } from "./landed_exception.ts";
+import { submissionRows } from "../worktree/submissions_view.ts";
 
 import { basename } from "@std/path";
 import {
@@ -351,9 +357,11 @@ export async function statusResult(
   // AND gains the fleet, so it is not fleet-led.
   const fleetLed = includeFleet && location === "main";
 
+  const releaseDue = releaseReminderDue(await inspectReleaseCheck(root), nowMs);
   const completionRecovery = await completionRecoveryStatus(root);
   const data: StatusData = {
     ...completionRecovery.data,
+    ...(releaseDue ? { release_reminder: RELEASE_REMINDER } : {}),
     location,
     root,
     project: cfg.project.slug,
@@ -740,6 +748,7 @@ export async function statusResult(
     landingAuthority,
     logbookEnabled: cfg.project.logbook,
     checkpointPreview,
+    releaseDue,
   });
   const { hints, ...presentation } = completionStatusPresentation(
     completionRecovery,
@@ -1024,6 +1033,7 @@ interface HintContext {
    * and both `done` paths): each required stop question, served early. Empty
    * while setup is unfinished. */
   checkpointPreview: FiredHint[];
+  releaseDue: boolean;
 }
 
 /**
@@ -1441,6 +1451,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // The checkpoint obligation account rides last, after every observation
   // about the broader current state.
   hints.push(...ctx.checkpointPreview);
+  if (ctx.releaseDue) hints.push(fire(HINTS["release-check-sequence"]));
 
   return hints;
 }

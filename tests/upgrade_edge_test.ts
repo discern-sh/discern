@@ -15,6 +15,8 @@
  * Human output goes to stderr; machine assertions read --json from stdout.
  */
 
+import { inspectReleaseCheck } from "../src/shared/release_check.ts";
+
 import {
   assert,
   assertEquals,
@@ -149,6 +151,7 @@ Deno.test("upgrade with an unparseable discern.toml fails as invalid_toml (--jso
     const res = decodeCliResult(r.stdout, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "invalid_toml");
+    assertEquals((await inspectReleaseCheck(dir)).status, "missing");
     assert(typeof res.message === "string" && res.message.length > 0);
   });
 });
@@ -261,6 +264,7 @@ Deno.test("upgrade --json reports a partial refresh as top-level not-ok while ke
     const res = decodeCliResult(r.stdout, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "partial_refresh");
+    assertEquals((await inspectReleaseCheck(dir)).status, "missing");
     assertResultDataKey(res, "instruction_refresh");
     const refresh = res.data.instruction_refresh;
     assertExists(refresh);

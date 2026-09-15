@@ -48,12 +48,22 @@ Deno.test("setup completion is one transaction: an unproven marker converges, th
     ]);
     assertEquals(forced.code, 0, forced.output);
     const marker = await setupCompletionSnapshot(dir);
+    assertEquals(
+      marker.releaseCheck,
+      undefined,
+      "unproven adoption does not seed a clock",
+    );
 
     const first = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(first.code, 0, first.output);
     const firstResult = decodeCliResult(first.stdout, "setup done");
     assertResultDataKey(firstResult, "bootstrapped");
     const completed = await setupCompletionSnapshot(dir);
+    assertExists(
+      completed.releaseCheck,
+      "proven adoption seeds first-seen evidence",
+    );
+    assert(!completed.releaseCheck.includes("last_handoff_at"));
 
     await t.step(
       "an unproven marker converges only after the ordinary proven path succeeds",

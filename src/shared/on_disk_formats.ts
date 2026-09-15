@@ -149,6 +149,15 @@ export const ON_DISK_FORMATS = {
     writers: ["src/engine/crash.ts"],
     newerVersionPolicy: "observe",
   },
+  releaseCheck: {
+    id: "release-check",
+    location: { kind: "git-admin", keys: ["releaseCheck"] },
+    version: 1,
+    versionField: "schema_version",
+    reader: "src/shared/release_check.ts#inspectReleaseCheck",
+    writers: ["src/shared/release_check.ts"],
+    newerVersionPolicy: "observe",
+  },
   deskPreferences: {
     id: "desk-preferences",
     location: { kind: "git-admin", keys: ["deskPreferences"] },

@@ -1380,6 +1380,10 @@ export const MCP_SHELL_ONLY_VERBS: ReadonlyMap<string, string> = new Map([
     "help",
     "human-readable CLI reference; MCP tool schemas carry their own help",
   ],
+  [
+    "releases",
+    "The CLI supplies offline release URLs; agents use their approved network tool for the external check.",
+  ],
   ["licenses", "license-text dump for humans"],
   ["triangle", "some mysteries belong to the shell"],
 ]);

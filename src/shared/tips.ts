@@ -937,6 +937,10 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "feature:glossary-canon":
     "The glossary and generated references own canonical vocabulary.",
   "feature:hints": "Each hint appears with the action that makes it relevant.",
+  "feature:release-awareness":
+    "The persistent root update action and clone-local reminder explain this handoff; it must not enter rotating tip history.",
+  "verb:releases":
+    "The root update action and release result teach the handoff at the point of use.",
   "feature:install":
     "The installer teaches installation before the desk becomes available.",
   "feature:setup":

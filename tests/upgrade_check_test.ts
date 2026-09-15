@@ -7,6 +7,8 @@
  * Guards: boundary:explicit-upgrades
  */
 
+import { inspectReleaseCheck } from "../src/shared/release_check.ts";
+
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
@@ -56,6 +58,7 @@ Deno.test("upgrade --check passes on a fresh, in-sync install", async () => {
     assertEquals(res.ok, true);
     assertEquals(res.verb, "upgrade");
     assertEquals(res.data.check, true);
+    assertEquals((await inspectReleaseCheck(dir)).status, "missing");
     assertEquals(res.data.pending_migrations, []);
     assertEquals(res.data.schema.recorded, res.data.schema.current);
   });
@@ -105,6 +108,9 @@ Deno.test("upgrade detects and reconciles a stale generated-merge block", async 
 
     const upgrade = await runCli(["upgrade", "--allow-dirty"], dir);
     assertEquals(upgrade.code, 0, upgrade.stderr);
+    const releaseClock = await inspectReleaseCheck(dir);
+    assert(releaseClock.status === "recorded");
+    assertEquals(releaseClock.value.last_handoff_at, undefined);
     assertTerminalTextIncludes(
       upgrade.stderr,
       "managed gitattributes fragment reconciled",

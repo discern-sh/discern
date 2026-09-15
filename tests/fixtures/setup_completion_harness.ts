@@ -27,6 +27,7 @@ export interface SetupCompletionSnapshot {
   readonly status: string;
   readonly config: string;
   readonly proof: string | undefined;
+  readonly releaseCheck: string | undefined;
   readonly worktrees: string;
   readonly gateInvocations: number;
 }
@@ -102,6 +103,7 @@ export async function setupCompletionSnapshot(
   dir: string,
 ): Promise<SetupCompletionSnapshot> {
   const proofPath = await gitAdminStatePath(dir, "gateProof");
+  const releasePath = await gitAdminStatePath(dir, "releaseCheck");
   return {
     head: await gitOut(dir, "rev-parse", "HEAD"),
     history: await gitOut(dir, "log", "--format=%H%x00%P%x00%s"),
@@ -113,6 +115,7 @@ export async function setupCompletionSnapshot(
     ),
     status: await gitOut(dir, "status", "--porcelain=v1", "-z"),
     config: await Deno.readTextFile(join(dir, "discern.toml")),
+    releaseCheck: releasePath === undefined ? undefined : await readTextIfExists(releasePath),
     proof: proofPath === undefined
       ? undefined
       : await readTextIfExists(proofPath),

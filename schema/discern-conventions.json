@@ -123,6 +123,12 @@
         "kind": "directory",
         "validation": false
       },
+      "releaseCheck": {
+        "path": "discern/release-check.json",
+        "scope": "common",
+        "kind": "file",
+        "validation": false
+      },
       "deskTips": {
         "path": "discern/desk/tips.json",
         "scope": "common",
@@ -367,6 +373,7 @@
     "uninstall": "operates on the discern install itself, not a project state",
     "config": "config plumbing; agents read and edit discern.toml directly",
     "help": "human-readable CLI reference; MCP tool schemas carry their own help",
+    "releases": "The CLI supplies offline release URLs; agents use their approved network tool for the external check.",
     "licenses": "license-text dump for humans",
     "triangle": "some mysteries belong to the shell"
   },
@@ -524,6 +531,16 @@
         "kind": "git-admin",
         "keys": [
           "crash"
+        ]
+      }
+    },
+    "release-check": {
+      "version_field": "schema_version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "releaseCheck"
         ]
       }
     },

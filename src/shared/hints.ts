@@ -879,6 +879,19 @@ export const HINTS = {
       "worktree from another effort because it is idle or clean.",
   }),
 
+  "release-check-sequence": defineHint({
+    id: "release-check-sequence",
+    category: "next-step",
+    audience: "agent",
+    when:
+      "A release handoff is requested or clone-local release reminder evidence is due.",
+    example: undefined,
+    template: (): string =>
+      `Check the user's current authorization. A request to check releases already authorizes the external check; proceed without asking again. If only this proactive reminder prompted the action, ask whether the owner wants a check before making an external request. Explain that the check sends only this process's version number to discern.sh. Run ${
+        discernCommand("releases", flag("json"))
+      } (or choose --markdown), then fetch its JSON URL with your approved external network tool. Report the stable recommendation, supplied version, optional names, and relevant notes; label prereleases separately. No stable recommendation means no default install target; an ahead version receives no downgrade advice. A supplied version does not prove the on-disk binary, and a local handoff timestamp does not prove a completed fetch. Follow the response's update instructions. Install only when the user's request also covers installation; otherwise ask before that separate action. Honor the requested scope and actual tool permissions. A check-and-install request already covers both actions.`,
+  }),
+
   "status-fleet-logbook-disabled": defineHint({
     id: "status-fleet-logbook-disabled",
     category: "notice",

@@ -42,6 +42,7 @@ import {
   PrepareOutputSchema,
   ProgressOutputSchema,
   RefreshOutputSchema,
+  ReleasesOutputSchema,
   ScriptsOutputSchema,
   SetupAcceptOutputSchema,
   SetupBeginOutputSchema,
@@ -206,6 +207,13 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     schema: DoctorOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.doctor,
     mcpTool: "discern_doctor",
+  },
+  {
+    id: "releases",
+    commands: ["releases"],
+    verb: "releases",
+    schema: ReleasesOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.releases,
   },
   {
     id: "licenses",

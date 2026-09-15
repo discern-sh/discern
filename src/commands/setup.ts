@@ -25,6 +25,8 @@
  * step.
  */
 
+import { writeReleaseCheck } from "../shared/release_check.ts";
+
 import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
 import {
@@ -2935,6 +2937,9 @@ async function emitSetupDoneSuccess(
   },
 ): Promise<number> {
   const unproven = state.completion === "unproven";
+  if (!unproven && state.proof?.status === "honored") {
+    await writeReleaseCheck(root);
+  }
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
   const rawToml = await Deno.readTextFile(path);
   const assurance: SetupAssurance = {

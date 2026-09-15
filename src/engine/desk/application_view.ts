@@ -49,6 +49,7 @@ export type DeskChoice =
       | "scripts"
       | "main"
       | "recent"
+      | "releases"
       | "docs"
       | "unlanded";
     readonly branch?: string;
@@ -371,6 +372,16 @@ export function deskApplicationView(
       ? [route("Read notice", "notice")]
       : []),
     route("Start a task", "start"),
+    {
+      ...route(
+        "Check for updates",
+        "releases",
+        "Opens release info in your browser; sends running version to discern.sh.",
+      ),
+      ...(data?.release_reminder
+        ? { status: { content: "Due", tone: "neutral" as const } }
+        : {}),
+    },
     route("Project Scripts", "scripts"),
     route("Main checkout", "main"),
     route(`Landing queue (${data?.queue?.length ?? 0})`, "queue"),

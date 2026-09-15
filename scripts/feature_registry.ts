@@ -1890,6 +1890,18 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         surfaces: ["verb:config"],
       },
       {
+        id: "release-awareness",
+        title: "Release information when requested",
+        what:
+          "`discern releases` and the desk's Check for updates action hand off the running version to release URLs. The binary never fetches or installs. A clone-local clock offers a reminder after 14 UTC calendar days, independent of the logbook. Human version output includes an optional compiled codename.",
+        plain: {
+          title: "Choose when to check releases",
+          what:
+            "Open release notes from the terminal or desk. The browser receives only the running version number as application data. A local reminder can prompt a check; checking and installing follow the actions the person requested.",
+        },
+        surfaces: ["verb:releases"],
+      },
+      {
         id: "licenses",
         title: "Licenses and notices",
         what:
@@ -3442,8 +3454,8 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "The tool does not change itself in the middle of project work. Upgrades can be scheduled, reviewed, migrated repeatedly without duplicate effects, and checked against a clear installation diagnosis.",
         whyItFollows:
-          "The binary performs no update checks, `discern upgrade` applies idempotent validated migrations before stamping the new schema, and `discern doctor` reports the current installation with a fix for each problem.",
-        drawsOn: ["upgrade", "doctor"],
+          "The offline release handoff provides stable-release URLs and local reminders; the binary performs no network check. `discern upgrade` applies idempotent validated migrations before stamping the new schema, and `discern doctor` reports the current installation with a fix for each problem.",
+        drawsOn: ["upgrade", "doctor", "release-awareness"],
       },
       {
         id: "retain-work-after-uninstall",
@@ -4028,7 +4040,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can set up, verify, diagnose, upgrade, configure, and remove discern through explicit lifecycle operations whose retained and removed effects are visible.",
         whyItFollows:
-          "One install surface owns setup and its observability, doctor, upgrade, uninstall, configuration editing, and license reporting; setup proves its worktree path before declaring readiness.",
+          "One install surface owns setup and its observability, doctor, the offline release handoff, upgrade, uninstall, configuration editing, and license reporting; setup proves its worktree path before declaring readiness.",
         boundary:
           "Lifecycle verbs manage discern's declared footprint and provider integrations, not arbitrary project files or provider state outside their ownership contract.",
         drawsOn: [
@@ -4037,12 +4049,14 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "setup-observability",
           "setup-activation",
           "doctor",
+          "release-awareness",
           "upgrade",
           "uninstall",
           "config-command",
           "licenses",
         ],
         hints: [
+          "release-check-sequence",
           "ensure-main-worktree-first",
           "setup-improvement-after-activation",
         ],

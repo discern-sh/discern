@@ -117,6 +117,11 @@ export async function resolveBrief(value: string): Promise<string> {
   }
 }
 
+/** Observe process stream attachment without inferring human intent from the environment. */
+export function observeTerminalStreams(): { stdin: boolean; stdout: boolean } {
+  return { stdin: Deno.stdin.isTerminal(), stdout: Deno.stdout.isTerminal() };
+}
+
 /**
  * Whether interactive input may be requested. `--yes`, global `--plain`, global
  * `--json`, CI, and either non-terminal stream independently veto interaction.
@@ -126,10 +131,7 @@ export async function resolveBrief(value: string): Promise<string> {
 export function canInteract(
   yes: boolean,
   env: EnvReader = Deno.env,
-  streams: () => { stdin: boolean; stdout: boolean } = () => ({
-    stdin: Deno.stdin.isTerminal(),
-    stdout: Deno.stdout.isTerminal(),
-  }),
+  streams: () => { stdin: boolean; stdout: boolean } = observeTerminalStreams,
 ): boolean {
   return interactionAllowed(yes, plainMode, jsonMode, env, streams);
 }

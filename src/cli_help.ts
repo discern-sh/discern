@@ -125,6 +125,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
       "docs",
       "help",
       "licenses",
+      "releases",
       "mcp",
     ],
   },

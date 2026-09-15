@@ -6,7 +6,7 @@ _Every product feature and benefit, enumerated once, at every resolution. Creati
 
 The [Readiness Canon](brand/readiness-canon.md) approaches these mechanisms through the questions people ask before shipping, with routes back to the features and benefits that help answer them.
 
-10 pillars · 145 nodes · 11 benefit statements · 9 agent-benefit clusters · 81 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+10 pillars · 146 nodes · 11 benefit statements · 9 agent-benefit clusters · 82 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
@@ -202,6 +202,7 @@ _A project adopts discern through one tracked root file and can remove its wirin
 - **Placement is consent** — discern and its agents write only where placement licenses it: a file at its namespace default carries an implicit write-license, a config key you pointed elsewhere is an explicit one, and any other path is untouchable — enforced by an architectural test.
 - **Uninstall** — `discern uninstall` removes the wiring discern laid down — derived from the ownership registry — and keeps `discern.toml`, your instructions, and the map. _Leaving costs one command and loses no authored work._
 - **Config without a parser** — `discern config` edits `discern.toml` while preserving comments and layout — `set`, `set-job`, `set-scope`, `set-standard` — and reads it back raw with `get`, `array`, `has`, `subsections`, and `keys`, so scripts and agents never parse TOML themselves.
+- **Release information when requested** — `discern releases` and the desk's Check for updates action hand off the running version to release URLs. The binary never fetches or installs. A clone-local clock offers a reminder after 14 UTC calendar days, independent of the logbook. Human version output includes an optional compiled codename.
 - **Licenses and notices** — `discern licenses` prints discern's software license, the Apache-2.0 license for discern-authored project payloads, its notice, and bundled third-party notices. The first-party texts derive from one legal-document registry; the third-party set derives from the compile graph.
 
 ## Interfaces and contracts
@@ -268,6 +269,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `progress` — progress
 - `queue` — gate
 - `refresh` — instructions
+- `releases` — release-awareness
 - `scripts` — project-scripts
 - `setup` — setup
 - `skills` — skills

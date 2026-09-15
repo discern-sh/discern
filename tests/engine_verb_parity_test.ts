@@ -64,6 +64,7 @@ const FROZEN_V1_SHELL_ONLY_VERBS = [
   "uninstall",
   "config",
   "help",
+  "releases",
   "licenses",
   "triangle",
 ] as const;

@@ -7547,6 +7547,9 @@
             {
               "type": "object",
               "properties": {
+                "release_reminder": {
+                  "type": "string"
+                },
                 "discern_version": {
                   "type": "string"
                 },
@@ -7764,6 +7767,501 @@
                 "discern_version",
                 "environment",
                 "checks"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "unknown_root_section"
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "issues"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
+      ]
+    },
+    "DiscernReleasesResult": {
+      "title": "DiscernReleasesResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "instructions-check",
+                      "skills-check",
+                      "tracked-refresh-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "task-metadata",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "instructions-check",
+                  "skills-check",
+                  "tracked-refresh-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "task-metadata",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped",
+                  "cancelled"
+                ]
+              },
+              "advisory": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "acceptance-cleanup-incomplete",
+                      "checkpoint-evidence-dropped",
+                      "checkout-clean-observation-unavailable",
+                      "doctor-warning",
+                      "execution-cap-unavailable",
+                      "generated-attribute-pattern-untranslated",
+                      "ignored-file-observation-unavailable",
+                      "landing-authority-unverified",
+                      "optional-resource-unavailable",
+                      "proof-recording-unavailable",
+                      "setup-unproven-completion",
+                      "setup-machinery-commit-failed",
+                      "setup-marker-commit-failed",
+                      "standards-limits-unverified",
+                      "uninstall-strip-incomplete"
+                    ]
+                  },
+                  "evidence": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "next_action": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "evidence",
+                  "next_action"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "diagnostic_evidence": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "digest": {
+              "type": "string"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "shown": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "repeats": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            }
+          },
+          "required": [
+            "path",
+            "digest",
+            "bytes",
+            "total",
+            "shown",
+            "repeats"
+          ]
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "advisories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "acceptance-cleanup-incomplete",
+                  "checkpoint-evidence-dropped",
+                  "checkout-clean-observation-unavailable",
+                  "doctor-warning",
+                  "execution-cap-unavailable",
+                  "generated-attribute-pattern-untranslated",
+                  "ignored-file-observation-unavailable",
+                  "landing-authority-unverified",
+                  "optional-resource-unavailable",
+                  "proof-recording-unavailable",
+                  "setup-unproven-completion",
+                  "setup-machinery-commit-failed",
+                  "setup-marker-commit-failed",
+                  "standards-limits-unverified",
+                  "uninstall-strip-incomplete"
+                ]
+              },
+              "evidence": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "next_action": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "evidence",
+              "next_action"
+            ]
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "releases"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "running_version": {
+                  "type": "string"
+                },
+                "codename": {
+                  "type": "string"
+                },
+                "urls": {
+                  "type": "object",
+                  "properties": {
+                    "html": {
+                      "type": "string"
+                    },
+                    "json": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "html",
+                    "json"
+                  ]
+                },
+                "repository_state": {
+                  "type": "string",
+                  "enum": [
+                    "recorded",
+                    "missing",
+                    "malformed",
+                    "unavailable",
+                    "newer",
+                    "outside-repository"
+                  ]
+                },
+                "launch_eligible": {
+                  "type": "boolean"
+                },
+                "launch_attempted": {
+                  "type": "boolean"
+                },
+                "launch_succeeded": {
+                  "type": "boolean"
+                },
+                "launch_message": {
+                  "type": "string"
+                },
+                "state_write": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "saved",
+                        "unchanged",
+                        "unavailable",
+                        "newer",
+                        "skipped"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                "network_request": {
+                  "type": "boolean",
+                  "const": false
+                }
+              },
+              "required": [
+                "running_version",
+                "urls",
+                "repository_state",
+                "launch_eligible",
+                "launch_attempted",
+                "launch_succeeded",
+                "state_write",
+                "network_request"
               ]
             },
             {
@@ -25316,6 +25814,9 @@
             {
               "type": "object",
               "properties": {
+                "release_reminder": {
+                  "type": "string"
+                },
                 "emergency_validation": {
                   "type": "array",
                   "items": {
@@ -37172,6 +37673,9 @@
           "$ref": "#/$defs/DiscernDoctorResult"
         },
         {
+          "$ref": "#/$defs/DiscernReleasesResult"
+        },
+        {
           "$ref": "#/$defs/DiscernLicensesResult"
         },
         {
@@ -37585,6 +38089,25 @@
       },
       "schema": "#/$defs/DiscernDoctorResult",
       "mcp_tool_result_schema": "#/$defs/DiscernDoctorMcpToolResult"
+    },
+    {
+      "id": "releases",
+      "verb": "releases",
+      "commands": [
+        "releases"
+      ],
+      "completion_policy": {
+        "required_postconditions": [
+          "declared-outcome"
+        ],
+        "optional_advisories": [],
+        "refusal": "failure",
+        "cancellation": "not-applicable",
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
+      },
+      "schema": "#/$defs/DiscernReleasesResult"
     },
     {
       "id": "licenses",

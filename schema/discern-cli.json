@@ -1152,6 +1152,105 @@
     },
     {
       "path": [
+        "releases"
+      ],
+      "description": "Open release information in the browser, sending this process's version to discern.sh. Always print the URL; never fetch or install.",
+      "aliases": [],
+      "hidden": false,
+      "hidden_when": null,
+      "positionals": [],
+      "usage": "",
+      "flags": [
+        {
+          "spellings": [
+            "--json"
+          ],
+          "description": "Emit one JSON result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--markdown"
+          ],
+          "description": "Emit one Markdown result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--render"
+          ],
+          "description": "Render the Markdown result as terminal output.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--no-color"
+          ],
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--plain"
+          ],
+          "description": "Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--theme"
+          ],
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "type_definition": "<theme:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--dry-run"
+          ],
+          "description": "Show the release handoff without opening a browser or recording a timestamp.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": false
+        }
+      ]
+    },
+    {
+      "path": [
         "licenses"
       ],
       "description": "Print discern's licenses and bundled third-party software notices.",

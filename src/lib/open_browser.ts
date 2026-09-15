@@ -56,12 +56,13 @@ export function browserOpenFailureMessage(
 export function browserLaunch(
   url: string,
   os: typeof Deno.build.os = Deno.build.os,
+  wsl = false,
 ): BrowserLaunch | undefined {
   switch (os) {
     case "darwin":
       return { command: "open", args: [url] };
     case "linux":
-      return { command: "xdg-open", args: [url] };
+      return { command: wsl ? "wslview" : "xdg-open", args: [url] };
     default:
       return undefined;
   }
@@ -74,6 +75,7 @@ async function runBrowserCommand(
 ): Promise<BrowserCommandResult> {
   const output = await new Deno.Command(command, {
     args: [...args],
+    stdin: "null",
     stdout: "null",
     stderr: "piped",
   }).output();
@@ -91,10 +93,14 @@ export async function openInBrowser(
   options: {
     readonly os?: typeof Deno.build.os;
     readonly run?: BrowserCommandRunner;
+    readonly wsl?: boolean;
   } = {},
+  environment: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<BrowserOpenResult> {
   const os = options.os ?? Deno.build.os;
-  const launch = browserLaunch(url, os);
+  const wsl = options.wsl ??
+    (os === "linux" && Boolean(environment.get("WSL_DISTRO_NAME")));
+  const launch = browserLaunch(url, os, wsl);
   if (launch === undefined) {
     return {
       status: "unsupported",

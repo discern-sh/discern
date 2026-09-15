@@ -6,7 +6,7 @@ _discern's canonical account of what the product gives the coding agent operatin
 
 The [Readiness Canon](brand/readiness-canon.md) connects release questions to these outcomes and their existing feature mechanisms. Use its approaches to select work appropriate to the project and change.
 
-9 workflow clusters · 24 agent benefits · 131 direct feature roles · 11 supporting feature roles · 20 agent-only hints · 17 agent or shared claims carried.
+9 workflow clusters · 24 agent benefits · 132 direct feature roles · 11 supporting feature roles · 21 agent-only hints · 17 agent or shared claims carried.
 
 ## How to use this canon
 
@@ -158,10 +158,10 @@ A coding agent can preview effects, distinguish Proof from permission, and stop 
 ### Manage the installation lifecycle
 
 - **Agent value:** A coding agent can set up, verify, diagnose, upgrade, configure, and remove discern through explicit lifecycle operations whose retained and removed effects are visible.
-- **Why it follows:** One install surface owns setup and its observability, doctor, upgrade, uninstall, configuration editing, and license reporting; setup proves its worktree path before declaring readiness.
+- **Why it follows:** One install surface owns setup and its observability, doctor, the offline release handoff, upgrade, uninstall, configuration editing, and license reporting; setup proves its worktree path before declaring readiness.
 - **Boundary:** Lifecycle verbs manage discern's declared footprint and provider integrations, not arbitrary project files or provider state outside their ownership contract.
-- **Direct product basis:** Install and lifecycle · Agent-driven setup · Observable incompleteness · Provider-aware activation recovery · Doctor · Upgrade and migrations · Uninstall · Config without a parser · Licenses and notices.
-- **Agent hints:** `ensure-main-worktree-first` · `setup-improvement-after-activation`.
+- **Direct product basis:** Install and lifecycle · Agent-driven setup · Observable incompleteness · Provider-aware activation recovery · Doctor · Release information when requested · Upgrade and migrations · Uninstall · Config without a parser · Licenses and notices.
+- **Agent hints:** `release-check-sequence` · `ensure-main-worktree-first` · `setup-improvement-after-activation`.
 - **Public claims:** `installs-a-practice` · `one-config-file` · `setup-proves-worktree`.
 
 ## Carry project context across sessions
@@ -284,6 +284,7 @@ Every feature node has one global role: direct, supporting, or recorded absent. 
 - `gate-prove-it-works` — run-the-relevant-gate-efficiently
 - `gate-relay-proof` — prove-the-exact-tree
 - `gate-relay-uncovered-authority` — land-only-with-release-authority
+- `release-check-sequence` — manage-the-installation-lifecycle
 - `setup-improvement-after-activation` — manage-the-installation-lifecycle
 - `silent-worktree-divergence` — own-one-isolated-effort
 - `start-landing-authority` — land-only-with-release-authority

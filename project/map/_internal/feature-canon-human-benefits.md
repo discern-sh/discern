@@ -6,7 +6,7 @@ _discern's internal commercial account of what the product gives people. It is d
 
 Start from a concern in the [Readiness Canon](brand/readiness-canon.md) when the reader recognizes a release question before they know the product. Its feature routes introduce the relevant human value here.
 
-8 clusters · 46 benefits · 145 of 145 feature nodes cited · 20 of 20 public claims carried.
+8 clusters · 46 benefits · 146 of 146 feature nodes cited · 20 of 20 public claims carried.
 
 ## How to use this canon
 
@@ -341,8 +341,8 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Choose when to upgrade
 
 - **Value:** The tool does not change itself in the middle of project work. Upgrades can be scheduled, reviewed, migrated repeatedly without duplicate effects, and checked against a clear installation diagnosis.
-- **Mechanism:** The binary performs no update checks, `discern upgrade` applies idempotent validated migrations before stamping the new schema, and `discern doctor` reports the current installation with a fix for each problem.
-- **Product basis:** Upgrade and migrations · Doctor.
+- **Mechanism:** The offline release handoff provides stable-release URLs and local reminders; the binary performs no network check. `discern upgrade` applies idempotent validated migrations before stamping the new schema, and `discern doctor` reports the current installation with a fix for each problem.
+- **Product basis:** Upgrade and migrations · Doctor · Release information when requested.
 
 ### Uninstall cleanly and keep everything you wrote
 

@@ -14,6 +14,11 @@
  * Guards: boundary:repository-native-state
  */
 
+import {
+  inspectReleaseCheck,
+  writeReleaseCheck,
+} from "../src/shared/release_check.ts";
+
 import { assert, assertEquals } from "@std/assert";
 import { ensureDir } from "@std/fs";
 import { dirname, join } from "@std/path";
@@ -145,6 +150,7 @@ async function wireFullHarness(dir: string): Promise<void> {
 Deno.test("uninstall removes discern's footprint and keeps the user's content", async () => {
   await withTempDir(async (dir) => {
     await wireFullHarness(dir);
+    assertEquals((await writeReleaseCheck(dir)).status, "saved");
 
     // Discern wired what the registry declares (a precondition for the round-trip
     // to prove anything): the compiled Claude file and its co-owned .mcp.json.
@@ -169,6 +175,7 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
     const envelope = decodeCliResult(result.stdout, "uninstall");
     assertResultDataKey(envelope, "removed_runtime_state");
     assert(envelope.ok, result.output);
+    assertEquals((await inspectReleaseCheck(dir)).status, "missing");
 
     // 1. Every registry-declared file discern created is gone.
     for (const rel of registryCreatedPaths()) {

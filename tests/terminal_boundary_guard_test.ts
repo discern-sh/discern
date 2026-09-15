@@ -1656,10 +1656,10 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
   {
     file: INTERACTION_AUTHORITY,
     rule: "process-stream-terminal-probe",
-    authority: "canInteract",
+    authority: "observeTerminalStreams",
     count: 2,
     reason:
-      "The product interaction choke point alone admits interactive stdin/stdout.",
+      "The shared interaction adapter observes stream attachment for interaction and explicit release launch policy.",
   },
   {
     file: INTERACTION_AUTHORITY,

@@ -165,6 +165,7 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
     advisories: ["doctor-warning"],
   }),
   licenses: observationPolicy(),
+  releases: observationPolicy(),
   triangle: observationPolicy(),
   map: observationPolicy(),
   docs: observationPolicy(),
