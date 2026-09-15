@@ -43,7 +43,7 @@ Pick the **smallest surface that fully carries the lesson**, and give it exactly
 | A repeatable, multi-step procedure needing judgement                              | **An authored skill** — a `SKILL.md` under `{{skills_dir}}`                                                | Discoverable when the task matches; costs context only when used                                |
 | A review judgment a diff makes relevant ("when X changes, weigh Y before landing") | **A checkpoint** — a `[checkpoints.<id>]` entry (the `discern-place-a-checkpoint` skill walks the authoring) | Served at the gate the moment a matching change completes; costs nothing until then             |
 | A deterministic action — a command sequence you'd otherwise re-derive             | **A project script** — an executable in `{{scripts_dir}}` (run it with `discern scripts <name>`)            | A script executes exactly; prose about commands drifts                                          |
-| Durable context — how a subsystem works, what's true and why it's shaped this way | **A docs page** — under `{{map_dir}}` (the `discern-document-subsystem` skill maintains subtrees)          | Read on demand; the reference the other surfaces can point at                                   |
+| Durable context — how a subsystem works, what's true and why it's shaped this way | **A docs page** — under `{{map_dir}}` (follow the map maintenance guide)          | Read on demand; the reference the other surfaces can point at                                   |
 | A decision — hard to reverse, surprising without context, a real trade-off        | **An ADR** — via the `discern-write-adr` skill                                                             | Records _why_, so it isn't silently re-litigated                                                |
 
 Two rules across every home: **check for an existing home first** — a lesson that updates a stale instructions line, an existing skill, or a current doc belongs _there_, not in a duplicate; and **never split one lesson across surfaces** — if a rule needs its rationale, the rule goes in instructions with a link to the ADR that explains it.
@@ -55,7 +55,8 @@ Two rules across every home: **check for an existing home first** — a lesson t
 - **An instruction line** is one or two sentences, imperative, with the _why_ in half a sentence when it isn't obvious — written for an agent who will read it in every session, forever. If it needs a paragraph, it's probably a doc plus a one-line pointer.
 - **An authored skill** must be a genuine multi-step playbook — trigger-rich `description` frontmatter (that's what matching runs on), concrete steps with the judgement points called out, and a falsifiable "done when". A single deterministic action is not a skill; make it a project script.
 - **A project script** is an executable with an optional `# desc:` line, exiting non-zero on failure, silent about things it didn't do.
-- **Docs and ADRs** follow the project's existing tree and ADR format — their skills hold those bars.
+- **Map pages** explain the current project with evidence, following its existing tree. Use `discern docs maintain-project-map` for the maintenance method. Concrete open work belongs in `{{todo_path}}`.
+- **ADRs** follow the project’s ADR guide and the `discern-write-adr` skill.
 
 Write for a _future reader with no memory of today_: name files by path, not "the file we discussed"; state the rule, not the story of how it emerged.
 

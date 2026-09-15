@@ -100,7 +100,6 @@ export const BUNDLED_SKILLS = {
   "discern-clear-the-decks": true,
   "discern-cure-a-bug": true,
   "discern-delegate-work": true,
-  "discern-document-subsystem": true,
   "discern-place-a-checkpoint": true,
   "discern-set-the-standard": true,
   "discern-teach-the-project": true,

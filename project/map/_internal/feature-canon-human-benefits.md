@@ -6,7 +6,7 @@ _discern's internal commercial account of what the product gives people. It is d
 
 Start from a concern in the [Readiness Canon](brand/readiness-canon.md) when the reader recognizes a release question before they know the product. Its feature routes introduce the relevant human value here.
 
-8 clusters · 46 benefits · 146 of 146 feature nodes cited · 20 of 20 public claims carried.
+8 clusters · 46 benefits · 145 of 145 feature nodes cited · 20 of 20 public claims carried.
 
 ## How to use this canon
 
@@ -250,7 +250,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** The human can inspect a readable account of the architecture, conventions, and subsystem knowledge agents are using. Project understanding no longer has to remain hidden inside session history.
 - **Mechanism:** Agents maintain the Map under the Gate, file-linked freshness records which sources a page covers and when they changed, and the Document a Subsystem Skill refreshes a section from the current code.
-- **Product basis:** The map · File-linked freshness · Document a subsystem.
+- **Product basis:** The map · File-linked freshness.
 
 ### Preserve why a decision was made
 

@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md); the outcome-first accounts are the [Human Benefit Canon](feature-canon-human-benefits.md) and [Agent Benefit Canon](feature-canon-agent-benefits.md)._
 
-10 main areas · 146 detailed entries · 11 statements of benefit · 82 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 145 detailed entries · 11 statements of benefit · 81 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -131,7 +131,6 @@ _A reusable method becomes one file available to every future session._
   - **Clear the decks** — Sweep out the clutter that projects built by coding agents tend to collect — small helpers written twice, dead code from abandoned approaches, layers used from only one place, leftover starter material — every removal proved safe and saved as a small behavior-preserving step, with a quality rule capping the mess afterwards.
   - **Delegate work** — Turn the work under discussion into complete, self-contained briefs for fresh coding agents in their own separate working copies — one hand-off, several at once, or staged briefs — then review what comes back with a skeptical eye.
   - **Wait for another task** — Wait for another line of work with one bounded request — a sibling task passing its final check, its work joining the main shared version, or the main shared version moving — choosing the right condition, waiting on the exact task name, then following the returned next step to build on what arrived.
-  - **Document a part of the project** — Write or refresh one part's section of the project guide from the real code, following the documenter brief that `discern setup begin` places in the guide's `_internal/` starter area.
   - **Teach the project** — Save a lesson from the current session in the right lasting place — a line of instruction text, a project-written how-to guide, a project-specific instruction, a page of the project guide, or a decision record — so every future session inherits it.
   - **Write a decision record** — Help record an important choice — the situation, the decision, its consequences, and the other options considered — using the standard example and writing guide included with every installation.
   - **Write it once** — The practices discern builds itself with, explained for any kind of project: one authoritative home for every shared fact, protections that automatically cover future additions, declared lists of what a broad rule applies to, changes planned before they run and safe to run again, restraint with code comments — and the connections recorded on one page of the project guide.
@@ -309,7 +308,6 @@ Every member of the product's official fixed lists appears below beside the feat
 - `discern-clear-the-decks` — skill-clear-the-decks
 - `discern-cure-a-bug` — skill-cure-a-bug
 - `discern-delegate-work` — skill-delegate-work
-- `discern-document-subsystem` — skill-document-subsystem
 - `discern-place-a-checkpoint` — skill-place-a-checkpoint
 - `discern-set-the-standard` — skill-set-the-standard
 - `discern-teach-the-project` — skill-teach-the-project

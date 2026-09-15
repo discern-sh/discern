@@ -2,7 +2,7 @@
 
 _Cloning, setting up, and running the project locally for the first time._
 
-> This doc is a skeleton. The `discern setup` command (and the `discern-document-subsystem` skill, when filling the `development` subtree) writes it from the project's actual stack. Look for the `<!-- setup fills this -->` marker.
+> This doc is a skeleton. The `discern setup` command writes it from the project's actual stack. Look for the `<!-- setup fills this -->` marker.
 
 This is the path from a fresh clone to a running project and a first green gate. The discern commands are the same on every stack; the stack-specific steps (installing dependencies, configuring the environment, running the app) are filled in below.
 

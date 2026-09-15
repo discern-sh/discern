@@ -1342,18 +1342,6 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             surfaces: ["skill:discern-await-the-fleet"],
           },
           {
-            id: "skill-document-subsystem",
-            title: "Document a subsystem",
-            what:
-              "Write or refresh one subsystem's subtree of the map from the real code, following the documenter brief that `discern setup begin` seeds under the map's `_internal/` scaffolding.",
-            plain: {
-              title: "Document a part of the project",
-              what:
-                "Write or refresh one part's section of the project guide from the real code, following the documenter brief that `discern setup begin` places in the guide's `_internal/` starter area.",
-            },
-            surfaces: ["skill:discern-document-subsystem"],
-          },
-          {
             id: "skill-teach-the-project",
             title: "Teach the project",
             what:
@@ -3275,7 +3263,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
           "The human can inspect a readable account of the architecture, conventions, and subsystem knowledge agents are using. Project understanding no longer has to remain hidden inside session history.",
         whyItFollows:
           "Agents maintain the Map under the Gate, file-linked freshness records which sources a page covers and when they changed, and the Document a Subsystem Skill refreshes a section from the current code.",
-        drawsOn: ["map", "map-freshness", "skill-document-subsystem"],
+        drawsOn: ["map", "map-freshness"],
       },
       {
         id: "preserve-decision-reasons",
@@ -4128,7 +4116,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can discover only the procedures the project chose to materialize, with each procedure carrying a bounded workflow for the task it matches.",
         whyItFollows:
-          "The skill registry controls materialization and curation, while the bundled procedures cover defect-class cures, Standards, checkpoints, cleanup, delegation, fleet waits, subsystem documentation, durable teaching, ADRs, and single-authority design.",
+          "The skill registry controls materialization and curation, while the bundled procedures cover defect-class cures, Standards, checkpoints, cleanup, delegation, fleet waits, durable teaching, ADRs, and single-authority design.",
         boundary:
           "A skill supplies a procedure and decision points; it does not grant permissions the current task lacks or replace the project's own facts and tests.",
         drawsOn: [
@@ -4141,7 +4129,6 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "skill-clear-the-decks",
           "skill-delegate-work",
           "skill-await-the-fleet",
-          "skill-document-subsystem",
           "skill-teach-the-project",
           "skill-write-adr",
           "skill-write-it-once",

@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--public-marketing-pages)                                               | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 3       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 910     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 912     | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 1       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -52,8 +52,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 34      | —                | node `plan-apply`           |
 | [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 17      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
-| [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 10      | "Skill"          | surface `skill`             |
-| [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 14      | —                | —                           |
+| [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
+| [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 13      | —                | —                           |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
 | [`provider-trust-fact-kinds`](#provider-trust-fact-kinds--provider-trust-fact-kinds)                                  | `src/shared/provider_trust.ts#TRUST_FACT_KINDS`                                   | 5       | —                | node `providers`            |
 | [`provider-trust-action-kinds`](#provider-trust-action-kinds--provider-trust-action-kinds)                            | `src/shared/provider_trust.ts#TRUST_ACTION_KINDS`                                 | 5       | —                | node `providers`            |
@@ -90,7 +90,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 40      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 53      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 146     | —                | —                           |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 145     | —                | —                           |
 | [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                    | `scripts/feature_registry.ts#HUMAN_BENEFIT_CANON`                                 | 46      | —                | —                           |
 | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                    | `scripts/feature_registry.ts#AGENT_BENEFIT_CANON`                                 | 24      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
@@ -106,10 +106,10 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 69      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
-| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 49      | —                | node `bundled-docs`         |
+| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 50      | —                | node `bundled-docs`         |
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
-| [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 52      | —                | node `bundled-docs`         |
+| [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 54      | —                | node `bundled-docs`         |
 | [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations)                               | `scripts/manual_benefits.ts#MANUAL_BENEFIT_OBLIGATIONS`                           | 22      | —                | —                           |
 | [`manual-benefit-exclusions`](#manual-benefit-exclusions--manual-benefit-exclusions)                                  | `scripts/manual_benefits.ts#MANUAL_BENEFIT_EXCLUSIONS`                            | 24      | —                | —                           |
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
@@ -479,7 +479,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 910
+- Members: 912
   - `/`
   - `/agents`
   - `/trust`
@@ -531,6 +531,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/guides/wait-for-another-task.md`
   - `/docs/guides/write-project-instructions`
   - `/docs/guides/write-project-instructions.md`
+  - `/docs/guides/maintain-project-map`
+  - `/docs/guides/maintain-project-map.md`
   - `/docs/guides/create-and-manage-skills`
   - `/docs/guides/create-and-manage-skills.md`
   - `/docs/guides/set-and-raise-standards`
@@ -2307,12 +2309,11 @@ The authored-source locations: instructions, Map, Skills, Project Scripts, TODO,
 The skills the binary ships and materializes into a project.
 
 - Source: `src/lib/skills.ts` — `bundledSkillNames`
-- Members: 10
+- Members: 9
   - `discern-await-the-fleet`
   - `discern-clear-the-decks`
   - `discern-cure-a-bug`
   - `discern-delegate-work`
-  - `discern-document-subsystem`
   - `discern-place-a-checkpoint`
   - `discern-set-the-standard`
   - `discern-teach-the-project`
@@ -2327,7 +2328,7 @@ The skills the binary ships and materializes into a project.
 The effective skills and setup briefs joined to repository-only classifications, exact agent-facing prose evidence, materialized-output protection, and generated agent-copy lexical rules.
 
 - Source: `scripts/agent_surface_contracts.ts` — `operationalAgentSurfaces`
-- Members: 14
+- Members: 13
   - `setup:instructions`
   - `skill:discern-agent-voice`
   - `skill:discern-await-the-fleet`
@@ -2335,7 +2336,6 @@ The effective skills and setup briefs joined to repository-only classifications,
   - `skill:discern-clear-the-decks`
   - `skill:discern-cure-a-bug`
   - `skill:discern-delegate-work`
-  - `skill:discern-document-subsystem`
   - `skill:discern-place-a-checkpoint`
   - `skill:discern-product-voice`
   - `skill:discern-set-the-standard`
@@ -3616,7 +3616,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 146
+- Members: 145
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -3700,7 +3700,6 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `skill-clear-the-decks`
   - `skill-delegate-work`
   - `skill-await-the-fleet`
-  - `skill-document-subsystem`
   - `skill-teach-the-project`
   - `skill-write-adr`
   - `skill-write-it-once`
@@ -4239,7 +4238,7 @@ The machine-stable vocabulary for explicitly optional degradation that may coexi
 Every strictly admitted published product-manual page, identified by its stable authored page id.
 
 - Source: `src/lib/manual.ts` — `buildManualProjection`
-- Members: 49
+- Members: 50
   - `manual-home`
   - `start-index`
   - `start-evaluate-discern`
@@ -4255,6 +4254,7 @@ Every strictly admitted published product-manual page, identified by its stable 
   - `guide-coordinate-parallel-tasks`
   - `guide-wait-for-another-task`
   - `guide-write-project-instructions`
+  - `guide-maintain-project-map`
   - `guide-create-and-manage-skills`
   - `guide-set-and-raise-standards`
   - `guide-place-and-answer-checkpoints`
@@ -4328,7 +4328,7 @@ The closed editorial purposes that choose manual comprehension policy and readin
 The explicit page-id owner for each normalized manual search name that would otherwise collide.
 
 - Source: `src/shared/manual.ts` — `MANUAL_ALIAS_OWNER_OVERRIDES`
-- Members: 52
+- Members: 54
   - `--markdown`
   - `checkpoints`
   - `submission`
@@ -4364,6 +4364,8 @@ The explicit page-id owner for each normalized manual search name that would oth
   - `landing authority`
   - `logbook`
   - `map`
+  - `maintain-project-map`
+  - `map maintenance`
   - `open question`
   - `patterns`
   - `practice`

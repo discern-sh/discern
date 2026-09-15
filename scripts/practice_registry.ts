@@ -412,7 +412,6 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       taught: [
         "skill:discern-teach-the-project",
         "skill:discern-write-adr",
-        "skill:discern-document-subsystem",
         "skill:discern-place-a-checkpoint",
       ],
     },
@@ -424,7 +423,6 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "glossary-canon",
       "skill-teach-the-project",
       "skill-write-adr",
-      "skill-document-subsystem",
       "skill-place-a-checkpoint",
     ],
     yields: ["keep-project-knowledge-working"],

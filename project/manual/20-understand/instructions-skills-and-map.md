@@ -64,7 +64,7 @@ You can read it too. Ask:
 
 > Show me the map's account of saved lists. Does it still describe how the app works after this change?
 
-That gives you something to correct before a misunderstanding appears in another implementation. Agents are expected to keep the map current as they change the project.
+That gives you something to correct before a misunderstanding appears in another implementation. Agents are expected to keep the map current as they change the project. [Maintain the project map](../10-guides/maintain-project-map.md) shows how to review an explanation and where new material belongs.
 
 The checks cover its mechanics: links, heading references, command examples, and metadata. File-linked freshness information can also identify pages whose sources changed. Those checks help locate work to review; a page can pass them and still contain an incorrect explanation. Reading the code and judging the explanation remain part of the agent's work.
 

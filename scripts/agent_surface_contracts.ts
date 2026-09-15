@@ -346,55 +346,6 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
     },
   ],
   [
-    "skill:discern-document-subsystem",
-    {
-      effectful: true,
-      cross_worktree: false,
-      authority_sensitive: false,
-      relay_bearing: true,
-      recoverable: true,
-      targets: [
-        target(
-          "path",
-          "{{map_dir}}",
-          "The configured documentation tree lives at `{{map_dir}}`.",
-        ),
-        target(
-          "stable",
-          "the target subtree's scope manifest",
-          "Each subtree is documented against a **scope manifest**",
-        ),
-      ],
-      sequence: [
-        act("## 1. Confirm the prerequisites"),
-        act("## 3. Document the subtree, following the brief"),
-        verify("## Done when"),
-      ],
-      stop_conditions: [
-        evidence(
-          "have the project owner restore the `_internal/` scaffolding before documenting",
-        ),
-      ],
-      recovery: [
-        evidence(
-          "have the project owner restore the `_internal/` scaffolding before documenting",
-        ),
-      ],
-      relay: {
-        message: evidence(
-          "I documented <coverage>. I preserved <todos>, found <glossary_additions>, resolved or reported <overlaps>, and recorded <deprecations>.",
-        ),
-        facts: [
-          "coverage",
-          "todos",
-          "glossary_additions",
-          "overlaps",
-          "deprecations",
-        ],
-      },
-    },
-  ],
-  [
     "skill:discern-product-voice",
     {
       effectful: true,

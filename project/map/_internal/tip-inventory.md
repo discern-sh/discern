@@ -435,12 +435,12 @@ Rendered line:
 - Relevance: Evergreen — a reusable guide lesson.
 - Predicate: —
 - Since: —
-- Teaches: `skill-document-subsystem`
+- Teaches: `map`
 - Follow-through: —
 
 Rendered line:
 
-> `discern-document-subsystem` has a coding agent rebuild one part of the project guide from the code and verify every claim.
+> Ask your agent to update the affected map explanation from the code and tests. The map maintenance guide explains how to keep it useful.
 
 ## `teach-the-next-agent`
 

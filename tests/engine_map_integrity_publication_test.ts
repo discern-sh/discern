@@ -64,7 +64,7 @@ Deno.test("done --json: excluding a bundled skill the map still cites fails unti
     const readme = await writeMapPage(
       dir,
       "README.md",
-      "# Map\n\nGrow each subtree with the `discern-document-subsystem` skill.\n",
+      "# Map\n\nGrow each subtree with the `discern-teach-the-project` skill.\n",
     );
     assertEquals(
       (await runAgent(dir, ["done", "--standalone", "--json"])).code,
@@ -77,13 +77,13 @@ Deno.test("done --json: excluding a bundled skill the map still cites fails unti
     // is what fires.
     const configPath = join(dir, "discern.toml");
     const editor = new TomlEditor(await Deno.readTextFile(configPath));
-    editor.setStringArray("skills.exclude", ["discern-document-subsystem"]);
+    editor.setStringArray("skills.exclude", ["discern-teach-the-project"]);
     await Deno.writeTextFile(configPath, editor.toString());
     await runAgent(dir, ["refresh"]);
 
     const output = await expectMapIntegrityFailure(dir);
     assertStringIncludes(output, "skill-citation");
-    assertStringIncludes(output, "discern-document-subsystem");
+    assertStringIncludes(output, "discern-teach-the-project");
     assertStringIncludes(output, "skills list"); // where to see the live set
 
     // Updating the citation (here: dropping the recommendation) clears it.

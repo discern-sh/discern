@@ -2126,7 +2126,7 @@ const docsGap: Detector = {
         // actionable, a popular one is context.
         strength: count * 25,
         next_step:
-          "Add or cross-link the missing topic where the recorded requests looked for it; the `discern-document-subsystem` skill fits this work.",
+          "Add or cross-link the missing topic where the recorded requests looked for it; the map maintenance guide explains the method.",
       });
     }
     if (lookups.length >= 10 && reads.size > 0) {
@@ -2598,7 +2598,7 @@ const instructionParity: Detector = {
           strength: hits * 10,
           next_step: shape === "refusal"
             ? `Check how \`${surface}\` teaches the workflow named by this refusal. If the instruction is absent or unclear, amend the authored instruction source and run \`discern refresh\`.`
-            : `Check how \`${surface}\` routes agents to this topic. Add or cross-link the page if needed; the \`discern-document-subsystem\` skill fits this work.`,
+            : `Check how \`${surface}\` routes agents to this topic. Add or cross-link the page if needed; the map maintenance guide explains the method.`,
         });
       }
     };

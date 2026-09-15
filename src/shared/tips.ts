@@ -720,11 +720,11 @@ export const TIPS: readonly RegisteredTip[] = [
   defineTip({
     id: "document-from-the-code",
     when: "Evergreen — a reusable guide lesson.",
-    features: ["skill-document-subsystem"],
+    features: ["map"],
     example: undefined,
     template: (): string =>
-      "`discern-document-subsystem` has a coding agent rebuild one part of " +
-      "the project guide from the code and verify every claim.",
+      "Ask your agent to update the affected map explanation from the code and " +
+      "tests. The map maintenance guide explains how to keep it useful.",
   }),
 
   defineTip({

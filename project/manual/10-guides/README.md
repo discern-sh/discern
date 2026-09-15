@@ -46,6 +46,7 @@ If discern is new to the project, begin with [installation and setup](../00-star
 ## Keep what the project learns
 
 - [Write project instructions](write-project-instructions.md): make a rule available to future sessions and supported coding tools.
+- [Maintain the project map](maintain-project-map.md): keep a useful account of the project as it grows.
 - [Create and manage skills](create-and-manage-skills.md): use the bundled playbooks and capture procedures worth repeating.
 - [Set and raise standards](set-and-raise-standards.md): preserve a measured improvement as a limit future changes must meet.
 - [Place and answer checkpoints](place-and-answer-checkpoints.md): have an agent consider a review question when a relevant change occurs.

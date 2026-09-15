@@ -6,7 +6,7 @@ _Every product feature and benefit, enumerated once, at every resolution. Creati
 
 The [Readiness Canon](brand/readiness-canon.md) approaches these mechanisms through the questions people ask before shipping, with routes back to the features and benefits that help answer them.
 
-10 pillars · 146 nodes · 11 benefit statements · 9 agent-benefit clusters · 82 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+10 pillars · 145 nodes · 11 benefit statements · 9 agent-benefit clusters · 81 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
@@ -147,7 +147,6 @@ _A reusable procedure becomes one file available to every future session._
   - **Clear the decks** — Sweep out the clutter agent-built codebases accumulate — duplicated helpers, dead code from abandoned approaches, one-caller indirection, leftover scaffolding — every cut proven safe, landed as small behavior-preserving commits, with the entropy capped by a standard.
   - **Delegate work** — Turn the work under discussion into complete, self-contained prompts for fresh agents in their own worktrees — one handoff, a parallel fan-out, or staged briefs — then review what lands adversarially.
   - **Await the fleet** — Wait for another effort with one blocking `discern_await` call — a sibling green, its work landed, or the trunk moved — choosing the condition from the need, awaiting an exact returned worktree selector, then following the met hint to compose what arrived.
-  - **Document a subsystem** — Write or refresh one subsystem's subtree of the map from the real code, following the documenter brief that `discern setup begin` seeds under the map's `_internal/` scaffolding.
   - **Teach the project** — Route a session's lesson into the project's own surfaces — an instruction line, an authored skill, a project script, a doc, or a decision record — so every future session inherits it.
   - **Write an ADR** — Guide recording a significant decision — context, decision, consequences, alternatives — from the canonical template and format guide every install carries.
   - **Write it once** — The practices discern builds itself with, as a stack-neutral survey plus two deep procedures: one authority per shared fact with bound consumers, guards that enroll future members, declared universes for broad rules, planned effects with convergent reruns, comment discipline — and the ties recorded in a canonical-sets page in the project's map.
@@ -325,7 +324,6 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `discern-clear-the-decks` — skill-clear-the-decks
 - `discern-cure-a-bug` — skill-cure-a-bug
 - `discern-delegate-work` — skill-delegate-work
-- `discern-document-subsystem` — skill-document-subsystem
 - `discern-place-a-checkpoint` — skill-place-a-checkpoint
 - `discern-set-the-standard` — skill-set-the-standard
 - `discern-teach-the-project` — skill-teach-the-project

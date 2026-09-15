@@ -6,7 +6,7 @@ _The practice, enumerated: the obligations discern holds for every change and fo
 
 The [Readiness Canon](brand/readiness-canon.md) connects the questions people ask before shipping to these obligations and their mechanisms. A project selects appropriate checks and judgments for the change it intends to make.
 
-12 tenets · 10 bundled skills claimed · 77 feature nodes cited · 7 of 8 human-benefit clusters yielded · 24 of 24 coding-agent outcomes enabled · 6 properties.
+12 tenets · 9 bundled skills claimed · 76 feature nodes cited · 7 of 8 human-benefit clusters yielded · 24 of 24 coding-agent outcomes enabled · 6 properties.
 
 ## The frame
 
@@ -134,8 +134,8 @@ A lesson kept in a conversation is a lesson the next session learns again.
 A correction becomes instructions, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
 
 - **Arc:** loop
-- **Upheld:** enforced via `[map]` · taught by `discern-teach-the-project`, `discern-write-adr`, `discern-document-subsystem`, `discern-place-a-checkpoint`
-- **Mechanisms:** The map · Decision records · The docs integrity preflight · File-linked freshness · The vocabulary canon · Teach the project · Write an ADR · Document a subsystem · Place a checkpoint.
+- **Upheld:** enforced via `[map]` · taught by `discern-teach-the-project`, `discern-write-adr`, `discern-place-a-checkpoint`
+- **Mechanisms:** The map · Decision records · The docs integrity preflight · File-linked freshness · The vocabulary canon · Teach the project · Write an ADR · Place a checkpoint.
 - **Human value:** Keep project knowledge available.
 - **Agent outcomes:** Recover the project mental model · Invoke curated project procedures.
 - **Maintains:** its instructions, its decisions.

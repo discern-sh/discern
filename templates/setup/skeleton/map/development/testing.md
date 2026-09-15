@@ -2,7 +2,7 @@
 
 _The testing approach in this repo — how tests are written, how they run, and the patterns the gate assumes._
 
-> This doc is a skeleton. The `discern setup` command (and the `discern-document-subsystem` skill, when filling the `development` subtree) writes it from the project's actual test stack. Look for the `<!-- setup fills this -->` marker.
+> This doc is a skeleton. The `discern setup` command writes it from the project's actual test stack. Look for the `<!-- setup fills this -->` marker.
 
 The `test` job in `discern.toml` is what `discern done` runs; this doc explains how to write tests that pass it and how to run them while iterating.
 

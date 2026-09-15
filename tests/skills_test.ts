@@ -65,7 +65,7 @@ Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
   // set, so adding a built-in later doesn't break this test).
   for (
     const n of [
-      "discern-document-subsystem",
+      "discern-teach-the-project",
       "discern-write-adr",
     ]
   ) {
@@ -361,12 +361,12 @@ Deno.test("resolveEffectiveSkills: bundled-only when no authored dir", async () 
 
 Deno.test("resolveEffectiveSkills: authored overrides a bundled name; unique authored stands alone", async () => {
   await withTempDir(async (root) => {
-    await authoredSkill(root, "discern-document-subsystem"); // shadows a built-in
+    await authoredSkill(root, "discern-teach-the-project"); // shadows a built-in
     await authoredSkill(root, "my-skill"); // unique
     const eff = await resolveEffectiveSkills(root, cfg());
     const byName = new Map(eff.map((e) => [e.name, e]));
 
-    const overridden = byName.get("discern-document-subsystem");
+    const overridden = byName.get("discern-teach-the-project");
     assertExists(overridden);
     assertEquals(overridden.source, "authored");
     assertEquals(overridden.overrides_bundled, true);
@@ -385,14 +385,14 @@ Deno.test("resolveEffectiveSkills: authored overrides a bundled name; unique aut
 
 Deno.test("listSkills annotates source / override / has_bundled", async () => {
   await withTempDir(async (root) => {
-    await authoredSkill(root, "discern-document-subsystem");
+    await authoredSkill(root, "discern-teach-the-project");
     await authoredSkill(root, "my-skill");
     const rows = new Map(
       (await listSkills(root, cfg())).map((r) => [r.name, r]),
     );
 
-    assertEquals(rows.get("discern-document-subsystem"), {
-      name: "discern-document-subsystem",
+    assertEquals(rows.get("discern-teach-the-project"), {
+      name: "discern-teach-the-project",
       source: "authored",
       overrides_bundled: true,
       has_bundled: true,
@@ -414,10 +414,10 @@ Deno.test("listSkills annotates source / override / has_bundled", async () => {
 Deno.test("materializeSkills: bundled copied, authored symlinked", async () => {
   await withTempDir(async (root) => {
     await authoredSkill(root, "my-skill");
-    await authoredSkill(root, "discern-document-subsystem"); // override → symlink, not copy
+    await authoredSkill(root, "discern-teach-the-project"); // override → symlink, not copy
     const res = await materializeSkills(root, cfg(), CLAUDE_SKILLS);
     assert(res.copied >= 1, `expected the non-overridden built-ins copied`);
-    assertEquals(res.linked, 2); // my-skill + the discern-document-subsystem override
+    assertEquals(res.linked, 2); // my-skill + the discern-teach-the-project override
     assertEquals(res.pruned, 0);
 
     const sk = claudeSkillsDirOf(root);
@@ -433,7 +433,7 @@ Deno.test("materializeSkills: bundled copied, authored symlinked", async () => {
     );
     // The override is a symlink too (authored wins over the bundled copy).
     assert(
-      (await Deno.lstat(join(sk, "discern-document-subsystem"))).isSymlink,
+      (await Deno.lstat(join(sk, "discern-teach-the-project"))).isSymlink,
     );
   });
 });
@@ -625,9 +625,9 @@ Deno.test("materialization renders bundled markdown against the configured paths
       join(skillsAbs, "discern-write-adr", "SKILL.md"),
     );
     assertStringIncludes(adr, "zz-atlas/_adr/");
-    // ...and the documenter skill names the configured ledger.
+    // ...and the teaching skill names the configured ledger.
     const doc = await Deno.readTextFile(
-      join(skillsAbs, "discern-document-subsystem", "SKILL.md"),
+      join(skillsAbs, "discern-teach-the-project", "SKILL.md"),
     );
     assertStringIncludes(doc, "zz-ledger.md");
 

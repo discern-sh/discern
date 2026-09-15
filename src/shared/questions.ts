@@ -202,8 +202,8 @@ export const QUESTIONS: readonly Question[] = [
       "or does a page describe a previous design? A stale doc is a bug.",
     teach:
       "Docs are only worth trusting if they track the code. When a change alters " +
-      "documented behavior, update the page in the same change. The discern-document-subsystem " +
-      "skill refreshes a subtree; `discern map --list` shows the tree.",
+      "documented behavior, check the affected pages against the code and tests. " +
+      "Update inaccurate explanations and their navigation; `discern map --list` shows the tree.",
   },
   {
     id: "map.navigation",

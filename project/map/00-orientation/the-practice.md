@@ -88,7 +88,7 @@ A lesson kept in a conversation is a lesson the next session learns again.
 
 > Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.
 
-**Upheld:** enforced via `[map]` · taught by `discern-teach-the-project`, `discern-write-adr`, `discern-document-subsystem`, `discern-place-a-checkpoint`.
+**Upheld:** enforced via `[map]` · taught by `discern-teach-the-project`, `discern-write-adr`, `discern-place-a-checkpoint`.
 
 ## What the work honors
 

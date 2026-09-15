@@ -6,7 +6,7 @@ _discern's canonical account of what the product gives the coding agent operatin
 
 The [Readiness Canon](brand/readiness-canon.md) connects release questions to these outcomes and their existing feature mechanisms. Use its approaches to select work appropriate to the project and change.
 
-9 workflow clusters · 24 agent benefits · 132 direct feature roles · 11 supporting feature roles · 21 agent-only hints · 17 agent or shared claims carried.
+9 workflow clusters · 24 agent benefits · 131 direct feature roles · 11 supporting feature roles · 21 agent-only hints · 17 agent or shared claims carried.
 
 ## How to use this canon
 
@@ -191,9 +191,9 @@ A coding agent can invoke focused project procedures that carry quality discipli
 ### Invoke curated project procedures
 
 - **Agent value:** A coding agent can discover only the procedures the project chose to materialize, with each procedure carrying a bounded workflow for the task it matches.
-- **Why it follows:** The skill registry controls materialization and curation, while the bundled procedures cover defect-class cures, Standards, checkpoints, cleanup, delegation, fleet waits, subsystem documentation, durable teaching, ADRs, and single-authority design.
+- **Why it follows:** The skill registry controls materialization and curation, while the bundled procedures cover defect-class cures, Standards, checkpoints, cleanup, delegation, fleet waits, durable teaching, ADRs, and single-authority design.
 - **Boundary:** A skill supplies a procedure and decision points; it does not grant permissions the current task lacks or replace the project's own facts and tests.
-- **Direct product basis:** Skills · Materialization · A curated bundled set · Cure a bug · Set the standard · Place a checkpoint · Clear the decks · Delegate work · Await the fleet · Document a subsystem · Teach the project · Write an ADR · Write it once.
+- **Direct product basis:** Skills · Materialization · A curated bundled set · Cure a bug · Set the standard · Place a checkpoint · Clear the decks · Delegate work · Await the fleet · Teach the project · Write an ADR · Write it once.
 - **Public claims:** `shaped-delegation`.
 
 ### Let new members enrol themselves
