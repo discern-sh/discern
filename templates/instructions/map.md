@@ -6,6 +6,8 @@ Update the affected pages when a change alters a boundary, constraint, supported
 
 Extend an existing section first. Split a child page for a distinct reader task. Create a region with its own README for a durable responsibility; ordinary features belong under their subsystem. Keep the root for the project overview and navigation. Follow the project's existing ordering; numeric prefixes are optional.
 
+Use the map to connect working knowledge: link relevant instructions, skills, checks, checkpoints, and ADRs from the explanation they support. Keep each rule or procedure in its own authority.
+
 Keep current behavior, agreed requirements, and unresolved questions distinct. The map describes the present; concrete outstanding work belongs in `{{todo_path}}`. Record significant decision rationale in **Architecture Decision Records** under `{{map_dir}}_adr/`. An ADR records a decision or approved exception; it does not authorize overriding an agreed requirement.
 
 <!-- discern:map-regions -->

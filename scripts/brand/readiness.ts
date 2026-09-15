@@ -106,7 +106,7 @@ export const READINESS_ROUTES = {
   map: {
     invitation: "Give the next person somewhere useful to start.",
     how:
-      "The Map holds the project's account of boundaries, workflows, and where to begin, so review and support preparation can start from retained understanding.",
+      "The Map explains boundaries and workflows with evidence, linking the relevant procedures, checks, and decisions. It preserves context for data handling, recovery, compatibility, and release work where the project needs it.",
     contribution: "Project knowledge",
     doc: "project/manual/20-understand/instructions-skills-and-map.md",
     humanBenefit: "inspect-agent-understanding",

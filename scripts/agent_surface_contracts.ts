@@ -542,8 +542,8 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         ),
         target(
           "path",
-          "{{map_dir}}80-development/canonical-sets.md",
-          "Keep a page in the project's documentation tree — `{{map_dir}}80-development/canonical-sets.md`, created the first time you bind a fact",
+          "{{map_dir}}",
+          "Find the page in `{{map_dir}}` that already explains shared authorities",
         ),
       ],
       sequence: [

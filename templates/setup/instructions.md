@@ -451,7 +451,8 @@ files_to_read = [
   "{{instruction_path}} and {{todo_path}}",
 ]
 must_do = [
-  "Author final orientation from the subsystem evidence, including how the Map is used and where a new agent starts.",
+  "Author final orientation from the subsystem evidence, including how the Map is used and where a new agent starts. Make the root route to project instructions, reusable procedures, checks, decisions, and the work ledger without copying their contents.",
+  "Connect each subsystem to the relevant tests, review questions, approved decisions, and recovery procedures. Preserve context about data handling, recovery, compatibility, and release dependencies where it affects real work; do not create a page or checklist for every possible concern.",
   "Complete the root overview and the selected subsystem pages. Explain real boundaries and constraints; do not manufacture a surprising invariant. Link every retained page from its region README and make each region reachable from the root.",
   "Reconcile the development pages and the adoption ADR with the supported commands, Gate, worktree readiness, and smoke behavior proved in Step 7.",
   "After all documentation edits, target every architecture, ownership, test-behavior, and command claim and recheck it against current code/config; link the authority where useful.",

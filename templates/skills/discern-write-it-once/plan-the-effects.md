@@ -35,7 +35,7 @@ Reruns are part of the contract. Define each: after success, a rerun is a no-op 
 
 Exercise the real entry point — the actual command, API, or generated artifact, with real schemas and fixtures where the contract depends on them. Cover the failure surface: malformed input, refused preconditions, partial progress, uncertain ownership. Prove the rerun claims: a second run after success is a no-op, and a representative partial state converges. Skip runtime tests for relationships the compiler already makes exhaustive.
 
-When the workflow established or consumed a shared authority along the way, record it in `{{map_dir}}80-development/canonical-sets.md` (the header lives in [bind-the-fact.md](bind-the-fact.md)), and report the contract, the effect boundary, and the rerun behavior in your summary.
+When the workflow established or consumed a shared authority along the way, record it in the shared-authorities page selected in [SKILL.md](SKILL.md#record-the-ties) (the header lives in [bind-the-fact.md](bind-the-fact.md)), and report the contract, the effect boundary, and the rerun behavior in your summary.
 
 ## Done when
 

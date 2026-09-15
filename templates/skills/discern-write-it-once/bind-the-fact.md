@@ -33,7 +33,7 @@ Where the fact backs a broad rule ("no file under our source roots may X"), chec
 
 ## 5. Record the ties
 
-Add or update the fact's row in `{{map_dir}}80-development/canonical-sets.md`; create the page on first use with this header:
+Add or update the fact's row in the shared-authorities page selected in [SKILL.md](SKILL.md#record-the-ties); create the page on first use with this header:
 
 | Fact | Authority | Consumers & bindings | Fails on drift |
 | ---- | --------- | -------------------- | -------------- |

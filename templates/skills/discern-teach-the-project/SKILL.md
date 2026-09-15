@@ -8,9 +8,9 @@ metadata:
 
 # Teach the project
 
-Sessions end; what they learned usually ends with them. The correction the user gave you, the procedure you derived the hard way, the decision you both reached — unless it's written into the project, the next session rediscovers it from scratch, or worse, guesses differently. discern gives a project several surfaces built to carry knowledge forward, and **anything routed into them is inherited by every future agent session, whichever vendor's agent shows up**. That is how a project gets smarter over time instead of merely older.
+Sessions end; what they learned usually ends with them. The correction the user gave you, the procedure you derived the hard way, the decision you both reached — unless it's written into the project, the next session rediscovers it from scratch, or worse, guesses differently. discern gives a project several surfaces built to carry knowledge forward, and **later agent sessions can discover the recorded knowledge through the project, whichever supported coding tool they use**. That is how a project gets smarter over time instead of merely older.
 
-The judgement this skill holds is _routing_: each kind of lesson has exactly one right home, and a lesson filed in the wrong one is never found again.
+The judgement this skill holds is _routing_: each fact needs one authority, with links from the places a future task will look.
 
 ---
 
@@ -33,9 +33,9 @@ When the lesson came from you noticing (rather than the user asking), **offer �
 
 ---
 
-## 3. Route it — each lesson has one home
+## 3. Route it — one authority per fact
 
-Pick the **smallest surface that fully carries the lesson**, and give it exactly one home — the same single-source rule the code lives by:
+Pick the **smallest surface that owns each fact**. A lesson can need several linked forms:
 
 | The lesson is…                                                                    | Its home                                                                                                   | Why there                                                                                       |
 | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -46,7 +46,9 @@ Pick the **smallest surface that fully carries the lesson**, and give it exactly
 | Durable context — how a subsystem works, what's true and why it's shaped this way | **A docs page** — under `{{map_dir}}` (follow the map maintenance guide)          | Read on demand; the reference the other surfaces can point at                                   |
 | A decision — hard to reverse, surprising without context, a real trade-off        | **An ADR** — via the `discern-write-adr` skill                                                             | Records _why_, so it isn't silently re-litigated                                                |
 
-Two rules across every home: **check for an existing home first** — a lesson that updates a stale instructions line, an existing skill, or a current doc belongs _there_, not in a duplicate; and **never split one lesson across surfaces** — if a rule needs its rationale, the rule goes in instructions with a link to the ADR that explains it.
+Check for an existing authority first. Update a stale instruction, skill, or map page in place. Link the representations that serve different jobs: a test checks behavior, an instruction states a standing rule, an ADR records the approved reason, and a map page explains their relationship. Do not copy the same policy or procedure into each one.
+
+Use the map as the reference connecting these surfaces. Link the relevant check, procedure, or decision from the affected subsystem, and link back when that helps a future task find the explanation.
 
 ---
 
@@ -76,7 +78,7 @@ Teaching isn't done until the surface is live:
 
 ## Done when
 
-- each lesson lives at **exactly one surface**, the smallest that carries it — updating an existing entry rather than duplicating it;
+- each fact has **one authority**, with links between the different forms the lesson needs; existing entries are updated rather than duplicated;
 - what was authored meets **that surface's bar** (an earning-its-line instructions rule, a real playbook, an executable project script, a current doc, a why-carrying ADR);
 - the surface is **live** — instructions recompiled, skill/project script discoverable — and the user was told what the project just learned;
 - anything the user declined to capture was **dropped without residue** (no half-filed notes in odd corners).

@@ -12,6 +12,12 @@
 
 <!-- Add links to the actual subsystem folders setup authors. Update this list when topics are combined or moved. -->
 
+## Working knowledge
+
+<!-- setup fills this -->
+
+<!-- Link the project instruction source, relevant authored skills or procedures, check configuration, ADR guide, and work ledger. Explain what each owns. Use paths relative to this page; keep configuration and procedure details in their own authority. -->
+
 ## Keep this map useful
 
 Update the affected explanation when a change alters a boundary, supported workflow, constraint, or product behavior. Check its claims against code, tests, configuration, or agreed project intent and link those authorities.
