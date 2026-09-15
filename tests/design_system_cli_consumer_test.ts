@@ -36,9 +36,7 @@ import {
   type TerminalApplicationOptions,
   type TerminalApplicationState,
   type TerminalApplicationView,
-  type TerminalIO,
   type TerminalMouseEvent,
-  type TerminalSize,
   transitionTerminalApplication,
   updateTerminalApplication,
 } from "discern-design-system/cli/interactive";
@@ -56,7 +54,6 @@ import {
 } from "./design_system_dependency.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const encoder = new TextEncoder();
 const ANSI_PATTERN = new RegExp(
   `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
   "gu",
@@ -125,54 +122,6 @@ function reactRuntimeModules(specifiers: readonly string[]): string[] {
     !specifier.startsWith("npm:/@types/") &&
     /(?:^|[/@-])react(?:-dom)?(?:[/.@-]|$)/iu.test(specifier)
   );
-}
-
-/** Queue-backed terminal that proves the public interactive path without real effects. */
-class ConsumerTerminal implements TerminalIO {
-  readonly writes: string[] = [];
-  readonly rawTransitions: boolean[] = [];
-  readonly #chunks: Uint8Array[];
-  readonly #capabilities: TerminalCapabilities;
-  readonly #size: TerminalSize;
-
-  constructor(
-    chunks: readonly string[],
-    capabilities: TerminalCapabilities = {
-      ansiControl: true,
-      colorDepth: "none",
-      columns: 60,
-      unicode: true,
-    },
-    size: TerminalSize = { columns: 60, rows: 24 },
-  ) {
-    this.#chunks = chunks.map((chunk) => encoder.encode(chunk));
-    this.#capabilities = capabilities;
-    this.#size = size;
-  }
-
-  isInteractive(): boolean {
-    return true;
-  }
-
-  capabilities(): TerminalCapabilities {
-    return this.#capabilities;
-  }
-
-  size(): TerminalSize {
-    return this.#size;
-  }
-
-  read(): Promise<Uint8Array | null> {
-    return Promise.resolve(this.#chunks.shift() ?? null);
-  }
-
-  setRawMode(enabled: boolean): void {
-    this.rawTransitions.push(enabled);
-  }
-
-  write(value: string): void {
-    this.writes.push(value);
-  }
 }
 
 /** Read one resolved Deno graph as external-consumer evidence. */
@@ -267,7 +216,7 @@ Deno.test("the selected source exposes the complete public reader contract", asy
     { kind: "group-heading", id: "secondary", label: "Secondary" },
     { id: "two", label: "Two", value: "two" },
   ] as const satisfies readonly InteractionEntry<string>[];
-  const io = new ConsumerTerminal(["\x1b[B\r"]);
+  const io = new FakeTerminalIO(["\x1b[B\r"]);
   assertEquals(
     await requestSelection({
       label: "Pick",
@@ -304,7 +253,7 @@ Deno.test("the selected source exposes the complete public reader contract", asy
   assertEquals(browserIo.rawTransitions, [true, false]);
   assertEquals(browserIo.resizeListenerCount, 0);
 
-  const acknowledgementIo = new ConsumerTerminal(["\r"]);
+  const acknowledgementIo = new FakeTerminalIO(["\r"]);
   await requestAcknowledgement(
     { presentation: "compact" },
     { io: acknowledgementIo },
@@ -327,7 +276,7 @@ Deno.test("the selected source exposes the complete public reader contract", asy
     assertEquals(one.indexOf("One"), two.indexOf("Two"));
   }
 
-  const staticIo = new ConsumerTerminal([], {
+  const staticIo = new FakeTerminalIO([], {
     ansiControl: false,
     colorDepth: "none",
     columns: 60,
@@ -343,7 +292,8 @@ Deno.test("the selected source exposes the complete public reader contract", asy
   });
   assertEquals(staticIo.writes, []);
 
-  const shortIo = new ConsumerTerminal([], capabilities, {
+  const shortIo = new FakeTerminalIO([], {
+    ...capabilities,
     columns: 60,
     rows: 2,
   });
@@ -357,7 +307,7 @@ Deno.test("the selected source exposes the complete public reader contract", asy
   });
   assertEquals(shortIo.writes, []);
 
-  const hintedIo = new ConsumerTerminal([], {
+  const hintedIo = new FakeTerminalIO([], {
     ansiControl: false,
     colorDepth: "none",
     columns: 60,

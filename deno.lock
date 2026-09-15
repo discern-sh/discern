@@ -1396,7 +1396,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@cliffy/command@^1.0.0-rc.8",
-      "jsr:@discern-sh/design-system@0.31.0",
+      "jsr:@discern-sh/design-system@0.33.0",
       "jsr:@std/assert@^1.0.10",
       "jsr:@std/encoding@^1.0.7",
       "jsr:@std/fmt@^1.0.10",
@@ -1424,7 +1424,7 @@
       "npm:react@18.3.1"
     ],
     "links": {
-      "jsr:@discern-sh/design-system@0.31.0": {
+      "jsr:@discern-sh/design-system@0.33.0": {
         "dependencies": [
           "jsr:@std/assert@^1.0.10",
           "jsr:@std/encoding@^1.0.7",
@@ -1437,7 +1437,7 @@
           "npm:react@18.3.1"
         ]
       },
-      "npm:discern-design-system@0.31.0": {
+      "npm:discern-design-system@0.33.0": {
         "peerDependencies": [
           "npm:react-dom@>=18.3.0",
           "npm:react@>=18.3.0"
