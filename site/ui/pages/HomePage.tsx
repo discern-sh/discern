@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 /** Homepage shell for the public landing page. */
 
 import {
@@ -62,7 +63,7 @@ export function renderLanding(): string {
 }
 
 /** Homepage content composed through the shared marketing layout. */
-function HomePage() {
+function HomePage(): ReactElement {
   return (
     <MarketingLayout>
       <section className="homepage-artwork" aria-labelledby="homepage-title">

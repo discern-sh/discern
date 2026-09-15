@@ -1,7 +1,7 @@
 import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
 /** The public /agents campaign page, rendered to static HTML by site/build.ts. */
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { Badge, Button, Kicker } from "discern-design-system/react";
 import {
   PROVIDER_TRADEMARK_NOTICE,
@@ -39,7 +39,7 @@ function MovementHeader(
     readonly lead?: string;
     readonly titleId: string;
   },
-) {
+): ReactElement {
   return (
     <header className="agents-movement-header">
       <div className="agents-movement-header__index" aria-hidden="true">
@@ -56,7 +56,7 @@ function MovementHeader(
 }
 
 /** The opening card: the claim, and the agent's account rendered as a profile. */
-function AgentsHero() {
+function AgentsHero(): ReactElement {
   const { hero } = AGENTS_CONTENT;
   return (
     <section className="agents-hero" aria-labelledby="agents-hero-title">
@@ -126,7 +126,7 @@ function AgentsHero() {
 }
 
 /** Recognition of the interfaces agents currently have to compensate for. */
-function RecognitionSection() {
+function RecognitionSection(): ReactElement {
   const { recognition } = AGENTS_CONTENT;
   const frictions = [
     ["terminal", "remembers nothing"],
@@ -172,7 +172,7 @@ function RecognitionSection() {
 }
 
 /** The explicit workflow, shown as the "did you mean" every developer knows. */
-function ErgonomicsSection() {
+function ErgonomicsSection(): ReactElement {
   const { ergonomics } = AGENTS_CONTENT;
   const { refusal } = AGENTS_EVIDENCE;
   return (
@@ -205,7 +205,7 @@ function ErgonomicsSection() {
 }
 
 /** Context economy, itemised like a till bill. */
-function ContextSection() {
+function ContextSection(): ReactElement {
   const { context } = AGENTS_CONTENT;
   const { bill } = AGENTS_EVIDENCE;
   return (
@@ -246,7 +246,7 @@ function ContextSection() {
 }
 
 /** Project memory that outlives sessions, compiled per provider. */
-function ContinuitySection() {
+function ContinuitySection(): ReactElement {
   const { continuity } = AGENTS_CONTENT;
   return (
     <section
@@ -300,7 +300,7 @@ function ContinuitySection() {
 }
 
 /** Exact completion, issued the way certificates always have been. */
-function ProofSection() {
+function ProofSection(): ReactElement {
   const { proof } = AGENTS_CONTENT;
   const evidence = AGENTS_EVIDENCE.proof;
   return (
@@ -364,7 +364,7 @@ function ProofSection() {
 }
 
 /** A green gate is not permission, shown as the review box every dev knows. */
-function AuthoritySection() {
+function AuthoritySection(): ReactElement {
   const { authority } = AGENTS_CONTENT;
   const { review } = authority;
   return (
@@ -402,7 +402,7 @@ function AuthoritySection() {
 }
 
 /** Trust through explicit absences. */
-function AbsencesSection() {
+function AbsencesSection(): ReactElement {
   const { absences } = AGENTS_CONTENT;
   return (
     <section
@@ -439,7 +439,7 @@ function AbsencesSection() {
 }
 
 /** The page turns to the human: one instruction to hand their agent. */
-function NextActionsSection() {
+function NextActionsSection(): ReactElement {
   const { next } = AGENTS_CONTENT;
   return (
     <section className="agents-next" id={next.id} aria-labelledby="next-title">
@@ -499,7 +499,7 @@ function NextActionsSection() {
 }
 
 /** Shared site chrome around the bespoke campaign composition. */
-function AgentsPage() {
+function AgentsPage(): ReactElement {
   return (
     <div className="agents-page">
       <MarketingLayout>

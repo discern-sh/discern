@@ -1,6 +1,6 @@
 /** Discern's canonical design-system lockup for public site chrome. */
 
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Brand } from "discern-design-system/react";
 import { DISCERN_MARK } from "../../brand.ts";
@@ -11,7 +11,7 @@ export interface DiscernBrandProps {
 }
 
 /** Pair the canonical decorative mark with the monospaced product name. */
-export function DiscernBrand({ tagline }: DiscernBrandProps) {
+export function DiscernBrand({ tagline }: DiscernBrandProps): ReactElement {
   return (
     <Brand
       mark={DISCERN_MARK}

@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
 /** The concise /trust bridge from public claims to inspectable evidence. */
 
@@ -61,7 +62,7 @@ export const TRUST_EVIDENCE = [
 function EvidenceGroup({ group, index }: {
   readonly group: TrustEvidenceGroup;
   readonly index: number;
-}) {
+}): ReactElement {
   const titleId = `trust-evidence-${index + 1}`;
   return (
     <article className="trust-evidence" aria-labelledby={titleId}>
@@ -82,7 +83,7 @@ function EvidenceGroup({ group, index }: {
 }
 
 /** The complete bridge: three bounded claims, then exact operational homes. */
-function TrustPage() {
+function TrustPage(): ReactElement {
   return (
     <div className="trust-page">
       <MarketingLayout>

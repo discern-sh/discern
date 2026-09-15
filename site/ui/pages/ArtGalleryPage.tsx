@@ -163,8 +163,7 @@ function ArtGallery(
               Static browser mockups of the same registry members printed by
               {" "}
               <code>deno task art</code>. Their semantic timelines remain
-              available through{"  "}<code>--animate</code>{" "}
-              in a capable terminal.
+              available through <code>--animate</code> in a capable terminal.
             </p>
           </header>
           <TerminalArtwork artworks={terminalArtworks} />

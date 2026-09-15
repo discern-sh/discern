@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { Button } from "discern-design-system/react";
 /** Prompt source and accessible copy markup. */
 export const COPY_PROMPT_TEXT =
@@ -23,7 +24,7 @@ export function CopyPrompt(
     linkLabel = "Read the machine guide",
     linkHref = "/llms.txt",
   }: CopyPromptProps,
-) {
+): ReactElement {
   return (
     <div className="landing-copy-prompt">
       <p className="landing-copy-prompt__label">{label}</p>

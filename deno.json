@@ -190,11 +190,10 @@
       ".discern-bundled-manual/",
       ".deno_compile_bundle_*.mjs",
       "dist/",
-      "site/build.ts",
+      "site/ui/components/HtmlFragment.tsx",
       "site/page-src/",
       "templates/",
-      "tests/fixtures/",
-      "site/ui/"
+      "tests/fixtures/"
     ]
   },
   "test": {
