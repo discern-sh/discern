@@ -165,9 +165,16 @@ discern recognizes {{diagnostic_formats}}, but recognition alone does not justif
 
 {{reporter_guidance_table}}
 
-Optional progress reports: consider the test runner's reporter or event hooks and the project's overall check runtime. For long-running checks, a small adapter can print `DISCERN_PROGRESS` followed by one JSON object per line to stdout or stderr, so discern can show measured counts and failures while the command runs. Fast checks or runners without suitable hooks may not benefit; choose whether to add reporting during setup or defer it. Progress reports are never required to complete setup.
+Optional progress reports: consider the test runner's reporter or event hooks and the project's overall check runtime. Long-running checks can report measured counts and failures while they run. Fast checks or runners without suitable hooks may not benefit; choose whether to add reporting during setup or defer it. Progress reports are never required to complete setup.
 
-If you add reporting, preserve the command's exit status and failure diagnostics, avoid material overhead, and emit only facts the runner established. Read `discern docs 30-reference/mcp-and-results` for the protocol and examples.
+If you add reporting, preserve the command's exit status and failure diagnostics, avoid material overhead, and emit only facts the runner established. Print `DISCERN_PROGRESS` followed by one JSON object per line to stdout or stderr:
+
+```text
+DISCERN_PROGRESS {"units":{"kind":"files","completed":3,"total":8},"results":{"passed":120,"failed":1,"skipped":2},"elapsed_ms":45210}
+DISCERN_PROGRESS {"failure":{"name":"alpha holds","message":"expected 2, got 3","file":"tests/alpha_test.py","line":42,"reproduce":"tools/test --only 'alpha holds' --seed 7"}}
+```
+
+Top-level fields are optional. `units` names the work kind and completed count; use `total: null` or omit the total when unknown. `results` includes only established counts. `active` lists running work labels, and `elapsed_ms` reports elapsed time. Set `partial: true` when counts cover only part of the completed work; this marking persists. A `failure` requires `name` and `message`; add location and a focused `reproduce` command when available, preserving the recorded seed and instrumentation. discern displays these reports and retains them for reconnect; they do not determine the check's verdict. Invalid lines and lines over 16 KiB are ignored.
 
 ---
 

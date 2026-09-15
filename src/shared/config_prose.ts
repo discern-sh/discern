@@ -153,8 +153,6 @@ export const CONFIG_PROSE = {
       "A long-running command may report its own progress while it runs: print",
       'DISCERN_PROGRESS {"units":{"kind":"files","completed":3,"total":8}}',
       "lines and discern presents the counts, and any reported failures, live.",
-      "Reporting is optional during setup: consider runner hooks and check",
-      "runtime; keep exit status, failure diagnostics, and performance intact.",
       "Leave a known job unwired until its command exists; `discern setup` has",
       "your coding agent fill these from repository evidence.",
     ],
