@@ -494,7 +494,7 @@ export interface TrunkLimitsVerification {
 const LOOSENING_NEXT_STEP =
   "If this branch caused the metric breach, complete every required review, " +
   "regeneration, edit, preparation run, and ordinary commit first. Then record " +
-  "all simultaneously approved breaches through the Standards proposal action; " +
+  "all simultaneously approved breaches through the standards proposal action; " +
   'the scalar CLI form is `discern standards propose <name> --reason "…"`. ' +
   "Otherwise move the metric the right way. Only an exact proposal and exact " +
   "owner approval can move the held limit.";
