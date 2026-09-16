@@ -6,7 +6,7 @@
 import { dirname, fromFileUrl, join } from "@std/path";
 import { assertStringIncludes } from "@std/assert";
 import { parse as parseToml } from "@std/toml";
-import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
+import { withoutDeskSessionEnv } from "../src/engine/desk/session.ts";
 import { colorResolvedEnv } from "../src/shared/color_env.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
@@ -129,7 +129,7 @@ export async function runCli(
     env: {
       DISCERN_TEMPLATES_DIR: REAL_TEMPLATES,
       ...colorResolvedEnv(),
-      [DESK_SESSION_ENV]: "",
+      ...withoutDeskSessionEnv(),
       ...env,
     },
     stdin: stdin !== undefined ? "piped" : "null",

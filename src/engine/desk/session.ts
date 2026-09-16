@@ -19,6 +19,17 @@ export function deskSessionEnv(): Record<string, string> {
   return { [DESK_SESSION_ENV]: DESK_SESSION_VALUE };
 }
 
+/**
+ * The environment overlay that keeps an inherited marker from reaching a child.
+ * A child environment merges over its parent's, so a blank value is the only
+ * way to neutralize the marker without clearing everything else the parent
+ * holds. Spawn funnels whose children must behave the same whether or not the
+ * launcher sits beneath a desk apply this overlay before any caller override.
+ */
+export function withoutDeskSessionEnv(): Record<string, string> {
+  return { [DESK_SESSION_ENV]: "" };
+}
+
 /** Whether this process is a descendant of a desk-owned child session. */
 export function inDeskSession(
   env: Pick<typeof Deno.env, "get"> = Deno.env,

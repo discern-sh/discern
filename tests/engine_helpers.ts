@@ -43,7 +43,7 @@ import {
 import type { AgentName } from "../src/lib/config.ts";
 import { colorResolvedEnv } from "../src/shared/color_env.ts";
 import { selfShimDir } from "../src/shared/subprocess.ts";
-import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
+import { withoutDeskSessionEnv } from "../src/engine/desk/session.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
@@ -256,7 +256,7 @@ export async function engineEnv(
     TMPDIR: tmp,
     TMP: tmp,
     TEMP: tmp,
-    [DESK_SESSION_ENV]: "",
+    ...withoutDeskSessionEnv(),
     [TEST_RUN_SLOT_ENV]: "",
     [DISCERN_NO_ATTRIBUTION]: "",
     ...Object.fromEntries(

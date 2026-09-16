@@ -50,6 +50,8 @@ import { DESK_ACTIONS, type DeskAction } from "../src/engine/desk/model.ts";
 import {
   DESK_SESSION_ENV,
   deskSessionEnv,
+  inDeskSession,
+  withoutDeskSessionEnv,
 } from "../src/engine/desk/session.ts";
 import {
   DropWouldDiscardWork,
@@ -477,6 +479,23 @@ function scriptedRuntime(
 function joined(output: Transcript): string {
   return [...output.stdout, ...output.stderr].join("\n");
 }
+
+Deno.test("the desk-session overlays mark and neutralize the one key inDeskSession reads", () => {
+  const reader = (
+    overlay: Record<string, string>,
+  ): { get: (name: string) => string | undefined } => ({
+    get: (name) => overlay[name],
+  });
+  assertEquals(Object.keys(deskSessionEnv()), [DESK_SESSION_ENV]);
+  assertEquals(Object.keys(withoutDeskSessionEnv()), [DESK_SESSION_ENV]);
+  assertEquals(inDeskSession(reader(deskSessionEnv())), true);
+  assertEquals(inDeskSession(reader(withoutDeskSessionEnv())), false);
+  assertEquals(
+    inDeskSession(reader({ ...deskSessionEnv(), ...withoutDeskSessionEnv() })),
+    false,
+    "the neutralizing overlay must win over an inherited marker it is merged after",
+  );
+});
 
 Deno.test("desk-owned terminal children receive the desk-session marker", async () => {
   assertEquals(
