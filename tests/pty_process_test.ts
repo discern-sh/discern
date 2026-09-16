@@ -6,6 +6,7 @@ import {
 } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
+import { deskSessionEnv } from "../src/engine/desk/session.ts";
 import { ptyOutputContains, runPtyProcess } from "./fixtures/pty_process.ts";
 import { realPtyTest } from "./real_pty.ts";
 import { readPidIfReady } from "./process_id.ts";
@@ -16,6 +17,12 @@ const PTY_CHILD_PROGRAM = join(
   "tests",
   "fixtures",
   "pty_child_program.ts",
+);
+const PTY_DESK_SESSION_PROBE = join(
+  REPO_ROOT,
+  "tests",
+  "fixtures",
+  "pty_desk_session_probe.ts",
 );
 
 /** Build argv for one executable child scenario. */
@@ -209,6 +216,29 @@ realPtyTest({
       assertEquals(result.code, 0, result.transcript);
       assertStringIncludes(result.transcript, `command-shell:${commandShell}`);
     });
+  },
+});
+
+Deno.test({
+  name:
+    "the canonical PTY driver keeps an inherited desk session from its children",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    // The driver's own process sits beneath a forged desk session, exactly as
+    // a suite launched from a desk-owned shell would. Its children must see
+    // the marker blank unless a test sets it deliberately.
+    const result = await new Deno.Command(Deno.execPath(), {
+      args: ["run", "--quiet", "-A", PTY_DESK_SESSION_PROBE],
+      cwd: REPO_ROOT,
+      env: deskSessionEnv(),
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const output = new TextDecoder().decode(result.stdout) +
+      new TextDecoder().decode(result.stderr);
+    assertEquals(result.success, true, output);
+    assertStringIncludes(output, "inherited:desk-session:[]");
+    assertStringIncludes(output, "explicit:desk-session:[1]");
   },
 });
 

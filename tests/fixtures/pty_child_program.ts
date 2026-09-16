@@ -1,6 +1,7 @@
 /** Executable PTY child scenarios kept as parsed source instead of eval strings. */
 
 import { realDelay } from "../waiting.ts";
+import { DESK_SESSION_ENV } from "../../src/engine/desk/session.ts";
 
 const scenario = Deno.args[0];
 
@@ -91,6 +92,11 @@ switch (scenario) {
   }
   case "shell-reporting":
     console.log(`command-shell:${Deno.env.get("SHELL")}`);
+    break;
+  case "desk-session-reporting":
+    console.log(
+      `desk-session:[${Deno.env.get(DESK_SESSION_ENV) ?? "unset"}]`,
+    );
     break;
   default:
     throw new Error(`unknown PTY child scenario: ${scenario}`);

@@ -8,6 +8,7 @@ import {
   claimRealPtyBoundary,
   recordRealPtyProcessEvidence,
 } from "../real_pty.ts";
+import { withoutDeskSessionEnv } from "../../src/engine/desk/session.ts";
 import { TEST_PROCESS_TIMEOUT_MS } from "../waiting.ts";
 
 export { ptyOutputContains } from "discern-design-system/cli/interactive/testing";
@@ -46,6 +47,11 @@ export async function runPtyProcess(
         COLUMNS: String(options.geometry.columns),
         LINES: String(options.geometry.rows),
       }),
+      // The package merges over this process's environment, so a desk marker
+      // inherited by the suite would reach every PTY child — where a desk
+      // under test refuses to open and `doctor` reports the session. A test
+      // that needs the marker sets it through `env`.
+      ...withoutDeskSessionEnv(),
       ...options.env,
     },
     timeoutMs: options.timeoutMs ?? TEST_PROCESS_TIMEOUT_MS,
