@@ -705,10 +705,13 @@ export const TOOLS: McpTool[] = orderTools([
           signal,
         });
       }
+      // Only a value that asks for measure-action behavior conflicts. A client
+      // that sends its defaults has requested nothing, so `false` and an empty
+      // selection pass through rather than costing the caller a schema retry.
       const incompatible = [
-        ...(args.force === undefined ? [] : ["force"]),
-        ...(args.pin === undefined ? [] : ["pin"]),
-        ...(args.names === undefined ? [] : ["names"]),
+        ...(args.force === true ? ["force"] : []),
+        ...(args.pin === true ? ["pin"] : []),
+        ...((args.names?.length ?? 0) > 0 ? ["names"] : []),
       ];
       if (incompatible.length > 0) {
         return Promise.resolve(standardsActionFailure(
@@ -1729,6 +1732,42 @@ async function mcpDriverFacts(
   };
 }
 
+/**
+ * Tools whose `action` input selects WHICH operation runs, mapped to the command
+ * each value resolves to. One declaration behind both {@link operationCommand}
+ * and {@link ACTION_SELECTED_COMMANDS}, so a recorded operation and the flags
+ * recorded beside it can never disagree about what `action` meant.
+ * `discern_accept`'s `action` is a CLI positional, not a selector: it is
+ * recorded as that operation's target through the live CLI model.
+ */
+export const ACTION_SELECTED_OPERATIONS: ReadonlyMap<
+  string,
+  ReadonlyMap<string, string>
+> = new Map([
+  ["discern_standards", new Map([["propose", "standards propose"]])],
+]);
+
+/** Resolve one MCP tool invocation to the CLI operation it performs. */
+function operationCommand(
+  tool: McpTool,
+  args: Record<string, unknown>,
+): string {
+  const selected = ACTION_SELECTED_OPERATIONS.get(tool.name);
+  const resolved = selected === undefined || typeof args.action !== "string"
+    ? undefined
+    : selected.get(args.action);
+  return resolved ?? verbOf(tool.name);
+}
+
+/** Every command an action selector resolves to. Their `action` chose the
+ * operation already, so recording it again as a flag would double-count it. */
+const ACTION_SELECTED_COMMANDS: ReadonlySet<string> = new Set(
+  [...ACTION_SELECTED_OPERATIONS].flatMap(([tool, values]) => [
+    verbOf(tool),
+    ...values.values(),
+  ]),
+);
+
 /** The argument facts a tool call provided, projected through the live CLI model.
  * Positional values become the operation target; only actual CLI options become
  * flags. Values for options never land. `path` is plumbing and `dry_run` has its
@@ -1763,7 +1802,7 @@ function mcpCallFacts(
   const names = Object.keys(args)
     .filter((key) =>
       key !== "path" && key !== "dry_run" && key !== "target" &&
-      !(verb === "standards" && key === "action") &&
+      !(ACTION_SELECTED_COMMANDS.has(verb) && key === "action") &&
       !positional.has(key)
     )
     .map((k) => k.replaceAll("_", "-"))
@@ -1793,16 +1832,6 @@ function mcpCallFacts(
   }
   const target = targets.length > 0 ? targets.join(" ") : undefined;
   return { flags: names.length > 0 ? names : undefined, target };
-}
-
-/** Resolve one MCP tool invocation to the CLI operation it performs. */
-function operationCommand(
-  tool: McpTool,
-  args: Record<string, unknown>,
-): string {
-  return tool.name === "discern_standards" && args.action === "propose"
-    ? "standards propose"
-    : verbOf(tool.name);
 }
 
 /** Recording state opened as soon as a call's project root is known. Context
