@@ -189,7 +189,7 @@ export const READINESS_ROUTES = {
   "map-freshness": {
     invitation: "Find the explanation that needs another look.",
     how:
-      "Each Map page links to its sources. Later source commits identify accounts of data behavior, support, or recovery to review. This evidence directs attention; it cannot judge whether an explanation is true.",
+      "When source files change, discern points agents to the Map pages that explain them, helping each session find its way around the project and keep that shared understanding current.",
     contribution: "Advisory evidence",
     doc: "project/manual/20-understand/instructions-skills-and-map.md",
     humanBenefit: "inspect-agent-understanding",

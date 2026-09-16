@@ -955,7 +955,7 @@ Validation results name the producers executed or reused, their input binding, a
 
 Find the explanation that needs another look.
 
-Each Map page links to its sources. Later source commits identify accounts of data behavior, support, or recovery to review. This evidence directs attention; it cannot judge whether an explanation is true.
+When source files change, discern points agents to the Map pages that explain them, helping each session find its way around the project and keep that shared understanding current.
 
 **Contribution:** Advisory evidence. [Feature documentation](../../../manual/20-understand/instructions-skills-and-map.md).
 

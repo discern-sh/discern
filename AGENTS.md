@@ -74,7 +74,7 @@ When a session yields a durable lesson — a correction, a hard-won procedure, a
 
 `project/map/` is the **map**, browsable with **`discern_map`**: maintained explanations for agents and an account of their understanding for humans.
 
-Keep affected pages accurate when behavior, boundaries, constraints, or workflows change. Explain what readers need for correct changes; link supporting code, tests, configuration, and requirements. Useful implementation summaries belong here. Name functions for entry points or contracts; never transcribe every method or duplicate derivable inventories.
+Keep affected pages accurate when behavior, boundaries, constraints, or workflows change. Keep the map in the present, not as change history; remove resolved-bug narratives. Explain what readers need for correct changes; link supporting code, tests, configuration, and requirements. Useful implementation summaries belong here. Name functions for entry points or contracts; never transcribe every method or duplicate derivable inventories.
 
 Extend existing sections first. Split pages for distinct reader tasks; create folders with READMEs for durable responsibilities. Keep the root for overview and navigation. Follow existing ordering; numbers are optional.
 

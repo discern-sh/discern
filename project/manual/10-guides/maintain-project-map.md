@@ -23,7 +23,7 @@ Once discern is set up, your agent maintains the map alongside the project. You 
 
 Your agent searches the map in the language of the task, reads the relevant region's README, and follows its links to the implementation, tests, configuration, and decisions. Existing project documentation can remain the authority; the map links to it and explains why it matters.
 
-The agent checks the claims that the change could affect. A page that is still accurate needs no cosmetic edit. If the evidence is missing or conflicts with an agreed requirement, the agent reports the gap instead of writing a confident claim. You decide unresolved product intent; the project’s work ledger holds concrete unfinished work.
+The agent checks the claims that the change could affect. Each page explains how the project works now, in the present tense. The agent replaces obsolete descriptions and removes stories about resolved bugs or completed changes. A current page needs no cosmetic edit. If the evidence is missing or conflicts with an agreed requirement, the agent reports the gap instead of writing a confident claim. You decide unresolved product intent; the project’s work ledger holds concrete unfinished work.
 
 ## Explain the contract a reader needs
 

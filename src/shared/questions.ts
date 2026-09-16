@@ -194,14 +194,16 @@ export const QUESTIONS: readonly Question[] = [
     id: "map.current",
     violations: "diff-introduced",
     question:
-      "Review the affected map pages against the changed sources. Are their explanations " +
-      "still true, including behavior, constraints, boundaries and links? Consider other affected " +
-      "knowledge when source links do not cover the change. An accurate page needs no edit.",
+      "Review the affected map pages against the changed sources. Do they describe how the " +
+      "project works now — current behavior, constraints, boundaries, and links, in present tense — " +
+      "or preserve a previous design, a resolved bug, or an account of what this change achieved? " +
+      "Rewrite obsolete explanations; remove resolved-bug and change-history narration. " +
+      "A stale doc is a bug. Review other affected pages even when source links miss them.",
     teach:
-      "Docs are only worth trusting if they track the code. When a change alters " +
-      "documented behavior, check the affected pages against the code and tests. " +
-      "Update inaccurate explanations and their navigation. A map edit alone proves nothing; " +
-      "source links and Git history guide attention, while review establishes currency.",
+      "The map is a present-day explanation, not a record of completed work. Check affected " +
+      "claims against current code and tests. Replace an outdated account with the behavior " +
+      "and constraints that hold now; do not append a story of the bug and its fix. Keep " +
+      "significant architectural decision history in ADRs. A current page needs no cosmetic edit.",
   },
   {
     id: "map.adrs",
