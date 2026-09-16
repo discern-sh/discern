@@ -481,10 +481,13 @@ Deno.test("a failed settlement never replaces the reason the run ended", async (
         { clock: COMPLETION_CLOCK },
       )
     );
-    assert(raised instanceof Error);
+    assert(raised instanceof AggregateError);
     assertStringIncludes(raised.message, "fixture failure");
     assertStringIncludes(raised.message, "failed to settle");
-    assertEquals(raised.cause, failure);
+    // The run's own failure leads and survives as an object, beside the
+    // settlement failure it must never be replaced by.
+    assertEquals(raised.errors[0], failure);
+    assertEquals(raised.errors.length, 2);
   });
 });
 

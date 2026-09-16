@@ -292,28 +292,30 @@ export async function withAttemptClaim<T>(
   const signal = AbortSignal.any([parentSignal, lost.signal]);
   let completion:
     | { readonly ok: true; readonly value: T }
-    | { readonly ok: false; readonly error: unknown };
+    | { readonly ok: false; readonly failure: unknown };
   try {
     completion = { ok: true, value: await run(signal, settle) };
   } catch (error) {
-    completion = { ok: false, error };
+    completion = { ok: false, failure: error };
   }
   await stopRenewing();
   try {
     await (settlement ?? settle(signal.aborted ? "cancelled" : "failed"));
   } catch (error) {
-    // A failed settlement is never the reason the run ended; it is one more
-    // fact about a run that already has one.
+    // A failed settlement is never the reason the run ended; it is a second
+    // failure beside one the run already has. Both are raised together so the
+    // run's own reason leads and neither is lost.
     if (completion.ok) throw error;
-    throw new Error(
-      `${errorMessage(completion.error)} Its attempt also failed to settle: ${
+    throw new AggregateError(
+      [completion.failure, error],
+      `${errorMessage(completion.failure)} Its attempt also failed to settle: ${
         errorMessage(error)
       }`,
-      { cause: completion.error },
+      { cause: error },
     );
   }
   if (completion.ok) return completion.value;
-  throw completion.error;
+  throw completion.failure;
 }
 
 /** Cancel every dead or expired claim with CAS before a replacement is reserved. */
@@ -377,7 +379,9 @@ export async function recoverAbandonedAttempts(
     // result envelope, so the claim stays for the next run to retire. A claim
     // that still blocks is reported as its own pending cause, carrying the
     // attempt id and the effective expiry that explain it.
-    if (written.kind === "written") recovered.push(current.record.id);
+    if (written.kind === "written") {
+      recovered.push(current.record.id);
+    }
   }
   return recovered;
 }
