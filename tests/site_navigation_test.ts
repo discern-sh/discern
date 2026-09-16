@@ -72,7 +72,7 @@ Deno.test("public React pages share the complete header and footer", async () =>
     footer ??= pageFooter.outerHTML;
     assertEquals(withoutCurrentState(pageHeader.outerHTML), header, route);
     assertEquals(pageFooter.outerHTML, footer, route);
-    assert(pageHeader.querySelector("[data-theme-toggle]"));
+    assert(pageHeader.querySelector("button[data-discern-theme-toggle]"));
     dom.window.close();
   }
 });

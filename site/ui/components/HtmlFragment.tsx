@@ -4,11 +4,11 @@ import type { HTMLAttributes, ReactElement } from "react";
 interface HtmlFragmentProps
   extends
     Omit<HTMLAttributes<HTMLElement>, "children" | "dangerouslySetInnerHTML"> {
-  readonly as?: "div" | "script";
+  readonly as?: "div" | "span" | "script";
   readonly html: string;
 }
 
-/** Callers supply package-rendered Markdown or a repository-owned script, never request text. */
+/** Callers supply repository-owned markup or an authored script, never request text. */
 export function HtmlFragment(
   { as: Element = "div", html, ...props }: HtmlFragmentProps,
 ): ReactElement {

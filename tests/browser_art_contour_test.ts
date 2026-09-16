@@ -261,7 +261,7 @@ Deno.test("the one-way contour study renders accessibly in both fixed themes", (
     [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
       (script) => script.getAttribute("src"),
     ),
-    ["/assets/theme.js"],
+    [],
     "the static preview must not ship an artwork runtime",
   );
   dom.window.close();

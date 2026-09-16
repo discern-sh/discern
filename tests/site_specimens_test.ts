@@ -205,7 +205,7 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
     [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
       (script) => script.getAttribute("src"),
     ),
-    ["/assets/theme.js"],
+    [],
     "the static preview must not ship a browser framework runtime",
   );
   dom.window.close();

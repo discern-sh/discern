@@ -4,6 +4,7 @@ import axe from "axe-core";
 import { Buffer } from "buffer";
 import { handlerWithRouting } from "../site/serve.ts";
 import { INSTALL_COMMAND } from "../src/shared/product_identity.ts";
+import { THEME_STORAGE_KEY } from "../site/theme.ts";
 import { launchBrowser } from "./browser_helpers.ts";
 import {
   releasePageCatalogue,
@@ -117,17 +118,33 @@ Deno.test(
             exact: true,
           }).click();
           assert(await page.locator("#update-heading").isVisible());
+          const chosen = mode.colorScheme === "light" ? "dark" : "light";
           if (mode.javaScriptEnabled) {
             assertEquals(
               await page.locator("html").getAttribute("data-discern-theme"),
-              mode.colorScheme,
+              "system",
+              `${mode.name}: an unvisited reader follows their device`,
             );
-            await page.getByRole("button", { name: /Switch to the .* theme/ })
-              .click();
+            await page.getByRole("button", {
+              name: `Switch to the ${chosen} theme`,
+              exact: true,
+            }).click();
             assertEquals(
               await page.locator("html").getAttribute("data-discern-theme"),
-              mode.colorScheme === "light" ? "dark" : "light",
+              chosen,
             );
+            assertEquals(
+              await page.evaluate(
+                (key) => localStorage.getItem(key),
+                THEME_STORAGE_KEY,
+              ),
+              chosen,
+              `${mode.name}: the reader's choice is kept under the site's key`,
+            );
+            await page.getByRole("button", {
+              name: `Switch to the ${mode.colorScheme} theme`,
+              exact: true,
+            }).waitFor();
           }
           if (mode.javaScriptEnabled) {
             await page.evaluate(axe.source);

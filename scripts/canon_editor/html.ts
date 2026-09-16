@@ -14,6 +14,8 @@ import {
 import type { Snapshot, SnapshotPage } from "./snapshot.ts";
 import { escapeHtml, renderMarkdownHtml } from "../../src/lib/markdown.ts";
 import { siteAppearanceRootAttributes } from "../../site/appearance.ts";
+import { themeRootAttributes } from "../../site/theme.ts";
+import { renderThemeToggleHtml } from "../../site/ui/components/ThemeToggle.tsx";
 
 /** How the editor may treat a span, from the AST classification of its field. */
 export type SpanState = "editable" | "locked" | "unknown";
@@ -225,6 +227,11 @@ export function renderShell(options: {
     : `<span class="canon-editor-chip" id="canon-editor-grade" title="plain_reading_grade — a ceiling that may only fall">grade ${grade.value}${
       grade.limit === undefined ? "" : ` / ${grade.limit}`
     }</span>`;
+  const themeToggle = renderThemeToggleHtml({
+    className: "canon-editor-chip",
+    lightGlyph: "◐ light",
+    darkGlyph: "◑ dark",
+  });
   const boot = {
     page: {
       id: page.id,
@@ -239,7 +246,7 @@ export function renderShell(options: {
     requestTokenHeader,
   };
   return `<!doctype html>
-<html lang="en" ${siteAppearanceRootAttributes()} data-discern-theme="light">
+<html lang="en" ${siteAppearanceRootAttributes()} ${themeRootAttributes()}>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -247,9 +254,8 @@ export function renderShell(options: {
 <script>${themeBootstrap}</script>
 <link rel="stylesheet" href="/assets/design-system/fonts.css" />
 <link rel="stylesheet" href="/assets/design-system/discern.css" />
-<link rel="stylesheet" href="/assets/theme.css" />
 <link rel="stylesheet" href="/assets/app.css" />
-<script defer src="/assets/theme.js"></script>
+<script type="module" defer src="/assets/design-system/discern.js"></script>
 <script type="module" src="/assets/app.js"></script>
 </head>
 <body>
@@ -258,7 +264,7 @@ export function renderShell(options: {
 <div class="canon-editor-header-right">
 ${gradeChip}
 <span class="canon-editor-chip canon-editor-chip-dirty" id="canon-editor-dirty" hidden>● uncommitted changes</span>
-<button type="button" class="canon-editor-chip" data-theme-toggle aria-pressed="false" aria-label="Switch to the dark theme">◐ theme</button>
+${themeToggle}
 </div>
 </header>
 <div class="canon-editor-shell">

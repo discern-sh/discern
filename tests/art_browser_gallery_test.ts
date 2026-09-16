@@ -212,7 +212,7 @@ Deno.test("the art archive renders every browser study twice and every terminal 
     [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
       (script) => script.getAttribute("src"),
     ),
-    ["/assets/theme.js"],
+    [],
     "the archive must not ship a browser framework runtime",
   );
   dom.window.close();

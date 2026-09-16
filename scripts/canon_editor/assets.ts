@@ -17,10 +17,10 @@ export const CANON_EDITOR_ASSET_DIR: readonly string[] = [
 ];
 
 /**
- * Emit the editor's selection of the design system — editorial prose styles
- * plus the fonts — and return the bundle directory. The emitter replaces the
- * directory's contents, so a stale bundle from an earlier version cannot
- * linger.
+ * Emit the editor's selection of the design system — editorial prose styles,
+ * the fonts, and the theme control with its browser behavior — and return the
+ * bundle directory. The emitter replaces the directory's contents, so a stale
+ * bundle from an earlier version cannot linger.
  */
 export async function emitCanonEditorAssets(root: string): Promise<string> {
   const dir = join(root, ...CANON_EDITOR_ASSET_DIR);
@@ -28,7 +28,7 @@ export async function emitCanonEditorAssets(root: string): Promise<string> {
   await emitDesignSystemRuntime({
     outputRoot: new URL(`${toFileUrl(dir).href}/`),
     groups: ["Editorial"],
-    components: ["icon-button", "badge", "divider"],
+    components: ["icon-button", "badge", "divider", "theme-toggle"],
     assets: ["fonts"],
     appearanceScopes: SITE_APPEARANCE.appearanceScopes,
   });

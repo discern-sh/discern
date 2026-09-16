@@ -998,7 +998,7 @@ Deno.test("one bifurcation study renders in both fixed themes", () => {
     [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
       (script) => script.getAttribute("src"),
     ),
-    ["/assets/theme.js"],
+    [],
     "the static preview must not ship a browser framework runtime",
   );
   dom.window.close();

@@ -62,9 +62,10 @@ import {
 import { buildSearchIndex } from "./search.ts";
 import {
   THEME_BOOTSTRAP,
-  THEME_SCRIPT_PATH,
-  THEME_STYLESHEET_PATH,
+  themeRootAttributes,
 } from "./theme.ts";
+import { HtmlFragment } from "./ui/components/HtmlFragment.tsx";
+import { renderThemeToggleHtml } from "./ui/components/ThemeToggle.tsx";
 import { renderWorkflowMarkdown } from "./workflow.tsx";
 
 export { decorateDocumentHtml } from "./document_html.tsx";
@@ -1007,6 +1008,27 @@ const ICONS = {
     `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
 } as const;
 
+/** The shared control, wearing the shell's own sizing and drawn glyphs. */
+function docsThemeToggleHtml(): string {
+  return renderThemeToggleHtml({
+    className: "docs-theme",
+    lightGlyph: (
+      <HtmlFragment
+        as="span"
+        className="discern-icon docs-theme-icon"
+        html={ICONS.sun}
+      />
+    ),
+    darkGlyph: (
+      <HtmlFragment
+        as="span"
+        className="discern-icon docs-theme-icon"
+        html={ICONS.moon}
+      />
+    ),
+  });
+}
+
 interface ShellFrame {
   /** Contents of the `<title>` element. */
   htmlTitle: string;
@@ -1045,7 +1067,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
       <a href="/docs/reference/cli-reference">Commands</a>
       <a href="/docs/reference/config-reference">Configuration</a>`;
   return `<!doctype html>
-<html lang="en" ${siteAppearanceRootAttributes()} data-discern-theme="light">
+<html lang="en" ${siteAppearanceRootAttributes()} ${themeRootAttributes()}>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -1058,9 +1080,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <script>document.documentElement.classList.add("docs-js");</script>
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "fonts.css")}" />
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "discern.css")}" />
-<link rel="stylesheet" href="${THEME_STYLESHEET_PATH}" />
 <link rel="stylesheet" href="/assets/docs.css" />
-<script defer src="${THEME_SCRIPT_PATH}"></script>
 <script defer src="${designSystemAssetPath("docs", "discern.js")}"></script>
 <script type="module" src="/assets/docs.js"></script>
 </head>
@@ -1087,13 +1107,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
       </button>
     </div>
     <div class="discern-docs-header__actions">
-      <button class="discern-theme-toggle docs-theme" type="button"
-        aria-label="Switch to the dark theme" aria-pressed="false" data-theme-toggle>
-        <span class="discern-theme-toggle__glyph docs-theme-glyphs" aria-hidden="true">
-          <span class="discern-icon docs-theme-icon docs-theme-sun" data-theme-toggle-glyph="light">${ICONS.sun}</span>
-          <span class="discern-icon docs-theme-icon docs-theme-moon" data-theme-toggle-glyph="dark">${ICONS.moon}</span>
-        </span>
-      </button>
+      ${docsThemeToggleHtml()}
     </div>
   </div>
 </header>

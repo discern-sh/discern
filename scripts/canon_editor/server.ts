@@ -730,10 +730,7 @@ export async function startCanonEditor(
         ),
       );
     }
-    if (
-      path === "/assets/theme.css" || path === "/assets/theme.js" ||
-      path === "/assets/scheduler.js"
-    ) {
+    if (path === "/assets/scheduler.js") {
       return await file(
         join(
           REPO_ROOT,

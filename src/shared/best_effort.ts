@@ -1624,28 +1624,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "The probe is ownership discovery before planning; replacement still verifies recorded process identity and never trusts an unreachable server.",
   },
-  "site-theme-read-fallback": {
-    path: "site/pages/assets/theme.js",
-    enclosingFunction: "storedTheme",
-    operation:
-      "fall back to the live system theme when browser storage is unavailable",
-    kind: "direct",
-    shape: "sync",
-    observability: { kind: "unobservable" },
-    reason:
-      "Theme persistence is optional presentation state and the operating-system preference remains a complete current-page fallback.",
-  },
-  "site-theme-write-fallback": {
-    path: "site/pages/assets/theme.js",
-    enclosingFunction: "override",
-    operation:
-      "apply a theme change without persisting it when browser storage fails",
-    kind: "direct",
-    shape: "sync",
-    observability: { kind: "unobservable" },
-    reason:
-      "The current page still applies the requested theme and only cross-page persistence is lost when optional storage is disabled.",
-  },
   "skills-ejected-tree-chmod": {
     path: "src/lib/skills.ts",
     enclosingFunction: "chmodWritable",

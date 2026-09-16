@@ -173,7 +173,7 @@ Deno.test("the invariant-core study renders one fixed center in each theme", () 
     [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
       (script) => script.getAttribute("src"),
     ),
-    ["/assets/theme.js"],
+    [],
     "the static study must not ship a browser framework runtime",
   );
   dom.window.close();

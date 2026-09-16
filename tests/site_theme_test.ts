@@ -1,6 +1,8 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+/** The site owns first paint and storage policy; the package owns the control. */
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
+import { THEME_STORAGE_KEY } from "../site/theme.ts";
 import { handler } from "../site/serve.ts";
 
 const BROWSER = {
@@ -8,123 +10,96 @@ const BROWSER = {
   "user-agent": "Mozilla/5.0 theme contract",
 };
 
-interface ThemeMedia {
-  matches: boolean;
-  addEventListener(
-    type: "change",
-    listener: (event: { matches: boolean }) => void,
-  ): void;
-}
-
 interface ThemeWindow extends Window {
   eval(source: string): unknown;
 }
 
-/** Select the inline script that resolves the system color scheme before first paint. */
+/** Select the inline script that applies a stored choice before the first paint. */
 function inlineThemeBootstrap(html: string): string {
   const scripts = [
     ...html.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g),
   ];
   return (scripts.find((match) =>
-    (match[1] ?? "").includes("prefers-color-scheme")
+    (match[1] ?? "").includes(THEME_STORAGE_KEY)
   )?.[1] ?? "").trim();
 }
 
-Deno.test("homepage and docs share one system-aware theme bootstrap", async () => {
+/** Run the bootstrap against a root that starts where the markup leaves it. */
+function bootstrapped(
+  bootstrap: string,
+  stored: string | null,
+): string | undefined {
+  const dom = new JSDOM(
+    `<html data-discern-theme="system"><body></body></html>`,
+    { runScripts: "outside-only", url: "https://discern.sh/" },
+  );
+  const window = dom.window as unknown as ThemeWindow;
+  if (stored === null) window.localStorage.removeItem(THEME_STORAGE_KEY);
+  else window.localStorage.setItem(THEME_STORAGE_KEY, stored);
+  window.eval(bootstrap);
+  const applied = window.document.documentElement.dataset.discernTheme;
+  dom.window.close();
+  return applied;
+}
+
+Deno.test("every shell shares one bootstrap that applies only a stored choice", async () => {
   const [home, docs] = await Promise.all([
     handler(new Request("https://discern.sh/", { headers: BROWSER })),
     handler(new Request("https://discern.sh/docs", { headers: BROWSER })),
   ]);
   const homeHtml = await home.text();
   const docsHtml = await docs.text();
-  const homeBootstrap = inlineThemeBootstrap(homeHtml);
+  const bootstrap = inlineThemeBootstrap(homeHtml);
   const withoutFormatting = (source: string) => source.replaceAll(/[\s;]/g, "");
   assertEquals(
     withoutFormatting(inlineThemeBootstrap(docsHtml)),
-    withoutFormatting(homeBootstrap),
+    withoutFormatting(bootstrap),
   );
-  assertStringIncludes(homeBootstrap, "prefers-color-scheme: dark");
-  assertStringIncludes(homeBootstrap, "discern-theme");
-  assertStringIncludes(homeHtml, 'src="/assets/theme.js"');
-  assertStringIncludes(docsHtml, 'src="/assets/theme.js"');
+  assertStringIncludes(bootstrap, THEME_STORAGE_KEY);
+
+  assertEquals(bootstrapped(bootstrap, "dark"), "dark");
+  assertEquals(bootstrapped(bootstrap, "light"), "light");
+  assertEquals(
+    bootstrapped(bootstrap, null),
+    "system",
+    "with nothing stored the emitted stylesheet follows the device",
+  );
+  assertEquals(
+    bootstrapped(bootstrap, "sideways"),
+    "system",
+    "an unusable stored value never reaches the root",
+  );
 });
 
-Deno.test("theme controls follow the system until either fresh-name control overrides it", async () => {
-  const client = await Deno.readTextFile(
-    new URL("../site/pages/assets/theme.js", import.meta.url),
-  );
-  const dom = new JSDOM(
-    `<html data-discern-theme="light"><body>
-      <button class="unrelated-alpha" data-theme-toggle><span data-theme-label></span></button>
-      <button class="future-beta" data-theme-toggle></button>
-    </body></html>`,
-    { runScripts: "outside-only", url: "https://discern.sh/" },
-  );
-  const window = dom.window as unknown as ThemeWindow;
-  let mediaListener: ((event: { matches: boolean }) => void) | undefined;
-  const media: ThemeMedia = {
-    matches: true,
-    addEventListener: (_type, listener) => {
-      mediaListener = listener;
-    },
-  };
-  Object.defineProperty(window, "matchMedia", { value: () => media });
-  window.eval(client);
-
-  const controls = [...window.document.querySelectorAll<HTMLButtonElement>(
-    "[data-theme-toggle]",
-  )];
-  assertEquals(window.document.documentElement.dataset.discernTheme, "dark");
-  assertEquals(
-    controls.map((control) => control.getAttribute("aria-label")),
-    ["Switch to the light theme", "Switch to the light theme"],
-  );
-  assertEquals(
-    controls.map((control) => control.getAttribute("aria-pressed")),
-    ["true", "true"],
-  );
-  assertEquals(
-    window.document.querySelector("[data-theme-label]")?.textContent,
-    "Light",
-  );
-
-  controls[1]?.click();
-  assertEquals(window.document.documentElement.dataset.discernTheme, "light");
-  assertEquals(window.localStorage.getItem("discern-theme"), "light");
-  assertEquals(
-    controls.map((control) => control.getAttribute("aria-label")),
-    ["Switch to the dark theme", "Switch to the dark theme"],
-  );
-
-  media.matches = false;
-  mediaListener?.({ matches: false });
-  assertEquals(
-    window.document.documentElement.dataset.discernTheme,
-    "light",
-    "a stored user override wins over later system changes",
-  );
-  dom.window.close();
-});
-
-Deno.test("an unoverridden page tracks a system theme change", async () => {
-  const client = await Deno.readTextFile(
-    new URL("../site/pages/assets/theme.js", import.meta.url),
-  );
-  const dom = new JSDOM(
-    `<html data-discern-theme="light"><body><button data-theme-toggle></button></body></html>`,
-    { runScripts: "outside-only", url: "https://discern.sh/docs" },
-  );
-  const window = dom.window as unknown as ThemeWindow;
-  const listeners: Array<(event: { matches: boolean }) => void> = [];
-  const media: ThemeMedia = {
-    matches: false,
-    addEventListener: (_type, listener) => listeners.push(listener),
-  };
-  Object.defineProperty(window, "matchMedia", { value: () => media });
-  window.eval(client);
-  assertEquals(window.document.documentElement.dataset.discernTheme, "light");
-  media.matches = true;
-  for (const listener of listeners) listener({ matches: true });
-  assertEquals(window.document.documentElement.dataset.discernTheme, "dark");
-  dom.window.close();
+Deno.test("public shells hand the package control an opted-in, named root", async () => {
+  for (const route of ["/", "/docs", "/releases"]) {
+    const html = await (await handler(
+      new Request(`https://discern.sh${route}`, { headers: BROWSER }),
+    )).text();
+    const dom = new JSDOM(html);
+    const root = dom.window.document.documentElement;
+    assertEquals(root.dataset.discernThemeStorageKey, THEME_STORAGE_KEY, route);
+    assert(root.hasAttribute("data-discern-root"), route);
+    const control = dom.window.document.querySelector(
+      "button[data-discern-theme-toggle]",
+    );
+    assert(control, `${route}: the shell renders the static theme control`);
+    assertEquals(
+      control.getAttribute("aria-pressed"),
+      null,
+      `${route}: the control names its destination rather than a pressed state`,
+    );
+    assert(
+      control.hasAttribute("inert"),
+      `${route}: the control stays inert until its behavior activates it`,
+    );
+    assertEquals(
+      [...control.querySelectorAll("[data-discern-theme-destination]")].map(
+        (glyph) => glyph.getAttribute("data-discern-theme-destination"),
+      ),
+      ["dark", "light"],
+      `${route}: both destinations ship so the behavior can swap them`,
+    );
+    dom.window.close();
+  }
 });

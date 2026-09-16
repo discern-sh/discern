@@ -531,9 +531,6 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
   const client = await Deno.readTextFile(
     new URL("../site/pages/assets/docs.js", import.meta.url),
   );
-  const themeClient = await Deno.readTextFile(
-    new URL("../site/pages/assets/theme.js", import.meta.url),
-  );
 
   const contracts = [
     [
@@ -572,9 +569,11 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
       /restoreFocus/.test(client),
     ],
     [
-      "theme state is exposed",
-      /aria-pressed/.test(themeClient) &&
-      /Switch to the light theme/.test(themeClient),
+      "the theme control names its destination and its opted-in root",
+      /data-discern-theme-toggle/.test(html) &&
+      /data-discern-to-light-label="Switch to the light theme"/.test(html) &&
+      /data-discern-to-dark-label="Switch to the dark theme"/.test(html) &&
+      /data-discern-theme-storage-key="/.test(html),
     ],
     [
       "copy outcomes are live",

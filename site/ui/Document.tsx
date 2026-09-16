@@ -12,11 +12,7 @@ import {
 } from "../design_system.ts";
 import { SITE_APPEARANCE } from "../appearance.ts";
 import { DISCERN_FAVICON_PATH } from "../brand.ts";
-import {
-  THEME_BOOTSTRAP,
-  THEME_SCRIPT_PATH,
-  THEME_STYLESHEET_PATH,
-} from "../theme.ts";
+import { THEME_BOOTSTRAP, THEME_ROOT_ATTRIBUTES } from "../theme.ts";
 import { HtmlFragment } from "./components/HtmlFragment.tsx";
 
 export interface DocumentProps {
@@ -58,7 +54,7 @@ export function Document(
         [ACCENT_ATTRIBUTE]: appearance === "mono" ? ACCENT_NONE_VALUE : "",
       }}
       style={appearance === "mono" ? undefined : accentStyle}
-      data-discern-theme="light"
+      {...THEME_ROOT_ATTRIBUTES}
     >
       <head>
         <meta charSet="utf-8" />
@@ -75,8 +71,6 @@ export function Document(
             href={designSystemAssetPath(bundle, file)}
           />
         ))}
-        <link rel="stylesheet" href={THEME_STYLESHEET_PATH} />
-        <script defer src={THEME_SCRIPT_PATH}></script>
         {scripts.map((file) => (
           <script
             key={file}
