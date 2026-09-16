@@ -2,6 +2,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
+import { DOCS_ICONS } from "../site/docs.tsx";
 import { THEME_STORAGE_KEY } from "../site/theme.ts";
 import { handler } from "../site/serve.ts";
 
@@ -100,5 +101,18 @@ Deno.test("public shells hand the package control an opted-in, named root", asyn
       `${route}: both destinations ship so the behavior can swap them`,
     );
     dom.window.close();
+  }
+});
+
+Deno.test("every drawn shell icon states its own paint and follows the text colour", () => {
+  const entries = Object.entries(DOCS_ICONS);
+  assert(entries.length > 0);
+  for (const [name, markup] of entries) {
+    assertStringIncludes(markup, 'fill="none"', name);
+    assertStringIncludes(markup, 'stroke="currentColor"', name);
+    assert(
+      /stroke-width="/.test(markup),
+      `${name}: a line graphic states its stroke width`,
+    );
   }
 });

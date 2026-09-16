@@ -998,19 +998,28 @@ function crumbsHtml(
   }</span></li></ol></nav>`;
 }
 
-/** Glyphs the document shell draws in its theme control. */
-export const DOCS_THEME_GLYPHS = {
-  light:
-    `<svg viewBox="0 0 16 16" width="1em" height="1em" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>`,
-  dark:
-    `<svg viewBox="0 0 16 16" width="1em" height="1em" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
+/**
+ * The document shell's drawn icons. Each is a stroked line graphic, so it must
+ * declare `fill="none"` and take its colour from the text around it; an SVG
+ * with neither attribute paints solid black and disappears on a dark canvas.
+ * The theme glyphs also carry their own size, because they render outside the
+ * `discern-icon` allocation that bounds the others.
+ */
+export const DOCS_ICONS = {
+  menu:
+    `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg>`,
+  search:
+    `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4 14 14"/></svg>`,
+  sun:
+    `<svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>`,
+  moon:
+    `<svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
 } as const;
 
-const ICONS = {
-  menu:
-    `<svg viewBox="0 0 16 16" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg>`,
-  search:
-    `<svg viewBox="0 0 16 16" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4 14 14"/></svg>`,
+/** The two the build renders into the shell's theme control. */
+export const DOCS_THEME_GLYPHS = {
+  light: DOCS_ICONS.sun,
+  dark: DOCS_ICONS.moon,
 } as const;
 
 /** Read the build-emitted control on demand so watch rebuilds stay visible. */
@@ -1081,7 +1090,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
       <button class="discern-icon-button docs-burger" type="button"
         data-drawer-toggle aria-controls="docs-nav"
         aria-label="Open navigation" aria-expanded="false">
-        <span class="discern-icon">${ICONS.menu}</span>
+        <span class="discern-icon">${DOCS_ICONS.menu}</span>
       </button>
       <span class="docs-brand-lockup"><a class="docs-brand" href="/">
         ${discernBrandHtml()}</a><a
@@ -1090,7 +1099,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
     <div class="discern-docs-header__middle">
       <button class="docs-search-btn" type="button" data-search-open
         aria-label="Search ${searchLabel}">
-        <span class="discern-icon docs-search-icon">${ICONS.search}</span>
+        <span class="discern-icon docs-search-icon">${DOCS_ICONS.search}</span>
         <span class="docs-search-btn-word">Search ${searchLabel}</span>
         <kbd class="discern-kbd">⌘K</kbd>
       </button>
@@ -1121,7 +1130,7 @@ ${navHtml(site, frame.corpus, frame.current, frame.compactNavigation === true)}
   data-search-endpoint="${searchEndpoint}" aria-label="Search ${searchLabel}">
   <div class="discern-search-palette__field">
     <span class="discern-search-palette__icon" aria-hidden="true">
-      <span class="discern-icon docs-search-icon">${ICONS.search}</span>
+      <span class="discern-icon docs-search-icon">${DOCS_ICONS.search}</span>
     </span>
     <input class="discern-search-palette__input" type="search"
       placeholder="Search ${searchLabel}…" data-search-input role="combobox"
