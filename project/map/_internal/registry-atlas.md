@@ -5932,6 +5932,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 
 `UNAFFILIATED_GUARDS` records conventionally named guard tests with no member set.
 
+- `tests/file_lock_guard_test.ts` — requires every authored production use of native file-lock primitives to share explicit release ownership rather than guarding a project-defined member set
 - `tests/engine_desk_terminal_guard_test.ts` — holds every authored Desk module to the package application adoption boundary rather than guarding a closed member set
 - `tests/operation_lock_sync_guard_test.ts` — pins the operation lock's no-fsync acquisition and release — exclusion comes from the OS handle — rather than guarding a closed member set
 - `tests/progress_surface_parity_test.ts` — proves that the terminal, MCP notifications, the operation journal, and nested presenters present one completion fact stream identically rather than guarding a closed member set
