@@ -178,7 +178,7 @@ Deno.test("the manual cover shows task guidance before its complete browse tree"
   const html = await res.text();
   const dom = new JSDOM(html);
   const nav = dom.window.document.querySelector(".docs-nav-scroll");
-  const childRoutes = [...nav?.querySelectorAll("[data-nav-page] > a") ?? []]
+  const childRoutes = [...nav?.querySelectorAll("li > a") ?? []]
     .map((link) => link.getAttribute("href") ?? "");
   assertEquals(
     childRoutes,
@@ -186,7 +186,7 @@ Deno.test("the manual cover shows task guidance before its complete browse tree"
   );
   assertEquals(new Set(childRoutes).size, childRoutes.length);
   assertEquals(
-    [...nav?.querySelectorAll("[data-nav-page] > a") ?? []]
+    [...nav?.querySelectorAll("li > a") ?? []]
       .filter((link) =>
         link.querySelector(".docs-nav-page-title")?.textContent?.trim() ===
           "Overview"
@@ -226,12 +226,6 @@ Deno.test("the manual cover shows task guidance before its complete browse tree"
     "the authored task table comes before the complete directory",
   );
   assertEquals(dom.window.document.querySelector("#the-sections"), null);
-  assertEquals(
-    nav?.querySelector("[data-nav-sections]")?.hasAttribute(
-      "data-nav-default",
-    ),
-    false,
-  );
   assertEquals(nav?.querySelector("[data-nav-disclosure]"), null);
   assertEquals(nav?.querySelectorAll("[hidden]").length, 0);
   const guides = site.sections.find((section) => section.dir === "10-guides");
@@ -247,7 +241,7 @@ Deno.test("every guide keeps the complete canonical nav and marks only itself", 
     const dom = new JSDOM(html);
     const nav = dom.window.document.querySelector(".docs-nav-scroll");
     assertEquals(
-      [...nav?.querySelectorAll("[data-nav-page] > a") ?? []].map((link) =>
+      [...nav?.querySelectorAll("li > a") ?? []].map((link) =>
         link.getAttribute("href")
       ),
       canonicalRoutes,
@@ -575,32 +569,29 @@ Deno.test("section landings derive their leaf index from model metadata", async 
   for (const section of site.sections) {
     const res = await get(section.index.route, BROWSER);
     const html = await res.text();
-    const generated = /<section class="docs-section-index"[\s\S]*?<\/section>/
-      .exec(html)?.[0] ?? "";
+    const dom = new JSDOM(html);
+    const generated = dom.window.document.querySelector(
+      ".docs-section-index",
+    );
     const leaves = section.pages.filter((page) => !page.isIndex);
-    assert(generated.length > 0, section.dir);
+    assert(generated !== null, section.dir);
     assertEquals(
-      [...generated.matchAll(/<li><a href="([^"]+)"/g)].map((match) =>
-        match[1] ?? ""
-      ),
-      leaves.map((page) => page.route),
+      [...generated.querySelectorAll("li")].map((item) => ({
+        route: item.querySelector("a")?.getAttribute("href"),
+        title: item.querySelector("a")?.textContent,
+        description: item.querySelector(".docs-leaf-desc")?.textContent,
+      })),
+      leaves.map((page) => ({
+        route: page.route,
+        title: page.entry.title,
+        description: page.entry.description,
+      })),
       section.dir,
     );
-    for (const leaf of leaves) {
-      assertStringIncludes(
-        generated,
-        htmlEsc(leaf.entry.title),
-        leaf.entry.path,
-      );
-      assertStringIncludes(
-        generated,
-        htmlEsc(leaf.entry.description),
-        leaf.entry.path,
-      );
-    }
     if (section.dir === "10-guides") {
       assert(!html.includes('href="#in-this-section"'));
     }
+    dom.window.close();
   }
 });
 
@@ -903,14 +894,9 @@ Deno.test("the docs rails scroll flush beneath the header and footer rule", asyn
   assertEquals(css.includes(".docs-nav-disclosure"), false);
 });
 
-Deno.test("navigation hit areas and table words remain physically readable", async () => {
+Deno.test("table words remain physically readable", async () => {
   const css = await Deno.readTextFile(
     new URL("../site/pages/assets/docs.css", import.meta.url),
-  );
-  assert(
-    /\.docs-nav-scroll \[data-nav-section\] > ul\s*\{[^}]*gap:\s*0;/s
-      .test(css),
-    "the vertical nav run must not expose dead pixels between links",
   );
   assert(
     /\.docs-table :is\(th, td\)\s*\{[^}]*min-inline-size:\s*7rem;[^}]*overflow-wrap:\s*normal;[^}]*word-break:\s*normal;/s

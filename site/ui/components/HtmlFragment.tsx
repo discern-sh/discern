@@ -4,7 +4,7 @@ import type { HTMLAttributes, ReactElement } from "react";
 interface HtmlFragmentProps
   extends
     Omit<HTMLAttributes<HTMLElement>, "children" | "dangerouslySetInnerHTML"> {
-  readonly as?: "div" | "span" | "script";
+  readonly as?: "div" | "span" | "article" | "script";
   readonly html: string;
 }
 

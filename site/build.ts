@@ -1,9 +1,8 @@
 /**
  * Build discern.sh's generated design-system surface.
  *
- * React is an authoring adapter only: this script renders the homepage and
- * shared brand to static HTML, writes deterministic CSS/assets, and ships no
- * React runtime.
+ * React is an authoring adapter only: this script renders the marketing pages
+ * to static HTML, writes deterministic CSS/assets, and ships no React runtime.
  */
 
 import { buildReleaseCatalogue } from "./releases/catalogue.ts";
@@ -18,9 +17,6 @@ import {
 } from "./design_system.ts";
 import { SITE_APPEARANCE } from "./appearance.ts";
 import { MARKETING_PAGES } from "./marketing_pages.ts";
-import { renderDiscernBrand } from "./ui/components/Brand.tsx";
-import { renderDocumentThemeToggle } from "./ui/components/ThemeToggle.tsx";
-import { DOCS_THEME_GLYPHS } from "./docs.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 import { renderMarketingPage } from "./renderers.ts";
 
@@ -31,7 +27,6 @@ const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
 export const GENERATED_SITE_OUTPUTS = [
   ...MARKETING_PAGES.map((page) => page.page),
   "pages/assets/design-system/",
-  "pages/fragments/",
   "pages/release-catalogue.json",
 ] as const;
 
@@ -53,15 +48,10 @@ export const RETIRED_SITE_OUTPUTS = [
   "pages/content-design-demo.html",
   "pages/v2.html",
   "pages/agents.md",
+  "pages/fragments",
 ] as const;
 
 const ASSET_ROOT = new URL("pages/assets/design-system/", SITE_ROOT);
-const FRAGMENT_ROOT = new URL("pages/fragments/", SITE_ROOT);
-const BRAND_FRAGMENT_OUTPUT = new URL("brand.html", FRAGMENT_ROOT);
-const THEME_TOGGLE_FRAGMENT_OUTPUT = new URL(
-  "theme-toggle.html",
-  FRAGMENT_ROOT,
-);
 const COMPOSITION_ASSET_ROOT = new URL(
   DESIGN_SYSTEM_BUNDLES.compositions.output,
   SITE_ROOT,
@@ -108,7 +98,6 @@ export async function buildSite(): Promise<void> {
 
   await buildReleaseCatalogue();
   await Deno.mkdir(ASSET_ROOT, { recursive: true });
-  await Deno.mkdir(FRAGMENT_ROOT, { recursive: true });
   await emitBundle("docs");
   const summary = await emitBundle("compositions");
   for (const asset of COPIED_PAGE_ASSETS) {
@@ -120,14 +109,8 @@ export async function buildSite(): Promise<void> {
       await formatGeneratedText(renderMarketingPage(page.route), "html"),
     );
   }
-  await Deno.writeTextFile(BRAND_FRAGMENT_OUTPUT, renderDiscernBrand());
-  await Deno.writeTextFile(
-    THEME_TOGGLE_FRAGMENT_OUTPUT,
-    renderDocumentThemeToggle(DOCS_THEME_GLYPHS),
-  );
-
   console.log(
-    `Built the shared Brand fragment, ${MARKETING_PAGES.length} marketing pages, and design-system bundles from ${summary.components} components and ${summary.tokens} tokens.`,
+    `Built ${MARKETING_PAGES.length} marketing pages and design-system bundles from ${summary.components} components and ${summary.tokens} tokens.`,
   );
 }
 

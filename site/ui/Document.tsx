@@ -15,6 +15,9 @@ import { DISCERN_FAVICON_PATH } from "../brand.ts";
 import { THEME_BOOTSTRAP, THEME_ROOT_ATTRIBUTES } from "../theme.ts";
 import { HtmlFragment } from "./components/HtmlFragment.tsx";
 
+/** The browser chrome colour beside each emitted theme. */
+const THEME_COLORS = { light: "#F7F5F8", dark: "#22252C" } as const;
+
 export interface DocumentProps {
   readonly source?: string;
   readonly sourceComment?: string;
@@ -22,8 +25,15 @@ export interface DocumentProps {
   readonly description: string;
   readonly appearance?: AppearanceProjection;
   readonly bundle?: DesignSystemBundleName;
+  /** Files emitted into the selected design-system bundle. */
   readonly styles: readonly string[];
   readonly scripts: readonly string[];
+  /** Repository-authored stylesheets under `/assets`, linked after the bundle's. */
+  readonly siteStyles?: readonly string[];
+  /** Repository-authored ES modules under `/assets`, loaded after the bundle's. */
+  readonly siteModules?: readonly string[];
+  /** Head content that must resolve before the first stylesheet, such as an enhancement class. */
+  readonly head?: ReactNode;
   readonly bodyClassName?: string;
   readonly children: ReactNode;
 }
@@ -37,6 +47,9 @@ export function Document(
     bundle = "compositions",
     styles,
     scripts,
+    siteStyles = [],
+    siteModules = [],
+    head,
     bodyClassName,
     children,
   }: DocumentProps,
@@ -61,15 +74,28 @@ export function Document(
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{title}</title>
         <meta name="description" content={description} />
-        <meta name="theme-color" content="#F7F5F8" />
+        <meta
+          name="theme-color"
+          content={THEME_COLORS.light}
+          media="(prefers-color-scheme: light)"
+        />
+        <meta
+          name="theme-color"
+          content={THEME_COLORS.dark}
+          media="(prefers-color-scheme: dark)"
+        />
         <link rel="icon" href={DISCERN_FAVICON_PATH} />
         <HtmlFragment as="script" html={THEME_BOOTSTRAP} />
+        {head}
         {styles.map((file) => (
           <link
             key={file}
             rel="stylesheet"
             href={designSystemAssetPath(bundle, file)}
           />
+        ))}
+        {siteStyles.map((href) => (
+          <link key={href} rel="stylesheet" href={href} />
         ))}
         {scripts.map((file) => (
           <script
@@ -79,6 +105,9 @@ export function Document(
             src={designSystemAssetPath(bundle, file)}
           >
           </script>
+        ))}
+        {siteModules.map((src) => (
+          <script key={src} type="module" src={src}></script>
         ))}
       </head>
       <body className={bodyClassName}>{children}</body>

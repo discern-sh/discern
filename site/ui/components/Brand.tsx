@@ -1,7 +1,6 @@
 /** Discern's canonical design-system lockup for public site chrome. */
 
 import type { ReactElement, ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { Brand } from "discern-design-system/react";
 import { DISCERN_MARK } from "../../brand.ts";
 
@@ -21,9 +20,4 @@ export function DiscernBrand({ tagline }: DiscernBrandProps): ReactElement {
       typeface="mono"
     />
   );
-}
-
-/** Render the shared, tagline-free lockup for build-emitted static fragments. */
-export function renderDiscernBrand(): string {
-  return renderToStaticMarkup(<DiscernBrand />);
 }

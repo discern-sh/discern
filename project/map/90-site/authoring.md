@@ -10,11 +10,11 @@ aliases:
 
 Start in [`site/ui/pages/`](../../../site/ui/pages/) for a React page and [`site/ui/layouts/`](../../../site/ui/layouts/) for its shared structure. [`Document.tsx`](../../../site/ui/Document.tsx) owns the document head, theme bootstrap, and assets. [`site/ui/components/`](../../../site/ui/components/) holds thin product adapters over the exact published design system. Page-specific styles and progressive enhancements live in `site/page-src/`; shared browser assets remain authored in `site/pages/assets/`.
 
-HTML-producing site modules use `.tsx`; routing, registries, data models, and build orchestration use `.ts`. The document corpus renderer is [`site/docs.tsx`](../../../site/docs.tsx). It preserves the manual, Map, and decision models while its shell and workflow projections remain separate from the React page layouts. The [docs contract](the-docs-section.md) governs a component conversion of that surface.
+HTML-producing site modules use `.tsx`; routing, registries, data models, and build orchestration use `.ts`. [`site/docs.tsx`](../../../site/docs.tsx) owns the manual, Map, and decision models, the Markdown body renderer with its Workflow and glossary projections, and the exported navigation facts (breadcrumb trails, pager adjacency, colophon destinations). It imports no React: the site route inventory evaluates it during codegen under permissions that exclude the `NODE_ENV` read `react-dom` performs on load. [`site/documents.tsx`](../../../site/documents.tsx) is where the React pages join that model: it negotiates each document request, serves raw editions and the search index, and renders the page components. The [docs contract](the-docs-section.md) governs that surface.
 
 ## Rendering and interaction
 
-Marketing components render during `site:build`. Releases and the map overview render on the server from their content models. These pages use `Document` and `MarketingLayout` ([ADR 0402](../_adr/0402-site-layouts-use-server-rendered-react-components.md)).
+Marketing components render during `site:build`. Releases, the map overview, and every manual and decision page render on the server from their content models. Marketing-family pages use `Document` and `MarketingLayout`; document pages use `Document` and [`DocumentLayout`](../../../site/ui/layouts/DocumentLayout.tsx) ([ADR 0402](../_adr/0402-site-layouts-use-server-rendered-react-components.md)).
 
 Server rendering produces the initial HTML. It does not run `useEffect` or attach React event handlers in the visitor's browser. The site currently uses the package's selected enhancements and page-owned JavaScript for interaction. Theme selection and Command's copy control both come from the package runtime; the site supplies only its theme storage policy and the pre-paint bootstrap.
 
@@ -36,9 +36,11 @@ Use [`MARKETING_PAGES`](../../../site/marketing_pages.ts) for a static compositi
 
 [`siteRoutes`](../../../site/routes.ts) combines these authorities into HTML pages, raw editions, fixed responses, and the asset namespace. The sitemap selects HTML routes; the `project/map/_internal/registry-atlas.md` derives the complete inventory. The [route tests](../../../tests/site_routes_test.ts) exercise new members, duplicate rejection, and the actual endpoint responses.
 
-## Shared site navigation
+## Shared layouts
 
-[`MarketingLayout`](../../../site/ui/layouts/MarketingLayout.tsx) owns the public header, theme control, and footer. Pages supply their content and optional main-element class. [`site/navigation.ts`](../../../site/navigation.ts) owns the navigation destinations; page-specific reading aids belong inside the page body. The manual keeps its document navigation until its shell moves to components.
+[`MarketingLayout`](../../../site/ui/layouts/MarketingLayout.tsx) owns the public header, theme control, and footer. Pages supply their content and optional main-element class. [`site/navigation.ts`](../../../site/navigation.ts) owns the navigation destinations; page-specific reading aids belong inside the page body.
+
+[`DocumentLayout`](../../../site/ui/layouts/DocumentLayout.tsx) owns the reading chrome: the package Docs header with the drawer control, lockup, search opener, and theme control; the rooted Docs nav with its reference foot links; one `main` landmark with package Breadcrumbs; the contents rail; and the statically rendered Search palette. Its `renderDocumentPage` selects the Docs bundle, `docs.css`, `docs.js`, and the pre-stylesheet enhancement class. Adapters under `site/ui/components/Document*.tsx` feed each package component from the model, and [`LeafList`](../../../site/ui/components/LeafList.tsx) renders every model-derived page run. Pages are [`ManualPage`](../../../site/ui/pages/ManualPage.tsx), [`ManualCoverPage`](../../../site/ui/pages/ManualCoverPage.tsx), [`DecisionPage`](../../../site/ui/pages/DecisionPage.tsx), and [`DecisionsIndexPage`](../../../site/ui/pages/DecisionsIndexPage.tsx). The three-column grid is site composition CSS; it is not a package layout.
 
 ## Component ownership
 

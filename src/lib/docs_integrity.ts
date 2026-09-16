@@ -15,7 +15,7 @@
  */
 
 import { parseFrontmatter } from "./frontmatter.ts";
-import { renderMarkdownHtml } from "./markdown.ts";
+import { renderMarkdownHtml, unescapeHtml } from "./markdown.ts";
 import type { CliCommand } from "../shared/cli_reference_codegen.ts";
 import {
   IMPLICIT_COMMAND_FLAGS,
@@ -27,15 +27,6 @@ import {
 export interface DocLinkRef {
   target: string;
   line: number;
-}
-
-/** The inverse of the renderer's HTML escaping, applied to extracted hrefs. */
-function unescapeHtml(text: string): string {
-  return text
-    .replaceAll("&quot;", '"')
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&amp;", "&");
 }
 
 /** Assign a source line to each extracted occurrence of `needle`, in order. */

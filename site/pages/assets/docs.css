@@ -7,6 +7,8 @@
 /* ── Page scaffold ─────────────────────────────────────────────────────── */
 
 body {
+  --docs-page-max: 100rem;
+
   margin: 0;
 }
 
@@ -22,7 +24,7 @@ body {
   display: grid;
   grid-template-columns: 16.5rem minmax(0, 1fr) 14.5rem;
   gap: 0 clamp(1.75rem, 4vw, 4.25rem);
-  width: min(100% - 2 * var(--discern-space-6), 100rem);
+  width: min(100% - 2 * var(--discern-space-6), var(--docs-page-max));
   margin-inline: auto;
   align-items: start;
 }
@@ -39,27 +41,12 @@ body {
   overflow: hidden;
 }
 
-.docs-visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-}
-
 /* ── Top bar ───────────────────────────────────────────────────────────── */
 
-.docs-top-inner {
-  max-inline-size: 100rem;
-}
-
-.docs-brand-group {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--discern-space-2);
+/* The package bar measures its inner row against the page maximum; the
+   shell's three columns run wider than an article, so the bar follows them. */
+.docs-top {
+  --discern-page-max: var(--docs-page-max);
 }
 
 .docs-brand-lockup {
@@ -86,10 +73,6 @@ body {
 
 .docs-brand-docs:hover {
   color: var(--discern-color-accent-600);
-}
-
-.docs-top-spacer {
-  flex: 1;
 }
 
 .docs-search-btn {
@@ -124,13 +107,6 @@ body {
   font-size: 1rem;
 }
 
-.docs-theme {
-  box-sizing: border-box;
-  inline-size: 2.25rem;
-  block-size: 2.25rem;
-  min-block-size: 2.25rem;
-}
-
 /* ── Chapter nav (left rail) ───────────────────────────────────────────── */
 
 .docs-nav {
@@ -150,34 +126,16 @@ body {
   scrollbar-width: thin;
 }
 
-.docs-nav-chapter-heading {
-  display: grid;
-  gap: var(--discern-space-1);
-}
-
-.docs-nav-label {
-  display: flex;
+.docs-nav-chapter-title {
+  display: inline-flex;
   gap: var(--discern-space-2);
   align-items: baseline;
-  margin-bottom: 0;
-  letter-spacing: normal;
 }
 
 .docs-nav-section-index {
   color: var(--discern-color-accent-600);
   font-family: var(--discern-font-mono);
   font-size: 0.6875rem;
-}
-
-.docs-nav-scroll [data-nav-section] > ul {
-  gap: 0;
-}
-
-.docs-page-kind {
-  color: var(--discern-color-ink-faint);
-  font: 500 0.625rem var(--discern-font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .docs-page-kind {
@@ -633,10 +591,6 @@ body {
   color: var(--discern-color-ink);
 }
 
-.docs-map-label {
-  border-left: 3px solid var(--discern-color-accent-500);
-}
-
 .docs-decision-list {
   margin: 0;
   padding: 0;
@@ -737,21 +691,6 @@ body {
   font-size: var(--discern-font-size-display-xl);
 }
 
-.docs-cover-lead {
-  max-width: var(--discern-measure);
-  margin: 0;
-  color: var(--discern-color-ink-muted);
-  font-size: var(--discern-font-size-lg);
-}
-
-.docs-cover-lead code {
-  padding: 0.08em 0.38em;
-  border: 1px solid var(--discern-color-border);
-  border-radius: var(--discern-radius-xs);
-  background: var(--discern-color-surface-sunken);
-  font-family: var(--discern-font-mono);
-}
-
 .docs-front-doors {
   margin-top: var(--discern-space-10);
   padding: var(--discern-space-7);
@@ -784,15 +723,6 @@ body {
   border-top: 1px solid var(--discern-color-border);
 }
 
-.docs-complete-browse summary {
-  padding-block: var(--discern-space-5);
-  color: var(--discern-color-accent-700);
-  cursor: pointer;
-  font: 600 var(--discern-font-size-sm) var(--discern-font-ui);
-  font-feature-settings: var(--discern-font-features-ui);
-}
-
-.docs-complete-browse summary:focus-visible,
 .docs-search-all:focus-visible {
   border-radius: var(--discern-radius-xs);
   outline: 2px solid var(--discern-color-accent-500);
@@ -1024,7 +954,6 @@ body {
 
 @media (forced-colors: active) {
   .docs-history-label,
-  .docs-map-label,
   .docs-complete-browse,
   .doc-body pre,
   .docs-search-backdrop,
@@ -1035,7 +964,6 @@ body {
   .docs-shell a:focus-visible,
   .docs-top a:focus-visible,
   .docs-top button:focus-visible,
-  .docs-complete-browse summary:focus-visible,
   .docs-search-all:focus-visible {
     outline-color: Highlight;
   }
@@ -1070,14 +998,6 @@ body {
 
   .docs-front-doors {
     padding: var(--discern-space-5);
-  }
-
-  .docs-pager {
-    grid-template-columns: 1fr;
-  }
-
-  .docs-pager-empty {
-    display: none;
   }
 }
 

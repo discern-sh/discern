@@ -26,6 +26,7 @@ import {
   META_DESCRIPTION_MIN,
   SITE_ORIGIN,
 } from "../site/seo.tsx";
+import { unescapeHtml } from "../src/lib/markdown.ts";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -53,14 +54,14 @@ function attr(
 
 /** Extract and decode the document title emitted by the SEO renderer. */
 function titleOf(html: string): string {
-  return decodeHtml(
+  return unescapeHtml(
     /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.trim() ?? "",
   );
 }
 
 /** Extract and decode the named description meta tag's content. */
 function descriptionOf(html: string): string {
-  return decodeHtml(
+  return unescapeHtml(
     attr(
       html,
       /<meta\s+[^>]*name=["']description["'][^>]*>/i,
@@ -70,14 +71,6 @@ function descriptionOf(html: string): string {
 }
 
 /** Decode the entity subset emitted in site metadata before semantic comparison. */
-function decodeHtml(value: string): string {
-  return value
-    .replaceAll("&amp;", "&")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'");
-}
 
 /** Extract the canonical link target, treating an absent tag as empty evidence. */
 function canonicalOf(html: string): string {

@@ -20,8 +20,8 @@ import {
   type DocsSite,
   loadDocsSite,
   PUBLIC_MAP_ROUTE,
-  serveDocuments,
 } from "./docs.tsx";
+import { serveDocuments } from "./documents.tsx";
 import {
   PUBLIC_ASSET_PREFIX,
   SITE_ENDPOINTS,

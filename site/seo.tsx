@@ -15,6 +15,7 @@ import {
   SYSTEM_SECURE_ENTROPY,
 } from "../src/shared/entropy.ts";
 import { DISCERN_RELEASES_URL } from "../src/shared/brand.ts";
+import { unescapeHtml } from "../src/lib/markdown.ts";
 
 export const SITE_ORIGIN = "https://discern.sh";
 export const OG_IMAGE_PATH = "/assets/og-card.png";
@@ -83,16 +84,6 @@ function htmlEscape(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
-/** Decode the entity spellings that appear in generated title and meta tags. */
-function decodeHtmlText(value: string): string {
-  return value
-    .replaceAll("&amp;", "&")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'");
-}
-
 /** Extract a quoted HTML attribute from one already-selected tag. */
 function attr(tag: string, name: string): string | undefined {
   const match = tag.match(
@@ -106,7 +97,7 @@ function pageTitle(html: string): string | undefined {
   const value = /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1];
   return value === undefined
     ? undefined
-    : decodeHtmlText(value.replace(/\s+/g, " ").trim());
+    : unescapeHtml(value.replace(/\s+/g, " ").trim());
 }
 
 /** Extract the decoded content of the document's description meta tag. */
@@ -115,7 +106,7 @@ function pageDescription(html: string): string | undefined {
     const tag = match[0];
     if (attr(tag, "name")?.toLowerCase() === "description") {
       const content = attr(tag, "content");
-      if (content !== undefined) return decodeHtmlText(content);
+      if (content !== undefined) return unescapeHtml(content);
     }
   }
   return undefined;
