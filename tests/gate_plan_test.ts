@@ -92,6 +92,7 @@ Deno.test("the Gate contract documents its registry order, fixed child environme
     FORCE_COLOR: "",
     TERM: "dumb",
     CI: "1",
+    DISCERN_DESK_SESSION: "",
   });
   const gate = await Deno.readTextFile(
     new URL("../project/map/20-quality-gate/README.md", import.meta.url),

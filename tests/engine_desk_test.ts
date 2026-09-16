@@ -16,13 +16,17 @@ import {
   runAgent,
   runAgentPtyJourney,
   scaffoldEngine,
+  writeConfig,
 } from "./engine_helpers.ts";
 import { applicationFrameReady } from "./fixtures/terminal_application_capture.ts";
-import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
+import {
+  DESK_SESSION_ENV,
+  deskSessionEnv,
+} from "../src/engine/desk/session.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
 
-const DESK_SESSION = { [DESK_SESSION_ENV]: "1" };
+const DESK_SESSION = deskSessionEnv();
 
 Deno.test("desk --json: refuses — the desk has no JSON form", async () => {
   await withTempDir(async (dir) => {
@@ -67,6 +71,36 @@ Deno.test("bare discern refuses inside a desk-owned child before interaction pol
     assertStringIncludes(r.output, "exit");
     assert(!r.output.includes("Pick an effort"));
     assert(!r.output.includes("Commands:"));
+  });
+});
+
+Deno.test("gate jobs beneath a desk-owned child run outside the desk session", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[jobs]",
+        // `[]` proves the marker arrived blank rather than unset or leaked.
+        `test = "printf '[%s]' \\"\${${DESK_SESSION_ENV}-unset}\\" > desk-session.txt"`,
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["test"], { env: DESK_SESSION });
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      await Deno.readTextFile(`${dir}/desk-session.txt`),
+      "[]",
+      "a project's own checks may run discern; the gate must not let the launching desk reach them",
+    );
   });
 });
 

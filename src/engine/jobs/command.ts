@@ -14,6 +14,7 @@ import { assertOutsideCommonPublication } from "../../shared/operation_execution
 
 import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { colorResolvedEnv } from "../../shared/color_env.ts";
+import { withoutDeskSessionEnv } from "../desk/session.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
 import { spawnedByEnv } from "../../shared/invocation_context.ts";
@@ -119,11 +120,15 @@ const TAIL_CAP = JOB_CAPTURE_CAP_BYTES - HEAD_CAP;
  * honest signal for what the gate is — a local CI run — and, decisively, flips the
  * ubiquitous watch-vs-single-run test runners into their single-run form, so a bare
  * `test = "<runner>"` doesn't enter watch mode and hang the gate waiting for edits.
+ * The desk marker is blanked for the same reason the terminal signals are fixed:
+ * a gate launched from a desk-owned shell must produce the evidence a gate
+ * launched anywhere else produces, and a project's own tests may run `discern`.
  */
 export const GATE_JOB_ENVIRONMENT: Readonly<Record<string, string>> = {
   ...colorResolvedEnv(),
   TERM: "dumb",
   CI: "1",
+  ...withoutDeskSessionEnv(),
 };
 
 /** Resolve process overrides before the spawn boundary adds invocation lineage. */
