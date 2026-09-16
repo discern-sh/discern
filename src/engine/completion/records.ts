@@ -1,6 +1,6 @@
 /** Canonical family membership, validated shapes, and lifetime policy. */
 import { z } from "@zod/zod";
-import { AttemptSchema } from "./attempt.ts";
+import { AttemptSchema, sameClaimIdentity } from "./attempt.ts";
 import { CandidateSchema } from "./candidate.ts";
 import {
   ArtifactSchema,
@@ -157,4 +157,19 @@ export function recordTransitionAllowed(
     }
   }
   return true;
+}
+
+/** Lease heartbeats are current liveness, not semantic attempt history. */
+export function isAttemptClaimRenewal(
+  previous: CompletionRecord,
+  next: CompletionRecord,
+): boolean {
+  if (previous.kind !== "attempt" || next.kind !== "attempt") return false;
+  const before = previous.data.state;
+  const after = next.data.state;
+  if (
+    before.kind === "finished" || after.kind === "finished" ||
+    after.kind !== before.kind
+  ) return false;
+  return sameClaimIdentity(before.claim, after.claim);
 }

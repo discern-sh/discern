@@ -272,11 +272,16 @@ async function runGateBody(
         }
         checkpoints = preamble.preflight;
       }
-      const gate = await runCandidateGate(root, surface, signal, {
-        ...presentation,
-        ...(checkpoints === undefined ? {} : { checkpoints }),
-        completion: session,
-      });
+      const gate = await runCandidateGate(
+        root,
+        surface,
+        session.execution.signal,
+        {
+          ...presentation,
+          ...(checkpoints === undefined ? {} : { checkpoints }),
+          completion: session,
+        },
+      );
       return {
         value: gate,
         passed: gate.result.ok,

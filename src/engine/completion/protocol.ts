@@ -45,6 +45,7 @@ export type CompletionBlocker =
     readonly kind: "waiting-for-operation";
     readonly attempt_id: string;
     readonly expires_at: number;
+    readonly operation_handle?: string;
   }
   | { readonly kind: "report-only" };
 

@@ -49,9 +49,10 @@ export function compareValueToLimit(
     "Investigate the measured change and try reasonable remedies within the authorized task. " +
     "If the requested outcome requires a different limit, explain the measured " +
     "tradeoff, supported alternatives, and your recommendation to the owner. " +
-    "After owner agreement, commit the final clean tree and run " +
-    `\`discern standards propose ${name} --reason "…"\`; ` +
-    "the proposal command measures this standard. Keep unrelated changes out of the remedy.";
+    "After owner agreement, complete every required review, regeneration, edit, " +
+    "preparation run, and ordinary commit, then record all simultaneously approved " +
+    `breaches through the standards proposal action (scalar CLI: \`discern standards propose ${name} --reason "…"\`). ` +
+    "Keep unrelated changes out of the remedy.";
   if (direction === "up") {
     if (value + 1e-9 < limit) {
       return {

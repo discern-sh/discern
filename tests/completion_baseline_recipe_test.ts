@@ -486,19 +486,10 @@ Deno.test({
         );
         await Deno.writeTextFile(
           join(root, "slow_test.ts"),
-          `
+          `import { waitForPath } from ${repositoryModule("tests/waiting.ts")};
 import {choose} from './src/choose.ts';
 Deno.test('late branch', async () => {
-  const watcher = Deno.watchFs('.');
-  try {
-    try { await Deno.stat('processing-started'); }
-    catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
-      for await (const event of watcher) {
-        if (event.paths.some((path) => path.endsWith('/processing-started'))) break;
-      }
-    }
-  } finally { watcher.close(); }
+  await waitForPath('processing-started');
   choose(0);
 });\n`,
         );

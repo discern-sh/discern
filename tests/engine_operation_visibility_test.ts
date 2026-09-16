@@ -5,6 +5,7 @@ import { z } from "@zod/zod";
 import {
   ProgressDataSchema,
   ProgressOutputSchema,
+  StandardsOutputSchema,
   StandardsProposeOutputSchema,
 } from "../src/shared/result_schemas.ts";
 import {
@@ -83,11 +84,14 @@ for (const surface of ["cli", "mcp"] as const) {
           id,
           method: "tools/call",
           params: {
-            name: "discern_standards_propose",
+            name: "discern_standards",
             arguments: {
               path,
-              name: "sources",
-              reason: "Additional source is required.",
+              action: "propose",
+              proposals: [{
+                name: "sources",
+                reason: "Additional source is required.",
+              }],
             },
           },
         });
@@ -139,7 +143,7 @@ for (const surface of ["cli", "mcp"] as const) {
         slot.unlockSync();
         const completed = cli !== undefined
           ? decodeWith(StandardsProposeOutputSchema, (await cli).stdout)
-          : z.object({ structuredContent: StandardsProposeOutputSchema }).parse(
+          : z.object({ structuredContent: StandardsOutputSchema }).parse(
             (await peer?.response(2))?.result,
           ).structuredContent;
         assert(completed.ok, JSON.stringify(completed));
@@ -158,7 +162,7 @@ for (const surface of ["cli", "mcp"] as const) {
           z.object({ ok: z.boolean(), verb: z.string() }).parse(
             finalData.result,
           ).verb,
-          "standards propose",
+          surface === "cli" ? "standards propose" : "standards",
         );
         assertEquals(
           peer?.messages.some((message) =>
@@ -212,7 +216,7 @@ for (const surface of ["cli", "mcp"] as const) {
           slot.unlockSync();
           await sendProposal(4);
           const retry =
-            z.object({ structuredContent: StandardsProposeOutputSchema }).parse(
+            z.object({ structuredContent: StandardsOutputSchema }).parse(
               (await peer.response(4)).result,
             ).structuredContent;
           assert(retry.ok, JSON.stringify(retry));

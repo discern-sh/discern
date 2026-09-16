@@ -18,13 +18,15 @@ const selections = {
   standardsLimitProposal: {
     site: sites.standardsLimitProposal,
     values: {
-      standard: "bytes",
-      direction: "down",
-      trunkLimit: 1,
-      proposedLimit: 2,
-      measurement: 2,
-      reason: "Owner decision",
-      evidencePaths: ["generated.txt"],
+      proposals: [{
+        standard: "bytes",
+        direction: "down",
+        trunkLimit: 1,
+        proposedLimit: 2,
+        measurement: 2,
+        reason: "A required generated artifact increases the measured bytes.",
+        evidencePaths: ["generated.txt"],
+      }],
     },
   },
   updateRegeneration: { site: sites.updateRegeneration, values: undefined },

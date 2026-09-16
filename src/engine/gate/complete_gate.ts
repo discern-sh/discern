@@ -9,9 +9,16 @@ import {
   HINTS,
   hintTexts,
 } from "../../shared/hints.ts";
+import { discernCommand, positional } from "../../shared/command_reference.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { integrationBranch } from "../worktree/git.ts";
-import { completionBlockerAccount } from "../completion/progress_prose.ts";
+import {
+  completionBlockerAccount,
+  completionPendingData,
+  completionProgressSentence,
+  uniqueCompletionBlockers,
+} from "../completion/progress_prose.ts";
+import type { CompletionBlocker } from "../completion/protocol.ts";
 import {
   completeSourceTip,
   type CompletionRunValue,
@@ -92,12 +99,12 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   if (completed.kind !== "completed") {
     // Every pending cause reaches the owner as the plain sentence its account
     // composes; a raw record shape is never the first paragraph.
-    const reason = completionBlockerAccount(completed).reason;
+    const account = completionBlockerAccount(completed);
     return await unrun({
       ok: false,
       verb: "done",
       error: "incomplete",
-      message: `Completion is pending: ${reason}`,
+      message: completionProgressSentence(account),
       hints: hintTexts([
         fire(HINTS["completion-pending"], {
           action: completionNextAction(completed),
@@ -110,13 +117,14 @@ export async function runCompleteGate<T extends CompletionGateResult>(
         producer_executions: {},
         completion: {
           kind: "pending",
-          pending_reasons: [reason],
-          pending: [{ kind: completed.kind, reason }],
+          pending_reasons: [account.reason],
+          pending: [completionPendingData(completed)],
         },
       },
     });
   }
   const gate = completed.value;
+  const blockers = uniqueCompletionBlockers(completed.blockers);
   if (gate.result.data !== undefined) {
     gate.result.data.completion = {
       kind: completed.proof_id === undefined ? "pending" : "complete",
@@ -124,20 +132,17 @@ export async function runCompleteGate<T extends CompletionGateResult>(
       ...(completed.proof_id === undefined
         ? {}
         : { proof_id: completed.proof_id }),
-      pending: completed.blockers.map((blocker) => ({
-        kind: blocker.kind,
-        reason: completionBlockerAccount(blocker).reason,
-      })),
-      pending_reasons: completed.blockers.map((blocker) =>
+      pending: blockers.map(completionPendingData),
+      pending_reasons: blockers.map((blocker) =>
         completionBlockerAccount(blocker).reason
       ),
     };
   }
   if (
-    (completed.proof_id === undefined || completed.blockers.length > 0) &&
+    (completed.proof_id === undefined || blockers.length > 0) &&
     gate.result.ok
   ) {
-    const causes = completed.blockers.map((blocker) =>
+    const causes = blockers.map((blocker) =>
       completionBlockerAccount(blocker).reason
     );
     gate.result = {
@@ -152,19 +157,35 @@ export async function runCompleteGate<T extends CompletionGateResult>(
     };
     gate.failedStage = "check/test";
   }
-  if (!gate.result.ok && completed.blockers.length > 0) {
+  const waitingOnly = blockers.length > 0 &&
+    blockers.every((blocker) => blocker.kind === "waiting-for-operation");
+  if (waitingOnly) {
+    const account = completionBlockerAccount(blockers[0] as CompletionBlocker);
+    gate.result = {
+      ...gate.result,
+      ok: false,
+      error: "incomplete",
+      message: completionProgressSentence(account),
+    };
+    if (gate.result.data !== undefined) {
+      gate.result.data.failed_stage = null;
+      gate.result.data.gate_ran = false;
+    }
+    gate.failedStage = null;
+  }
+  if (!gate.result.ok && blockers.length > 0) {
     gate.result.hints = hintTexts([
-      ...firedHintsFromTexts(gate.result.hints ?? []),
-      ...[...new Set(completed.blockers.map(completionNextAction))].map(
+      ...[...new Set(blockers.map(completionNextAction))].map(
         (action) => fire(HINTS["completion-pending"], { action }),
       ),
+      ...firedHintsFromTexts(gate.result.hints ?? []),
     ]);
   }
   return gate;
 }
 
 /** Keep distinct pending states attached to their next valid operation. */
-function completionNextAction(blocker: { readonly kind: string }): string {
+function completionNextAction(blocker: CompletionBlocker): string {
   switch (blocker.kind) {
     case "stale-evidence":
       return "The source or the trunk changed. Run discern update when the branch is behind the trunk, then run discern done to establish complete current evidence.";
@@ -173,7 +194,16 @@ function completionNextAction(blocker: { readonly kind: string }): string {
     case "unavailable":
       return "Resolve the reported condition, then run discern done again.";
     case "waiting-for-operation":
-      return "Allow the running operation on this checkout to finish, then retry the requested command.";
+      return blocker.operation_handle === undefined
+        ? "Wait for the running operation on this checkout to finish, then retry the requested command."
+        : `Run ${
+          discernCommand(
+            "progress",
+            positional("handle", blocker.operation_handle),
+          )
+        } to read the existing operation; after it finishes, run ${
+          discernCommand("done")
+        } again.`;
     case "report-only":
       return "Run discern done without --ci before acceptance.";
     case "validation-failed":

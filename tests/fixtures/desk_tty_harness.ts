@@ -73,8 +73,9 @@ import { decodeWith } from "../decode_cli_result.ts";
 
 const HARNESS_PATH = fromFileUrl(import.meta.url);
 const DEFAULT_TIMEOUT_MS = TEST_PROCESS_TIMEOUT_MS;
-// The child watcher competes with the full coverage suite for CPU. This bounds
-// readiness without turning elapsed time into evidence that a resize applied.
+// The child-side request loop competes with the full coverage suite for CPU.
+// This bounds readiness without turning elapsed time into evidence that a
+// resize applied.
 const RESIZE_ACK_TIMEOUT_MS = 60_000;
 const RESIZE_ACK_POLL_MS = 10;
 const SAFE_SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
@@ -1803,24 +1804,41 @@ async function applyResizeRequests(
   }
 }
 
-async function watchResizeRequests(
+/** True when the parent has retained a resize request not yet applied. */
+async function hasPendingResizeRequest(
+  resizeDir: string,
+  seen: ReadonlySet<string>,
+): Promise<boolean> {
+  for await (const entry of Deno.readDir(resizeDir)) {
+    if (
+      entry.isFile && /^\d{4}\.json$/u.test(entry.name) &&
+      !seen.has(entry.name)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function serviceResizeRequests(
   resizeDir: string,
   child: Deno.ChildProcess,
   applied: PtyGeometry[],
-  watcher: Deno.FsWatcher,
+  childExited: () => boolean,
 ): Promise<void> {
   const seen = new Set<string>();
-  await applyResizeRequests(resizeDir, seen, child, applied);
-  try {
-    for await (const _event of watcher) {
-      await applyResizeRequests(resizeDir, seen, child, applied);
-    }
-  } catch (error) {
-    if (!(error instanceof Deno.errors.BadResource)) {
-      throw error;
-    }
-  } finally {
-    watcher.close();
+  while (true) {
+    await applyResizeRequests(resizeDir, seen, child, applied);
+    if (childExited()) return;
+    await waitUntil(
+      async () =>
+        childExited() || await hasPendingResizeRequest(resizeDir, seen),
+      "Desk resize request or child completion",
+      {
+        timeoutMs: TEST_PROCESS_TIMEOUT_MS,
+        intervalMs: RESIZE_ACK_POLL_MS,
+      },
+    );
   }
 }
 
@@ -1835,23 +1853,26 @@ async function runChildHarness(options: ChildOptions): Promise<number> {
     stderr: "inherit",
   }).spawn();
   const applied: PtyGeometry[] = [];
-  const watcher = Deno.watchFs(options.resizeDir);
+  let childExited = false;
+  const status = child.status.then((result) => {
+    childExited = true;
+    return result;
+  });
   let resizeError: string | undefined;
-  const resizeTask = watchResizeRequests(
+  const resizeTask = serviceResizeRequests(
     options.resizeDir,
     child,
     applied,
-    watcher,
+    () => childExited,
   ).catch((error: unknown) => {
     resizeError = error instanceof Error ? error.message : String(error);
   });
-  const status = await child.status;
-  watcher.close();
+  const completedStatus = await status;
   await resizeTask;
   const after = await stty(["-g"]);
   const afterDescription = await stty(["-a"]);
   const evidence: ChildTerminalEvidence = {
-    code: status.code,
+    code: completedStatus.code,
     before,
     after,
     beforeDescription,
@@ -1869,7 +1890,7 @@ async function runChildHarness(options: ChildOptions): Promise<number> {
     options.resultPath,
     `${JSON.stringify(evidence)}\n`,
   );
-  return status.code;
+  return completedStatus.code;
 }
 
 if (import.meta.main) {

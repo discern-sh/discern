@@ -160,6 +160,27 @@ Deno.test("Standard limit proposal reasons are verbatim, bounded, visible, and s
   ) {
     assertEquals(validateStandardLimitReason(reason).ok, false);
   }
+  const long = validateStandardLimitReason("x".repeat(523));
+  assertEquals(long.ok, false);
+  if (!long.ok) {
+    assertEquals(
+      long.message,
+      "--reason is 523 characters; remove at least 23 to meet the 500-character maximum.",
+    );
+  }
+  for (
+    const authorityClaim of [
+      "Owner approved this increase.",
+      "Approved by the maintainer after review.",
+      "Consent has been granted for this limit.",
+    ]
+  ) {
+    const result = validateStandardLimitReason(authorityClaim);
+    assertEquals(result.ok, false);
+    if (!result.ok) {
+      assertStringIncludes(result.message, "technical justification");
+    }
+  }
 });
 
 Deno.test("Standard proposal renewal changes only its descendant binding and current evidence", () => {
@@ -211,6 +232,7 @@ Deno.test("Standard proposal renewal refuses every material tuple change", () =>
     const decision = buildStandardLimitProposalRebindPlan(candidate);
     assert(!decision.ok);
     assertEquals(decision.error, "proposal_stale");
+    assertStringIncludes(decision.message, "obtain fresh agreement");
   }
 });
 

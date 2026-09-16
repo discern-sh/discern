@@ -380,6 +380,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0402 — Site layouts use server-rendered React components](0402-site-layouts-use-server-rendered-react-components.md)
 - [0403 — The site map is a directory of repository sources](0403-the-site-map-is-a-directory-of-repository-sources.md)
 - [0404 — Maps explain the project and connect its practice](0404-maps-explain-the-project-and-connect-its-practice.md)
+- [0405 — One Standards MCP tool and atomic proposal batches](0405-one-standards-mcp-tool-and-atomic-proposal-batches.md)
+- [0406 — Completion claims use renewable bounded leases](0406-completion-claims-use-renewable-bounded-leases.md)
 
 <!-- END GENERATED: current ADR records -->
 

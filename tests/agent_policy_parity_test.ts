@@ -188,9 +188,9 @@ const WORKTREE_OWNERSHIP_REQUIREMENTS = [
 
 const STANDALONE_TEST_REQUIREMENTS = [
   {
-    meaning: "the standalone test stage is on demand",
+    meaning: "the standalone test stage is selected only as the result",
     pattern:
-      /discern[_ ]test[^.\n]{0,100}complete test stage[^.\n]{0,60}on demand/i,
+      /discern[_ ]test[^.\n]{0,140}complete test stage[^.\n]{0,80}(?:requested result|result is requested|on demand)/i,
   },
   {
     meaning: "the final Gate already includes the test stage",
@@ -201,7 +201,34 @@ const STANDALONE_TEST_REQUIREMENTS = [
     meaning: "a final Gate needs no standalone test preflight",
     pattern: /final Gate[^.\n]{0,80}no standalone test preflight/i,
   },
+  {
+    meaning: "standalone test evidence is not reusable completion evidence",
+    pattern: /no reusable completion evidence/i,
+  },
 ] as const;
+
+/** Tool-description iteration advice may name only the cheap inner loops. */
+export function iterationAdviceFailures(
+  surfaces: readonly NamedText[],
+): string[] {
+  const failures: string[] = [];
+  for (const surface of surfaces) {
+    if (!/iterat/i.test(surface.text)) continue;
+    if (
+      /(?:use|run)[^.\n]{0,80}(?:discern[_ ]test|prepare or test)[^.\n]{0,80}(?:while iterating|for iteration)/i
+        .test(surface.text)
+    ) {
+      failures.push(`${surface.label} routes iteration through discern_test`);
+    }
+    if (
+      !/(?:discern_prepare|reproduce_cmd|reproduce command|targeted project command)/i
+        .test(surface.text)
+    ) {
+      failures.push(`${surface.label} gives no supported iteration route`);
+    }
+  }
+  return failures;
+}
 
 interface NamedText {
   readonly label: string;
@@ -371,6 +398,27 @@ Deno.test("standalone tests remain on demand across agent-facing surfaces", asyn
     [],
     "every agent-facing test surface must keep the full standalone stage out of the final preflight:\n  " +
       failures.join("\n  "),
+  );
+});
+
+Deno.test("MCP tool iteration advice never routes through the standalone test stage", () => {
+  const surfaces = TOOLS.map((tool) => ({
+    label: `${tool.name} description`,
+    text: tool.description,
+  }));
+  assertEquals(iterationAdviceFailures(surfaces), []);
+});
+
+Deno.test("control: iteration-advice detector rejects prepare-or-test guidance", () => {
+  assertEquals(
+    iterationAdviceFailures([{
+      label: "future tool",
+      text: "Use prepare or test while iterating.",
+    }]),
+    [
+      "future tool routes iteration through discern_test",
+      "future tool gives no supported iteration route",
+    ],
   );
 });
 

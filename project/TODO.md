@@ -15,6 +15,8 @@ This tracked backlog publishes with the repository by design. It records inspect
 ## Gate performance and reliability
 
 - [ ] **Stabilize queue-history readiness.** Make the queue-history regression wait for the observation it asserts: the initial waiting line precedes the optional activity read, so releasing the slot holder on that line can erase the expected history. Preserve the real capacity-wait boundary. Evidence: `tests/engine_queue_test.ts`; `src/engine/test_run_slots.ts`; `project/map/_private/coverage-partition-overlap-live.json`.
+- [ ] **Reconcile existing Standard proposals atomically.** Let one proposal batch remeasure and renew unchanged live proposals alongside new or changed proposals, preserving exact-tree binding without caller-managed sibling staleness; until then the batch must refuse any new proposal when existing proposal state is present, before measuring or writing. Evidence: `src/engine/gate/standard_proposals.ts`; `tests/engine_standard_limit_proposals_test.ts`; `project/map/20-quality-gate/standards.md`.
+- [ ] **Investigate carrying Proof across proposal commits.** Determine whether a failed gate whose only failure is a Standard comparison can carry eligible component receipts and exact measurement evidence across discern's controlled config-only proposal commit, while refusing the fast path for candidate-bound producers or inputs affected by the limit change. Evidence: `src/engine/gate/standard_proposals.ts`; `src/engine/completion/evidence.ts`; `project/map/20-quality-gate/standards.md`.
 
 ## Setup and recovery
 

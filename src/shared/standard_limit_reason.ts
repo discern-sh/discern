@@ -14,6 +14,13 @@ const OBVIOUS_SECRET_PATTERNS: readonly RegExp[] = [
   /\b(?:api[_ -]?key|access[_ -]?token|password|secret)\s*[:=]\s*\S+/iu,
 ];
 
+/** Approval remains acceptance evidence, never part of technical rationale. */
+const AUTHORITY_CLAIM_PATTERNS: readonly RegExp[] = [
+  /\b(?:owner|user|human|maintainer)\s+(?:has\s+)?approved\b/iu,
+  /\bapproved\s+by\s+(?:the\s+)?(?:owner|user|human|maintainer)\b/iu,
+  /\b(?:approval|consent|permission)\s+(?:was\s+|has\s+been\s+)?(?:given|granted|received)\b/iu,
+];
+
 /** Validate without normalizing: accepted bytes are recorded verbatim. */
 export function validateStandardLimitReason(
   reason: string,
@@ -25,10 +32,11 @@ export function validateStandardLimitReason(
     };
   }
   if (reason.length > STANDARD_LIMIT_REASON_MAX_LENGTH) {
+    const reduction = reason.length - STANDARD_LIMIT_REASON_MAX_LENGTH;
     return {
       ok: false,
       message:
-        `--reason is ${reason.length} characters; keep it to at most ${STANDARD_LIMIT_REASON_MAX_LENGTH}.`,
+        `--reason is ${reason.length} characters; remove at least ${reduction} to meet the ${STANDARD_LIMIT_REASON_MAX_LENGTH}-character maximum.`,
     };
   }
   if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(reason)) {
@@ -43,6 +51,13 @@ export function validateStandardLimitReason(
       ok: false,
       message:
         "--reason appears to contain a credential or secret. Remove it and describe the engineering reason without sensitive values.",
+    };
+  }
+  if (AUTHORITY_CLAIM_PATTERNS.some((pattern) => pattern.test(reason))) {
+    return {
+      ok: false,
+      message:
+        "--reason must contain only the technical justification. Keep approval, consent, and landing authority in the separate acceptance decision.",
     };
   }
   return { ok: true, reason };

@@ -184,8 +184,10 @@ export function completionBlockerAccount(
     case "waiting-for-operation":
       return {
         reason:
-          "Another active operation on this work has not finished or released its claim.",
-        next: "Run again once it has finished.",
+          `Completion attempt ${blocker.attempt_id} is still running for this worktree.`,
+        next: blocker.operation_handle === undefined
+          ? "Wait for that operation to finish, then retry completion."
+          : `Read progress handle ${blocker.operation_handle} without starting another completion run; retry completion after that operation finishes.`,
         owner_must_act: false,
       };
     case "report-only":
@@ -195,6 +197,44 @@ export function completionBlockerAccount(
         owner_must_act: false,
       };
   }
+}
+
+/** One pending cause appears once even when several obligations select it. */
+export function uniqueCompletionBlockers(
+  blockers: readonly CompletionBlocker[],
+): CompletionBlocker[] {
+  const seen = new Set<string>();
+  return blockers.filter((blocker) => {
+    if (blocker.kind !== "waiting-for-operation") return true;
+    const key = `${blocker.kind}:${blocker.attempt_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Project enough recovery context for JSON readers without duplicating obligations. */
+export function completionPendingData(blocker: CompletionBlocker): {
+  kind: string;
+  reason: string;
+  next_action: string;
+  attempt_id?: string;
+  operation_handle?: string;
+  expires_at?: number;
+} {
+  const account = completionBlockerAccount(blocker);
+  return {
+    kind: blocker.kind,
+    reason: account.reason,
+    next_action: account.next,
+    ...(blocker.kind !== "waiting-for-operation" ? {} : {
+      attempt_id: blocker.attempt_id,
+      expires_at: blocker.expires_at,
+      ...(blocker.operation_handle === undefined
+        ? {}
+        : { operation_handle: blocker.operation_handle }),
+    }),
+  };
 }
 
 /** The facts one failure sentence reads, live or journalled. */

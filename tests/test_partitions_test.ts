@@ -25,6 +25,10 @@ import { withTempDir } from "./helpers.ts";
 import { waitForPendingCondition } from "./waiting.ts";
 import { readPidsIfReady } from "./process_id.ts";
 
+const WAITING_MODULE = JSON.stringify(
+  new URL("./waiting.ts", import.meta.url).href,
+);
+
 /** Seed native file discovery with an optional practical failing case. */
 async function seedNativeTests(
   dir: string,
@@ -46,15 +50,10 @@ async function seedWaitingTests(dir: string, count: number): Promise<void> {
   for (let index = 0; index < count; index++) {
     await Deno.writeTextFile(
       join(dir, `${index}_test.ts`),
-      `Deno.test('queued ${index}', async () => {
-      const watcher = Deno.watchFs('.');
+      `import { waitForPath } from ${WAITING_MODULE};
+Deno.test('queued ${index}', async () => {
       await Deno.writeTextFile('${index}.ready', String(Deno.pid));
-      for await (const event of watcher) {
-        if (!event.kind) throw new Error('invalid event');
-        try { await Deno.stat('${index}.release'); break; }
-        catch (error) { if (!(error instanceof Deno.errors.NotFound)) throw error; }
-      }
-      watcher.close();
+      await waitForPath('${index}.release');
       await Deno.writeTextFile('${index}.finished', 'yes');
     });\n`,
     );
@@ -215,14 +214,10 @@ Deno.test("a crashed partition settles its sibling and preserves explicitly inco
     );
     await Deno.writeTextFile(
       join(dir, "1_test.ts"),
-      `Deno.test('finish', async () => {
-      const watcher = Deno.watchFs('.');
+      `import { waitForPath } from ${WAITING_MODULE};
+Deno.test('finish', async () => {
       await Deno.writeTextFile('ready', 'yes');
-      for await (const _event of watcher) {
-        try { await Deno.stat('release'); break; }
-        catch (error) { if (!(error instanceof Deno.errors.NotFound)) throw error; }
-      }
-      watcher.close();
+      await waitForPath('release');
       await Deno.writeTextFile('finished', 'yes');
       throw new Error('surviving failure');
     });\n`,

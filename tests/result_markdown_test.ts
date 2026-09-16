@@ -1202,6 +1202,46 @@ Deno.test("non-ok steps nest beneath the steps summary", () => {
   assert(!rendered.includes("ended"), rendered);
 });
 
+Deno.test("a blocked done leads Markdown with the same recovery action JSON carries", () => {
+  const reason =
+    "Completion attempt 00000000-0000-4000-8000-000000000002 is still running for this worktree.";
+  const action =
+    "Read progress handle R1-AAAA-AAAA-AA, then retry done after it finishes.";
+  const rendered = renderResultMarkdown(
+    {
+      ok: false,
+      verb: "done",
+      error: "incomplete",
+      message: `${reason} ${action}`,
+      hints: hintTexts([
+        fire(HINTS["completion-pending"], { action }),
+      ]),
+      data: {
+        failed_stage: null,
+        scopes_changed: [],
+        gate_ran: false,
+        completion: {
+          kind: "pending",
+          pending_reasons: [reason],
+          pending: [{
+            kind: "waiting-for-operation",
+            reason,
+            next_action: action,
+            attempt_id: "00000000-0000-4000-8000-000000000002",
+            operation_handle: "R1-AAAA-AAAA-AA",
+            expires_at: 60_000,
+          }],
+        },
+      },
+    },
+    resultPresenterForVerb("done"),
+  );
+  assertStringIncludes(rendered, `## Current state\n\n${reason} ${action}`);
+  assert(rendered.trimEnd().endsWith(action), rendered);
+  assert(!rendered.includes("Failed stage"), rendered);
+  assert(!rendered.includes("## Other actions"), rendered);
+});
+
 Deno.test("a narrow coverage gap names authored stragglers and collapses generated files", () => {
   const rendered = renderResultMarkdown(
     {
@@ -1534,4 +1574,41 @@ Deno.test("a long landing queue stays bounded with an explicit overflow count", 
   assertStringIncludes(rendered, "Queue 6: `agent/effort-5`");
   assert(!rendered.includes("Queue 7:"), rendered);
   assertStringIncludes(rendered, "3 more submissions wait behind these.");
+});
+
+Deno.test("a proposal batch renders every tuple the owner must approve", () => {
+  // Two breaches from one commit share a reason and a responsible path. The
+  // approval is per standard, so neither may be deduplicated away.
+  const shared = {
+    reason: "The feature requires one more tracked file.",
+    evidence_paths: ["src/feature.ts"],
+    trunk_limit: 1,
+    proposed_limit: 2,
+    measurement: 2,
+    delta: 1,
+  };
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "standards",
+      data: {
+        proposal_batch: {
+          status: "Recorded",
+          proposals: [
+            { standard: "sources", ...shared },
+            { standard: "docs", ...shared },
+          ],
+        },
+      },
+    },
+    resultPresenterForVerb("standards"),
+  );
+  assertStringIncludes(rendered, "Recorded 2 proposed limits.");
+  for (const name of ["sources", "docs"]) {
+    assertStringIncludes(rendered, `\`${name}\` reason: ${shared.reason}`);
+    assertStringIncludes(
+      rendered,
+      `\`${name}\` responsible paths: \`src/feature.ts\`.`,
+    );
+  }
 });

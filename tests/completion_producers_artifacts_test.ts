@@ -33,6 +33,7 @@ import {
   readCompletionRecord,
   writeCompletionRecord,
 } from "../src/engine/completion/store.ts";
+import { renewAttemptClaim } from "../src/engine/completion/attempt_lifecycle.ts";
 import { artifactKey } from "../src/engine/validation/selection.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
@@ -234,6 +235,14 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
       )).kind,
       "written",
     );
+    assertEquals(
+      (await renewAttemptClaim(root, execution.fence, {
+        ...COMPLETION_CLOCK,
+        wallNow: () => 120,
+      })).kind,
+      "written",
+      "lease renewal must not supersede the immutable validation binding",
+    );
     const Command = Deno.Command;
     Deno.Command = class extends Command {
       /** Count native administration discovery without replacing its result. */
@@ -302,10 +311,10 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
       (await writeCompletionRecord(
         root,
         CompletionRecordSchema.parse({
-          ...attempt,
-          revision: 2,
+          ...current.record,
+          revision: current.record.revision + 1,
           data: {
-            ...execution.attempt,
+            ...current.record.data,
             state: { kind: "finished", outcome: "passed", finished_at: 110 },
           },
         }),

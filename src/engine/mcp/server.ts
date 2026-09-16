@@ -111,7 +111,6 @@ import {
   ProgressOutputSchema,
   RefreshOutputSchema,
   StandardsOutputSchema,
-  StandardsProposeOutputSchema,
   type StartData,
   StartOutputSchema,
   StatusOutputSchema,
@@ -130,7 +129,7 @@ import { operationProgressResult } from "../completion/progress_result.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test_job.ts";
 import { standardsResult } from "../gate/standards.ts";
-import { standardsProposeResult } from "../gate/standard_proposals.ts";
+import { standardsProposeBatchResult } from "../gate/standard_proposals.ts";
 import { improvementResult } from "../improve/improve.ts";
 import { checkpointsResult } from "../checkpoints/report.ts";
 import { CATEGORY_NAMES } from "../improve/rules.ts";
@@ -236,14 +235,6 @@ const UPDATE: ToolAnnotations = {
   destructiveHint: false,
   idempotentHint: true,
 };
-/** A convergent config-only proposal transaction; no project command runs. */
-const PROPOSAL: ToolAnnotations = {
-  readOnlyHint: false,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-};
-
 /** A tool handler's `args`: the object the SDK validates each call against and hands
  * the handler, inferred from the tool's own Zod input shape. */
 type ToolArgs<TShape extends z.ZodRawShape> = z.infer<z.ZodObject<TShape>>;
@@ -378,7 +369,12 @@ export function toolDescriptionForProfile(
     : tool.description;
 }
 
-/** The startup-visible lifecycle, in the order an agent should follow it. */
+/**
+ * The startup-visible lifecycle, in the order an agent should follow it.
+ * Keep exactly 8 unique members: bounded clients may expose only a leading
+ * slice of one server's tools, so the generally useful project map occupies
+ * the final prioritized discovery position.
+ */
 export const MCP_CORE_LIFECYCLE = [
   "discern_status",
   "discern_start",
@@ -387,6 +383,7 @@ export const MCP_CORE_LIFECYCLE = [
   "discern_update",
   "discern_await",
   "discern_accept",
+  "discern_map",
 ] as const;
 
 const TOOL_PRIORITY = [
@@ -394,13 +391,11 @@ const TOOL_PRIORITY = [
   "discern_progress",
   "discern_test",
   "discern_standards",
-  "discern_standards_propose",
   "discern_impact",
   "discern_coupling",
   "discern_patterns",
   "discern_checkpoints",
   "discern_refresh",
-  "discern_map",
   "discern_docs",
   "discern_doctor",
   "discern_improvement",
@@ -415,6 +410,16 @@ function orderTools(tools: McpTool[]): McpTool[] {
     (priority.get(a.name) ?? Number.MAX_SAFE_INTEGER) -
     (priority.get(b.name) ?? Number.MAX_SAFE_INTEGER)
   );
+}
+
+/** Refuse cross-action arguments before either standards workflow begins. */
+function standardsActionFailure(message: string): DiscernResult {
+  return {
+    ok: false,
+    verb: "standards",
+    error: "invalid_arguments",
+    message,
+  };
 }
 
 /**
@@ -519,12 +524,17 @@ export const TOOLS: McpTool[] = orderTools([
   }),
   defineTool({
     name: "discern_done",
-    title: "Verify the claim that the change is done",
+    title: "Run the final gate and record Proof",
     outputSchema: FinishOutputSchema,
     annotations: MUTATING,
     description:
-      "Require a clean, committed tree before selecting a candidate or running producers. Use prepare or test while iterating, or standalone for transient diagnostics. Run finishing steps, including format, which may " +
-      "rewrite files; then verify lint, type-check, tests, and scope gates. A scope is " +
+      "Run the final gate on a clean, committed tree. It runs the finishing steps " +
+      "and the configured lint, type-check, tests, standards, and scope stages; a " +
+      "successful ordinary run records Proof for the committed tip. While iterating, " +
+      "use discern_prepare or a diagnostic's reproduce_cmd. After the final commit, " +
+      "call discern_done directly. discern_test is a standalone diagnostic and " +
+      "publishes no reusable completion evidence, so running it first repeats the " +
+      "complete test stage. Finishing steps such as format may rewrite files. A scope is " +
       "a named region of the repository with its own check. Return the structured result " +
       "with per-step outcomes plus normalized diagnostics " +
       "(tool, file/line when available, message, and the exact command to reproduce " +
@@ -600,7 +610,7 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: PrepareOutputSchema,
     annotations: MUTATING,
     description:
-      "Run the fast inner-loop gate — the project's quick quality check — with the " +
+      "Run discern_prepare, the fast inner-loop gate — the project's quick quality check — with the " +
       "fix-stage fixers, then the [generated] artifact regenerations, then the read-only " +
       "check-stage jobs (no build jobs, no tests) — and return the result envelope. The " +
       "quick check to run while iterating, before the full discern_done — and the pass " +
@@ -613,39 +623,51 @@ export const TOOLS: McpTool[] = orderTools([
   }),
   defineTool({
     name: "discern_test",
-    title: "Run the tests",
+    title: "Run the standalone test stage",
     outputSchema: TestOutputSchema,
     annotations: MUTATING,
     description:
-      "discern_test runs the project's complete test stage on demand, " +
-      "outside the full gate, and returns the result envelope. discern_done already " +
-      "includes the same test stage, so a final gate run needs no standalone test " +
-      "preflight. While iterating, use each diagnostic's reproduce_cmd or a targeted " +
-      "project command. When no test command is configured, discern_test returns a " +
-      "trivial pass with a hint that says so.",
+      "discern_test runs the complete test stage as a standalone diagnostic when that " +
+      "stage itself is the requested result. This run issues no Proof " +
+      "and publishes no reusable completion evidence. For normal completion, use " +
+      "discern_prepare while iterating, commit, then call discern_done directly; " +
+      "discern_done includes the same complete test stage, so the final gate needs no " +
+      "standalone test preflight. After a failure, iterate with each diagnostic's " +
+      "reproduce_cmd or a targeted project command. When no test command is configured, " +
+      "discern_test returns a trivial pass with a hint that says so.",
     inputSchema: { ...PATH_PARAM },
     run: (root, _args, signal) => testResult(root, signal),
   }),
   defineTool({
     name: "discern_standards",
-    title: "Check the standards",
+    title: "Measure or propose standard limits",
     outputSchema: StandardsOutputSchema,
     annotations: MUTATING,
     description:
-      "Measure the selected configured standards and compare each value with its " +
-      "limit. Pass names to narrow both measurement and pin candidates; omit it " +
-      "for every standard. The comparison uses the selected project's configured " +
-      "trunk. A plain call requests fresh readings; pin can reuse applicable " +
-      "evidence. discern_done already requires every configured standard. Use " +
-      "this tool for an explicit remeasurement or a pin. Non-dry-run calls " +
-      "require a clean worktree unless force is set " +
-      "for authoring or diagnosis. dry_run previews without measuring. pin captures " +
-      "measured improvements, commits only the tighter limits, and carries the " +
-      "Proof forward. Pinning requires a clean worktree and refuses while any " +
-      "selected standard fails. Never hand-edit a limit to make the gate pass.",
+      "Select action: measure to measure configured standards, compare their limits, " +
+      "or pin measured improvements. names narrows measurement and pin candidates; " +
+      "omit names for every standard. A plain measurement requests fresh readings; " +
+      "pin may reuse applicable evidence, commits only tighter limits, and carries " +
+      "Proof forward. Non-preview measurement requires a clean worktree unless force " +
+      "is set; pin always requires one. discern_done already requires every configured standard. " +
+      "Select action: propose only after owner agreement and after every required " +
+      "preview, review, regeneration, edit, discern_prepare run, and ordinary commit. " +
+      "Pass every simultaneous breach once in proposals; discern measures the same " +
+      "clean final HEAD through the shared planner, applies all limits in one " +
+      "config-only commit, and binds the set to that commit. Each reason is technical " +
+      "justification only: never claim approval, consent, or landing authority. Keep " +
+      "each reason within 500 characters; aim below 400. Repeat the same complete batch " +
+      "to renew an unchanged descendant; a new batch refuses existing proposal state. " +
+      "A changed value or reason is " +
+      "a different decision: present the new value, delta, and reason to the owner and " +
+      "obtain fresh agreement before recording it. Proposal landing still requires " +
+      "exact approval at discern_accept. dry_run previews either action without effects.",
     inputSchema: {
+      action: z.enum(["measure", "propose"]).describe(
+        "Select measure for readings or pinning; select propose to record one atomic batch of owner-agreed breached limits.",
+      ),
       dry_run: z.boolean().optional().describe(
-        "Preview the plan and touch nothing — measures nothing, with or without pin (default false).",
+        "Preview the selected action and touch nothing; proposal preview measures nothing (default false).",
       ),
       force: z.boolean().optional().describe(
         "Override the clean-worktree guard while authoring or debugging standards; ignored with pin (default false).",
@@ -654,52 +676,61 @@ export const TOOLS: McpTool[] = orderTools([
         "Capture measured improvements, commit the limit change alone, and carry gate Proof forward. Reuses available same-commit values and measures missing selected values (default false).",
       ),
       names: z.array(z.string()).optional().describe(
-        "Measure only these standards. With pin, only these standards are pin candidates too (default: every standard).",
+        "Measure action only: measure these standards and limit pin candidates to them (default: every standard).",
+      ),
+      proposals: z.array(z.strictObject({
+        name: z.string().min(1).describe(
+          "The exact configured standard name.",
+        ),
+        reason: z.string().min(1).describe(
+          "Technical justification only, one visible secret-free paragraph with a hard 500-character maximum; aim below 400. Do not claim approval, consent, or landing authority.",
+        ),
+      })).min(1).optional().describe(
+        "Propose action only: every simultaneously approved breach as one ordered array of unique standard names. The transaction measures one final HEAD and writes one config commit.",
       ),
       ...PATH_PARAM,
     },
-    run: (root, args, signal) =>
-      standardsResult(root, {
+    run: (root, args, signal) => {
+      if (args.action === "measure") {
+        if (args.proposals !== undefined) {
+          return Promise.resolve(standardsActionFailure(
+            "action 'measure' does not accept proposals. Pass names for selected measurements, or change action to 'propose'.",
+          ));
+        }
+        return standardsResult(root, {
+          dryRun: args.dry_run === true,
+          force: args.force === true,
+          pin: args.pin === true,
+          ...(args.names !== undefined ? { pinNames: args.names } : {}),
+          signal,
+        });
+      }
+      // Only a value that asks for measure-action behavior conflicts. A client
+      // that sends its defaults has requested nothing, so `false` and an empty
+      // selection pass through rather than costing the caller a schema retry.
+      const incompatible = [
+        ...(args.force === true ? ["force"] : []),
+        ...(args.pin === true ? ["pin"] : []),
+        ...((args.names?.length ?? 0) > 0 ? ["names"] : []),
+      ];
+      if (incompatible.length > 0) {
+        return Promise.resolve(standardsActionFailure(
+          `action 'propose' does not accept ${
+            incompatible.join(", ")
+          }. Pass only action, proposals, dry_run, and path.`,
+        ));
+      }
+      if (args.proposals === undefined) {
+        return Promise.resolve(standardsActionFailure(
+          "action 'propose' requires a non-empty proposals array of { name, reason } entries.",
+        ));
+      }
+      return standardsProposeBatchResult(root, {
+        proposals: args.proposals,
         dryRun: args.dry_run === true,
-        force: args.force === true,
-        pin: args.pin === true,
-        ...(args.names !== undefined ? { pinNames: args.names } : {}),
         signal,
-      }),
-  }),
-  defineTool({
-    name: "discern_standards_propose",
-    title: "Propose standard limit",
-    outputSchema: StandardsProposeOutputSchema,
-    annotations: PROPOSAL,
-    description:
-      "Finalize a proposed limit for a standard breached by this change. Run " +
-      "after the intended tree is committed and clean. The tool measures only " +
-      "the named standard, then commits only the proposed limit and records its " +
-      "value, delta, reason, definition, trunk baseline, and responsible input " +
-      "paths. Repeating an unchanged proposal on an eligible descendant renews " +
-      "its measured binding without another commit. Finalize the intended work " +
-      "before proposing; never cycle proposal and restoration commits while editing. " +
-      "A changed tuple or value " +
-      "refuses. The resulting gate Proof cannot land until the owner approves " +
-      "the current proposal; generic landing authority never covers it.",
-    inputSchema: {
-      name: z.string().min(1).describe("The exact configured standard name."),
-      reason: z.string().min(1).max(500).describe(
-        "The verbatim, one-paragraph, secret-free engineering reason for the standard limit proposal.",
-      ),
-      dry_run: z.boolean().optional().describe(
-        "Return the pure proposal plan without committing or recording anything (default false).",
-      ),
-      ...PATH_PARAM,
+      });
     },
-    run: (root, args, signal) =>
-      standardsProposeResult(root, {
-        name: args.name,
-        reason: args.reason,
-        dryRun: args.dry_run === true,
-        signal,
-      }),
   }),
   defineTool({
     name: "discern_doctor",
@@ -1395,6 +1426,7 @@ export const MCP_SHELL_ONLY_VERBS: ReadonlyMap<string, string> = new Map([
  * shell-instruction rendering.
  */
 export function mcpToolNameForVerb(words: string): string | undefined {
+  if (words === "standards propose") return "discern_standards";
   return TOOLS.find((tool) => verbOf(tool.name) === words)?.name;
 }
 
@@ -1572,19 +1604,11 @@ export function mcpStartHint(path: string): string {
   return renderMcpHintText(fired.authored ?? fired.text);
 }
 
-/** MCP names usually encode one top-level CLI verb. The explicit exceptions
- * preserve real multi-word command paths without pretending their second word
- * is a hyphenated top-level verb. */
-const MCP_TOOL_COMMAND_PATHS: ReadonlyMap<string, string> = new Map([
-  ["discern_standards_propose", "standards propose"],
-]);
-
 /** The command path behind a tool name (`discern_impact` → `impact`),
  * for the envelope every failure path renders. Exported as the tool→command
  * bridge the verb-parity guard uses to tie {@link TOOLS} back to the CLI SSOT. */
 export function verbOf(toolName: string): string {
-  return MCP_TOOL_COMMAND_PATHS.get(toolName) ??
-    toolName.replace(/^discern_/, "").replace(/_/g, "-");
+  return toolName.replace(/^discern_/, "").replace(/_/g, "-");
 }
 
 /** One MCP tool result: independently sufficient text and structured projections,
@@ -1708,6 +1732,42 @@ async function mcpDriverFacts(
   };
 }
 
+/**
+ * Tools whose `action` input selects WHICH operation runs, mapped to the command
+ * each value resolves to. One declaration behind both {@link operationCommand}
+ * and {@link ACTION_SELECTED_COMMANDS}, so a recorded operation and the flags
+ * recorded beside it can never disagree about what `action` meant.
+ * `discern_accept`'s `action` is a CLI positional, not a selector: it is
+ * recorded as that operation's target through the live CLI model.
+ */
+export const ACTION_SELECTED_OPERATIONS: ReadonlyMap<
+  string,
+  ReadonlyMap<string, string>
+> = new Map([
+  ["discern_standards", new Map([["propose", "standards propose"]])],
+]);
+
+/** Resolve one MCP tool invocation to the CLI operation it performs. */
+function operationCommand(
+  tool: McpTool,
+  args: Record<string, unknown>,
+): string {
+  const selected = ACTION_SELECTED_OPERATIONS.get(tool.name);
+  const resolved = selected === undefined || typeof args.action !== "string"
+    ? undefined
+    : selected.get(args.action);
+  return resolved ?? verbOf(tool.name);
+}
+
+/** Every command an action selector resolves to. Their `action` chose the
+ * operation already, so recording it again as a flag would double-count it. */
+const ACTION_SELECTED_COMMANDS: ReadonlySet<string> = new Set(
+  [...ACTION_SELECTED_OPERATIONS].flatMap(([tool, values]) => [
+    verbOf(tool),
+    ...values.values(),
+  ]),
+);
+
 /** The argument facts a tool call provided, projected through the live CLI model.
  * Positional values become the operation target; only actual CLI options become
  * flags. Values for options never land. `path` is plumbing and `dry_run` has its
@@ -1718,6 +1778,20 @@ function mcpCallFacts(
   args: Record<string, unknown>,
   cliModel: CliModelProvider,
 ): { flags: string[] | undefined; target: string | undefined } {
+  if (verb === "standards propose" && Array.isArray(args.proposals)) {
+    const targets = args.proposals.flatMap((entry) => {
+      if (typeof entry !== "object" || entry === null || !("name" in entry)) {
+        return [];
+      }
+      return typeof entry.name === "string" && entry.name !== ""
+        ? [entry.name]
+        : [];
+    });
+    return {
+      flags: ["reason"],
+      target: targets.length === 0 ? undefined : targets.join(" "),
+    };
+  }
   let positionalNames: readonly string[] = [];
   if (cliModel !== missingCliModel) {
     positionalNames = [...walkCliCommands(cliModel())]
@@ -1728,6 +1802,7 @@ function mcpCallFacts(
   const names = Object.keys(args)
     .filter((key) =>
       key !== "path" && key !== "dry_run" && key !== "target" &&
+      !(ACTION_SELECTED_COMMANDS.has(verb) && key === "action") &&
       !positional.has(key)
     )
     .map((k) => k.replaceAll("_", "-"))
@@ -1835,7 +1910,7 @@ async function runVerb(
 ): Promise<VerbRun> {
   try {
     throwIfCrashProbe();
-    const command = verbOf(tool.name);
+    const command = operationCommand(tool, args);
     const { flags } = mcpCallFacts(command, args, cliModel);
     return {
       result: await executeOperation(
@@ -1915,13 +1990,10 @@ async function completeToolCall(
   const merges = takeMergeActivity();
   const recording = pending.recording;
   if (recording !== undefined) {
-    const { flags, target } = mcpCallFacts(
-      verbOf(tool.name),
-      args,
-      cliModel,
-    );
+    const command = operationCommand(tool, args);
+    const { flags, target } = mcpCallFacts(command, args, cliModel);
     await recording.recorder.finish({
-      verb: verbOf(tool.name),
+      verb: command,
       surface: "mcp",
       outcome: result.ok ? "ok" : "failed",
       durationMs: SYSTEM_CLOCK.monotonicNow() - recording.started,
@@ -1983,6 +2055,7 @@ async function dispatchToolCall(
   awaitCallProfile: AwaitCallProfile = "unknown-client",
   cliModel: CliModelProvider = missingCliModel,
 ): Promise<PendingToolCall> {
+  const command = operationCommand(tool, args);
   // The explicit `path` override wins over the working root for this one call; any dir
   // inside a worktree resolves to its root, a non-project path → undefined → refusal.
   const pathArg = typeof args.path === "string" ? args.path : undefined;
@@ -2007,7 +2080,7 @@ async function dispatchToolCall(
       },
       recording: heldRoot === undefined ? undefined : beginMcpRecording(
         heldRoot,
-        verbOf(tool.name),
+        command,
         args,
         mcpClient,
         cliModel,
@@ -2042,7 +2115,7 @@ async function dispatchToolCall(
         ),
         recording: home === undefined ? undefined : beginMcpRecording(
           home,
-          verbOf(tool.name),
+          command,
           args,
           mcpClient,
           cliModel,
@@ -2082,7 +2155,7 @@ async function dispatchToolCall(
   }
   const recording = beginMcpRecording(
     root,
-    verbOf(tool.name),
+    command,
     args,
     mcpClient,
     cliModel,
@@ -2093,7 +2166,7 @@ async function dispatchToolCall(
   // doc tree. `discern_docs`/`discern_status`/`discern_doctor`/`discern_improvement` are
   // not gated — they are exactly what you reach for before setup is done.
   if (
-    verbNeedsSetup(verbOf(tool.name)) && !(await setupGatePasses(root))
+    verbNeedsSetup(command) && !(await setupGatePasses(root))
   ) {
     return {
       result: {
@@ -2411,13 +2484,14 @@ export function buildInstructions(): string {
   const statement = (id: string): string =>
     OPERATING_POLICIES.find((policy) => policy.id === id)?.statement ?? "";
   const firstParagraph = [
-    "Start with discern_status.",
-    "On trunk, discern_start opens an isolated worktree.",
+    "Call discern_status first.",
+    "On trunk, discern_start opens a worktree.",
     statement("iterate-fast-loop"),
     statement("done-is-the-bar"),
     statement("update-behind"),
     "Use discern_await for dependencies.",
     statement("accept-on-handoff"),
+    "Use discern_map to read project context.",
   ].join(" ");
   const remainingPolicies = OPERATING_POLICIES
     .filter((policy) =>

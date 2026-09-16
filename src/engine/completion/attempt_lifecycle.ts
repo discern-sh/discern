@@ -4,19 +4,28 @@
  * Every transition is a compare-and-swap on the attempt record under the
  * common publication lock, so two runs never share a sequence or a claim.
  */
-import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
+import {
+  type IntervalHandle,
+  type Scheduler,
+  SYSTEM_SCHEDULER,
+} from "../../shared/scheduler.ts";
 import { withCompletionPublication } from "../operation_lock.ts";
-import { configuredValidation } from "../validation/configuration.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
-import type { CompletionAttempt } from "./attempt.ts";
+import {
+  ATTEMPT_CLAIM_LEASE_MS,
+  type CompletionAttempt,
+  effectiveClaimExpiry,
+} from "./attempt.ts";
+export { ATTEMPT_CLAIM_LEASE_MS } from "./attempt.ts";
 import { applicabilitySubject } from "./evidence.ts";
 import { type Executor, newAttemptIdentity } from "./identity.ts";
+import { readOperationJournal } from "./operation_journal.ts";
 import {
   type ClaimedExecution,
   type ValidationPlan,
@@ -34,27 +43,28 @@ export interface ReservedAttempt {
   readonly fence: PublicationFence;
 }
 
-/** The lease covers every configured producer, extraction, and the gate's own budget. */
-export async function attemptLease(config: DiscernConfig): Promise<number> {
-  const graph = await configuredValidation(config, Object.keys(config.scopes));
-  const seconds = (timeout: number | undefined): number => {
-    const value = timeout ?? config.gate.timeout;
-    return value > 0 ? value : 86_400;
-  };
-  const producers = Object.values(graph.producers).reduce(
-    (total, producer) => total + seconds(producer.timeout),
-    0,
-  );
-  const extraction = graph.obligations.reduce(
-    (total, obligation) =>
-      total +
-      (obligation.input.extract === undefined ? 0 : seconds(
-        graph.timeouts.get(`standards.${obligation.requirement.id}`)?.seconds,
-      )),
-    0,
-  );
-  const procedures = 2 * Math.max(1, config.gate.timeout);
-  return 60_000 + (producers + extraction + procedures) * 1000;
+/** Renew well before expiry without coupling ownership to any project timeout. */
+export const ATTEMPT_CLAIM_RENEW_INTERVAL_MS = 20_000;
+
+export type AttemptOwnerState = "running" | "gone" | "unknown";
+
+export interface AttemptRecoveryOptions {
+  readonly clock?: Clock;
+  readonly ownerState?: (
+    attempt: CompletionAttempt,
+  ) => Promise<AttemptOwnerState>;
+}
+
+/** A missing journal is uncertainty; only an exact recorded owner can be declared gone. */
+async function journalOwnerState(
+  root: string,
+  attempt: CompletionAttempt,
+): Promise<AttemptOwnerState> {
+  const handle = attempt.identity.executor.operation_handle;
+  if (handle === undefined) return "unknown";
+  const reading = await readOperationJournal(root, handle);
+  if (reading.kind !== "found" || reading.handle !== handle) return "unknown";
+  return reading.executor;
 }
 
 /** Reserve the next repository-wide sequence and publish the planning claim. */
@@ -65,14 +75,10 @@ export async function reserveAttempt(
     readonly executor: Executor;
     readonly rerun_of: string | null;
     readonly mode: "strict" | "report";
-    readonly lease_ms: number;
   },
   clock: Clock = SYSTEM_CLOCK,
   entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<ReservedAttempt> {
-  if (!Number.isSafeInteger(input.lease_ms) || input.lease_ms <= 0) {
-    throw new TypeError("An attempt requires a finite positive lease.");
-  }
   return await withCompletionPublication(root, async () => {
     const observation = await observeCompletionRecords(root, clock, [
       "attempt",
@@ -106,7 +112,8 @@ export async function reserveAttempt(
           token,
           executor: input.executor,
           acquired_at: now,
-          expires_at: now + input.lease_ms,
+          renewed_at: now,
+          expires_at: now + ATTEMPT_CLAIM_LEASE_MS,
         },
       },
     };
@@ -132,6 +139,253 @@ export async function reserveAttempt(
   });
 }
 
+/** Extend one still-current claim without changing its fencing token. */
+export async function renewAttemptClaim(
+  root: string,
+  fence: PublicationFence,
+  clock: Clock = SYSTEM_CLOCK,
+): Promise<CompletionWriteOutcome> {
+  const current = await readCompletionRecord(root, {
+    kind: "attempt",
+    id: fence.attempt_id,
+  });
+  if (current.kind !== "recorded" || current.record.kind !== "attempt") {
+    return { kind: "unavailable", reason: "the attempt record is unreadable" };
+  }
+  const state = current.record.data.state;
+  const now = clock.wallNow();
+  if (
+    state.kind === "finished" || state.claim.token !== fence.token ||
+    effectiveClaimExpiry(state.claim, ATTEMPT_CLAIM_LEASE_MS) <= now
+  ) {
+    return {
+      kind: "claim-lost",
+      reason: "The attempt claim was lost, expired, or superseded.",
+    };
+  }
+  return await writeCompletionRecord(
+    root,
+    {
+      ...current.record,
+      revision: current.record.revision + 1,
+      data: {
+        ...current.record.data,
+        state: {
+          ...state,
+          claim: {
+            ...state.claim,
+            renewed_at: now,
+            expires_at: now + ATTEMPT_CLAIM_LEASE_MS,
+          },
+        },
+      },
+    },
+    current.stamp,
+    fence,
+    clock,
+  );
+}
+
+/** One thrown value as the sentence a diagnostic prints. */
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** One failed write outcome as the sentence a diagnostic prints. */
+function writeFailureReason(
+  outcome: Exclude<CompletionWriteOutcome, { readonly kind: "written" }>,
+): string {
+  return "reason" in outcome
+    ? outcome.reason
+    : `record version ${outcome.version}`;
+}
+
+/**
+ * Only the attempt record itself proves a claim is gone. A busy lock, a lost
+ * compare-and-swap race, and an unreadable store are conditions that clear, so
+ * a renewal retries them inside the lease it already holds rather than
+ * cancelling a healthy run for one transient failure.
+ */
+export function claimLossIsProven(
+  outcome: Exclude<CompletionWriteOutcome, { readonly kind: "written" }>,
+): boolean {
+  return outcome.kind === "claim-lost";
+}
+
+/** Keep a live run's claim current; lease loss aborts its remaining work. */
+export async function withAttemptClaim<T>(
+  root: string,
+  fence: PublicationFence,
+  parentSignal: AbortSignal,
+  run: (
+    signal: AbortSignal,
+    settle: (
+      outcome: "passed" | "failed" | "cancelled",
+    ) => Promise<void>,
+  ) => Promise<T>,
+  timing: { readonly scheduler?: Scheduler; readonly clock?: Clock } = {},
+): Promise<T> {
+  const scheduler = timing.scheduler ?? SYSTEM_SCHEDULER;
+  const clock = timing.clock ?? SYSTEM_CLOCK;
+  const lost = new AbortController();
+  let renewals = Promise.resolve();
+  let timer: IntervalHandle | undefined;
+  let settlement: Promise<void> | undefined;
+  // The lease this coordinator knows it holds. A renewal that cannot complete
+  // leaves it standing, so a transient failure costs one interval instead of
+  // the run; once it expires with nothing renewed, ownership is genuinely gone.
+  let leaseHeldFrom = clock.wallNow();
+  const leaseExhausted = (): boolean =>
+    clock.wallNow() >= leaseHeldFrom + ATTEMPT_CLAIM_LEASE_MS;
+  const renew = (): void => {
+    renewals = renewals.then(async () => {
+      if (lost.signal.aborted) return;
+      try {
+        const outcome = await renewAttemptClaim(root, fence, clock);
+        if (outcome.kind === "written") {
+          leaseHeldFrom = clock.wallNow();
+          return;
+        }
+        if (claimLossIsProven(outcome) || leaseExhausted()) {
+          lost.abort(
+            new Error(
+              `Completion claim renewal ${outcome.kind}: ${
+                writeFailureReason(outcome)
+              }`,
+            ),
+          );
+        }
+      } catch (error) {
+        if (leaseExhausted()) lost.abort(error);
+      }
+    });
+  };
+  const stopRenewing = async (): Promise<void> => {
+    if (timer !== undefined) {
+      scheduler.cancelInterval(timer);
+      timer = undefined;
+    }
+    await renewals;
+  };
+  const settle = (
+    outcome: "passed" | "failed" | "cancelled",
+  ): Promise<void> => {
+    settlement ??= (async () => {
+      await stopRenewing();
+      const written = await settleAttempt(root, fence, outcome, clock);
+      if (written.kind !== "written") {
+        throw new Error(
+          `Completion attempt settlement ${written.kind}: ${
+            "reason" in written
+              ? written.reason
+              : `record version ${written.version}`
+          }`,
+        );
+      }
+    })();
+    return settlement;
+  };
+  timer = scheduler.scheduleInterval(
+    renew,
+    ATTEMPT_CLAIM_RENEW_INTERVAL_MS,
+  );
+  const signal = AbortSignal.any([parentSignal, lost.signal]);
+  let completion:
+    | { readonly ok: true; readonly value: T }
+    | { readonly ok: false; readonly failure: unknown };
+  try {
+    completion = { ok: true, value: await run(signal, settle) };
+  } catch (error) {
+    completion = { ok: false, failure: error };
+  }
+  await stopRenewing();
+  try {
+    await (settlement ?? settle(signal.aborted ? "cancelled" : "failed"));
+  } catch (error) {
+    // A failed settlement is never the reason the run ended; it is a second
+    // failure beside one the run already has. Both are raised together so the
+    // run's own reason leads and neither is lost.
+    if (completion.ok) throw error;
+    throw new AggregateError(
+      [completion.failure, error],
+      `${errorMessage(completion.failure)} Its attempt also failed to settle: ${
+        errorMessage(error)
+      }`,
+      { cause: error },
+    );
+  }
+  if (completion.ok) return completion.value;
+  throw completion.failure;
+}
+
+/** Cancel every dead or expired claim with CAS before a replacement is reserved. */
+export async function recoverAbandonedAttempts(
+  root: string,
+  options: AttemptRecoveryOptions,
+): Promise<string[]> {
+  const clock = options.clock ?? SYSTEM_CLOCK;
+  const observation = await observeCompletionRecords(root, clock, ["attempt"]);
+  const recovered: string[] = [];
+  for (const entry of observation.records) {
+    if (
+      entry.reading.kind !== "recorded" ||
+      entry.reading.record.kind !== "attempt"
+    ) continue;
+    const observed = entry.reading.record;
+    if (observed.data.state.kind === "finished") continue;
+    const owner = await (options.ownerState === undefined
+      ? journalOwnerState(root, observed.data)
+      : options.ownerState(observed.data));
+    const current = await readCompletionRecord(root, {
+      kind: "attempt",
+      id: observed.id,
+    });
+    if (
+      current.kind !== "recorded" || current.record.kind !== "attempt" ||
+      current.record.data.state.kind === "finished" ||
+      current.record.data.state.claim.token !== observed.data.state.claim.token
+    ) {
+      continue;
+    }
+    const state = current.record.data.state;
+    if (
+      owner !== "gone" &&
+      effectiveClaimExpiry(state.claim, ATTEMPT_CLAIM_LEASE_MS) >
+        clock.wallNow()
+    ) {
+      continue;
+    }
+    const written = await writeCompletionRecord(
+      root,
+      {
+        ...current.record,
+        revision: current.record.revision + 1,
+        data: {
+          ...current.record.data,
+          state: {
+            kind: "finished",
+            outcome: "cancelled",
+            finished_at: clock.wallNow(),
+          },
+        },
+      },
+      current.stamp,
+      undefined,
+      clock,
+    );
+    // Every unapplied outcome leaves the claim exactly as it was: another
+    // owner moved it, the lock was busy, or the store could not be written.
+    // None of them can be repaired here, and none of them may escape the
+    // result envelope, so the claim stays for the next run to retire. A claim
+    // that still blocks is reported as its own pending cause, carrying the
+    // attempt id and the effective expiry that explain it.
+    if (written.kind === "written") {
+      recovered.push(current.record.id);
+    }
+  }
+  return recovered;
+}
+
 /** Bind the planned demand once: the planning claim becomes the claimed attempt. */
 export async function bindAttemptDemand(
   root: string,
@@ -155,7 +409,7 @@ export async function bindAttemptDemand(
       attempt.kind !== "recorded" || attempt.record.kind !== "attempt" ||
       attempt.record.data.state.kind !== "planning" ||
       attempt.record.data.state.claim.token !== execution.fence.token ||
-      attempt.record.data.state.claim.expires_at <= clock.wallNow()
+      effectiveClaimExpiry(attempt.record.data.state.claim) <= clock.wallNow()
     ) {
       throw new Error(
         "The attempt is no longer eligible to bind validation; run again.",

@@ -81,9 +81,9 @@ export const OPERATING_POLICIES = [
   },
   {
     id: "done-is-the-bar",
-    statement: "Run discern_done on the final tree before claiming done.",
+    statement: "After the final commit, call discern_done directly.",
     surfaces: OPERATING_POLICY_SURFACES,
-    probes: [/discern_done/, /final tree/i],
+    probes: [/discern_done/, /final commit/i, /directly/i],
   },
   {
     id: "never-loosen",
@@ -147,13 +147,16 @@ export const OPERATING_POLICIES = [
   {
     id: "standalone-test-on-demand",
     statement:
-      "discern_test runs the complete test stage on demand; discern_done includes " +
-      "that test stage, so a final gate needs no standalone test preflight.",
+      "discern_test runs the complete test stage only when that result is requested. " +
+      "discern_done includes that test stage, so a final gate " +
+      "needs no standalone test preflight; discern_test publishes no reusable " +
+      "completion evidence.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [
-      /discern_test[^.\n]{0,100}complete test stage[^.\n]{0,60}on demand/i,
+      /discern_test[^.\n]{0,120}complete test stage[^.\n]{0,80}(?:result is requested|requested result)/i,
       /discern_done[^.\n]{0,100}includes(?:[^.\n]{0,60}test stage| it)/i,
       /final gate[^.\n]{0,80}no standalone (?:test )?preflight/i,
+      /discern_test[^.\n]{0,100}no reusable completion evidence/i,
     ],
   },
 ] as const satisfies readonly OperatingPolicy[];

@@ -672,6 +672,9 @@
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 9007199254740991
+                          },
+                          "operation_handle": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -767,6 +770,9 @@
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 9007199254740991
+                                  },
+                                  "operation_handle": {
+                                    "type": "string"
                                   }
                                 },
                                 "required": [
@@ -776,6 +782,11 @@
                                 ]
                               },
                               "acquired_at": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "renewed_at": {
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
@@ -831,6 +842,9 @@
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 9007199254740991
+                                  },
+                                  "operation_handle": {
+                                    "type": "string"
                                   }
                                 },
                                 "required": [
@@ -840,6 +854,11 @@
                                 ]
                               },
                               "acquired_at": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "renewed_at": {
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
@@ -922,6 +941,9 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "operation_handle": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1531,6 +1553,9 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 9007199254740991
+            },
+            "operation_handle": {
+              "type": "string"
             }
           },
           "required": [

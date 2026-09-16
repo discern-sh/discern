@@ -48,16 +48,15 @@ export const ON_DISK_FORMATS = {
     id: "completion-record",
     location: { kind: "git-admin", keys: ["completionRecords"] },
     version: 1,
-    // Reviewed 2026-09-12: the candidate gained its composition-input list
-    // (`sources` plus the optional `integration` procedure) and dropped the
-    // singular `source`. The store's reader migrates a stored singular-source
-    // candidate to the list shape in memory, so version 1 stands and no other
-    // family changed shape.
+    // Reviewed 2026-09-16: the reader migrates singular-source candidates
+    // in memory. Attempt journal handles and latest renewals are optional, and
+    // stored longer expiries are bounded at the ownership boundary. Every
+    // version-1 record therefore remains readable.
     schemaContract: {
       module: "src/engine/completion/records.ts",
       export: "CompletionRecordSchema",
       sha256:
-        "d9ffaed759ba5ae3adba855d9d099ad9af6466f19ac845970cecfe506ae44111",
+        "4f28d25334b9e592f3a792a5ec349f789f7e5f8e85190793165919888e5f7590",
     },
     versionField: "version",
     reader: "src/engine/completion/store.ts#readCompletionRecord",
@@ -385,7 +384,9 @@ export const ON_DISK_FORMATS = {
       kind: "git-admin",
       keys: ["standardLimitProposalTransaction"],
     },
-    version: 1,
+    // Version 2 batches every proposed limit for one measured tree into one
+    // config commit and one recoverable journal transition.
+    version: 2,
     versionField: "version",
     reader: "src/engine/gate/standard_proposals.ts#recoverProposalTransaction",
     writers: ["src/engine/gate/standard_proposals.ts"],

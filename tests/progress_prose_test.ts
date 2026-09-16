@@ -5,9 +5,11 @@ import type { CompletionBlocker } from "../src/engine/completion/protocol.ts";
 import {
   completionBlockerAccount,
   completionFailureSentence,
+  completionPendingData,
   completionProgressSentence,
   diagnosticSentence,
   producerWorkSentence,
+  uniqueCompletionBlockers,
 } from "../src/engine/completion/progress_prose.ts";
 
 const requirement: Requirement = {
@@ -78,6 +80,26 @@ Deno.test("every pending blocker kind has a plain account with a next step", () 
     none.reason,
     "Waiting for a recorded judgment on the served questions; the owner decides.",
   );
+});
+
+Deno.test("one live attempt projects one actionable pending cause across every obligation", () => {
+  const blocker = {
+    kind: "waiting-for-operation" as const,
+    attempt_id: "00000000-0000-4000-8000-000000000002",
+    operation_handle: "R1-AAAA-AAAA-AA",
+    expires_at: 60_000,
+  };
+  assertEquals(uniqueCompletionBlockers(Array(22).fill(blocker)), [blocker]);
+  assertEquals(completionPendingData(blocker), {
+    kind: "waiting-for-operation",
+    reason:
+      "Completion attempt 00000000-0000-4000-8000-000000000002 is still running for this worktree.",
+    next_action:
+      "Read progress handle R1-AAAA-AAAA-AA without starting another completion run; retry completion after that operation finishes.",
+    attempt_id: "00000000-0000-4000-8000-000000000002",
+    operation_handle: "R1-AAAA-AAAA-AA",
+    expires_at: 60_000,
+  });
 });
 
 Deno.test("producer sentences state counts as counts, and unknown as unknown", () => {

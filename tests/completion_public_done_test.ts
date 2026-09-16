@@ -16,10 +16,17 @@ import {
 } from "../src/engine/gate/proof_presentation.ts";
 import { artifactPath } from "../src/engine/completion/artifact_paths.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
-import { completionRecordPath } from "../src/engine/completion/store.ts";
+import {
+  completionRecordPath,
+  readCompletionRecord,
+  writeCompletionRecord,
+} from "../src/engine/completion/store.ts";
 import type { CompletionRecord } from "../src/engine/completion/records.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { gitOut } from "./engine_helpers.ts";
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { ATTEMPT_CLAIM_LEASE_MS } from "../src/engine/completion/attempt.ts";
+import { completionId } from "./completion_fixtures.ts";
 
 /** Project recorded readings onto validated envelopes. */
 async function observedRecords(root: string): Promise<CompletionRecord[]> {
@@ -170,6 +177,144 @@ timeout = 8
     const result = await runAgent(path, ["done", "--json"]);
     assertEquals(result.code, 0, result.output);
     assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+  });
+});
+
+Deno.test("a completion claim reports one live owner, then replaces an expired long record", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(
+      root,
+      "",
+      "printf t >> executions; printf 'DISCERN_METRIC coverage 93\\n'",
+      ["discern.toml"],
+    );
+    const first = await runAgent(path, ["done", "--json"]);
+    assertEquals(first.code, 0, first.output);
+    const prior = (await observedRecords(path)).find((record) =>
+      record.kind === "attempt" && record.data.state.kind === "finished"
+    );
+    assert(prior?.kind === "attempt");
+    await Deno.writeTextFile(`${path}/unrelated`, "new candidate\n");
+    await git(path, "add", "unrelated");
+    await git(path, "commit", "-m", "Create another candidate");
+
+    const now = SYSTEM_CLOCK.wallNow();
+    const executor = {
+      operation_id: completionId(902),
+      originating_effort: prior.data.identity.executor.originating_effort,
+      started_at: now,
+      operation_handle: "R1-AAAA-AAAA-AA",
+    };
+    const active: CompletionRecord = {
+      version: ON_DISK_FORMATS.completionRecord.version,
+      kind: "attempt",
+      id: completionId(900),
+      revision: 1,
+      data: {
+        identity: {
+          id: completionId(900),
+          candidate_id: prior.data.identity.candidate_id,
+          executor,
+          sequence: prior.data.identity.sequence + 1,
+          rerun_of: null,
+          started_at: now,
+        },
+        subjects: prior.data.subjects,
+        purpose: "completion",
+        mode: "strict",
+        state: {
+          kind: "claimed",
+          claim: {
+            token: completionId(901),
+            executor,
+            acquired_at: now,
+            renewed_at: now,
+            expires_at: now + ATTEMPT_CLAIM_LEASE_MS,
+          },
+        },
+      },
+    };
+    const recorded = await writeCompletionRecord(
+      path,
+      active,
+      null,
+      undefined,
+    );
+    assert(recorded.kind === "written", JSON.stringify(recorded));
+
+    const blocked = await runAgent(path, ["done", "--json"]);
+    assertEquals(blocked.code, 1, blocked.output);
+    const blockedResult = decodeCliResult(blocked.stdout, "done");
+    assertEquals(blockedResult.error, "incomplete");
+    assert(
+      blockedResult.data !== undefined && "completion" in blockedResult.data,
+    );
+    assertEquals(blockedResult.data.failed_stage, null);
+    assertEquals(blockedResult.data.gate_ran, false);
+    assertEquals(blockedResult.data.completion?.pending?.length, 1);
+    assertEquals(
+      blockedResult.data.completion?.pending?.[0]?.attempt_id,
+      active.id,
+    );
+    assertEquals(
+      blockedResult.data.completion?.pending?.[0]?.operation_handle,
+      "R1-AAAA-AAAA-AA",
+    );
+    assertStringIncludes(blockedResult.message ?? "", "R1-AAAA-AAAA-AA");
+    assertStringIncludes(
+      blockedResult.data.completion?.pending?.[0]?.next_action ?? "",
+      "without starting another completion run",
+    );
+    assertEquals(blockedResult.diagnostics ?? [], []);
+    assertStringIncludes(
+      blockedResult.hints?.[0] ?? "",
+      "discern progress R1-AAAA-AAAA-AA",
+    );
+    assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    const acquiredAt = SYSTEM_CLOCK.wallNow() - ATTEMPT_CLAIM_LEASE_MS - 1;
+    const abandoned: CompletionRecord = {
+      ...active,
+      revision: 2,
+      data: {
+        ...active.data,
+        state: {
+          kind: "claimed",
+          claim: {
+            token: completionId(901),
+            executor,
+            acquired_at: acquiredAt,
+            // A claim written before renewable leases: no `renewed_at`, and a
+            // stored expiry hours away that the effective lease still bounds.
+            expires_at: acquiredAt + 9.25 * 60 * 60 * 1_000,
+          },
+        },
+      },
+    };
+    const current = await readCompletionRecord(path, active);
+    assert(current.kind === "recorded");
+    const aged = await writeCompletionRecord(
+      path,
+      abandoned,
+      current.stamp,
+      undefined,
+    );
+    assert(aged.kind === "written", JSON.stringify(aged));
+
+    const recovered = await runAgent(path, ["done", "--json"]);
+    assertEquals(recovered.code, 0, recovered.output);
+    const recoveredResult = decodeCliResult(recovered.stdout, "done");
+    assertEquals(recoveredResult.ok, true);
+    assert(
+      recoveredResult.data !== undefined &&
+        "completion" in recoveredResult.data,
+    );
+    assertEquals(recoveredResult.data.completion?.kind, "complete");
+    const retired = await readCompletionRecord(path, abandoned);
+    assert(retired.kind === "recorded" && retired.record.kind === "attempt");
+    assertEquals(retired.record.data.state.kind, "finished");
+    if (retired.record.data.state.kind === "finished") {
+      assertEquals(retired.record.data.state.outcome, "cancelled");
+    }
   });
 });
 

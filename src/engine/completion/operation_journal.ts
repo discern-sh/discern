@@ -742,6 +742,11 @@ export function insideOperationJournal(): boolean {
   return JOURNAL_SCOPE.getStore() !== undefined;
 }
 
+/** Reconnect handle of the journal that owns the current async operation. */
+export function currentOperationHandle(): string | undefined {
+  return JOURNAL_SCOPE.getStore()?.handle;
+}
+
 /**
  * Journal one long operation. The wrapper announces the reconnect handle as a
  * progress fact, folds every observed fact into the durable record, and closes

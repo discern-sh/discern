@@ -1,6 +1,7 @@
 /** Condition-oriented waiting and the closed set of real test delays. */
 
 import { type Clock, SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../src/shared/scheduler.ts";
 
 /** The semantic reason a registered test interval must remain real. */
@@ -241,6 +242,22 @@ export function processAllowance(
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_INTERVAL_MS = 10;
+
+/**
+ * Wait for one filesystem marker through a positive condition.
+ *
+ * Filesystem notifications are scheduling hints, not durable readiness
+ * evidence: a write can land before an iterator read is armed. Poll the marker
+ * through the shared load-safe process budget so a retained file cannot be
+ * missed and a genuinely absent marker remains bounded.
+ */
+export async function waitForPath(path: string): Promise<void> {
+  await waitUntil(
+    () => targetExists(path),
+    `filesystem marker ${path} to appear`,
+    { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
+  );
+}
 
 type PendingOutcome<T> =
   | { readonly ok: true; readonly value: T }

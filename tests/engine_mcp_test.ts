@@ -613,16 +613,24 @@ Deno.test("MCP logbook recording derives positional targets from the live CLI mo
     const cases = [
       {
         tool: "discern_standards",
-        args: { names: ["coverage", "size"], force: true, dry_run: true },
+        args: {
+          action: "measure",
+          names: ["coverage", "size"],
+          force: true,
+          dry_run: true,
+        },
         verb: "standards",
         target: "coverage size",
         flags: ["force"],
       },
       {
-        tool: "discern_standards_propose",
+        tool: "discern_standards",
         args: {
-          name: "coverage",
-          reason: "Exercise positional recording.",
+          action: "propose",
+          proposals: [{
+            name: "coverage",
+            reason: "Exercise positional recording.",
+          }],
           dry_run: true,
         },
         verb: "standards propose",
@@ -2257,36 +2265,18 @@ Deno.test("discern mcp: pre-setup gates map but not the gate proof verbs or docs
     await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
     await gitInit(dir);
     await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
+    await mcp.initialize();
 
     // `discern_map` still refuses with the structured not_set_up envelope — its
     // tree is empty until setup fills it.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_map", arguments: {} },
-    });
-    const refused = await mcp.recv();
+    const refused = await mcp.callTool(2, "discern_map");
     assertEquals(refused.result.isError, true);
     assertEquals(refused.result.structuredContent.error, "not_set_up");
 
     // `discern_done` is a gate PROOF verb — un-gated during setup (ADR 0065) so
     // the agent can iterate while wiring capabilities — but it carries the
     // setup-in-progress hint so a green run can't be mistaken for "done".
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "discern_done", arguments: {} },
-    });
-    const finish = await mcp.recv();
+    const finish = await mcp.callTool(3, "discern_done");
     assertEquals(finish.result.structuredContent.verb, "done");
     assert(finish.result.structuredContent.error !== "not_set_up");
     assertHasMcpHint(
@@ -2295,13 +2285,7 @@ Deno.test("discern mcp: pre-setup gates map but not the gate proof verbs or docs
     );
 
     // `discern_docs` stays open pre-setup — discern's own docs are what you need now.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 4,
-      method: "tools/call",
-      params: { name: "discern_docs", arguments: {} },
-    });
-    const docs = await mcp.recv();
+    const docs = await mcp.callTool(4, "discern_docs");
     assertEquals(docs.result.isError, false);
     assertEquals(docs.result.structuredContent.verb, "docs");
     assert(docs.result.structuredContent.data.count > 0);
@@ -3741,14 +3725,12 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       "discern_prepare",
       "discern_test",
       "discern_standards",
-      "discern_standards_propose",
       "discern_start",
       "discern_update",
     ]);
     const DESTRUCTIVE_TOOLS = new Set(["discern_accept"]);
     const IDEMPOTENT_MUTATING_TOOLS = new Set([
       "discern_refresh",
-      "discern_standards_propose",
       "discern_update",
     ]);
     assertEquals(
@@ -3786,7 +3768,6 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       const closedWorldTools = new Set([
         ...READ_ONLY_TOOLS,
         "discern_refresh",
-        "discern_standards_propose",
       ]);
       assertEquals(
         annotations.openWorldHint,
@@ -3798,7 +3779,6 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       sorted(IDEMPOTENT_MUTATING_TOOLS),
       [
         "discern_refresh",
-        "discern_standards_propose",
         "discern_update",
       ],
       "record any additional mutating idempotent tool explicitly",
@@ -3865,16 +3845,15 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
         "discern_update",
         "discern_await",
         "discern_accept",
+        "discern_map",
         "discern_progress",
         "discern_test",
         "discern_standards",
-        "discern_standards_propose",
         "discern_impact",
         "discern_coupling",
         "discern_patterns",
         "discern_checkpoints",
         "discern_refresh",
-        "discern_map",
         "discern_docs",
         "discern_doctor",
         "discern_improvement",
@@ -4061,7 +4040,14 @@ Deno.test("discern mcp: initialization instructions fit 2KB with the core lifecy
     "discern_update",
     "discern_await",
     "discern_accept",
+    "discern_map",
   ]);
+  assertEquals(MCP_CORE_LIFECYCLE.length, 8);
+  assertEquals(new Set(MCP_CORE_LIFECYCLE).size, 8);
+  assertEquals(
+    TOOLS.slice(0, MCP_CORE_LIFECYCLE.length).map((tool) => tool.name),
+    [...MCP_CORE_LIFECYCLE],
+  );
   assertEquals(instructionContractFailures(buildInstructions()), []);
 });
 
@@ -4230,10 +4216,13 @@ Deno.test("discern mcp: every live tool call validates against its own advertise
       if (tool.name === "discern_await") {
         return { trunk_moved: true, timeout: 0 };
       }
-      if (tool.name === "discern_standards_propose") {
+      if (tool.name === "discern_standards") {
         return {
-          name: "missing-standard",
-          reason: "Validate the live MCP result contract.",
+          action: "propose",
+          proposals: [{
+            name: "missing-standard",
+            reason: "Validate the live MCP result contract.",
+          }],
           dry_run: true,
         };
       }
@@ -4289,6 +4278,11 @@ Deno.test("discern mcp: discern_standards is listed (slow/on-demand), not read-o
     const tools = list.result.tools as ListedTool[];
     const rt = tools.find((t) => t.name === "discern_standards");
     assert(rt !== undefined, "discern_standards should be listed");
+    assertEquals(
+      tools.some((tool) => tool.name === "discern_standards_propose"),
+      false,
+      "proposal is an action on discern_standards, not a second MCP tool",
+    );
     // It runs the metric commands, so it is NOT read-only.
     assertEquals(rt.annotations?.readOnlyHint, false);
     assertStringIncludes(rt.description, "clean worktree");
@@ -4301,13 +4295,21 @@ Deno.test("discern mcp: discern_standards is listed (slow/on-demand), not read-o
       Object.hasOwn(rt.inputSchema?.properties ?? {}, "force"),
       "discern_standards input schema should expose force",
     );
+    assert(
+      Object.hasOwn(rt.inputSchema?.properties ?? {}, "proposals"),
+      "discern_standards input schema should expose proposal batches",
+    );
+    assertEquals(rt.inputSchema?.required, ["action"]);
 
     // A dry-run preview returns the plan and measures nothing.
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_standards", arguments: { dry_run: true } },
+      params: {
+        name: "discern_standards",
+        arguments: { action: "measure", dry_run: true },
+      },
     });
     const preview = await mcp.recv();
     assertEquals(preview.result.isError, false);
@@ -4348,7 +4350,10 @@ Deno.test("discern mcp: a failing discern_standards apply returns an ok:false en
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_standards", arguments: {} },
+      params: {
+        name: "discern_standards",
+        arguments: { action: "measure" },
+      },
     });
     const failed = await mcp.recv();
     assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
@@ -4412,6 +4417,7 @@ Deno.test("mcp: discern_standards returns and measures exactly the requested ord
     const standards = TOOLS.find((tool) => tool.name === "discern_standards");
     assert(standards !== undefined);
     const result = await runTool(standards, new WorkingRoot(dir), {
+      action: "measure",
       names: ["selected"],
     });
     assertEquals(result.isError, false, JSON.stringify(result));

@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
+import { join } from "@std/path";
 import type { Clock } from "../src/shared/clock.ts";
 import type {
   IntervalHandle,
@@ -11,9 +12,11 @@ import {
   realDelay,
   settlePending,
   TEST_PROCESS_TIMEOUT_MS,
+  waitForPath,
   waitForPendingCondition,
   waitUntil,
 } from "./waiting.ts";
+import { withTempDir } from "./helpers.ts";
 
 interface ControlledTiming {
   readonly clock: Clock;
@@ -92,6 +95,19 @@ Deno.test("waitUntil succeeds without scheduling when the condition is immediate
     return true;
   }, "the immediate condition");
   assertEquals(calls, 1);
+});
+
+Deno.test("waitForPath cannot miss retained markers around observer startup", async () => {
+  await withTempDir(async (dir) => {
+    const existing = join(dir, "existing");
+    await Deno.writeTextFile(existing, "ready");
+    await waitForPath(existing);
+
+    const arriving = join(dir, "arriving");
+    const pending = waitForPath(arriving);
+    await Deno.writeTextFile(arriving, "ready");
+    await pending;
+  });
 });
 
 Deno.test("waitUntil progresses through deterministic scheduler time", async () => {

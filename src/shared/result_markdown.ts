@@ -1437,31 +1437,42 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
   const pinned = records(data.pinned);
   const proposalResult = object(data.proposal);
   const proposal = object(proposalResult?.proposal);
-  const proposalName = text(proposal?.standard);
-  const proposalReason = text(proposal?.reason);
+  const proposalBatch = object(data.proposal_batch);
+  const proposals = proposal === undefined
+    ? records(proposalBatch?.proposals)
+    : [proposal];
+  const proposalStatus = text(
+    proposal === undefined ? proposalBatch?.status : proposalResult?.status,
+  ) ?? "Recorded";
   return {
     state: defaultState(
       result,
-      proposal === undefined
+      proposals.length === 0
         ? pinned.length > 0
           ? `Tightened ${plural(pinned.length, "standard limit")}.`
           : `Measured ${plural(standards.length, "standard")}.`
-        : `${
-          text(proposalResult?.status) ?? "Recorded"
-        } the proposed limit for ${code(proposalName ?? "a standard")}.`,
+        : `${proposalStatus} ${plural(proposals.length, "proposed limit")}.`,
     ),
     evidence: unique([
-      proposal === undefined
-        ? undefined
-        : `${code(proposalName ?? "standard")}: ${
-          number(proposal.trunk_limit) ?? "unknown"
-        } → ${number(proposal.proposed_limit) ?? "unknown"}; measured ${
-          number(proposal.measurement) ?? "unknown"
-        }; delta ${number(proposal.delta) ?? "unknown"}.`,
-      proposalReason === undefined ? undefined : `Reason: ${proposalReason}`,
-      proposal === undefined
-        ? undefined
-        : listFact("Responsible paths", strings(proposal.evidence_paths)),
+      // Every fact names the standard it belongs to. The owner approves one
+      // tuple per proposal, so two proposals that share a reason or a path
+      // list must still reach them as two, each attributable to its standard.
+      ...proposals.flatMap((entry) => {
+        const name = text(entry.standard) ?? "standard";
+        const reason = text(entry.reason);
+        return [
+          `${code(name)}: ${number(entry.trunk_limit) ?? "unknown"} → ${
+            number(entry.proposed_limit) ?? "unknown"
+          }; measured ${number(entry.measurement) ?? "unknown"}; delta ${
+            number(entry.delta) ?? "unknown"
+          }.`,
+          reason === undefined ? undefined : `${code(name)} reason: ${reason}`,
+          listFact(
+            `${code(name)} responsible paths`,
+            strings(entry.evidence_paths),
+          ),
+        ];
+      }),
       ...producerEvidenceFacts(data),
       ...pinned.map((pin) =>
         `${code(pin.name)}: tightened ${number(pin.from) ?? "unknown"} → ${
@@ -1481,8 +1492,8 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
         }.`;
       }),
     ]),
-    boundary: proposal === undefined ? [] : [
-      "The gate must remeasure this exact value. Landing requires explicit owner approval for this standard/value/reason tuple; generic grants never cover it.",
+    boundary: proposals.length === 0 ? [] : [
+      "The gate must remeasure these values. Landing requires explicit owner approval for every standard/value/reason tuple; generic grants never cover them.",
     ],
   };
 };

@@ -26,10 +26,11 @@ import type {
 } from "../completion/protocol.ts";
 import { writeCompletionRecord } from "../completion/store.ts";
 import {
-  attemptLease,
+  recoverAbandonedAttempts,
   reserveAttempt,
-  settleAttempt,
+  withAttemptClaim,
 } from "../completion/attempt_lifecycle.ts";
+import { currentOperationHandle } from "../completion/operation_journal.ts";
 import {
   gitValue,
   observeSource,
@@ -100,16 +101,21 @@ export async function measureDeclaredStandards(
       "rev-parse",
       `${integrationBranch(config.repository.trunk)}^{commit}`,
     ]);
+    const operationHandle = currentOperationHandle();
     const actor = {
       operation_id: SYSTEM_SECURE_ENTROPY.uuid(),
       originating_effort: identity.id,
       started_at: SYSTEM_CLOCK.wallNow(),
+      ...(operationHandle === undefined
+        ? {}
+        : { operation_handle: operationHandle }),
     };
     const configured = await configuredValidation(config, [], false);
     const requirementSet = await requirementSetIdentity(
       configured.obligations.map((entry) => entry.requirement),
     );
     const policy = await predecessorPolicyIdentity(root, predecessor);
+    await recoverAbandonedAttempts(root, {});
     const prior = recordedCandidate(
       (await observeCompletionRecords(root)).records.flatMap(({ reading }) =>
         reading.kind === "recorded" ? [reading.record] : []
@@ -128,93 +134,95 @@ export async function measureDeclaredStandards(
       executor: actor,
       rerun_of: null,
       mode: "strict",
-      lease_ms: await attemptLease(config),
     });
-    const candidate: Candidate = prior?.data ?? {
-      attempt_id: reserved.attempt.identity.id,
-      sources: [source],
-      predecessor,
-      head: source.head,
-      tree: source.tree,
-      policy,
-      requirement_set: requirementSet,
-    };
-    if (prior === undefined) {
-      await retainCandidate(root, candidateId, candidate, reserved.fence);
-    }
-    const execution: ClaimedExecution = {
-      fence: reserved.fence,
-      attempt: reserved.attempt,
-      path: root,
-      seed: identity.seed,
-      candidate_id: candidateId,
-      candidate,
+    return await withAttemptClaim(
+      root,
+      reserved.fence,
       signal,
-    };
-    try {
-      const validation = await executePublicValidation({
-        root,
-        config,
-        scopes: [],
-        claimed: execution,
-        ...(capacity === undefined ? {} : { capacity }),
-        stageDependencies: false,
-        bindAttempt: true,
-        demand: {
-          kind,
-          mode: "strict",
-          requirements: configured.obligations.filter((entry) =>
-            entry.requirement.kind === "standard" &&
-            names.includes(entry.requirement.id)
-          ).map((entry) => entry.requirement),
-        },
-      });
-      for (const component of validation.outcome.evidence) {
-        const evidenceId = SYSTEM_SECURE_ENTROPY.uuid();
-        const written = await writeCompletionRecord(
-          root,
-          {
-            version: ON_DISK_FORMATS.completionRecord.version,
-            kind: "evidence",
-            id: evidenceId,
-            revision: 1,
-            data: component,
-          },
-          null,
-          reserved.fence,
-        );
-        if (written.kind !== "written") {
-          throw new Error(`Measurement receipt publication ${written.kind}.`);
+      async (claimSignal, settle) => {
+        const candidate: Candidate = prior?.data ?? {
+          attempt_id: reserved.attempt.identity.id,
+          sources: [source],
+          predecessor,
+          head: source.head,
+          tree: source.tree,
+          policy,
+          requirement_set: requirementSet,
+        };
+        if (prior === undefined) {
+          await retainCandidate(root, candidateId, candidate, reserved.fence);
         }
-        emitComponentUse(
-          execution,
-          component,
-          evidenceId,
-          "executed",
-          (validation.results.get(
-            producerLabel(component.applicability.producer),
-          )?.durationS ?? 0) * 1000,
-          component.finished_at,
-        );
-      }
-      await settleAttempt(
-        root,
-        reserved.fence,
-        validation.outcome.blockers.length === 0 ? "passed" : "failed",
-      );
-      return validation;
-    } catch (error) {
-      await settleAttempt(
-        root,
-        reserved.fence,
-        signal.aborted ? "cancelled" : "failed",
-      );
-      return {
-        kind: "validation-failed",
-        evidence_ids: [],
-        attempt_id: reserved.fence.attempt_id,
-        reason: errorReason(error),
-      };
-    }
+        const execution: ClaimedExecution = {
+          fence: reserved.fence,
+          attempt: reserved.attempt,
+          path: root,
+          seed: identity.seed,
+          candidate_id: candidateId,
+          candidate,
+          signal: claimSignal,
+        };
+        try {
+          const validation = await executePublicValidation({
+            root,
+            config,
+            scopes: [],
+            claimed: execution,
+            ...(capacity === undefined ? {} : { capacity }),
+            stageDependencies: false,
+            bindAttempt: true,
+            demand: {
+              kind,
+              mode: "strict",
+              requirements: configured.obligations.filter((entry) =>
+                entry.requirement.kind === "standard" &&
+                names.includes(entry.requirement.id)
+              ).map((entry) => entry.requirement),
+            },
+          });
+          for (const component of validation.outcome.evidence) {
+            const evidenceId = SYSTEM_SECURE_ENTROPY.uuid();
+            const written = await writeCompletionRecord(
+              root,
+              {
+                version: ON_DISK_FORMATS.completionRecord.version,
+                kind: "evidence",
+                id: evidenceId,
+                revision: 1,
+                data: component,
+              },
+              null,
+              reserved.fence,
+            );
+            if (written.kind !== "written") {
+              throw new Error(
+                `Measurement receipt publication ${written.kind}.`,
+              );
+            }
+            emitComponentUse(
+              execution,
+              component,
+              evidenceId,
+              "executed",
+              (validation.results.get(
+                producerLabel(component.applicability.producer),
+              )?.durationS ?? 0) * 1000,
+              component.finished_at,
+            );
+          }
+          await settle(
+            validation.outcome.blockers.length === 0 ? "passed" : "failed",
+          );
+          return validation;
+        } catch (error) {
+          await settle(claimSignal.aborted ? "cancelled" : "failed");
+          return {
+            kind: "validation-failed",
+            evidence_ids: [],
+            attempt_id: reserved.fence.attempt_id,
+            reason: errorReason(error),
+          };
+        }
+      },
+    );
   }, externalSignal);
 }

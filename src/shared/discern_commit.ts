@@ -42,13 +42,15 @@ export interface DiscernStandardPinCommitValues {
 }
 
 export interface DiscernStandardLimitProposalCommitValues {
-  readonly standard: string;
-  readonly direction: "up" | "down";
-  readonly trunkLimit: number;
-  readonly proposedLimit: number;
-  readonly measurement: number;
-  readonly reason: string;
-  readonly evidencePaths: readonly string[];
+  readonly proposals: readonly {
+    readonly standard: string;
+    readonly direction: "up" | "down";
+    readonly trunkLimit: number;
+    readonly proposedLimit: number;
+    readonly measurement: number;
+    readonly reason: string;
+    readonly evidencePaths: readonly string[];
+  }[];
 }
 
 export interface DiscernAuthoredCommitSiteDefinition<Values> {
@@ -106,15 +108,22 @@ export const DISCERN_AUTHORED_COMMIT_SITES = {
     message: (
       values: DiscernStandardLimitProposalCommitValues,
     ): DiscernCommitMessage => {
-      const bound = values.direction === "up" ? "floor" : "ceiling";
+      const proposals = values.proposals;
+      const subject = proposals.length === 1
+        ? `Propose standard limit: ${proposals[0]?.standard ?? "unknown"}`
+        : `Propose standard limits: ${
+          proposals.map((proposal) => proposal.standard).join(", ")
+        }`;
       return {
-        subject: `Propose standard limit: ${values.standard}`,
-        body:
-          `Move the ${bound} from ${values.trunkLimit} to ${values.proposedLimit} after measuring ${values.measurement}.\n\n` +
-          `Reason: ${values.reason}\n\n` +
-          `Responsible paths:\n${
-            values.evidencePaths.map((path) => `- ${path}`).join("\n")
-          }`,
+        subject,
+        body: proposals.map((proposal) => {
+          const bound = proposal.direction === "up" ? "floor" : "ceiling";
+          return `Move ${proposal.standard}'s ${bound} from ${proposal.trunkLimit} to ${proposal.proposedLimit} after measuring ${proposal.measurement}.\n\n` +
+            `Reason: ${proposal.reason}\n\n` +
+            `Responsible paths:\n${
+              proposal.evidencePaths.map((path) => `- ${path}`).join("\n")
+            }`;
+        }).join("\n\n"),
       };
     },
   },

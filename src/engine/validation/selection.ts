@@ -1,5 +1,6 @@
 /** Current component selection and complete machine assembly; no landing authority. */
 import type { Candidate } from "../completion/candidate.ts";
+import { effectiveClaimExpiry } from "../completion/attempt.ts";
 import {
   CandidateProofSchema,
   type ComponentEvidence,
@@ -169,7 +170,10 @@ export function selectEvidence(
     return blocked({
       kind: "waiting-for-operation",
       attempt_id: latest.id,
-      expires_at: attempt.state.claim.expires_at,
+      expires_at: effectiveClaimExpiry(attempt.state.claim),
+      ...(attempt.state.claim.executor.operation_handle === undefined ? {} : {
+        operation_handle: attempt.state.claim.executor.operation_handle,
+      }),
     });
   }
   // A finished attempt can have an unrelated failed producer. Its valid siblings survive.

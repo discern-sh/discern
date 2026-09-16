@@ -148,13 +148,15 @@ Deno.test("the commit-message registry renders the five settled subjects and exa
     discernCommitMessage({
       site: DISCERN_AUTHORED_COMMIT_SITES.standardsLimitProposal,
       values: {
-        standard: "bundle_size",
-        direction: "down",
-        trunkLimit: 100,
-        proposedLimit: 90,
-        measurement: 88,
-        reason: "The smaller build is now repeatable.",
-        evidencePaths: ["dist/app.js"],
+        proposals: [{
+          standard: "bundle_size",
+          direction: "down",
+          trunkLimit: 100,
+          proposedLimit: 90,
+          measurement: 88,
+          reason: "The smaller build is now repeatable.",
+          evidencePaths: ["dist/app.js"],
+        }],
       },
     }, fakeEnv()),
   ];
