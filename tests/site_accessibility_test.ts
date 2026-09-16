@@ -469,8 +469,8 @@ Deno.test("search keeps its modal focus contract without showModal support", asy
   );
   const palette = document.querySelector<HTMLDialogElement>("[data-search]");
   const input = document.querySelector<HTMLInputElement>("[data-search-input]");
-  const close = document.querySelector<HTMLButtonElement>(
-    "[data-search-close]",
+  const close = palette?.querySelector<HTMLButtonElement>(
+    ".discern-search-palette__close",
   );
   const background = [
     document.querySelector<HTMLElement>(".docs-skip"),
@@ -532,27 +532,36 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
     new URL("../site/pages/assets/docs.js", import.meta.url),
   );
 
+  const dom = new JSDOM(html);
+  const document = dom.window.document;
+  const attribute = (selector: string, name: string): string | null =>
+    document.querySelector(selector)?.getAttribute(name) ?? null;
+
   const contracts = [
     [
       "mobile search has a durable name",
-      /data-search-open[^>]*aria-label=/s.test(html),
+      attribute("[data-search-open]", "aria-label") !== null,
     ],
     [
       "drawer identifies its controlled nav",
-      /data-drawer-toggle[^>]*aria-controls="docs-nav"/s.test(html),
+      attribute("[data-drawer-toggle]", "aria-controls") === "docs-nav",
     ],
     [
       "search input is a labelled combobox",
-      /data-search-input[^>]*role="combobox"[^>]*aria-controls="docs-search-results"/s
-        .test(html),
+      attribute("[data-search-input]", "role") === "combobox" &&
+      attribute("[data-search-input]", "aria-controls") ===
+        "docs-search-results",
     ],
     [
       "search results are a labelled listbox",
-      /id="docs-search-results"[^>]*role="listbox"/s.test(html),
+      attribute("#docs-search-results", "role") === "listbox",
     ],
     [
       "search has an explicit close control",
-      /<button[^>]*data-search-close[^>]*aria-label="Close search"/s.test(html),
+      attribute(
+        "[data-search] button.discern-search-palette__close",
+        "aria-label",
+      )?.startsWith("Close search") === true,
     ],
     [
       "drawer and dialog background state uses inert",
@@ -581,7 +590,7 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
     ],
     [
       "no-JS mobile navigation stays in flow",
-      /id="docs-nav"/.test(html) &&
+      document.getElementById("docs-nav") !== null &&
       /html:not\(\.docs-js\) \.docs-nav/.test(css),
     ],
     [
@@ -607,6 +616,8 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
       /outline-color:\s*Highlight/.test(css),
     ],
   ] as const;
+
+  dom.window.close();
 
   assertEquals(
     contracts.filter(([, present]) => !present).map(([name]) => name),

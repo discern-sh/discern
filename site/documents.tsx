@@ -11,8 +11,6 @@
 
 import { DOCUMENT_SEARCH_ROUTES } from "./routes.ts";
 import {
-  decisionShell,
-  decisionsIndexShell,
   type DocsSite,
   type DocumentCorpus,
   loadDocsSite,
@@ -20,6 +18,8 @@ import {
   renderDoc,
 } from "./docs.tsx";
 import { buildSearchIndex } from "./search.ts";
+import { renderDecisionPage } from "./ui/pages/DecisionPage.tsx";
+import { renderDecisionsIndexPage } from "./ui/pages/DecisionsIndexPage.tsx";
 import { renderMapPage } from "./ui/pages/MapPage.tsx";
 import { renderManualCoverPage } from "./ui/pages/ManualCoverPage.tsx";
 import { renderManualPage } from "./ui/pages/ManualPage.tsx";
@@ -129,7 +129,7 @@ export async function serveDocuments(
       );
     }
     return respond(
-      decisionsIndexShell(site),
+      renderDecisionsIndexPage(site),
       "text/html; charset=utf-8",
       true,
     );
@@ -150,7 +150,7 @@ export async function serveDocuments(
   const rendered = await renderDoc(page, site);
   return respond(
     page.routeKind === "decision"
-      ? decisionShell(site, page, rendered)
+      ? renderDecisionPage(site, page, rendered)
       : renderManualPage(site, page, rendered),
     "text/html; charset=utf-8",
     true,

@@ -116,6 +116,35 @@ function sameBytes(actual: Uint8Array, expected: Uint8Array): boolean {
 }
 
 /** Report missing or incorrect browser security headers on one response. */
+/**
+ * The manual navigation as instruction items: each package nav section's
+ * first destination is its landing, titled by the section name; the rest
+ * carry their own page titles.
+ */
+function navigationItems(document: Document): InstructionItem[] {
+  const items: InstructionItem[] = [];
+  for (
+    const section of document.querySelectorAll(
+      ".docs-nav-scroll .discern-docs-nav__section",
+    )
+  ) {
+    const sectionTitle = section.querySelector(".docs-nav-chapter-title")
+      ?.textContent?.replace(/^\s*\d+\s*/, "").trim() ?? "";
+    for (
+      const [index, link] of [...section.querySelectorAll("ul a")].entries()
+    ) {
+      items.push({
+        route: link.getAttribute("href") ?? "",
+        title: index === 0
+          ? sectionTitle
+          : (link.querySelector(".docs-nav-page-title")?.textContent ?? "")
+            .trim(),
+      });
+    }
+  }
+  return items;
+}
+
 function securityFailures(response: Response, label: string): string[] {
   const failures: string[] = [];
   const csp = response.headers.get("content-security-policy") ?? "";
@@ -478,22 +507,10 @@ export async function runSiteSmoke(
   if (docs === undefined) {
     fail("/docs: unavailable for surface parity");
   } else {
-    const compactNav: InstructionItem[] = [instructions[0] as InstructionItem];
-    for (const chapter of docs.querySelectorAll(".docs-nav-chapter")) {
-      const sectionTitle = chapter.querySelector(".docs-nav-label")?.textContent
-        ?.replace(/^\s*\d+\s*/, "").trim() ?? "";
-      for (
-        const [index, link] of [...chapter.querySelectorAll("ul a")].entries()
-      ) {
-        compactNav.push({
-          route: link.getAttribute("href") ?? "",
-          title: index === 0
-            ? sectionTitle
-            : (link.querySelector(".docs-nav-page-title")?.textContent ?? "")
-              .trim(),
-        });
-      }
-    }
+    const compactNav: InstructionItem[] = [
+      instructions[0] as InstructionItem,
+      ...navigationItems(docs),
+    ];
     sameItems(
       "/docs compact nav",
       compactNav,
@@ -531,24 +548,10 @@ export async function runSiteSmoke(
   if (fullNavDocument === undefined) {
     fail("manual leaf: unavailable for complete navigation parity");
   } else {
-    const nav: InstructionItem[] = [instructions[0] as InstructionItem];
-    for (
-      const chapter of fullNavDocument.querySelectorAll(".docs-nav-chapter")
-    ) {
-      const sectionTitle = chapter.querySelector(".docs-nav-label")?.textContent
-        ?.replace(/^\s*\d+\s*/, "").trim() ?? "";
-      for (
-        const [index, link] of [...chapter.querySelectorAll("ul a")].entries()
-      ) {
-        nav.push({
-          route: link.getAttribute("href") ?? "",
-          title: index === 0
-            ? sectionTitle
-            : (link.querySelector(".docs-nav-page-title")?.textContent ?? "")
-              .trim(),
-        });
-      }
-    }
+    const nav: InstructionItem[] = [
+      instructions[0] as InstructionItem,
+      ...navigationItems(fullNavDocument),
+    ];
     sameItems("manual leaf nav", nav, instructions, fail);
   }
 
