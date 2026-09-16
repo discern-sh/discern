@@ -1,11 +1,15 @@
 ## The Map & decisions
 
-`{{map_dir}}` is the agent-maintained **map**, browsable with **`discern_map`**. Agents use the map to learn and navigate the project; humans use the map to audit agent understanding. Update the map when the reader's mental model, a durable boundary, a supported workflow, or a product behavior changes.
+`{{map_dir}}` is the **map**, browsable with **`discern_map`**: maintained explanations for agents and an account of their understanding for humans.
 
-Staleness is a defect, so keep the map current — a page is current when nothing in it is false. A map page must **reduce** the total amount of repository reading required to make a correct decision, so it should never restate what code, tests, or config already express — link the authority instead. Do not use the map to maintain independently mechanically derivable facts.
+Keep affected pages accurate when behavior, boundaries, constraints, or workflows change. Keep the map in the present, not as change history; remove resolved-bug narratives. Explain what readers need for correct changes; link supporting code, tests, configuration, and requirements. Useful implementation summaries belong here. Name functions for entry points or contracts; never transcribe every method or duplicate derivable inventories.
 
-The map records what the code cannot say (boundaries, invariants, intent, where to start). The map should read in the present, not as change history. Significant, hard-to-reverse decisions belong as ADRs instead — save **Architecture Decision Records** under `{{map_dir}}_adr/`.
+Extend existing sections first. Split pages for distinct reader tasks; create folders with READMEs for durable responsibilities. Keep the root for overview and navigation. Follow existing ordering; numbers are optional.
+
+Link relevant instructions, skills, checks,{{#if has_checkpoints}} checkpoints,{{/if}} and ADRs; each keeps its own authority.
+
+Separate current behavior, agreed requirements, and open questions. Put concrete open work in `{{todo_path}}`. Preserve significant architectural rationale as **Architecture Decision Records** under `{{map_dir}}_adr/`. ADRs record decisions; they cannot authorize exceptions to agreed requirements.
 
 <!-- discern:map-regions -->
 
-Stuck or missing context? Call `discern_map` with `search` in task language, then retrieve the best result using its returned `target`.
+Find context with `discern_map` `search` in task language, then retrieve the returned `target`.

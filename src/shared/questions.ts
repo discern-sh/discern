@@ -190,20 +190,34 @@ export const QUESTIONS: readonly Question[] = [
       "rung that still catches its moment.",
   },
   {
-    // Diff-introduced: a page goes stale only when the code it describes
-    // changes without it — the diff marks the moment; time alone never
-    // creates the violation. The improvement review still audits the accumulated
-    // backlog through the improvement membership.
+    // Source changes select a review; editing a page is not proof of currency.
     id: "map.current",
     violations: "diff-introduced",
     question:
-      "Take code that changed recently. Does the documentation describing it " +
-      "still say how the code actually behaves now — present tense, no drift — " +
-      "or does a page describe a previous design? A stale doc is a bug.",
+      "Review the affected map pages against the changed sources. Do they describe how the " +
+      "project works now — current behavior, constraints, boundaries, and links, in present tense — " +
+      "or preserve a previous design, a resolved bug, or an account of what this change achieved? " +
+      "Rewrite obsolete explanations; remove resolved-bug and change-history narration. " +
+      "A stale doc is a bug. Review other affected pages even when source links miss them.",
     teach:
-      "Docs are only worth trusting if they track the code. When a change alters " +
-      "documented behavior, update the page in the same change. The discern-document-subsystem " +
-      "skill refreshes a subtree; `discern map --list` shows the tree.",
+      "The map is a present-day explanation, not a record of completed work. Check affected " +
+      "claims against current code and tests. Replace an outdated account with the behavior " +
+      "and constraints that hold now; do not append a story of the bug and its fix. Keep " +
+      "significant architectural decision history in ADRs. A current page needs no cosmetic edit.",
+  },
+  {
+    id: "map.adrs",
+    violations: "accrued",
+    question:
+      "For the project's significant architectural decisions — hard to reverse, surprising " +
+      "without context, and involving a real trade-off — can a future agent find the constraints, " +
+      "viable alternatives, and accepted consequences in a linked ADR? Do the records explain " +
+      "structural choices, while routine implementation context stays in the current map?",
+    teach:
+      "Apply the project's ADR criteria to substantial choices about structure, boundaries, " +
+      "contracts, or long-term direction. Record why the chosen architecture earns its costs " +
+      "and link it from the current map. Use tests and guards to protect behavior. An ADR " +
+      "records an approved exception; it does not authorize a shortcut or override a requirement.",
   },
   {
     id: "map.navigation",
@@ -225,14 +239,14 @@ export const QUESTIONS: readonly Question[] = [
     question:
       "Read the changed documentation as its future reader. Does each changed " +
       "entry reduce the repository reading needed to make a correct decision — " +
-      "behavior, boundaries, intent, where to start — or does it restate what " +
-      "the code already says: symbol inventories, file-by-file summaries, " +
-      "change history?",
+      "behavior, boundaries, constraints, relationships, where to start — with links " +
+      "to evidence? Does it belong in the closest useful region, without method " +
+      "transcription, file-by-file inventories, or change history?",
     teach:
       "Documentation earns its place by what a reader no longer has to open. " +
-      "Record what the code cannot say, in the present tense, and cut anything " +
-      "a reader could regenerate mechanically from the code — derivable " +
-      "content is stale the day after it is written.",
+      "Summarize implementation when it explains a contract or relationship; link " +
+      "the authority instead of copying a derivable inventory. Distinguish " +
+      "observed behavior, agreed requirements, and unresolved questions.",
   },
   {
     id: "worktrees.resources",

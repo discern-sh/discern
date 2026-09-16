@@ -1282,13 +1282,10 @@
 # Four stop checkpoints guard the knowledge surfaces — the ones that steer
 # every future agent session. `discern done` pauses before the gate until the
 # agent declares each fired question met, or unmet with a rationale.
-# Map checkpoint subjects exclude generated artifacts, so two
-# authored Map files now mark a broad change. One batched declaration per
-# effort is the intended tax; the checkpoint-noisy detector re-adjudicates
-# from post-landing history for the owner.
-[checkpoints.map-focus] # a broad map change must reduce future reading
-  min_changed_files = 2
-  teach = "Remove stale material, link the authority, and cut mechanically derivable prose."
+# New explanations and substantial rewrites prompt editorial review.
+# Generated artifacts, decision history and private notes are outside this review.
+[checkpoints.map-focus] # explanations must reduce future reading
+  teach = "Explain contracts and relationships with evidence. Remove stale material and copied inventories; keep useful implementation summaries."
 [checkpoints.instruction-economy] # always-loaded prose pays rent in every session
 [checkpoints.skills-playbook] # a skill is an executable playbook
 [checkpoints.gotchas-playbook] # failure memory stays symptom → cause → recovery
@@ -1474,7 +1471,7 @@
 [checkpoints.effort-sprawl] # one effort, or several riding along?
   min_changed_files = 40
 
-[checkpoints.map-drift] # code moved and the map did not
+[checkpoints.map-drift] # review explanations affected by changed sources
 
 [checkpoints.commit-story] # a large change: do the messages tell the why?
   min_changed_files = 25

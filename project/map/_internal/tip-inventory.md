@@ -435,12 +435,12 @@ Rendered line:
 - Relevance: Evergreen — a reusable guide lesson.
 - Predicate: —
 - Since: —
-- Teaches: `skill-document-subsystem`
+- Teaches: `map`
 - Follow-through: —
 
 Rendered line:
 
-> `discern-document-subsystem` has a coding agent rebuild one part of the project guide from the code and verify every claim.
+> Ask your coding agent to update the affected page of the project guide from the code and tests. The project guide connects each explanation to its evidence.
 
 ## `teach-the-next-agent`
 
@@ -571,7 +571,6 @@ The enrollment guard derives every feature node and top-level verb from its live
 | `feature:gate-preconditions`              | Each precondition diagnostic supplies the required remedy when it fails.                                                                                                                     |
 | `feature:gate-streaming`                  | This output behavior keeps long gate checks visible; it adds no separate desk action.                                                                                                        |
 | `feature:generated-artifact-declarations` | The config reference teaches this advanced generated-artifact authoring choice.                                                                                                              |
-| `feature:glossary-canon`                  | The glossary and generated references own canonical vocabulary.                                                                                                                              |
 | `feature:gotchas-pointer`                 | The failure that needs the troubleshooting pointer supplies it directly.                                                                                                                     |
 | `feature:hints`                           | Each hint appears with the action that makes it relevant.                                                                                                                                    |
 | `feature:idempotent-verbs`                | This engine guarantee makes safe retries possible; each command describes its own rerun behavior.                                                                                            |
@@ -592,7 +591,7 @@ The enrollment guard derives every feature node and top-level verb from its live
 | `feature:landing-queue-walk`              | The finish-and-land guide and acceptance reference teach this advanced command-line selection; the desk curriculum teaches reviewing the selected task.                                      |
 | `feature:landing-turn`                    | Acceptance announces the current landing and its progress handle while waiting; the explanation arrives when the wait applies.                                                               |
 | `feature:licenses`                        | The legal reference and command help own license output.                                                                                                                                     |
-| `feature:map-freshness`                   | The gate enforces this maintainer rule and names stale map pages.                                                                                                                            |
+| `feature:map-freshness`                   | Page-specific source history points to explanations worth reviewing; it cannot judge their truth.                                                                                            |
 | `feature:mcp-surface`                     | The Model Context Protocol (MCP) is an agent integration surface; the desk owns human actions.                                                                                               |
 | `feature:output-discipline`               | This engine contract governs result rendering; individual tips teach human actions.                                                                                                          |
 | `feature:owner-attention`                 | Status and the desk present owner attention when it exists, so it needs no separate rotating lesson.                                                                                         |

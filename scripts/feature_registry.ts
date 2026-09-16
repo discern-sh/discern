@@ -1342,18 +1342,6 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             surfaces: ["skill:discern-await-the-fleet"],
           },
           {
-            id: "skill-document-subsystem",
-            title: "Document a subsystem",
-            what:
-              "Write or refresh one subsystem's subtree of the map from the real code, following the documenter brief that `discern setup begin` seeds under the map's `_internal/` scaffolding.",
-            plain: {
-              title: "Document a part of the project",
-              what:
-                "Write or refresh one part's section of the project guide from the real code, following the documenter brief that `discern setup begin` places in the guide's `_internal/` starter area.",
-            },
-            surfaces: ["skill:discern-document-subsystem"],
-          },
-          {
             id: "skill-teach-the-project",
             title: "Teach the project",
             what:
@@ -1398,15 +1386,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     id: "map",
     title: "The map",
     what:
-      "The agent-maintained documentation tree at `[map].dir`: agents write it and keep it current under the gate; humans read it as documentation and as an audit of what their agents understand.",
+      "The agent-maintained documentation tree at `[map].dir`: agents maintain explanations with evidence and review them as the project changes; humans read it as documentation and as an audit of what their agents understand.",
     why:
-      "The gate checks map freshness, and the map gives the owner a reviewable account of agent understanding.",
+      "The gate checks links and examples; source evidence and checkpoints guide review. The map gives the owner an account of agent understanding.",
     plain: {
       title: "The project guide",
       what:
-        "The project's written guide, kept at `[map].dir` and maintained by coding agents: they write it and keep it current under the final quality check, and people read it both as documentation and as a way to inspect what their coding agents understand.",
+        "The project's written guide, kept at `[map].dir` and maintained by coding agents: they explain the project and review the guide as work changes it, and people read it both as documentation and as a way to inspect what their coding agents understand.",
       why:
-        "The final check catches an out-of-date guide, and the guide gives the person in charge a reviewable account of what coding agents understand.",
+        "The final check catches broken links and examples. Changes to linked files help coding agents find pages to review, and people can inspect what those coding agents understand.",
     },
     surfaces: ["config:map", "verb:map"],
     children: [
@@ -1441,13 +1429,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "docs-integrity",
         title: "The docs integrity preflight",
         what:
-          "Every `discern done` validates the map's substance before the jobs run: intra-map links and heading anchors against the shared renderer, fenced `discern` examples against the live verb and flag registry (Project Scripts included), frontmatter blocks against the readers' shape rules, published pages against the `_internal`/`_private` audience boundary, and skill citations against the effective skill set.",
+          "Every `discern done` checks the map's structural integrity before the jobs run: intra-map links and heading anchors against the shared renderer, fenced `discern` examples against the live verb and flag registry (Project Scripts included), optional frontmatter blocks against the readers' shape rules and skill citations against the effective skill set.",
         why:
           "A rename breaks the docs loudly, in the same change, instead of quietly a month later — and an excluded skill cannot stay recommended by live prose.",
         plain: {
           title: "Checking that the guide still works",
           what:
-            "Every `discern done` examines the guide's substance before the work runs. It checks that links between pages and to their sections resolve, and that examples containing `discern` match the real list of instructions and choices (the project's own instructions included). It also checks that the small details at the top of each page follow their agreed shape, that published pages respect the rule of who may read `_internal` and `_private` material, and that mentions of how-to guides match the set now in force.",
+            "Every `discern done` checks the guide's references before the work runs. It checks that links between pages and to their sections resolve, and that examples containing `discern` match the real list of instructions and choices (the project's own instructions included). It also checks that optional basic facts at the top of a page has the expected shape and that mentions of how-to guides match the set now in force.",
           why:
             "A renamed thing breaks the written instructions loudly, in the same change, instead of quietly a month later — and a withdrawn how-to guide cannot stay recommended by live text.",
         },
@@ -1456,24 +1444,26 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "map-freshness",
         title: "File-linked freshness",
         what:
-          "Map freshness ships as file-linked facts — which source files a page covers and when they moved — rather than verdicts.",
+          "Each page has its own source links and Git baseline. The map reports later commits to those sources, identifies affected pages, and leaves currency for review. Missing links or history mean unknown coverage; an unrelated page edit cannot reset the evidence.",
         plain: {
           title: "Facts about freshness, tied to real files",
           what:
-            "The guide's freshness ships as checkable facts — which project files each page covers, and when those files last moved — rather than as a verdict pretending to judge the writing.",
+            "Each page links to the files behind its account. Changes to those files point to pages that may need review. Editing a different page does not clear that signal. Without links or a saved history, discern cannot tell; reading the page decides whether it is still true.",
         },
       },
       {
         id: "publish-predicate",
         title: "Publication control",
         what:
-          "`publish: false` in a page's frontmatter withholds it from every published surface, and underscore-prefixed trees (`_internal`, `_private`) never ship. Decision records also appear through `discern docs --adr` and the site's history pages.",
-        why: "One predicate answers what ships, everywhere it could ship.",
+          "Public map exports honor publication metadata and omit underscore directories. Local map discovery includes current supporting pages without requiring metadata. discern's own manual and website retain a separate publication policy; the site map directory links to repository files.",
+        why:
+          "Publication choices do not decide which current project explanations agents can find.",
         plain: {
           title: "Control over what ships",
           what:
-            "Writing `publish: false` at the top of a page keeps it off every published surface, and folders whose names begin with an underscore (`_internal`, `_private`) never ship. Decision records are a partly public exception, served by `discern docs --adr` and the site's history pages.",
-          why: "One rule answers what ships, everywhere it could ship.",
+            "Public copies of the project guide omit folders whose names start with an underscore and pages marked private for publication. Coding agents can still find the current supporting pages locally. discern has its own rules for its handbook and website, where guide entries link to the source files.",
+          why:
+            "The choice to publish a page is separate from finding it during project work.",
         },
       },
       {
@@ -1522,19 +1512,6 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             "Help always means how to type an instruction; the handbook has its own name, `docs`.",
         },
         surfaces: ["verb:help"],
-      },
-      {
-        id: "glossary-canon",
-        title: "The vocabulary canon",
-        what:
-          "The glossary compiles from a term registry: one definition per term, every term a search alias, retired synonyms policed out of live prose, and closed-set members enrolled the moment they exist.",
-        why: "Every page and every agent uses one name per concept.",
-        plain: {
-          title: "One agreed vocabulary",
-          what:
-            "The glossary comes from a master list of terms: one meaning per term, every term usable as a search word, retired wordings kept out of current writing, and every member of a fixed list added the moment it exists.",
-          why: "Every page and every coding agent uses one name per idea.",
-        },
       },
     ],
   },
@@ -3210,14 +3187,13 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         id: "catch-documentation-breakage",
         title: "Catch broken project documentation before it lands",
         value:
-          "Broken links, stale generated pages, invalid command examples, malformed metadata, and vocabulary drift can fail alongside code. Agents and people spend less time following instructions whose mechanics no longer work.",
+          "Broken links, stale generated pages, invalid command examples, and malformed optional metadata can fail alongside code. Agents and people spend less time following instructions whose mechanics no longer work.",
         whyItFollows:
-          "The Map preflight validates links, anchors, commands, metadata, audience boundaries, and Skill references; generated-artifact declarations and fail-fast preconditions catch drift; the glossary and publication registry keep names and visibility consistent.",
+          "The Map preflight validates links, anchors, commands, optional metadata, and Skill references. Generated-artifact declarations and fail-fast preconditions catch drift in configured outputs. Agents review whether the explanations remain true.",
         drawsOn: [
           "docs-integrity",
           "generated-artifact-declarations",
           "gate-preconditions",
-          "glossary-canon",
           "publish-predicate",
         ],
         claims: ["map-mechanically-checked"],
@@ -3274,8 +3250,8 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "The human can inspect a readable account of the architecture, conventions, and subsystem knowledge agents are using. Project understanding no longer has to remain hidden inside session history.",
         whyItFollows:
-          "Agents maintain the Map under the Gate, file-linked freshness records which sources a page covers and when they changed, and the Document a Subsystem Skill refreshes a section from the current code.",
-        drawsOn: ["map", "map-freshness", "skill-document-subsystem"],
+          "Agents maintain the Map using compiled instructions, setup examples, and checkpoints. Page-specific source evidence identifies explanations to review; the owner can inspect the account agents work from.",
+        drawsOn: ["map", "map-freshness"],
       },
       {
         id: "preserve-decision-reasons",
@@ -4097,9 +4073,9 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can search from task language into a maintained map, follow checked links and commands, recover canonical vocabulary, and inspect the reasons behind durable architectural boundaries.",
         whyItFollows:
-          "The map browser and discovery funnel lead to audience-tiered pages whose links, commands, freshness, and publish boundary are checked; ADRs preserve decisions, bundled docs explain discern, CLI help reflects live commands, and the glossary owns terminology.",
+          "The map browser finds current project explanations and their evidence. The gate checks links and command examples; checkpoints prompt judgment about changed knowledge. ADRs preserve decision reasons, bundled docs explain discern, and CLI help reflects live commands.",
         boundary:
-          "The map records intent, boundaries, and navigation rather than duplicating mechanically derivable code facts; the agent must follow its authority links when exact implementation detail matters.",
+          "The map explains behavior, intent, boundaries, and navigation with links to evidence. Useful implementation summaries belong here; copied inventories do not. Structural checks cannot establish that the explanation is true.",
         drawsOn: [
           "map",
           "map-browser",
@@ -4110,7 +4086,6 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "adr-discipline",
           "bundled-docs",
           "cli-help",
-          "glossary-canon",
         ],
         claims: ["map-mechanically-checked"],
       },
@@ -4128,7 +4103,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can discover only the procedures the project chose to materialize, with each procedure carrying a bounded workflow for the task it matches.",
         whyItFollows:
-          "The skill registry controls materialization and curation, while the bundled procedures cover defect-class cures, Standards, checkpoints, cleanup, delegation, fleet waits, subsystem documentation, durable teaching, ADRs, and single-authority design.",
+          "The skill registry controls materialization and curation, while the bundled procedures cover defect-class cures, Standards, checkpoints, cleanup, delegation, fleet waits, durable teaching, ADRs, and single-authority design.",
         boundary:
           "A skill supplies a procedure and decision points; it does not grant permissions the current task lacks or replace the project's own facts and tests.",
         drawsOn: [
@@ -4141,7 +4116,6 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "skill-clear-the-decks",
           "skill-delegate-work",
           "skill-await-the-fleet",
-          "skill-document-subsystem",
           "skill-teach-the-project",
           "skill-write-adr",
           "skill-write-it-once",

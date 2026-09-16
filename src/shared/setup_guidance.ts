@@ -392,8 +392,8 @@ export interface SetupDocumentationScope {
 }
 
 /**
- * Apply setup's proportional documentation floor. Exactly one primary boundary
- * is always selected; additional pages require both a durable boundary and a
+ * Apply setup's proportional documentation floor. A project with implementation selects one primary boundary;
+ * a new project may have no subsystem yet. additional pages require both a durable boundary and a
  * demonstrable reduction in future repository reading. Ledger entries require
  * a concrete title and evidence, must be an unresolved decision or defect, and
  * must not repeat a fact already expressed by configuration.
@@ -404,7 +404,9 @@ export function recommendSetupDocumentationScope(
 ): SetupDocumentationScope {
   const primaries = boundaries.filter((candidate) => candidate.primary);
   const primary = primaries[0];
-  if (primary === undefined || primaries.length !== 1) {
+  if (
+    boundaries.length > 0 && (primary === undefined || primaries.length !== 1)
+  ) {
     throw new Error(
       "Setup documentation scope requires exactly one primary subsystem boundary.",
     );

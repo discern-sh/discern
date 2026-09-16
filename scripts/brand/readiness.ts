@@ -106,7 +106,7 @@ export const READINESS_ROUTES = {
   map: {
     invitation: "Give the next person somewhere useful to start.",
     how:
-      "The Map holds the project's account of boundaries, workflows, and where to begin, so review and support preparation can start from retained understanding.",
+      "The Map explains boundaries and workflows with evidence, linking the relevant procedures, checks, and decisions. It preserves context for data handling, recovery, compatibility, and release work where the project needs it.",
     contribution: "Project knowledge",
     doc: "project/manual/20-understand/instructions-skills-and-map.md",
     humanBenefit: "inspect-agent-understanding",
@@ -189,7 +189,7 @@ export const READINESS_ROUTES = {
   "map-freshness": {
     invitation: "Find the explanation that needs another look.",
     how:
-      "File-linked freshness shows which source files a Map page covers and when they changed, helping an agent find accounts of data behavior, support, or recovery that need review.",
+      "When source files change, discern points agents to the Map pages that explain them, helping each session find its way around the project and keep that shared understanding current.",
     contribution: "Advisory evidence",
     doc: "project/manual/20-understand/instructions-skills-and-map.md",
     humanBenefit: "inspect-agent-understanding",

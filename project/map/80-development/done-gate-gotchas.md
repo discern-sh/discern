@@ -30,9 +30,9 @@ These failures come from Git worktrees, parallel stages, build artifacts, and th
 
 ### A generated or local discern artifact was force-added
 
-**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are usually agent files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized skills, or machine-local provider state under `.claude/`.
+**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are materialized skills or machine-local provider state under `.claude/`. Compiled instruction files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are tracked outputs and belong in commits.
 
-**Cause.** The file matches the discern-owned `.gitignore` block, but `git add -f` or an equivalent operation forced it into the index. The reviewable source is `project/instructions.md`, `[skills].dir`, or provider config. A generated or local artifact remains untracked even when its bytes are current.
+**Cause.** The file matches the discern-owned `.gitignore` block, but `git add -f` or an equivalent operation forced it into the index. The reviewable source is `project/instructions.md`, `[skills].dir`, or provider config. The named ignored artifact remains untracked even when its bytes are current.
 
 **Fix.** Remove it from the index without deleting the working-tree copy: `git rm -r --cached -- <path...>`. Then run `discern refresh` to rebuild any generated artifacts that are missing, commit the index change, and re-run `discern done`.
 
@@ -42,11 +42,11 @@ stage = "tracked_artifacts"
 
 ### A gate stage dirtied a file you already committed
 
-**Symptom.** `done` reports uncommitted changes on tracked files (`failed_stage: "tree_drift"`). A run that started on a clean, committed tree stops right after the fix and build groups, with the later steps marked skipped; a run that started dirty reports at the end, after every stage. The diagnostic names each file and the stage that produced it, such as a Markdown reflow from the fix stage or a regenerated artifact from the build stage.
+**Symptom.** `done` reports uncommitted changes on tracked files (`failed_stage: "tree_drift"`). A run that starts on a clean, committed tree stops after the fix and build groups when they change tracked files; later checks are skipped. The diagnostic names each file and the stage that produced it, such as a Markdown reflow from the fix stage or a regenerated artifact from the build stage.
 
 **Cause.** The fix stage (here `deno fmt`) is allowed to mutate files, and another stage can mutate because of its wiring. Here the build stage's `deno task codegen` rewrites tracked schema, type, and reference files. If you commit a generated file outside its canonical form, the next `done` rewrites it and leaves an uncommitted result. The gate attributes the change to its stage and blocks it from following `accept` into the main checkout.
 
-**Fix.** The diff is the gate's output from the named stage. Review it (`git diff`), commit it (`git add -A && git commit`), and rerun `done`. Run `done` or `prepare` before the final commit to put generated files in canonical form first. Tree drift applies only when a stage changes an already committed file.
+**Fix.** The diff is the gate's output from the named stage. Review it (`git diff`), commit it (`git add -A && git commit`), and rerun `done`. Run `discern prepare` before the final commit to put generated files in canonical form first. Tree drift applies only when a stage changes an already committed file.
 
 ```gotcha-match
 stage = "tree_drift"
@@ -94,7 +94,7 @@ stage = "generated_drift"
 
 **Cause.** A gate command fails to finish. A watch-mode test runner or development server wired into a job can create this state. In your terminal, the command may choose a single run. The gate runs it with standard input closed, no terminal (TTY), and piped output, where many runners watch for file changes and wait indefinitely. The gate exports `CI=1` with `NO_COLOR` and `TERM=dumb` to select single-run behavior. A runner that ignores `CI` still hangs, so the timeout watchdog kills the process group and fails the stage. The same timeout occurs when the command exits and leaves a background process holding its output stream open. The watchdog kills the group and releases the held pipes.
 
-**Fix.** Wire the command in its single-run form, using the flag or script that runs once and exits. Exclude `--watch`, interactive modes, and long-lived servers. If the command needs more time than the budget, raise the config key the diagnostic names: the job's own `timeout` entry, or the global `[gate].timeout`. Setting a budget to `0` disables its bound and permits an indefinite hang.
+**Fix.** Wire the command in its single-run form, using the flag or script that runs once and exits. Exclude `--watch`, interactive modes, and long-lived servers. If the command still exceeds its budget, measure where the time goes and fix unnecessary work or resource contention. The diagnostic names the budget that fired. Change it only when measured runtime and project policy justify it. Setting a budget to `0` permits an indefinite hang.
 
 ```gotcha-match
 evidence = 'timed out after \d+s and was killed'
@@ -128,7 +128,7 @@ evidence = 'failed \(exit 127\)'
 
 **Cause.** The gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected. A change confined to a `neutral` scope runs no scope gates and gets no preview. Classification fails open: a path matching no scope counts as a real code change and runs additional gates.
 
-**Fix.** If an expected scope gate was skipped, widen the `[scopes]` globs to match the changed paths. If an unexpected gate ran, the path reached the fail-open default. Add the path to `neutral` or the applicable scope only when it needs no gate.
+**Fix.** If an expected scope gate was skipped, widen its `paths` to match the changed files. If an unexpected gate ran, inspect the changed paths and their scope membership. Mark a scope `neutral = true` only when changes confined to it need no scope gate.
 
 ---
 

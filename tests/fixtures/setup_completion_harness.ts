@@ -50,7 +50,7 @@ export async function readyForSetupDone(
   await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
   await Deno.writeTextFile(
     defaultMapPath(dir, "README.md"),
-    "# Real docs\n",
+    "# Real docs\n\nThe project runs configured commands.\n\n[Runtime](10-runtime/)\n",
   );
   await Deno.writeTextFile(
     defaultMapPath(dir, "10-runtime", "README.md"),

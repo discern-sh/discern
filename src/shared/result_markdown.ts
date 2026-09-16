@@ -1182,9 +1182,11 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
             ? ""
             : ` ${
               number(region.code_changes_since)
-            } code changes since those pages changed.`
+            } distinct source commits after the pages that link them.`
         }`
       ),
+      ...view.changedMapPages(records(data.regions), code),
+      view.pageFreshness(doc?.freshness),
       ...suggestions.map((entry) => {
         const target = text(entry.target) ?? text(entry.path) ?? "unknown";
         const suggestionTitle = text(entry.title);

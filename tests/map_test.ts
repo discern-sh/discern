@@ -864,6 +864,21 @@ Deno.test("bare map renders README descriptions and Git freshness facts per regi
       "--no-gpg-sign",
     );
 
+    // Editing another page in the region cannot review this explanation's sources.
+    await Deno.writeTextFile(
+      join(dir, "docs", "00-intro", "beta.md"),
+      "# Beta\n\nAn unrelated explanation.\n",
+    );
+    await git(dir, "add", "docs/00-intro/beta.md");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "Explain another topic",
+      "--no-gpg-sign",
+    );
+
     const human = await runCli(["map"], dir);
     assertEquals(human.code, 0);
     assertTerminalTextIncludes(human.stdout, "discern map — 1 region in docs");
@@ -885,6 +900,10 @@ Deno.test("bare map renders README descriptions and Git freshness facts per regi
     assertEquals(region.code_changes_since, 2);
     assertEquals(typeof region.pages_changed_at, "string");
     assertFactOnlyRegion(region);
+    const page = region.pages.find((page) => page.target === "00-intro/README");
+    assertExists(page);
+    assertEquals(page.code_changes_since, 2);
+    assertEquals(page.source_paths, ["src/alpha.ts"]);
   });
 });
 
@@ -1747,5 +1766,30 @@ Deno.test("resolveDoc treats a whitespace-only target as a miss", async () => {
     // Trimmed to empty → an early "none", never touching the matcher.
     assertEquals(resolveDoc(tree, "   ", dir).kind, "none");
     assertEquals(resolveDoc(tree, "./", dir).kind, "none");
+  });
+});
+
+Deno.test("map finds current supporting pages while history and private pages require a target", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    for (const folder of ["_internal", "_support", "_private"]) {
+      await Deno.mkdir(join(dir, "docs", folder), { recursive: true });
+      await Deno.writeTextFile(
+        join(dir, "docs", folder, "notes.md"),
+        `# Notes\n\n${folder} uniqueconstraint\n`,
+      );
+    }
+    const search = decodeMapData(
+      (await runCli(["map", "--search", "uniqueconstraint", "--json"], dir))
+        .stdout,
+      "results",
+    );
+    assertEquals(search.results.length, 2);
+    for (const folder of ["_internal", "_private"]) {
+      const page = await runCli(["map", `${folder}/notes`, "--json"], dir);
+      assertEquals(page.code, 0, page.stdout);
+    }
+    const pub = await runCli(["map", "--export", "public"], dir);
+    assert(!pub.stdout.includes("uniqueconstraint"));
   });
 });

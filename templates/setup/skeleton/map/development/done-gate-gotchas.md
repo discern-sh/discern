@@ -22,9 +22,9 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 ### A generated or local discern artifact was force-added
 
-**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are usually agent files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized skills, or machine-local provider state.
+**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are materialized skills or machine-local provider state. Compiled instruction files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are tracked outputs and belong in commits.
 
-**Cause.** The file matches the discern-owned `.gitignore` block, but someone used `git add -f` or otherwise forced it into the index. The reviewable source lives elsewhere — the instruction source, `[skills].dir`, or provider config — and the generated or local artifact stays untracked even when its bytes are current.
+**Cause.** The file matches the discern-owned `.gitignore` block, but someone used `git add -f` or otherwise forced it into the index. The reviewable source lives elsewhere — the instruction source, `[skills].dir`, or provider config — and the named ignored artifact stays untracked even when its bytes are current.
 
 **Fix.** Remove it from the index without deleting the working-tree copy: `git rm -r --cached -- <path...>`. Then run `discern refresh` to rebuild any generated artifacts that are missing, commit the index change, and re-run `discern done`.
 
@@ -34,11 +34,11 @@ stage = "tracked_artifacts"
 
 ### A gate stage dirtied a file you already committed
 
-**Symptom.** `done` reaches the end with every stage green, then reports uncommitted changes on tracked files (`failed_stage: "tree_drift"`). The diagnostic names each file and the stage that produced it, such as a Markdown reflow from the fix stage or a regenerated artifact from the build stage.
+**Symptom.** `discern done` reports uncommitted changes on tracked files (`failed_stage: "tree_drift"`). A run that starts on a clean, committed tree stops after the fix and build groups when they change tracked files; later checks are skipped. The diagnostic names each file and the stage that produced it, such as a Markdown reflow from the fix stage or a regenerated artifact from the build stage.
 
 **Cause.** The fix stage mutates by design — formatters rewrite files — and a build stage can mutate through its wiring, regenerating tracked artifacts from their sources. If you commit a generated file outside its canonical form, the next `done` rewrites it and leaves an uncommitted result. The gate attributes the change to its stage and blocks it from following acceptance onto the trunk.
 
-**Fix.** The diff is the gate's output from the named stage. Review it (`git diff`), commit it (`git add -A && git commit`), and re-run `done`. You can avoid that extra pass by running `done` or `prepare` before your final commit. Tree drift applies only when a stage changes an already-committed file.
+**Fix.** The diff is the gate's output from the named stage. Review it (`git diff`), commit it (`git add -A && git commit`), and re-run `done`. Run `discern prepare` before your final commit so formatters and generators finish their work before verification. Tree drift applies only when a stage changes an already-committed file.
 
 ```gotcha-match
 stage = "tree_drift"
@@ -60,9 +60,9 @@ stage = "generated_drift"
 
 **Symptom.** You run one test (or linter) over the files you changed and it is green, but the same step goes red inside `discern done`.
 
-**Cause.** Shared state or ordering. The gate runs the full suite — often in parallel — so tests that lean on a shared resource (a file, a database row, a global, a fixed port) or that assume they run in a particular order pass in isolation and collide at scale. A targeted run never exercises the collision.
+**Cause.** Shared state or ordering can make the result depend on how much runs together. The gate runs the full suite — often in parallel — so tests that lean on a shared resource (a file, a database row, a global, a fixed port) or that assume they run in a particular order pass in isolation and collide at scale. A targeted run never exercises the collision.
 
-**Fix.** Make each test self-contained: own its fixtures, never assume order, and never reuse a resource another test could touch concurrently. Reproduce by running the full suite (or your stack's parallel mode) rather than a single filter. The bug is in the test's isolation, not in the gate.
+**Fix.** Make each test self-contained: own its fixtures, never assume order, and never reuse a resource another test could touch concurrently. Reproduce by running the full suite (or your stack's parallel mode) rather than a single filter. Check that the isolated run uses the same environment and inputs, then remove any dependency on shared state or ordering.
 
 ### Stale build artifacts
 
@@ -86,7 +86,7 @@ stage = "generated_drift"
 
 **Cause.** A gate command never finishes. The usual culprit is a **watch-mode test runner** or a **dev server** wired into a job. Run by hand in your terminal it may pick a single run, but the gate runs it with stdin closed, no TTY, and piped output, where many runners default to _watching_ for file changes and wait forever. The gate exports `CI=1` (with `NO_COLOR` / `TERM=dumb`) to push runners into their single-run form, but one that ignores `CI` still hangs — so the timeout watchdog tree-kills the whole process group and fails the stage rather than waiting indefinitely. Another variant: the command exits but leaves a background process holding its output stream open; the watchdog handles it as a timeout and releases the held pipes after killing the group.
 
-**Fix.** Wire the command in its **single-run form** — the flag or script that runs once and exits, not a `--watch`/interactive mode and not a long-lived server. If the command is _legitimately_ longer than the budget (a large suite), raise the config key the diagnostic names — the job's own `timeout` entry, or the global `[gate].timeout`; setting a budget to `0` disables its bound and permits another indefinite hang.
+**Fix.** Wire the command in its **single-run form** — the flag or script that runs once and exits, not a `--watch`/interactive mode and not a long-lived server. If the command still exceeds its budget, measure where the time goes and fix unnecessary work or resource contention. Use the config key named in the diagnostic to identify the budget being exceeded. Change that budget only when measured runtime and the project’s policy justify it; setting it to `0` permits an indefinite hang.
 
 ```gotcha-match
 evidence = 'timed out after \d+s and was killed'
@@ -120,7 +120,7 @@ evidence = 'failed \(exit 127\)'
 
 **Cause.** This is by design. The gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected: a change confined to `neutral` paths runs no scope `gate`s and gets no preview. Classification **fails open** — a path matching no rule counts as a real code change, so an unknown path runs _more_ gates, never fewer.
 
-**Fix.** If something was skipped that should not have been, your `[scopes]` globs do not match the paths you changed — widen them. If something ran that you expected to be skipped, the path fell through to the fail-open default; add it to `neutral` (or the right scope) if it genuinely needs no gate.
+**Fix.** If a scope gate was skipped that should have run, widen that scope’s `paths` to match the changed files. If an unexpected gate ran, inspect the changed paths and their scope membership. Mark a scope `neutral = true` only when changes confined to it need no scope gate.
 
 ---
 

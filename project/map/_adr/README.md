@@ -379,6 +379,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0401 — Managed adoption keeps currency and Proof separate](0401-managed-adoption-keeps-currency-and-proof-separate.md)
 - [0402 — Site layouts use server-rendered React components](0402-site-layouts-use-server-rendered-react-components.md)
 - [0403 — The site map is a directory of repository sources](0403-the-site-map-is-a-directory-of-repository-sources.md)
+- [0404 — Maps explain the project and connect its practice](0404-maps-explain-the-project-and-connect-its-practice.md)
 
 <!-- END GENERATED: current ADR records -->
 

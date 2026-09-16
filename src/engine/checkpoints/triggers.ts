@@ -28,6 +28,7 @@
  * mechanical facts about the diff.
  */
 
+import { isCurrentMapPage } from "../../lib/map_sources.ts";
 import { pathMatchesPattern } from "../scopes/glob.ts";
 import { CHECKPOINT_PATTERN_LIMITS } from "../../shared/checkpoints.ts";
 import type {
@@ -319,7 +320,8 @@ export function factCollectionPaths(
     const needsContent = def.addsMatching.length > 0 ||
       def.removesMatching.length > 0;
     const needsLineStats = needsContent || def.minChangedLines !== undefined ||
-      def.deletionDominant || def.when !== undefined;
+      def.deletionDominant || def.when !== undefined ||
+      def.mapReview?.kind === "focus";
     const needsBinary = needsLineStats || def.binary !== undefined;
     if (!needsBinary) {
       continue;
@@ -477,6 +479,61 @@ export function evaluateStructuralTriggerFacts(
       forPath: pair.added,
       path: pair.existing,
     }));
+  }
+
+  if (def.mapReview !== undefined) {
+    const { kind, directory } = def.mapReview;
+    if (kind === "focus") {
+      candidate = candidate.filter((file) =>
+        isCurrentMapPage(file.path, directory)
+      );
+      if (candidate.length === 0) {
+        return { outcome: { holds: false, vetoedBy: "empty_matched_set" } };
+      }
+      if (candidate.some((file) => file.binary === "unknown")) {
+        return { issue: { fact: "content", reason: "unreadable" } };
+      }
+      // A new explanation establishes a convention immediately. Small edits
+      // to existing pages stay quiet; line churn only selects the review.
+      if (
+        !candidate.some((file) => file.kind === "added") &&
+        candidate.reduce(
+            (sum, file) => sum + file.insertions + file.deletions,
+            0,
+          ) < (def.minChangedLines ?? 80)
+      ) {
+        return { outcome: { holds: false, vetoedBy: "min_changed_lines" } };
+      }
+    } else {
+      candidate = candidate.filter((file) =>
+        !file.path.startsWith(directory + "/")
+      );
+      const changed = new Set(candidate.map((file) => file.path));
+      const relations = (diff.mapSources?.pages ?? []).flatMap((page) =>
+        page.sources.filter((source) => changed.has(source)).map((source) => ({
+          kind: "map_explanation" as const,
+          forPath: source,
+          path: page.path,
+        }))
+      );
+      if (relations.length > 0) {
+        const linked = new Set(relations.map((relation) => relation.forPath));
+        candidate = candidate.filter((file) => linked.has(file.path));
+        related.push(...relations);
+      } else if (
+        candidate.length < (def.minChangedFiles ?? 5) &&
+        diff.mapSources?.complete !== false
+      ) {
+        // Missing source links are not evidence of currency. Broad changes
+        // still prompt a review; unreadable map evidence prompts one sooner.
+        return { outcome: { holds: false, vetoedBy: "min_changed_files" } };
+      }
+      if (candidate.length === 0) {
+        return { outcome: { holds: false, vetoedBy: "empty_matched_set" } };
+      }
+    }
+    const surviving = new Set(candidate.map((file) => file.path));
+    related = related.filter((relation) => surviving.has(relation.forPath));
   }
 
   // Conjunctive vetoes and thresholds all see the filtered model. The

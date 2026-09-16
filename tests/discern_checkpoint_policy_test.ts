@@ -230,10 +230,11 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
   );
 
   const mapFocus = checkpoint("map-focus");
-  assertEquals(mapFocus.minChangedFiles, 2);
+  assertEquals(mapFocus.minChangedFiles, undefined);
+  assertEquals(mapFocus.mapReview, { kind: "focus", directory: "project/map" });
   assertEquals(
     mapFocus.teach,
-    "Remove stale material, link the authority, and cut mechanically derivable prose.",
+    "Explain contracts and relationships with evidence. Remove stale material and copied inventories; keep useful implementation summaries.",
   );
   assertFalse(Object.hasOwn(CONFIG.checkpoints, "map-conventions"));
 });

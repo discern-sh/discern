@@ -72,11 +72,15 @@ When a session yields a durable lesson — a correction, a hard-won procedure, a
 
 ## The Map & decisions
 
-`project/map/` is the agent-maintained **map**, browsable with **`discern_map`**. Agents use the map to learn and navigate the project; humans use the map to audit agent understanding. Update the map when the reader's mental model, a durable boundary, a supported workflow, or a product behavior changes.
+`project/map/` is the **map**, browsable with **`discern_map`**: maintained explanations for agents and an account of their understanding for humans.
 
-Staleness is a defect, so keep the map current — a page is current when nothing in it is false. A map page must **reduce** the total amount of repository reading required to make a correct decision, so it should never restate what code, tests, or config already express — link the authority instead. Do not use the map to maintain independently mechanically derivable facts.
+Keep affected pages accurate when behavior, boundaries, constraints, or workflows change. Keep the map in the present, not as change history; remove resolved-bug narratives. Explain what readers need for correct changes; link supporting code, tests, configuration, and requirements. Useful implementation summaries belong here. Name functions for entry points or contracts; never transcribe every method or duplicate derivable inventories.
 
-The map records what the code cannot say (boundaries, invariants, intent, where to start). The map should read in the present, not as change history. Significant, hard-to-reverse decisions belong as ADRs instead — save **Architecture Decision Records** under `project/map/_adr/`.
+Extend existing sections first. Split pages for distinct reader tasks; create folders with READMEs for durable responsibilities. Keep the root for overview and navigation. Follow existing ordering; numbers are optional.
+
+Link relevant instructions, skills, checks, checkpoints, and ADRs; each keeps its own authority.
+
+Separate current behavior, agreed requirements, and open questions. Put concrete open work in `project/TODO.md`. Preserve significant architectural rationale as **Architecture Decision Records** under `project/map/_adr/`. ADRs record decisions; they cannot authorize exceptions to agreed requirements.
 
 - `00-orientation` — Orientation
 - `10-getting-started` — Getting started
@@ -90,7 +94,7 @@ The map records what the code cannot say (boundaries, invariants, intent, where 
 - `80-development` — Working on this project
 - `90-site` — The public site — discern.sh
 
-Stuck or missing context? Call `discern_map` with `search` in task language, then retrieve the best result using its returned `target`.
+Find context with `discern_map` `search` in task language, then retrieve the returned `target`.
 
 ---
 
@@ -169,7 +173,7 @@ Every result command supports discern's own **`--markdown`** and **`--json`** fl
 
 - **Strict TS, strict lint.** `deno.json` turns on the strict compiler set (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnusedLocals`/`Parameters`, …) and a strict lint set: explicit return and module-boundary types, no non-null assertions (`!`), no `process`/node globals (import from `node:process`), no thrown literals, `eqeqeq`. Match the surrounding code and write to these the first time. Fix lint findings instead of adding `deno-lint-ignore` or `deno-lint-ignore-file`; `[standards.lint_suppressions]` prevents the existing count from rising while it moves to zero.
 - **Several artifacts are generated.** `deno task codegen` rewrites generated map references and sections, schemas, result types, and third-party artifacts from their registries. It runs in discern's `[jobs.build]` step. The `discern.toml` template is one of its outputs, rendered from the config schema's `describe()` prose plus the config prose registry (`src/shared/config_prose.ts`, ADR 0363): edit those sources, never the template.
-- **Keep `project/map/` current with the change.** The `project/map/` tree is the source of truth and must not drift from code — update the affected docs in the same commit. The configured map, instructions, skills, and ledger form neutral scopes — only the `map` scope (map + ledger) is pre-authorized to land; instructions and skills always get owner review. The map alone is held to the Vale `prose` check and the `[standards.prose]` density ceiling. The gate also validates the map's substance: fenced `discern …` examples against the live verb/flag registry, intra-map links and heading anchors against the shared renderer, and the published tiers against the `_internal`/`_private` audience boundary — so quote real commands and real paths, and expect a rename to fail the docs until they follow.
+- **Keep `project/map/` current with the change.** The `project/map/` tree is the source of truth and must not drift from code — update the affected docs in the same commit. The configured map, instructions, skills, and ledger form neutral scopes — only the `map` scope (map + ledger) is pre-authorized to land; instructions and skills always get owner review. The map alone is held to the Vale `prose` check and the `[standards.prose]` density ceiling. The gate checks the map's structural integrity: fenced `discern …` examples against the live verb/flag registry, intra-map links and heading anchors against the shared renderer, including current supporting pages under `_internal` — so quote real commands and real paths, and expect a rename to fail the docs until they follow.
 - **A new check documents itself at the point of failure.** Invest in its diagnostic (location, rule, escape hatch) plus on-demand reference — feature registry, verb `--help`, its map page, an ADR. Don't pre-explain it in this instructions, the gotchas page, or template comments: always-loaded prose charges every session for an event most sessions never hit. The gotchas page is for failures whose own output can't explain them.
 - Keep commits **atomic**: one logical change per commit, step by step.
 - **Commit messages** must start with a **subject** - one imperative line summarizing the change (e.g. "Add retry to upload path"), no trailing period; then follow with a **body** (when the change is non-trivial) explaining _why_ the change was made and any consequences or trade-offs, not a restatement of the diff. Wrap at ~72 cols. Use bullets for multiple distinct points.

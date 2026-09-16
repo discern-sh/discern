@@ -173,7 +173,7 @@ Deno.test("the public guide inventory follows the built-in registry", async () =
 
 Deno.test("map-focus fires on a broad documentation change under the CONFIGURED map dir", () => {
   const pages = [
-    file("guide/a.md"),
+    file("guide/a.md", "modified", 80, 2),
     file("guide/b.md"),
     file("guide/sub/c.md"),
   ];
@@ -187,12 +187,12 @@ Deno.test("map-focus stays quiet for a touch-up, and off-map files never count t
     resolved("map-focus"),
     diff([file("guide/a.md"), file("guide/b.md")]),
   );
-  assertEquals(touchUp, { holds: false, vetoedBy: "min_changed_files" });
+  assertEquals(touchUp, { holds: false, vetoedBy: "min_changed_lines" });
   const padded = evaluateStructuralTrigger(
     resolved("map-focus"),
     diff([file("guide/a.md"), file("guide/b.md"), ...sourceFiles(5)]),
   );
-  assertEquals(padded, { holds: false, vetoedBy: "min_changed_files" });
+  assertEquals(padded, { holds: false, vetoedBy: "min_changed_lines" });
 });
 
 // ── instruction-economy ─────────────────────────────────────────────────────
@@ -435,12 +435,13 @@ Deno.test("map-drift advises when a substantial change moved nothing in the map"
   assert(outcome.holds);
 });
 
-Deno.test("any map edit vetoes map-drift: the counterpart moved too", () => {
+Deno.test("an unrelated map edit cannot veto map-drift", () => {
   const outcome = evaluateStructuralTrigger(
     resolved("map-drift"),
     diff([...sourceFiles(5), file("guide/page.md")]),
   );
-  assertEquals(outcome, { holds: false, vetoedBy: "unless_changed" });
+  assert(outcome.holds);
+  assertEquals(outcome.matched, sourceFiles(5).map((file) => file.path));
 });
 
 Deno.test("regenerated agent files alone stay under the map-drift threshold", () => {
@@ -483,7 +484,7 @@ const TRIGGER_FIXTURES: Readonly<
   Record<string, { firing: EffortDiff; quiet: EffortDiff }>
 > = {
   "map-focus": {
-    firing: diff([file("guide/a.md"), file("guide/b.md"), file("guide/c.md")]),
+    firing: diff([file("guide/a.md", "added")]),
     quiet: diff([file("guide/a.md")]),
   },
   "instruction-economy": {
@@ -522,7 +523,7 @@ const TRIGGER_FIXTURES: Readonly<
   },
   "map-drift": {
     firing: diff(sourceFiles(5)),
-    quiet: diff([...sourceFiles(5), file("guide/a.md")]),
+    quiet: diff([...sourceFiles(4), file("guide/a.md")]),
   },
   "commit-story": {
     firing: diff(sourceFiles(15)),
@@ -553,4 +554,45 @@ Deno.test("every built-in proves it fires and stays quiet — a new seed fails u
       `${def.id} must stay quiet on its quiet fixture`,
     );
   }
+});
+
+Deno.test("map-focus reviews a single new explanation but excludes history, private and generated pages", () => {
+  const def = resolved("map-focus");
+  assert(
+    evaluateStructuralTrigger(
+      def,
+      diff([file("guide/runtime/README.md", "added")]),
+    ).holds,
+  );
+  for (const path of ["guide/_adr/0002-choice.md", "guide/_private/notes.md"]) {
+    assert(!evaluateStructuralTrigger(def, diff([file(path, "added")])).holds);
+  }
+  assert(
+    !evaluateStructuralTrigger(
+      def,
+      diff([{ ...file("guide/inventory.md", "added"), generated: true }]),
+    ).holds,
+  );
+});
+
+Deno.test("map-drift relates one changed source to its explanation, even when the page also changes", () => {
+  const evidence: EffortDiff = {
+    ...diff([
+      file("src/mod0.ext"),
+      file("guide/runtime/README.md"),
+      file("guide/other.md"),
+    ]),
+    mapSources: {
+      complete: true,
+      pages: [{ path: "guide/runtime/README.md", sources: ["src/mod0.ext"] }],
+    },
+  };
+  const outcome = evaluateStructuralTrigger(resolved("map-drift"), evidence);
+  assert(outcome.holds);
+  assertEquals(outcome.matched, ["src/mod0.ext"]);
+  assertEquals(outcome.related, [{
+    kind: "map_explanation",
+    forPath: "src/mod0.ext",
+    path: "guide/runtime/README.md",
+  }]);
 });

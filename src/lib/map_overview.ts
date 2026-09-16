@@ -1,167 +1,144 @@
-/**
- * Build the no-argument `discern map` overview from the map itself.
- *
- * Regions are the non-internal top-level subtrees discovered by `docs.ts`.
- * Their descriptions come from each subtree's README. Markdown links from that
- * region to specific tracked files outside the map define its freshness
- * coverage, and Git counts commits to those files after the region's most
- * recent page commit. Directory gestures never expand into coverage. No file
- * links or no usable Git history leaves the freshness facts absent.
- */
-
-import { dirname, isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
+/** Map overview and page-specific Git evidence; neither judges the prose. */
+import { relative, SEPARATOR } from "@std/path";
 import { runGit } from "../shared/subprocess.ts";
-import { isKnownGitCount, parseGitCount } from "../shared/git_count.ts";
-import { type DocEntry, docRegions, type DocsTree } from "./docs.ts";
+import {
+  canonicalDocTarget,
+  type DocEntry,
+  docRegions,
+  type DocsTree,
+} from "./docs.ts";
+import { mapSourcePaths } from "./map_sources.ts";
 
-/** Git-only freshness facts for one map region, jointly absent when unknown. */
-export interface MapRegionFreshness {
-  pages_changed_at?: string;
+/** Facts are absent when source links or usable page history are unavailable. */
+export interface MapPageFreshness {
+  target: string;
+  path: string;
+  source_paths: string[];
+  page_changed_at?: string;
   code_changes_since?: number;
 }
 
-/** One non-internal top-level subtree in the map overview. */
-export interface MapRegion extends MapRegionFreshness {
+/** One non-internal top-level subtree, with evidence for each explanation. */
+export interface MapRegion {
   name: string;
   title: string;
   description: string;
   page_count: number;
+  pages: MapPageFreshness[];
+  /** Oldest measured page commit, not the latest edit anywhere in the region. */
+  pages_changed_at?: string;
+  /** Distinct source commits newer than their respective linked pages. */
+  code_changes_since?: number;
 }
 
-/** True when `candidate` is `root` itself or nested below it. */
-function within(root: string, candidate: string): boolean {
-  const rel = relative(root, candidate);
-  return rel === "" ||
-    (rel !== ".." && !rel.startsWith(`..${SEPARATOR}`) && !isAbsolute(rel));
-}
-
-/** Local Markdown link destinations, without fragments or external schemes. */
-function localLinks(markdown: string): string[] {
-  const links: string[] = [];
-  const pattern = /\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)/g;
-  for (const match of markdown.matchAll(pattern)) {
-    const raw = match[1];
-    if (
-      raw === undefined || raw.startsWith("#") ||
-      /^[a-z][a-z0-9+.-]*:/i.test(raw)
-    ) {
-      continue;
-    }
-    const target = raw.split("#", 1)[0];
-    if (target) links.push(target);
-  }
-  return links;
-}
-
-/** Resolve the tracked paths outside the map that a region's pages link to. */
-async function linkedCodePaths(
+/** One page's source links and committed history, plus commits for deduplication. */
+async function pageEvidence(
+  root: string | undefined,
   tree: DocsTree,
-  entries: readonly DocEntry[],
-  sources: ReadonlyMap<string, string>,
-): Promise<string[]> {
-  const candidates = new Set<string>();
-  for (const entry of entries) {
-    const source = sources.get(entry.path) ?? "";
-    for (const link of localLinks(source)) {
-      const abs = resolve(dirname(entry.absPath), link);
-      if (!within(tree.root, abs) || within(tree.docsDir, abs)) continue;
-      const rel = relative(tree.root, abs).replaceAll(SEPARATOR, "/");
-      if (rel) candidates.add(rel);
-    }
-  }
-  if (candidates.size === 0) return [];
-
-  const listed = await runGit(
-    ["ls-files", "-z", "--", ...candidates],
-    { cwd: tree.root },
-  );
-  if (!listed.success) return [];
-  const tracked = listed.stdout.split("\0").filter(Boolean);
-  const trackedFiles = new Set(tracked);
-  return [...candidates].filter((candidate) => trackedFiles.has(candidate))
-    .sort();
-}
-
-/** Compute the Git facts for a region; every failure is honestly absent. */
-async function regionFreshness(
-  tree: DocsTree,
-  entries: readonly DocEntry[],
-  codePaths: string[],
-): Promise<MapRegionFreshness> {
-  if (codePaths.length === 0) {
-    return {};
-  }
-  const regionPath = relative(
-    tree.root,
-    resolve(tree.docsDir, entries[0]?.section ?? ""),
-  )
-    .replaceAll(SEPARATOR, "/");
-  const pageCommit = await runGit(
-    ["log", "-1", "--format=%H%x00%cI", "--", regionPath],
-    { cwd: tree.root },
-  );
-  if (!pageCommit.success || pageCommit.stdout.trim() === "") {
-    return {};
-  }
-  const [commit, changedAt] = pageCommit.stdout.trim().split("\0");
-  if (!commit || !changedAt) {
-    return {};
-  }
-  const changes = await runGit(
-    ["rev-list", "--count", `${commit}..HEAD`, "--", ...codePaths],
-    { cwd: tree.root },
-  );
-  const count = parseGitCount(changes.stdout);
-  if (!changes.success || !isKnownGitCount(count)) {
-    return {};
-  }
-  return {
-    pages_changed_at: changedAt,
-    code_changes_since: count,
+  entry: DocEntry,
+): Promise<{ page: MapPageFreshness; commits: string[] }> {
+  const page: MapPageFreshness = {
+    target: canonicalDocTarget(entry),
+    path: entry.path,
+    source_paths: [],
   };
+  if (root === undefined) return { page, commits: [] };
+  const source = await Deno.readTextFile(entry.absPath);
+  const path = relative(root, await Deno.realPath(entry.absPath)).replaceAll(
+    SEPARATOR,
+    "/",
+  );
+  const candidates = mapSourcePaths(
+    root,
+    await Deno.realPath(tree.docsDir),
+    path,
+    source,
+  );
+  if (candidates.length === 0) return { page, commits: [] };
+  const listed = await runGit([
+    "--literal-pathspecs",
+    "ls-files",
+    "-z",
+    "--",
+    ...candidates,
+  ], {
+    cwd: root,
+  });
+  if (!listed.success) return { page, commits: [] };
+  const tracked = new Set(listed.stdout.split("\0").filter(Boolean));
+  page.source_paths = candidates.filter((candidate) => tracked.has(candidate));
+  if (page.source_paths.length === 0) return { page, commits: [] };
+  const logged = await runGit([
+    "--literal-pathspecs",
+    "log",
+    "-1",
+    "--format=%H%x00%cI",
+    "--",
+    path,
+  ], {
+    cwd: root,
+  });
+  const [commit, changedAt] = logged.stdout.trim().split("\0");
+  if (!logged.success || !commit || !changedAt) return { page, commits: [] };
+  const changes = await runGit([
+    "--literal-pathspecs",
+    "rev-list",
+    `${commit}..HEAD`,
+    "--",
+    ...page.source_paths,
+  ], { cwd: root });
+  if (!changes.success) return { page, commits: [] };
+  const commits = changes.stdout.trim().split("\n").filter(Boolean);
+  page.page_changed_at = changedAt;
+  page.code_changes_since = commits.length;
+  return { page, commits };
+}
+
+/** Discover the Git root independently of a nested configured map directory. */
+async function mapGitRoot(tree: DocsTree): Promise<string | undefined> {
+  const result = await runGit(["rev-parse", "--show-toplevel"], {
+    cwd: tree.root,
+  });
+  return result.success && result.stdout.trim() !== ""
+    ? result.stdout.trim()
+    : undefined;
+}
+
+/** Read evidence for a selected page, including a root-only project's map. */
+export async function mapPageFreshness(
+  tree: DocsTree,
+  entry: DocEntry,
+): Promise<MapPageFreshness> {
+  return (await pageEvidence(await mapGitRoot(tree), tree, entry)).page;
 }
 
 /** Build every non-internal map region in deterministic reading order. */
 export async function buildMapOverview(tree: DocsTree): Promise<MapRegion[]> {
+  const root = await mapGitRoot(tree);
   const regions: MapRegion[] = [];
   for (const region of docRegions(tree.entries)) {
-    const entries = region.entries;
-    const sources = new Map<string, string>();
-    for (const entry of entries) {
-      try {
-        sources.set(entry.path, await Deno.readTextFile(entry.absPath));
-      } catch {
-        sources.set(entry.path, "");
-      }
+    const evidence = [];
+    for (const entry of region.entries) {
+      evidence.push(await pageEvidence(root, tree, entry));
     }
-    const codePaths = await linkedCodePaths(tree, entries, sources);
-    const freshness = await regionFreshness(tree, entries, codePaths);
+    const pages = evidence.map(({ page }) => page);
+    const timestamps = pages.flatMap((page) =>
+      page.page_changed_at ? [page.page_changed_at] : []
+    ).sort();
+    const oldest = timestamps[0];
     regions.push({
       name: region.name,
       title: region.title,
       description: region.description,
       page_count: region.page_count,
-      ...freshness,
+      pages,
+      ...(oldest === undefined ? {} : {
+        pages_changed_at: oldest,
+        code_changes_since: new Set(evidence.flatMap(({ commits }) =>
+          commits
+        )).size,
+      }),
     });
   }
   return regions;
-}
-
-/** Human age wording; exact timestamps remain available in JSON. */
-export function ageSince(iso: string, now: number): string {
-  const elapsed = Math.max(0, now - Date.parse(iso));
-  const minute = 60_000;
-  const units: Array<[number, string]> = [
-    [365 * 24 * 60 * minute, "year"],
-    [30 * 24 * 60 * minute, "month"],
-    [7 * 24 * 60 * minute, "week"],
-    [24 * 60 * minute, "day"],
-    [60 * minute, "hour"],
-    [minute, "minute"],
-  ];
-  for (const [size, label] of units) {
-    const value = Math.floor(elapsed / size);
-    if (value >= 1) return `${value} ${label}${value === 1 ? "" : "s"} ago`;
-  }
-  return "just now";
 }

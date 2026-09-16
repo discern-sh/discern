@@ -2565,12 +2565,22 @@ const adrCitationSchema = z.strictObject({
   path: z.string(),
 });
 
+/** Source links and Git evidence for one explanation, never a currency verdict. */
+const mapPageFreshnessSchema = z.strictObject({
+  target: z.string(),
+  path: z.string(),
+  source_paths: z.array(z.string()),
+  page_changed_at: z.string().optional(),
+  code_changes_since: z.number().optional(),
+});
+
 /** One top-level subtree in the no-argument project-map overview. */
 const mapRegionSchema = z.strictObject({
   name: z.string(),
   title: z.string(),
   description: z.string(),
   page_count: z.number(),
+  pages: z.array(mapPageFreshnessSchema),
   pages_changed_at: z.string().optional(),
   code_changes_since: z.number().optional(),
 });
@@ -2609,6 +2619,7 @@ export const DocsDataSchema = z.strictObject({
     target: z.string(),
     content: z.string(),
     cited_adrs: z.array(adrCitationSchema).optional(),
+    freshness: mapPageFreshnessSchema.optional(),
   }).optional(),
   candidates: z.array(z.string()).optional(),
   suggestions: z.array(docRecordSchema).optional(),

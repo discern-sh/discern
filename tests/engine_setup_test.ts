@@ -256,7 +256,7 @@ Deno.test("discern setup begin lays the Map skeletons when absent and prints the
     // The skeleton tree is laid, with `{{project_name}}` substituted from the slug.
     assert(
       await targetExists(
-        defaultMapPath(dir, "00-orientation", "design-principles.md"),
+        defaultMapPath(dir, "orientation", "design-principles.md"),
       ),
     );
     const readme = await Deno.readTextFile(
@@ -297,7 +297,7 @@ Deno.test("setup begin --map persists and scaffolds a separate map tree", async 
     const step = await runAgent(dir, ["setup", "step", "4"]);
     assertStringIncludes(
       step.stdout,
-      "docs/discern/00-orientation/design-principles.md",
+      "docs/discern/orientation/design-principles.md",
     );
 
     const config = parseConfigOrThrow(
@@ -306,7 +306,7 @@ Deno.test("setup begin --map persists and scaffolds a separate map tree", async 
     assertEquals(config.map.dir, "docs/discern/");
     assert(
       await targetExists(
-        join(dir, "docs/discern/00-orientation/design-principles.md"),
+        join(dir, "docs/discern/orientation/design-principles.md"),
       ),
     );
     assertEquals(
@@ -317,7 +317,7 @@ Deno.test("setup begin --map persists and scaffolds a separate map tree", async 
     assertEquals(blocked.code, 1, blocked.output);
     assertStringIncludes(
       blocked.stderr,
-      "docs/discern/00-orientation/design-principles.md",
+      "docs/discern/orientation/design-principles.md",
     );
   });
 });
@@ -334,8 +334,7 @@ Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discer
     await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the Map skeletons
     for (
       const rel of [
-        `${SOURCE_PATHS.map.defaultPath}80-development/getting-started.md`,
-        `${SOURCE_PATHS.map.defaultPath}80-development/README.md`,
+        `${SOURCE_PATHS.map.defaultPath}development/getting-started.md`,
       ]
     ) {
       const body = await Deno.readTextFile(join(dir, rel));
@@ -371,7 +370,7 @@ Deno.test("discern setup never overwrites an existing configured map tree (seaml
       "MY OWN DOCS\n",
     );
     assertEquals(
-      await targetExists(defaultMapPath(dir, "00-orientation")),
+      await targetExists(defaultMapPath(dir, "orientation")),
       false,
     );
   });
@@ -569,7 +568,7 @@ Deno.test("the setup redirect and welcome leave root help once setup is recorded
     await Deno.mkdir(defaultMapPath(dir), { recursive: true });
     await Deno.writeTextFile(
       defaultMapPath(dir, "README.md"),
-      "# Real docs\n",
+      "# Real docs\n\nRuns configured commands.\n\n[Runtime](10-runtime/)\n",
     );
     await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
     await Deno.writeTextFile(

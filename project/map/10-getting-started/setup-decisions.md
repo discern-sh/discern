@@ -36,6 +36,14 @@ Each task is checked against its own commit and lands in turn. When the shared b
 
 A project file can point to another checkout, database, or machine-local path. Setup reports the source, destination, and apparent role without opening it. The agent asks before a specific outside inspection; declining leaves the destination unread.
 
+## Give the map a useful starting shape
+
+Setup writes a project overview and groups context into orientation, actual subsystem responsibilities, development practices, and decisions. Short topics can share a region README; separate pages serve distinct reading tasks. Numeric prefixes are optional reading order. The [map design decision](../_adr/0404-maps-explain-the-project-and-connect-its-practice.md) explains the boundary between these shipped conventions and discern’s own map.
+
+A page can summarize implementation to explain a contract or relationship. It must help a reader make a correct change, with links to evidence, rather than catalog methods and files. Agreed requirements remain distinct from observed behavior and open questions.
+
+Setup completes every selected page and links it from the root or its region. Structural completion checks reject empty explanations and unreachable current pages. The agent checks factual claims against evidence; these checks do not prove semantic accuracy. Setup keeps dedicated design-principles and gate-gotchas pages. Principles state agreed project rules, their reasons, and the choices they guide; a project can commit to them before implementation exists. The gotchas page starts with stack-independent recovery advice and gains project-specific lessons as failures expose missing context.
+
 ## Review what later sessions will inherit
 
 Before landing, the handoff explains where later agents start, other areas with distinct responsibilities, one important rule, active checks, and open work. The Proof that the finished change passed the project's checks (Proof) belongs to the exact commit and grants no landing authority. You may land, leave for review, or decline.

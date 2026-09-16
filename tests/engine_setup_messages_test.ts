@@ -363,7 +363,7 @@ const INVENTORY = {
     principles: { count: 2, items: ["Preserve status", "Plan effects"] },
     instruction_sources: ["discern/instructions.md"],
   },
-  map_regions: { count: 2, items: ["00-orientation", "10-runtime"] },
+  map_regions: { count: 2, items: ["orientation", "10-runtime"] },
   ledger_items: { count: 1, items: ["Resolve retry ownership"] },
   jobs: {
     enforced: ["test"],

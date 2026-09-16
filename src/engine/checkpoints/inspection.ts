@@ -24,6 +24,7 @@ import {
 } from "../../shared/checkpoint_drops.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { collectEffortDiff } from "./diff.ts";
+import { collectMapSources } from "./map_sources.ts";
 import {
   declarationIsCurrent,
   type OpenQuestion,
@@ -221,10 +222,17 @@ export async function inspectCheckpointObligations(
         ));
       }
     } else {
+      const evidenced = await collectMapSources(
+        root,
+        policy.policyCommit,
+        diff,
+        policy.checkpoints,
+        view.currentCommit,
+      );
       collectedHistory = diff.history;
       const evaluated = new Map<string, StructuralTriggerOutcome>();
       for (const definition of policy.checkpoints) {
-        const result = evaluateStructuralTriggerFacts(definition, diff);
+        const result = evaluateStructuralTriggerFacts(definition, evidenced);
         if (result.issue !== undefined) {
           factIssues.set(definition.id, result.issue);
           drops.push(entryDrop(

@@ -11,16 +11,8 @@ import { gateFailureGotchasTail } from "../src/engine/gate/gotchas.ts";
 import type { GateFailureEvidence } from "../src/engine/gate/gotcha_match.ts";
 import { jobFailureMessage } from "../src/engine/gate/plan.ts";
 import type { JobResult } from "../src/engine/jobs/types.ts";
-import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
-
-const TEMPLATE_GOTCHAS = join(
-  REAL_TEMPLATES,
-  "setup",
-  "skeleton",
-  "map",
-  "80-development",
-  "done-gate-gotchas.md",
-);
+import { withTempDir } from "./helpers.ts";
+import { PROJECT_GOTCHAS } from "./fixtures/project_gotchas.ts";
 
 /** Build a failed lint result whose exit code selects a gotcha-tail scenario. */
 function failedJob(code: number): JobResult {
@@ -45,7 +37,6 @@ interface TailScenario {
 }
 
 Deno.test("gotchas tail resolves every document variant in process", async (t) => {
-  const seeded = await Deno.readTextFile(TEMPLATE_GOTCHAS);
   const malformedThenValid = [
     "# Gate gotchas",
     "",
@@ -69,8 +60,8 @@ Deno.test("gotchas tail resolves every document variant in process", async (t) =
   const exit127 = jobFailureMessage("lint", failedJob(127));
   const scenarios: TailScenario[] = [
     {
-      name: "the shipped exit-127 trap matches real engine evidence",
-      doc: seeded,
+      name: "an authored exit-127 trap matches real engine evidence",
+      doc: PROJECT_GOTCHAS,
       failure: {
         failedStage: "check/test",
         diagnostics: [{ message: exit127 }],
@@ -86,7 +77,7 @@ Deno.test("gotchas tail resolves every document variant in process", async (t) =
     },
     {
       name: "an unmatched failure keeps the generic pointer",
-      doc: seeded,
+      doc: PROJECT_GOTCHAS,
       failure: {
         failedStage: "check/test",
         diagnostics: [{ message: "lint failed (exit 7)" }],

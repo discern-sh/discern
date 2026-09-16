@@ -193,7 +193,10 @@ export const TRIGGER_VETOES = [
 export type TriggerVeto = (typeof TRIGGER_VETOES)[number];
 
 /** Closed typed relations carried beside changed checkpoint evidence. */
-export const RELATED_CHECKPOINT_KINDS = ["similar_existing"] as const;
+export const RELATED_CHECKPOINT_KINDS = [
+  "similar_existing",
+  "map_explanation",
+] as const;
 export type RelatedCheckpointKind = (typeof RELATED_CHECKPOINT_KINDS)[number];
 
 /** Narrow persisted/public input against the canonical relation-kind registry. */
@@ -209,6 +212,15 @@ export const RELATED_CHECKPOINT_KIND_LABELS: Readonly<
   Record<RelatedCheckpointKind, string>
 > = {
   similar_existing: "Related existing",
+  map_explanation: "Review explanation",
+};
+
+/** Total relation wording for every evidence kind. */
+export const RELATED_CHECKPOINT_KIND_VERBS: Readonly<
+  Record<RelatedCheckpointKind, string>
+> = {
+  similar_existing: "resembles",
+  map_explanation: "links to",
 };
 
 /** The strict checkpoint obligation one canonical inspection can project for
@@ -243,6 +255,8 @@ export interface BuiltInCheckpointSeed {
   /** Internal dynamic selector authority. This is not a public checkpoint
    * field; a project-authored `scope` or `paths` selector still replaces it. */
   readonly selectorFrom?: "instructions.sources";
+  /** Built-in map evidence selection; not a public trigger field. */
+  readonly mapReview?: "focus" | "drift";
   /** Default selector: a configured scope name the trigger matches. */
   readonly scope?: string;
   /** Default selector: the globs the trigger matches. */
@@ -302,9 +316,7 @@ export const BUILT_IN_CHECKPOINTS: Readonly<
   "map-focus": {
     question: "map.focus",
     paths: ["${map.dir}**"],
-    // A one-page touch-up is routine; a documentation change this broad is
-    // where unfocused, code-derivable prose usually arrives.
-    min_changed_files: 3,
+    mapReview: "focus",
   },
   "instruction-economy": {
     question: "instructions.economy",
@@ -345,11 +357,7 @@ export const BUILT_IN_CHECKPOINTS: Readonly<
   "map-drift": {
     question: "map.current",
     mode: "advise",
-    // Fires when a substantial change moved nothing in the map. Any map edit
-    // vetoes; the threshold keeps small fixes — and regenerated artifacts
-    // alone — from asking for documentation they do not need.
-    unless_changed: ["${map.dir}**"],
-    min_changed_files: 5,
+    mapReview: "drift",
   },
   "commit-story": {
     question: "change.commit-story",
@@ -368,7 +376,7 @@ export const BUILT_IN_CHECKPOINTS: Readonly<
  * table's keys equal to the built-in set.
  */
 export const BUILT_IN_CHECKPOINT_SUMMARIES: Readonly<Record<string, string>> = {
-  "map-focus": "a broad map edit must cut future reading",
+  "map-focus": "new explanations must earn their place",
   "instruction-economy": "always-loaded prose must pay its way",
   "skills-playbook": "a skill is an executable playbook",
   "gotchas-playbook": "failure memory: symptom, cause, recovery",
@@ -376,7 +384,7 @@ export const BUILT_IN_CHECKPOINT_SUMMARIES: Readonly<Record<string, string>> = {
   "parallel-implementation": "a name-similar sibling file appeared",
   "new-binary-asset": "a new binary needs clear provenance",
   "effort-sprawl": "one effort, or several bundled in?",
-  "map-drift": "code moved and the map did not",
+  "map-drift": "changed sources prompt map review",
   "commit-story": "a large change: do commits tell why?",
 };
 

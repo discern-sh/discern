@@ -47,7 +47,9 @@ Centralize a fact only when its consumers express one decision and must change t
 
 ## Record the ties
 
-Keep a page in the project's documentation tree — `{{map_dir}}80-development/canonical-sets.md`, created the first time you bind a fact — with one row per shared fact: the fact, its authority, each consumer and its binding, and the check that fails on drift. The next agent asked to add a consumer then finds the authority by reading, instead of forking a copy. Both procedure files end by updating it.
+Find the page in `{{map_dir}}` that already explains shared authorities. If none exists, put a `canonical-sets.md` page under the project's development region and link it from that region's README. Follow the existing folder names, including optional numeric ordering; do not create a second development region.
+
+Record the shared fact, its authority, its consumers and bindings, and the guard that catches drift. Link a generated inventory if it already owns that detail. Both procedure files update this same page so the next agent finds the authority rather than creating a copy.
 
 ## Done when
 
@@ -55,5 +57,5 @@ Keep a page in the project's documentation tree — `{{map_dir}}80-development/c
 - every equal representation derives from or is checked against its authority, and intentional differences are asserted;
 - new members and new source roots enroll in the relevant guards without anyone editing the guards;
 - effectful work applies one plan, validates at the boundary, and defines its reruns;
-- the ties are recorded in `{{map_dir}}80-development/canonical-sets.md`;
+- the ties are recorded or linked from the selected shared-authorities page;
 - a contested or hard-to-reverse authority election was offered a record via `discern-write-adr`.

@@ -257,7 +257,9 @@ Deno.test("improvement --json: baseline 100 still leads with an open review", as
       rule(cat(payload, "instructions"), "instructions.source").status,
       "pass",
     );
-    assertEquals(rule(cat(payload, "map"), "map.adrs").status, "pass");
+    assert(
+      cat(payload, "map").reviews.some((review) => review.id === "map.adrs"),
+    );
     assertEquals(
       rule(cat(payload, "standards"), "standards.any").status,
       "pass",

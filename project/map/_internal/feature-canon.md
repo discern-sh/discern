@@ -6,7 +6,7 @@ _Every product feature and benefit, enumerated once, at every resolution. Creati
 
 The [Readiness Canon](brand/readiness-canon.md) approaches these mechanisms through the questions people ask before shipping, with routes back to the features and benefits that help answer them.
 
-10 pillars · 146 nodes · 11 benefit statements · 9 agent-benefit clusters · 82 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+10 pillars · 144 nodes · 11 benefit statements · 9 agent-benefit clusters · 81 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
@@ -15,7 +15,7 @@ The [Readiness Canon](brand/readiness-canon.md) approaches these mechanisms thro
 - **Isolated worktrees** — Each parallel task has a separate checkout, identity, and declared resources, including the maintainer's main checkout.
 - **Agent instructions** — Every provider reads one authored instruction body, including cloud agents.
 - **Skills** — A reusable procedure becomes one file available to every future session.
-- **The map** — The gate checks map freshness, and the map gives the owner a reviewable account of agent understanding.
+- **The map** — The gate checks links and examples; source evidence and checkpoints guide review. The map gives the owner an account of agent understanding.
 - **Advisories and the logbook** — Advisories remain informational and do not change the gate verdict.
 - **Install and lifecycle** — A project adopts discern through one tracked root file and can remove its wiring with one command while retaining authored work.
 - **Interfaces and contracts** — People, coding agents, scripts, and tools can choose the representation that suits the task without changing the underlying verdict.
@@ -147,26 +147,24 @@ _A reusable procedure becomes one file available to every future session._
   - **Clear the decks** — Sweep out the clutter agent-built codebases accumulate — duplicated helpers, dead code from abandoned approaches, one-caller indirection, leftover scaffolding — every cut proven safe, landed as small behavior-preserving commits, with the entropy capped by a standard.
   - **Delegate work** — Turn the work under discussion into complete, self-contained prompts for fresh agents in their own worktrees — one handoff, a parallel fan-out, or staged briefs — then review what lands adversarially.
   - **Await the fleet** — Wait for another effort with one blocking `discern_await` call — a sibling green, its work landed, or the trunk moved — choosing the condition from the need, awaiting an exact returned worktree selector, then following the met hint to compose what arrived.
-  - **Document a subsystem** — Write or refresh one subsystem's subtree of the map from the real code, following the documenter brief that `discern setup begin` seeds under the map's `_internal/` scaffolding.
   - **Teach the project** — Route a session's lesson into the project's own surfaces — an instruction line, an authored skill, a project script, a doc, or a decision record — so every future session inherits it.
   - **Write an ADR** — Guide recording a significant decision — context, decision, consequences, alternatives — from the canonical template and format guide every install carries.
   - **Write it once** — The practices discern builds itself with, as a stack-neutral survey plus two deep procedures: one authority per shared fact with bound consumers, guards that enroll future members, declared universes for broad rules, planned effects with convergent reruns, comment discipline — and the ties recorded in a canonical-sets page in the project's map.
 
 ## The map
 
-The agent-maintained documentation tree at `[map].dir`: agents write it and keep it current under the gate; humans read it as documentation and as an audit of what their agents understand.
+The agent-maintained documentation tree at `[map].dir`: agents maintain explanations with evidence and review them as the project changes; humans read it as documentation and as an audit of what their agents understand.
 
-_The gate checks map freshness, and the map gives the owner a reviewable account of agent understanding._
+_The gate checks links and examples; source evidence and checkpoints guide review. The map gives the owner an account of agent understanding._
 
 - **The map browser** — `discern map` lists, searches, and renders the tree in the terminal — frontmatter search aliases included — and `--export` writes a public, full, or selected projection to one file. Naming a configured scope instead exports the map pages its paths list, in their declared order.
 - **The discovery funnel** — Agent document discovery runs regions, then search, then canonical targets: compiled instructions lists each top-level region by exact target, `search` takes a query in task language, and every result returns a snippet plus a target that feeds back into the same tool. Search returns at most 5 ranked documents, and query values are never written to the logbook. _Documentation growth never churns the tracked agent files and never spends context before a page is needed._
-- **The docs integrity preflight** — Every `discern done` validates the map's substance before the jobs run: intra-map links and heading anchors against the shared renderer, fenced `discern` examples against the live verb and flag registry (Project Scripts included), frontmatter blocks against the readers' shape rules, published pages against the `_internal`/`_private` audience boundary, and skill citations against the effective skill set. _A rename breaks the docs loudly, in the same change, instead of quietly a month later — and an excluded skill cannot stay recommended by live prose._
-- **File-linked freshness** — Map freshness ships as file-linked facts — which source files a page covers and when they moved — rather than verdicts.
-- **Publication control** — `publish: false` in a page's frontmatter withholds it from every published surface, and underscore-prefixed trees (`_internal`, `_private`) never ship. Decision records also appear through `discern docs --adr` and the site's history pages. _One predicate answers what ships, everywhere it could ship._
+- **The docs integrity preflight** — Every `discern done` checks the map's structural integrity before the jobs run: intra-map links and heading anchors against the shared renderer, fenced `discern` examples against the live verb and flag registry (Project Scripts included), optional frontmatter blocks against the readers' shape rules and skill citations against the effective skill set. _A rename breaks the docs loudly, in the same change, instead of quietly a month later — and an excluded skill cannot stay recommended by live prose._
+- **File-linked freshness** — Each page has its own source links and Git baseline. The map reports later commits to those sources, identifies affected pages, and leaves currency for review. Missing links or history mean unknown coverage; an unrelated page edit cannot reset the evidence.
+- **Publication control** — Public map exports honor publication metadata and omit underscore directories. Local map discovery includes current supporting pages without requiring metadata. discern's own manual and website retain a separate publication policy; the site map directory links to repository files. _Publication choices do not decide which current project explanations agents can find._
 - **Decision records** — Architecture Decision Records live under `_adr/`, numbered continuously, with a canonical template and format guide scaffolded into every install. `discern refresh` maintains the marker-delimited record index in the ADR README, and the gate refuses one that drifts from the files. Citations take one strippable form, removed at render time on human surfaces. _The why behind the code survives the sessions that wrote it — findable from one self-maintaining index, without leaking internal numbering into shipped prose._
 - **discern's own manual** — The binary carries its own public documentation: `discern docs` browses it offline in any install, over the same renderer the map uses, and customer binaries carry only the public projection. _Every install can answer how discern works with no network and no wiki._
 - **CLI help** — `discern help` prints the root command reference, while `discern help <command>` prints that command's reference — the same information as `discern --help` and `discern <command> --help`. _Help always means command syntax; the product manual has its own `docs` name._
-- **The vocabulary canon** — The glossary compiles from a term registry: one definition per term, every term a search alias, retired synonyms policed out of live prose, and closed-set members enrolled the moment they exist. _Every page and every agent uses one name per concept._
 
 ## Advisories and the logbook
 
@@ -325,7 +323,6 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `discern-clear-the-decks` — skill-clear-the-decks
 - `discern-cure-a-bug` — skill-cure-a-bug
 - `discern-delegate-work` — skill-delegate-work
-- `discern-document-subsystem` — skill-document-subsystem
 - `discern-place-a-checkpoint` — skill-place-a-checkpoint
 - `discern-set-the-standard` — skill-set-the-standard
 - `discern-teach-the-project` — skill-teach-the-project

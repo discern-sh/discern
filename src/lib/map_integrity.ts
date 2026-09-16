@@ -1,28 +1,9 @@
 /**
- * The map & instructions integrity check — the gate's documentation preflight.
- *
- * A project's map and instruction sources carry references that go stale silently:
- * links to files that moved, anchors to headings that were reworded, fenced
- * `discern …` examples quoting a retired verb or flag, metadata blocks the
- * lenient reader would swallow, published pages linking into the internal
- * trees, and skill citations naming a skill absent from the effective set (a
- * rename, or a `[skills].exclude` entry). Each is a defect a reader only
- * discovers by following the reference and failing — so the gate finds them
- * first.
- *
- * PURE observation: `(root, config, cli) → findings`, reads only. The corpus is
- * the CURRENT configured map — every doc outside `_`-prefixed subtrees, root
- * docs included, discovered live so a new page auto-enrols — plus the
- * `[instructions].sources` files for the command and citation checks (instructions are
- * prose for agents, not a page tree: no link, anchor, metadata, or audience
- * checks there). The `_`-trees are exempt by design: decision records are
- * dated (their examples describe the CLI as it stood), and the internal and
- * private trees carry no currency contract.
- *
- * Consumers: the gate precondition in engine/gate/finish.ts (blocking, like
- * the other generated-artifact preflights) and this repo's own corpus tests.
- * The scanners live in docs_integrity.ts; the per-rule remedies live here so
- * every surface phrases the fix one way.
+ * Read-only integrity of current map pages and instruction sources.
+ * Current supporting pages, including `_internal`, keep the same currency
+ * contract. ADR bodies and private drafts are outside this account;
+ * the maintained ADR index has its own refresh guard. Publication policy belongs
+ * to the publishing corpus, not a project's local links.
  */
 
 import { dirname, join, relative, resolve } from "@std/path";
@@ -35,7 +16,8 @@ import {
   headingAnchors,
   validateFencedCommand,
 } from "./docs_integrity.ts";
-import { discoverDocs, type DocEntry, isPublicDoc } from "./docs.ts";
+import { discoverDocs, type DocEntry } from "./docs.ts";
+import { mapPageKind } from "./map_policy.ts";
 import { frontmatterShapeIssues } from "./frontmatter.ts";
 import {
   resolveInstructionSources,
@@ -56,7 +38,6 @@ export const DOCS_INTEGRITY_RULES = [
   "dead-anchor",
   "frontmatter",
   "stale-command",
-  "audience-boundary",
   "skill-citation",
 ] as const;
 
@@ -76,8 +57,6 @@ export const DOCS_INTEGRITY_REMEDIES: Record<DocsIntegrityRule, string> = {
     "Fix the metadata block so every reader parses it: close the `---` fence, keep the block a valid YAML mapping, and give the named keys values of the required shape.",
   "stale-command":
     "Update the example to a command the current CLI accepts (`discern --help` and `discern <command> --help` show the live set), or correct the command's declaration.",
-  "audience-boundary":
-    "A page published projections serve must not link into `_internal/` or `_private/`. Remove or repoint the link, or withhold the page with `publish: false`.",
   "skill-citation":
     "Make the citation name a skill that exists: fix the name, restore or stop excluding the skill, or reword the span so it is not a bare skill-shaped token.",
 };
@@ -145,13 +124,11 @@ class AnchorCache {
   }
 }
 
-/** The per-page link and anchor findings, plus the audience boundary for a
- * published page (`_internal`/`_private` targets inside the map). */
+/** The per-page local link and anchor findings. */
 async function linkFindings(
   rel: string,
   entry: DocEntry,
   text: string,
-  mapAbs: string,
   anchors: AnchorCache,
 ): Promise<DocsIntegrityFinding[]> {
   const findings: DocsIntegrityFinding[] = [];
@@ -182,24 +159,6 @@ async function linkFindings(
           detail: `dead link "${target}" — no such file`,
         });
         continue;
-      }
-      // The audience boundary: a page the published projections serve must
-      // not hand its reader a path those projections exclude.
-      if (isPublicDoc(entry)) {
-        const inMap = relative(mapAbs, abs);
-        const crossed = inMap.startsWith("..") ? undefined : inMap
-          .split("/")
-          .find((seg) => seg === "_internal" || seg === "_private");
-        if (crossed !== undefined) {
-          findings.push({
-            file: rel,
-            line,
-            rule: "audience-boundary",
-            detail:
-              `links "${target}" — a published page must not link into ${crossed}/`,
-          });
-          continue;
-        }
       }
     }
 
@@ -287,7 +246,17 @@ export async function checkDocsIntegrity(
   );
 
   const { abs: mapAbs } = resolveMapDir(root, config);
-  const tree = await discoverDocs({ cwd: root, dir: mapAbs });
+  const discovered = await discoverDocs({
+    cwd: root,
+    dir: mapAbs,
+    includeInternal: true,
+  });
+  const tree = discovered === undefined ? undefined : {
+    ...discovered,
+    entries: discovered.entries.filter((entry) =>
+      mapPageKind(entry.relToDocs) === "current"
+    ),
+  };
   if (tree !== undefined) {
     const anchors = new AnchorCache();
     const texts = new Map<string, string>();
@@ -308,7 +277,7 @@ export async function checkDocsIntegrity(
         });
       }
       findings.push(
-        ...await linkFindings(rel, entry, text, tree.docsDir, anchors),
+        ...await linkFindings(rel, entry, text, anchors),
       );
       findings.push(...fencedCommandFindings(rel, text, cli, extraVerbs));
       findings.push(...citationFindings(rel, text, knownSkills));

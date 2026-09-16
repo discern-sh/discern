@@ -36,7 +36,7 @@ import type { RelatedCheckpointPath, ResolvedCheckpoint } from "./types.ts";
 /** Version tag mixed into the definition-hash material: bump it when the
  * canonicalization changes shape, so an old and a new engine can never read
  * the same bytes as the same definition. */
-const DEFINITION_MATERIAL_VERSION = "checkpoint-definition/v4";
+const DEFINITION_MATERIAL_VERSION = "checkpoint-definition/v5";
 
 /** Version tag mixed into the subject-fingerprint material. */
 const SUBJECT_MATERIAL_VERSION = "checkpoint-subject/v3";
@@ -89,6 +89,7 @@ export async function checkpointDefinitionHash(
 ): Promise<string> {
   const material = JSON.stringify({
     question: def.question,
+    map_review: def.mapReview ?? null,
     question_file: def.questionFile ?? null,
     exclude_paths: [...def.excludePaths],
     include_generated: def.includeGenerated,

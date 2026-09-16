@@ -879,7 +879,6 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
     todo_path: {
       toml: '[project]\ntodo = "zz-ledger.md"\nagents = ["codex"]\n',
       expect: "zz-ledger.md",
-      contextOnly: true,
     },
     skills_dir: {
       toml: '[skills]\ndir = "zz-playbooks"\n[project]\nagents = ["codex"]\n',

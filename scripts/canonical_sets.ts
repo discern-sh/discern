@@ -28,6 +28,7 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 
+import { SKILL_CITATION_TOKEN } from "../src/lib/docs_integrity.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
 import { VOICE_ENFORCEMENT_COVERAGE_PAGE_REL } from "./brand/vale.ts";
@@ -2392,7 +2393,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         absent:
           "the registry is the Glossary, and its generated page is the definition surface",
       },
-      featureCanon: { nodeId: "glossary-canon" },
+      featureCanon: {
+        absent:
+          "the glossary registry and vocabulary guards belong to discern's own repository, not installed projects",
+      },
     },
     members: async () =>
       (await import("./glossary_registry.ts")).GLOSSARY.map(
@@ -3469,10 +3473,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "seeded-gotchas-traps",
     title: "Seeded Gate traps",
     what:
-      "The stack-independent gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the engine's live failure evidence.",
+      "The stack-independent gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must select the engine's live failure evidence.",
     source: {
       kind: "file",
-      path: "templates/setup/skeleton/map/80-development/done-gate-gotchas.md",
+      path: "templates/setup/skeleton/map/development/done-gate-gotchas.md",
       mustContain: "## Stack-independent traps",
     },
     guards: [
@@ -4645,7 +4649,17 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
       );
     } else {
       lines.push(`- Members: ${members.length}`);
-      lines.push(...members.map((member) => `  - ${markdownCodeSpan(member)}`));
+      lines.push(
+        ...members.map((member) =>
+          `  - ${
+            markdownCodeSpan(
+              SKILL_CITATION_TOKEN.test(member)
+                ? JSON.stringify(member)
+                : member,
+            )
+          }`
+        ),
+      );
     }
     lines.push(`- Guards: ${pathList(entry.guards)}`);
     if (entry.artifacts.length > 0) {

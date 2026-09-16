@@ -10,11 +10,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import {
-  assertTerminalTextIncludes,
-  REAL_TEMPLATES,
-  withTempDir,
-} from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   engineEnv,
   gitInit,
@@ -33,17 +29,9 @@ import type { Diagnostic } from "../src/shared/result.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
 
-const EXIT_127_TITLE = "A gate command fails with exit 127 (command not found)";
+import { EXIT_127_TITLE, PROJECT_GOTCHAS } from "./fixtures/project_gotchas.ts";
 const MATCHED_TRAP_GATE_LAUNCH_BUDGET = 4;
 const GATE_FAILURE_HELP_COMMAND = "discern docs guide-fix-a-red-gate";
-const TEMPLATE_GOTCHAS = join(
-  REAL_TEMPLATES,
-  "setup",
-  "skeleton",
-  "map",
-  "80-development",
-  "done-gate-gotchas.md",
-);
 
 /** The reproduce commands the --json envelope reports — the machine SSOT a human tail
  * must mirror. */
@@ -268,7 +256,7 @@ Deno.test("test: a failing test capability ends on the actionable recap, like fi
   });
 });
 
-Deno.test("gate failure: a seeded matched trap reaches every result surface from one black-box fixture", async () => {
+Deno.test("gate failure: an authored matched trap reaches every result surface from one black-box fixture", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const mapDir = "knowledge";
@@ -277,11 +265,12 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
     const matchedHeading = `### ${EXIT_127_TITLE}`;
     const hostileMatchedBody =
       "Authored first line\nAuthored second line \x1b[31mstill text";
-    const seededGotchas = (await Deno.readTextFile(TEMPLATE_GOTCHAS))
-      .replace(matchedHeading, `${matchedHeading}\n\n${hostileMatchedBody}`)
-      .trimEnd();
+    const authoredGotchas = PROJECT_GOTCHAS.replace(
+      matchedHeading,
+      `${matchedHeading}\n\n${hostileMatchedBody}`,
+    ).trimEnd();
     const body = [
-      seededGotchas,
+      authoredGotchas,
       "",
       "### Broken matcher",
       "",
@@ -296,15 +285,6 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
       recursive: true,
     });
     await Deno.writeTextFile(join(dir, doc), body);
-    // The template's intro links to its real skeleton siblings; lay them so
-    // the map-integrity preflight (which precedes the failing jobs this test
-    // is about) has nothing to say.
-    for (const sibling of ["getting-started.md", "code-conventions.md"]) {
-      await Deno.writeTextFile(
-        join(dir, mapDir, "91-unrelated", sibling),
-        "# Placeholder\n",
-      );
-    }
     await writeConfig(
       dir,
       [

@@ -6,7 +6,7 @@ _discern's canonical account of what the product gives the coding agent operatin
 
 The [Readiness Canon](brand/readiness-canon.md) connects release questions to these outcomes and their existing feature mechanisms. Use its approaches to select work appropriate to the project and change.
 
-9 workflow clusters · 24 agent benefits · 132 direct feature roles · 11 supporting feature roles · 21 agent-only hints · 17 agent or shared claims carried.
+9 workflow clusters · 24 agent benefits · 130 direct feature roles · 11 supporting feature roles · 21 agent-only hints · 17 agent or shared claims carried.
 
 ## How to use this canon
 
@@ -179,9 +179,9 @@ A coding agent can recover the project's current instructions, map, vocabulary, 
 ### Recover the project mental model
 
 - **Agent value:** A coding agent can search from task language into a maintained map, follow checked links and commands, recover canonical vocabulary, and inspect the reasons behind durable architectural boundaries.
-- **Why it follows:** The map browser and discovery funnel lead to audience-tiered pages whose links, commands, freshness, and publish boundary are checked; ADRs preserve decisions, bundled docs explain discern, CLI help reflects live commands, and the glossary owns terminology.
-- **Boundary:** The map records intent, boundaries, and navigation rather than duplicating mechanically derivable code facts; the agent must follow its authority links when exact implementation detail matters.
-- **Direct product basis:** The map · The map browser · The discovery funnel · The docs integrity preflight · File-linked freshness · Publication control · Decision records · discern's own manual · CLI help · The vocabulary canon.
+- **Why it follows:** The map browser finds current project explanations and their evidence. The gate checks links and command examples; checkpoints prompt judgment about changed knowledge. ADRs preserve decision reasons, bundled docs explain discern, and CLI help reflects live commands.
+- **Boundary:** The map explains behavior, intent, boundaries, and navigation with links to evidence. Useful implementation summaries belong here; copied inventories do not. Structural checks cannot establish that the explanation is true.
+- **Direct product basis:** The map · The map browser · The discovery funnel · The docs integrity preflight · File-linked freshness · Publication control · Decision records · discern's own manual · CLI help.
 - **Public claims:** `map-mechanically-checked`.
 
 ## Use proven procedures
@@ -191,9 +191,9 @@ A coding agent can invoke focused project procedures that carry quality discipli
 ### Invoke curated project procedures
 
 - **Agent value:** A coding agent can discover only the procedures the project chose to materialize, with each procedure carrying a bounded workflow for the task it matches.
-- **Why it follows:** The skill registry controls materialization and curation, while the bundled procedures cover defect-class cures, Standards, checkpoints, cleanup, delegation, fleet waits, subsystem documentation, durable teaching, ADRs, and single-authority design.
+- **Why it follows:** The skill registry controls materialization and curation, while the bundled procedures cover defect-class cures, Standards, checkpoints, cleanup, delegation, fleet waits, durable teaching, ADRs, and single-authority design.
 - **Boundary:** A skill supplies a procedure and decision points; it does not grant permissions the current task lacks or replace the project's own facts and tests.
-- **Direct product basis:** Skills · Materialization · A curated bundled set · Cure a bug · Set the standard · Place a checkpoint · Clear the decks · Delegate work · Await the fleet · Document a subsystem · Teach the project · Write an ADR · Write it once.
+- **Direct product basis:** Skills · Materialization · A curated bundled set · Cure a bug · Set the standard · Place a checkpoint · Clear the decks · Delegate work · Await the fleet · Teach the project · Write an ADR · Write it once.
 - **Public claims:** `shaped-delegation`.
 
 ### Let new members enrol themselves

@@ -313,13 +313,10 @@ Deno.test("a red Gate rolls setup completion back to the committed state, first 
 Deno.test("nested Map content diagnostics survive setup completion projection", async () => {
   await withTempDir(async (dir) => {
     await readyForSetupDone(dir, "true");
-    const internal = join(dir, "discern/map/_internal");
-    await Deno.mkdir(internal, { recursive: true });
-    await Deno.writeTextFile(join(internal, "brief.md"), "# Internal brief\n");
     const publicPage = join(dir, "discern/map/README.md");
     await Deno.writeTextFile(
       publicPage,
-      "# Real docs\n\nSee the [internal brief](_internal/brief.md).\n",
+      "# Real docs\n\nSee the [missing guide](missing.md).\n\n[Runtime](10-runtime/)\n",
     );
     await commitSetupAuthoring(dir);
     const before = await setupCompletionSnapshot(dir);
@@ -327,14 +324,14 @@ Deno.test("nested Map content diagnostics survive setup completion projection", 
     const human = await runAgent(dir, ["setup", "done"]);
     assertEquals(human.code, 1, human.output);
     assertStringIncludes(human.output, "discern/map/README.md:3");
-    assertStringIncludes(human.output, "[audience-boundary]");
+    assertStringIncludes(human.output, "[dead-link]");
     assertTerminalTextIncludes(human.output, "Reproduce: discern done");
     assertEquals(await setupCompletionSnapshot(dir), before);
 
     const markdown = await runAgent(dir, ["setup", "done", "--markdown"]);
     assertEquals(markdown.code, 1, markdown.output);
     assertStringIncludes(markdown.stdout, "discern/map/README.md:3");
-    assertStringIncludes(markdown.stdout, "audience-boundary");
+    assertStringIncludes(markdown.stdout, "dead-link");
     assertTerminalTextIncludes(markdown.stdout, "discern done");
     assertEquals(await setupCompletionSnapshot(dir), before);
 
@@ -344,12 +341,12 @@ Deno.test("nested Map content diagnostics survive setup completion projection", 
     assertResultDataKey(result, "stage");
     assertEquals(result.data.stage, "worktree_probe");
     const diagnostic = result.diagnostics?.find((entry) =>
-      entry.rule === "audience-boundary"
+      entry.rule === "dead-link"
     );
     assertExists(diagnostic);
     assertEquals(diagnostic.file, "discern/map/README.md");
     assertEquals(diagnostic.line, 3);
-    assertEquals(diagnostic.rule, "audience-boundary");
+    assertEquals(diagnostic.rule, "dead-link");
     assertEquals(diagnostic.reproduce_cmd, "discern done");
     const failureData = result.data as Record<string, unknown>;
     assertStringIncludes(String(failureData.recovery), "discern/map/README.md");
@@ -366,13 +363,13 @@ Deno.test("nested Map content diagnostics survive setup completion projection", 
       mcp.structuredContent.diagnostics,
     );
     const mcpDiagnostic = mcpDiagnostics.find((entry) =>
-      entry.rule === "audience-boundary"
+      entry.rule === "dead-link"
     );
     assertExists(mcpDiagnostic);
     assertEquals(mcpDiagnostic.file, "discern/map/README.md");
     assertEquals(mcpDiagnostic.line, 3);
     assertEquals(mcpDiagnostic.reproduce_cmd, "discern done");
-    assertStringIncludes(mcp.content[0]?.text ?? "", "audience-boundary");
+    assertStringIncludes(mcp.content[0]?.text ?? "", "dead-link");
     assertStringIncludes(mcp.content[0]?.text ?? "", "discern/map/README.md:3");
     assertEquals(await setupCompletionSnapshot(dir), before);
   });

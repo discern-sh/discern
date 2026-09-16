@@ -1,10 +1,9 @@
 /**
  * The stack-independent gate traps ship twice: the skeleton seeds them into
  * every new project's gotchas doc, and this repository's map carries the
- * dogfooded copy. The pair drifted — engine failure modes documented on the
- * live page never reached the template, so the gate pointed fresh installs at
- * a page missing the answer. This guard forces the trap inventory to move
- * together: both files must list the same `###` traps, in the same order,
+ * dogfooded copy. This guard keeps the trap inventory together so new projects
+ * receive the same stack-independent recovery coverage: both files must list
+ * the same `###` traps, in the same order,
  * under "## Stack-independent traps".
  *
  * Bodies stay free to diverge — the live page may cite ADRs, link engine
@@ -25,7 +24,7 @@ const TEMPLATE_PATH = join(
   "setup",
   "skeleton",
   "map",
-  "80-development",
+  "development",
   "done-gate-gotchas.md",
 );
 const LIVE_PATH = join(

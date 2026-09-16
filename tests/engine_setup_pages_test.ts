@@ -303,13 +303,13 @@ async function layMarkerFreeProject(
   await scaffoldEngine(dir, { bootstrapped: false });
   await gitInit(dir);
   await git(dir, "checkout", "-b", "discern-setup");
-  await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
+  await Deno.mkdir(defaultMapPath(dir, "orientation"), {
     recursive: true,
   });
   await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
   await Deno.mkdir(join(dir, "discern"), { recursive: true });
   await Deno.writeTextFile(
-    defaultMapPath(dir, "00-orientation", "design-principles.md"),
+    defaultMapPath(dir, "orientation", "design-principles.md"),
     principles,
   );
   await Deno.writeTextFile(
@@ -322,17 +322,24 @@ async function layMarkerFreeProject(
     join(dir, "discern/instructions.md"),
     "# Instructions\n\nA real pitch describing the project.\n\n## Conventions\n\nReal conventions.\n",
   );
+  await Deno.writeTextFile(
+    defaultMapPath(dir, "README.md"),
+    "# Project\n\nRuns configured commands.\n\n- [Runtime](10-runtime/)\n- [Orientation](orientation/)\n",
+  );
+  await Deno.writeTextFile(
+    defaultMapPath(dir, "orientation", "README.md"),
+    "# Orientation\n\nThe command runner preserves caller intent.\n\n[Principles](design-principles.md)\n",
+  );
   await runAgent(dir, ["config", "set-job", "test", "true"]);
 }
 
 Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (anti-shallow-compliance)", async () => {
   await withTempDir(async (dir) => {
     // Marker-free, a capability wired, instructions filled — but design-principles.md has
-    // had its EXAMPLE marker DELETED without being filled (one principle where the step
-    // asks for ≥3). The marker walk is satisfied; the derived check is not.
+    // has headings without explanation. The marker walk is satisfied; the derived checks are not.
     await layMarkerFreeProject(
       dir,
-      "# Design principles\n\n## 1. Keep it simple\n\nDo the simplest thing.\n",
+      "# Design principles\n\n## 1. Keep it simple\n",
     );
 
     const blocked = await runAgent(dir, ["setup", "done", "--json"]);
@@ -342,11 +349,11 @@ Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (an
     assertEquals(res.error, "incomplete");
     assert(res.data !== undefined && "unmet" in res.data, blocked.stdout);
 
-    // The diagnostic NAMES the unmet check — and only it (instructions + capability pass).
+    // Both the principle check and the map-wide completion check name the empty explanation.
     const unmet = res.data.unmet;
     assertEquals(
       unmet.map((u) => u.name),
-      ["design_principles"],
+      ["design_principles", "primary_subsystem_context"],
       blocked.stdout,
     );
     assertEquals(unmet[0]?.step, 4);
@@ -400,8 +407,8 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
     assertEquals(res.data.gate_proven, true);
     assertEquals(res.data.inventory.map_regions.count, 2);
     assertEquals(res.data.inventory.map_regions.items, [
-      "00-orientation",
       "10-runtime",
+      "orientation",
     ]);
     assert(res.data.inventory.project_context.primary_subsystem !== null);
     assertEquals(
@@ -480,7 +487,7 @@ async function writePrinciples(
 ): Promise<void> {
   const path = join(
     root,
-    `${normalizeMapDir(config.map.dir)}00-orientation/design-principles.md`,
+    `${normalizeMapDir(config.map.dir)}orientation/design-principles.md`,
   );
   await Deno.mkdir(dirname(path), { recursive: true });
   await Deno.writeTextFile(path, body);
@@ -507,7 +514,7 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
       await writePrinciples(
         root,
         config,
-        "# Design principles\n\n## 1. Only one\n\nEXAMPLE deleted, not filled.\n",
+        "# Design principles\n\n## 1. Only one\n",
       );
       return { root, config };
     },
@@ -610,7 +617,7 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
       });
       await Deno.writeTextFile(
         join(root, config.map.dir, "README.md"),
-        "# Demo map\n",
+        "# Demo map\n\nRuns commands.\n\n- [Runtime](10-runtime/)\n",
       );
       await Deno.writeTextFile(
         join(root, config.map.dir, "10-runtime", "README.md"),
@@ -633,12 +640,12 @@ Deno.test("the final documentation check binds a conventional gotchas page to it
     await Deno.mkdir(join(root, base.map.dir, "10-runtime"), {
       recursive: true,
     });
-    await Deno.mkdir(join(root, base.map.dir, "80-development"), {
+    await Deno.mkdir(join(root, base.map.dir, "development"), {
       recursive: true,
     });
     await Deno.writeTextFile(
       join(root, base.map.dir, "README.md"),
-      "# Demo map\n",
+      "# Demo map\n\nRuns commands.\n\n- [Runtime](10-runtime/)\n",
     );
     await Deno.writeTextFile(
       join(root, base.map.dir, "10-runtime", "README.md"),
@@ -647,10 +654,18 @@ Deno.test("the final documentation check binds a conventional gotchas page to it
         "## Non-obvious invariant\n\nPreserve child status.\n",
     );
     await Deno.writeTextFile(
-      join(root, base.map.dir, "80-development", "done-gate-gotchas.md"),
-      "# Gate gotchas\n",
+      join(root, base.map.dir, "development", "done-gate-gotchas.md"),
+      "# Gate gotchas\n\nFollow the failing command’s diagnostic.\n",
     );
 
+    await Deno.writeTextFile(
+      join(root, base.map.dir, "development", "README.md"),
+      "# Development\n\nVerify command behavior.\n\n[Gotchas](done-gate-gotchas.md)\n",
+    );
+    await Deno.writeTextFile(
+      join(root, base.map.dir, "README.md"),
+      "# Demo map\n\nRuns commands.\n\n- [Runtime](10-runtime/)\n- [Development](development/)\n",
+    );
     assertEquals(await check.evaluate({ root, config: base }), false);
     const wired = baseConfig({
       project: {
@@ -661,7 +676,7 @@ Deno.test("the final documentation check binds a conventional gotchas page to it
     assertEquals(await check.evaluate({ root, config: wired }), true);
 
     await Deno.remove(
-      join(root, base.map.dir, "80-development", "done-gate-gotchas.md"),
+      join(root, base.map.dir, "development", "done-gate-gotchas.md"),
     );
     assertEquals(
       await check.evaluate({ root, config: base }),

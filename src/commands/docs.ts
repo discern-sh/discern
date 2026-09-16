@@ -1,3 +1,4 @@
+import { localMapEntries } from "../lib/map_policy.ts";
 /**
  * `discern map` and `discern docs` — browse and read a documentation tree.
  *
@@ -119,8 +120,8 @@ import {
   type SelectionGroup,
 } from "../lib/terminal_interaction.ts";
 import {
-  ageSince,
   buildMapOverview,
+  mapPageFreshness,
   type MapRegion,
 } from "../lib/map_overview.ts";
 import { SYSTEM_CLOCK } from "../shared/clock.ts";
@@ -502,8 +503,7 @@ function internalScope(
  * spells, on every surface including MCP: the records are public (the site
  * publishes them), only tucked out of the default browse, so a caller who
  * already spells the buried segment is never refused for omitting the flag.
- * `_internal` / `_private` carry a real audience boundary and are never
- * widened this way.
+ * Map-specific current and private discovery is applied separately.
  */
 function targetNamesAdrSubtree(target: string | undefined): boolean {
   return target !== undefined &&
@@ -545,14 +545,18 @@ async function publicVerbTree(
 /**
  * Apply the verb's browse policy to a discovered tree. `docs` is the published
  * product manual plus an explicitly requested checkout-only subtree such as
- * `--adr`; `map` is the agents' own tree and keeps everything.
+ * `--adr`; `map` admits current supporting pages and explicitly selected history or private pages.
  */
 async function verbTree(
   desc: DocsVerb,
   tree: DocsTree,
   corpus: "map" | "manual" | "decisions",
+  target?: string,
+  all = false,
 ): Promise<DocsTree> {
-  if (desc.verb === "map") return tree;
+  if (desc.verb === "map") {
+    return { ...tree, entries: localMapEntries(tree.entries, target, all) };
+  }
   return await publicVerbTree(desc, tree, corpus);
 }
 
@@ -1458,23 +1462,7 @@ function printMapOverview(
   for (const [index, region] of regions.entries()) {
     const name = terminalLine(region.name);
     const details: string[] = [terminalMultiline(region.description)];
-    if (
-      region.pages_changed_at === undefined ||
-      region.code_changes_since === undefined
-    ) {
-      details.push(
-        "freshness unknown — no specific file links or usable Git history",
-      );
-    } else {
-      const changes = region.code_changes_since;
-      details.push(
-        `pages last changed ${
-          ageSince(region.pages_changed_at, SYSTEM_CLOCK.wallNow())
-        }; linked code changed ${changes} time${
-          changes === 1 ? "" : "s"
-        } since`,
-      );
-    }
+    details.push(...view.mapRegionFreshness(region, SYSTEM_CLOCK.wallNow()));
     const safeDetails = terminalMultiline(details.join("\n"));
     const body = terminal.stdoutIsTerminal
       ? terminal.presenter.present(renderSectionCli, {
@@ -1772,12 +1760,14 @@ async function treeResult(
     : await discoverDocs({
       cwd,
       dir: resolved.dir,
-      includeInternal: internal,
+      includeInternal: desc.verb === "map" ? true : internal,
     });
   const tree = discovered === undefined ? undefined : await verbTree(
     desc,
     discovered,
     resolved.kind === "ok" ? resolved.corpus : "map",
+    opts.target,
+    opts.internal === true,
   );
   if (!tree) {
     return {
@@ -1928,6 +1918,9 @@ async function treeResult(
         doc: {
           ...toRecord(res.entry),
           target: canonicalDocTarget(res.entry),
+          ...(desc.verb === "map"
+            ? { freshness: await mapPageFreshness(tree, res.entry) }
+            : {}),
           content,
           ...(res.entry.citedAdrs.length > 0
             ? { cited_adrs: res.entry.citedAdrs }
@@ -2172,11 +2165,16 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   }
   const discovered = resolved.kind === "missing"
     ? undefined
-    : await discoverDocs({ cwd, dir: resolved.dir, includeInternal: internal });
+    : await discoverDocs({
+      cwd,
+      dir: resolved.dir,
+      includeInternal: desc.verb === "map" ? true : internal,
+    });
   const tree = discovered === undefined ? undefined : await verbTree(
     desc,
     discovered,
     resolved.kind === "ok" ? resolved.corpus : "map",
+    options.target,
   );
   if (!tree) {
     log.error(terminalLine(desc.missingTree(options)));

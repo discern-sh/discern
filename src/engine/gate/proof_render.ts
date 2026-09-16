@@ -44,7 +44,11 @@ import {
   checkpointDropMarkdown,
   type GateMode,
 } from "../../shared/checkpoint_drops.ts";
-import { RELATED_CHECKPOINT_KIND_LABELS } from "../../shared/checkpoints.ts";
+import {
+  RELATED_CHECKPOINT_KIND_LABELS,
+  RELATED_CHECKPOINT_KIND_VERBS,
+  type RelatedCheckpointKind,
+} from "../../shared/checkpoints.ts";
 import type { StepResult } from "../../shared/result.ts";
 import type { LandingConsent } from "../../shared/consent.ts";
 import { diffFiles } from "../worktree/git.ts";
@@ -283,7 +287,7 @@ function checkpointsSection(
       matched?: readonly string[] | undefined;
       related?:
         | readonly {
-          kind: "similar_existing";
+          kind: RelatedCheckpointKind;
           for_path: string;
           path: string;
         }[]
@@ -297,7 +301,9 @@ function checkpointsSection(
     const related = (entry.related ?? []).map((relation) =>
       `  - ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
         code(relation.path)
-      } resembles ${code(relation.for_path)}`
+      } ${RELATED_CHECKPOINT_KIND_VERBS[relation.kind]} ${
+        code(relation.for_path)
+      }`
     );
     return [...changed, ...related];
   };

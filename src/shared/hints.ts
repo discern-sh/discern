@@ -49,7 +49,11 @@ import {
 } from "./command_reference.ts";
 import { productSentence } from "./product_sentence.ts";
 import { worktreeContinuityPolicy } from "./operating_policies.ts";
-import { RELATED_CHECKPOINT_KIND_LABELS } from "./checkpoints.ts";
+import {
+  RELATED_CHECKPOINT_KIND_LABELS,
+  RELATED_CHECKPOINT_KIND_VERBS,
+  type RelatedCheckpointKind,
+} from "./checkpoints.ts";
 import type { GitCount } from "./git_count.ts";
 import { PROOF_NOTES_REF } from "./git_conventions.ts";
 
@@ -2196,7 +2200,11 @@ export const HINTS = {
       questionFile?: string;
       reference?: string;
       matched: string[];
-      related: { kind: "similar_existing"; for_path: string; path: string }[];
+      related: {
+        kind: RelatedCheckpointKind;
+        for_path: string;
+        path: string;
+      }[];
       state: "will_open" | "awaiting_declaration" | "reopened" | "when_pending";
     }
   >({
@@ -2237,7 +2245,9 @@ export const HINTS = {
       const relations = related.map((relation) =>
         ` ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
           markdownCodeSpan(relation.path)
-        } resembles ${markdownCodeSpan(relation.for_path)}.`
+        } ${RELATED_CHECKPOINT_KIND_VERBS[relation.kind]} ${
+          markdownCodeSpan(relation.for_path)
+        }.`
       ).join("");
       const pointers = [
         questionFile === undefined
@@ -2260,7 +2270,11 @@ export const HINTS = {
       questionFile?: string;
       reference?: string;
       matched: string[];
-      related: { kind: "similar_existing"; for_path: string; path: string }[];
+      related: {
+        kind: RelatedCheckpointKind;
+        for_path: string;
+        path: string;
+      }[];
     }
   >({
     id: "checkpoint-advise",
@@ -2288,7 +2302,9 @@ export const HINTS = {
       const relations = related.map((relation) =>
         ` ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
           markdownCodeSpan(relation.path)
-        } resembles ${markdownCodeSpan(relation.for_path)}.`
+        } ${RELATED_CHECKPOINT_KIND_VERBS[relation.kind]} ${
+          markdownCodeSpan(relation.for_path)
+        }.`
       ).join("");
       const pointers = [
         questionFile === undefined

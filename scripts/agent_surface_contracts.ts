@@ -346,55 +346,6 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
     },
   ],
   [
-    "skill:discern-document-subsystem",
-    {
-      effectful: true,
-      cross_worktree: false,
-      authority_sensitive: false,
-      relay_bearing: true,
-      recoverable: true,
-      targets: [
-        target(
-          "path",
-          "{{map_dir}}",
-          "The configured documentation tree lives at `{{map_dir}}`.",
-        ),
-        target(
-          "stable",
-          "the target subtree's scope manifest",
-          "Each subtree is documented against a **scope manifest**",
-        ),
-      ],
-      sequence: [
-        act("## 1. Confirm the prerequisites"),
-        act("## 3. Document the subtree, following the brief"),
-        verify("## Done when"),
-      ],
-      stop_conditions: [
-        evidence(
-          "have the project owner restore the `_internal/` scaffolding before documenting",
-        ),
-      ],
-      recovery: [
-        evidence(
-          "have the project owner restore the `_internal/` scaffolding before documenting",
-        ),
-      ],
-      relay: {
-        message: evidence(
-          "I documented <coverage>. I preserved <todos>, found <glossary_additions>, resolved or reported <overlaps>, and recorded <deprecations>.",
-        ),
-        facts: [
-          "coverage",
-          "todos",
-          "glossary_additions",
-          "overlaps",
-          "deprecations",
-        ],
-      },
-    },
-  ],
-  [
     "skill:discern-product-voice",
     {
       effectful: true,
@@ -513,7 +464,7 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         target(
           "stable",
           "the durable lesson and its smallest project-owned home",
-          "Pick the **smallest surface that fully carries the lesson**",
+          "Pick the **smallest surface that owns each fact**",
         ),
         target(
           "path",
@@ -531,7 +482,7 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
       ],
       recovery: [
         evidence(
-          "check for an existing home first",
+          "Check for an existing authority first",
         ),
       ],
       relay: {
@@ -567,7 +518,11 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         act("## 3. Draft from the template"),
         verify("## Done when"),
       ],
-      stop_conditions: [evidence("If any fails, say so and stop")],
+      stop_conditions: [
+        evidence(
+          "The choice must be architectural and meet all three conditions: hard to reverse, surprising without context, and the result of a real trade-off.",
+        ),
+      ],
       recovery: [
         evidence(
           "whoever lands second moves to the next free number",
@@ -591,8 +546,8 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         ),
         target(
           "path",
-          "{{map_dir}}80-development/canonical-sets.md",
-          "Keep a page in the project's documentation tree — `{{map_dir}}80-development/canonical-sets.md`, created the first time you bind a fact",
+          "{{map_dir}}",
+          "Find the page in `{{map_dir}}` that already explains shared authorities",
         ),
       ],
       sequence: [

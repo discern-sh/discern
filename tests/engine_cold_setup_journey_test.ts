@@ -199,9 +199,17 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
               `## Non-obvious invariant\n\n${invariant}\n`,
           );
         }
-        await Deno.mkdir(join(mapRoot, "80-development"), { recursive: true });
+        await Deno.mkdir(join(mapRoot, "development"), { recursive: true });
         await Deno.writeTextFile(
-          join(mapRoot, "80-development", "done-gate-gotchas.md"),
+          join(mapRoot, "README.md"),
+          "# Atlas\n\nRuns offline commands over local records.\n\n- [Runtime](10-runtime/)\n- [Storage](20-storage/)\n- [Interface](30-interface/)\n- [Development](development/)\n",
+        );
+        await Deno.writeTextFile(
+          join(mapRoot, "development", "README.md"),
+          "# Development\n\nVerify commands using local fixtures.\n\n[Gotchas](done-gate-gotchas.md)\n",
+        );
+        await Deno.writeTextFile(
+          join(mapRoot, "development", "done-gate-gotchas.md"),
           "# Gate gotchas\n\nThe local fixture is offline. Follow the first Gate diagnostic.\n",
         );
         await Deno.writeTextFile(
@@ -334,7 +342,7 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
           "10-runtime",
           "20-storage",
           "30-interface",
-          "80-development",
+          "development",
         ]);
         const completed = await harness.snapshot();
         assert(completed.config?.includes("bootstrapped = true"));
@@ -426,11 +434,9 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
         );
         const generated = await Deno.readTextFile(join(root, "AGENTS.md"));
         assertStringIncludes(generated, "discern/map/10-runtime/README.md");
-        assert(await targetExists(join(root, "discern", "map", "_internal")));
-        assert(
-          await targetExists(
-            join(root, "discern", "map", "_internal", "scopes", "_template.md"),
-          ),
+        assertEquals(
+          await targetExists(join(root, "discern", "map", "_internal")),
+          false,
         );
         assertEquals(
           (await Deno.readTextFile(configPath)).includes(

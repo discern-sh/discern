@@ -794,7 +794,7 @@ Decision records preserve significant choices, alternatives, and reasons in the 
 
 Give the next person somewhere useful to start.
 
-The Map holds the project's account of boundaries, workflows, and where to begin, so review and support preparation can start from retained understanding.
+The Map explains boundaries and workflows with evidence, linking the relevant procedures, checks, and decisions. It preserves context for data handling, recovery, compatibility, and release work where the project needs it.
 
 **Contribution:** Project knowledge. [Feature documentation](../../../manual/20-understand/instructions-skills-and-map.md).
 
@@ -955,7 +955,7 @@ Validation results name the producers executed or reused, their input binding, a
 
 Find the explanation that needs another look.
 
-File-linked freshness shows which source files a Map page covers and when they changed, helping an agent find accounts of data behavior, support, or recovery that need review.
+When source files change, discern points agents to the Map pages that explain them, helping each session find its way around the project and keep that shared understanding current.
 
 **Contribution:** Advisory evidence. [Feature documentation](../../../manual/20-understand/instructions-skills-and-map.md).
 

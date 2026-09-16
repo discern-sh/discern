@@ -58,15 +58,15 @@ Writing “review it the way we did last time” would send the next session bac
 
 ## The map: what the agents understand
 
-The **map** is the maintained project guide. For the saved-lists feature, it can explain where lists are stored, which parts of the app use them, and why offline reading matters. It links to the code that owns the details rather than copying information the code already expresses.
+The **map** is the maintained project guide. For the saved-lists feature, it can explain where lists are stored, which parts of the app use them, and why offline reading matters. It can explain how the code works when that helps a reader understand a contract or relationship, with links to the supporting code and tests. It avoids repeating an inventory of every file or method.
 
 You can read it too. Ask:
 
 > Show me the map's account of saved lists. Does it still describe how the app works after this change?
 
-That gives you something to correct before a misunderstanding appears in another implementation. Agents are expected to keep the map current as they change the project.
+That gives you something to correct before a misunderstanding appears in another implementation. Agents are expected to keep the map current as they change the project. [Maintain the project map](../10-guides/maintain-project-map.md) shows how to review an explanation and where new material belongs.
 
-The checks cover its mechanics: links, heading references, command examples, and metadata. File-linked freshness information can also identify pages whose sources changed. Those checks help locate work to review; a page can pass them and still contain an incorrect explanation. Reading the code and judging the explanation remain part of the agent's work.
+The checks cover its mechanics: links, heading references, command examples, and optional page details such as titles and search names. File-linked freshness information can also identify pages whose sources changed. Those checks help locate work to review; a page can pass them and still contain an incorrect explanation. Reading the code and judging the explanation remain part of the agent's work.
 
 ## Keep the reason for a significant decision
 
@@ -74,7 +74,7 @@ Some choices need more than a standing rule. Suppose you decide people should be
 
 An **Architecture Decision Record**, or **ADR**, preserves that account: what you decided, why, and what follows from it. The map and relevant instructions can link to the record. A later agent can understand the choice before proposing to reverse it.
 
-The bundled `discern-write-adr` skill helps record decisions that are significant or difficult to reverse. Ordinary implementation details do not all need their own decision record.
+The bundled `discern-write-adr` skill helps record significant architectural choices that are hard to reverse, surprising without context, and involve a real trade-off. Each condition matters: the record explains a lasting structural commitment and the cost the project accepts. Routine implementation context belongs in the current map, and tests or guards protect required behavior. You approve exceptions to agreed requirements before an ADR records them.
 
 ## Choose the home that does the job
 

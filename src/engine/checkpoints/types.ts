@@ -84,6 +84,11 @@ export interface EffortDiff {
   files: readonly EffortFileChange[];
   /** Every file path in the merge-base tree, project-root-relative. */
   baseFiles: readonly EffortBasePath[];
+  /** Current and base links, so editing away a link cannot hide its review. */
+  mapSources?: {
+    pages: readonly { path: string; sources: readonly string[] }[];
+    complete: boolean;
+  };
   /** Ordered merge-base..HEAD identity; unavailable is local to history-aware
    * definitions and must not disable ordinary checkpoints. */
   history?:
@@ -114,6 +119,8 @@ export interface ResolvedCheckpoint {
   /** Governing repository path that supplied `question`, when file-backed.
    * Provenance only: every downstream judgment consumes the string above. */
   questionFile?: string;
+  /** Internal map selection, bound to the governing configured directory. */
+  mapReview?: { kind: "focus" | "drift"; directory: string };
   /** Optional lesson prose carried into renderings. */
   teach?: string;
   /** Optional reference material carried into renderings. */

@@ -4,7 +4,7 @@ Every documenter agent that produces or refreshes a subtree under the configured
 
 Use this brief for shared requirements. Use the scope manifest for assignment-specific requirements.
 
-Invoke the [`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md) Skill to document or refresh a subtree. The skill dispatches this brief and the matching scope manifest.
+For a documentation assignment in discern itself, follow this project-owned brief. Its scope manifests are assignment material, not gate configuration. Other projects receive the generic [map maintenance guide](../../manual/10-guides/maintain-project-map.md); they do not need this local machinery.
 
 ---
 

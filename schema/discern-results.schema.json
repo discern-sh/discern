@@ -9725,6 +9725,37 @@
                       "page_count": {
                         "type": "number"
                       },
+                      "pages": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "target": {
+                              "type": "string"
+                            },
+                            "path": {
+                              "type": "string"
+                            },
+                            "source_paths": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "page_changed_at": {
+                              "type": "string"
+                            },
+                            "code_changes_since": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "target",
+                            "path",
+                            "source_paths"
+                          ]
+                        }
+                      },
                       "pages_changed_at": {
                         "type": "string"
                       },
@@ -9736,7 +9767,8 @@
                       "name",
                       "title",
                       "description",
-                      "page_count"
+                      "page_count",
+                      "pages"
                     ]
                   }
                 },
@@ -9810,6 +9842,34 @@
                           "path"
                         ]
                       }
+                    },
+                    "freshness": {
+                      "type": "object",
+                      "properties": {
+                        "target": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "source_paths": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "page_changed_at": {
+                          "type": "string"
+                        },
+                        "code_changes_since": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "target",
+                        "path",
+                        "source_paths"
+                      ]
                     }
                   },
                   "required": [
@@ -10451,6 +10511,37 @@
                       "page_count": {
                         "type": "number"
                       },
+                      "pages": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "target": {
+                              "type": "string"
+                            },
+                            "path": {
+                              "type": "string"
+                            },
+                            "source_paths": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "page_changed_at": {
+                              "type": "string"
+                            },
+                            "code_changes_since": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "target",
+                            "path",
+                            "source_paths"
+                          ]
+                        }
+                      },
                       "pages_changed_at": {
                         "type": "string"
                       },
@@ -10462,7 +10553,8 @@
                       "name",
                       "title",
                       "description",
-                      "page_count"
+                      "page_count",
+                      "pages"
                     ]
                   }
                 },
@@ -10536,6 +10628,34 @@
                           "path"
                         ]
                       }
+                    },
+                    "freshness": {
+                      "type": "object",
+                      "properties": {
+                        "target": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "source_paths": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "page_changed_at": {
+                          "type": "string"
+                        },
+                        "code_changes_since": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "target",
+                        "path",
+                        "source_paths"
+                      ]
                     }
                   },
                   "required": [
@@ -12559,7 +12679,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -12622,7 +12743,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -12687,7 +12809,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -12754,7 +12877,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -12835,7 +12959,8 @@
                                     "kind": {
                                       "type": "string",
                                       "enum": [
-                                        "similar_existing"
+                                        "similar_existing",
+                                        "map_explanation"
                                       ]
                                     },
                                     "for_path": {
@@ -15638,7 +15763,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -15711,7 +15837,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -15822,7 +15949,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -29731,7 +29859,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -29794,7 +29923,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -29859,7 +29989,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -29926,7 +30057,8 @@
                                 "kind": {
                                   "type": "string",
                                   "enum": [
-                                    "similar_existing"
+                                    "similar_existing",
+                                    "map_explanation"
                                   ]
                                 },
                                 "for_path": {
@@ -30007,7 +30139,8 @@
                                     "kind": {
                                       "type": "string",
                                       "enum": [
-                                        "similar_existing"
+                                        "similar_existing",
+                                        "map_explanation"
                                       ]
                                     },
                                     "for_path": {
