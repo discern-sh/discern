@@ -519,7 +519,9 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         verify("## Done when"),
       ],
       stop_conditions: [
-        evidence("A routine implementation detail usually needs no record."),
+        evidence(
+          "The choice must be architectural and meet all three conditions: hard to reverse, surprising without context, and the result of a real trade-off.",
+        ),
       ],
       recovery: [
         evidence(
