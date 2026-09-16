@@ -864,6 +864,21 @@ Deno.test("bare map renders README descriptions and Git freshness facts per regi
       "--no-gpg-sign",
     );
 
+    // Editing another page in the region cannot review this explanation's sources.
+    await Deno.writeTextFile(
+      join(dir, "docs", "00-intro", "beta.md"),
+      "# Beta\n\nAn unrelated explanation.\n",
+    );
+    await git(dir, "add", "docs/00-intro/beta.md");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "Explain another topic",
+      "--no-gpg-sign",
+    );
+
     const human = await runCli(["map"], dir);
     assertEquals(human.code, 0);
     assertTerminalTextIncludes(human.stdout, "discern map — 1 region in docs");
@@ -885,6 +900,10 @@ Deno.test("bare map renders README descriptions and Git freshness facts per regi
     assertEquals(region.code_changes_since, 2);
     assertEquals(typeof region.pages_changed_at, "string");
     assertFactOnlyRegion(region);
+    const page = region.pages.find((page) => page.target === "00-intro/README");
+    assertExists(page);
+    assertEquals(page.code_changes_since, 2);
+    assertEquals(page.source_paths, ["src/alpha.ts"]);
   });
 });
 

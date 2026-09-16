@@ -66,7 +66,7 @@ import type { ResolvedCheckpoint } from "./types.ts";
 
 type SeedTriggerField = Exclude<
   keyof BuiltInCheckpointSeed,
-  "question" | "mode" | "selectorFrom" | "scope" | "paths"
+  "question" | "mode" | "selectorFrom" | "mapReview" | "scope" | "paths"
 >;
 
 /** Binding table from every seed trigger spelling to its resolved authority.
@@ -399,6 +399,12 @@ export function resolveCheckpoints(
       id,
       mode,
       question,
+      ...(seed?.mapReview === undefined ? {} : {
+        mapReview: {
+          kind: seed.mapReview,
+          directory: config.map.dir.replace(/\/$/, ""),
+        },
+      }),
       ...(questionFile === undefined ? {} : { questionFile }),
       ...(teach === undefined ? {} : { teach }),
       ...(reference === undefined ? {} : { reference }),

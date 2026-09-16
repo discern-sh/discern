@@ -20,6 +20,8 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
 import { basename, join, relative } from "@std/path";
 import {
   CANONICAL_SETS,
@@ -174,6 +176,9 @@ function atlasMemberNames(section: string): string[] {
       if (unpadded.startsWith("`") || unpadded.endsWith("`")) {
         name = unpadded;
       }
+    }
+    if (name.startsWith('"')) {
+      name = decodeWith(z.string(), name);
     }
     names.push(name);
   }

@@ -405,7 +405,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     obligation:
       "Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.",
     body:
-      "A correction becomes instructions, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.",
+      "A correction becomes instructions, a decision becomes a record with its reasons, a procedure becomes a skill, and the map connects the account agents work from to its evidence. The gate checks references; agents review whether the explanations remain true. What one task teaches, the next inherits: the loop closes where it began.",
     arc: "loop",
     upheld: {
       enforced: ["config:map"],
@@ -420,7 +420,6 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "adr-discipline",
       "docs-integrity",
       "map-freshness",
-      "glossary-canon",
       "skill-teach-the-project",
       "skill-write-adr",
       "skill-place-a-checkpoint",

@@ -38,7 +38,7 @@ A project file can point to another checkout, database, or machine-local path. S
 
 ## Give the map a useful starting shape
 
-Setup writes a project overview and groups context into orientation, actual subsystem responsibilities, development guidance, and decisions. Short topics can share a region README; separate pages serve distinct reading tasks. Numeric prefixes are optional reading order. The [map design decision](../_adr/0404-maps-explain-the-project-and-connect-its-practice.md) explains the boundary between these shipped conventions and discern’s own map.
+Setup writes a project overview and groups context into orientation, actual subsystem responsibilities, development practices, and decisions. Short topics can share a region README; separate pages serve distinct reading tasks. Numeric prefixes are optional reading order. The [map design decision](../_adr/0404-maps-explain-the-project-and-connect-its-practice.md) explains the boundary between these shipped conventions and discern’s own map.
 
 A page can summarize implementation to explain a contract or relationship. It must help a reader make a correct change, with links to evidence, rather than catalog methods and files. Agreed requirements remain distinct from observed behavior and open questions.
 

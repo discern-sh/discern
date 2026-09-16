@@ -955,7 +955,7 @@ Validation results name the producers executed or reused, their input binding, a
 
 Find the explanation that needs another look.
 
-File-linked freshness shows which source files a Map page covers and when they changed, helping an agent find accounts of data behavior, support, or recovery that need review.
+Each Map page links to its sources. Later source commits identify accounts of data behavior, support, or recovery to review. This evidence directs attention; it cannot judge whether an explanation is true.
 
 **Contribution:** Advisory evidence. [Feature documentation](../../../manual/20-understand/instructions-skills-and-map.md).
 

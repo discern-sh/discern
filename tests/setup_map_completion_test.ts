@@ -2,7 +2,7 @@ import { recommendSetupDocumentationScope } from "../src/shared/setup_guidance.t
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { setupMapIssues } from "../src/shared/setup_map.ts";
+import { hasMapExplanation, setupMapIssues } from "../src/shared/setup_map.ts";
 
 Deno.test("setup requires explanation and reachability for every selected current page", async () => {
   await withTempDir(async (root) => {
@@ -75,4 +75,15 @@ Deno.test("setup requires a completed adoption record while retaining the reusab
     );
     assertEquals(await setupMapIssues(root, "map"), []);
   });
+});
+
+Deno.test("code examples alone cannot complete a map explanation", () => {
+  for (const fence of ["```", "~~~"]) {
+    assertEquals(
+      hasMapExplanation(
+        `# Page\n\n${fence}text\nThis is a code example.\n${fence}\n`,
+      ),
+      false,
+    );
+  }
 });

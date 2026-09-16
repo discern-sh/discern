@@ -74,7 +74,7 @@ Provenance answers “what did this agent report itself as?” It never answers 
 
 ```toml
 phase = "project inspection"
-stable_target = "A code-backed inventory of the primary subsystem, durable boundaries, entry points, existing workflows, and unresolved owner facts exists before any final orientation is authored."
+stable_target = "An evidence-backed inventory of the project purpose, implemented responsibilities, entry points, existing workflows, and unresolved owner facts exists before final orientation is authored."
 intent = "Learn the repository first, identify the evidence final documentation will consume, and ask one bounded batch for facts the repository cannot supply."
 files_to_read = [
   "the top-level layout, README, manifests, lockfiles, and existing project instructions",
@@ -83,7 +83,7 @@ files_to_read = [
   "{{brief_path}}, when setup was supplied a project brief",
 ]
 must_do = [
-  "Name the primary subsystem and record where a future agent should start, its durable boundary, and one non-obvious invariant evidenced by code or configuration.",
+  "If implementation exists, identify the primary subsystem, where a future agent should start, its boundary, and any important constraints supported by evidence. If implementation does not exist, record the agreed purpose and current limits instead of inventing a subsystem.",
   "List each additional durable subsystem boundary with its authority paths and explain whether a separate Map page would reduce future repository reading.",
   "Inventory existing project commands without changing them, including the project's aggregate check and what it actually covers.",
   "Read the owner-confirmed project name from discern.toml and use it as the single authority every authored page and later setup step shares; if it is missing or inconsistent with the consent answer, stop and recover through discern setup verify instead of asking again.",
@@ -99,9 +99,9 @@ what_not_to_do = [
   "Do not infer documentation scope from repository size, folder count, or enthusiasm.",
   "Do not turn unanswered questions into confident prose.",
 ]
-completion_check = "The primary subsystem and every candidate durable boundary have evidence paths, existing commands are inventoried, and the one discovery batch is resolved or explicitly open."
+completion_check = "Implemented responsibilities and candidate boundaries have evidence paths, existing commands are inventoried, and product intent is confirmed or explicitly open. A project without implementation needs no invented subsystem."
 stop_conditions = [
-  "Stop when the repository and owner give contradictory product facts or the primary subsystem cannot yet be identified.",
+  "Stop when the repository and owner give contradictory product facts or the project purpose remains unknown after the discovery batch.",
 ]
 recovery = [
   "Present the conflicting evidence as one owner decision; record an unresolved technical claim as a concrete item in {{todo_path}} rather than guessing.",
@@ -303,7 +303,7 @@ Instructions are a small operational surface. Put durable subsystem boundaries a
 
 ```toml
 phase = "Map scope design"
-stable_target = "The final Map has a proportional evidence-backed page plan with one substantive primary-subsystem floor and no speculative region or ledger sprawl."
+stable_target = "The final Map has a small, evidence-backed page plan: a useful root, real responsibility boundaries, and no speculative pages or open work."
 intent = "Select only durable subsystem pages that reduce future reading, retain evidence for each, and prepare the final synthesis without authoring it before smoke."
 files_to_read = [
   "the Step 1 subsystem evidence inventory",
@@ -312,7 +312,7 @@ files_to_read = [
 ]
 must_do = [
   "Select a substantive primary-subsystem README in a folder named for its responsibility. Start here, Boundary, and Important constraint are useful headings, not mandatory content quotas. If no implementation exists yet, explain the agreed purpose and current limits in the root instead of inventing a subsystem.",
-  "Keep a substantive root overview, orientation, real subsystem folders, development guidance, and the ADR home. Numbered folder prefixes are optional reading order; they carry no product meaning.",
+  "Keep a substantive root overview, orientation, real subsystem folders, development practices, and the ADR home. Numbered folder prefixes are optional reading order; they carry no product meaning.",
   "Combine short orientation or development topics into their region README. Keep separate concepts, glossary, system overview, principles, getting-started, testing, and conventions pages when they serve distinct reader needs. Link existing project documentation instead of copying it.",
   "Select an additional page only for a genuinely distinct durable boundary when that page will reduce future repository reading; retain authority paths for every selected page.",
   "Identify only concrete unresolved decisions or defects for {{todo_path}}, each with evidence and consequence; select none when nothing remains open.",
@@ -329,7 +329,7 @@ what_not_to_do = [
   "Do not add generic TODOs such as improve tests, add documentation, or revisit architecture.",
   "Do not author final orientation yet; Step 7 must establish the configured smoke behavior first.",
 ]
-completion_check = "The page plan includes one substantive primary subsystem and only evidence-backed additional boundaries; every proposed TODO is concrete, evidenced, and unresolved."
+completion_check = "The page plan includes a useful root and, where implementation exists, a substantive primary subsystem. Additional pages have evidence; every proposed TODO is concrete and unresolved."
 stop_conditions = [
   "Stop when a proposed page has no durable boundary or a proposed TODO has no concrete unresolved consequence.",
 ]
@@ -453,6 +453,7 @@ files_to_read = [
 must_do = [
   "Author final orientation from the subsystem evidence, including how the Map is used and where a new agent starts. Make the root route to project instructions, reusable procedures, checks, decisions, and the work ledger without copying their contents.",
   "Connect each subsystem to the relevant tests, review questions, approved decisions, and recovery procedures. Preserve context about data handling, recovery, compatibility, and release dependencies where it affects real work; do not create a page or checklist for every possible concern.",
+  "Complete, combine, or remove every seeded draft; keep the reusable ADR template and complete the adoption record’s Context, Decision, and Consequences from this project’s setup choices, retaining its provenance sentence. Leave no skeleton notices or TODO asking a later session to finish the chosen starter map. Review each retained page as a new reader before handing it over.",
   "Complete the root overview and the selected subsystem pages. Explain real boundaries and constraints; do not manufacture a surprising invariant. Link every retained page from its region README and make each region reachable from the root.",
   "Reconcile the development pages and the adoption ADR with the supported commands, Gate, worktree readiness, and smoke behavior proved in Step 7.",
   "After all documentation edits, target every architecture, ownership, test-behavior, and command claim and recheck it against current code/config; link the authority where useful.",
@@ -464,12 +465,11 @@ authority_boundaries = [
 ]
 owner_moments = ["lasting-project-context", "documentation-claim-gap"]
 what_not_to_do = [
-  "Complete, combine, or remove every seeded draft; keep the reusable ADR template and complete the adoption record’s Context, Decision, and Consequences from this project’s setup choices, retaining its provenance sentence. Leave no skeleton notices or TODO asking a later session to finish the chosen starter map. Review each retained page as a new reader before handing it over.",
   "Do not preserve pre-smoke claims, skeleton notices, historical setup narration, or mechanically derivable inventories as independent prose.",
   "Do not claim an unverified architecture, ownership, test behavior, or command contract.",
   "Do not add a page or TODO merely to make the setup look comprehensive.",
 ]
-completion_check = "Every selected current map page has an explanation and is reachable from the root; each region has a README, and an authored conventional gotchas page is wired through [project].gotchas_doc."
+completion_check = "Every selected current map page has an explanation and is reachable from the root; each region has a README. If a gotchas page is retained, [project].gotchas_doc points to it."
 stop_conditions = [
   "Stop when a claim remains unverifiable, refresh changes an unexpected authored source, or prepare reports a diagnostic.",
 ]
@@ -539,7 +539,7 @@ Do not paraphrase this list to the user as completed work; it is work to do now,
 - Consent and advisory provenance are accounted for; the bounded default health checks pass.
 - Existing project commands retain their meaning and bytes; gate jobs and applicability use supported commands and report accurate assurance.
 - No redundant manual worktree probe was created; the configured smoke path is green and every readiness category is settled or concretely deferred.
-- Final orientation was synthesized after smoke from a bounded subsystem plan, including one substantive primary-subsystem page.
+- Final orientation was synthesized after smoke from a small evidence-backed plan, with a useful root and explanations of the implemented responsibilities.
 - Every architecture, ownership, test-behavior, instruction, and command claim was rechecked against current code/config after final edits.
 - {{todo_path}} contains only concrete unresolved decisions or defects, with evidence and consequence.
 - All authored setup work is committed before `discern setup done`.

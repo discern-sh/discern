@@ -58,7 +58,7 @@ Writing “review it the way we did last time” would send the next session bac
 
 ## The map: what the agents understand
 
-The **map** is the maintained project guide. For the saved-lists feature, it can explain where lists are stored, which parts of the app use them, and why offline reading matters. It links to the code that owns the details rather than copying information the code already expresses.
+The **map** is the maintained project guide. For the saved-lists feature, it can explain where lists are stored, which parts of the app use them, and why offline reading matters. It can explain how the code works when that helps a reader understand a contract or relationship, with links to the supporting code and tests. It avoids repeating an inventory of every file or method.
 
 You can read it too. Ask:
 
@@ -66,7 +66,7 @@ You can read it too. Ask:
 
 That gives you something to correct before a misunderstanding appears in another implementation. Agents are expected to keep the map current as they change the project. [Maintain the project map](../10-guides/maintain-project-map.md) shows how to review an explanation and where new material belongs.
 
-The checks cover its mechanics: links, heading references, command examples, and metadata. File-linked freshness information can also identify pages whose sources changed. Those checks help locate work to review; a page can pass them and still contain an incorrect explanation. Reading the code and judging the explanation remain part of the agent's work.
+The checks cover its mechanics: links, heading references, command examples, and optional page details such as titles and search names. File-linked freshness information can also identify pages whose sources changed. Those checks help locate work to review; a page can pass them and still contain an incorrect explanation. Reading the code and judging the explanation remain part of the agent's work.
 
 ## Keep the reason for a significant decision
 

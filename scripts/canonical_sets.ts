@@ -2393,7 +2393,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         absent:
           "the registry is the Glossary, and its generated page is the definition surface",
       },
-      featureCanon: { nodeId: "glossary-canon" },
+      featureCanon: {
+        absent:
+          "the glossary registry and vocabulary guards belong to discern's own repository, not installed projects",
+      },
     },
     members: async () =>
       (await import("./glossary_registry.ts")).GLOSSARY.map(
@@ -3467,23 +3470,23 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .map((entry) => `${entry.register}/${entry.proposal}`),
   },
   {
-    id: "seeded-gotchas-traps",
-    title: "Seeded Gate traps",
+    id: "repository-gotchas-traps",
+    title: "Repository Gate traps",
     what:
-      "The stack-independent gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the engine's live failure evidence.",
+      "discern's own failure playbook maps observed symptoms to recovery. Its matchers must keep selecting the engine's live failure evidence; projects author their own playbook during setup.",
     source: {
       kind: "file",
-      path: "templates/setup/skeleton/map/80-development/done-gate-gotchas.md",
+      path: "project/map/80-development/done-gate-gotchas.md",
       mustContain: "## Stack-independent traps",
     },
     guards: [
-      "tests/gotchas_parity_test.ts",
       "tests/gotcha_matchers_drift_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent: "the seeded Gate-gotchas page owns this documentation content",
+        absent:
+          "the repository Gate-gotchas page owns this documentation content",
       },
       featureCanon: { nodeId: "gotchas-pointer" },
     },

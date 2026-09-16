@@ -723,8 +723,8 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["map"],
     example: undefined,
     template: (): string =>
-      "Ask your agent to update the affected map explanation from the code and " +
-      "tests. The map maintenance guide explains how to keep it useful.",
+      "Ask your coding agent to update the affected page of the project guide from the code and " +
+      "tests. The project guide connects each explanation to its evidence.",
   }),
 
   defineTip({
@@ -927,15 +927,13 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "feature:docs-integrity":
     "A failed map validation names the page and repair.",
   "feature:map-freshness":
-    "The gate enforces this maintainer rule and names stale map pages.",
+    "Page-specific source history points to explanations worth reviewing; it cannot judge their truth.",
   "feature:publish-predicate":
     "The map documentation owns publication boundaries and their maintainer action.",
   "feature:adr-discipline":
     "The `discern-write-adr` skill teaches decision-record authoring.",
   "feature:cli-help":
     "Each command displays its own built-in help, making a rotating lesson redundant.",
-  "feature:glossary-canon":
-    "The glossary and generated references own canonical vocabulary.",
   "feature:hints": "Each hint appears with the action that makes it relevant.",
   "feature:release-awareness":
     "The persistent root update action and clone-local reminder explain this handoff; it must not enter rotating tip history.",

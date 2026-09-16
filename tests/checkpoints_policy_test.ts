@@ -442,7 +442,10 @@ const SEEDS: Readonly<Record<string, BuiltInCheckpointSeed>> = {
 
 type CompleteTriggerSeed =
   & Required<
-    Omit<BuiltInCheckpointSeed, "selectorFrom" | "scope" | "paths">
+    Omit<
+      BuiltInCheckpointSeed,
+      "selectorFrom" | "mapReview" | "scope" | "paths"
+    >
   >
   & { paths: readonly string[]; scope?: never };
 

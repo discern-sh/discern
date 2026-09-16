@@ -122,6 +122,7 @@ import {
 import {
   ageSince,
   buildMapOverview,
+  mapPageFreshness,
   type MapRegion,
 } from "../lib/map_overview.ts";
 import { SYSTEM_CLOCK } from "../shared/clock.ts";
@@ -1472,12 +1473,25 @@ function printMapOverview(
     } else {
       const changes = region.code_changes_since;
       details.push(
-        `pages last changed ${
-          ageSince(region.pages_changed_at, SYSTEM_CLOCK.wallNow())
-        }; linked code changed ${changes} time${
+        `linked code changed ${changes} time${
           changes === 1 ? "" : "s"
-        } since`,
+        } since the pages that link it; oldest measured page changed ${
+          ageSince(region.pages_changed_at, SYSTEM_CLOCK.wallNow())
+        }`,
       );
+    }
+    for (const page of region.pages) {
+      if ((page.code_changes_since ?? 0) > 0) {
+        details.push(
+          `Review ${page.target}: ${page.code_changes_since} later source commits`,
+        );
+      }
+    }
+    const unknown = region.pages.filter((page) =>
+      page.code_changes_since === undefined
+    ).length;
+    if (unknown > 0 && region.code_changes_since !== undefined) {
+      details.push(`${unknown} pages have unknown freshness`);
     }
     const safeDetails = terminalMultiline(details.join("\n"));
     const body = terminal.stdoutIsTerminal
@@ -1934,6 +1948,9 @@ async function treeResult(
         doc: {
           ...toRecord(res.entry),
           target: canonicalDocTarget(res.entry),
+          ...(desc.verb === "map"
+            ? { freshness: await mapPageFreshness(tree, res.entry) }
+            : {}),
           content,
           ...(res.entry.citedAdrs.length > 0
             ? { cited_adrs: res.entry.citedAdrs }

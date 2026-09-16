@@ -1,17 +1,6 @@
-/**
- * The seeded-matcher drift guard (ADR 0189): the trap matchers seeded into the
- * shipped gotchas template and this repository's live page must keep matching
- * the engine's REAL failure evidence. The evidence corpus is built from the
- * engine's own sources — `jobFailureMessage` for the timeout and exit-127
- * strings, `FAILED_STAGES` for the stage vocabulary — never from copies, so
- * rewording a failure message (or renaming a stage) without moving its matcher
- * fails here, in the gate, before the matcher can silently stop firing.
- *
- * The guard is reachability, not a hand-kept mapping: every seeded matcher
- * must be the trap selected for at least one corpus failure. That catches a
- * reworded message (its matcher selects nothing) AND a shadowing reorder (an
- * earlier matcher steals every failure that used to reach a later one).
- */
+/** The repository's gotcha matchers must select real engine failure evidence.
+ * Each annotated trap needs a reachable case, so changes to diagnostics or a
+ * shadowing matcher cannot quietly disable the project's recovery pointers. */
 
 import { join } from "@std/path";
 import { assert, assertEquals } from "@std/assert";
@@ -23,23 +12,14 @@ import {
 import { jobFailureMessage } from "../src/engine/gate/plan.ts";
 import type { JobResult } from "../src/engine/jobs/types.ts";
 import { FAILED_STAGES } from "../src/shared/result.ts";
-import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 const DOCS = {
-  template: join(
-    REPO_ROOT,
-    "templates",
-    "setup",
-    "skeleton",
-    "map",
-    "80-development",
-    "done-gate-gotchas.md",
-  ),
   live: join(REPO_AUTHORED_PATHS.map, "80-development", "done-gate-gotchas.md"),
 } as const;
 
-/** The seeding floor: the stack-independent traps annotated at minimum. */
-const SEEDED_MATCHER_MINIMUM = 4;
+/** The repository's minimum annotated failure coverage. */
+const PROJECT_MATCHER_MINIMUM = 4;
 
 /** A real failed JobResult, as the runner would settle it. */
 function failedJob(overrides: Partial<JobResult>): JobResult {
@@ -74,17 +54,17 @@ function realFailureCorpus(): GateFailureEvidence[] {
 }
 
 for (const [name, path] of Object.entries(DOCS)) {
-  Deno.test(`the ${name} gotchas doc's seeded matchers all parse`, async () => {
+  Deno.test(`the ${name} gotchas doc's project matchers all parse`, async () => {
     const parsed = parseGotchasDoc(await Deno.readTextFile(path));
     assertEquals(
       parsed.problems,
       [],
-      `seeded matchers must parse cleanly in ${path}`,
+      `project matchers must parse cleanly in ${path}`,
     );
-    const seeded = parsed.traps.filter((t) => t.matcher !== undefined);
+    const annotated = parsed.traps.filter((t) => t.matcher !== undefined);
     assert(
-      seeded.length >= SEEDED_MATCHER_MINIMUM,
-      `expected at least ${SEEDED_MATCHER_MINIMUM} seeded matchers in ${path}, found ${seeded.length}`,
+      annotated.length >= PROJECT_MATCHER_MINIMUM,
+      `expected at least ${PROJECT_MATCHER_MINIMUM} project matchers in ${path}, found ${annotated.length}`,
     );
   });
 
@@ -98,7 +78,7 @@ for (const [name, path] of Object.entries(DOCS)) {
     assertEquals(
       unreached,
       [],
-      `no real engine failure selects these seeded matchers in ${path} — ` +
+      `no real engine failure selects these project matchers in ${path} — ` +
         "an engine failure message or stage was likely reworded without " +
         "moving its matcher (or an earlier matcher now shadows it)",
     );

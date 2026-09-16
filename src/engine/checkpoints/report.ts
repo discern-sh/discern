@@ -38,7 +38,10 @@ import type {
   CheckpointObligationState,
   TriggerVeto,
 } from "../../shared/checkpoints.ts";
-import { RELATED_CHECKPOINT_KIND_LABELS } from "../../shared/checkpoints.ts";
+import {
+  RELATED_CHECKPOINT_KIND_LABELS,
+  RELATED_CHECKPOINT_KIND_VERBS,
+} from "../../shared/checkpoints.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { checkpointDropAccounts } from "../../shared/checkpoint_drops.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
@@ -514,26 +517,15 @@ function matchedLine(paths: readonly string[] | undefined): string | undefined {
   return `Changed: ${shown}${more}.`;
 }
 
-/** Total human wording for every typed related-evidence kind. Dynamic paths
- * cross `terminalMultiline` at the rendering boundary below. */
-const RELATED_WORDING: Readonly<
-  Record<
-    RelatedCheckpointEvidenceData["kind"],
-    (relation: RelatedCheckpointEvidenceData) => string
-  >
-> = {
-  similar_existing: (relation) =>
-    `${
-      RELATED_CHECKPOINT_KIND_LABELS[relation.kind]
-    }: ${relation.path} resembles ${relation.for_path}.`,
-};
-
-/** Render typed related evidence beside, but distinct from, changed paths. */
+/** Render typed related evidence beside changed paths. Dynamic paths cross
+ * terminalMultiline at the rendering boundary below. */
 function relatedLines(
   related: readonly RelatedCheckpointEvidenceData[] | undefined,
 ): string[] {
   return (related ?? []).map((relation) =>
-    RELATED_WORDING[relation.kind](relation)
+    `${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${relation.path} ${
+      RELATED_CHECKPOINT_KIND_VERBS[relation.kind]
+    } ${relation.for_path}.`
   );
 }
 

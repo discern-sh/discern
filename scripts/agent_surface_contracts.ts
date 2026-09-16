@@ -464,7 +464,7 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         target(
           "stable",
           "the durable lesson and its smallest project-owned home",
-          "Pick the **smallest surface that fully carries the lesson**",
+          "Pick the **smallest surface that owns each fact**",
         ),
         target(
           "path",
@@ -482,7 +482,7 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
       ],
       recovery: [
         evidence(
-          "check for an existing home first",
+          "Check for an existing authority first",
         ),
       ],
       relay: {
@@ -518,7 +518,9 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         act("## 3. Draft from the template"),
         verify("## Done when"),
       ],
-      stop_conditions: [evidence("If any fails, say so and stop")],
+      stop_conditions: [
+        evidence("A routine implementation detail usually needs no record."),
+      ],
       recovery: [
         evidence(
           "whoever lands second moves to the next free number",

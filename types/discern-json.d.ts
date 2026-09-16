@@ -3190,6 +3190,13 @@ export type DiscernMapResult = DiscernResultState & {
       title: string;
       description: string;
       page_count: number;
+      pages: Array<{
+        target: string;
+        path: string;
+        source_paths: Array<string>;
+        page_changed_at?: string;
+        code_changes_since?: number;
+      }>;
       pages_changed_at?: string;
       code_changes_since?: number;
     }>;
@@ -3216,6 +3223,13 @@ export type DiscernMapResult = DiscernResultState & {
         slug: string;
         path: string;
       }>;
+      freshness?: {
+        target: string;
+        path: string;
+        source_paths: Array<string>;
+        page_changed_at?: string;
+        code_changes_since?: number;
+      };
     };
     candidates?: Array<string>;
     suggestions?: Array<{
@@ -3424,6 +3438,13 @@ export type DiscernDocsResult = DiscernResultState & {
       title: string;
       description: string;
       page_count: number;
+      pages: Array<{
+        target: string;
+        path: string;
+        source_paths: Array<string>;
+        page_changed_at?: string;
+        code_changes_since?: number;
+      }>;
       pages_changed_at?: string;
       code_changes_since?: number;
     }>;
@@ -3450,6 +3471,13 @@ export type DiscernDocsResult = DiscernResultState & {
         slug: string;
         path: string;
       }>;
+      freshness?: {
+        target: string;
+        path: string;
+        source_paths: Array<string>;
+        page_changed_at?: string;
+        code_changes_since?: number;
+      };
     };
     candidates?: Array<string>;
     suggestions?: Array<{
@@ -4064,7 +4092,7 @@ export type DiscernDoneResult = DiscernResultState & {
         reference?: string;
         matched: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -4078,7 +4106,7 @@ export type DiscernDoneResult = DiscernResultState & {
         declared_at: string;
         matched?: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -4093,7 +4121,7 @@ export type DiscernDoneResult = DiscernResultState & {
         declared_at: string;
         matched?: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -4107,7 +4135,7 @@ export type DiscernDoneResult = DiscernResultState & {
         reference?: string;
         matched: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -4124,7 +4152,7 @@ export type DiscernDoneResult = DiscernResultState & {
           reference?: string;
           matched: Array<string>;
           related?: Array<{
-            kind: "similar_existing";
+            kind: "similar_existing" | "map_explanation";
             for_path: string;
             path: string;
           }>;
@@ -4967,7 +4995,7 @@ export type DiscernCheckpointsResult = DiscernResultState & {
         when_pending?: boolean;
         matched?: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -4997,7 +5025,7 @@ export type DiscernCheckpointsResult = DiscernResultState & {
         subject: string;
         matched: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -5024,7 +5052,7 @@ export type DiscernCheckpointsResult = DiscernResultState & {
         subject: string;
         matched: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -9053,7 +9081,7 @@ export type DiscernAcceptResult = DiscernResultState & {
         reference?: string;
         matched: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -9067,7 +9095,7 @@ export type DiscernAcceptResult = DiscernResultState & {
         declared_at: string;
         matched?: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -9082,7 +9110,7 @@ export type DiscernAcceptResult = DiscernResultState & {
         declared_at: string;
         matched?: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -9096,7 +9124,7 @@ export type DiscernAcceptResult = DiscernResultState & {
         reference?: string;
         matched: Array<string>;
         related?: Array<{
-          kind: "similar_existing";
+          kind: "similar_existing" | "map_explanation";
           for_path: string;
           path: string;
         }>;
@@ -9113,7 +9141,7 @@ export type DiscernAcceptResult = DiscernResultState & {
           reference?: string;
           matched: Array<string>;
           related?: Array<{
-            kind: "similar_existing";
+            kind: "similar_existing" | "map_explanation";
             for_path: string;
             path: string;
           }>;

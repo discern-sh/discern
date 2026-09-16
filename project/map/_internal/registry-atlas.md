@@ -89,8 +89,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 40      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 53      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 145     | —                | —                           |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 53      | —                | —                           |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 144     | —                | —                           |
 | [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                    | `scripts/feature_registry.ts#HUMAN_BENEFIT_CANON`                                 | 46      | —                | —                           |
 | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                    | `scripts/feature_registry.ts#AGENT_BENEFIT_CANON`                                 | 24      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
@@ -121,7 +121,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 12      | —                | —                           |
 | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                              | `scripts/brand/vale.ts#voiceEnforcementCoverage`                                  | 23      | —                | —                           |
-| [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/map/80-development/done-gate-gotchas.md` (authored)     | —       | —                | node `gotchas-pointer`      |
+| [`repository-gotchas-traps`](#repository-gotchas-traps--repository-gate-traps)                                        | `project/map/80-development/done-gate-gotchas.md` (authored)                      | —       | —                | node `gotchas-pointer`      |
 | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)     | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `scripts/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                       | 3       | —                | node `licenses`             |
@@ -149,7 +149,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 3       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 136     | —                | node `canonical-sets`       |
 
-136 sets · 194 guard tests · 74 committed artifacts.
+136 sets · 193 guard tests · 74 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -271,8 +271,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/git_footprint_inventory_test.ts`            | [`git-footprint`](#git-footprint--clone-local-git-footprint)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/glossary_codegen_test.ts`                   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/glossary_enrolment_test.ts`                 | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `tests/gotcha_matchers_drift_test.ts`              | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `tests/gotchas_parity_test.ts`                     | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `tests/gotcha_matchers_drift_test.ts`              | [`repository-gotchas-traps`](#repository-gotchas-traps--repository-gate-traps)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/hint_audience_guard_test.ts`                | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/hint_closed_set_guard_test.ts`              | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/hint_command_guard_test.ts`                 | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -3609,14 +3608,14 @@ The term registry behind the glossary page, its search aliases, and the retired-
 - Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`, `tests/feature_canon_plain_register_test.ts`, `tests/canon_editor_parity_test.ts`
 - Artifacts: `project/map/00-orientation/glossary.md`, `project/manual/30-reference/glossary.md`
 - Glossary: not enrolled — the registry is the Glossary, and its generated page is the definition surface
-- Feature canon: described by the `glossary-canon` node
+- Feature canon: not enrolled — the glossary registry and vocabulary guards belong to discern's own repository, not installed projects
 
 ## `feature-canon` — Feature canon
 
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 145
+- Members: 144
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -3712,7 +3711,6 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `adr-discipline`
   - `bundled-docs`
   - `cli-help`
-  - `glossary-canon`
   - `insight`
   - `status`
   - `bounded-status-projection`
@@ -5067,14 +5065,14 @@ Every proposed mechanical voice check has one generated Vale rule, Map projectio
 - Glossary: not enrolled — the internal enforcement record owns this repository-maintenance vocabulary
 - Feature canon: not enrolled — the coverage model records editorial enforcement rather than product capability
 
-## `seeded-gotchas-traps` — Seeded Gate traps
+## `repository-gotchas-traps` — Repository Gate traps
 
-The stack-independent gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the engine's live failure evidence.
+discern's own failure playbook maps observed symptoms to recovery. Its matchers must keep selecting the engine's live failure evidence; projects author their own playbook during setup.
 
-- Source: `templates/setup/skeleton/map/80-development/done-gate-gotchas.md` (authored table)
+- Source: `project/map/80-development/done-gate-gotchas.md` (authored table)
 - Members: — (the authored source keeps member names outside codegen)
-- Guards: `tests/gotchas_parity_test.ts`, `tests/gotcha_matchers_drift_test.ts`
-- Glossary: not enrolled — the seeded Gate-gotchas page owns this documentation content
+- Guards: `tests/gotcha_matchers_drift_test.ts`
+- Glossary: not enrolled — the repository Gate-gotchas page owns this documentation content
 - Feature canon: described by the `gotchas-pointer` node
 
 ## `contributor-agreement-gist-files` — Contributor License Agreement Gist files
@@ -5893,7 +5891,7 @@ This meta-registry: the closed set of closed sets.
   - `voice-banned-moves`
   - `brand-vale-styles`
   - `voice-enforcement-coverage`
-  - `seeded-gotchas-traps`
+  - `repository-gotchas-traps`
   - `contributor-agreement-gist-files`
   - `first-party-legal-documents`
   - `third-party-artifacts`

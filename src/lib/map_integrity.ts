@@ -1,7 +1,7 @@
 /**
  * Read-only integrity of current map pages and instruction sources.
  * Current supporting pages, including `_internal`, keep the same currency
- * contract. Historical ADR bodies and private drafts are outside this account;
+ * contract. ADR bodies and private drafts are outside this account;
  * the maintained ADR index has its own refresh guard. Publication policy belongs
  * to the publishing corpus, not a project's local links.
  */

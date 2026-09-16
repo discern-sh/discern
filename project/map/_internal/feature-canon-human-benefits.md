@@ -6,7 +6,7 @@ _discern's internal commercial account of what the product gives people. It is d
 
 Start from a concern in the [Readiness Canon](brand/readiness-canon.md) when the reader recognizes a release question before they know the product. Its feature routes introduce the relevant human value here.
 
-8 clusters · 46 benefits · 145 of 145 feature nodes cited · 20 of 20 public claims carried.
+8 clusters · 46 benefits · 144 of 144 feature nodes cited · 20 of 20 public claims carried.
 
 ## How to use this canon
 
@@ -223,9 +223,9 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ### Catch broken project documentation before it lands
 
-- **Value:** Broken links, stale generated pages, invalid command examples, malformed metadata, and vocabulary drift can fail alongside code. Agents and people spend less time following instructions whose mechanics no longer work.
-- **Mechanism:** The Map preflight validates links, anchors, commands, metadata, audience boundaries, and Skill references; generated-artifact declarations and fail-fast preconditions catch drift; the glossary and publication registry keep names and visibility consistent.
-- **Product basis:** The docs integrity preflight · Generated artifact declarations · Fail-fast preconditions · The vocabulary canon · Publication control.
+- **Value:** Broken links, stale generated pages, invalid command examples, and malformed optional metadata can fail alongside code. Agents and people spend less time following instructions whose mechanics no longer work.
+- **Mechanism:** The Map preflight validates links, anchors, commands, optional metadata, and Skill references. Generated-artifact declarations and fail-fast preconditions catch drift in configured outputs. Agents review whether the explanations remain true.
+- **Product basis:** The docs integrity preflight · Generated artifact declarations · Fail-fast preconditions · Publication control.
 
 ### Improve the way the agents work from real evidence
 
@@ -249,7 +249,7 @@ More of the backlog can move at once. The person spends less time running the wo
 ### See what agents understand about the project
 
 - **Value:** The human can inspect a readable account of the architecture, conventions, and subsystem knowledge agents are using. Project understanding no longer has to remain hidden inside session history.
-- **Mechanism:** Agents maintain the Map under the Gate, file-linked freshness records which sources a page covers and when they changed, and the Document a Subsystem Skill refreshes a section from the current code.
+- **Mechanism:** Agents maintain the Map using compiled instructions, setup examples, and checkpoints. Page-specific source evidence identifies explanations to review; the owner can inspect the account agents work from.
 - **Product basis:** The map · File-linked freshness.
 
 ### Preserve why a decision was made

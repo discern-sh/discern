@@ -35,7 +35,7 @@ Requirements and observed behavior can differ. â€œSaved lists must work offlineâ
 
 ## Grow a useful hierarchy
 
-Setup provides a complete starting map, sized to what the project actually contains. The root explains the project and routes readers to orientation, real subsystem responsibilities, development guidance, and decisions. Short topics can share a region README. Numbered folder names are an optional reading order.
+Setup provides a complete starting map, sized to what the project actually contains. The root explains the project and routes readers to orientation, real subsystem responsibilities, development practices, and decisions. Short topics can share a region README. Numbered folder names are an optional reading order.
 
 When a feature grows, the agent first updates the nearest relevant section. A distinct reader task can earn a child page. A new responsibility with a lasting boundary can earn its own region and README. This keeps ordinary feature additions near the systems they affect.
 
@@ -56,6 +56,12 @@ A map needs ordinary Markdown; frontmatter is optional. A project can keep curre
 Decision records under `_adr` preserve history and can be opened by their target. `_private` stays outside default discovery; an explicit target can retrieve it. Neither name provides access control over the repository. Other underscore folder names do not make a page historical or exempt from current-page checks.
 
 Publication is a separate choice. Filtered exports still respect publication metadata and their selected scope. discern's own manual and public map directory have their own publication rules; your local map does not inherit the manual's frontmatter requirements.
+
+## Review pages when their sources change
+
+The map links each explanation to files that support it. When those files change, the map browser can point your coding agent to pages worth reviewing. It compares each page with its own saved history. Editing another page does not clear that signal. Without file links or usable history, freshness is unknown.
+
+The map checkpoints ask the coding agent to review new explanations, substantial rewrites, and pages linked to changed sources. A wider change can prompt review even without those links. These checks guide attention; they cannot judge whether a page is true. If an explanation still matches the project, it needs no edit.
 
 ## Review the result
 

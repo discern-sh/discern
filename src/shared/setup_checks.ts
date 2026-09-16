@@ -170,7 +170,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     step: 9,
     name: "primary_subsystem_context",
     describe:
-      "Every selected current map page has an explanation and is reachable from the root; each region has a README, and an authored conventional gotchas page is wired through [project].gotchas_doc.",
+      "Every selected current map page has an explanation and is reachable from the root; each region has a README. If a gotchas page is retained, [project].gotchas_doc points to it.",
     async evaluate({ root, config }): Promise<boolean> {
       if ((await setupMapIssues(root, config.map.dir)).length > 0) {
         return false;

@@ -2,20 +2,29 @@ import { mapPageKind } from "../lib/map_policy.ts";
 /** Structural completion of the selected map; factual accuracy remains a review. */
 import { dirname, join, resolve } from "@std/path";
 import { discoverDocs } from "../lib/docs.ts";
-import { extractDocLinks } from "../lib/docs_integrity.ts";
+import { extractDocLinks, fencedBlocks } from "../lib/docs_integrity.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 
 /** A heading or navigation list alone is not an explanation. */
 export function hasMapExplanation(markdown: string): boolean {
   const { body } = parseFrontmatter(markdown);
   const visible = body.replaceAll(/<!--[\s\S]*?-->/g, "");
-  return visible.split("\n").some((line) => {
+  const code = new Set<number>();
+  for (const block of fencedBlocks(visible)) {
+    for (
+      let line = block.startLine - 2;
+      line < block.startLine + block.lines.length;
+      line++
+    ) code.add(line);
+  }
+  return visible.split("\n").some((line, index) => {
+    if (code.has(index)) return false;
     const text = line.trim();
     return text.length > 0 && !/^(?:#|[-*|>`]|\d+\.|_\(|\[)/.test(text);
   });
 }
 
-/** Check current authored pages, without treating historical records as live prose. */
+/** Check current authored pages, without treating ADR bodies as live prose. */
 export async function setupMapIssues(
   root: string,
   mapDir: string,
@@ -47,7 +56,8 @@ export async function setupMapIssues(
       let decoded: string;
       try {
         decoded = decodeURIComponent(local);
-      } catch {
+      } catch (error) {
+        if (!(error instanceof URIError)) throw error;
         return [];
       }
       const absolute = resolve(dirname(path), decoded);

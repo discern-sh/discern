@@ -1182,9 +1182,27 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
             ? ""
             : ` ${
               number(region.code_changes_since)
-            } code changes since those pages changed.`
+            } distinct source commits after the pages that link them.`
         }`
       ),
+      ...records(data.regions).flatMap((region) =>
+        records(region.pages).flatMap((page) =>
+          (number(page.code_changes_since) ?? 0) > 0
+            ? [
+              `Review ${code(page.target)}: ${
+                number(page.code_changes_since)
+              } later commits to linked sources.`,
+            ]
+            : []
+        )
+      ),
+      ...(object(doc?.freshness) === undefined ? [] : [
+        number(object(doc?.freshness)?.code_changes_since) === undefined
+          ? "Page freshness is unknown: no specific source links or usable Git history."
+          : `${
+            number(object(doc?.freshness)?.code_changes_since)
+          } commits changed linked sources after this page's last commit. Review decides whether its explanation is still true.`,
+      ]),
       ...suggestions.map((entry) => {
         const target = text(entry.target) ?? text(entry.path) ?? "unknown";
         const suggestionTitle = text(entry.title);

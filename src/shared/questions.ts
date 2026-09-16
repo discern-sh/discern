@@ -190,20 +190,18 @@ export const QUESTIONS: readonly Question[] = [
       "rung that still catches its moment.",
   },
   {
-    // Diff-introduced: a page goes stale only when the code it describes
-    // changes without it — the diff marks the moment; time alone never
-    // creates the violation. The improvement review still audits the accumulated
-    // backlog through the improvement membership.
+    // Source changes select a review; editing a page is not proof of currency.
     id: "map.current",
     violations: "diff-introduced",
     question:
-      "Take code that changed recently. Does the documentation describing it " +
-      "still say how the code actually behaves now — present tense, no drift — " +
-      "or does a page describe a previous design? A stale doc is a bug.",
+      "Review the affected map pages against the changed sources. Are their explanations " +
+      "still true, including behavior, constraints, boundaries and links? Consider other affected " +
+      "knowledge when source links do not cover the change. An accurate page needs no edit.",
     teach:
       "Docs are only worth trusting if they track the code. When a change alters " +
       "documented behavior, check the affected pages against the code and tests. " +
-      "Update inaccurate explanations and their navigation; `discern map --list` shows the tree.",
+      "Update inaccurate explanations and their navigation. A map edit alone proves nothing; " +
+      "source links and Git history guide attention, while review establishes currency.",
   },
   {
     id: "map.adrs",

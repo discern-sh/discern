@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md); the outcome-first accounts are the [Human Benefit Canon](feature-canon-human-benefits.md) and [Agent Benefit Canon](feature-canon-agent-benefits.md)._
 
-10 main areas · 145 detailed entries · 11 statements of benefit · 81 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 144 detailed entries · 11 statements of benefit · 81 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -13,7 +13,7 @@ _Every feature and benefit appears here once, in plain language, at every level 
 - **Separate working copies** — Each simultaneous task has its own project copy, identity, network number, private settings, and supporting services, separate from the copy used by the person in charge.
 - **Instructions for coding agents** — Write the instructions once, and every coding agent (including one working on another computer) reads the same page.
 - **Reusable how-to guides** — A reusable method becomes one file available to every future session.
-- **The project guide** — The final check catches an out-of-date guide, and the guide gives the person in charge a reviewable account of what coding agents understand.
+- **The project guide** — The final check catches broken links and examples. Changes to linked files help coding agents find pages to review, and people can inspect what those coding agents understand.
 - **Helpful advice and the activity record** — Advice remains informational and does not change the result of the final quality check.
 - **Setting up, updating, and removing discern** — A project adopts discern through one tracked root file and can remove its wiring with one instruction while retaining authored work.
 - **Ways to use discern and consistent results** — People, coding agents, scripts, and tools can choose the form that suits their task without changing what discern decided.
@@ -137,19 +137,18 @@ _A reusable method becomes one file available to every future session._
 
 ## The project guide
 
-The project's written guide, kept at `[map].dir` and maintained by coding agents: they write it and keep it current under the final quality check, and people read it both as documentation and as a way to inspect what their coding agents understand.
+The project's written guide, kept at `[map].dir` and maintained by coding agents: they explain the project and review the guide as work changes it, and people read it both as documentation and as a way to inspect what their coding agents understand.
 
-_The final check catches an out-of-date guide, and the guide gives the person in charge a reviewable account of what coding agents understand._
+_The final check catches broken links and examples. Changes to linked files help coding agents find pages to review, and people can inspect what those coding agents understand._
 
 - **Reading and searching the guide** — `discern map` lists, searches, and displays the guide's pages in the typed-command window, including the alternative search names stored at the top of each page. `--export` writes the public pages, everything, a chosen selection, or the pages a named area of the project lists — in its listed order — into one file.
 - **Finding the right page** — A coding agent narrows in three steps: named regions, then a search, then the exact page. The compiled instructions list every top-level region by its exact destination, `search` accepts the ordinary words of the task at hand, and every result returns a short sample plus a destination that feeds straight back into the same tool. At most five pages come back, best match first, and search words are never written to the activity record. _As the guide grows, the saved instruction files never churn, and no reading space is spent on a page before it is needed._
-- **Checking that the guide still works** — Every `discern done` checks the guide's references before the work runs. It checks that links between pages and to their sections resolve, and that examples containing `discern` match the real list of instructions and choices (the project's own instructions included). It also checks that optional metadata at the top of a page has the expected shape and that mentions of how-to guides match the set now in force. _A renamed thing breaks the written instructions loudly, in the same change, instead of quietly a month later — and a withdrawn how-to guide cannot stay recommended by live text._
-- **Facts about freshness, tied to real files** — The guide's freshness ships as checkable facts — which project files each page covers, and when those files last moved — rather than as a verdict pretending to judge the writing.
-- **Control over what ships** — Writing `publish: false` at the top of a page keeps it off every published surface, and folders whose names begin with an underscore (`_internal`, `_private`) never ship. Decision records are a partly public exception, served by `discern docs --adr` and the site's history pages. _One rule answers what ships, everywhere it could ship._
+- **Checking that the guide still works** — Every `discern done` checks the guide's references before the work runs. It checks that links between pages and to their sections resolve, and that examples containing `discern` match the real list of instructions and choices (the project's own instructions included). It also checks that optional basic facts at the top of a page has the expected shape and that mentions of how-to guides match the set now in force. _A renamed thing breaks the written instructions loudly, in the same change, instead of quietly a month later — and a withdrawn how-to guide cannot stay recommended by live text._
+- **Facts about freshness, tied to real files** — Each page links to the files behind its account. Changes to those files point to pages that may need review. Editing a different page does not clear that signal. Without links or a saved history, discern cannot tell; reading the page decides whether it is still true.
+- **Control over what ships** — Public copies of the project guide omit folders whose names start with an underscore and pages marked private for publication. Coding agents can still find the current supporting pages locally. discern has its own rules for its handbook and website, where guide entries link to the source files. _The choice to publish a page is separate from finding it during project work._
 - **Decision records** — Records of significant design choices live under `_adr/`, numbered in one unbroken sequence, with a standard example and writing guide placed in every installation. `discern refresh` maintains the index in their `README`, the final check refuses an index that no longer matches the files, and references to the records take one removable form, hidden when an ordinary reader views the page. _The reasons behind the code outlive the sessions that decided them — findable from one self-maintaining index, without internal numbering leaking into published writing._
 - **discern's own handbook** — The program carries its own public documentation: `discern docs` browses it offline in any installation, using the same page display as the project guide, and copies supplied to customers carry only the public material. _Every installation can explain how discern works with no internet connection and no separate website._
 - **Typed-command help** — `discern help` shows the complete list of instructions, and `discern help <command>` shows one instruction's reference — the same information as `discern --help` and `discern <command> --help`. _Help always means how to type an instruction; the handbook has its own name, `docs`._
-- **One agreed vocabulary** — The glossary comes from a master list of terms: one meaning per term, every term usable as a search word, retired wordings kept out of current writing, and every member of a fixed list added the moment it exists. _Every page and every coding agent uses one name per idea._
 
 ## Helpful advice and the activity record
 

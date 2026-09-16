@@ -189,7 +189,7 @@ export const READINESS_ROUTES = {
   "map-freshness": {
     invitation: "Find the explanation that needs another look.",
     how:
-      "File-linked freshness shows which source files a Map page covers and when they changed, helping an agent find accounts of data behavior, support, or recovery that need review.",
+      "Each Map page links to its sources. Later source commits identify accounts of data behavior, support, or recovery to review. This evidence directs attention; it cannot judge whether an explanation is true.",
     contribution: "Advisory evidence",
     doc: "project/manual/20-understand/instructions-skills-and-map.md",
     humanBenefit: "inspect-agent-understanding",
