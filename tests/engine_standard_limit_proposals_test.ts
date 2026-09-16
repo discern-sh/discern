@@ -214,6 +214,38 @@ function proposalOf(stdout: string): ProposalResult {
   }).proposal;
 }
 
+Deno.test("Standards proposal batches reject invalid sets before repository access", async () => {
+  for (
+    const testCase of [
+      {
+        proposals: [],
+        message: "at least one",
+      },
+      {
+        proposals: [
+          { name: "sources", reason: "A technical source requirement." },
+          { name: "sources", reason: "A second technical requirement." },
+        ],
+        message: "appears more than once",
+      },
+      {
+        proposals: [{
+          name: "sources",
+          reason: "Owner approved this increase.",
+        }],
+        message: "technical justification",
+      },
+    ]
+  ) {
+    const result = await standardsProposeBatchResult("unused", {
+      proposals: testCase.proposals,
+    });
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "invalid_value");
+    assertStringIncludes(result.message ?? "", testCase.message);
+  }
+});
+
 Deno.test("one Standards proposal batch shares production, commits every limit once, and is idempotent", async () => {
   await withTempDir(async (dir) => {
     const worktree = await batchProposalWorktree(
@@ -231,6 +263,34 @@ Deno.test("one Standards proposal batch shares production, commits every limit o
         reason: "The feature requires one additional documentation file.",
       },
     ];
+
+    const trunkRefusal = await standardsProposeBatchResult(dir, {
+      proposals,
+      dryRun: true,
+    });
+    assertEquals(trunkRefusal.ok, false);
+    assertEquals(trunkRefusal.error, "precondition_failed");
+
+    const unknown = await standardsProposeBatchResult(worktree, {
+      proposals: [{
+        name: "unknown",
+        reason: "The feature requires one additional generated artifact.",
+      }],
+      dryRun: true,
+    });
+    assertEquals(unknown.ok, false);
+    assertEquals(unknown.error, "unknown_standard");
+
+    const preview = await standardsProposeBatchResult(worktree, {
+      proposals,
+      dryRun: true,
+    });
+    assert(preview.ok, JSON.stringify(preview));
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), sourceHead);
+    assertEquals(
+      await proposalInvocationCount(worktree, "proposal-batch-runs"),
+      0,
+    );
 
     const recorded = await standardsProposeBatchResult(worktree, {
       proposals,
@@ -282,8 +342,38 @@ Deno.test("one Standards proposal batch shares production, commits every limit o
       );
     }
 
+    const revisedProposals = proposals.map((proposal) =>
+      proposal.name === "sources"
+        ? {
+          ...proposal,
+          reason: "The feature's source boundary requires one additional file.",
+        }
+        : proposal
+    );
+    const replacementPreview = await standardsProposeBatchResult(worktree, {
+      proposals: revisedProposals,
+      dryRun: true,
+    });
+    assert(replacementPreview.ok, JSON.stringify(replacementPreview));
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), proposalHead);
+
+    const replaced = await standardsProposeBatchResult(worktree, {
+      proposals: revisedProposals,
+    });
+    assert(replaced.ok, JSON.stringify(replaced));
+    assertEquals(
+      (replaced.data as { proposal_batch?: { status: string } } | undefined)
+        ?.proposal_batch?.status,
+      "replaced",
+    );
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), proposalHead);
+    assertEquals(
+      await proposalInvocationCount(worktree, "proposal-batch-runs"),
+      1,
+    );
+
     const repeated = await standardsProposeBatchResult(worktree, {
-      proposals,
+      proposals: revisedProposals,
     });
     assert(repeated.ok, JSON.stringify(repeated));
     assertEquals(
@@ -303,7 +393,9 @@ Deno.test("one Standards proposal batch shares production, commits every limit o
     );
     await git(worktree, "commit", "-am", "Refine feature source");
     const descendant = await gitOut(worktree, "rev-parse", "HEAD");
-    const renewed = await standardsProposeBatchResult(worktree, { proposals });
+    const renewed = await standardsProposeBatchResult(worktree, {
+      proposals: revisedProposals,
+    });
     assert(renewed.ok, JSON.stringify(renewed));
     assertEquals(
       (renewed.data as { proposal_batch?: { status: string } } | undefined)
