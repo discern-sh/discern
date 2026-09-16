@@ -22,6 +22,8 @@ import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { readSubmission } from "../src/engine/worktree/submission.ts";
 import { readProposalStore } from "../src/engine/gate/standard_proposal_state.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { standardsProposeBatchResult } from "../src/engine/gate/standard_proposals.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import {
@@ -1248,4 +1250,44 @@ Deno.test("proposal state from a newer discern refuses replacement, and recovery
       },
     );
   });
+});
+
+Deno.test("both proposal entry points share one grounding and one trunk baseline", async () => {
+  // The scalar CLI form and the MCP batch keep their own reconciliation policy
+  // and their own result projection, but the preconditions they establish
+  // first — reasons, branch, HEAD, write authority, recovery, a clean tree,
+  // the named standards, the trunk baseline — belong to one implementation.
+  // A re-inlined prelude is the duplication this guard exists to prevent.
+  const files = await structuralGuardScope({
+    guard:
+      "tests/engine_standard_limit_proposals_test.ts#shared-proposal-ground",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "One module owns every standard-limit proposal entry point; the invariant is that no entry point re-implements another's preconditions.",
+      include: (path) => path === "src/engine/gate/standard_proposals.ts",
+    },
+  });
+  const module = files[0];
+  assert(module !== undefined, "the proposal module must enter the guard");
+  const source = await Deno.readTextFile(join(REPO_ROOT, module));
+  const entries = [
+    ...source.matchAll(/export async function (standardsPropose\w*)\(/gu),
+  ];
+  assertEquals(
+    entries.map((entry) => entry[1]),
+    ["standardsProposeBatchResult", "standardsProposeResult"],
+  );
+  for (const entry of entries) {
+    const from = entry.index ?? 0;
+    const next = source.indexOf("\nexport ", from + 1);
+    const body = source.slice(from, next === -1 ? undefined : next);
+    for (const shared of ["groundProposalRequest(", "proposalSubjects("]) {
+      assertStringIncludes(
+        body,
+        shared,
+        `${entry[1]} must reach its preconditions through ${shared}`,
+      );
+    }
+  }
 });
