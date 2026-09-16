@@ -86,7 +86,7 @@ function EvidenceGroup({ group, index }: {
 function TrustPage(): ReactElement {
   return (
     <div className="trust-page">
-      <MarketingLayout>
+      <MarketingLayout currentPath="/trust">
         <header className="trust-hero">
           <Kicker>Trust and evidence</Kicker>
           <h1>Confidence you can inspect.</h1>

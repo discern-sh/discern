@@ -65,7 +65,7 @@ export function renderLanding(): string {
 /** Homepage content composed through the shared marketing layout. */
 function HomePage(): ReactElement {
   return (
-    <MarketingLayout>
+    <MarketingLayout currentPath="/">
       <section className="homepage-artwork" aria-labelledby="homepage-title">
         <HarmonicBackdrop presence={1.8} />
         <div className="homepage-copy">

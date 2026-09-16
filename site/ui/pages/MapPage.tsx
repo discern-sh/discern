@@ -1,7 +1,7 @@
 /** A directory of the project's working map, linking each entry to its source. */
 import type { ReactElement } from "react";
 import { Card, Heading, Kicker, Paragraph } from "discern-design-system/react";
-import type { PublicMapSite } from "../../docs.tsx";
+import { PUBLIC_MAP_ROUTE, type PublicMapSite } from "../../docs.tsx";
 import { renderDocument } from "../Document.tsx";
 import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
 
@@ -10,7 +10,10 @@ export function MapPage(
   { map }: { readonly map: PublicMapSite },
 ): ReactElement {
   return (
-    <MarketingLayout mainClassName="map-overview">
+    <MarketingLayout
+      currentPath={PUBLIC_MAP_ROUTE}
+      mainClassName="map-overview"
+    >
       <header className="map-overview-intro">
         <Kicker>Inside the project</Kicker>
         <Heading level={1}>{map.landing.entry.title}</Heading>

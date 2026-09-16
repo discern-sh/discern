@@ -308,7 +308,10 @@ function ReleasesPage(
   { model }: { readonly model: ReleaseComparison },
 ): ReactElement {
   return (
-    <MarketingLayout mainClassName="releases-main">
+    <MarketingLayout
+      currentPath={RELEASE_ROUTES.html}
+      mainClassName="releases-main"
+    >
       <section
         className="releases-hero"
         aria-labelledby="result-heading"
@@ -385,7 +388,10 @@ export function renderReleaseErrorHtml(error: ReleaseInputError): string {
     description:
       "Read discern release notes, compare your version with published stable releases, and review the steps for a project upgrade.",
     children: (
-      <MarketingLayout mainClassName="releases-main">
+      <MarketingLayout
+        currentPath={RELEASE_ROUTES.html}
+        mainClassName="releases-main"
+      >
         <section
           className="releases-hero"
           data-release-status="invalid"

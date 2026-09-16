@@ -502,7 +502,7 @@ function NextActionsSection(): ReactElement {
 function AgentsPage(): ReactElement {
   return (
     <div className="agents-page">
-      <MarketingLayout>
+      <MarketingLayout currentPath="/agents">
         <AgentsHero />
         <RecognitionSection />
         <ErgonomicsSection />

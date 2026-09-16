@@ -2,11 +2,13 @@
 import type { ReactElement } from "react";
 import { SiteHeader as PackageSiteHeader } from "discern-design-system/react";
 import { DISCERN_MARK } from "../../brand.ts";
-import { SITE_NAVIGATION } from "../../navigation.ts";
+import { siteNavigation } from "../../navigation.ts";
 import { ThemeToggle } from "./ThemeToggle.tsx";
 
 /** Pages share destinations and controls rather than supplying navigation slots. */
-export function SiteHeader(): ReactElement {
+export function SiteHeader(
+  { currentPath }: { readonly currentPath: string },
+): ReactElement {
   return (
     <PackageSiteHeader
       brand="discern"
@@ -15,7 +17,7 @@ export function SiteHeader(): ReactElement {
       brandMarkTreatment="plain"
       variant="campaign"
       navLabel="Site"
-      navItems={SITE_NAVIGATION}
+      navItems={siteNavigation(currentPath)}
       actions={<ThemeToggle />}
     />
   );

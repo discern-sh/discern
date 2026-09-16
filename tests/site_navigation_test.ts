@@ -4,8 +4,20 @@ import { JSDOM } from "jsdom";
 import { loadDocsSite } from "../site/docs.tsx";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { SITE_ENDPOINTS } from "../site/routes.ts";
-import { SITE_FOOTER_GROUPS, SITE_NAVIGATION } from "../site/navigation.ts";
+import {
+  navigationCurrent,
+  SITE_FOOTER_GROUPS,
+  SITE_NAVIGATION,
+} from "../site/navigation.ts";
 import { handler } from "../site/serve.ts";
+
+/** The package renders the current state from aria-current alone. */
+const RENDERED_CURRENT = { page: "page", section: "true" } as const;
+
+/** Compare the chrome that every route shares, apart from where the reader is. */
+function withoutCurrentState(header: string): string {
+  return header.replaceAll(/ aria-current="[^"]*"/g, "");
+}
 
 Deno.test("public React pages share the complete header and footer", async () => {
   const site = await loadDocsSite();
@@ -46,11 +58,41 @@ Deno.test("public React pages share the complete header and footer", async () =>
         );
       }
     }
-    header ??= pageHeader.outerHTML;
+    assertEquals(
+      [...navigation?.querySelectorAll("a") ?? []].map((link) =>
+        link.getAttribute("aria-current")
+      ),
+      SITE_NAVIGATION.map((item) => {
+        const current = navigationCurrent(item.href, route);
+        return current === undefined ? null : RENDERED_CURRENT[current];
+      }),
+      `${route}: the header states which destination the reader is on`,
+    );
+    header ??= withoutCurrentState(pageHeader.outerHTML);
     footer ??= pageFooter.outerHTML;
-    assertEquals(pageHeader.outerHTML, header, route);
+    assertEquals(withoutCurrentState(pageHeader.outerHTML), header, route);
     assertEquals(pageFooter.outerHTML, footer, route);
     assert(pageHeader.querySelector("[data-theme-toggle]"));
     dom.window.close();
   }
+});
+
+Deno.test("navigation states the exact page apart from the branch containing it", () => {
+  assertEquals(navigationCurrent("/trust", "/trust"), "page");
+  assertEquals(
+    navigationCurrent("/docs", "/docs/reference/glossary"),
+    "section",
+  );
+  assertEquals(navigationCurrent("/docs", "/docs-studio"), undefined);
+  assertEquals(navigationCurrent("/releases", "/trust"), undefined);
+  assertEquals(
+    navigationCurrent("/", "/trust"),
+    undefined,
+    "a root destination never claims the branch below it",
+  );
+  assertEquals(
+    navigationCurrent("https://example.com/docs", "/docs/guide"),
+    undefined,
+    "an external destination is never a branch of this site",
+  );
 });
