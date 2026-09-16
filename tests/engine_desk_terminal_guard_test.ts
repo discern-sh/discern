@@ -147,6 +147,11 @@ function terminalMechanics(source: string): string[] {
   return findings;
 }
 
+/** Filesystem notifications cannot prove that a retained request was consumed. */
+function usesFilesystemNotifications(source: string): boolean {
+  return /\bwatchFs\b/u.test(source);
+}
+
 Deno.test("Desk terminal mechanics stay behind the package application boundary", async () => {
   const files = await structuralGuardScope({
     guard: "tests/engine_desk_terminal_guard_test.ts#package-application",
@@ -164,6 +169,28 @@ Deno.test("Desk terminal mechanics stay behind the package application boundary"
       file,
     );
   }
+});
+
+Deno.test("Desk resize readiness comes from retained requests, not filesystem notifications", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/engine_desk_terminal_guard_test.ts#resize-readiness",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "The shared Desk PTY harness alone owns the parent-to-child resize protocol.",
+      include: (path) => path === "tests/fixtures/desk_tty_harness.ts",
+    },
+  });
+  for (const file of files) {
+    assertEquals(
+      usesFilesystemNotifications(
+        await Deno.readTextFile(join(REPO_ROOT, file)),
+      ),
+      false,
+      file,
+    );
+  }
+  assertEquals(usesFilesystemNotifications("Deno.watchFs(root)"), true);
 });
 
 Deno.test("Desk boundary rejects renamed future input, painting and layout implementations", () => {
