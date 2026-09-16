@@ -13,7 +13,7 @@ aliases:
 
 ## Authorities and route families
 
-[`site/docs.tsx`](../../../site/docs.tsx) discovers each corpus, asks its shared model to decide what is published, and adapts the result to browser routes. It does not maintain page allowlists.
+[`site/docs.tsx`](../../../site/docs.tsx) discovers each corpus, asks its shared model to decide what is published, and adapts the result to browser routes; [`site/documents.tsx`](../../../site/documents.tsx) serves those routes. Neither maintains page allowlists.
 
 | Route family                         | Source and policy                                                            | Reader promise                                                                                |
 | ------------------------------------ | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
@@ -54,7 +54,9 @@ Only `/map` enters the HTML route inventory. Individual map entries, section ind
 
 Markdown renders at request time and caches for the process lifetime. The shared renderer strips frontmatter and source-only comments for HTML, preserves code examples, rewrites links only within the active corpus, and keeps raw bytes untouched. Manual workflow markers project ordinary Markdown into browser semantics; the source remains complete without Cascading Style Sheets (CSS) or JavaScript.
 
-The manual and decision pages consume the design system's Docs bundle, including its Table component. Page composition owns layout, drawer, search, copy, and contents behavior. The server emits heading permalink groups and scroll-contained table wrappers in the initial document; JavaScript only adds behavior, so enhancement cannot rearrange prose after first paint. Without JavaScript, disclosure controls stay hidden and the full navigation remains in flow.
+The manual and decision pages consume the design system's Docs bundle through its React adapters inside the [document layout](authoring.md#shared-layouts), including its Table component. Page composition owns the grid, drawer, search, copy, and contents behavior. The server emits heading permalink groups and scroll-contained table wrappers in the initial document; JavaScript only adds behavior, so enhancement cannot rearrange prose after first paint. Without JavaScript, disclosure controls stay hidden and the full navigation remains in flow.
+
+Two package boundaries stay explicit rather than recreated. The contents rail keeps the site's renderer in [`document_toc.tsx`](../../../site/document_toc.tsx) because the package Table of contents numbers every top-level item itself and cannot honor authored procedure numbers. The package Search palette is a hydrated component, so the layout renders its frame, field, and hint statically while the results region carries the page-owned hooks `docs.js` activates; that script also binds the package close control and owns the results anatomy it creates. Model-derived blocks — the cover's front doors and directory, a section landing's leaf list — carry no heading permalinks: the permalink anatomy belongs to the Markdown decorator, and nothing links to those headings.
 
 Rooted navigation shows destination names without repeating each page's editorial kind, and its link hit areas form one contiguous vertical run. The contents rail derives ordinary section numbers, but when an authored procedure numbers its headings, those numbers remain authoritative and unnumbered framing sections stay unnumbered. Tables preserve words and useful column widths, then scroll inside the prose measure when their exact content needs more room.
 

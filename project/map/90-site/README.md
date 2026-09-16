@@ -26,7 +26,8 @@ The main implementation boundaries are:
 
 | Piece                                                         | Role                                                                                 |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`site/docs.tsx`](../../../site/docs.tsx)                     | Adapts the manual and decision routes and supplies the map directory model.          |
+| [`site/docs.tsx`](../../../site/docs.tsx)                     | Discovers and validates the manual, decision, and map models and renders bodies.     |
+| [`site/documents.tsx`](../../../site/documents.tsx)           | Serves every document request: negotiation, raw editions, search index, React pages. |
 | [`site/search.ts`](../../../site/search.ts)                   | Builds the reader-visible search projection for the published manual.                |
 | [`site/seo.tsx`](../../../site/seo.tsx)                       | Canonical metadata, redirect validation, discovery files, and security policy.       |
 | [`site/marketing_pages.ts`](../../../site/marketing_pages.ts) | Enrolls every static public composition in build, serving, prose, and route guards.  |
@@ -73,6 +74,6 @@ Every response class, including assets, redirects, and errors, receives the same
 
 ## Current state
 
-The homepage, For Agents page, and trust gateway are static build output from typed sources. Manual and decision pages use the document reading shell. The map overview uses the shared React layout and links to repository sources; its entries have no individual website endpoints. The map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
+The homepage, For Agents page, and trust gateway are static build output from typed sources. Manual and decision pages render at request time through the document layout. The map overview uses the shared marketing layout and links to repository sources; its entries have no individual website endpoints. The map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
 
 `deno task site:build` owns ignored output under `site/pages/`, and Deno Deploy runs that build before starting the handler. Never hand-edit generated shells or emitted design-system assets.
