@@ -1,4 +1,4 @@
-/** The repository's gotcha matchers must select real engine failure evidence.
+/** Shipped and repository gotcha matchers must select real engine failure evidence.
  * Each annotated trap needs a reachable case, so changes to diagnostics or a
  * shadowing matcher cannot quietly disable the project's recovery pointers. */
 
@@ -15,6 +15,7 @@ import { FAILED_STAGES } from "../src/shared/result.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 const DOCS = {
+  seeded: "templates/setup/skeleton/map/development/done-gate-gotchas.md",
   live: join(REPO_AUTHORED_PATHS.map, "80-development", "done-gate-gotchas.md"),
 } as const;
 

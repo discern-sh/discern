@@ -42,7 +42,7 @@ Setup writes a project overview and groups context into orientation, actual subs
 
 A page can summarize implementation to explain a contract or relationship. It must help a reader make a correct change, with links to evidence, rather than catalog methods and files. Agreed requirements remain distinct from observed behavior and open questions.
 
-Setup completes every selected page and links it from the root or its region. Structural completion checks reject empty explanations and unreachable current pages. The agent checks factual claims against evidence; these checks do not prove semantic accuracy. There is no minimum principle count, and a project without implementation can begin with a substantive root.
+Setup completes every selected page and links it from the root or its region. Structural completion checks reject empty explanations and unreachable current pages. The agent checks factual claims against evidence; these checks do not prove semantic accuracy. Setup keeps dedicated design-principles and gate-gotchas pages. Principles state agreed project rules, their reasons, and the choices they guide; a project can commit to them before implementation exists. The gotchas page starts with stack-independent recovery advice and gains project-specific lessons as failures expose missing context.
 
 ## Review what later sessions will inherit
 

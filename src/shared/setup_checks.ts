@@ -97,7 +97,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     step: 4,
     name: "design_principles",
     describe:
-      "Any retained design-principles page explains the agreed constraints; no principle count is required.",
+      "The design-principles page states project-specific rules, why they matter, and how they guide implementation.",
     async evaluate({ root, config }): Promise<boolean> {
       const text = await readSetupOrientation(
         root,
@@ -170,7 +170,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     step: 9,
     name: "primary_subsystem_context",
     describe:
-      "Every selected current map page has an explanation and is reachable from the root; each region has a README. If a gotchas page is retained, [project].gotchas_doc points to it.",
+      "Every selected current map page has an explanation and is reachable from the root; each region has a README. The gate-gotchas page is linked and [project].gotchas_doc points to it.",
     async evaluate({ root, config }): Promise<boolean> {
       if ((await setupMapIssues(root, config.map.dir)).length > 0) {
         return false;

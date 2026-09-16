@@ -33,7 +33,7 @@ Deno.test("setup requires explanation and reachability for every selected curren
   });
 });
 
-Deno.test("a new project may finish with a substantive root and no invented subsystem", async () => {
+Deno.test("a root explanation does not require an invented subsystem", async () => {
   await withTempDir(async (root) => {
     await Deno.mkdir(join(root, "map"));
     await Deno.writeTextFile(

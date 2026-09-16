@@ -8,7 +8,7 @@ A project's map is an explanation for its agents and a way for its owner to insp
 
 ## Decision
 
-Setup completes the smallest useful structured map: a substantive overview, orientation, real subsystem boundaries, development guidance, and a completed adoption decision. Short topics can share a region README. Numbered folders remain optional. New features extend the appropriate region; a new durable responsibility can earn another region.
+Setup completes the smallest useful structured map: a substantive overview, orientation, real subsystem boundaries, development guidance, and a completed adoption decision. The design-principles page gives the owner and future agents agreed rules for current and future work. The gate-gotchas page starts with stack-independent recovery advice and grows with verified project lessons. These remain dedicated references; other short topics can share a region README. Numbered folders remain optional. New features extend the appropriate region; a new durable responsibility can earn another region.
 
 Pages explain behavior, constraints, boundaries, and relationships with links to evidence. They may summarize implementation when that helps a reader make a correct change. They do not transcribe methods or maintain independent copies of derivable inventories. Requirements, observed behavior, and open questions remain distinct.
 

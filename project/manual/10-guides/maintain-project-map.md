@@ -39,7 +39,7 @@ Setup provides a complete starting map, sized to what the project actually conta
 
 When a feature grows, the agent first updates the nearest relevant section. A distinct reader task can earn a child page. A new responsibility with a lasting boundary can earn its own region and README. This keeps ordinary feature additions near the systems they affect.
 
-For a project with no implementation yet, a substantive root can be enough. As real responsibilities emerge, the agent groups their explanations into regions. Empty folders and pages waiting for someone to finish them do not help the next task.
+A project with no implementation yet still benefits from an agreed direction. Setup writes a design-principles page that explains the rules you choose, why they matter, and how they guide future work. It also provides a gate-gotchas page with recovery advice that agents build on when they solve a new failure. As responsibilities emerge, the agent groups their explanations into regions.
 
 ## Connect the working knowledge
 

@@ -2,7 +2,7 @@
 
 > `discern setup begin` started this one-time setup. The setup is unfinished. Work through the pages in the command order each page gives, commit the authored setup, and finish only with `discern setup done`.
 
-You are the configuration engine for this project. Inspect before claiming, preserve the project, use discern's supported commands, and keep every change on the setup branch until the owner chooses to land it. The map and instruction source you author become the project context future agents read; they must describe verified present behavior, not intentions or setup history.
+You are the configuration engine for this project. Inspect before claiming, preserve the project, use discern's supported commands, and keep every change on the setup branch until the owner chooses to land it. The map and instruction source you author become the project context future agents read; they must distinguish current behavior, agreed requirements, and future plans. Write current explanations in the present; remove resolved-bug and setup-history narration.
 
 ## Operating contract
 
@@ -223,32 +223,33 @@ The scaffold is a starting shape. The final map is determined by Step 1 evidence
 
 ```toml
 phase = "documentation draft"
-stable_target = "The design-principles draft states the agreed project-specific decision rules, each grounded in current code or configuration and ready for the post-smoke recheck."
-intent = "Turn repeated architectural choices into concise principles that help a future agent decide, while retaining the authority evidence for final verification."
+stable_target = "The design-principles draft gives the owner and future agents a project-specific set of agreed rules, with reasons and practical consequences for current and future work."
+intent = "Turn the project’s purpose, owner requirements, and architectural commitments into principles that guide future choices and make the project’s direction reviewable."
 files_to_read = [
   "{{map_dir}}orientation/design-principles.md",
-  "the Step 1 authority paths supporting each proposed principle",
+  "the Step 1 project purpose, owner requirements, and authority paths supporting each proposed principle",
   "current code and configuration at every cited boundary",
 ]
 must_do = [
-  "Replace the example with the agreed project-specific constraints, their reasons, and practical consequences. Do not invent principles to meet a count. If none are established, say so plainly or combine this topic into the orientation README.",
-  "Attach or retain the code/config authority for every architecture, ownership, test-behavior, or command claim so Step 9 can recheck it after smoke wiring.",
-  "Recheck each drafted claim against its authority now; label anything not yet verified as an open item in {{todo_path}} instead of asserting it.",
+  "Write a dedicated design-principles page. For each principle, give a clear rule, why it matters to this project, and how it guides a concrete implementation choice. Replace the example with the project’s own commitments.",
+  "For a new project, derive proposed principles from its agreed purpose and constraints. Use existing owner decisions; ask the owner to choose when a new commitment or trade-off remains unsettled. Explain the practical effect of the proposed set.",
+  "Attach or retain the code/config authority for claims about existing behavior so Step 9 can recheck them after smoke. Explain how agreed principles guide work that has yet to be implemented.",
+  "Recheck current-behavior claims against their authority. Keep agreed requirements distinct from implementation evidence, and record unresolved choices in {{todo_path}}.",
 ]
 authority_boundaries = [
-  "Code and configuration prove current behavior; a principle records the non-mechanical decision rule that behavior embodies.",
+  "Code and configuration establish current behavior. Agreed principles guide future decisions even before implementation exists; repository patterns alone do not authorize new project requirements.",
 ]
 owner_moments = ["lasting-project-context"]
 what_not_to_do = [
   "Do not write generic engineering virtues, discern's own principles, or historical bug commentary.",
   "Do not convert an unverified inference into confident present-tense prose.",
 ]
-completion_check = "Any retained design-principles page explains the agreed constraints; no principle count is required."
+completion_check = "The design-principles page states project-specific rules, why they matter, and how they guide implementation."
 stop_conditions = [
-  "Stop a principle when its claimed behavior cannot be located in current code/config or when the owner must choose between conflicting rules.",
+  "Pause an unsettled principle when the owner must choose its direction. Correct claims of existing behavior that lack evidence; an agreed future requirement can remain a requirement.",
 ]
 recovery = [
-  "Narrow the principle to what the evidence supports, or create one concrete ledger item naming the unresolved decision and authority paths.",
+  "Present the unresolved choice with its practical consequences and a recommendation. Preserve agreed principles, and record a deferred decision in the ledger.",
 ]
 next_action = "discern setup step 5"
 ```
@@ -303,7 +304,7 @@ Instructions are a small operational surface. Put durable subsystem boundaries a
 
 ```toml
 phase = "Map scope design"
-stable_target = "The final Map has a small, evidence-backed page plan: a useful root, real responsibility boundaries, and no speculative pages or open work."
+stable_target = "The final Map has a small, evidence-backed page plan: a useful root and real responsibility boundaries."
 intent = "Select only durable subsystem pages that reduce future reading, retain evidence for each, and prepare the final synthesis without authoring it before smoke."
 files_to_read = [
   "the Step 1 subsystem evidence inventory",
@@ -311,9 +312,9 @@ files_to_read = [
   "{{todo_path}} and its item format",
 ]
 must_do = [
-  "Select a substantive primary-subsystem README in a folder named for its responsibility. Start here, Boundary, and Important constraint are useful headings, not mandatory content quotas. If no implementation exists yet, explain the agreed purpose and current limits in the root instead of inventing a subsystem.",
-  "Keep a substantive root overview, orientation, real subsystem folders, development practices, and the ADR home. Numbered folder prefixes are optional reading order; they carry no product meaning.",
-  "Combine short orientation or development topics into their region README. Keep separate concepts, glossary, system overview, principles, getting-started, testing, and conventions pages when they serve distinct reader needs. Link existing project documentation instead of copying it.",
+  "Select a substantive primary-subsystem README in a folder named for its responsibility. Use Start here, Boundary, and Important constraint to explain where to begin, what the subsystem owns, and what a change must preserve. If no implementation exists yet, explain the agreed purpose and current limits in the root instead of inventing a subsystem.",
+  "Keep a substantive root overview, orientation, real subsystem folders, development practices, and the ADR home. Numbered folder prefixes are optional reading order.",
+  "Combine short orientation or development topics into their region README. Keep the design-principles and gate-gotchas pages as dedicated references. Give concepts, glossary, system overview, getting-started, testing, and conventions their own pages when they serve distinct reader needs. Link existing project documentation instead of copying it.",
   "Select an additional page only for a genuinely distinct durable boundary when that page will reduce future repository reading; retain authority paths for every selected page.",
   "Identify only concrete unresolved decisions or defects for {{todo_path}}, each with evidence and consequence; select none when nothing remains open.",
   "Recheck every proposed architecture, ownership, test-behavior, and command claim against code/config before it enters the final page plan.",
@@ -453,11 +454,12 @@ files_to_read = [
 must_do = [
   "Author final orientation from the subsystem evidence, including how the Map is used and where a new agent starts. Make the root route to project instructions, reusable procedures, checks, decisions, and the work ledger without copying their contents.",
   "Connect each subsystem to the relevant tests, review questions, approved decisions, and recovery procedures. Preserve context about data handling, recovery, compatibility, and release dependencies where it affects real work; do not create a page or checklist for every possible concern.",
-  "Complete, combine, or remove every seeded draft; keep the reusable ADR template and complete the adoption record’s Context, Decision, and Consequences from this project’s setup choices, retaining its provenance sentence. Leave no skeleton notices or TODO asking a later session to finish the chosen starter map. Review each retained page as a new reader before handing it over.",
+  "Complete the design-principles and gate-gotchas pages. Complete, combine, or remove the other seeded drafts; keep the reusable ADR template and complete the adoption record’s Context, Decision, and Consequences from this project’s setup choices, retaining its provenance sentence. Leave no skeleton notices or TODO asking a later session to finish the chosen starter map. Review each retained page as a new reader before handing it over.",
   "Complete the root overview and the selected subsystem pages. Explain real boundaries and constraints; do not manufacture a surprising invariant. Link every retained page from its region README and make each region reachable from the root.",
+  "Retain the gotchas page’s stack-independent recovery advice, add project-specific traps found during setup, link it from the development README, and set [project].gotchas_doc to its path. Teach future agents to add verified symptom, cause, and fix entries when a failure reveals missing recovery context.",
   "Reconcile the development pages and the adoption ADR with the supported commands, Gate, worktree readiness, and smoke behavior proved in Step 7.",
   "After all documentation edits, target every architecture, ownership, test-behavior, and command claim and recheck it against current code/config; link the authority where useful.",
-  "Replace a claim that cannot be verified with a clearly labeled concrete item in {{todo_path}}, then run `discern refresh` and `discern prepare --json`.",
+  "Move an unsupported claim about current behavior to a concrete item in {{todo_path}}. Keep agreed requirements and future plans clearly labeled, then run `discern refresh` and `discern prepare --json`.",
 ]
 authority_boundaries = [
   "The map explains behavior, boundaries, constraints, and relationships with evidence; code and config remain the behavior authority. Agreed requirements describe what must hold, not proof that it already does.",
@@ -469,7 +471,7 @@ what_not_to_do = [
   "Do not claim an unverified architecture, ownership, test behavior, or command contract.",
   "Do not add a page or TODO merely to make the setup look comprehensive.",
 ]
-completion_check = "Every selected current map page has an explanation and is reachable from the root; each region has a README. If a gotchas page is retained, [project].gotchas_doc points to it."
+completion_check = "Every selected current map page has an explanation and is reachable from the root; each region has a README. The gate-gotchas page is linked and [project].gotchas_doc points to it."
 stop_conditions = [
   "Stop when a claim remains unverifiable, refresh changes an unexpected authored source, or prepare reports a diagnostic.",
 ]
@@ -540,6 +542,7 @@ Do not paraphrase this list to the user as completed work; it is work to do now,
 - Existing project commands retain their meaning and bytes; gate jobs and applicability use supported commands and report accurate assurance.
 - No redundant manual worktree probe was created; the configured smoke path is green and every readiness category is settled or concretely deferred.
 - Final orientation was synthesized after smoke from a small evidence-backed plan, with a useful root and explanations of the implemented responsibilities.
+- Design principles express the project’s agreed direction; the linked and configured gotchas page supplies recovery advice and preserves lessons from failures.
 - Every architecture, ownership, test-behavior, instruction, and command claim was rechecked against current code/config after final edits.
 - {{todo_path}} contains only concrete unresolved decisions or defects, with evidence and consequence.
 - All authored setup work is committed before `discern setup done`.

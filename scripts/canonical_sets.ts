@@ -3470,23 +3470,23 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .map((entry) => `${entry.register}/${entry.proposal}`),
   },
   {
-    id: "repository-gotchas-traps",
-    title: "Repository Gate traps",
+    id: "seeded-gotchas-traps",
+    title: "Seeded Gate traps",
     what:
-      "discern's own failure playbook maps observed symptoms to recovery. Its matchers must keep selecting the engine's live failure evidence; projects author their own playbook during setup.",
+      "The stack-independent gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must select the engine's live failure evidence.",
     source: {
       kind: "file",
-      path: "project/map/80-development/done-gate-gotchas.md",
+      path: "templates/setup/skeleton/map/development/done-gate-gotchas.md",
       mustContain: "## Stack-independent traps",
     },
     guards: [
+      "tests/gotchas_parity_test.ts",
       "tests/gotcha_matchers_drift_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "the repository Gate-gotchas page owns this documentation content",
+        absent: "the seeded Gate-gotchas page owns this documentation content",
       },
       featureCanon: { nodeId: "gotchas-pointer" },
     },
