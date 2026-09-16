@@ -1,6 +1,5 @@
 import { waitForPendingCondition } from "./waiting.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
-import { OperationLockError } from "../src/engine/operation_lock.ts";
 import { operationProgressResult } from "../src/engine/completion/progress_result.ts";
 /** Production Desk effects own their journal before exclusion and retain results. */
 import {
@@ -12,6 +11,7 @@ import {
 import { join } from "@std/path";
 import {
   executeDeskOperation,
+  runDeskInteractiveChild,
   runDeskProjectScript,
 } from "../src/engine/desk/desk.ts";
 import { withCompletionObserver } from "../src/engine/completion/events.ts";
@@ -19,6 +19,7 @@ import { readOperationJournal } from "../src/engine/completion/operation_journal
 import {
   addWorktree,
   gitInit,
+  runAgent,
   scaffoldEngine,
   writeConfig,
   writeExecutable,
@@ -150,21 +151,20 @@ Deno.test("paused production Desk script exposes its actual lease, cancels durab
       const progress = await operationProgressResult(root, { handle });
       assertEquals(progress.data?.operation.verb, "scripts");
       assertEquals(progress.data?.executor, "running");
-      // The competing action creates a newer journal; the next refusal still names the live lease.
+      // A running script is project code: it holds no boundary, so competing
+      // checkout effects proceed while its journal still shows it running.
       for (const command of ["update", "worktree rename"]) {
         let ran = false;
-        const refusal = await assertRejects(
-          () =>
-            executeDeskOperation(root, { command }, () => {
-              ran = true;
-              return Promise.resolve();
-            }),
-          OperationLockError,
-        );
-        assertEquals(ran, false);
-        assertStringIncludes(refusal.message, "Holder: scripts");
-        assertStringIncludes(refusal.message, handle);
+        await executeDeskOperation(root, { command }, () => {
+          ran = true;
+          return Promise.resolve();
+        });
+        assertEquals(ran, true, command);
       }
+      assertEquals(
+        (await operationProgressResult(root, { handle })).data?.executor,
+        "running",
+      );
       assertEquals(await runDeskProjectScript(sibling, "next", [], {}), 0);
     } finally {
       controller.abort();
@@ -190,5 +190,126 @@ Deno.test("paused production Desk script exposes its actual lease, cancels durab
       before.data?.handle,
       "dry runs do not create an action journal",
     );
+  });
+});
+
+/** A minimal gate whose one job settles instantly or waits for a release file. */
+function gateConfig(testJob = "true"): string {
+  return [
+    "[project]",
+    'slug = "engine-test"',
+    "",
+    "[repository]",
+    'trunk = "main"',
+    "",
+    "[jobs]",
+    `test = ${JSON.stringify(testJob)}`,
+    "",
+  ].join("\n");
+}
+
+/** Hold a shell open as the desk would, signalling readiness through a file. */
+function holdOpen(ready: string, release: string): readonly string[] {
+  return [
+    "-c",
+    'printf ready > "$1"; while [ ! -e "$2" ]; do sleep 0.05; done',
+    "sh",
+    ready,
+    release,
+  ];
+}
+
+Deno.test("an open desk shell never keeps the gate from running on its checkout", async () => {
+  await withTempDir(async (root) => {
+    await scaffoldEngine(root, { agents: [] });
+    await writeConfig(root, gateConfig());
+    await gitInit(root);
+    // Signals live beside the checkout so the gate sees a clean tree.
+    await withTempDir(async (signals) => {
+      const ready = join(signals, "shell-ready");
+      const release = join(signals, "shell-release");
+      const shell = runDeskInteractiveChild(
+        "sh",
+        holdOpen(ready, release),
+        root,
+        {},
+        "desk shell",
+      );
+      try {
+        await waitForPendingCondition(
+          shell,
+          async () => await targetExists(ready),
+          "the desk shell to be open",
+        );
+        // The operator is looking around in a shell; the agent runs its gate.
+        const gate = await runAgent(root, ["done"]);
+        assertEquals(gate.code, 0, gate.output);
+      } finally {
+        await Deno.writeTextFile(release, "");
+      }
+      assertEquals(await shell, 0);
+    });
+  });
+});
+
+Deno.test("a running gate never refuses a desk shell on its checkout", async () => {
+  await withTempDir(async (root) => {
+    await scaffoldEngine(root, { agents: [] });
+    await withTempDir(async (signals) => {
+      const ready = join(signals, "gate-ready");
+      const release = join(signals, "gate-release");
+      await writeConfig(
+        root,
+        gateConfig(
+          `printf ready > '${ready}'; while [ ! -e '${release}' ]; do sleep 0.05; done`,
+        ),
+      );
+      await gitInit(root);
+      const gate = runAgent(root, ["done"]);
+      try {
+        await waitForPendingCondition(
+          gate,
+          async () => await targetExists(ready),
+          "the gate to hold the checkout",
+        );
+        // The agent's gate holds the checkout; the operator jumps in to look.
+        assertEquals(
+          await runDeskInteractiveChild(
+            "sh",
+            ["-c", "exit 0"],
+            root,
+            {},
+            "desk shell",
+          ),
+          0,
+        );
+      } finally {
+        await Deno.writeTextFile(release, "");
+      }
+      const finished = await gate;
+      assertEquals(finished.code, 0, finished.output);
+    });
+  });
+});
+
+Deno.test("a terminal-owning child refuses an action not registered as a session", async () => {
+  await withTempDir(async (root) => {
+    await scaffoldEngine(root, { agents: [] });
+    await gitInit(root);
+    const marker = join(root, "spawned");
+    const refusal = await assertRejects(
+      () =>
+        runDeskInteractiveChild(
+          "sh",
+          ["-c", `printf spawned > '${marker}'`],
+          root,
+          {},
+          "desk unrelated",
+        ),
+      Error,
+      "not registered as an interactive session",
+    );
+    assertStringIncludes(refusal.message, "desk unrelated");
+    assertEquals(await targetExists(marker), false, "nothing may spawn first");
   });
 });

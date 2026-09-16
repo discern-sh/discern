@@ -15,6 +15,10 @@ export const OPERATION_EFFECT_CLASSES = [
   "discern-common-mutation",
   "discern-git-mutation",
   "project-command",
+  // An open-ended child that owns the terminal until the human ends it: a
+  // shell, an editor, a coding agent. Its lifetime is a context in which
+  // operations happen, not an operation itself.
+  "interactive-session",
   "external-setup",
   "managed-artifact-write",
 ] as const;
@@ -127,9 +131,22 @@ const CHECKOUT_REQUIRED = policy(
   "checkout",
   "required",
 );
-const PROJECT_COMMAND = policy(
+/**
+ * Project code launched on the caller's behalf holds no exclusion boundary.
+ * discern's boundaries serialize discern's own effectful verbs; project code
+ * cannot touch that state except by invoking `discern`, and that invocation
+ * acquires its own lock. The gate protects its committed tip by re-verifying
+ * HEAD and cleanliness before every producer, which is the only defense that
+ * also covers an editor or shell discern never launched.
+ */
+const PROJECT_EXECUTION = policy(
   ["project-command"],
-  "checkout",
+  "none",
+  "disclose",
+);
+const INTERACTIVE_SESSION = policy(
+  ["project-command", "interactive-session"],
+  "none",
   "disclose",
 );
 const EXTERNAL_CHECKOUT_REQUIRED = policy(
@@ -231,11 +248,7 @@ export const OPERATION_EFFECTS = {
     "disclose",
   ),
   progress: OBSERVATION,
-  queue: policy(
-    ["project-command"],
-    "none",
-    "disclose",
-  ),
+  queue: PROJECT_EXECUTION,
   refresh: policy(
     ["managed-artifact-write", "discern-checkout-mutation", "external-setup"],
     "checkout",
@@ -243,9 +256,8 @@ export const OPERATION_EFFECTS = {
   ),
   scripts: policy(
     ["observation", "project-command"],
-    "checkout",
+    "none",
     "disclose",
-    { lockWhen: { hasOperands: true } },
   ),
   // The parent welcome is observation-only; the adjacent `setup begin` entry
   // retains the complete common/check-out/Git authority boundary for scaffolding.
@@ -328,7 +340,14 @@ export const OPERATION_EFFECTS = {
     { gitWriteAuthority: "boundary-plus-effect-plan" },
   ),
   status: OBSERVATION,
-  test: PROJECT_COMMAND,
+  // A standalone validation run: its captures and artifact scopes bind to the
+  // checkout lease the completion engine requires, so it is discern-owned
+  // work around project commands rather than plain project execution.
+  test: policy(
+    ["discern-checkout-mutation", "project-command"],
+    "checkout",
+    "disclose",
+  ),
   tidy: policy(
     ["discern-checkout-mutation"],
     "checkout",
@@ -444,10 +463,48 @@ export const OPERATION_EFFECTS = {
 export const INTERACTIVE_OPERATION_EFFECTS = {
   "desk grant": policy(["discern-common-mutation"], "phased", "required"),
   "desk revoke": policy(["discern-common-mutation"], "phased", "required"),
-  "desk agent": PROJECT_COMMAND,
-  "desk shell": PROJECT_COMMAND,
-  "desk editor": PROJECT_COMMAND,
+  "desk agent": INTERACTIVE_SESSION,
+  "desk shell": INTERACTIVE_SESSION,
+  "desk editor": INTERACTIVE_SESSION,
 } as const satisfies Readonly<Record<string, OperationEffectPolicy>>;
+
+/** Effect classes that describe project code or reading, never discern's own state. */
+const PROJECT_ONLY_EFFECTS: ReadonlySet<OperationEffectClass> = new Set([
+  "observation",
+  "project-command",
+  "interactive-session",
+]);
+
+/** Whether a policy's effects are entirely project code or reading. */
+export function isProjectOnlyPolicy(policy: OperationEffectPolicy): boolean {
+  return policy.effects.every((effect) => PROJECT_ONLY_EFFECTS.has(effect));
+}
+
+/**
+ * Command paths that hold an exclusion boundary for nothing but project code.
+ * Empty by construction: discern serializes its own effectful verbs, and
+ * project code it launches — a queued command, a Project Script, a shell, an
+ * editor, a coding agent — holds no boundary, so an idle session never blocks
+ * a gate and a running gate never refuses a look around.
+ */
+export function projectCodeBoundaryViolations(
+  policies: Readonly<Record<string, OperationEffectPolicy>>,
+): string[] {
+  return Object.entries(policies)
+    .filter(([, policy]) =>
+      isProjectOnlyPolicy(policy) && policy.lock !== "none"
+    )
+    .map(([path]) => path)
+    .sort();
+}
+
+/** Whether an action is registered as an open-ended, human-ended session. */
+export function isInteractiveSessionAction(action: string): boolean {
+  const policy = INTERACTIVE_OPERATION_EFFECTS[
+    action as keyof typeof INTERACTIVE_OPERATION_EFFECTS
+  ];
+  return policy !== undefined && policy.effects.includes("interactive-session");
+}
 
 /**
  * Command paths whose canonical policy requires a faithful preview. The

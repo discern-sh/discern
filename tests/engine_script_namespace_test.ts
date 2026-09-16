@@ -27,8 +27,8 @@ Deno.test("every built-in verb remains runnable as a namespaced project script",
       );
     }
 
-    // Project Script execution holds the checkout boundary. This namespace
-    // sweep is about command-name reachability, so exercise one path at a time.
+    // This namespace sweep is about command-name reachability, so exercise
+    // one path at a time.
     for (const verb of KNOWN_VERBS) {
       const r = await runAgent(dir, ["scripts", verb]);
       assertEquals(r.code, 0, `${verb}: ${r.output}`);

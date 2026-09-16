@@ -1,5 +1,6 @@
 /** Execute reviewed Desk effects with their own journal, ownership, and child lifetime. */
 import type { DiscernResult } from "../../shared/result.ts";
+import { isInteractiveSessionAction } from "../../shared/operation_effects.ts";
 import { executeOperation } from "../operation_execution.ts";
 import {
   type OperationInvocation,
@@ -66,7 +67,13 @@ export async function executeDeskOperation<T>(
   }
 }
 
-/** Launch one desk-owned interactive child with the desk's interrupt contract. */
+/**
+ * Launch one desk-owned interactive child with the desk's interrupt contract.
+ *
+ * The child owns the terminal until the human ends it, so its action must be
+ * registered as an interactive session: journaled and owned, but holding no
+ * exclusion boundary an idle shell would keep from a running gate.
+ */
 export async function runDeskInteractiveChild(
   command: string,
   args: readonly string[],
@@ -74,6 +81,13 @@ export async function runDeskInteractiveChild(
   env: Record<string, string>,
   action = "desk agent",
 ): Promise<number> {
+  if (!isInteractiveSessionAction(action)) {
+    throw new Error(
+      `Desk action \`${action}\` launches a terminal-owning child but is not registered ` +
+        "as an interactive session in the operation-effect registry. Register it with " +
+        "the interactive-session effect and no lock before launching it.",
+    );
+  }
   return await executeDeskOperation(
     cwd,
     { command: action },

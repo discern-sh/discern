@@ -7,11 +7,14 @@ import {
   walkCliCommands,
 } from "../src/shared/cli_reference_codegen.ts";
 import {
+  INTERACTIVE_OPERATION_EFFECTS,
+  isInteractiveSessionAction,
   OPERATION_EFFECT_CLASSES,
   OPERATION_EFFECTS,
   type OperationEffectPolicy,
   operationEffectPolicy,
   previewRequiredOperationPaths,
+  projectCodeBoundaryViolations,
 } from "../src/shared/operation_effects.ts";
 import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
 import { RECORDED_CLI_COMMAND_PATHS } from "../src/engine/logbook/cli.ts";
@@ -248,7 +251,10 @@ Deno.test("preview exemptions stay bounded while mixed Gate work is required", (
 
 Deno.test("every declared effect class has a live classified operation", () => {
   const used = new Set(
-    Object.values(OPERATION_EFFECTS).flatMap((policy) => policy.effects),
+    [
+      ...Object.values(OPERATION_EFFECTS),
+      ...Object.values(INTERACTIVE_OPERATION_EFFECTS),
+    ].flatMap((policy) => policy.effects),
   );
   assertEquals(
     OPERATION_EFFECT_CLASSES.filter((effect) => !used.has(effect)),
@@ -259,6 +265,73 @@ Deno.test("every declared effect class has a live classified operation", () => {
 Deno.test("queue keeps its own concurrency authority while declaring project effects", () => {
   assertEquals(OPERATION_EFFECTS.queue.effects, ["project-command"]);
   assertEquals(operationEffectPolicy("queue")?.lock, "none");
+});
+
+Deno.test("project code launched by discern holds no exclusion boundary", () => {
+  // An idle shell, a watching dev server, or a coding agent must never keep
+  // a gate from running on the same checkout, and a running gate must never
+  // refuse a look around. Both registries enrol; a future launcher that
+  // reintroduces a boundary for project-only effects fails here.
+  assertEquals(
+    projectCodeBoundaryViolations({
+      ...OPERATION_EFFECTS,
+      ...INTERACTIVE_OPERATION_EFFECTS,
+    }),
+    [],
+  );
+  assertEquals(
+    projectCodeBoundaryViolations({
+      "desk unrelated": {
+        effects: ["project-command", "interactive-session"],
+        lock: "checkout",
+        preview: "disclose",
+        gitWriteAuthority: "opaque",
+      },
+      "unrelated run": {
+        effects: ["observation", "project-command"],
+        lock: "checkout",
+        preview: "disclose",
+        gitWriteAuthority: "opaque",
+      },
+      "unrelated validation": {
+        effects: ["discern-checkout-mutation", "project-command"],
+        lock: "checkout",
+        preview: "disclose",
+        gitWriteAuthority: "opaque",
+      },
+    }),
+    ["desk unrelated", "unrelated run"],
+  );
+  for (const path of ["scripts", "queue"] as const) {
+    assertEquals(operationEffectPolicy(path)?.lock, "none", path);
+    assertEquals(
+      operationEffectPolicy(path, { hasOperands: true })?.lock,
+      "none",
+      path,
+    );
+  }
+  // A standalone validation run binds captures to the checkout lease, so it
+  // declares the discern-owned state that justifies its boundary.
+  assertEquals(operationEffectPolicy("test")?.lock, "checkout");
+  assertEquals(OPERATION_EFFECTS.test.effects, [
+    "discern-checkout-mutation",
+    "project-command",
+  ]);
+});
+
+Deno.test("every terminal-owning desk launcher is an interactive session", () => {
+  const sessions = Object.entries(INTERACTIVE_OPERATION_EFFECTS)
+    .filter(([, policy]) => policy.effects.includes("interactive-session"))
+    .map(([action]) => action)
+    .sort();
+  assertEquals(sessions, ["desk agent", "desk editor", "desk shell"]);
+  for (const action of sessions) {
+    assertEquals(isInteractiveSessionAction(action), true, action);
+    assertEquals(operationEffectPolicy(action)?.lock, "none", action);
+  }
+  assertEquals(isInteractiveSessionAction("desk grant"), false);
+  assertEquals(isInteractiveSessionAction("scripts"), false);
+  assertEquals(isInteractiveSessionAction("desk unrelated"), false);
 });
 
 Deno.test("standards propose declares targeted measurement and both owned write classes", () => {
