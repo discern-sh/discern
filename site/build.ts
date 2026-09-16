@@ -48,7 +48,7 @@ export const RETIRED_SITE_OUTPUTS = [
   "pages/content-design-demo.html",
   "pages/v2.html",
   "pages/agents.md",
-  "pages/fragments/",
+  "pages/fragments",
 ] as const;
 
 const ASSET_ROOT = new URL("pages/assets/design-system/", SITE_ROOT);

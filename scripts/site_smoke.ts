@@ -115,7 +115,6 @@ function sameBytes(actual: Uint8Array, expected: Uint8Array): boolean {
     actual.every((value, index) => value === expected[index]);
 }
 
-/** Report missing or incorrect browser security headers on one response. */
 /**
  * The manual navigation as instruction items: each package nav section's
  * first destination is its landing, titled by the section name; the rest
@@ -145,6 +144,7 @@ function navigationItems(document: Document): InstructionItem[] {
   return items;
 }
 
+/** Report missing or incorrect browser security headers on one response. */
 function securityFailures(response: Response, label: string): string[] {
   const failures: string[] = [];
   const csp = response.headers.get("content-security-policy") ?? "";
