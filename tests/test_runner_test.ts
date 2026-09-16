@@ -15,6 +15,10 @@ import {
   testSeedAnnouncement,
   testWorkerEnvironment,
 } from "../scripts/run_tests.ts";
+import {
+  inDeskSession,
+  withoutDeskSessionEnv,
+} from "../src/engine/desk/session.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
@@ -93,10 +97,14 @@ Deno.test("the repository admits parallel suites with a separate internal worker
   for (const os of ["darwin", "linux", "windows"] as const) {
     assertEquals(
       testWorkerEnvironment(os, { get: () => undefined }),
-      os === "darwin" ? { DENO_JOBS: "3" } : {},
+      {
+        ...withoutDeskSessionEnv(),
+        ...(os === "darwin" ? { DENO_JOBS: "3" } : {}),
+      },
     );
     for (const supplied of ["1", "6", "18", "", "invalid"]) {
       assertEquals(testWorkerEnvironment(os, { get: () => supplied }), {
+        ...withoutDeskSessionEnv(),
         DENO_JOBS: supplied,
       }, "explicit input remains Deno's decision");
     }
@@ -131,6 +139,18 @@ Deno.test("the repository admits parallel suites with a separate internal worker
     canary.slice(-(forwarded.length + canaryFiles.length)),
     [...forwarded, ...canaryFiles],
     "the canary must forward caller arguments before its derived file set",
+  );
+});
+
+Deno.test("the suite runs outside any desk session", () => {
+  // Every suite entry blanks the marker for its workers, so this only fails
+  // when a bare `deno test` is launched from a desk-owned shell — where any
+  // spawned `discern` would otherwise refuse the desk or report it.
+  assert(
+    !inDeskSession(),
+    "this test worker inherited the desk session marker from the shell that " +
+      "launched it: run the suite through `deno task test` (or the gate), " +
+      "which neutralizes the marker for every worker and spawned process",
   );
 });
 

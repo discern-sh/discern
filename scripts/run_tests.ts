@@ -7,6 +7,7 @@ import {
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { fromFileUrl, join } from "@std/path";
 import type { EnvReader } from "../src/shared/env.ts";
+import { withoutDeskSessionEnv } from "../src/engine/desk/session.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
 import {
   type CoveragePartitionObserver,
@@ -89,14 +90,24 @@ export function testCommandArgs(
   ];
 }
 
-/** Bound macOS fork contention while preserving an explicit caller allocation. */
+/**
+ * The environment every test worker inherits. The desk marker is blanked so a
+ * suite launched from a desk-owned shell spawns the same children as one
+ * launched anywhere else; the workers, and every process they spawn, inherit
+ * the blank. macOS fork contention is bounded while preserving an explicit
+ * caller allocation.
+ */
 export function testWorkerEnvironment(
   os: typeof Deno.build.os,
   env: EnvReader = Deno.env,
 ): Record<string, string> {
   const requested = env.get("DENO_JOBS");
-  if (requested !== undefined) return { DENO_JOBS: requested };
-  return os === "darwin" ? { DENO_JOBS: "3" } : {};
+  const jobs = requested !== undefined
+    ? { DENO_JOBS: requested }
+    : os === "darwin"
+    ? { DENO_JOBS: "3" }
+    : {};
+  return { ...withoutDeskSessionEnv(), ...jobs };
 }
 
 /** Shared suite entry; task wrappers retain ownership of the test-queue permit. */
