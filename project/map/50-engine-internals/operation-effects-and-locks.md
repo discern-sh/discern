@@ -63,6 +63,8 @@ Acceptance retains its own lock and author checkout. Each landing reserves the m
 
 [`withOperationLock`](../../../src/engine/operation_lock.ts) hashes repository, worktree, and resource identities into a fixed POSIX runtime namespace. Operating-system locks establish exclusion; file presence does not. The write preflight remains a separate authority check. Before Git administration exists, an explicit setup writer uses its canonical project directory.
 
+All advisory-lock users share [`FileLock`](../../../src/shared/file_lock.ts). It releases the OS lock before closing the file: native I/O or a child process can keep a descriptor alive after its JavaScript handle closes. Record access carries no release methods. A [Linux regression test](../../../tests/file_lock_test.ts) holds a native read across release; the [enrollment guard](../../../tests/file_lock_guard_test.ts) keeps new lock users behind the same owner.
+
 ## Execution is observable before it waits
 
 [`executeOperation`](../../../src/engine/operation_execution.ts) is the shared CLI and MCP execution boundary. It opens the existing operation journal before acquiring invocation locks. Previews and inactive observation forms write no journal. Nested cores retain the enclosing handle and identify their work within the parent operation; the outer result closes the journal. Child commands inheriting a live lease join its owner's journal without creating a newer competing record. A lost response can be recovered through `discern progress` even when the MCP request supplied no progress token.

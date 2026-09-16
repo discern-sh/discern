@@ -7,6 +7,7 @@
  * beneath `.git/refs`.
  */
 
+import { FileLock } from "../../shared/file_lock.ts";
 import { dirname } from "@std/path";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
@@ -104,14 +105,14 @@ async function withRecoveryRefLock<T>(
     throw new Error("Git could not resolve discern's drop-recovery lock");
   }
   await Deno.mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  const lock = await Deno.open(path, {
+  const lock = await FileLock.open(path, {
     create: true,
     read: true,
     write: true,
     mode: 0o600,
   });
   try {
-    await lock.lock(true);
+    await lock.acquire();
     return await operation();
   } finally {
     lock.close();

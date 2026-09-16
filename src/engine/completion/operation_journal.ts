@@ -13,6 +13,7 @@
  * finishing or cancelling closes the record.
  */
 
+import { FileLock } from "../../shared/file_lock.ts";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
 import { decodeJson } from "../../shared/runtime_decode.ts";
@@ -156,12 +157,12 @@ async function withStoreLock<T>(
   root: string,
   run: (directory: string) => Promise<T>,
 ): Promise<StoreAccess<T>> {
-  let store: { readonly directory: string; readonly lock: Deno.FsFile };
+  let store: { readonly directory: string; readonly lock: FileLock };
   try {
     const directory = await gitAdminStatePath(root, "operations");
     if (directory === undefined) return { status: "no-repository" };
     await Deno.mkdir(directory, { recursive: true, mode: 0o700 });
-    const lock = await Deno.open(join(directory, LOCK_FILE), {
+    const lock = await FileLock.open(join(directory, LOCK_FILE), {
       create: true,
       read: true,
       write: true,
@@ -172,7 +173,7 @@ async function withStoreLock<T>(
     return { status: "inaccessible", reason: describeError(error) };
   }
   try {
-    await store.lock.lock(true);
+    await store.lock.acquire();
     return { status: "ok", value: await run(store.directory) };
   } catch (error) {
     return { status: "inaccessible", reason: describeError(error) };

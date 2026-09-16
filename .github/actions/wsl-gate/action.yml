@@ -56,7 +56,7 @@ runs:
       timeout-minutes: 210
       shell: wsl-bash {0}
       env:
-        DISCERN_GATE_TEST_REPORTER: pretty
+        DISCERN_GATE_TEST_REPORTER: junit
         # Windows-side env crosses into WSL 2 only when WSLENV names it.
         WSLENV: DISCERN_GATE_TEST_REPORTER
       run: |

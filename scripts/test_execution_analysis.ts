@@ -38,20 +38,27 @@ export interface TestExecutionFinding {
 type Counts = Map<string, number>;
 
 /** Build an isolated syntax graph; no libraries, project config, or module execution. */
-function syntaxProgram(sources: readonly TestExecutionSource[]): ts.Program {
+function syntaxProgram(
+  sources: readonly TestExecutionSource[],
+  previous?: ts.Program,
+): ts.Program {
+  const parse = (path: string, text: string): ts.SourceFile => {
+    const cached = previous?.getSourceFile(path);
+    return cached?.text === text
+      ? cached
+      : ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true);
+  };
   const files = new Map(sources.map(({ path, text }) => [
     `/${path}`,
-    ts.createSourceFile(`/${path}`, text, ts.ScriptTarget.Latest, true),
+    parse(`/${path}`, text),
   ]));
   for (const [path, names] of Object.entries(BOUNDARIES)) {
     if (!files.has(`/${path}`)) {
       files.set(
         `/${path}`,
-        ts.createSourceFile(
+        parse(
           `/${path}`,
           names.map((name) => `export function ${name}() {}`).join("\n"),
-          ts.ScriptTarget.Latest,
-          true,
         ),
       );
     }
@@ -68,13 +75,18 @@ function syntaxProgram(sources: readonly TestExecutionSource[]): ts.Program {
     useCaseSensitiveFileNames: () => true,
     getNewLine: () => "\n",
   };
-  return ts.createProgram([...files.keys()], {
-    noLib: true,
-    noEmit: true,
-    allowImportingTsExtensions: true,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    module: ts.ModuleKind.ESNext,
-  }, host);
+  return ts.createProgram(
+    [...files.keys()],
+    {
+      noLib: true,
+      noEmit: true,
+      allowImportingTsExtensions: true,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      module: ts.ModuleKind.ESNext,
+    },
+    host,
+    previous,
+  );
 }
 
 /** Follow imports and re-exports to their declared symbol. */
@@ -219,8 +231,10 @@ function repetition(node: ts.Node, checker: ts.TypeChecker): string {
 /** Counts are syntax indicators, not estimates of subprocess totals or elapsed time. */
 function indicators(
   sources: readonly TestExecutionSource[],
-): Map<string, Counts> {
-  const program = syntaxProgram(sources);
+  changedPaths: ReadonlySet<string>,
+  previous?: ts.Program,
+): { counts: Map<string, Counts>; program: ts.Program } {
+  const program = syntaxProgram(sources, previous);
   const checker = program.getTypeChecker();
   const expensive = expensiveCalls(program);
   const result = new Map<string, Counts>();
@@ -229,6 +243,7 @@ function indicators(
     if (file === undefined) throw new Error(`missing syntax for ${path}`);
     const diagnostics = program.getSyntacticDiagnostics(file);
     if (diagnostics.length > 0) throw new Error(`cannot parse ${path}`);
+    if (!changedPaths.has(path)) continue;
     const counts: Counts = new Map();
     walk(file, (node) => {
       if (!expensive(node)) return;
@@ -237,7 +252,7 @@ function indicators(
     });
     result.set(path, counts);
   }
-  return result;
+  return { counts: result, program };
 }
 
 /** Compare static array cardinalities within otherwise equivalent loop contexts. */
@@ -261,12 +276,12 @@ export function testExecutionGrowth(
   after: readonly TestExecutionSource[],
   changedPaths: ReadonlySet<string>,
 ): TestExecutionFinding[] {
-  const previous = indicators(before);
-  const current = indicators(after);
+  const previous = indicators(before, changedPaths);
+  const current = indicators(after, changedPaths, previous.program);
   const findings: TestExecutionFinding[] = [];
   for (const path of [...changedPaths].sort()) {
-    const old = previous.get(path) ?? new Map<string, number>();
-    const next = current.get(path);
+    const old = previous.counts.get(path) ?? new Map<string, number>();
+    const next = current.counts.get(path);
     if (next === undefined) continue;
     const total = (counts: Counts): number =>
       [...counts.values()].reduce((sum, value) => sum + value, 0);

@@ -6,6 +6,7 @@
  * environment value is never sufficient ownership evidence on its own.
  */
 
+import { FileLock } from "./file_lock.ts";
 import { AsyncLocalStorage } from "./module_loading.ts";
 import { z } from "@zod/zod";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
@@ -179,15 +180,15 @@ export function inheritedOperationLockLeases(
 export async function readLiveOperationLease(
   lease: OperationLockLease,
 ): Promise<{ readonly owner?: OperationOwner } | undefined> {
-  let file: Deno.FsFile;
+  let file: FileLock;
   try {
-    file = await Deno.open(lease.path, { read: true, write: true });
+    file = await FileLock.open(lease.path, { read: true, write: true });
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) return undefined;
     throw error;
   }
   try {
-    if (await file.tryLock(true)) return undefined;
+    if (await file.tryAcquire()) return undefined;
     const record = await readTextIfExists(lease.path);
     if (record?.split("\n")[0] !== `discern-operation-lock-v1 ${lease.token}`) {
       return undefined;

@@ -157,6 +157,90 @@ Deno.test("test cost detects local matrix expansion and ignores changed case val
   );
 });
 
+Deno.test("test cost refreshes unchanged callers when dependencies change", () => {
+  const fixture = (text: string): TestExecutionSource => ({
+    path: "tests/fixture.ts",
+    text,
+  });
+  const cheap = fixture("export async function ready() {}");
+  const expensive = fixture(
+    `${IMPORT} export async function ready() { ${CALL} }`,
+  );
+  const caller = 'import { ready } from "./fixture.ts"; await ready();';
+  const reexport = (name: string): TestExecutionSource => ({
+    path: "tests/reexport.ts",
+    text: `export { ${name} as ready } from "./fixture.ts";`,
+  });
+  const choices = fixture(
+    `${IMPORT} export async function cheap() {} ` +
+      `export async function expensive() { ${CALL} }`,
+  );
+  const cases = (values: string): TestExecutionSource => ({
+    path: "tests/cases.ts",
+    text: `export const cases = [${values}] as const;`,
+  });
+  for (
+    const { label, subject, before, after } of [
+      {
+        label: "wrapper body",
+        subject: caller,
+        before: [cheap],
+        after: [expensive],
+      },
+      {
+        label: "added module",
+        subject: caller,
+        before: [],
+        after: [expensive],
+      },
+      {
+        label: "re-export target",
+        subject: 'import { ready } from "./reexport.ts"; await ready();',
+        before: [choices, reexport("cheap")],
+        after: [choices, reexport("expensive")],
+      },
+      {
+        label: "imported matrix",
+        subject: `${IMPORT} import { cases } from "./cases.ts"; ` +
+          `for (const entry of cases) { ${CALL} }`,
+        before: [cases("1")],
+        after: [cases("1, 2")],
+      },
+    ]
+  ) {
+    const source = { path: PATH, text: subject };
+    for (const reverse of [false, true]) {
+      const findings = testExecutionGrowth(
+        [source, ...(reverse ? after : before)],
+        [source, ...(reverse ? before : after)],
+        new Set([PATH]),
+      );
+      assertEquals(
+        findings.map(({ path }) => path),
+        reverse ? [] : [PATH],
+        label,
+      );
+    }
+  }
+});
+
+Deno.test("test cost rejects malformed sources outside the changed subjects", () => {
+  const subject = { path: PATH, text: `${IMPORT} ${CALL}` };
+  const malformed = { path: "tests/unrelated.ts", text: "function {" };
+  for (const beforeMalformed of [false, true]) {
+    assertThrows(
+      () =>
+        testExecutionGrowth(
+          beforeMalformed ? [subject, malformed] : [subject],
+          beforeMalformed ? [subject] : [subject, malformed],
+          new Set([PATH]),
+        ),
+      Error,
+      "cannot parse tests/unrelated.ts",
+    );
+  }
+});
+
 Deno.test("test cost leaves unrelated processes outside the boundary set and refuses malformed source", () => {
   assertEquals(selected("", 'new Deno.Command("git").output();'), false);
   assertThrows(() => selected("", "function {"), Error, "cannot parse");

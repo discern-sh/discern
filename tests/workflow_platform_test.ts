@@ -1,11 +1,19 @@
 import { coverageReporter } from "../scripts/coverage.ts";
 /** Native macOS gates public changes and releases, whose Mac binaries are notarized. */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
+import { join } from "@std/path";
 import { parse as parseYaml } from "@std/yaml";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 import { parseConfigOrThrow, toCommand } from "../src/shared/config_schema.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { withTempDir } from "./temp_dir.ts";
+import { readMetrics } from "../src/engine/validation/metrics.ts";
 
 const DISCERN_TOML = new URL("../discern.toml", import.meta.url);
 const GATE = new URL("../.github/workflows/gate.yml", import.meta.url);
@@ -82,15 +90,15 @@ function isFullGateCommand(value: unknown): boolean {
     );
 }
 
-/** Locate full-gate workflow steps that omit the CI-friendly pretty test reporter. */
-function missingPrettyReporter(document: GithubYaml): string[] {
+/** Locate full-gate workflow steps that omit the JUnit test reporter that isolates diagnostic content. */
+function missingJunitReporter(document: GithubYaml): string[] {
   return document.mappings
     .filter(({ value }) => isFullGateCommand(value.run))
     .filter(({ value }) => {
       const env = value.env;
       return env === null || typeof env !== "object" || Array.isArray(env) ||
         (env as Record<string, unknown>).DISCERN_GATE_TEST_REPORTER !==
-          "pretty";
+          "junit";
     })
     .map(({ path }) =>
       `${document.path}:${path}.env.DISCERN_GATE_TEST_REPORTER`
@@ -314,7 +322,7 @@ jobs:
   ]);
 });
 
-Deno.test("local gates default to JUnit and hosted full gates select pretty output", async () => {
+Deno.test("local and hosted full gates select isolated JUnit output", async () => {
   const config = parseConfigOrThrow(await Deno.readTextFile(DISCERN_TOML));
   assertEquals(
     toCommand(config.jobs.test),
@@ -339,9 +347,9 @@ Deno.test("local gates default to JUnit and hosted full gates select pretty outp
     "hosted automation runs at least one full gate",
   );
   assertEquals(
-    documents.flatMap(missingPrettyReporter),
+    documents.flatMap(missingJunitReporter),
     [],
-    "every hosted full-gate command must select the pretty test reporter",
+    "every hosted full-gate command must select the JUnit test reporter",
   );
 });
 
@@ -357,9 +365,60 @@ jobs:
         run: discern done
 `)),
   };
-  assertEquals(missingPrettyReporter(fixture), [
+  assertEquals(missingJunitReporter(fixture), [
     "future-workflow.yml:$.jobs.container_gate.steps[0].env.DISCERN_GATE_TEST_REPORTER",
   ]);
+  for (const { value } of fixture.mappings) {
+    if (isFullGateCommand(value.run)) {
+      value.env = { DISCERN_GATE_TEST_REPORTER: "pretty" };
+    }
+  }
+  assertEquals(missingJunitReporter(fixture).length, 1);
+});
+
+Deno.test("the hosted reporter keeps test names and fixture output outside metric evidence", async () => {
+  await withTempDir(async (dir) => {
+    const fixture = join(dir, "diagnostic_test.ts");
+    await Deno.writeTextFile(
+      fixture,
+      'Deno.test("example DISCERN_METRIC sample 40)", () => {\n' +
+        '  console.log("DISCERN_METRIC coverage 1");\n' +
+        '  console.error("DISCERN_METRIC sample NaN");\n' +
+        "});\n",
+    );
+    const reporter = coverageReporter({ get: () => undefined });
+    for (const selected of [reporter, "pretty"]) {
+      const result = await new Deno.Command(Deno.execPath(), {
+        args: [
+          "test",
+          "--no-config",
+          "--no-lock",
+          "--no-check",
+          `--reporter=${selected}`,
+          fixture,
+        ],
+        cwd: dir,
+        env: { NO_COLOR: "1" },
+        stdin: "null",
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      const output = [result.stdout, result.stderr].map((bytes) =>
+        new TextDecoder().decode(bytes)
+      ).join("\n");
+      assert(result.success, output);
+      const evidence = `${output}\nDISCERN_METRIC coverage 92.2\n` +
+        "DISCERN_METRIC module_coverage_failures 0\n";
+      if (selected === reporter) {
+        assertEquals(readMetrics(evidence), {
+          coverage: 92.2,
+          module_coverage_failures: 0,
+        });
+      } else {
+        assertThrows(() => readMetrics(evidence));
+      }
+    }
+  });
 });
 
 Deno.test("hosted full gates converge locked Deno dependencies before parallel jobs", async () => {

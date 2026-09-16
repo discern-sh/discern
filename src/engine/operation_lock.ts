@@ -9,6 +9,7 @@
  * may enter a second checkout. Git writers separately prove administrative
  * write access before executing their planned effects.
  */
+import { FileLock, type FileLockIO } from "../shared/file_lock.ts";
 import { runGit } from "../shared/subprocess.ts";
 
 import { dirname, join, resolve } from "@std/path";
@@ -84,7 +85,7 @@ interface LockSpec {
 }
 
 interface AcquiredLock {
-  readonly file?: Deno.FsFile;
+  readonly file?: FileLock;
   readonly previousContents?: Uint8Array;
   readonly lease: OperationLockLease;
 }
@@ -282,7 +283,7 @@ async function preflightOperationBoundary(
 
 /** Replace the inert record bytes while retaining the open handle's OS lock. */
 async function replaceLockRecord(
-  file: Deno.FsFile,
+  file: FileLockIO,
   contents: Uint8Array,
 ): Promise<void> {
   await file.truncate(0);
@@ -303,7 +304,10 @@ async function releaseLocks(locks: AcquiredLock[]): Promise<void> {
     const file = lock.file;
     if (file === undefined) continue;
     await bestEffort("operation-lock-record-restore", async () => {
-      await replaceLockRecord(file, lock.previousContents ?? new Uint8Array());
+      await replaceLockRecord(
+        file.io,
+        lock.previousContents ?? new Uint8Array(),
+      );
     });
     file.close();
   }
@@ -326,9 +330,9 @@ async function acquireLock(
   waitForPublication: boolean,
   wait?: OperationLockWait,
 ): Promise<AcquiredLock> {
-  let file: Deno.FsFile;
+  let file: FileLock;
   try {
-    file = await Deno.open(spec.path, {
+    file = await FileLock.open(spec.path, {
       create: true,
       read: true,
       write: true,
@@ -345,7 +349,7 @@ async function acquireLock(
   }
   let acquired: boolean;
   try {
-    acquired = await file.tryLock(true);
+    acquired = await file.tryAcquire();
   } catch (error) {
     file.close();
     throw refusal(
@@ -386,7 +390,7 @@ async function acquireLock(
           await new Promise<void>((resolve) =>
             SYSTEM_SCHEDULER.scheduleTimeout(resolve, 25)
           );
-          acquired = await file.tryLock(true);
+          acquired = await file.tryAcquire();
         }
         wait.end(
           acquired ? "resumed" : "unmet",
@@ -423,7 +427,7 @@ async function acquireLock(
         await new Promise<void>((resolve) =>
           SYSTEM_SCHEDULER.scheduleTimeout(resolve, 250)
         );
-        acquired = await file.tryLock(true);
+        acquired = await file.tryAcquire();
       }
       if (wait.signal?.aborted === true) cancelled();
     }
@@ -473,7 +477,7 @@ async function acquireLock(
   };
   try {
     await replaceLockRecord(
-      file,
+      file.io,
       new TextEncoder().encode(
         `discern-operation-lock-v1 ${lease.token}\n${
           lease.owner === undefined ? "" : JSON.stringify(lease.owner) + "\n"
@@ -482,7 +486,7 @@ async function acquireLock(
     );
   } catch (error) {
     await bestEffort("operation-lock-acquire-rollback", async () => {
-      await replaceLockRecord(file, previousContents);
+      await replaceLockRecord(file.io, previousContents);
     });
     file.close();
     throw refusal(
@@ -672,9 +676,9 @@ export async function observeCompletionCheckout(cwd: string): Promise<{
         reason: "Native checkout exclusion cannot be resolved.",
       };
     }
-    let file: Deno.FsFile;
+    let file: FileLock;
     try {
-      file = await Deno.open(spec.path, { read: true });
+      file = await FileLock.open(spec.path, { read: true });
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) throw error;
       return {
@@ -683,7 +687,7 @@ export async function observeCompletionCheckout(cwd: string): Promise<{
       };
     }
     try {
-      const available = await file.tryLock(true);
+      const available = await file.tryAcquire();
       return available
         ? {
           ownership: "available",

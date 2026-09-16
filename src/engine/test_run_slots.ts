@@ -7,6 +7,7 @@
  * logbook-backed queue decoration stay here so every surface contends for the
  * same resource with the same policy.
  */
+import { FileLock } from "../shared/file_lock.ts";
 import { currentOperationSignal } from "../shared/operation_signal.ts";
 import { assertOutsideCommonPublication } from "../shared/operation_execution_boundary.ts";
 
@@ -102,7 +103,7 @@ function abortableDelay(
 }
 
 type SlotProbe =
-  | { kind: "acquired"; file: Deno.FsFile }
+  | { kind: "acquired"; file: FileLock }
   | { kind: "held" }
   | { kind: "unavailable"; reason: string };
 
@@ -114,9 +115,13 @@ type SlotProbe =
 async function probeSlots(dir: string, cap: number): Promise<SlotProbe> {
   for (let i = 1; i <= cap; i++) {
     const path = join(dir, `slot-${i}`);
-    let file: Deno.FsFile;
+    let file: FileLock;
     try {
-      file = await Deno.open(path, { create: true, read: true, write: true });
+      file = await FileLock.open(path, {
+        create: true,
+        read: true,
+        write: true,
+      });
     } catch (error) {
       return {
         kind: "unavailable",
@@ -127,7 +132,7 @@ async function probeSlots(dir: string, cap: number): Promise<SlotProbe> {
     }
     let acquired: boolean;
     try {
-      acquired = await file.tryLock(true);
+      acquired = await file.tryAcquire();
     } catch (error) {
       file.close();
       return {
@@ -146,14 +151,9 @@ async function probeSlots(dir: string, cap: number): Promise<SlotProbe> {
 }
 
 /** Wrap an acquired slot file as an idempotent hold. */
-function makeHold(file: Deno.FsFile): TestRunSlotHold {
-  let released = false;
+function makeHold(file: FileLock): TestRunSlotHold {
   return {
     release(): void {
-      if (released) {
-        return;
-      }
-      released = true;
       file.close();
     },
   };
