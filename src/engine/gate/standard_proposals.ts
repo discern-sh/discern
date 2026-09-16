@@ -1087,6 +1087,20 @@ export async function standardsProposeBatchResult(
       "standards",
     );
   }
+  const measureBatch = (
+    writeAuthority: StandardProposalWriteAuthority,
+  ): Promise<ProposalMeasurements> =>
+    stableProposalMeasurements(
+      root,
+      cfg,
+      plan,
+      standards,
+      head,
+      mainBranch,
+      trunk.commit,
+      writeAuthority,
+      opts.signal,
+    );
   if (completeStaleSet) {
     const configRel = (await installedConfigRel(root)) ?? CONFIG_REL;
     const trunkIsContained = await isAncestorOf(root, trunk.commit, head);
@@ -1139,31 +1153,19 @@ export async function standardsProposeBatchResult(
         "internal error: proposal renewal has no write authority",
       );
     }
-    const measured = await stableProposalMeasurements(
-      root,
-      cfg,
-      plan,
-      standards,
-      head,
-      mainBranch,
-      trunk.commit,
-      authority,
-      opts.signal,
-    );
+    const measured = await measureBatch(authority);
     if (!measured.ok) return measured.result;
-    const rebound = rebindContexts.map((context) =>
-      buildStandardLimitProposalRebindPlan({
+    const reboundPlans: StandardLimitProposalRebindPlan[] = [];
+    for (const context of rebindContexts) {
+      const decision = buildStandardLimitProposalRebindPlan({
         ...context,
         measurement: measured.values.get(context.standard.name) ?? Number.NaN,
-      })
-    );
-    const changed = rebound.find((decision) => !decision.ok);
-    if (changed !== undefined && !changed.ok) {
-      return proposalPlanFailure(changed, "standards");
+      });
+      if (!decision.ok) {
+        return proposalPlanFailure(decision, "standards");
+      }
+      reboundPlans.push(decision.plan);
     }
-    const reboundPlans = rebound.flatMap((decision) =>
-      decision.ok ? [decision.plan] : []
-    );
     const proposals = reboundPlans.map((candidate) => candidate.proposal);
     try {
       await persistProposals(authority, proposals);
@@ -1204,17 +1206,7 @@ export async function standardsProposeBatchResult(
   if (authority === undefined) {
     throw new Error("internal error: proposal apply has no write authority");
   }
-  const measured = await stableProposalMeasurements(
-    root,
-    cfg,
-    plan,
-    standards,
-    head,
-    mainBranch,
-    trunk.commit,
-    authority,
-    opts.signal,
-  );
+  const measured = await measureBatch(authority);
   if (!measured.ok) return measured.result;
   const decisions = contexts.map((context) =>
     buildStandardLimitProposalPlan({
