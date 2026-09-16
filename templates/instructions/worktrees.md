@@ -16,7 +16,7 @@ Keep one worktree for the whole effort, through review feedback and resumed sess
 ### Finishing an effort
 
 1. Run **`discern_prepare`**, review its changes, and commit the intended work for this effort. `prepare` may rewrite files; staging and committing remain your responsibility. Commit each logical change separately.
-2. After the final commit, call **`discern_done`** directly on the clean tree. `discern_done` includes the complete test stage; the final gate needs no standalone test preflight. Use `discern_test` only when its complete test stage is the requested result; it publishes no reusable completion evidence. Before an expensive repeat, name what changed or what it will prove. Diagnose a timeout at the named budget; never raise a limit to pass.
+2. After the final commit, call **`discern_done`** directly on the clean, committed final tree. `discern_done` includes the complete test stage; the final gate needs no standalone test preflight. Use `discern_test` only when its complete test stage is the requested result; it publishes no reusable completion evidence. Before an expensive repeat, name what changed or what it will prove. Diagnose a timeout at the named budget; never raise a limit to pass.
 3. Read the completion evidence and landing-authority result. **Proof** records what the configured gate established for the exact validated commit. Later edits require renewed verification.
 4. Report what changed, what was verified, and anything still unresolved. End with the returned Proof line verbatim.
 
