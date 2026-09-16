@@ -364,7 +364,11 @@ Deno.test("renamed MCP tools retain the routing vocabulary agents need", () => {
     ],
     discern_impact: ["scopes", "named regions of the repository"],
     discern_map: ["regions digest", "freshness facts"],
-    discern_standards: ["Pass names", "measurement and pin candidates"],
+    discern_standards: [
+      "Select action: measure",
+      "every simultaneous breach",
+      "technical justification only",
+    ],
     discern_improvement: [
       "ranked next action",
       "health audit",

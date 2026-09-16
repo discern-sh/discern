@@ -5594,6 +5594,25 @@ export type DiscernStandardsResult = DiscernResultState & {
         evidence_paths: Array<string>;
       };
     };
+    proposal_batch?: {
+      status: "recorded" | "rebound" | "replaced" | "unchanged" | "recovered";
+      proposals: Array<{
+        standard: string;
+        commit: string;
+        bound_commit: string;
+        measured_commit: string;
+        definition_fingerprint: string;
+        trunk: string;
+        trunk_commit: string;
+        direction: "up" | "down";
+        trunk_limit: number;
+        proposed_limit: number;
+        measurement: number;
+        delta: number;
+        reason: string;
+        evidence_paths: Array<string>;
+      }>;
+    };
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
@@ -5785,6 +5804,25 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
         reason: string;
         evidence_paths: Array<string>;
       };
+    };
+    proposal_batch?: {
+      status: "recorded" | "rebound" | "replaced" | "unchanged" | "recovered";
+      proposals: Array<{
+        standard: string;
+        commit: string;
+        bound_commit: string;
+        measured_commit: string;
+        definition_fingerprint: string;
+        trunk: string;
+        trunk_commit: string;
+        direction: "up" | "down";
+        trunk_limit: number;
+        proposed_limit: number;
+        measurement: number;
+        delta: number;
+        reason: string;
+        evidence_paths: Array<string>;
+      }>;
     };
   } | {
     issues: Array<{
@@ -11433,7 +11471,6 @@ export interface DiscernMcpStructuredContentByTool {
   discern_checkpoints: DiscernCheckpointsResult;
   discern_progress: DiscernProgressResult;
   discern_standards: DiscernStandardsResult;
-  discern_standards_propose: DiscernStandardsProposeResult;
   discern_refresh: DiscernRefreshResult;
   discern_impact: DiscernImpactResult;
   discern_coupling: DiscernCouplingResult;
@@ -11456,9 +11493,6 @@ export interface DiscernMcpToolResultByTool {
   discern_checkpoints: DiscernMcpToolResult<DiscernCheckpointsResult>;
   discern_progress: DiscernMcpToolResult<DiscernProgressResult>;
   discern_standards: DiscernMcpToolResult<DiscernStandardsResult>;
-  discern_standards_propose: DiscernMcpToolResult<
-    DiscernStandardsProposeResult
-  >;
   discern_refresh: DiscernMcpToolResult<DiscernRefreshResult>;
   discern_impact: DiscernMcpToolResult<DiscernImpactResult>;
   discern_coupling: DiscernMcpToolResult<DiscernCouplingResult>;
@@ -11481,7 +11515,6 @@ export type DiscernMcpStructuredContent =
   | DiscernCheckpointsResult
   | DiscernProgressResult
   | DiscernStandardsResult
-  | DiscernStandardsProposeResult
   | DiscernRefreshResult
   | DiscernImpactResult
   | DiscernCouplingResult
@@ -11503,7 +11536,6 @@ export type DiscernMcpJsonResult =
   | DiscernCheckpointsMcpToolResult
   | DiscernProgressMcpToolResult
   | DiscernStandardsMcpToolResult
-  | DiscernStandardsProposeMcpToolResult
   | DiscernRefreshMcpToolResult
   | DiscernImpactMcpToolResult
   | DiscernCouplingMcpToolResult
@@ -11544,10 +11576,6 @@ export type DiscernProgressMcpToolResult = DiscernMcpToolResult<
 
 export type DiscernStandardsMcpToolResult = DiscernMcpToolResult<
   DiscernStandardsResult
->;
-
-export type DiscernStandardsProposeMcpToolResult = DiscernMcpToolResult<
-  DiscernStandardsProposeResult
 >;
 
 export type DiscernRefreshMcpToolResult = DiscernMcpToolResult<

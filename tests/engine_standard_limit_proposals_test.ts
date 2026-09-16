@@ -22,6 +22,7 @@ import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { readSubmission } from "../src/engine/worktree/submission.ts";
 import { readProposalStore } from "../src/engine/gate/standard_proposal_state.ts";
+import { standardsProposeBatchResult } from "../src/engine/gate/standard_proposals.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import {
   addWorktree,
@@ -45,6 +46,12 @@ const MutableProposalStoreFixtureSchema = z.object({
 const SOURCES_RUN =
   "printf x >> $(git rev-parse --git-common-dir)/proposal-target-runs; " +
   "count=$(git ls-files 'src/**' | wc -l); echo DISCERN_METRIC sources $count";
+
+const BATCH_RUN =
+  "printf x >> $(git rev-parse --git-common-dir)/proposal-batch-runs; " +
+  "sources=$(git ls-files 'src/**' | wc -l); " +
+  "docs=$(git ls-files 'docs/**' | wc -l); " +
+  "echo DISCERN_METRIC sources $sources; echo DISCERN_METRIC docs $docs";
 
 /** Minimal falling ceiling whose metric grows with tracked source files, plus
  * an unrelated holding Standard over docs so a targeted measurement is
@@ -70,6 +77,50 @@ function proposalConfig(sourcesRun = SOURCES_RUN): string {
     'inputs = ["docs/**"]',
     "",
   ].join("\n");
+}
+
+/** Two ceilings with one exact producer recipe, for an atomic batch. */
+function batchProposalConfig(): string {
+  return [
+    "[project]",
+    'slug = "limit-proposal-batch-test"',
+    "",
+    "[repository]",
+    'trunk = "main"',
+    "",
+    "[standards.sources]",
+    'direction = "down"',
+    "limit = 1",
+    `run = "${BATCH_RUN}"`,
+    'inputs = ["src/**", "docs/**"]',
+    "",
+    "[standards.docs]",
+    'direction = "down"',
+    "limit = 1",
+    `run = "${BATCH_RUN}"`,
+    'inputs = ["src/**", "docs/**"]',
+    "",
+  ].join("\n");
+}
+
+/** Create one clean branch where both shared-producer ceilings are breached. */
+async function batchProposalWorktree(
+  dir: string,
+  name: string,
+): Promise<string> {
+  await scaffoldEngine(dir);
+  await writeConfig(dir, batchProposalConfig());
+  await Deno.mkdir(join(dir, "src"), { recursive: true });
+  await Deno.mkdir(join(dir, "docs"), { recursive: true });
+  await Deno.writeTextFile(join(dir, "src", "base.ts"), "base\n");
+  await Deno.writeTextFile(join(dir, "docs", "base.md"), "base\n");
+  await gitInit(dir);
+  const worktree = await addWorktree(dir, name);
+  await Deno.writeTextFile(join(worktree, "src", "feature.ts"), "feature\n");
+  await Deno.writeTextFile(join(worktree, "docs", "feature.md"), "feature\n");
+  await git(worktree, "add", "src/feature.ts", "docs/feature.md");
+  await git(worktree, "commit", "-m", "Add measured feature files");
+  return worktree;
 }
 
 /** Create one clean feature worktree whose source-count ceiling is breached. */
@@ -162,6 +213,158 @@ function proposalOf(stdout: string): ProposalResult {
     proposal: ProposalResult;
   }).proposal;
 }
+
+Deno.test("one Standards proposal batch shares production, commits every limit once, and is idempotent", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await batchProposalWorktree(
+      dir,
+      "limit-proposal-batch",
+    );
+    const sourceHead = await gitOut(worktree, "rev-parse", "HEAD");
+    const proposals = [
+      {
+        name: "sources",
+        reason: "The feature requires one additional source file.",
+      },
+      {
+        name: "docs",
+        reason: "The feature requires one additional documentation file.",
+      },
+    ];
+
+    const recorded = await standardsProposeBatchResult(worktree, {
+      proposals,
+    });
+    assert(recorded.ok, JSON.stringify(recorded));
+    assertEquals(recorded.verb, "standards");
+    const batch = (recorded.data as {
+      proposal_batch?: {
+        status: string;
+        proposals: Array<{
+          standard: string;
+          commit: string;
+          bound_commit: string;
+        }>;
+      };
+    } | undefined)?.proposal_batch;
+    assert(batch !== undefined);
+    assertEquals(batch.status, "recorded");
+    assertEquals(
+      batch.proposals.map((proposal) => proposal.standard),
+      ["sources", "docs"],
+    );
+    const proposalHead = await gitOut(worktree, "rev-parse", "HEAD");
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD^"), sourceHead);
+    assertEquals(
+      await gitOut(worktree, "diff", "--name-only", sourceHead, proposalHead),
+      "discern.toml",
+    );
+    for (const proposal of batch.proposals) {
+      assertEquals(proposal.commit, proposalHead);
+      assertEquals(proposal.bound_commit, proposalHead);
+    }
+    assertEquals(
+      await proposalInvocationCount(worktree, "proposal-batch-runs"),
+      1,
+    );
+    const store = await readProposalStore(worktree);
+    assertEquals(store.status, "ok");
+    if (store.status === "ok") {
+      assertEquals(
+        store.store.proposals.map((proposal) => proposal.standard),
+        ["docs", "sources"],
+      );
+      assert(
+        store.store.proposals.every((proposal) =>
+          proposal.commit === proposalHead &&
+          proposal.bound_commit === proposalHead
+        ),
+      );
+    }
+
+    const repeated = await standardsProposeBatchResult(worktree, {
+      proposals,
+    });
+    assert(repeated.ok, JSON.stringify(repeated));
+    assertEquals(
+      (repeated.data as { proposal_batch?: { status: string } } | undefined)
+        ?.proposal_batch?.status,
+      "unchanged",
+    );
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), proposalHead);
+    assertEquals(
+      await proposalInvocationCount(worktree, "proposal-batch-runs"),
+      1,
+    );
+
+    await Deno.writeTextFile(
+      join(worktree, "src", "feature.ts"),
+      "refined feature\n",
+    );
+    await git(worktree, "commit", "-am", "Refine feature source");
+    const descendant = await gitOut(worktree, "rev-parse", "HEAD");
+    const renewed = await standardsProposeBatchResult(worktree, { proposals });
+    assert(renewed.ok, JSON.stringify(renewed));
+    assertEquals(
+      (renewed.data as { proposal_batch?: { status: string } } | undefined)
+        ?.proposal_batch?.status,
+      "rebound",
+    );
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), descendant);
+    assertEquals(
+      await proposalInvocationCount(worktree, "proposal-batch-runs"),
+      2,
+    );
+    const renewedStore = await readProposalStore(worktree);
+    assertEquals(renewedStore.status, "ok");
+    if (renewedStore.status === "ok") {
+      assert(
+        renewedStore.store.proposals.every((proposal) =>
+          proposal.bound_commit === descendant
+        ),
+      );
+    }
+    const done = await runAgent(worktree, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+  });
+});
+
+Deno.test("a new proposal batch refuses existing sibling state before measurement or writes", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await batchProposalWorktree(
+      dir,
+      "proposal-existing-sibling",
+    );
+    const first = await standardsProposeBatchResult(worktree, {
+      proposals: [{
+        name: "sources",
+        reason: "The feature requires one additional source file.",
+      }],
+    });
+    assert(first.ok, JSON.stringify(first));
+    const firstHead = await gitOut(worktree, "rev-parse", "HEAD");
+    assertEquals(
+      await proposalInvocationCount(worktree, "proposal-batch-runs"),
+      1,
+    );
+
+    const refused = await standardsProposeBatchResult(worktree, {
+      proposals: [{
+        name: "docs",
+        reason: "The feature requires one additional documentation file.",
+      }],
+    });
+    assertEquals(refused.ok, false);
+    assertEquals(refused.error, "proposal_stale");
+    assertStringIncludes(refused.message ?? "", "existing proposal state");
+    assertStringIncludes(refused.message ?? "", "No measurement or write ran");
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), firstHead);
+    assertEquals(
+      await proposalInvocationCount(worktree, "proposal-batch-runs"),
+      1,
+    );
+  });
+});
 
 /** Assert that a transaction-owned path was removed. */
 async function assertRejectsNotFound(path: string): Promise<void> {
@@ -794,6 +997,8 @@ Deno.test("a changed fresh measurement stales a proposal", async () => {
       reproposed.stdout,
       "renewal cannot change the proposed value",
     );
+    assertTerminalTextIncludes(reproposed.stdout, "new value 3, delta 2");
+    assertTerminalTextIncludes(reproposed.stdout, "obtain fresh agreement");
     assertTerminalTextIncludes(reproposed.stdout, "Restore the main limit 1");
     assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), proposalHead);
     assertStringIncludes(
@@ -844,11 +1049,11 @@ Deno.test("proposal state from a newer discern refuses replacement, and recovery
           transactionPath,
           `${
             JSON.stringify({
-              version: 1,
+              version: ON_DISK_FORMATS.standardLimitProposalTransaction.version,
               branch,
               source_commit: measuredCommit,
               config_path: "discern.toml",
-              proposal: plannedProposal,
+              proposals: [plannedProposal],
             })
           }\n`,
         );
@@ -874,11 +1079,11 @@ Deno.test("proposal state from a newer discern refuses replacement, and recovery
           transactionPath,
           `${
             JSON.stringify({
-              version: 1,
+              version: ON_DISK_FORMATS.standardLimitProposalTransaction.version,
               branch,
               source_commit: measuredCommit,
               config_path: "discern.toml",
-              proposal: proposalBeforeCommit,
+              proposals: [proposalBeforeCommit],
             })
           }\n`,
         );

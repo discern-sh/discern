@@ -21,7 +21,6 @@ aliases:
   - discern_update
   - discern_await
   - discern_standards
-  - discern_standards_propose
   - discern_accept
   - discern_impact
   - discern_coupling
@@ -42,39 +41,38 @@ Choose among terminal, Markdown, JSON, and MCP delivery through [Result formats 
 
 ## Model Context Protocol tools
 
-| Tool                        | Purpose                                                                                                                                                                   | Effect contract                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `discern_status`            | Report the current branch, Gate inputs, Standards, Proof, fleet state, unfinished setup assurance, and verified landing authority.                                        | Read-only and idempotent.                                              |
-| `discern_start`             | Create and set up a new isolated worktree, then report its prospective landing authority.                                                                                 | Mutating; each successful call creates a new worktree.                 |
-| `discern_done`              | Run the full Gate and return steps, diagnostics, an optional Proof, and verified landing authority. `ci: true` explicitly reports checkpoint review without declarations. | Runs project commands; fix-stage commands may rewrite.                 |
-| `discern_prepare`           | Run the fix stage, `[generated]` regenerations, and checks for the fast inner loop.                                                                                       | Runs project commands; fixers and regenerations may rewrite.           |
-| `discern_test`              | Run the test stage on demand; `discern_done` includes it.                                                                                                                 | Runs project commands.                                                 |
-| `discern_update`            | Merge the selected base into this branch and re-materialize generated files.                                                                                              | Mutating and idempotent for the same inputs.                           |
-| `discern_await`             | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.                                                                     | Read-only and idempotent; timeouts return a normal result.             |
-| `discern_standards`         | Measure Standards, compare limits, and optionally pin improvements.                                                                                                       | Runs project commands; pinning changes and commits config.             |
-| `discern_standards_propose` | Record or preview one exact, commit-bound proposal for an intrinsically breached Standard.                                                                                | Mutating, closed-world, and idempotent; commits only the config limit. |
-| `discern_accept`            | Land an authorized worktree and tear down its resources and branch.                                                                                                       | Destructive; requires conversation consent or a verified grant.        |
-| `discern_impact`            | List the scopes the current change activates.                                                                                                                             | Read-only and idempotent.                                              |
-| `discern_coupling`          | Report historical co-change partners for the current diff or named files.                                                                                                 | Read-only, idempotent, and advisory.                                   |
-| `discern_patterns`          | Report findings, investigation paths, or Stats from the active Logbook or a selected sealed archive.                                                                      | Read-only, idempotent, and advisory; lifecycle actions are CLI-only.   |
-| `discern_refresh`           | Rebuild generated Instructions, Skills, integrations, and the ADR index, or return their complete preview.                                                                | Mutating, closed-world, and idempotent; `dry_run: true` is read-only.  |
-| `discern_map`               | Index, search, or read the project's agent-maintained Map.                                                                                                                | Read-only and idempotent.                                              |
-| `discern_docs`              | Index, search, or read discern's bundled public manual.                                                                                                                   | Read-only, idempotent, and project-independent.                        |
-| `discern_doctor`            | Check config, commands, repository shape, and integration health.                                                                                                         | Read-only and idempotent.                                              |
-| `discern_improvement`       | Rank the next improvement and return the supporting health audit.                                                                                                         | Read-only and idempotent.                                              |
-| `discern_checkpoints`       | Report governing checkpoints, strict obligations, open-question declaration state, and structural evidence.                                                               | Read-only and idempotent.                                              |
+| Tool                  | Purpose                                                                                                                                                                   | Effect contract                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `discern_status`      | Report the current branch, Gate inputs, Standards, Proof, fleet state, unfinished setup assurance, and verified landing authority.                                        | Read-only and idempotent.                                               |
+| `discern_start`       | Create and set up a new isolated worktree, then report its prospective landing authority.                                                                                 | Mutating; each successful call creates a new worktree.                  |
+| `discern_done`        | Run the full Gate and return steps, diagnostics, an optional Proof, and verified landing authority. `ci: true` explicitly reports checkpoint review without declarations. | Runs project commands; fix-stage commands may rewrite.                  |
+| `discern_prepare`     | Run the fix stage, `[generated]` regenerations, and checks for the fast inner loop.                                                                                       | Runs project commands; fixers and regenerations may rewrite.            |
+| `discern_test`        | Run the test stage on demand; `discern_done` includes it.                                                                                                                 | Runs project commands.                                                  |
+| `discern_update`      | Merge the selected base into this branch and re-materialize generated files.                                                                                              | Mutating and idempotent for the same inputs.                            |
+| `discern_await`       | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.                                                                     | Read-only and idempotent; timeouts return a normal result.              |
+| `discern_standards`   | With `action: "measure"`, measure Standards and optionally pin improvements; with `action: "propose"`, record one atomic batch of commit-bound limit proposals.           | Runs project commands; pinning or proposing changes and commits config. |
+| `discern_accept`      | Land an authorized worktree and tear down its resources and branch.                                                                                                       | Destructive; requires conversation consent or a verified grant.         |
+| `discern_impact`      | List the scopes the current change activates.                                                                                                                             | Read-only and idempotent.                                               |
+| `discern_coupling`    | Report historical co-change partners for the current diff or named files.                                                                                                 | Read-only, idempotent, and advisory.                                    |
+| `discern_patterns`    | Report findings, investigation paths, or Stats from the active Logbook or a selected sealed archive.                                                                      | Read-only, idempotent, and advisory; lifecycle actions are CLI-only.    |
+| `discern_refresh`     | Rebuild generated Instructions, Skills, integrations, and the ADR index, or return their complete preview.                                                                | Mutating, closed-world, and idempotent; `dry_run: true` is read-only.   |
+| `discern_map`         | Index, search, or read the project's agent-maintained Map.                                                                                                                | Read-only and idempotent.                                               |
+| `discern_docs`        | Index, search, or read discern's bundled public manual.                                                                                                                   | Read-only, idempotent, and project-independent.                         |
+| `discern_doctor`      | Check config, commands, repository shape, and integration health.                                                                                                         | Read-only and idempotent.                                               |
+| `discern_improvement` | Rank the next improvement and return the supporting health audit.                                                                                                         | Read-only and idempotent.                                               |
+| `discern_checkpoints` | Report governing checkpoints, strict obligations, open-question declaration state, and structural evidence.                                                               | Read-only and idempotent.                                               |
 
 Every project-operating tool accepts an optional `path` that selects the discern project or worktree for that call. Pass an absolute filesystem path anywhere inside the intended checkout, including another repository in a multi-repo workspace. discern resolves the project root. Omit `path` to use the checkout the MCP server currently targets. Relative paths are rejected because the server's process directory is not the caller's directory. `discern_docs` needs no project. After a successful `discern_start`, later calls use the new worktree by default. After `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
 
 Tools that require completed setup return a controlled `not_set_up` result until setup finishes. A tool rejects undeclared input keys instead of dropping them.
 
-`discern_standards` accepts `names` to narrow both measurement and the candidates considered for `pin: true`. `discern_standards_propose` remains the separate one-standard proposal tool.
+`discern_standards` requires an `action`. `action: "measure"` accepts `names`, `force`, and `pin`. `action: "propose"` accepts an ordered `proposals` array of unique `{ name, reason }` entries and records every simultaneous breach in one transaction. Proposal reasons are technical justification, not approval or landing authority. The scalar `discern standards propose` CLI command remains available for terminal compatibility.
 
 `discern_refresh` accepts `dry_run: true`. Its plan covers agent files, materialized skills, integrations, Proof-note Git config, removals, and planning errors; preview has no `steps`. A normal call applies only those targets and reports `steps` ([ADR 0335](../_adr/0335-operation-policy-enrolls-faithful-previews.md)).
 
 ### Startup discovery
 
-MCP `tools/list` returns full definitions. Clients choose the startup context. discern's instructions stay under 2KB and lead with status, start, prepare, done, update/await, and accept; test remains on demand.
+MCP `tools/list` returns full definitions. Clients choose the startup context. The deliberate eight-tool discovery prefix is status, start, prepare, done, update, await, accept, and map. Progress follows it; the expensive standalone test remains on demand after progress.
 
 ### Find a map or manual page
 

@@ -973,6 +973,17 @@ export const StandardLimitProposalResultSchema = z.strictObject({
   ]),
   proposal: StandardLimitProposalSchema,
 });
+/** One atomic proposal transaction over a clean measured tree. */
+export const StandardLimitProposalBatchResultSchema = z.strictObject({
+  status: z.enum([
+    "recorded",
+    "rebound",
+    "replaced",
+    "unchanged",
+    "recovered",
+  ]),
+  proposals: z.array(StandardLimitProposalSchema).min(1),
+});
 /** The `standards` verb's `data`: the per-standard readings (the same shape the
  * gate carries in `GateData.standards`, so one consumer reads both), and — on a
  * `--pin` that tightened limits — the applied pins. Both optional: a refusal or
@@ -1014,6 +1025,7 @@ export const StandardsDataSchema = z.strictObject({
   standards: z.array(GateStandardSchema).optional(),
   pinned: z.array(PinnedLimitSchema).optional(),
   proposal: StandardLimitProposalResultSchema.optional(),
+  proposal_batch: StandardLimitProposalBatchResultSchema.optional(),
 });
 export type StandardsData = z.infer<typeof StandardsDataSchema>;
 

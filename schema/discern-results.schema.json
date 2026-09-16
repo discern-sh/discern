@@ -17824,6 +17824,101 @@
                     "status",
                     "proposal"
                   ]
+                },
+                "proposal_batch": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "recorded",
+                        "rebound",
+                        "replaced",
+                        "unchanged",
+                        "recovered"
+                      ]
+                    },
+                    "proposals": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "standard": {
+                            "type": "string"
+                          },
+                          "commit": {
+                            "type": "string"
+                          },
+                          "bound_commit": {
+                            "type": "string"
+                          },
+                          "measured_commit": {
+                            "type": "string"
+                          },
+                          "definition_fingerprint": {
+                            "type": "string"
+                          },
+                          "trunk": {
+                            "type": "string"
+                          },
+                          "trunk_commit": {
+                            "type": "string"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "up",
+                              "down"
+                            ]
+                          },
+                          "trunk_limit": {
+                            "type": "number"
+                          },
+                          "proposed_limit": {
+                            "type": "number"
+                          },
+                          "measurement": {
+                            "type": "number"
+                          },
+                          "delta": {
+                            "type": "number"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "evidence_paths": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        },
+                        "required": [
+                          "standard",
+                          "commit",
+                          "bound_commit",
+                          "measured_commit",
+                          "definition_fingerprint",
+                          "trunk",
+                          "trunk_commit",
+                          "direction",
+                          "trunk_limit",
+                          "proposed_limit",
+                          "measurement",
+                          "delta",
+                          "reason",
+                          "evidence_paths"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "proposals"
+                  ]
                 }
               }
             },
@@ -18471,6 +18566,101 @@
                   "required": [
                     "status",
                     "proposal"
+                  ]
+                },
+                "proposal_batch": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "recorded",
+                        "rebound",
+                        "replaced",
+                        "unchanged",
+                        "recovered"
+                      ]
+                    },
+                    "proposals": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "standard": {
+                            "type": "string"
+                          },
+                          "commit": {
+                            "type": "string"
+                          },
+                          "bound_commit": {
+                            "type": "string"
+                          },
+                          "measured_commit": {
+                            "type": "string"
+                          },
+                          "definition_fingerprint": {
+                            "type": "string"
+                          },
+                          "trunk": {
+                            "type": "string"
+                          },
+                          "trunk_commit": {
+                            "type": "string"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "up",
+                              "down"
+                            ]
+                          },
+                          "trunk_limit": {
+                            "type": "number"
+                          },
+                          "proposed_limit": {
+                            "type": "number"
+                          },
+                          "measurement": {
+                            "type": "number"
+                          },
+                          "delta": {
+                            "type": "number"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "evidence_paths": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        },
+                        "required": [
+                          "standard",
+                          "commit",
+                          "bound_commit",
+                          "measured_commit",
+                          "definition_fingerprint",
+                          "trunk",
+                          "trunk_commit",
+                          "direction",
+                          "trunk_limit",
+                          "proposed_limit",
+                          "measurement",
+                          "delta",
+                          "reason",
+                          "evidence_paths"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "proposals"
                   ]
                 }
               }
@@ -37474,44 +37664,6 @@
         "isError"
       ]
     },
-    "DiscernStandardsProposeMcpToolResult": {
-      "title": "DiscernStandardsProposeMcpToolResult",
-      "type": "object",
-      "properties": {
-        "content": {
-          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "text"
-              },
-              "text": {
-                "type": "string",
-                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
-              }
-            },
-            "required": [
-              "type",
-              "text"
-            ]
-          }
-        },
-        "structuredContent": {
-          "$ref": "#/$defs/DiscernStandardsProposeResult",
-          "description": "The compact structured projection, sufficient without text content."
-        },
-        "isError": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "content",
-        "structuredContent",
-        "isError"
-      ]
-    },
     "DiscernRefreshMcpToolResult": {
       "title": "DiscernRefreshMcpToolResult",
       "type": "object",
@@ -38052,9 +38204,6 @@
         },
         {
           "$ref": "#/$defs/DiscernStandardsMcpToolResult"
-        },
-        {
-          "$ref": "#/$defs/DiscernStandardsProposeMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernRefreshMcpToolResult"
@@ -38627,7 +38776,6 @@
       "commands": [
         "standards propose"
       ],
-      "mcp_tool": "discern_standards_propose",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome",
@@ -38640,8 +38788,7 @@
         "no_op": "success",
         "recovery_owner": "caller"
       },
-      "schema": "#/$defs/DiscernStandardsProposeResult",
-      "mcp_tool_result_schema": "#/$defs/DiscernStandardsProposeMcpToolResult"
+      "schema": "#/$defs/DiscernStandardsProposeResult"
     },
     {
       "id": "refresh",

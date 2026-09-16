@@ -339,7 +339,6 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "standards propose",
     schema: StandardsProposeOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.standards,
-    mcpTool: "discern_standards_propose",
   },
   {
     id: "refresh",

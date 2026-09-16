@@ -385,7 +385,9 @@ export const ON_DISK_FORMATS = {
       kind: "git-admin",
       keys: ["standardLimitProposalTransaction"],
     },
-    version: 1,
+    // Version 2 batches every proposed limit for one measured tree into one
+    // config commit and one recoverable journal transition.
+    version: 2,
     versionField: "version",
     reader: "src/engine/gate/standard_proposals.ts#recoverProposalTransaction",
     writers: ["src/engine/gate/standard_proposals.ts"],

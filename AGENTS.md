@@ -40,7 +40,7 @@ Keep one worktree for the whole effort, through review feedback and resumed sess
 ### Finishing an effort
 
 1. Run **`discern_prepare`**, review its changes, and commit the intended work for this effort. `prepare` may rewrite files; staging and committing remain your responsibility. Commit each logical change separately.
-2. Run **`discern_done`** on the clean, committed final tree; it refuses uncommitted work, includes the complete test stage, and reuses passing evidence whose inputs are unchanged, so a final gate needs no standalone test preflight; `discern_test` runs the complete test stage on demand when that stage is itself the requested task. Before any expensive repeat, name what changed or what new evidence it will obtain. Diagnose a timeout at the layer whose named budget fired; never raise a limit to pass.
+2. After the final commit, call **`discern_done`** directly on the clean tree. `discern_done` includes the complete test stage and reuses applicable gate and durable producer evidence whose inputs are unchanged, so the final gate needs no standalone test preflight. Use `discern_test` only when the standalone complete test stage is itself the requested result; it publishes no reusable completion evidence. Before any expensive repeat, name what changed or what new evidence it will obtain. Diagnose a timeout at the layer whose named budget fired; never raise a limit to pass.
 3. Read the completion evidence and landing-authority result. **Proof** records what the configured gate established for the exact validated commit. Later edits require renewed verification.
 4. Report what changed, what was verified, and anything still unresolved. End with the returned Proof line verbatim.
 
@@ -54,7 +54,7 @@ Standards protect measured limits: minimums may rise and maximums may fall. **`d
 
 **Never loosen or delete a limit to make a change pass.** Investigate the measured regression and try reasonable remedies within the authorized task. If satisfying the requested outcome requires changing a limit, explain the evidence, alternatives, and recommendation to the owner.
 
-After owner agreement, use **`discern_standards_propose`** and follow its procedure for measuring and recording the proposed limit. A general permission to land does not approve a standard-limit change.
+After owner agreement, complete every required preview, review, regeneration, edit, **`discern_prepare`** run, and ordinary commit. Then call **`discern_standards`** with `action: "propose"` and every simultaneously approved breach in one `proposals` array. Each reason is technical justification only; it must not claim approval, consent, or landing authority. A changed value or reason is a different decision that needs fresh owner agreement. General permission to land does not approve a standard-limit change.
 
 When a measure improves, offer to preserve the gain by tightening its limit through **`discern_standards`** with `pin`.
 

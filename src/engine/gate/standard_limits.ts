@@ -492,9 +492,10 @@ export interface TrunkLimitsVerification {
 
 /** The next step a loosening diagnostic tells an agent to take. */
 const LOOSENING_NEXT_STEP =
-  "If this branch caused the metric breach, commit the final clean tree and " +
-  'run `discern standards propose <name> --reason "…"`; that command measures ' +
-  "the named standard before creating its proposal. " +
+  "If this branch caused the metric breach, complete every required review, " +
+  "regeneration, edit, preparation run, and ordinary commit first. Then record " +
+  "all simultaneously approved breaches through the Standards proposal action; " +
+  'the scalar CLI form is `discern standards propose <name> --reason "…"`. ' +
   "Otherwise move the metric the right way. Only an exact proposal and exact " +
   "owner approval can move the held limit.";
 

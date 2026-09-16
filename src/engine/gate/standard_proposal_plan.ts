@@ -226,6 +226,9 @@ export function buildStandardLimitProposalRebindPlan(
   const { proposal, standard } = context;
   const restore =
     `Restore the ${context.trunk} limit ${proposal.trunk_limit}, commit the final tree, then run \`discern standards propose ${standard.name} --reason "…"\` once to create a new proposal.`;
+  const freshDecision = `Present the new value ${context.measurement}, delta ${
+    context.measurement - proposal.trunk_limit
+  }, and technical reason "${reason.reason}" to the owner and obtain fresh agreement before recording a replacement proposal.`;
   if (context.originShapeError !== undefined) {
     return {
       ok: false,
@@ -263,7 +266,7 @@ export function buildStandardLimitProposalRebindPlan(
       ok: false,
       error: "proposal_stale",
       message:
-        `standard '${standard.name}' changed its proposal tuple, definition, reason, or trunk baseline. An evidence renewal cannot authorize a different decision. ${restore}`,
+        `standard '${standard.name}' changed its proposal tuple, definition, reason, or trunk baseline. An evidence renewal cannot authorize a different decision. ${freshDecision} ${restore}`,
     };
   }
   if (
@@ -274,7 +277,7 @@ export function buildStandardLimitProposalRebindPlan(
       ok: false,
       error: "proposal_stale",
       message:
-        `standard '${standard.name}' now measures ${context.measurement}; the recorded proposal is ${proposal.proposed_limit}. An evidence renewal cannot change the proposed value. ${restore}`,
+        `standard '${standard.name}' now measures ${context.measurement}; the recorded proposal is ${proposal.proposed_limit}. An evidence renewal cannot change the proposed value. ${freshDecision} ${restore}`,
     };
   }
   const evidencePaths = responsiblePaths(standard, context.changedPaths);
