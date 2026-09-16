@@ -219,26 +219,26 @@ realPtyTest({
   },
 });
 
-Deno.test({
+realPtyTest({
   name:
     "the canonical PTY driver keeps an inherited desk session from its children",
+  contracts: ["process-lifecycle"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    // The driver's own process sits beneath a forged desk session, exactly as
-    // a suite launched from a desk-owned shell would. Its children must see
-    // the marker blank unless a test sets it deliberately.
-    const result = await new Deno.Command(Deno.execPath(), {
+    // The probe's own process sits beneath a desk session, exactly as a suite
+    // launched from a desk-owned shell would; setting the marker through `env`
+    // is the documented opt-in. Its children must see the marker blank unless
+    // the probe sets it deliberately.
+    const result = await runPtyProcess({
+      command: Deno.execPath(),
       args: ["run", "--quiet", "-A", PTY_DESK_SESSION_PROBE],
       cwd: REPO_ROOT,
       env: deskSessionEnv(),
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-    const output = new TextDecoder().decode(result.stdout) +
-      new TextDecoder().decode(result.stderr);
-    assertEquals(result.success, true, output);
-    assertStringIncludes(output, "inherited:desk-session:[]");
-    assertStringIncludes(output, "explicit:desk-session:[1]");
+    });
+    assertEquals(result.code, 0, result.transcript);
+    assertStringIncludes(result.transcript, "inherited:desk-session:[]");
+    assertStringIncludes(result.transcript, "explicit:desk-session:[1]");
   },
 });
 
