@@ -1,6 +1,6 @@
 /** Canonical family membership, validated shapes, and lifetime policy. */
 import { z } from "@zod/zod";
-import { AttemptSchema } from "./attempt.ts";
+import { AttemptSchema, sameClaimIdentity } from "./attempt.ts";
 import { CandidateSchema } from "./candidate.ts";
 import {
   ArtifactSchema,
@@ -171,13 +171,5 @@ export function isAttemptClaimRenewal(
     before.kind === "finished" || after.kind === "finished" ||
     after.kind !== before.kind
   ) return false;
-  const withoutLease = (
-    claim: typeof before.claim,
-  ): Omit<typeof claim, "renewed_at" | "expires_at"> => {
-    const { renewed_at: _renewedAt, expires_at: _expiresAt, ...identity } =
-      claim;
-    return identity;
-  };
-  return JSON.stringify(withoutLease(before.claim)) ===
-    JSON.stringify(withoutLease(after.claim));
+  return sameClaimIdentity(before.claim, after.claim);
 }

@@ -27,7 +27,11 @@ import { RecordIdSchema } from "../completion/identity.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { spawnedByEnv } from "../../shared/invocation_context.ts";
 import { jobEnvironment } from "../jobs/command.ts";
-import { AttemptSchema } from "../completion/attempt.ts";
+import {
+  AttemptSchema,
+  effectiveClaimExpiry,
+  sameClaimedAttemptBinding,
+} from "../completion/attempt.ts";
 import { CandidateSchema } from "../completion/candidate.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
@@ -376,13 +380,14 @@ function runtime(
           }),
         ],
       );
+      const boundAttempt = AttemptSchema.parse(execution.attempt);
       if (
         attempt.kind !== "recorded" || attempt.record.kind !== "attempt" ||
         attempt.record.data.state.kind !== "claimed" ||
         attempt.record.data.state.claim.token !== execution.fence.token ||
-        attempt.record.data.state.claim.expires_at <= clock.wallNow() ||
-        JSON.stringify(attempt.record.data) !==
-          JSON.stringify(AttemptSchema.parse(execution.attempt)) ||
+        effectiveClaimExpiry(attempt.record.data.state.claim) <=
+          clock.wallNow() ||
+        !sameClaimedAttemptBinding(attempt.record.data, boundAttempt) ||
         candidate.kind !== "recorded" ||
         candidate.record.kind !== "candidate" ||
         JSON.stringify(candidate.record.data) !==

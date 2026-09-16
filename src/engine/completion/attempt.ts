@@ -23,16 +23,51 @@ export const ClaimSchema = z.strictObject({
   (claim) => claim.expires_at > claim.acquired_at,
   "claim ownership must have a finite positive lifetime",
 );
+export type AttemptClaim = z.infer<typeof ClaimSchema>;
+
+/** Lease timestamps describe current liveness, not the claim's owner identity. */
+export function sameClaimIdentity(
+  left: AttemptClaim,
+  right: AttemptClaim,
+): boolean {
+  const stable = (claim: AttemptClaim): unknown => ({
+    token: claim.token,
+    executor: claim.executor,
+    acquired_at: claim.acquired_at,
+  });
+  return JSON.stringify(stable(left)) === JSON.stringify(stable(right));
+}
 
 /** Bound every stored claim to the current renewable-lease contract. */
 export function effectiveClaimExpiry(
-  claim: z.infer<typeof ClaimSchema>,
+  claim: AttemptClaim,
   leaseMs = ATTEMPT_CLAIM_LEASE_MS,
 ): number {
   return Math.min(
     claim.expires_at,
     (claim.renewed_at ?? claim.acquired_at) + leaseMs,
   );
+}
+
+/** Compare the immutable binding while allowing lease timestamps to renew. */
+export function sameClaimedAttemptBinding(
+  current: CompletionAttempt,
+  bound: CompletionAttempt,
+): boolean {
+  if (current.state.kind !== "claimed" || bound.state.kind !== "claimed") {
+    return false;
+  }
+  return JSON.stringify({
+        identity: current.identity,
+        subjects: current.subjects,
+        purpose: current.purpose,
+        mode: current.mode,
+      }) === JSON.stringify({
+        identity: bound.identity,
+        subjects: bound.subjects,
+        purpose: bound.purpose,
+        mode: bound.mode,
+      }) && sameClaimIdentity(current.state.claim, bound.state.claim);
 }
 
 export const AttemptSchema = z.strictObject({
