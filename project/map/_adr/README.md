@@ -383,6 +383,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0405 — One Standards MCP tool and atomic proposal batches](0405-one-standards-mcp-tool-and-atomic-proposal-batches.md)
 - [0406 — Completion claims use renewable bounded leases](0406-completion-claims-use-renewable-bounded-leases.md)
 - [0407 — The gate strips the desk marker](0407-the-gate-strips-the-desk-marker.md)
+- [0408 — Project code holds no exclusion boundary](0408-project-code-holds-no-exclusion-boundary.md)
 
 <!-- END GENERATED: current ADR records -->
 

@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--public-marketing-pages)                                               | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 3       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 918     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 920     | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 1       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -115,7 +115,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 396     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 397     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 25      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -135,7 +135,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 23      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 20      | —                | —                           |
-| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 23      | —                | —                           |
+| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 25      | —                | —                           |
 | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                           | `tests/real_pty.ts#REAL_PTY_CONTRACTS`                                            | 8       | —                | —                           |
 | [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 48      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
@@ -479,7 +479,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 918
+- Members: 920
   - `/`
   - `/agents`
   - `/trust`
@@ -1335,6 +1335,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0406-completion-claims-use-renewable-bounded-leases.md`
   - `/docs/decisions/0407-the-gate-strips-the-desk-marker`
   - `/docs/decisions/0407-the-gate-strips-the-desk-marker.md`
+  - `/docs/decisions/0408-project-code-holds-no-exclusion-boundary`
+  - `/docs/decisions/0408-project-code-holds-no-exclusion-boundary.md`
   - `/docs/decisions/0001-project-owned-recipes`
   - `/docs/decisions/0001-project-owned-recipes.md`
   - `/docs/decisions/0002-first-class-side-gates`
@@ -4508,7 +4510,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 396
+- Members: 397
   - `0003`
   - `0005`
   - `0006`
@@ -4874,6 +4876,7 @@ The numbered decision records in the map, including records later superseded.
   - `0405`
   - `0406`
   - `0407`
+  - `0408`
   - `0001`
   - `0002`
   - `0004`
@@ -5364,8 +5367,10 @@ Every genuine JavaScript timer interval in executable tests, with its exact modu
 Every elapsed shell wait in executable test source, with its exact enclosing scope, argument, occurrence count, and reviewed polling or timing contract.
 
 - Source: `tests/test_shell_wait_boundaries.ts` — `TEST_SHELL_WAIT_BOUNDARIES`
-- Members: 23
+- Members: 25
   - `["tests/engine_desk_operation_test.ts","paused production Desk script exposes its actual lease, cancels durably, and releases the next action","60"]`
+  - `["tests/engine_desk_operation_test.ts","holdOpen","0.05"]`
+  - `["tests/engine_desk_operation_test.ts","a running gate never refuses a desk shell on its checkout","0.05"]`
   - `["tests/engine_desk_queue_test.ts","Desk replaces a submission while another effort's acceptance checks are running","0.01"]`
   - `["tests/engine_integration_landing_test.ts","a sibling completes while an integration landing's resource teardown runs","0.1"]`
   - `["tests/engine_integration_landing_test.ts","a sibling completion publishes while an integration gate runs","0.1"]`
