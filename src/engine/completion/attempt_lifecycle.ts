@@ -186,6 +186,32 @@ export async function renewAttemptClaim(
   );
 }
 
+/** One thrown value as the sentence a diagnostic prints. */
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** One failed write outcome as the sentence a diagnostic prints. */
+function writeFailureReason(
+  outcome: Exclude<CompletionWriteOutcome, { readonly kind: "written" }>,
+): string {
+  return "reason" in outcome
+    ? outcome.reason
+    : `record version ${outcome.version}`;
+}
+
+/**
+ * Only the attempt record itself proves a claim is gone. A busy lock, a lost
+ * compare-and-swap race, and an unreadable store are conditions that clear, so
+ * a renewal retries them inside the lease it already holds rather than
+ * cancelling a healthy run for one transient failure.
+ */
+export function claimLossIsProven(
+  outcome: Exclude<CompletionWriteOutcome, { readonly kind: "written" }>,
+): boolean {
+  return outcome.kind === "claim-lost";
+}
+
 /** Keep a live run's claim current; lease loss aborts its remaining work. */
 export async function withAttemptClaim<T>(
   root: string,
@@ -205,24 +231,32 @@ export async function withAttemptClaim<T>(
   let renewals = Promise.resolve();
   let timer: IntervalHandle | undefined;
   let settlement: Promise<void> | undefined;
+  // The lease this coordinator knows it holds. A renewal that cannot complete
+  // leaves it standing, so a transient failure costs one interval instead of
+  // the run; once it expires with nothing renewed, ownership is genuinely gone.
+  let leaseHeldFrom = clock.wallNow();
+  const leaseExhausted = (): boolean =>
+    clock.wallNow() >= leaseHeldFrom + ATTEMPT_CLAIM_LEASE_MS;
   const renew = (): void => {
     renewals = renewals.then(async () => {
       if (lost.signal.aborted) return;
       try {
         const outcome = await renewAttemptClaim(root, fence, clock);
-        if (outcome.kind !== "written") {
+        if (outcome.kind === "written") {
+          leaseHeldFrom = clock.wallNow();
+          return;
+        }
+        if (claimLossIsProven(outcome) || leaseExhausted()) {
           lost.abort(
             new Error(
               `Completion claim renewal ${outcome.kind}: ${
-                "reason" in outcome
-                  ? outcome.reason
-                  : `record version ${outcome.version}`
+                writeFailureReason(outcome)
               }`,
             ),
           );
         }
       } catch (error) {
-        lost.abort(error);
+        if (leaseExhausted()) lost.abort(error);
       }
     });
   };
@@ -256,16 +290,30 @@ export async function withAttemptClaim<T>(
     ATTEMPT_CLAIM_RENEW_INTERVAL_MS,
   );
   const signal = AbortSignal.any([parentSignal, lost.signal]);
+  let completion:
+    | { readonly ok: true; readonly value: T }
+    | { readonly ok: false; readonly error: unknown };
   try {
-    return await run(signal, settle);
-  } finally {
-    await stopRenewing();
-    if (settlement === undefined) {
-      await settle(signal.aborted ? "cancelled" : "failed");
-    } else {
-      await settlement;
-    }
+    completion = { ok: true, value: await run(signal, settle) };
+  } catch (error) {
+    completion = { ok: false, error };
   }
+  await stopRenewing();
+  try {
+    await (settlement ?? settle(signal.aborted ? "cancelled" : "failed"));
+  } catch (error) {
+    // A failed settlement is never the reason the run ended; it is one more
+    // fact about a run that already has one.
+    if (completion.ok) throw error;
+    throw new Error(
+      `${errorMessage(completion.error)} Its attempt also failed to settle: ${
+        errorMessage(error)
+      }`,
+      { cause: completion.error },
+    );
+  }
+  if (completion.ok) return completion.value;
+  throw completion.error;
 }
 
 /** Cancel every dead or expired claim with CAS before a replacement is reserved. */
@@ -323,17 +371,13 @@ export async function recoverAbandonedAttempts(
       undefined,
       clock,
     );
-    if (written.kind === "written") {
-      recovered.push(current.record.id);
-    } else if (written.kind !== "conflict" && written.kind !== "claim-lost") {
-      throw new Error(
-        `Abandoned attempt recovery ${written.kind}: ${
-          "reason" in written
-            ? written.reason
-            : `record version ${written.version}`
-        }`,
-      );
-    }
+    // Every unapplied outcome leaves the claim exactly as it was: another
+    // owner moved it, the lock was busy, or the store could not be written.
+    // None of them can be repaired here, and none of them may escape the
+    // result envelope, so the claim stays for the next run to retire. A claim
+    // that still blocks is reported as its own pending cause, carrying the
+    // attempt id and the effective expiry that explain it.
+    if (written.kind === "written") recovered.push(current.record.id);
   }
   return recovered;
 }
