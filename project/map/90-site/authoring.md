@@ -8,7 +8,7 @@ aliases:
 
 # Authoring site pages
 
-Start in [`site/ui/pages/`](../../../site/ui/pages/) for a React page and [`site/ui/layouts/`](../../../site/ui/layouts/) for its shared structure. [`Document.tsx`](../../../site/ui/Document.tsx) owns the document head, theme bootstrap, and assets. [`site/ui/components/`](../../../site/ui/components/) holds thin product adapters over the exact published design system. Page-specific styles and progressive enhancements live in `site/page-src/`; shared browser assets such as `theme.js` remain authored in `site/pages/assets/`.
+Start in [`site/ui/pages/`](../../../site/ui/pages/) for a React page and [`site/ui/layouts/`](../../../site/ui/layouts/) for its shared structure. [`Document.tsx`](../../../site/ui/Document.tsx) owns the document head, theme bootstrap, and assets. [`site/ui/components/`](../../../site/ui/components/) holds thin product adapters over the exact published design system. Page-specific styles and progressive enhancements live in `site/page-src/`; shared browser assets remain authored in `site/pages/assets/`.
 
 HTML-producing site modules use `.tsx`; routing, registries, data models, and build orchestration use `.ts`. The document corpus renderer is [`site/docs.tsx`](../../../site/docs.tsx). It preserves the manual, Map, and decision models while its shell and workflow projections remain separate from the React page layouts. The [docs contract](the-docs-section.md) governs a component conversion of that surface.
 
@@ -16,7 +16,7 @@ HTML-producing site modules use `.tsx`; routing, registries, data models, and bu
 
 Marketing components render during `site:build`. Releases and the map overview render on the server from their content models. These pages use `Document` and `MarketingLayout` ([ADR 0402](../_adr/0402-site-layouts-use-server-rendered-react-components.md)).
 
-Server rendering produces the initial HTML. It does not run `useEffect` or attach React event handlers in the visitor's browser. The site currently uses the package's selected enhancements and page-owned JavaScript for interaction. For example, the theme adapter supplies package markup while `theme.js` owns preference and events; Command's copy control uses the package runtime.
+Server rendering produces the initial HTML. It does not run `useEffect` or attach React event handlers in the visitor's browser. The site currently uses the package's selected enhancements and page-owned JavaScript for interaction. Theme selection and Command's copy control both come from the package runtime; the site supplies only its theme storage policy and the pre-paint bootstrap.
 
 Hydration would load a browser React entrypoint and connect React to matching server-rendered markup. That enables effects and stateful components, while adding JavaScript, initial-state consistency, and browser build obligations. A component needing hydration must have that integration explicitly; a server-rendering import alone cannot provide it.
 
