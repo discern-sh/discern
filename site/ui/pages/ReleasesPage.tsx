@@ -6,6 +6,7 @@ import {
   Command,
   Heading,
   Kicker,
+  Markdown,
   Tag,
 } from "discern-design-system/react";
 import { RELEASE_TITLE } from "../../brand.ts";
@@ -27,7 +28,6 @@ import {
 } from "../../releases/presentation.ts";
 import { renderDocument } from "../Document.tsx";
 import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
-import { Markdown } from "../components/Markdown.tsx";
 
 const RESULT_HEADINGS: Record<ReleaseComparison["status"], string> = {
   index: "discern releases",
@@ -40,6 +40,15 @@ const RESULT_HEADINGS: Record<ReleaseComparison["status"], string> = {
 /** Stable numeric anchors remain valid across release names and comparisons. */
 function releaseAnchor(record: CatalogueRecord): string {
   return `release-${record.version}`;
+}
+
+/**
+ * Scope for the destinations inside one release's notes. A package id prefix
+ * admits no dots, so the numeric anchor above stays the public destination and
+ * its slug scopes the headings, notes, and returns each release owns.
+ */
+export function releaseNoteScope(record: CatalogueRecord): string {
+  return releaseAnchor(record).replaceAll(/[^A-Za-z0-9_-]/g, "-");
 }
 
 /** Names remain secondary to the complete numeric identity. */
@@ -188,8 +197,8 @@ function HistorySection(
             <p className="releases-summary">{record.summary}</p>
             <Markdown
               source={record.body}
-              idPrefix={`${releaseAnchor(record)}-`}
-              firstHeadingLevel={4}
+              idPrefix={releaseNoteScope(record)}
+              baseHeadingLevel={4}
               className="releases-notes"
             />
           </div>

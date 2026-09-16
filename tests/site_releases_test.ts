@@ -76,6 +76,14 @@ async function assertPage(
     assert(next <= level + 1, `heading level skips ${level} to ${next}`);
     level = next;
   }
+  for (const notes of document.querySelectorAll(".releases-notes")) {
+    for (const heading of notes.querySelectorAll("h1, h2, h3")) {
+      assert(
+        heading.closest(".discern-footnotes") !== null,
+        `release notes must nest beneath their entry heading: ${heading.tagName}`,
+      );
+    }
+  }
   for (
     const link of document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')
   ) {

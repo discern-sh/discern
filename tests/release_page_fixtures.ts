@@ -23,7 +23,9 @@ Keep the project's instructions in one authored source. Review what each coding 
 
 ## Review the evidence
 
-Read the [shared instructions](#shared-instructions), then inspect the completed change and its check results.`,
+Read the [shared instructions](#shared-instructions), then inspect the completed change and its check results.[^scope]
+
+[^scope]: Each release's notes carry their own destinations.`,
     },
     {
       path: "7.8.1.md",
@@ -32,7 +34,9 @@ summary: Clearer next steps when a project check needs attention.
 ---
 ## Check results
 
-A check result names the affected file and the next action. Review the result before running another check.`,
+A check result names the affected file and the next action.[^scope] Review the result before running another check.
+
+[^scope]: A repeated note name belongs to the release that declares it.`,
     },
     {
       path: "7.8.2.md",
