@@ -1454,6 +1454,9 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
         : `${proposalStatus} ${plural(proposals.length, "proposed limit")}.`,
     ),
     evidence: unique([
+      // Every fact names the standard it belongs to. The owner approves one
+      // tuple per proposal, so two proposals that share a reason or a path
+      // list must still reach them as two, each attributable to its standard.
       ...proposals.flatMap((entry) => {
         const name = text(entry.standard) ?? "standard";
         const reason = text(entry.reason);
@@ -1463,8 +1466,11 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
           }; measured ${number(entry.measurement) ?? "unknown"}; delta ${
             number(entry.delta) ?? "unknown"
           }.`,
-          reason === undefined ? undefined : `Reason: ${reason}`,
-          listFact("Responsible paths", strings(entry.evidence_paths)),
+          reason === undefined ? undefined : `${code(name)} reason: ${reason}`,
+          listFact(
+            `${code(name)} responsible paths`,
+            strings(entry.evidence_paths),
+          ),
         ];
       }),
       ...producerEvidenceFacts(data),

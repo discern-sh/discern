@@ -1575,3 +1575,40 @@ Deno.test("a long landing queue stays bounded with an explicit overflow count", 
   assert(!rendered.includes("Queue 7:"), rendered);
   assertStringIncludes(rendered, "3 more submissions wait behind these.");
 });
+
+Deno.test("a proposal batch renders every tuple the owner must approve", () => {
+  // Two breaches from one commit share a reason and a responsible path. The
+  // approval is per standard, so neither may be deduplicated away.
+  const shared = {
+    reason: "The feature requires one more tracked file.",
+    evidence_paths: ["src/feature.ts"],
+    trunk_limit: 1,
+    proposed_limit: 2,
+    measurement: 2,
+    delta: 1,
+  };
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "standards",
+      data: {
+        proposal_batch: {
+          status: "Recorded",
+          proposals: [
+            { standard: "sources", ...shared },
+            { standard: "docs", ...shared },
+          ],
+        },
+      },
+    },
+    resultPresenterForVerb("standards"),
+  );
+  assertStringIncludes(rendered, "Recorded 2 proposed limits.");
+  for (const name of ["sources", "docs"]) {
+    assertStringIncludes(rendered, `\`${name}\` reason: ${shared.reason}`);
+    assertStringIncludes(
+      rendered,
+      `\`${name}\` responsible paths: \`src/feature.ts\`.`,
+    );
+  }
+});
