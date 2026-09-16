@@ -7,6 +7,8 @@
 /* ── Page scaffold ─────────────────────────────────────────────────────── */
 
 body {
+  --docs-page-max: 100rem;
+
   margin: 0;
 }
 
@@ -22,7 +24,7 @@ body {
   display: grid;
   grid-template-columns: 16.5rem minmax(0, 1fr) 14.5rem;
   gap: 0 clamp(1.75rem, 4vw, 4.25rem);
-  width: min(100% - 2 * var(--discern-space-6), 100rem);
+  width: min(100% - 2 * var(--discern-space-6), var(--docs-page-max));
   margin-inline: auto;
   align-items: start;
 }
@@ -52,14 +54,10 @@ body {
 
 /* ── Top bar ───────────────────────────────────────────────────────────── */
 
-.docs-top-inner {
-  max-inline-size: 100rem;
-}
-
-.docs-brand-group {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--discern-space-2);
+/* The package bar measures its inner row against the page maximum; the
+   shell's three columns run wider than an article, so the bar follows them. */
+.docs-top {
+  --discern-page-max: var(--docs-page-max);
 }
 
 .docs-brand-lockup {
@@ -124,13 +122,6 @@ body {
   font-size: 1rem;
 }
 
-.docs-theme {
-  box-sizing: border-box;
-  inline-size: 2.25rem;
-  block-size: 2.25rem;
-  min-block-size: 2.25rem;
-}
-
 /* ── Chapter nav (left rail) ───────────────────────────────────────────── */
 
 .docs-nav {
@@ -150,34 +141,16 @@ body {
   scrollbar-width: thin;
 }
 
-.docs-nav-chapter-heading {
-  display: grid;
-  gap: var(--discern-space-1);
-}
-
-.docs-nav-label {
-  display: flex;
+.docs-nav-chapter-title {
+  display: inline-flex;
   gap: var(--discern-space-2);
   align-items: baseline;
-  margin-bottom: 0;
-  letter-spacing: normal;
 }
 
 .docs-nav-section-index {
   color: var(--discern-color-accent-600);
   font-family: var(--discern-font-mono);
   font-size: 0.6875rem;
-}
-
-.docs-nav-scroll [data-nav-section] > ul {
-  gap: 0;
-}
-
-.docs-page-kind {
-  color: var(--discern-color-ink-faint);
-  font: 500 0.625rem var(--discern-font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .docs-page-kind {

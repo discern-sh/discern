@@ -239,7 +239,7 @@ Deno.test("navigation restores its position and keeps the current page visible",
     "discern:manual-nav-scroll",
   );
   const routes = [
-    ...navScroll.querySelectorAll("[data-nav-page] > a"),
+    ...navScroll.querySelectorAll("li > a"),
   ].map((link) => link.getAttribute("href"));
   const disclosure = navScroll.querySelector("[data-nav-disclosure]");
   dom.window.close();

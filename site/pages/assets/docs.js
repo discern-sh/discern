@@ -328,6 +328,11 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
   const searchBackdrop = $("[data-search-backdrop]");
 
   if (palette && input && list && empty && status && showAll) {
+    // The palette frame, field, and close control are the package's; the
+    // results anatomy is created here, so its container classes are too.
+    const close = $(".discern-search-palette__close", palette);
+    list.classList.add("discern-search-palette__list");
+    empty.classList.add("discern-search-palette__empty");
     let pages = null;
     let loadState = "idle";
     let allResults = [];
@@ -540,9 +545,7 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
     for (const trigger of $$("[data-search-open]")) {
       trigger.addEventListener("click", () => openSearch());
     }
-    for (const closer of $$("[data-search-close]")) {
-      closer.addEventListener("click", () => closeSearch());
-    }
+    close?.addEventListener("click", () => closeSearch());
 
     doc.addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
