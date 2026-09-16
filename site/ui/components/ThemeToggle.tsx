@@ -4,6 +4,13 @@ import {
   type StaticThemeToggleProps,
   ThemeToggle,
 } from "discern-design-system/react";
+import { HtmlFragment } from "./HtmlFragment.tsx";
+
+/** The drawn glyphs the document shell uses in place of the default characters. */
+export interface ThemeToggleGlyphs {
+  readonly light: string;
+  readonly dark: string;
+}
 
 /**
  * React pages render the package component directly. A shell that builds HTML
@@ -14,4 +21,28 @@ export function renderThemeToggleHtml(
   props: StaticThemeToggleProps = {},
 ): string {
   return renderToStaticMarkup(<ThemeToggle {...props} />);
+}
+
+/**
+ * The document shell cannot import React, so the build emits its control as a
+ * fragment. Sizing and the drawn glyphs stay shell-owned; the contract does not.
+ */
+export function renderDocumentThemeToggle(glyphs: ThemeToggleGlyphs): string {
+  return renderThemeToggleHtml({
+    className: "docs-theme",
+    lightGlyph: (
+      <HtmlFragment
+        as="span"
+        className="discern-icon docs-theme-icon"
+        html={glyphs.light}
+      />
+    ),
+    darkGlyph: (
+      <HtmlFragment
+        as="span"
+        className="discern-icon docs-theme-icon"
+        html={glyphs.dark}
+      />
+    ),
+  });
 }

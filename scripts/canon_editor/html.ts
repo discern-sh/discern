@@ -15,7 +15,6 @@ import type { Snapshot, SnapshotPage } from "./snapshot.ts";
 import { escapeHtml, renderMarkdownHtml } from "../../src/lib/markdown.ts";
 import { siteAppearanceRootAttributes } from "../../site/appearance.ts";
 import { themeRootAttributes } from "../../site/theme.ts";
-import { renderThemeToggleHtml } from "../../site/ui/components/ThemeToggle.tsx";
 
 /** How the editor may treat a span, from the AST classification of its field. */
 export type SpanState = "editable" | "locked" | "unknown";
@@ -141,6 +140,8 @@ export function renderShell(options: {
   readonly docHtml: string;
   readonly snapshot: Snapshot;
   readonly themeBootstrap: string;
+  /** The shared theme control, rendered by the server from the package. */
+  readonly themeToggle: string;
   readonly requestToken: string;
   readonly requestTokenHeader: string;
 }): string {
@@ -149,6 +150,7 @@ export function renderShell(options: {
     docHtml,
     snapshot,
     themeBootstrap,
+    themeToggle,
     requestToken,
     requestTokenHeader,
   } = options;
@@ -227,11 +229,6 @@ export function renderShell(options: {
     : `<span class="canon-editor-chip" id="canon-editor-grade" title="plain_reading_grade — a ceiling that may only fall">grade ${grade.value}${
       grade.limit === undefined ? "" : ` / ${grade.limit}`
     }</span>`;
-  const themeToggle = renderThemeToggleHtml({
-    className: "canon-editor-chip",
-    lightGlyph: "◐ light",
-    darkGlyph: "◑ dark",
-  });
   const boot = {
     page: {
       id: page.id,

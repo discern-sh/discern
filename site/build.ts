@@ -19,6 +19,8 @@ import {
 import { SITE_APPEARANCE } from "./appearance.ts";
 import { MARKETING_PAGES } from "./marketing_pages.ts";
 import { renderDiscernBrand } from "./ui/components/Brand.tsx";
+import { renderDocumentThemeToggle } from "./ui/components/ThemeToggle.tsx";
+import { DOCS_THEME_GLYPHS } from "./docs.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 import { renderMarketingPage } from "./renderers.ts";
 
@@ -56,6 +58,10 @@ export const RETIRED_SITE_OUTPUTS = [
 const ASSET_ROOT = new URL("pages/assets/design-system/", SITE_ROOT);
 const FRAGMENT_ROOT = new URL("pages/fragments/", SITE_ROOT);
 const BRAND_FRAGMENT_OUTPUT = new URL("brand.html", FRAGMENT_ROOT);
+const THEME_TOGGLE_FRAGMENT_OUTPUT = new URL(
+  "theme-toggle.html",
+  FRAGMENT_ROOT,
+);
 const COMPOSITION_ASSET_ROOT = new URL(
   DESIGN_SYSTEM_BUNDLES.compositions.output,
   SITE_ROOT,
@@ -115,6 +121,10 @@ export async function buildSite(): Promise<void> {
     );
   }
   await Deno.writeTextFile(BRAND_FRAGMENT_OUTPUT, renderDiscernBrand());
+  await Deno.writeTextFile(
+    THEME_TOGGLE_FRAGMENT_OUTPUT,
+    renderDocumentThemeToggle(DOCS_THEME_GLYPHS),
+  );
 
   console.log(
     `Built the shared Brand fragment, ${MARKETING_PAGES.length} marketing pages, and design-system bundles from ${summary.components} components and ${summary.tokens} tokens.`,

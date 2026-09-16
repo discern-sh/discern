@@ -60,12 +60,7 @@ import {
   type TocItem,
 } from "./document_toc.tsx";
 import { buildSearchIndex } from "./search.ts";
-import {
-  THEME_BOOTSTRAP,
-  themeRootAttributes,
-} from "./theme.ts";
-import { HtmlFragment } from "./ui/components/HtmlFragment.tsx";
-import { renderThemeToggleHtml } from "./ui/components/ThemeToggle.tsx";
+import { THEME_BOOTSTRAP, themeRootAttributes } from "./theme.ts";
 import { renderWorkflowMarkdown } from "./workflow.tsx";
 
 export { decorateDocumentHtml } from "./document_html.tsx";
@@ -82,6 +77,12 @@ export const PUBLIC_MAP_ROUTE = DOCUMENT_ROUTES.map;
 const GLOSSARY_SOURCE_PATH = "30-reference/glossary.md";
 const DISCERN_BRAND_FRAGMENT = new URL(
   "pages/fragments/brand.html",
+  import.meta.url,
+);
+
+/** The build emits the document shell's theme control beside the lockup. */
+export const DOCS_THEME_TOGGLE_FRAGMENT: URL = new URL(
+  "pages/fragments/theme-toggle.html",
   import.meta.url,
 );
 
@@ -997,36 +998,24 @@ function crumbsHtml(
   }</span></li></ol></nav>`;
 }
 
+/** Glyphs the document shell draws in its theme control. */
+export const DOCS_THEME_GLYPHS = {
+  light:
+    `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>`,
+  dark:
+    `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
+} as const;
+
 const ICONS = {
   menu:
     `<svg viewBox="0 0 16 16" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg>`,
   search:
     `<svg viewBox="0 0 16 16" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4 14 14"/></svg>`,
-  sun:
-    `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>`,
-  moon:
-    `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
 } as const;
 
-/** The shared control, wearing the shell's own sizing and drawn glyphs. */
+/** Read the build-emitted control on demand so watch rebuilds stay visible. */
 function docsThemeToggleHtml(): string {
-  return renderThemeToggleHtml({
-    className: "docs-theme",
-    lightGlyph: (
-      <HtmlFragment
-        as="span"
-        className="discern-icon docs-theme-icon"
-        html={ICONS.sun}
-      />
-    ),
-    darkGlyph: (
-      <HtmlFragment
-        as="span"
-        className="discern-icon docs-theme-icon"
-        html={ICONS.moon}
-      />
-    ),
-  });
+  return Deno.readTextFileSync(DOCS_THEME_TOGGLE_FRAGMENT);
 }
 
 interface ShellFrame {

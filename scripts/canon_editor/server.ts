@@ -36,6 +36,7 @@ import {
 import { statIfExists } from "../../src/shared/fs_presence.ts";
 import { runGit } from "../../src/shared/subprocess.ts";
 import { THEME_BOOTSTRAP } from "../../site/theme.ts";
+import { renderThemeToggleHtml } from "../../site/ui/components/ThemeToggle.tsx";
 import { type PickerCatalogEntry, pickerFromCatalog } from "./pickers.ts";
 import {
   type Scheduler,
@@ -470,6 +471,11 @@ export async function startCanonEditor(
           docHtml: doc.html,
           snapshot,
           themeBootstrap: THEME_BOOTSTRAP,
+          themeToggle: renderThemeToggleHtml({
+            className: "canon-editor-chip",
+            lightGlyph: "◐ light",
+            darkGlyph: "◑ dark",
+          }),
           requestToken,
           requestTokenHeader: CANON_EDITOR_REQUEST_TOKEN_HEADER,
         }),

@@ -19,9 +19,8 @@ function inlineThemeBootstrap(html: string): string {
   const scripts = [
     ...html.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g),
   ];
-  return (scripts.find((match) =>
-    (match[1] ?? "").includes(THEME_STORAGE_KEY)
-  )?.[1] ?? "").trim();
+  return (scripts.find((match) => (match[1] ?? "").includes(THEME_STORAGE_KEY))
+    ?.[1] ?? "").trim();
 }
 
 /** Run the bootstrap against a root that starts where the markup leaves it. */
