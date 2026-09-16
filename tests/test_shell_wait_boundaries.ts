@@ -13,6 +13,24 @@ export const TEST_SHELL_WAIT_BOUNDARIES = [
       "The owned script stays alive while its lease and competing writers are observed, then cancellation ends it; the test ends it by cancellation instead of elapsed time.",
   },
   {
+    path: "tests/engine_desk_operation_test.ts",
+    enclosing: "holdOpen",
+    argument: "0.05",
+    count: 1,
+    classification: "condition-poll",
+    reason:
+      "The desk shell held open polls the parent-owned release file; the gate under test must run while the shell is open, and the test releases it afterwards.",
+  },
+  {
+    path: "tests/engine_desk_operation_test.ts",
+    enclosing: "a running gate never refuses a desk shell on its checkout",
+    argument: "0.05",
+    count: 1,
+    classification: "condition-poll",
+    reason:
+      "The paused gate's test job polls the parent-owned release file; the desk shell under test must open while the gate holds the checkout.",
+  },
+  {
     path: "tests/engine_desk_queue_test.ts",
     enclosing:
       "Desk replaces a submission while another effort's acceptance checks are running",
