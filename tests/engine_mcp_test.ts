@@ -2265,36 +2265,18 @@ Deno.test("discern mcp: pre-setup gates map but not the gate proof verbs or docs
     await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
     await gitInit(dir);
     await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
+    await mcp.initialize();
 
     // `discern_map` still refuses with the structured not_set_up envelope — its
     // tree is empty until setup fills it.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_map", arguments: {} },
-    });
-    const refused = await mcp.recv();
+    const refused = await mcp.callTool(2, "discern_map");
     assertEquals(refused.result.isError, true);
     assertEquals(refused.result.structuredContent.error, "not_set_up");
 
     // `discern_done` is a gate PROOF verb — un-gated during setup (ADR 0065) so
     // the agent can iterate while wiring capabilities — but it carries the
     // setup-in-progress hint so a green run can't be mistaken for "done".
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "discern_done", arguments: {} },
-    });
-    const finish = await mcp.recv();
+    const finish = await mcp.callTool(3, "discern_done");
     assertEquals(finish.result.structuredContent.verb, "done");
     assert(finish.result.structuredContent.error !== "not_set_up");
     assertHasMcpHint(
@@ -2303,13 +2285,7 @@ Deno.test("discern mcp: pre-setup gates map but not the gate proof verbs or docs
     );
 
     // `discern_docs` stays open pre-setup — discern's own docs are what you need now.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 4,
-      method: "tools/call",
-      params: { name: "discern_docs", arguments: {} },
-    });
-    const docs = await mcp.recv();
+    const docs = await mcp.callTool(4, "discern_docs");
     assertEquals(docs.result.isError, false);
     assertEquals(docs.result.structuredContent.verb, "docs");
     assert(docs.result.structuredContent.data.count > 0);
