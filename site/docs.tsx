@@ -1429,7 +1429,7 @@ function frontDoorsHtml(site: DocsSite): string {
 }
 
 /** Split the authored introduction from its remaining non-index guidance. */
-function manualLandingParts(html: string): readonly [string, string] {
+export function manualLandingParts(html: string): readonly [string, string] {
   const firstSection = html.indexOf("<h2 ");
   return firstSection < 0
     ? [html, ""]

@@ -13,7 +13,6 @@ import { DOCUMENT_SEARCH_ROUTES } from "./routes.ts";
 import {
   decisionShell,
   decisionsIndexShell,
-  docsIndexShell,
   type DocsSite,
   type DocumentCorpus,
   loadDocsSite,
@@ -22,6 +21,7 @@ import {
 } from "./docs.tsx";
 import { buildSearchIndex } from "./search.ts";
 import { renderMapPage } from "./ui/pages/MapPage.tsx";
+import { renderManualCoverPage } from "./ui/pages/ManualCoverPage.tsx";
 import { renderManualPage } from "./ui/pages/ManualPage.tsx";
 
 let searchIndexCache: string | undefined;
@@ -99,7 +99,7 @@ export async function serveDocuments(
     }
     const rendered = await renderDoc(site.landing, site);
     return respond(
-      docsIndexShell(site, rendered),
+      renderManualCoverPage(site, rendered),
       "text/html; charset=utf-8",
       true,
     );

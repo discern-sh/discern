@@ -569,32 +569,29 @@ Deno.test("section landings derive their leaf index from model metadata", async 
   for (const section of site.sections) {
     const res = await get(section.index.route, BROWSER);
     const html = await res.text();
-    const generated = /<section class="docs-section-index"[\s\S]*?<\/section>/
-      .exec(html)?.[0] ?? "";
+    const dom = new JSDOM(html);
+    const generated = dom.window.document.querySelector(
+      ".docs-section-index",
+    );
     const leaves = section.pages.filter((page) => !page.isIndex);
-    assert(generated.length > 0, section.dir);
+    assert(generated !== null, section.dir);
     assertEquals(
-      [...generated.matchAll(/<li><a href="([^"]+)"/g)].map((match) =>
-        match[1] ?? ""
-      ),
-      leaves.map((page) => page.route),
+      [...generated.querySelectorAll("li")].map((item) => ({
+        route: item.querySelector("a")?.getAttribute("href"),
+        title: item.querySelector("a")?.textContent,
+        description: item.querySelector(".docs-leaf-desc")?.textContent,
+      })),
+      leaves.map((page) => ({
+        route: page.route,
+        title: page.entry.title,
+        description: page.entry.description,
+      })),
       section.dir,
     );
-    for (const leaf of leaves) {
-      assertStringIncludes(
-        generated,
-        htmlEsc(leaf.entry.title),
-        leaf.entry.path,
-      );
-      assertStringIncludes(
-        generated,
-        htmlEsc(leaf.entry.description),
-        leaf.entry.path,
-      );
-    }
     if (section.dir === "10-guides") {
       assert(!html.includes('href="#in-this-section"'));
     }
+    dom.window.close();
   }
 });
 

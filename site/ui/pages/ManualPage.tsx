@@ -8,7 +8,7 @@ import {
   pageKindLabel,
   relatedDecisions,
   type RenderedDoc,
-  sectionLeafIndexHtml,
+  sectionLeaves,
 } from "../../docs.tsx";
 import { authoredHeadingNumberClass } from "../../document_toc.tsx";
 import {
@@ -18,6 +18,7 @@ import {
 import { DocumentColophon } from "../components/DocumentColophon.tsx";
 import { DocumentPager } from "../components/DocumentPager.tsx";
 import { HtmlFragment } from "../components/HtmlFragment.tsx";
+import { LeafList } from "../components/LeafList.tsx";
 
 export interface ManualPageProps {
   readonly site: DocsSite;
@@ -49,17 +50,28 @@ function RelatedDecisions(
   );
 }
 
+/** A section landing's canonical leaf list, derived from the model. */
+function SectionIndex(
+  { site, page }: { readonly site: DocsSite; readonly page: DocsPage },
+): ReactElement | null {
+  const leaves = sectionLeaves(site, page);
+  if (leaves.length === 0) return null;
+  return (
+    <section className="docs-section-index" aria-label="In this section">
+      <h2>In this section</h2>
+      <LeafList pages={leaves} ordered />
+    </section>
+  );
+}
+
 /**
  * The article is the body renderer's HTML — Workflow projections, glossary
- * terms, and structural decoration included — with a section landing's
- * model-derived leaf list appended before decoration.
+ * terms, and structural decoration included — followed by a section
+ * landing's model-derived leaf list.
  */
 export function ManualPage(
   { site, page, rendered }: ManualPageProps,
 ): ReactElement {
-  const article = decorateDocumentHtml(
-    `${rendered.html}\n${sectionLeafIndexHtml(site, page)}`,
-  );
   return (
     <DocumentLayout
       site={site}
@@ -70,11 +82,12 @@ export function ManualPage(
       <p className="docs-page-kind">
         <Kicker>{pageKindLabel(page)}</Kicker>
       </p>
-      <HtmlFragment
-        as="article"
+      <article
         className={`doc-body${authoredHeadingNumberClass(rendered.toc)}`}
-        html={article}
-      />
+      >
+        <HtmlFragment html={decorateDocumentHtml(rendered.html)} />
+        <SectionIndex site={site} page={page} />
+      </article>
       <RelatedDecisions site={site} page={page} />
       <DocumentPager site={site} page={page} />
       <DocumentColophon page={page} />
