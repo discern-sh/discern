@@ -283,8 +283,8 @@ Deno.test("a completion claim reports one live owner, then replaces an expired l
             token: completionId(901),
             executor,
             acquired_at: acquiredAt,
-            // This is the pre-renewal shape from the reported incident: its
-            // stored expiry is hours away, but its effective lease is bounded.
+            // A claim written before renewable leases: no `renewed_at`, and a
+            // stored expiry hours away that the effective lease still bounds.
             expires_at: acquiredAt + 9.25 * 60 * 60 * 1_000,
           },
         },
