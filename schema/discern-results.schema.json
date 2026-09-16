@@ -12464,6 +12464,18 @@
                           },
                           "reason": {
                             "type": "string"
+                          },
+                          "next_action": {
+                            "type": "string"
+                          },
+                          "attempt_id": {
+                            "type": "string"
+                          },
+                          "operation_handle": {
+                            "type": "string"
+                          },
+                          "expires_at": {
+                            "type": "number"
                           }
                         },
                         "required": [

@@ -35,6 +35,8 @@ export const ExecutorSchema = z.strictObject({
   operation_id: RecordIdSchema,
   originating_effort: NameSchema,
   started_at: InstantSchema,
+  /** Reconnectable journal for the process that owns this execution. */
+  operation_handle: z.string().optional(),
 });
 export type Executor = z.infer<typeof ExecutorSchema>;
 

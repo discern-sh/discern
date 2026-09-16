@@ -20,12 +20,14 @@ import {
   withCompletionPublication,
 } from "../operation_lock.ts";
 import { RecordIdSchema } from "./identity.ts";
+import { ATTEMPT_CLAIM_LEASE_MS, effectiveClaimExpiry } from "./attempt.ts";
 import { migrateSingularSourceCandidate } from "./candidate.ts";
 import { applicabilitySubject } from "./evidence.ts";
 import {
   COMPLETION_FAMILIES,
   type CompletionRecord,
   CompletionRecordSchema,
+  isAttemptClaimRenewal,
   type RecordSelector,
   recordTransitionAllowed,
 } from "./records.ts";
@@ -242,7 +244,10 @@ async function checkFence(
   if (
     attempt.state.kind === "finished" ||
     attempt.state.claim.token !== fence.token ||
-    attempt.state.claim.expires_at <= now
+    effectiveClaimExpiry(
+        attempt.state.claim,
+        ATTEMPT_CLAIM_LEASE_MS,
+      ) <= now
   ) return "attempt claim was lost, expired, or superseded";
   if (
     (record.kind === "proof" || record.kind === "evidence") &&
@@ -340,7 +345,10 @@ export async function writeCompletionRecord(
           clock.wallNow(),
         );
         if (lost !== undefined) return { kind: "claim-lost", reason: lost };
-        if (current.kind === "recorded") {
+        if (
+          current.kind === "recorded" &&
+          !isAttemptClaimRenewal(current.record, parsed.data)
+        ) {
           const blocked = await preserveRevision(
             store,
             current.record,

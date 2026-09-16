@@ -26,14 +26,15 @@ import { integrationBranch } from "../worktree/git.ts";
 import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
 import type { CompletionArtifact } from "./artifacts.ts";
 import {
-  attemptLease,
+  recoverAbandonedAttempts,
   reserveAttempt,
-  settleAttempt,
+  withAttemptClaim,
 } from "./attempt_lifecycle.ts";
 import type { Candidate } from "./candidate.ts";
 import { completionRecordBlocker } from "./compatibility.ts";
 import { emitCompletionEvent, emitComponentUse } from "./events.ts";
 import type { Executor, SourceRevision } from "./identity.ts";
+import { currentOperationHandle } from "./operation_journal.ts";
 import type {
   ClaimedExecution,
   CompletionBlocker,
@@ -152,10 +153,14 @@ export async function completeSourceTip<T>(
     // for an integrated landing, the checkout's own tip otherwise.
     const sources = options.composition?.sources ?? [source];
     const author = sources[0] ?? source;
+    const operationHandle = currentOperationHandle();
     const actor: Executor = {
       operation_id: SYSTEM_SECURE_ENTROPY.uuid(),
       originating_effort: source.effort_id,
       started_at: SYSTEM_CLOCK.wallNow(),
+      ...(operationHandle === undefined
+        ? {}
+        : { operation_handle: operationHandle }),
     };
     attribution = {
       effort_id: author.effort_id,
@@ -186,6 +191,7 @@ export async function completeSourceTip<T>(
     }
     const policy = await predecessorPolicyIdentity(root, trunkHead);
     const requirementSet = await requirementsAt(root, config);
+    await recoverAbandonedAttempts(root, {});
     const observation = await observeCompletionRecords(root);
     const unsupported = completionRecordBlocker(observation);
     if (unsupported !== undefined) return unsupported;
@@ -245,208 +251,209 @@ export async function completeSourceTip<T>(
       executor: actor,
       rerun_of: rerunOf,
       mode: options.mode,
-      lease_ms: await attemptLease(config),
     });
     attribution = {
       ...attribution,
       candidate_id: candidateId,
       attempt_id: reserved.attempt.identity.id,
     };
-    const candidate: Candidate = prior?.data ?? {
-      attempt_id: reserved.attempt.identity.id,
-      sources: [...sources],
-      predecessor: trunkHead,
-      head: source.head,
-      tree: source.tree,
-      policy,
-      requirement_set: requirementSet,
-      ...(integrated ? { integration: { procedure: "merge-trunk" } } : {}),
-    };
-    if (prior === undefined) {
-      await retainCandidate(root, candidateId, candidate, reserved.fence);
-    }
-    const execution: ClaimedExecution = {
-      fence: reserved.fence,
-      attempt: reserved.attempt,
-      path: root,
-      seed: identity.seed,
-      candidate_id: candidateId,
-      candidate,
-      signal,
-    };
-    const settle = async (
-      outcome: "passed" | "failed" | "cancelled",
-    ): Promise<void> => {
-      await settleAttempt(root, reserved.fence, outcome);
-    };
-    let result: CompletionRunValue<T> | undefined;
-    let failure: string | undefined;
-    try {
-      result = await run({
-        execution,
-        mode: options.mode,
-        ...(rerunOf === null ? {} : { rerun_of: rerunOf }),
-      });
-    } catch (error) {
-      failure = error instanceof Error ? error.message : String(error);
-    }
-    if (result === undefined) {
-      await settle(signal.aborted ? "cancelled" : "failed");
-      if (signal.aborted) {
-        return {
-          kind: "cancelled" as const,
-          reason: "Completion was cancelled before it produced a result.",
-        };
-      }
-      return {
-        kind: "validation-failed" as const,
-        evidence_ids: [],
-        reason: failure ??
-          "Validation did not produce a result. Inspect the run's diagnostics and run again.",
-      };
-    }
-    // Every produced component becomes an immutable receipt under this
-    // attempt's fence, whatever the run's verdict: a failed producer's
-    // evidence is as durable as a passing one's.
-    let publicationFailure: CompletionBlocker | undefined;
-    for (const component of result.validation?.outcome.evidence ?? []) {
-      const evidenceId = SYSTEM_SECURE_ENTROPY.uuid();
-      const written = await writeCompletionRecord(
-        root,
-        {
-          version: ON_DISK_FORMATS.completionRecord.version,
-          kind: "evidence",
-          id: evidenceId,
-          revision: 1,
-          data: component,
-        },
-        null,
-        reserved.fence,
-      );
-      if (written.kind !== "written") {
-        publicationFailure = written.kind === "newer" ||
-            written.kind === "older" || written.kind === "invalid" ||
-            written.kind === "unavailable"
-          ? completionRecordBlocker({
-            records: [{
-              selector: { kind: "evidence", id: evidenceId },
-              reading: written,
-            }],
-          })
-          : {
-            kind: "stale-evidence",
-            evidence_ids: [],
-            reason: "claim-lost",
-          };
-        break;
-      }
-      emitComponentUse(
-        execution,
-        component,
-        evidenceId,
-        "executed",
-        (result.validation?.results.get(
-          producerLabel(component.applicability.producer),
-        )?.durationS ?? 0) * 1000,
-        component.finished_at,
-      );
-    }
-    const base = {
-      kind: "completed" as const,
-      value: result.value,
-      candidate_id: candidateId,
-      candidate,
-    };
-    if (signal.aborted) {
-      await settle("cancelled");
-      return {
-        ...base,
-        blockers: [{
-          kind: "cancelled" as const,
-          reason: "Completion was cancelled; its attempt is closed.",
-        }],
-      };
-    }
-    if (publicationFailure !== undefined) {
-      await settle("failed");
-      return { ...base, blockers: [publicationFailure] };
-    }
-    if (result.blockers !== undefined && result.blockers.length > 0) {
-      await settle("failed");
-      return { ...base, blockers: result.blockers };
-    }
-    const validation = result.validation;
-    if (
-      !result.passed || validation === undefined ||
-      validation.outcome.blockers.length > 0
-    ) {
-      await settle("failed");
-      return {
-        ...base,
-        blockers: validation?.outcome.blockers.length
-          ? validation.outcome.blockers
-          : [{ kind: "validation-failed" as const, evidence_ids: [] }],
-      };
-    }
-    // Assemble the complete Proof from every applicable receipt now recorded,
-    // attributed to this attempt while its claim is still live.
-    await validation.evaluator.observe(candidateId);
-    const assembly = validation.evaluator.assemble(
-      candidateId,
-      candidate,
-      validation.snapshot.requirements,
-      observedRecords(await observeCompletionRecords(root)),
-      options.mode,
-      reserved.fence,
-    );
-    if (assembly.kind === "incomplete") {
-      await settle("failed");
-      return { ...base, blockers: assembly.blockers };
-    }
-    const proofId = reserved.fence.attempt_id;
-    const proof = await writeCompletionRecord(
+    return await withAttemptClaim(
       root,
-      {
-        version: ON_DISK_FORMATS.completionRecord.version,
-        kind: "proof",
-        id: proofId,
-        revision: 1,
-        data: {
-          ...assembly.proof,
-          ...(result.review === undefined ? {} : { review: result.review }),
-        },
-      },
-      null,
       reserved.fence,
+      signal,
+      async (claimSignal, settle) => {
+        const candidate: Candidate = prior?.data ?? {
+          attempt_id: reserved.attempt.identity.id,
+          sources: [...sources],
+          predecessor: trunkHead,
+          head: source.head,
+          tree: source.tree,
+          policy,
+          requirement_set: requirementSet,
+          ...(integrated ? { integration: { procedure: "merge-trunk" } } : {}),
+        };
+        if (prior === undefined) {
+          await retainCandidate(root, candidateId, candidate, reserved.fence);
+        }
+        const execution: ClaimedExecution = {
+          fence: reserved.fence,
+          attempt: reserved.attempt,
+          path: root,
+          seed: identity.seed,
+          candidate_id: candidateId,
+          candidate,
+          signal: claimSignal,
+        };
+        let result: CompletionRunValue<T> | undefined;
+        let failure: string | undefined;
+        try {
+          result = await run({
+            execution,
+            mode: options.mode,
+            ...(rerunOf === null ? {} : { rerun_of: rerunOf }),
+          });
+        } catch (error) {
+          failure = error instanceof Error ? error.message : String(error);
+        }
+        if (result === undefined) {
+          await settle(claimSignal.aborted ? "cancelled" : "failed");
+          if (claimSignal.aborted) {
+            return {
+              kind: "cancelled" as const,
+              reason: "Completion was cancelled before it produced a result.",
+            };
+          }
+          return {
+            kind: "validation-failed" as const,
+            evidence_ids: [],
+            reason: failure ??
+              "Validation did not produce a result. Inspect the run's diagnostics and run again.",
+          };
+        }
+        // Every produced component becomes an immutable receipt under this
+        // attempt's fence, whatever the run's verdict: a failed producer's
+        // evidence is as durable as a passing one's.
+        let publicationFailure: CompletionBlocker | undefined;
+        for (const component of result.validation?.outcome.evidence ?? []) {
+          const evidenceId = SYSTEM_SECURE_ENTROPY.uuid();
+          const written = await writeCompletionRecord(
+            root,
+            {
+              version: ON_DISK_FORMATS.completionRecord.version,
+              kind: "evidence",
+              id: evidenceId,
+              revision: 1,
+              data: component,
+            },
+            null,
+            reserved.fence,
+          );
+          if (written.kind !== "written") {
+            publicationFailure = written.kind === "newer" ||
+                written.kind === "older" || written.kind === "invalid" ||
+                written.kind === "unavailable"
+              ? completionRecordBlocker({
+                records: [{
+                  selector: { kind: "evidence", id: evidenceId },
+                  reading: written,
+                }],
+              })
+              : {
+                kind: "stale-evidence",
+                evidence_ids: [],
+                reason: "claim-lost",
+              };
+            break;
+          }
+          emitComponentUse(
+            execution,
+            component,
+            evidenceId,
+            "executed",
+            (result.validation?.results.get(
+              producerLabel(component.applicability.producer),
+            )?.durationS ?? 0) * 1000,
+            component.finished_at,
+          );
+        }
+        const base = {
+          kind: "completed" as const,
+          value: result.value,
+          candidate_id: candidateId,
+          candidate,
+        };
+        if (claimSignal.aborted) {
+          await settle("cancelled");
+          return {
+            ...base,
+            blockers: [{
+              kind: "cancelled" as const,
+              reason: "Completion was cancelled; its attempt is closed.",
+            }],
+          };
+        }
+        if (publicationFailure !== undefined) {
+          await settle("failed");
+          return { ...base, blockers: [publicationFailure] };
+        }
+        if (result.blockers !== undefined && result.blockers.length > 0) {
+          await settle("failed");
+          return { ...base, blockers: result.blockers };
+        }
+        const validation = result.validation;
+        if (
+          !result.passed || validation === undefined ||
+          validation.outcome.blockers.length > 0
+        ) {
+          await settle("failed");
+          return {
+            ...base,
+            blockers: validation?.outcome.blockers.length
+              ? validation.outcome.blockers
+              : [{ kind: "validation-failed" as const, evidence_ids: [] }],
+          };
+        }
+        // Assemble the complete Proof from every applicable receipt now recorded,
+        // attributed to this attempt while its claim is still live.
+        await validation.evaluator.observe(candidateId);
+        const assembly = validation.evaluator.assemble(
+          candidateId,
+          candidate,
+          validation.snapshot.requirements,
+          observedRecords(await observeCompletionRecords(root)),
+          options.mode,
+          reserved.fence,
+        );
+        if (assembly.kind === "incomplete") {
+          await settle("failed");
+          return { ...base, blockers: assembly.blockers };
+        }
+        const proofId = reserved.fence.attempt_id;
+        const proof = await writeCompletionRecord(
+          root,
+          {
+            version: ON_DISK_FORMATS.completionRecord.version,
+            kind: "proof",
+            id: proofId,
+            revision: 1,
+            data: {
+              ...assembly.proof,
+              ...(result.review === undefined ? {} : { review: result.review }),
+            },
+          },
+          null,
+          reserved.fence,
+        );
+        if (proof.kind !== "written") {
+          await settle("failed");
+          return {
+            ...base,
+            blockers: [{
+              kind: "unavailable" as const,
+              reason:
+                `Proof publication ${proof.kind}; observe the records and run discern done again.`,
+            }],
+          };
+        }
+        await settle("passed");
+        emitCompletionEvent({
+          id: `${proofId}:proven`,
+          at: SYSTEM_CLOCK.wallNow(),
+          effort_id: source.effort_id,
+          source_head: source.head,
+          candidate_id: candidateId,
+          attempt_id: proofId,
+          executor_operation: actor.operation_id,
+          fact: { kind: "proven", proof_id: proofId, mode: options.mode },
+        });
+        const pointer: CompletionProofPointer = {
+          candidate_id: candidateId,
+          proof_id: proofId,
+        };
+        await finalize?.(result.value, pointer);
+        return { ...base, proof_id: proofId, blockers: [] };
+      },
     );
-    if (proof.kind !== "written") {
-      await settle("failed");
-      return {
-        ...base,
-        blockers: [{
-          kind: "unavailable" as const,
-          reason:
-            `Proof publication ${proof.kind}; observe the records and run discern done again.`,
-        }],
-      };
-    }
-    await settle("passed");
-    emitCompletionEvent({
-      id: `${proofId}:proven`,
-      at: SYSTEM_CLOCK.wallNow(),
-      effort_id: source.effort_id,
-      source_head: source.head,
-      candidate_id: candidateId,
-      attempt_id: proofId,
-      executor_operation: actor.operation_id,
-      fact: { kind: "proven", proof_id: proofId, mode: options.mode },
-    });
-    const pointer: CompletionProofPointer = {
-      candidate_id: candidateId,
-      proof_id: proofId,
-    };
-    await finalize?.(result.value, pointer);
-    return { ...base, proof_id: proofId, blockers: [] };
   }, options.signal);
   if (attribution !== undefined) {
     const finishedAt = SYSTEM_CLOCK.wallNow();

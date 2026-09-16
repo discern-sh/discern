@@ -1202,6 +1202,46 @@ Deno.test("non-ok steps nest beneath the steps summary", () => {
   assert(!rendered.includes("ended"), rendered);
 });
 
+Deno.test("a blocked done leads Markdown with the same recovery action JSON carries", () => {
+  const reason =
+    "Completion attempt 00000000-0000-4000-8000-000000000002 is still running for this worktree.";
+  const action =
+    "Read progress handle R1-AAAA-AAAA-AA, then retry done after it finishes.";
+  const rendered = renderResultMarkdown(
+    {
+      ok: false,
+      verb: "done",
+      error: "incomplete",
+      message: `${reason} ${action}`,
+      hints: hintTexts([
+        fire(HINTS["completion-pending"], { action }),
+      ]),
+      data: {
+        failed_stage: null,
+        scopes_changed: [],
+        gate_ran: false,
+        completion: {
+          kind: "pending",
+          pending_reasons: [reason],
+          pending: [{
+            kind: "waiting-for-operation",
+            reason,
+            next_action: action,
+            attempt_id: "00000000-0000-4000-8000-000000000002",
+            operation_handle: "R1-AAAA-AAAA-AA",
+            expires_at: 60_000,
+          }],
+        },
+      },
+    },
+    resultPresenterForVerb("done"),
+  );
+  assertStringIncludes(rendered, `## Current state\n\n${reason} ${action}`);
+  assert(rendered.trimEnd().endsWith(action), rendered);
+  assert(!rendered.includes("Failed stage"), rendered);
+  assert(!rendered.includes("## Other actions"), rendered);
+});
+
 Deno.test("a narrow coverage gap names authored stragglers and collapses generated files", () => {
   const rendered = renderResultMarkdown(
     {

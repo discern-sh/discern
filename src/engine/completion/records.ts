@@ -158,3 +158,26 @@ export function recordTransitionAllowed(
   }
   return true;
 }
+
+/** Lease heartbeats are current liveness, not semantic attempt history. */
+export function isAttemptClaimRenewal(
+  previous: CompletionRecord,
+  next: CompletionRecord,
+): boolean {
+  if (previous.kind !== "attempt" || next.kind !== "attempt") return false;
+  const before = previous.data.state;
+  const after = next.data.state;
+  if (
+    before.kind === "finished" || after.kind === "finished" ||
+    after.kind !== before.kind
+  ) return false;
+  const withoutLease = (
+    claim: typeof before.claim,
+  ): Omit<typeof claim, "renewed_at" | "expires_at"> => {
+    const { renewed_at: _renewedAt, expires_at: _expiresAt, ...identity } =
+      claim;
+    return identity;
+  };
+  return JSON.stringify(withoutLease(before.claim)) ===
+    JSON.stringify(withoutLease(after.claim));
+}

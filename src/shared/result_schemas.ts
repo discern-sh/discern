@@ -1252,6 +1252,10 @@ export type PreviewActionData = z.infer<typeof PreviewActionDataSchema>;
 export const CompletionPendingSchema = z.strictObject({
   kind: z.string(),
   reason: z.string(),
+  next_action: z.string().optional(),
+  attempt_id: z.string().optional(),
+  operation_handle: z.string().optional(),
+  expires_at: z.number().optional(),
 });
 export const GateDataSchema = z.strictObject({
   emergency_validation: z.array(EmergencyValidationSchema).optional(),

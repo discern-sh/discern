@@ -4028,6 +4028,10 @@ export type DiscernDoneResult = DiscernResultState & {
       pending?: Array<{
         kind: string;
         reason: string;
+        next_action?: string;
+        attempt_id?: string;
+        operation_handle?: string;
+        expires_at?: number;
       }>;
     };
     mode?: "strict" | "report";
