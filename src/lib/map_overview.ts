@@ -141,22 +141,3 @@ export async function buildMapOverview(tree: DocsTree): Promise<MapRegion[]> {
   }
   return regions;
 }
-
-/** Human age wording; exact timestamps remain available in JSON. */
-export function ageSince(iso: string, now: number): string {
-  const elapsed = Math.max(0, now - Date.parse(iso));
-  const minute = 60_000;
-  const units: Array<[number, string]> = [
-    [365 * 24 * 60 * minute, "year"],
-    [30 * 24 * 60 * minute, "month"],
-    [7 * 24 * 60 * minute, "week"],
-    [24 * 60 * minute, "day"],
-    [60 * minute, "hour"],
-    [minute, "minute"],
-  ];
-  for (const [size, label] of units) {
-    const value = Math.floor(elapsed / size);
-    if (value >= 1) return `${value} ${label}${value === 1 ? "" : "s"} ago`;
-  }
-  return "just now";
-}

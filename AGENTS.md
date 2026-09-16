@@ -72,15 +72,15 @@ When a session yields a durable lesson — a correction, a hard-won procedure, a
 
 ## The Map & decisions
 
-`project/map/` is the agent-maintained **map**, browsable with **`discern_map`**. It explains the current project with links to evidence. Agents use it to learn and navigate; humans use it to inspect agent understanding.
+`project/map/` is the **map**, browsable with **`discern_map`**: maintained explanations for agents and an account of their understanding for humans.
 
-Update the affected pages when a change alters a boundary, constraint, supported workflow, or product behavior. Explain the behavior and relationships a reader needs to make a correct change. Summarize implementation when it helps, and link the code, tests, configuration, or agreed requirement that supports the explanation. Name functions as entry points or to explain contracts; do not transcribe every method, symbol, or source file. Keep mechanically derivable inventories in their authority or generated reference.
+Keep affected pages accurate when behavior, boundaries, constraints, or workflows change. Explain what readers need for correct changes; link supporting code, tests, configuration, and requirements. Useful implementation summaries belong here. Name functions for entry points or contracts; never transcribe every method or duplicate derivable inventories.
 
-Extend an existing section first. Split a child page for a distinct reader task. Create a region with its own README for a durable responsibility; ordinary features belong under their subsystem. Keep the root for the project overview and navigation. Follow the project's existing ordering; numeric prefixes are optional.
+Extend existing sections first. Split pages for distinct reader tasks; create folders with READMEs for durable responsibilities. Keep the root for overview and navigation. Follow existing ordering; numbers are optional.
 
-Use the map to connect working knowledge: link relevant instructions, skills, checks, checkpoints, and ADRs from the explanation they support. Keep each rule or procedure in its own authority.
+Link relevant instructions, skills, checks, checkpoints, and ADRs; each keeps its own authority.
 
-Keep current behavior, agreed requirements, and unresolved questions distinct. The map describes the present; concrete outstanding work belongs in `project/TODO.md`. Record significant decision rationale in **Architecture Decision Records** under `project/map/_adr/`. An ADR records a decision or approved exception; it does not authorize overriding an agreed requirement.
+Separate current behavior, agreed requirements, and open questions. Put concrete open work in `project/TODO.md`. Preserve significant rationale as **Architecture Decision Records** under `project/map/_adr/`. ADRs record decisions; they cannot authorize exceptions to agreed requirements.
 
 - `00-orientation` — Orientation
 - `10-getting-started` — Getting started
@@ -94,7 +94,7 @@ Keep current behavior, agreed requirements, and unresolved questions distinct. T
 - `80-development` — Working on this project
 - `90-site` — The public site — discern.sh
 
-Stuck or missing context? Call `discern_map` with `search` in task language, then retrieve the best result using its returned `target`.
+Find context with `discern_map` `search` in task language, then retrieve the returned `target`.
 
 ---
 

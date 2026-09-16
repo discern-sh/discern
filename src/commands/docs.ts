@@ -120,7 +120,6 @@ import {
   type SelectionGroup,
 } from "../lib/terminal_interaction.ts";
 import {
-  ageSince,
   buildMapOverview,
   mapPageFreshness,
   type MapRegion,
@@ -1463,36 +1462,7 @@ function printMapOverview(
   for (const [index, region] of regions.entries()) {
     const name = terminalLine(region.name);
     const details: string[] = [terminalMultiline(region.description)];
-    if (
-      region.pages_changed_at === undefined ||
-      region.code_changes_since === undefined
-    ) {
-      details.push(
-        "freshness unknown — no specific file links or usable Git history",
-      );
-    } else {
-      const changes = region.code_changes_since;
-      details.push(
-        `linked code changed ${changes} time${
-          changes === 1 ? "" : "s"
-        } since the pages that link it; oldest measured page changed ${
-          ageSince(region.pages_changed_at, SYSTEM_CLOCK.wallNow())
-        }`,
-      );
-    }
-    for (const page of region.pages) {
-      if ((page.code_changes_since ?? 0) > 0) {
-        details.push(
-          `Review ${page.target}: ${page.code_changes_since} later source commits`,
-        );
-      }
-    }
-    const unknown = region.pages.filter((page) =>
-      page.code_changes_since === undefined
-    ).length;
-    if (unknown > 0 && region.code_changes_since !== undefined) {
-      details.push(`${unknown} pages have unknown freshness`);
-    }
+    details.push(...view.mapRegionFreshness(region, SYSTEM_CLOCK.wallNow()));
     const safeDetails = terminalMultiline(details.join("\n"));
     const body = terminal.stdoutIsTerminal
       ? terminal.presenter.present(renderSectionCli, {
