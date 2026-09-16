@@ -24,7 +24,6 @@ import {
 } from "../site/design_system.ts";
 import { SITE_APPEARANCE } from "../site/appearance.ts";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
-import { renderDiscernBrand } from "../site/ui/components/Brand.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { renderMarketingPage } from "../site/renderers.ts";
 import { handler } from "../site/serve.ts";
@@ -425,11 +424,6 @@ Deno.test("generated output is ignored and reproducible from its selections", as
       await formatGeneratedText(renderMarketingPage(page.route), "html"),
     );
   }
-  assertEquals(
-    await Deno.readTextFile(join(ROOT, "site/pages/fragments/brand.html")),
-    renderDiscernBrand(),
-  );
-
   for (const asset of COPIED_PAGE_ASSETS) {
     assertEquals(
       await Deno.readTextFile(join(bundleRoot("compositions"), asset)),

@@ -2,7 +2,9 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { DOCS_ICONS } from "../site/docs.tsx";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import * as icons from "../site/ui/components/DocumentIcons.tsx";
 import { THEME_STORAGE_KEY } from "../site/theme.ts";
 import { handler } from "../site/serve.ts";
 
@@ -105,7 +107,9 @@ Deno.test("public shells hand the package control an opted-in, named root", asyn
 });
 
 Deno.test("every drawn shell icon states its own paint and follows the text colour", () => {
-  const entries = Object.entries(DOCS_ICONS);
+  const entries = Object.entries(icons).map(([name, Icon]) =>
+    [name, renderToStaticMarkup(createElement(Icon))] as const
+  );
   assert(entries.length > 0);
   for (const [name, markup] of entries) {
     assertStringIncludes(markup, 'fill="none"', name);
