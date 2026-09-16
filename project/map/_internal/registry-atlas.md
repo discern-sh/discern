@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--public-marketing-pages)                                               | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 3       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 908     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 912     | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 1       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -52,8 +52,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 34      | —                | node `plan-apply`           |
 | [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 17      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
-| [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 10      | "Skill"          | surface `skill`             |
-| [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 14      | —                | —                           |
+| [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
+| [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 13      | —                | —                           |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
 | [`provider-trust-fact-kinds`](#provider-trust-fact-kinds--provider-trust-fact-kinds)                                  | `src/shared/provider_trust.ts#TRUST_FACT_KINDS`                                   | 5       | —                | node `providers`            |
 | [`provider-trust-action-kinds`](#provider-trust-action-kinds--provider-trust-action-kinds)                            | `src/shared/provider_trust.ts#TRUST_ACTION_KINDS`                                 | 5       | —                | node `providers`            |
@@ -89,8 +89,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 40      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 53      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 146     | —                | —                           |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 53      | —                | —                           |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 144     | —                | —                           |
 | [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                    | `scripts/feature_registry.ts#HUMAN_BENEFIT_CANON`                                 | 46      | —                | —                           |
 | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                    | `scripts/feature_registry.ts#AGENT_BENEFIT_CANON`                                 | 24      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
@@ -106,22 +106,22 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 69      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
-| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 49      | —                | node `bundled-docs`         |
+| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 50      | —                | node `bundled-docs`         |
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
-| [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 52      | —                | node `bundled-docs`         |
+| [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 54      | —                | node `bundled-docs`         |
 | [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations)                               | `scripts/manual_benefits.ts#MANUAL_BENEFIT_OBLIGATIONS`                           | 22      | —                | —                           |
 | [`manual-benefit-exclusions`](#manual-benefit-exclusions--manual-benefit-exclusions)                                  | `scripts/manual_benefits.ts#MANUAL_BENEFIT_EXCLUSIONS`                            | 24      | —                | —                           |
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 392     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 393     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 25      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 12      | —                | —                           |
 | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                              | `scripts/brand/vale.ts#voiceEnforcementCoverage`                                  | 23      | —                | —                           |
-| [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/map/80-development/done-gate-gotchas.md` (authored)     | —       | —                | node `gotchas-pointer`      |
+| [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/map/development/done-gate-gotchas.md` (authored)        | —       | —                | node `gotchas-pointer`      |
 | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)     | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `scripts/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                       | 3       | —                | node `licenses`             |
@@ -479,7 +479,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 908
+- Members: 912
   - `/`
   - `/agents`
   - `/trust`
@@ -531,6 +531,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/guides/wait-for-another-task.md`
   - `/docs/guides/write-project-instructions`
   - `/docs/guides/write-project-instructions.md`
+  - `/docs/guides/maintain-project-map`
+  - `/docs/guides/maintain-project-map.md`
   - `/docs/guides/create-and-manage-skills`
   - `/docs/guides/create-and-manage-skills.md`
   - `/docs/guides/set-and-raise-standards`
@@ -1325,6 +1327,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0402-site-layouts-use-server-rendered-react-components.md`
   - `/docs/decisions/0403-the-site-map-is-a-directory-of-repository-sources`
   - `/docs/decisions/0403-the-site-map-is-a-directory-of-repository-sources.md`
+  - `/docs/decisions/0404-maps-explain-the-project-and-connect-its-practice`
+  - `/docs/decisions/0404-maps-explain-the-project-and-connect-its-practice.md`
   - `/docs/decisions/0001-project-owned-recipes`
   - `/docs/decisions/0001-project-owned-recipes.md`
   - `/docs/decisions/0002-first-class-side-gates`
@@ -2305,17 +2309,16 @@ The authored-source locations: instructions, Map, Skills, Project Scripts, TODO,
 The skills the binary ships and materializes into a project.
 
 - Source: `src/lib/skills.ts` — `bundledSkillNames`
-- Members: 10
-  - `discern-await-the-fleet`
-  - `discern-clear-the-decks`
-  - `discern-cure-a-bug`
-  - `discern-delegate-work`
-  - `discern-document-subsystem`
-  - `discern-place-a-checkpoint`
-  - `discern-set-the-standard`
-  - `discern-teach-the-project`
-  - `discern-write-adr`
-  - `discern-write-it-once`
+- Members: 9
+  - `"discern-await-the-fleet"`
+  - `"discern-clear-the-decks"`
+  - `"discern-cure-a-bug"`
+  - `"discern-delegate-work"`
+  - `"discern-place-a-checkpoint"`
+  - `"discern-set-the-standard"`
+  - `"discern-teach-the-project"`
+  - `"discern-write-adr"`
+  - `"discern-write-it-once"`
 - Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/instruction_corpus_guard_test.ts`
 - Glossary: the "Skill" entry carries the concept
 - Feature canon: claimed as the `skill` surface set
@@ -2325,7 +2328,7 @@ The skills the binary ships and materializes into a project.
 The effective skills and setup briefs joined to repository-only classifications, exact agent-facing prose evidence, materialized-output protection, and generated agent-copy lexical rules.
 
 - Source: `scripts/agent_surface_contracts.ts` — `operationalAgentSurfaces`
-- Members: 14
+- Members: 13
   - `setup:instructions`
   - `skill:discern-agent-voice`
   - `skill:discern-await-the-fleet`
@@ -2333,7 +2336,6 @@ The effective skills and setup briefs joined to repository-only classifications,
   - `skill:discern-clear-the-decks`
   - `skill:discern-cure-a-bug`
   - `skill:discern-delegate-work`
-  - `skill:discern-document-subsystem`
   - `skill:discern-place-a-checkpoint`
   - `skill:discern-product-voice`
   - `skill:discern-set-the-standard`
@@ -2875,7 +2877,7 @@ The shipped capability modules whose importers are restricted: attributed commit
 
 - Source: `tests/writer_boundaries.ts` — `RESTRICTED_WRITER_MODULES`
 - Members: 5
-  - `discern-authored-commit`
+  - `"discern-authored-commit"`
   - `effort-grant-human-writer`
   - `effort-grant-cleanup`
   - `acceptance-transaction`
@@ -3607,14 +3609,14 @@ The term registry behind the glossary page, its search aliases, and the retired-
 - Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`, `tests/feature_canon_plain_register_test.ts`, `tests/canon_editor_parity_test.ts`
 - Artifacts: `project/map/00-orientation/glossary.md`, `project/manual/30-reference/glossary.md`
 - Glossary: not enrolled — the registry is the Glossary, and its generated page is the definition surface
-- Feature canon: described by the `glossary-canon` node
+- Feature canon: not enrolled — the glossary registry and vocabulary guards belong to discern's own repository, not installed projects
 
 ## `feature-canon` — Feature canon
 
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 146
+- Members: 144
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -3698,7 +3700,6 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `skill-clear-the-decks`
   - `skill-delegate-work`
   - `skill-await-the-fleet`
-  - `skill-document-subsystem`
   - `skill-teach-the-project`
   - `skill-write-adr`
   - `skill-write-it-once`
@@ -3711,7 +3712,6 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `adr-discipline`
   - `bundled-docs`
   - `cli-help`
-  - `glossary-canon`
   - `insight`
   - `status`
   - `bounded-status-projection`
@@ -4237,7 +4237,7 @@ The machine-stable vocabulary for explicitly optional degradation that may coexi
 Every strictly admitted published product-manual page, identified by its stable authored page id.
 
 - Source: `src/lib/manual.ts` — `buildManualProjection`
-- Members: 49
+- Members: 50
   - `manual-home`
   - `start-index`
   - `start-evaluate-discern`
@@ -4253,6 +4253,7 @@ Every strictly admitted published product-manual page, identified by its stable 
   - `guide-coordinate-parallel-tasks`
   - `guide-wait-for-another-task`
   - `guide-write-project-instructions`
+  - `guide-maintain-project-map`
   - `guide-create-and-manage-skills`
   - `guide-set-and-raise-standards`
   - `guide-place-and-answer-checkpoints`
@@ -4326,7 +4327,7 @@ The closed editorial purposes that choose manual comprehension policy and readin
 The explicit page-id owner for each normalized manual search name that would otherwise collide.
 
 - Source: `src/shared/manual.ts` — `MANUAL_ALIAS_OWNER_OVERRIDES`
-- Members: 52
+- Members: 54
   - `--markdown`
   - `checkpoints`
   - `submission`
@@ -4362,6 +4363,8 @@ The explicit page-id owner for each normalized manual search name that would oth
   - `landing authority`
   - `logbook`
   - `map`
+  - `maintain-project-map`
+  - `map maintenance`
   - `open question`
   - `patterns`
   - `practice`
@@ -4499,7 +4502,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 392
+- Members: 393
   - `0003`
   - `0005`
   - `0006`
@@ -4861,6 +4864,7 @@ The numbered decision records in the map, including records later superseded.
   - `0401`
   - `0402`
   - `0403`
+  - `0404`
   - `0001`
   - `0002`
   - `0004`
@@ -5064,9 +5068,9 @@ Every proposed mechanical voice check has one generated Vale rule, Map projectio
 
 ## `seeded-gotchas-traps` — Seeded Gate traps
 
-The stack-independent gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the engine's live failure evidence.
+The stack-independent gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must select the engine's live failure evidence.
 
-- Source: `templates/setup/skeleton/map/80-development/done-gate-gotchas.md` (authored table)
+- Source: `templates/setup/skeleton/map/development/done-gate-gotchas.md` (authored table)
 - Members: — (the authored source keeps member names outside codegen)
 - Guards: `tests/gotchas_parity_test.ts`, `tests/gotcha_matchers_drift_test.ts`
 - Glossary: not enrolled — the seeded Gate-gotchas page owns this documentation content
