@@ -6,7 +6,7 @@
  * the client script only adds interaction to this stable structure.
  */
 
-import { escapeHtml } from "../src/lib/markdown.ts";
+import { escapeHtml, unescapeHtml } from "../src/lib/markdown.ts";
 
 /** Decorate every rendered heading and table before the response is emitted. */
 export function decorateDocumentHtml(html: string): string {
@@ -28,13 +28,7 @@ export function decorateDocumentHtml(html: string): string {
     ): string => {
       const id = /\sid="([^"]+)"/.exec(attributes)?.[1];
       if (id === undefined) return match;
-      const label = content
-        .replace(/<[^>]+>/g, "")
-        .replaceAll("&amp;", "&")
-        .replaceAll("&lt;", "<")
-        .replaceAll("&gt;", ">")
-        .replaceAll("&quot;", '"')
-        .replaceAll("&#39;", "'")
+      const label = unescapeHtml(content.replace(/<[^>]+>/g, ""))
         .replace(/\s+/g, " ")
         .trim();
       return `<div class="discern-anchor-heading docs-heading-row"><h${depth}${attributes}>${content}</h${depth}><a class="discern-anchor-heading__anchor docs-anchor" href="#${id}" aria-label="Link to “${

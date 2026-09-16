@@ -441,6 +441,32 @@ export function escapeHtml(text: string): string {
     .replaceAll('"', "&quot;");
 }
 
+const NAMED_CHARACTER_REFERENCES: Readonly<Record<string, string>> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+};
+
+/**
+ * The inverse of HTML escaping for text this repository's renderers emit.
+ * Serializers differ in how they spell an apostrophe (`&#39;`, `&#x27;`), so
+ * every numeric reference decodes alongside the five named ones; one pass
+ * keeps `&amp;lt;` decoding to the literal `&lt;`.
+ */
+export function unescapeHtml(text: string): string {
+  return text.replace(
+    /&(?:#x([0-9a-f]+)|#(\d+)|(amp|lt|gt|quot|apos));/gi,
+    (match, hex: string | undefined, decimal: string | undefined, named) =>
+      hex !== undefined
+        ? String.fromCodePoint(Number.parseInt(hex, 16))
+        : decimal !== undefined
+        ? String.fromCodePoint(Number(decimal))
+        : NAMED_CHARACTER_REFERENCES[String(named).toLowerCase()] ?? match,
+  );
+}
+
 /** Project literal terminal text into escaped browser cell runs. */
 function terminalTextToHtml(text: string): string {
   return projectTerminalTextRuns(text).map(({ text, columns }) => {

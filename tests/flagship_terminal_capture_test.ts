@@ -15,6 +15,7 @@ import {
 } from "./fixtures/terminal_command_capture.ts";
 import { withTempDir } from "./helpers.ts";
 import { realPtyTest } from "./real_pty.ts";
+import { unescapeHtml } from "../src/lib/markdown.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -24,12 +25,7 @@ function terminalHtmlText(html: string): string {
   if (content === undefined) {
     throw new Error("terminal projection did not render a pre element");
   }
-  return content.replaceAll(/<[^>]+>/gu, "")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'")
-    .replaceAll("&amp;", "&");
+  return unescapeHtml(content.replaceAll(/<[^>]+>/gu, ""));
 }
 
 Deno.test("flagship normalizers replace facts without hiding visible structure", () => {
