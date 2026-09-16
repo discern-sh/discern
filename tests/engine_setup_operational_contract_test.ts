@@ -591,8 +591,13 @@ Deno.test("documentation scope meets the primary floor without rewarding reposit
   ]);
   assertEquals(medium.pages, ["runtime", "delivery"]);
   assertEquals(medium.ledgerItems, ["Resolve retry ownership"]);
+  assertEquals(recommendSetupDocumentationScope([], []), {
+    pages: [],
+    ledgerItems: [],
+  });
   assertThrows(
-    () => recommendSetupDocumentationScope([], []),
+    () =>
+      recommendSetupDocumentationScope([{ ...primary, primary: false }], []),
     Error,
     "exactly one primary",
   );
@@ -812,7 +817,10 @@ Deno.test("setup qualitative completion context derives from the first durable s
       join(dir, mapDir, "10-runtime", "README.md"),
       "# Runtime\n\n## Start here\n\nBegin here.\n\n## Boundary\n\nOwns execution.\n",
     );
-    assertEquals(await deriveSetupPrimarySubsystem(dir, mapDir), null);
+    const withoutConstraint = await deriveSetupPrimarySubsystem(dir, mapDir);
+    assert(withoutConstraint !== null);
+    assertEquals(withoutConstraint.boundary, "Owns execution.");
+    assertEquals(withoutConstraint.non_obvious_invariant, "");
   });
 });
 

@@ -1,4 +1,3 @@
-import { recommendSetupDocumentationScope } from "../src/shared/setup_guidance.ts";
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
@@ -42,13 +41,6 @@ Deno.test("a new project may finish with a substantive root and no invented subs
       "# Project\n\nThe owner has agreed the purpose. No implementation exists yet.\n",
     );
     assertEquals(await setupMapIssues(root, "map"), []);
-  });
-});
-
-Deno.test("setup selects no invented subsystem for an empty project", () => {
-  assertEquals(recommendSetupDocumentationScope([], []), {
-    pages: [],
-    ledgerItems: [],
   });
 });
 

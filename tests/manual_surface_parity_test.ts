@@ -215,7 +215,7 @@ Deno.test("manual delivery leaves the configured project Map contract intact", a
   assertStringIncludes(instructions, "browsable with **`discern_map`**");
   assertStringIncludes(
     instructions,
-    "Call `discern_map` with `search` in task language, then retrieve the best result using its returned `target`",
+    "Find context with `discern_map` `search` in task language, then retrieve the returned `target`",
   );
 });
 

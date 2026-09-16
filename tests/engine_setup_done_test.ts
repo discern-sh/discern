@@ -472,7 +472,8 @@ Deno.test("setup done (human): one green completion relays Proof and the worktre
     // `_(EXAMPLE — replace during ...)_` placeholder heading.
     await Deno.writeTextFile(
       defaultMapPath(dir, "README.md"),
-      "# Docs\n\nSee the sample config (EXAMPLE) in the appendix.\n",
+      "\nSee the sample config (EXAMPLE) in the appendix.\n",
+      { append: true },
     );
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
@@ -539,16 +540,21 @@ Deno.test("setup done catches an untracked footprint file whose path git quotes 
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true");
 
-    // Commit ALL the authored setup, so the ONLY uncommitted thing is the non-ASCII doc
-    // below — the clean-tree check has exactly one path to catch, and it is a quoted one.
-    await commitSetupAuthoring(dir);
-
-    // An untracked authored doc inside the footprint (the configured map tree) whose
-    // name carries a non-ASCII byte, so git quotes it in line-oriented porcelain output.
+    // Keep the page reachable before committing the rest of the setup. The only
+    // uncommitted path at completion is the non-ASCII page created below.
     const quotedName = "décisions.md";
     await Deno.writeTextFile(
+      defaultMapPath(dir, "README.md"),
+      `\n[Decisions](${quotedName})\n`,
+      { append: true },
+    );
+    await commitSetupAuthoring(dir);
+
+    // Git quotes this path in line-oriented porcelain output. Its explanation
+    // is complete, so the refusal must come from the clean-tree precondition.
+    await Deno.writeTextFile(
       defaultMapPath(dir, quotedName),
-      "# A real authored decision\n",
+      "# Project decisions\n\nRecords the reasons behind the project's boundaries.\n",
     );
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
@@ -643,7 +649,8 @@ Deno.test("setup done refuses on an uncommitted tracked change; --unproven still
     // An unrelated uncommitted change present at `done` time.
     await Deno.writeTextFile(
       defaultMapPath(dir, "README.md"),
-      "# changed again\n",
+      "\nAn authored clarification awaits review.\n",
+      { append: true },
     );
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);

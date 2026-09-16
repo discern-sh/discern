@@ -202,7 +202,7 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
         await Deno.mkdir(join(mapRoot, "development"), { recursive: true });
         await Deno.writeTextFile(
           join(mapRoot, "README.md"),
-          "# Atlas\n\nRuns offline commands over local records.\n\n[Runtime](10-runtime/)\n[Storage](20-storage/)\n[Interface](30-interface/)\n[Development](development/)\n",
+          "# Atlas\n\nRuns offline commands over local records.\n\n- [Runtime](10-runtime/)\n- [Storage](20-storage/)\n- [Interface](30-interface/)\n- [Development](development/)\n",
         );
         await Deno.writeTextFile(
           join(mapRoot, "development", "README.md"),
@@ -434,11 +434,9 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
         );
         const generated = await Deno.readTextFile(join(root, "AGENTS.md"));
         assertStringIncludes(generated, "discern/map/10-runtime/README.md");
-        assert(await targetExists(join(root, "discern", "map", "_internal")));
-        assert(
-          await targetExists(
-            join(root, "discern", "map", "_internal", "scopes", "_template.md"),
-          ),
+        assertEquals(
+          await targetExists(join(root, "discern", "map", "_internal")),
+          false,
         );
         assertEquals(
           (await Deno.readTextFile(configPath)).includes(

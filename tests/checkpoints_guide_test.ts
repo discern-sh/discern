@@ -67,7 +67,7 @@ Deno.test("the checkpoint placement skill routes the complete trigger model", as
   );
   assert(
     skill.includes(
-      "discern docs map/20-quality-gate/checkpoints.md --raw",
+      "discern docs checkpoints --raw",
     ),
     "the authoring skill must route agents to the complete public field model",
   );

@@ -324,7 +324,7 @@ async function layMarkerFreeProject(
   );
   await Deno.writeTextFile(
     defaultMapPath(dir, "README.md"),
-    "# Project\n\nRuns configured commands.\n\n[Runtime](10-runtime/)\n[Orientation](orientation/)\n",
+    "# Project\n\nRuns configured commands.\n\n- [Runtime](10-runtime/)\n- [Orientation](orientation/)\n",
   );
   await Deno.writeTextFile(
     defaultMapPath(dir, "orientation", "README.md"),
@@ -617,7 +617,7 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
       });
       await Deno.writeTextFile(
         join(root, config.map.dir, "README.md"),
-        "# Demo map\n\nRuns commands.\n\n[Runtime](10-runtime/)\n",
+        "# Demo map\n\nRuns commands.\n\n- [Runtime](10-runtime/)\n",
       );
       await Deno.writeTextFile(
         join(root, config.map.dir, "10-runtime", "README.md"),
@@ -645,7 +645,7 @@ Deno.test("the final documentation check binds a conventional gotchas page to it
     });
     await Deno.writeTextFile(
       join(root, base.map.dir, "README.md"),
-      "# Demo map\n\nRuns commands.\n\n[Runtime](10-runtime/)\n",
+      "# Demo map\n\nRuns commands.\n\n- [Runtime](10-runtime/)\n",
     );
     await Deno.writeTextFile(
       join(root, base.map.dir, "10-runtime", "README.md"),
@@ -664,7 +664,7 @@ Deno.test("the final documentation check binds a conventional gotchas page to it
     );
     await Deno.writeTextFile(
       join(root, base.map.dir, "README.md"),
-      "# Demo map\n\nRuns commands.\n\n[Runtime](10-runtime/)\n[Development](development/)\n",
+      "# Demo map\n\nRuns commands.\n\n- [Runtime](10-runtime/)\n- [Development](development/)\n",
     );
     assertEquals(await check.evaluate({ root, config: base }), false);
     const wired = baseConfig({

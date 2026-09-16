@@ -81,6 +81,7 @@ async function pageEvidence(
   const [commit, changedAt] = logged.stdout.trim().split("\0");
   if (!logged.success || !commit || !changedAt) return { page, commits: [] };
   const changes = await runGit([
+    "--literal-pathspecs",
     "rev-list",
     `${commit}..HEAD`,
     "--",

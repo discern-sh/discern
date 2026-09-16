@@ -47,6 +47,7 @@ Deno.test("nested configured maps measure each page and root against their own s
     });
     await Deno.mkdir(join(root, "src"));
     await Deno.writeTextFile(join(root, "src", "unit[one].ts"), "first\n");
+    await Deno.writeTextFile(join(root, "src", "unitn.ts"), "unrelated\n");
     await Deno.writeTextFile(
       join(root, "guide/map/README.md"),
       "# Project\n\n[Source](../../src/unit[one].ts).\n",
@@ -59,6 +60,9 @@ Deno.test("nested configured maps measure each page and root against their own s
     await Deno.writeTextFile(join(root, "src/unit[one].ts"), "second\n");
     await git(root, "add", "src/unit[one].ts");
     await git(root, "commit", "-qm", "Change source");
+    await Deno.writeTextFile(join(root, "src/unitn.ts"), "still unrelated\n");
+    await git(root, "add", "src/unitn.ts");
+    await git(root, "commit", "-qm", "Change a filename matching a glob");
     await Deno.writeTextFile(
       join(root, "guide/map/runtime/untracked.md"),
       "# New\n\n[Source](../../../src/unit[one].ts).\n",
