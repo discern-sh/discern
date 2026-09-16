@@ -135,7 +135,7 @@ export interface DecisionPage {
 }
 
 export type RoutedDocPage = DocsPage | MapPage | DecisionPage;
-type NavigablePage = DocsPage | MapPage;
+export type NavigablePage = DocsPage | MapPage;
 
 /** One published section, in reading order. */
 export interface DocsSection {
@@ -878,16 +878,204 @@ function esc(text: string): string {
 }
 
 /** Reading-order tier number of a section (`20-quality-gate` → `20`). */
-function sectionIndexOf(dir: string): string {
+export function sectionIndexOf(dir: string): string {
   return /^(\d+)-/.exec(dir)?.[1] ?? "§";
 }
 
-type DocumentCorpus = "manual" | "map";
+/** The isolated document corpus that owns a page's navigation and search. */
+export type DocumentCorpus = "manual" | "map";
 
 /** Human label for a page's editorial purpose or Map audience. */
-function pageKindLabel(page: NavigablePage): string {
+export function pageKindLabel(page: NavigablePage): string {
   const value = page.routeKind === "manual" ? page.manualKind : page.audience;
   return value.replace(/^./, (character) => character.toUpperCase());
+}
+
+/** One destination in a breadcrumb trail, pager, or foot link run. */
+export interface DocumentLink {
+  readonly label: string;
+  readonly href: string;
+}
+
+/** The pages either side of one page in its corpus's global reading order. */
+export function adjacentPages(
+  site: DocsSite,
+  page: NavigablePage,
+): { readonly previous?: NavigablePage; readonly next?: NavigablePage } {
+  const pages = page.routeKind === "map" ? site.publicMap.pages : site.pages;
+  const index = pages.findIndex((candidate) => candidate.route === page.route);
+  const previous = index > 0 ? pages[index - 1] : undefined;
+  const next = index >= 0 && index < pages.length - 1
+    ? pages[index + 1]
+    : undefined;
+  return {
+    ...(previous === undefined ? {} : { previous }),
+    ...(next === undefined ? {} : { next }),
+  };
+}
+
+/** The page family a breadcrumb trail represents. */
+export type BreadcrumbTarget = RoutedDocPage | "decisions" | null;
+
+/** The active corpus's titled ancestry above one page, then the page itself. */
+export function breadcrumbTrail(
+  site: DocsSite,
+  corpus: DocumentCorpus,
+  target: BreadcrumbTarget,
+): { readonly ancestors: readonly DocumentLink[]; readonly current: string } {
+  const sections = corpus === "map" ? site.publicMap.sections : site.sections;
+  const root: DocumentLink = corpus === "map"
+    ? { label: "Live Map", href: PUBLIC_MAP_ROUTE }
+    : { label: "Docs", href: "/docs" };
+  const sectionTitle = (slug: string): string =>
+    sections.find((section) => section.slug === slug)?.title ?? slug;
+  const ancestors: readonly DocumentLink[] = target === "decisions"
+    ? [{ label: "Docs", href: "/docs" }]
+    : target === null
+    ? []
+    : target.routeKind === "decision"
+    ? [
+      { label: "Docs", href: "/docs" },
+      { label: "Decisions", href: DECISIONS_ROUTE },
+    ]
+    : target.isIndex
+    ? [root]
+    : [
+      root,
+      {
+        label: sectionTitle(target.sectionSlug),
+        href: `${root.href}/${target.sectionSlug}`,
+      },
+    ];
+  const current = target === "decisions"
+    ? "Decisions"
+    : target === null
+    ? root.label
+    : target.routeKind === "decision"
+    ? target.entry.title
+    : target.isIndex
+    ? sectionTitle(target.sectionSlug)
+    : target.entry.title;
+  return { ancestors, current };
+}
+
+/** The durable destinations beneath a corpus's navigation. */
+export function navigationFootLinks(
+  corpus: DocumentCorpus,
+): readonly DocumentLink[] {
+  return corpus === "map"
+    ? [
+      { label: "Product manual", href: "/docs" },
+      { label: "Project decisions", href: DECISIONS_ROUTE },
+      { label: "Repository Map\u00a0↗", href: repositoryTreeUrl(MAP_REPO_REL) },
+    ]
+    : [
+      { label: "Glossary", href: "/docs/reference/glossary" },
+      { label: "Commands", href: "/docs/reference/cli-reference" },
+      { label: "Configuration", href: "/docs/reference/config-reference" },
+    ];
+}
+
+/** The index a colophon describes when it stands under no single page. */
+export type ColophonIndex = "docs" | "decisions" | "map";
+
+/** Where a page's plain-text edition, terminal command, and source live. */
+export interface ColophonFacts {
+  /** The route whose `.md` suffix serves the pristine Markdown. */
+  readonly route: string;
+  /** The `discern <reader> <target> --raw` reader verb. */
+  readonly reader: "docs" | "map";
+  /** The leaf the terminal command names; a placeholder on an index. */
+  readonly target: string;
+  /** The repository URL of the authored source. */
+  readonly source: string;
+  readonly related: readonly DocumentLink[];
+}
+
+/** Resolve the plain-text edition, terminal command, and source for one page or index. */
+export function colophonFacts(
+  page: RoutedDocPage | null,
+  index: ColophonIndex = "docs",
+): ColophonFacts {
+  const route = page?.route ??
+    (index === "decisions"
+      ? DECISIONS_ROUTE
+      : index === "map"
+      ? PUBLIC_MAP_ROUTE
+      : "/docs");
+  const reader = page?.routeKind === "map" || index === "map" ? "map" : "docs";
+  const pageSourceRoot = page?.routeKind === "manual"
+    ? MANUAL_REPO_REL
+    : MAP_REPO_REL;
+  const source = page === null
+    ? index === "decisions"
+      ? repositoryTreeUrl(`${MAP_REPO_REL}/_adr`)
+      : index === "map"
+      ? repositoryTreeUrl(MAP_REPO_REL)
+      : repositoryTreeUrl(MANUAL_REPO_REL)
+    : repositoryBlobUrl(`${pageSourceRoot}/${page.sourcePath}`);
+  const related: readonly DocumentLink[] = reader === "map"
+    ? [
+      { label: "Product manual", href: "/docs" },
+      { label: "Project decisions", href: DECISIONS_ROUTE },
+    ]
+    : [
+      { label: "llms.txt", href: "/llms.txt" },
+      { label: "Project decisions", href: DECISIONS_ROUTE },
+    ];
+  return {
+    route,
+    reader,
+    target: page === null ? "<page>" : page.entry.slug,
+    source,
+    related,
+  };
+}
+
+/** The leaves a section landing lists, derived from the canonical model. */
+export function sectionLeaves(
+  site: DocsSite,
+  page: NavigablePage,
+): readonly NavigablePage[] {
+  if (!page.isIndex) return [];
+  const sections = page.routeKind === "map"
+    ? site.publicMap.sections
+    : site.sections;
+  const section = sections.find((candidate) =>
+    candidate.index.route === page.route
+  );
+  if (section === undefined) {
+    throw new Error(`docs: no section owns landing page ${page.route}`);
+  }
+  return section.pages.filter((candidate) => !candidate.isIndex);
+}
+
+/** One cited decision, resolved to its on-site record and display title. */
+export interface RelatedDecision {
+  readonly reference: string;
+  readonly detail: string;
+  readonly href: string;
+}
+
+/** A public page's eligible citations, resolved to their on-site records. */
+export function relatedDecisions(
+  site: DocsSite,
+  page: DocsPage,
+): readonly RelatedDecision[] {
+  return relatedDecisionCitations(page).map((citation) => {
+    const decision = site.decisions.byNumber.get(citation.number);
+    if (decision === undefined) {
+      throw new Error(
+        `docs: ${page.entry.path} cites missing decision ${citation.number}`,
+      );
+    }
+    const reference = `ADR ${citation.number}`;
+    const prefix = `${reference}: `;
+    const detail = decision.entry.title.startsWith(prefix)
+      ? decision.entry.title.slice(prefix.length)
+      : decision.entry.title;
+    return { reference, detail, href: decision.route };
+  });
 }
 
 /** Render rooted corpus navigation and mark the current page for assistive technology. */
@@ -922,10 +1110,7 @@ function navHtml(
 
 /** Link the previous and next guides in global reading order. */
 function pagerHtml(site: DocsSite, page: NavigablePage): string {
-  const pages = page.routeKind === "map" ? site.publicMap.pages : site.pages;
-  const i = pages.findIndex((candidate) => candidate.route === page.route);
-  const prev = i > 0 ? pages[i - 1] : undefined;
-  const next = i >= 0 && i < pages.length - 1 ? pages[i + 1] : undefined;
+  const { previous: prev, next } = adjacentPages(site, page);
   if (!prev && !next) return "";
   const cell = (
     p: NavigablePage | undefined,
@@ -946,48 +1131,13 @@ function pagerHtml(site: DocsSite, page: NavigablePage): string {
   }${cell(next, "next")}</nav>`;
 }
 
-type BreadcrumbTarget = RoutedDocPage | "decisions" | null;
-
 /** The breadcrumb trail — the active corpus's titled ancestry. */
 function crumbsHtml(
   site: DocsSite,
   corpus: DocumentCorpus,
   target: BreadcrumbTarget,
 ): string {
-  const sections = corpus === "map" ? site.publicMap.sections : site.sections;
-  const root = corpus === "map"
-    ? { label: "Live Map", href: PUBLIC_MAP_ROUTE }
-    : { label: "Docs", href: "/docs" };
-  const sectionTitle = (slug: string): string =>
-    sections.find((section) => section.slug === slug)?.title ?? slug;
-  const ancestors: readonly { label: string; href: string }[] =
-    target === "decisions"
-      ? [{ label: "Docs", href: "/docs" }]
-      : target === null
-      ? []
-      : target.routeKind === "decision"
-      ? [
-        { label: "Docs", href: "/docs" },
-        { label: "Decisions", href: DECISIONS_ROUTE },
-      ]
-      : target.isIndex
-      ? [root]
-      : [
-        root,
-        {
-          label: sectionTitle(target.sectionSlug),
-          href: `${root.href}/${target.sectionSlug}`,
-        },
-      ];
-  const current = target === "decisions"
-    ? "Decisions"
-    : target === null
-    ? root.label
-    : target.routeKind === "decision"
-    ? target.entry.title
-    : target.isIndex
-    ? sectionTitle(target.sectionSlug)
-    : target.entry.title;
+  const { ancestors, current } = breadcrumbTrail(site, corpus, target);
   const items = ancestors.map(({ label, href }) =>
     `<li><a href="${href}">${
       esc(label)
@@ -1057,13 +1207,9 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
   const corpusLabel = map ? "Live Map" : "Manual";
   const searchLabel = map ? "the live Map" : "the manual";
   const searchEndpoint = DOCUMENT_SEARCH_ROUTES.manual;
-  const navFoot = map
-    ? `<a href="/docs">Product manual</a>
-      <a href="${DECISIONS_ROUTE}">Project decisions</a>
-      <a href="${repositoryTreeUrl(MAP_REPO_REL)}">Repository Map&nbsp;↗</a>`
-    : `<a href="/docs/reference/glossary">Glossary</a>
-      <a href="/docs/reference/cli-reference">Commands</a>
-      <a href="/docs/reference/config-reference">Configuration</a>`;
+  const navFoot = navigationFootLinks(frame.corpus).map(({ label, href }) =>
+    `<a href="${href}">${esc(label).replace("\u00a0", "&nbsp;")}</a>`
+  ).join("\n      ");
   return `<!doctype html>
 <html lang="en" ${siteAppearanceRootAttributes()} ${themeRootAttributes()}>
 <head>
@@ -1163,55 +1309,28 @@ ${navHtml(site, frame.corpus, frame.current, frame.compactNavigation === true)}
 /** The colophon under every page: the plain-text edition, source, and history. */
 function colophonHtml(
   page: RoutedDocPage | null,
-  index: "docs" | "decisions" | "map" = "docs",
+  index: ColophonIndex = "docs",
 ): string {
-  const route = page?.route ??
-    (index === "decisions"
-      ? DECISIONS_ROUTE
-      : index === "map"
-      ? PUBLIC_MAP_ROUTE
-      : "/docs");
-  const target = page === null ? "&lt;page&gt;" : esc(page.entry.slug);
-  const reader = page?.routeKind === "map" || index === "map" ? "map" : "docs";
-  const pageSourceRoot = page?.routeKind === "manual"
-    ? MANUAL_REPO_REL
-    : MAP_REPO_REL;
-  const source = page === null
-    ? index === "decisions"
-      ? repositoryTreeUrl(`${MAP_REPO_REL}/_adr`)
-      : index === "map"
-      ? repositoryTreeUrl(MAP_REPO_REL)
-      : repositoryTreeUrl(MANUAL_REPO_REL)
-    : repositoryBlobUrl(`${pageSourceRoot}/${esc(page.sourcePath)}`);
-  const related = reader === "map"
-    ? `<a href="/docs">Product manual</a>
-        <a href="${DECISIONS_ROUTE}">Project decisions</a>`
-    : `<a href="/llms.txt">llms.txt</a>
-        <a href="${DECISIONS_ROUTE}">Project decisions</a>`;
+  const facts = colophonFacts(page, index);
+  const related = facts.related.map(({ label, href }) =>
+    `<a href="${href}">${esc(label)}</a>`
+  ).join("\n        ");
   return `<footer class="docs-colophon">
       <span>Plain text for agents:
-        <a class="discern-mono" href="${route}.md">curl&nbsp;discern.sh${route}.md</a>
-        or <code>discern ${reader} ${target} --raw</code></span>
+        <a class="discern-mono" href="${facts.route}.md">curl&nbsp;discern.sh${facts.route}.md</a>
+        or <code>discern ${facts.reader} ${
+    esc(facts.target)
+  } --raw</code></span>
       <span class="docs-colophon-links">
         ${related}
-        <a href="${source}">View source&nbsp;↗</a>
+        <a href="${facts.source}">View source&nbsp;↗</a>
       </span>
     </footer>`;
 }
 
 /** The section landing's canonical leaf list, derived from DocEntry metadata. */
 function sectionLeafIndexHtml(site: DocsSite, page: NavigablePage): string {
-  if (!page.isIndex) return "";
-  const sections = page.routeKind === "map"
-    ? site.publicMap.sections
-    : site.sections;
-  const section = sections.find((candidate) =>
-    candidate.index.route === page.route
-  );
-  if (section === undefined) {
-    throw new Error(`docs: no section owns landing page ${page.route}`);
-  }
-  const leaves = section.pages.filter((candidate) => !candidate.isIndex);
+  const leaves = sectionLeaves(site, page);
   if (leaves.length === 0) return "";
   const items = leaves.map((leaf) =>
     `<li><a href="${leaf.route}">${esc(leaf.entry.title)}</a>` +
@@ -1232,26 +1351,15 @@ export function relatedDecisionCitations(
 
 /** A public page's eligible citations, linked to their on-site records. */
 function relatedDecisionsHtml(site: DocsSite, page: DocsPage): string {
-  const citations = relatedDecisionCitations(page);
-  if (citations.length === 0) return "";
-  const items = citations.map((citation) => {
-    const decision = site.decisions.byNumber.get(citation.number);
-    if (decision === undefined) {
-      throw new Error(
-        `docs: ${page.entry.path} cites missing decision ${citation.number}`,
-      );
-    }
-    const reference = `ADR ${citation.number}`;
-    const prefix = `${reference}: `;
-    const detail = decision.entry.title.startsWith(prefix)
-      ? decision.entry.title.slice(prefix.length)
-      : decision.entry.title;
-    return `<li><a class="docs-related-decision" href="${decision.route}">${
+  const decisions = relatedDecisions(site, page);
+  if (decisions.length === 0) return "";
+  const items = decisions.map(({ reference, detail, href }) =>
+    `<li><a class="docs-related-decision" href="${href}">${
       esc(reference)
     }</a><span class="docs-related-decision-detail">: ${
       esc(detail)
-    }</span></li>`;
-  }).join("");
+    }</span></li>`
+  ).join("");
   return `<aside class="docs-related-decisions" aria-labelledby="related-decisions">
       <h2 id="related-decisions">Related decisions</h2>
       <ul>${items}</ul>
