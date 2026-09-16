@@ -1,6 +1,6 @@
 ---
 name: discern-write-adr
-description: Guide writing an Architecture Decision Record (ADR) — a short doc capturing a significant decision and why. Use when the user says "write an ADR", "record this decision", "should this be an ADR?", when a decision overrides a design principle, or when a hard-to-reverse, surprising trade-off has just been made and deserves a written record. Bundled with discern.
+description: Guide writing an Architecture Decision Record (ADR) — a short doc capturing a significant architectural decision and why. Use when the user says "write an ADR", "record this decision", "should this be an ADR?", when a decision overrides a design principle, or when a hard-to-reverse, surprising trade-off has just been made and deserves a written record. Bundled with discern.
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -8,7 +8,7 @@ metadata:
 
 # Write an ADR
 
-An Architecture Decision Record captures a significant decision, the context that forced it, and the reasoning — so a future reader doesn't look at the code and wonder _"why on earth was it done this way?"_
+An Architecture Decision Record captures a significant architectural decision, the context that forced it, and the reasoning — so a future reader doesn't look at the code and wonder _"why on earth was it done this way?"_
 
 The project's ADRs live in the configured map, at `{{map_dir}}_adr/`. **The canonical format lives in `{{map_dir}}_adr/README.md`.** Read it before drafting. This skill does not restate the format — it walks you through _applying_ it. There is one home for "how we write ADRs", and that's the README; this skill points there on purpose.
 
@@ -24,9 +24,9 @@ Complete the seeded record before the ADR you came to write. Replace its `setup 
 
 ## 1. Decide whether it's actually an ADR
 
-Use `{{map_dir}}_adr/README.md` to judge whether future work needs the decision's reasoning: constraints, rejected alternatives, or consequences that would be costly to rediscover. Hard-to-reverse choices, surprising designs, and important trade-offs are strong signals, not three mandatory tests. A routine implementation detail usually needs no record.
+Apply the criteria in `{{map_dir}}_adr/README.md`. The choice must be architectural and meet all three conditions: hard to reverse, surprising without context, and the result of a real trade-off. State the structural commitment, viable alternatives, and accepted cost before drafting.
 
-For example, an intermediate file may look redundant but preserve recovery after a failed write. Record why the simpler alternative was rejected so a future agent does not remove the safeguard while simplifying the code.
+Keep routine implementation context in the map or code comments. Protect required behavior with tests or architectural guards. Do not write an ADR to justify a bug fix, explain an unusual file, or excuse a shortcut.
 
 Find the project's agreed principles through the map rather than assuming a folder name. A decision that conflicts with a requirement needs the owner's decision. An ADR records an approved exception or a proposal; it does not authorize the exception. Use the conversation's existing decisions and ask only when material intent or authority is missing.
 

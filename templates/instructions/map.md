@@ -8,7 +8,7 @@ Extend existing sections first. Split pages for distinct reader tasks; create fo
 
 Link relevant instructions, skills, checks,{{#if has_checkpoints}} checkpoints,{{/if}} and ADRs; each keeps its own authority.
 
-Separate current behavior, agreed requirements, and open questions. Put concrete open work in `{{todo_path}}`. Preserve significant rationale as **Architecture Decision Records** under `{{map_dir}}_adr/`. ADRs record decisions; they cannot authorize exceptions to agreed requirements.
+Separate current behavior, agreed requirements, and open questions. Put concrete open work in `{{todo_path}}`. Preserve significant architectural rationale as **Architecture Decision Records** under `{{map_dir}}_adr/`. ADRs record decisions; they cannot authorize exceptions to agreed requirements.
 
 <!-- discern:map-regions -->
 

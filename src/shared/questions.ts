@@ -209,14 +209,15 @@ export const QUESTIONS: readonly Question[] = [
     id: "map.adrs",
     violations: "accrued",
     question:
-      "Consider the project's significant decisions. Can a future agent find the constraints, " +
-      "rejected alternatives, and consequences needed to avoid reversing an intentional choice? " +
-      "A project with no such unrecorded decisions can satisfy this question; record counts and " +
-      "the seeded adoption ADR alone do not answer it.",
+      "For the project's significant architectural decisions — hard to reverse, surprising " +
+      "without context, and involving a real trade-off — can a future agent find the constraints, " +
+      "viable alternatives, and accepted consequences in a linked ADR? Do the records explain " +
+      "structural choices, while routine implementation context stays in the current map?",
     teach:
-      "Record reasoning when rediscovering it would affect consequential work. Link the ADR " +
-      "from the relevant map explanation. An ADR records a decision or approved exception; " +
-      "it does not authorize overriding an agreed requirement.",
+      "Apply the project's ADR criteria to substantial choices about structure, boundaries, " +
+      "contracts, or long-term direction. Record why the chosen architecture earns its costs " +
+      "and link it from the current map. Use tests and guards to protect behavior. An ADR " +
+      "records an approved exception; it does not authorize a shortcut or override a requirement.",
   },
   {
     id: "map.navigation",

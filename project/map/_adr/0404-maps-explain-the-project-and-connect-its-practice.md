@@ -16,7 +16,7 @@ Setup, compiled guidance, checkpoints, and a maintenance guide carry the generic
 
 Local discovery, currency, and publication are separate. Current supporting pages under `_internal` are searchable and checked. Historical ADR bodies are not a current account; private material stays outside default discovery. Publication filters remain explicit for the manual, website directory, and exports. Freshness is page-level evidence of linked source changes, not a verdict on correctness. Checkpoints direct review toward affected explanations and substantive map changes.
 
-An ADR preserves reasoning future work would otherwise need to rediscover. It records an approved exception; it does not grant permission to override a project constraint. The seeded adoption record establishes the convention without proving that other important decisions have been captured.
+An ADR preserves a significant architectural choice that is hard to reverse, surprising without context, and involves a real trade-off. Current implementation explanations belong in the map; tests and architectural guards protect behavior. It records an approved exception; it does not grant permission to override a project constraint. The seeded adoption record establishes the convention without proving that other important decisions have been captured.
 
 ## Consequences
 

@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory holds the project's **Architecture Decision Records (ADRs)** — short documents that capture a significant decision, the context that forced it, and the reasoning behind it. An ADR answers the question a future reader will ask: _"why on earth was it done this way?"_
+This directory holds the project's **Architecture Decision Records (ADRs)** — short documents that capture a significant architectural decision, the context that forced it, and the reasoning behind it. An ADR answers the question a future reader will ask: _"why on earth was it done this way?"_
 
 **This file is the canonical ADR format for the project.** Project instructions and the `discern-write-adr` skill point here for the format. There is exactly one home for "how we write ADRs", and it is this page.
 
@@ -54,15 +54,19 @@ An ADR can be short — a paragraph that names the decision and why is worth mor
 - **Consequences** — what follows, good and bad: what becomes easy, what becomes hard, what you are now committed to, what you have foreclosed. Be honest about the costs; an ADR that lists only upsides is not trustworthy.
 - **Alternatives considered** _(optional)_ — the options you rejected and why, but **only when the rejection is non-obvious**. If you weighed two reasonable approaches and picked one for subtle reasons, record it — otherwise someone will re-propose the loser in six months.
 
-Include only the sections that add value. A trivial ADR may be Title + Status + a few sentences; a load-bearing one earns all of them.
+Include only the sections that add value. A concise record can still explain a substantial choice; give its constraints and consequences the space they need.
 
 ---
 
 ## When to write one
 
-Write an ADR for a significant decision when future work needs its reasoning: the constraints, alternatives, or consequences that would be costly to rediscover. A hard-to-reverse choice, a surprising design, or an important trade-off is a strong signal. These are alternatives, not three required conditions.
+Write an ADR for a significant architectural decision: a choice about the system's structure, boundaries, contracts, or long-term direction. It must meet all three conditions:
 
-For example, a seemingly redundant intermediate file may preserve recoverability after a failed write. A future agent could remove it while simplifying the code unless the rejected alternative and its cost are recorded. That reasoning earns a record; a routine rename usually does not.
+- **Hard to reverse.** Changing course would require substantial rework, migration, or coordination across the project.
+- **Surprising without context.** A future reader could reasonably choose a different design without knowing the constraints behind this one.
+- **A real trade-off.** Viable alternatives exist, and the chosen design accepts a meaningful cost or limitation to gain something the project needs.
+
+The record explains why the project commits to that architecture. Routine implementation choices, bug fixes, and descriptions of unusual files belong in current map explanations or code comments. Protect required behavior with tests or architectural guards. An ADR neither replaces that protection nor turns a shortcut into an acceptable design.
 
 An agreed project requirement remains binding. If a proposed decision conflicts with one, obtain the owner's decision first. An ADR records an approved exception or a proposal; writing it does not grant permission.
 
@@ -72,9 +76,9 @@ An agreed project requirement remains binding. If a proposed decision conflicts 
 - **Integration patterns between parts.** "These two components communicate via events, not synchronous calls."
 - **Technology choices that carry lock-in.** The datastore, the message bus, the auth provider, the deployment target — the ones that would take a quarter to swap, not every library.
 - **Boundary and scope decisions.** "This data is owned here; other parts reference it by ID only." The explicit *no*s are as valuable as the *yes*es.
-- **Deliberate deviations from the obvious path.** Anything where a reasonable reader would assume the opposite. These stop the next person from "fixing" something that was intentional.
-- **Constraints not visible in the code.** A compliance rule, a performance contract, a partner-API limit that shaped the design.
-- **A principle override.** As above — the deliberate exception belongs on the record.
+- **Architectural departures from the expected design.** Choices whose constraints explain why a more familiar architecture does not fit.
+- **Architecture shaped by external constraints.** Structural choices made to satisfy a compliance rule, performance contract, or partner-API limit.
+- **An architectural exception to an agreed principle.** Record the owner’s decision and the structural trade-off it permits.
 
 ---
 

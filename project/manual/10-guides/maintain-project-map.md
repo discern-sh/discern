@@ -43,7 +43,7 @@ For a project with no implementation yet, a substantive root can be enough. As r
 
 ## Connect the working knowledge
 
-The map explains how the project's parts fit together and links to the authorities needed for a change. Instructions carry standing rules; skills carry repeatable methods; checks verify behavior; checkpoints ask for judgment; ADRs preserve significant reasoning; the work ledger records open work.
+The map explains how the project's parts fit together and links to the authorities needed for a change. Instructions carry standing rules; skills carry repeatable methods; checks verify behavior; checkpoints ask for judgment; ADRs preserve the reasoning behind significant architectural choices; the work ledger records open work.
 
 A subsystem page might connect a data boundary to its tests, the approved decision behind it, and a recovery procedure. It need not copy those sources. The questions worth preserving depend on the project: data handling, failure recovery, compatibility, or release dependencies may matter without needing a separate page for each.
 

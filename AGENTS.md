@@ -80,7 +80,7 @@ Extend existing sections first. Split pages for distinct reader tasks; create fo
 
 Link relevant instructions, skills, checks, checkpoints, and ADRs; each keeps its own authority.
 
-Separate current behavior, agreed requirements, and open questions. Put concrete open work in `project/TODO.md`. Preserve significant rationale as **Architecture Decision Records** under `project/map/_adr/`. ADRs record decisions; they cannot authorize exceptions to agreed requirements.
+Separate current behavior, agreed requirements, and open questions. Put concrete open work in `project/TODO.md`. Preserve significant architectural rationale as **Architecture Decision Records** under `project/map/_adr/`. ADRs record decisions; they cannot authorize exceptions to agreed requirements.
 
 - `00-orientation` — Orientation
 - `10-getting-started` — Getting started

@@ -461,7 +461,7 @@ must_do = [
 ]
 authority_boundaries = [
   "The map explains behavior, boundaries, constraints, and relationships with evidence; code and config remain the behavior authority. Agreed requirements describe what must hold, not proof that it already does.",
-  "A hard-to-reverse or surprising architectural decision belongs in an ADR, not an orientation aside.",
+  "An architectural decision that is hard to reverse, surprising without context, and involves a real trade-off belongs in an ADR linked from the current map.",
 ]
 owner_moments = ["lasting-project-context", "documentation-claim-gap"]
 what_not_to_do = [
