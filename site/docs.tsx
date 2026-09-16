@@ -1001,9 +1001,9 @@ function crumbsHtml(
 /** Glyphs the document shell draws in its theme control. */
 export const DOCS_THEME_GLYPHS = {
   light:
-    `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>`,
+    `<svg viewBox="0 0 16 16" width="1em" height="1em" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>`,
   dark:
-    `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
+    `<svg viewBox="0 0 16 16" width="1em" height="1em" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
 } as const;
 
 const ICONS = {
