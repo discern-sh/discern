@@ -81,7 +81,7 @@ export function DocumentSearch(
         />
         <p className="docs-search-empty" data-search-empty="" hidden />
         <div
-          className="docs-visually-hidden"
+          className="discern-visually-hidden"
           role="status"
           aria-live="polite"
           aria-atomic="true"

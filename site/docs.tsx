@@ -13,7 +13,7 @@
  * bytes — the same bytes `discern docs <leaf> --raw` prints.
  */
 
-import { DOCUMENT_ROUTES, DOCUMENT_SEARCH_ROUTES } from "./routes.ts";
+import { DOCUMENT_ROUTES } from "./routes.ts";
 import { fromFileUrl, join, relative } from "@std/path";
 import {
   adrRecords,
@@ -49,17 +49,8 @@ import {
   type GlossaryEntry,
   glossarySummary,
 } from "../scripts/glossary_registry.ts";
-import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { repositoryBlobUrl, repositoryTreeUrl } from "../src/shared/brand.ts";
-import { designSystemAssetPath } from "./design_system.ts";
-import { siteAppearanceRootAttributes } from "./appearance.ts";
-import { decorateDocumentHtml } from "./document_html.tsx";
-import {
-  authoredHeadingNumberClass,
-  tableOfContentsHtml,
-  type TocItem,
-} from "./document_toc.tsx";
-import { THEME_BOOTSTRAP, themeRootAttributes } from "./theme.ts";
+import type { TocItem } from "./document_toc.tsx";
 import { renderWorkflowMarkdown } from "./workflow.tsx";
 
 export { decorateDocumentHtml } from "./document_html.tsx";
@@ -74,22 +65,6 @@ const MAP_REPO_REL = relative(REPO_ROOT, MAP_DIR);
 const DECISIONS_ROUTE = DOCUMENT_ROUTES.decisions;
 export const PUBLIC_MAP_ROUTE = DOCUMENT_ROUTES.map;
 const GLOSSARY_SOURCE_PATH = "30-reference/glossary.md";
-const DISCERN_BRAND_FRAGMENT = new URL(
-  "pages/fragments/brand.html",
-  import.meta.url,
-);
-
-/** The build emits the document shell's theme control beside the lockup. */
-export const DOCS_THEME_TOGGLE_FRAGMENT: URL = new URL(
-  "pages/fragments/theme-toggle.html",
-  import.meta.url,
-);
-
-/** Read the build-emitted lockup on demand so watch rebuilds stay visible. */
-function discernBrandHtml(): string {
-  return Deno.readTextFileSync(DISCERN_BRAND_FRAGMENT);
-}
-
 /** One published docs page. */
 export interface DocsPage {
   routeKind: "manual";
@@ -866,29 +841,16 @@ export async function renderDoc(
   return rendered;
 }
 
-// ── The shell ──────────────────────────────────────────────────────────────
-
-/** Encode untrusted document text for safe HTML content and attributes. */
-function esc(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
+// ── Wayfinding facts ───────────────────────────────────────────────────────
 
 /** Reading-order tier number of a section (`20-quality-gate` → `20`). */
 export function sectionIndexOf(dir: string): string {
   return /^(\d+)-/.exec(dir)?.[1] ?? "§";
 }
 
-/** The isolated document corpus that owns a page's navigation and search. */
-export type DocumentCorpus = "manual" | "map";
-
-/** Human label for a page's editorial purpose or Map audience. */
-export function pageKindLabel(page: NavigablePage): string {
-  const value = page.routeKind === "manual" ? page.manualKind : page.audience;
-  return value.replace(/^./, (character) => character.toUpperCase());
+/** Human label for a page's editorial purpose. */
+export function pageKindLabel(page: DocsPage): string {
+  return page.manualKind.replace(/^./, (character) => character.toUpperCase());
 }
 
 /** One destination in a breadcrumb trail, pager, or foot link run. */
@@ -897,12 +859,12 @@ export interface DocumentLink {
   readonly href: string;
 }
 
-/** The pages either side of one page in its corpus's global reading order. */
+/** The pages either side of one page in the manual's global reading order. */
 export function adjacentPages(
   site: DocsSite,
-  page: NavigablePage,
-): { readonly previous?: NavigablePage; readonly next?: NavigablePage } {
-  const pages = page.routeKind === "map" ? site.publicMap.pages : site.pages;
+  page: DocsPage,
+): { readonly previous?: DocsPage; readonly next?: DocsPage } {
+  const pages = site.pages;
   const index = pages.findIndex((candidate) => candidate.route === page.route);
   const previous = index > 0 ? pages[index - 1] : undefined;
   const next = index >= 0 && index < pages.length - 1
@@ -914,30 +876,23 @@ export function adjacentPages(
   };
 }
 
-/** The page family a breadcrumb trail represents. */
-export type BreadcrumbTarget = RoutedDocPage | "decisions" | null;
+/** The page family a breadcrumb trail represents; null on the manual cover. */
+export type BreadcrumbTarget = DocsPage | DecisionPage | "decisions" | null;
 
-/** The active corpus's titled ancestry above one page, then the page itself. */
+/** The manual's titled ancestry above one page, then the page itself. */
 export function breadcrumbTrail(
   site: DocsSite,
-  corpus: DocumentCorpus,
   target: BreadcrumbTarget,
 ): { readonly ancestors: readonly DocumentLink[]; readonly current: string } {
-  const sections = corpus === "map" ? site.publicMap.sections : site.sections;
-  const root: DocumentLink = corpus === "map"
-    ? { label: "Live Map", href: PUBLIC_MAP_ROUTE }
-    : { label: "Docs", href: "/docs" };
+  const root: DocumentLink = { label: "Docs", href: "/docs" };
   const sectionTitle = (slug: string): string =>
-    sections.find((section) => section.slug === slug)?.title ?? slug;
+    site.sections.find((section) => section.slug === slug)?.title ?? slug;
   const ancestors: readonly DocumentLink[] = target === "decisions"
-    ? [{ label: "Docs", href: "/docs" }]
+    ? [root]
     : target === null
     ? []
     : target.routeKind === "decision"
-    ? [
-      { label: "Docs", href: "/docs" },
-      { label: "Decisions", href: DECISIONS_ROUTE },
-    ]
+    ? [root, { label: "Decisions", href: DECISIONS_ROUTE }]
     : target.isIndex
     ? [root]
     : [
@@ -959,33 +914,21 @@ export function breadcrumbTrail(
   return { ancestors, current };
 }
 
-/** The durable destinations beneath a corpus's navigation. */
-export function navigationFootLinks(
-  corpus: DocumentCorpus,
-): readonly DocumentLink[] {
-  return corpus === "map"
-    ? [
-      { label: "Product manual", href: "/docs" },
-      { label: "Project decisions", href: DECISIONS_ROUTE },
-      { label: "Repository Map\u00a0↗", href: repositoryTreeUrl(MAP_REPO_REL) },
-    ]
-    : [
-      { label: "Glossary", href: "/docs/reference/glossary" },
-      { label: "Commands", href: "/docs/reference/cli-reference" },
-      { label: "Configuration", href: "/docs/reference/config-reference" },
-    ];
-}
+/** The durable reference destinations beneath the manual navigation. */
+export const NAVIGATION_FOOT_LINKS: readonly DocumentLink[] = [
+  { label: "Glossary", href: "/docs/reference/glossary" },
+  { label: "Commands", href: "/docs/reference/cli-reference" },
+  { label: "Configuration", href: "/docs/reference/config-reference" },
+];
 
 /** The index a colophon describes when it stands under no single page. */
-export type ColophonIndex = "docs" | "decisions" | "map";
+export type ColophonIndex = "docs" | "decisions";
 
 /** Where a page's plain-text edition, terminal command, and source live. */
 export interface ColophonFacts {
   /** The route whose `.md` suffix serves the pristine Markdown. */
   readonly route: string;
-  /** The `discern <reader> <target> --raw` reader verb. */
-  readonly reader: "docs" | "map";
-  /** The leaf the terminal command names; a placeholder on an index. */
+  /** The leaf `discern docs <target> --raw` names; a placeholder on an index. */
   readonly target: string;
   /** The repository URL of the authored source. */
   readonly source: string;
@@ -994,54 +937,36 @@ export interface ColophonFacts {
 
 /** Resolve the plain-text edition, terminal command, and source for one page or index. */
 export function colophonFacts(
-  page: RoutedDocPage | null,
+  page: DocsPage | DecisionPage | null,
   index: ColophonIndex = "docs",
 ): ColophonFacts {
   const route = page?.route ??
-    (index === "decisions"
-      ? DECISIONS_ROUTE
-      : index === "map"
-      ? PUBLIC_MAP_ROUTE
-      : "/docs");
-  const reader = page?.routeKind === "map" || index === "map" ? "map" : "docs";
-  const pageSourceRoot = page?.routeKind === "manual"
-    ? MANUAL_REPO_REL
-    : MAP_REPO_REL;
+    (index === "decisions" ? DECISIONS_ROUTE : "/docs");
   const source = page === null
     ? index === "decisions"
       ? repositoryTreeUrl(`${MAP_REPO_REL}/_adr`)
-      : index === "map"
-      ? repositoryTreeUrl(MAP_REPO_REL)
       : repositoryTreeUrl(MANUAL_REPO_REL)
-    : repositoryBlobUrl(`${pageSourceRoot}/${page.sourcePath}`);
-  const related: readonly DocumentLink[] = reader === "map"
-    ? [
-      { label: "Product manual", href: "/docs" },
-      { label: "Project decisions", href: DECISIONS_ROUTE },
-    ]
-    : [
-      { label: "llms.txt", href: "/llms.txt" },
-      { label: "Project decisions", href: DECISIONS_ROUTE },
-    ];
+    : page.routeKind === "manual"
+    ? repositoryBlobUrl(`${MANUAL_REPO_REL}/${page.sourcePath}`)
+    : repositoryBlobUrl(`${MAP_REPO_REL}/${page.sourcePath}`);
   return {
     route,
-    reader,
     target: page === null ? "<page>" : page.entry.slug,
     source,
-    related,
+    related: [
+      { label: "llms.txt", href: "/llms.txt" },
+      { label: "Project decisions", href: DECISIONS_ROUTE },
+    ],
   };
 }
 
 /** The leaves a section landing lists, derived from the canonical model. */
 export function sectionLeaves(
   site: DocsSite,
-  page: NavigablePage,
-): readonly NavigablePage[] {
+  page: DocsPage,
+): readonly DocsPage[] {
   if (!page.isIndex) return [];
-  const sections = page.routeKind === "map"
-    ? site.publicMap.sections
-    : site.sections;
-  const section = sections.find((candidate) =>
+  const section = site.sections.find((candidate) =>
     candidate.index.route === page.route
   );
   if (section === undefined) {
@@ -1078,354 +1003,11 @@ export function relatedDecisions(
   });
 }
 
-/** Render rooted corpus navigation and mark the current page for assistive technology. */
-function navHtml(
-  site: DocsSite,
-  corpus: DocumentCorpus,
-  current: NavigablePage | null,
-  compact: boolean,
-): string {
-  const source = corpus === "map" ? site.publicMap.sections : site.sections;
-  const sections = source.map((section) => {
-    const pages = compact ? [section.index] : section.pages;
-    const leaves = pages.map((page) => {
-      const here = page.route === current?.route;
-      const accessibleLabel = page.isIndex
-        ? ` aria-label="${esc(`${section.title} overview`)}"`
-        : "";
-      return `<li data-nav-page><a href="${page.route}"${
-        here ? ' aria-current="page"' : ""
-      }${accessibleLabel}><span class="docs-nav-page-title">${
-        page.isIndex ? "Overview" : esc(page.entry.title)
-      }</span></a></li>`;
-    }).join("");
-    // Emitted flat: this fragment repeats on every docs page, so template
-    // pretty-printing would spend page-size budget on invisible whitespace.
-    return `<div class="discern-docs-nav__section docs-nav-chapter" data-nav-section><div class="docs-nav-chapter-heading"><strong class="discern-docs-nav__title docs-nav-label"><span class="docs-nav-section-index">${
-      sectionIndexOf(section.dir)
-    }</span>${esc(section.title)}</strong></div><ul>${leaves}</ul></div>`;
-  }).join("");
-  return `<div id="docs-nav-sections" data-nav-sections>${sections}</div>`;
-}
-
-/** Link the previous and next guides in global reading order. */
-function pagerHtml(site: DocsSite, page: NavigablePage): string {
-  const { previous: prev, next } = adjacentPages(site, page);
-  if (!prev && !next) return "";
-  const cell = (
-    p: NavigablePage | undefined,
-    rel: "prev" | "next",
-  ): string =>
-    p
-      ? `<a class="discern-pager__link discern-pager__link--${
-        rel === "prev" ? "previous" : "next"
-      }" rel="${rel}" href="${p.route}">
-          <span class="discern-pager__direction">${
-        rel === "prev" ? "Previous" : "Next"
-      } · ${esc(pageKindLabel(p))}</span><span class="discern-pager__title">${
-        esc(p.entry.title)
-      }</span></a>`
-      : `<span class="docs-pager-empty" aria-hidden="true"></span>`;
-  return `<nav class="discern-pager docs-pager" aria-label="Pagination">${
-    cell(prev, "prev")
-  }${cell(next, "next")}</nav>`;
-}
-
-/** The breadcrumb trail — the active corpus's titled ancestry. */
-function crumbsHtml(
-  site: DocsSite,
-  corpus: DocumentCorpus,
-  target: BreadcrumbTarget,
-): string {
-  const { ancestors, current } = breadcrumbTrail(site, corpus, target);
-  const items = ancestors.map(({ label, href }) =>
-    `<li><a href="${href}">${
-      esc(label)
-    }</a><span class="discern-breadcrumbs__separator" aria-hidden="true">/</span></li>`
-  ).join("");
-  return `<nav class="discern-breadcrumbs docs-crumbs" aria-label="Breadcrumb"><ol>${items}<li class="discern-breadcrumbs__current"><span aria-current="page">${
-    esc(current)
-  }</span></li></ol></nav>`;
-}
-
-/**
- * The document shell's drawn icons. Each is a stroked line graphic, so it must
- * declare `fill="none"` and take its colour from the text around it; an SVG
- * with neither attribute paints solid black and disappears on a dark canvas.
- * The theme glyphs also carry their own size, because they render outside the
- * `discern-icon` allocation that bounds the others.
- */
-export const DOCS_ICONS = {
-  menu:
-    `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg>`,
-  search:
-    `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4 14 14"/></svg>`,
-  sun:
-    `<svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>`,
-  moon:
-    `<svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
-} as const;
-
-/** The two the build renders into the shell's theme control. */
-export const DOCS_THEME_GLYPHS = {
-  light: DOCS_ICONS.sun,
-  dark: DOCS_ICONS.moon,
-} as const;
-
-/** Read the build-emitted control on demand so watch rebuilds stay visible. */
-function docsThemeToggleHtml(): string {
-  return Deno.readTextFileSync(DOCS_THEME_TOGGLE_FRAGMENT);
-}
-
-interface ShellFrame {
-  /** Contents of the `<title>` element. */
-  htmlTitle: string;
-  description: string;
-  /** The page the nav and breadcrumbs highlight; null on the index. */
-  current: NavigablePage | null;
-  /** The isolated document corpus that owns navigation and search. */
-  corpus: DocumentCorpus;
-  /** Keep the manual cover's default wayfinding deliberately small. */
-  compactNavigation?: boolean;
-  /** The page family represented in the breadcrumb trail. */
-  breadcrumb: BreadcrumbTarget;
-  /** Everything inside `<main>`, breadcrumbs excluded. */
-  mainHtml: string;
-  /** The right contents rail; empty when the page has no headings. */
-  tocHtml: string;
-}
-
-/**
- * The document frame every /docs page shares: design-system foundations on the
- * root, the manual's chrome (top bar, chapter nav, contents rail, search
- * palette) around one `<main>`. Pages differ only in what they put inside it.
- */
-function shellFrame(site: DocsSite, frame: ShellFrame): string {
-  const map = frame.corpus === "map";
-  const rootRoute = map ? PUBLIC_MAP_ROUTE : "/docs";
-  const contextLabel = map ? "/map" : "/docs";
-  const corpusLabel = map ? "Live Map" : "Manual";
-  const searchLabel = map ? "the live Map" : "the manual";
-  const searchEndpoint = DOCUMENT_SEARCH_ROUTES.manual;
-  const navFoot = navigationFootLinks(frame.corpus).map(({ label, href }) =>
-    `<a href="${href}">${esc(label).replace("\u00a0", "&nbsp;")}</a>`
-  ).join("\n      ");
-  return `<!doctype html>
-<html lang="en" ${siteAppearanceRootAttributes()} ${themeRootAttributes()}>
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${esc(frame.htmlTitle)}</title>
-<meta name="description" content="${esc(frame.description)}" />
-<meta name="theme-color" content="#F6F5F8" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#22252C" media="(prefers-color-scheme: dark)" />
-<link rel="icon" href="${DISCERN_FAVICON_PATH}" />
-<script>${THEME_BOOTSTRAP}</script>
-<script>document.documentElement.classList.add("docs-js");</script>
-<link rel="stylesheet" href="${designSystemAssetPath("docs", "fonts.css")}" />
-<link rel="stylesheet" href="${designSystemAssetPath("docs", "discern.css")}" />
-<link rel="stylesheet" href="/assets/docs.css" />
-<script defer src="${designSystemAssetPath("docs", "discern.js")}"></script>
-<script type="module" src="/assets/docs.js"></script>
-</head>
-<body data-document-corpus="${frame.corpus}">
-<a class="discern-skip-link docs-skip" href="#doc">Skip to content</a>
-<header class="discern-docs-header docs-top">
-  <div class="discern-docs-header__inner docs-top-inner">
-    <div class="discern-docs-header__brand docs-brand-group">
-      <button class="discern-icon-button docs-burger" type="button"
-        data-drawer-toggle aria-controls="docs-nav"
-        aria-label="Open navigation" aria-expanded="false">
-        <span class="discern-icon">${DOCS_ICONS.menu}</span>
-      </button>
-      <span class="docs-brand-lockup"><a class="docs-brand" href="/">
-        ${discernBrandHtml()}</a><a
-        class="docs-brand-docs discern-mono" href="${rootRoute}">${contextLabel}</a></span>
-    </div>
-    <div class="discern-docs-header__middle">
-      <button class="docs-search-btn" type="button" data-search-open
-        aria-label="Search ${searchLabel}">
-        <span class="discern-icon docs-search-icon">${DOCS_ICONS.search}</span>
-        <span class="docs-search-btn-word">Search ${searchLabel}</span>
-        <kbd class="discern-kbd">⌘K</kbd>
-      </button>
-    </div>
-    <div class="discern-docs-header__actions">
-      ${docsThemeToggleHtml()}
-    </div>
-  </div>
-</header>
-<div class="docs-shell">
-  <div class="docs-veil" data-drawer-close hidden></div>
-  <aside class="docs-nav" id="docs-nav">
-    <nav class="discern-docs-nav docs-nav-scroll" aria-label="${corpusLabel}">
-${navHtml(site, frame.corpus, frame.current, frame.compactNavigation === true)}
-    </nav>
-    <div class="docs-nav-foot discern-mono">
-      ${navFoot}
-    </div>
-  </aside>
-  <main id="doc" class="docs-main">
-    ${crumbsHtml(site, frame.corpus, frame.breadcrumb)}
-    ${frame.mainHtml}
-  </main>
-  <div class="docs-rail">${frame.tocHtml}</div>
-</div>
-<div class="docs-search-backdrop" data-search-backdrop hidden></div>
-<dialog class="discern-search-palette docs-search" data-search
-  data-search-endpoint="${searchEndpoint}" aria-label="Search ${searchLabel}">
-  <div class="discern-search-palette__field">
-    <span class="discern-search-palette__icon" aria-hidden="true">
-      <span class="discern-icon docs-search-icon">${DOCS_ICONS.search}</span>
-    </span>
-    <input class="discern-search-palette__input" type="search"
-      placeholder="Search ${searchLabel}…" data-search-input role="combobox"
-      aria-label="Search ${searchLabel}" aria-autocomplete="list"
-      aria-expanded="false" aria-controls="docs-search-results"
-      autocomplete="off" spellcheck="false" />
-    <button class="discern-icon-button docs-search-close" type="button"
-      data-search-close aria-label="Close search"><span aria-hidden="true">×</span></button>
-  </div>
-  <div class="discern-search-palette__results">
-    <ul class="discern-search-palette__list docs-search-results"
-      id="docs-search-results" role="listbox"
-      aria-label="Search results" data-search-results></ul>
-    <button class="docs-search-all" type="button" data-search-all hidden></button>
-    <p class="discern-search-palette__empty" data-search-empty hidden></p>
-  </div>
-  <div class="docs-visually-hidden" role="status" aria-live="polite"
-    aria-atomic="true" data-search-status></div>
-  <div class="discern-search-palette__hint">
-    <span><kbd class="discern-kbd">↑</kbd> <kbd class="discern-kbd">↓</kbd> choose</span>
-    <span><kbd class="discern-kbd">↵</kbd> open</span>
-    <span><kbd class="discern-kbd">Esc</kbd> close</span>
-  </div>
-</dialog>
-</body>
-</html>
-`;
-}
-
-/** The colophon under every page: the plain-text edition, source, and history. */
-function colophonHtml(
-  page: RoutedDocPage | null,
-  index: ColophonIndex = "docs",
-): string {
-  const facts = colophonFacts(page, index);
-  const related = facts.related.map(({ label, href }) =>
-    `<a href="${href}">${esc(label)}</a>`
-  ).join("\n        ");
-  return `<footer class="docs-colophon">
-      <span>Plain text for agents:
-        <a class="discern-mono" href="${facts.route}.md">curl&nbsp;discern.sh${facts.route}.md</a>
-        or <code>discern ${facts.reader} ${
-    esc(facts.target)
-  } --raw</code></span>
-      <span class="docs-colophon-links">
-        ${related}
-        <a href="${facts.source}">View source&nbsp;↗</a>
-      </span>
-    </footer>`;
-}
-
-/** The section landing's canonical leaf list, derived from DocEntry metadata. */
-export function sectionLeafIndexHtml(
-  site: DocsSite,
-  page: NavigablePage,
-): string {
-  const leaves = sectionLeaves(site, page);
-  if (leaves.length === 0) return "";
-  const items = leaves.map((leaf) =>
-    `<li><a href="${leaf.route}">${esc(leaf.entry.title)}</a>` +
-    `<span class="docs-leaf-desc">${esc(leaf.entry.description)}</span></li>`
-  ).join("");
-  return `<section class="docs-section-index" aria-labelledby="section-pages">
-      <h2 id="section-pages">In this section</h2>
-      <ol>${items}</ol>
-    </section>`;
-}
-
 /** Citations eligible for a page's browser-only related-decisions surface. */
 export function relatedDecisionCitations(
   page: DocsPage,
 ): readonly AdrCitation[] {
   return page.sourcePath === GLOSSARY_SOURCE_PATH ? [] : page.entry.citedAdrs;
-}
-
-/** A public page's eligible citations, linked to their on-site records. */
-function relatedDecisionsHtml(site: DocsSite, page: DocsPage): string {
-  const decisions = relatedDecisions(site, page);
-  if (decisions.length === 0) return "";
-  const items = decisions.map(({ reference, detail, href }) =>
-    `<li><a class="docs-related-decision" href="${href}">${
-      esc(reference)
-    }</a><span class="docs-related-decision-detail">: ${
-      esc(detail)
-    }</span></li>`
-  ).join("");
-  return `<aside class="docs-related-decisions" aria-labelledby="related-decisions">
-      <h2 id="related-decisions">Related decisions</h2>
-      <ul>${items}</ul>
-    </aside>`;
-}
-
-/** The full document around one rendered page. */
-export function docsShell(
-  site: DocsSite,
-  page: DocsPage,
-  rendered: RenderedDoc,
-): string {
-  const article = decorateDocumentHtml(`${rendered.html}
-${sectionLeafIndexHtml(site, page)}`);
-  return shellFrame(site, {
-    htmlTitle: `${page.entry.title} · discern.sh docs`,
-    description: page.entry.description,
-    current: page,
-    corpus: "manual",
-    breadcrumb: page,
-    mainHtml: `<p class="docs-page-kind">${esc(pageKindLabel(page))}</p>
-    <article class="doc-body${authoredHeadingNumberClass(rendered.toc)}">
-${article}
-    </article>
-    ${relatedDecisionsHtml(site, page)}
-    ${pagerHtml(site, page)}
-    ${colophonHtml(page)}`,
-    tocHtml: tableOfContentsHtml(rendered.toc),
-  });
-}
-
-/** Derive one complete browse tree from the active corpus's published model. */
-function completeBrowseHtml(
-  sections: readonly (DocsSection | PublicMapSection)[],
-): string {
-  return sections.map((section) => {
-    const leaves = section.pages.filter((p) => !p.isIndex).map((p) =>
-      `<li><a href="${p.route}">${esc(p.entry.title)}</a>
-        <span class="docs-leaf-desc">${esc(p.entry.description)}</span></li>`
-    ).join("");
-    return `<section class="docs-chapter">
-      <span class="docs-chapter-index" aria-hidden="true">${
-      sectionIndexOf(section.dir)
-    }</span>
-      <div class="docs-chapter-body">
-        <h2><a href="${section.index.route}">${esc(section.title)}</a></h2>
-        <p class="docs-chapter-desc">${esc(section.description)}</p>
-        <ul class="docs-chapter-leaves">${leaves}</ul>
-      </div>
-    </section>`;
-  }).join("\n");
-}
-
-/** Render the scarce authored front-door selection with model descriptions. */
-function frontDoorsHtml(site: DocsSite): string {
-  const items = site.frontDoors.map((page) =>
-    `<li><a href="${page.route}">${esc(page.entry.title)}</a>
-      <span class="docs-leaf-desc">${esc(page.entry.description)}</span></li>`
-  ).join("");
-  return `<section class="docs-front-doors" aria-labelledby="start-here">
-    <h2 id="start-here">Start here</h2>
-    <ul class="docs-chapter-leaves">${items}</ul>
-  </section>`;
 }
 
 /** Split the authored introduction from its remaining non-index guidance. */
@@ -1434,122 +1016,6 @@ export function manualLandingParts(html: string): readonly [string, string] {
   return firstSection < 0
     ? [html, ""]
     : [html.slice(0, firstSection), html.slice(firstSection)];
-}
-
-/** The /docs landing renders the authored manual root plus derived full browse. */
-export function docsIndexShell(
-  site: DocsSite,
-  rendered: RenderedDoc,
-): string {
-  const [introduction, details] = manualLandingParts(rendered.html);
-  const article = decorateDocumentHtml(`${introduction}
-  ${frontDoorsHtml(site)}
-  <div class="docs-manual-details">
-${details}
-  </div>
-  <section class="docs-complete-browse docs-complete-browse--expanded" aria-label="Complete manual">
-    <div class="docs-chapters">
-      ${completeBrowseHtml(site.sections)}
-    </div>
-  </section>
-`);
-  const main = `<article class="doc-body docs-cover docs-manual-index${
-    authoredHeadingNumberClass(rendered.toc)
-  }">
-${article}
-  </article>
-  ${colophonHtml(null)}`;
-
-  return shellFrame(site, {
-    htmlTitle: `${site.landing.entry.title} · discern.sh docs`,
-    description: site.landing.entry.description,
-    current: null,
-    corpus: "manual",
-    compactNavigation: true,
-    breadcrumb: null,
-    mainHtml: main,
-    tocHtml: "",
-  });
-}
-
-/** Explain decision status and route readers to current product documentation. */
-function historyLabelHtml(superseded: boolean): string {
-  const status = superseded
-    ? `<strong class="docs-history-status">Superseded record.</strong> `
-    : "";
-  return `<aside class="docs-history-label">
-    <span class="discern-kicker">Project history</span>
-    <p>${status}These records explain why discern was built this way. They are
-    project history, not current product documentation; use the
-    <a href="/docs">manual</a> for current instructions.</p>
-  </aside>`;
-}
-
-/** Render linked decision titles with visible superseded status. */
-function decisionListHtml(pages: readonly DecisionPage[]): string {
-  return `<ol class="docs-decision-list">${
-    pages.map((page) =>
-      `<li><a href="${page.route}">${esc(page.entry.title)}</a>` +
-      `${
-        page.superseded
-          ? '<span class="docs-decision-status">Superseded</span>'
-          : ""
-      }</li>`
-    ).join("")
-  }</ol>`;
-}
-
-/** The project-history index, deliberately outside the product-documentation nav. */
-export function decisionsIndexShell(site: DocsSite): string {
-  const active = site.decisions.pages.filter((page) => !page.superseded);
-  const superseded = site.decisions.pages.filter((page) => page.superseded);
-  const article = decorateDocumentHtml(`
-    <h1>Project decisions</h1>
-    <p>The numbered records preserve the context and trade-offs behind discern's architecture.</p>
-    <h2>Current records</h2>
-    ${decisionListHtml(active)}
-    <h2>Superseded records</h2>
-    <p>These records remain available because the path to today's design is part of the history.</p>
-    ${decisionListHtml(superseded)}
-  `);
-  const main = `${historyLabelHtml(false)}
-  <article class="doc-body docs-decisions-index">
-${article}
-  </article>
-  ${colophonHtml(null, "decisions")}`;
-  return shellFrame(site, {
-    htmlTitle: "Project decisions · discern.sh docs",
-    description:
-      "Project-history records explaining the decisions behind discern.",
-    current: null,
-    corpus: "manual",
-    breadcrumb: "decisions",
-    mainHtml: main,
-    tocHtml: "",
-  });
-}
-
-/** One rendered ADR, labeled as history rather than product documentation. */
-export function decisionShell(
-  site: DocsSite,
-  page: DecisionPage,
-  rendered: RenderedDoc,
-): string {
-  return shellFrame(site, {
-    htmlTitle: `${page.entry.title} · discern.sh docs`,
-    description: page.entry.description,
-    current: null,
-    corpus: "manual",
-    breadcrumb: page,
-    mainHtml: `${historyLabelHtml(page.superseded)}
-    <article class="doc-body docs-decision-record${
-      authoredHeadingNumberClass(rendered.toc)
-    }">
-${decorateDocumentHtml(rendered.html)}
-    </article>
-    ${colophonHtml(page)}`,
-    tocHtml: tableOfContentsHtml(rendered.toc),
-  });
 }
 
 // ── Plain-text surfaces ────────────────────────────────────────────────────

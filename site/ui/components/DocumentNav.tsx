@@ -2,11 +2,9 @@
 import type { ReactElement } from "react";
 import { DocsNav, type DocsNavSection } from "discern-design-system/react";
 import {
+  type DocsPage,
   type DocsSection,
-  type DocumentCorpus,
   type DocumentLink,
-  type NavigablePage,
-  type PublicMapSection,
   sectionIndexOf,
 } from "../../docs.tsx";
 
@@ -14,10 +12,9 @@ import {
 export const DOCUMENT_NAVIGATION_ID = "docs-nav";
 
 export interface DocumentNavProps {
-  readonly corpus: DocumentCorpus;
-  readonly sections: readonly (DocsSection | PublicMapSection)[];
-  /** The page marked current; null on a corpus root. */
-  readonly current: NavigablePage | null;
+  readonly sections: readonly DocsSection[];
+  /** The page marked current; null on the cover and decisions. */
+  readonly current: DocsPage | null;
   /** List only each section's landing page, for a cover's deliberately small rail. */
   readonly compact?: boolean;
   /** Durable destinations shown beneath the navigation. */
@@ -26,8 +23,8 @@ export interface DocumentNavProps {
 
 /** Section landings read as "Overview"; the section name stays in the accessible name. */
 function navigationSections(
-  sections: readonly (DocsSection | PublicMapSection)[],
-  current: NavigablePage | null,
+  sections: readonly DocsSection[],
+  current: DocsPage | null,
   compact: boolean,
 ): readonly DocsNavSection[] {
   return sections.map((section) => ({
@@ -45,7 +42,9 @@ function navigationSections(
       label: page.isIndex
         ? (
           <>
-            <span className="docs-visually-hidden">{`${section.title} `}</span>
+            <span className="discern-visually-hidden">
+              {`${section.title} `}
+            </span>
             <span className="docs-nav-page-title">Overview</span>
           </>
         )
@@ -59,13 +58,13 @@ function navigationSections(
  * modal dialog; without script it stays in flow above the document.
  */
 export function DocumentNav(
-  { corpus, sections, current, compact = false, footLinks }: DocumentNavProps,
+  { sections, current, compact = false, footLinks }: DocumentNavProps,
 ): ReactElement {
   return (
     <aside className="docs-nav" id={DOCUMENT_NAVIGATION_ID}>
       <DocsNav
         className="docs-nav-scroll"
-        label={corpus === "map" ? "Live Map" : "Manual"}
+        label="Manual"
         sections={navigationSections(sections, current, compact)}
       />
       <div className="docs-nav-foot discern-mono">

@@ -35,8 +35,6 @@ export interface DocumentProps {
   /** Head content that must resolve before the first stylesheet, such as an enhancement class. */
   readonly head?: ReactNode;
   readonly bodyClassName?: string;
-  /** Page facts the body carries for its own scripts, e.g. `data-document-corpus`. */
-  readonly bodyAttributes?: Readonly<Record<`data-${string}`, string>>;
   readonly children: ReactNode;
 }
 
@@ -53,7 +51,6 @@ export function Document(
     siteModules = [],
     head,
     bodyClassName,
-    bodyAttributes,
     children,
   }: DocumentProps,
 ): ReactElement {
@@ -113,7 +110,7 @@ export function Document(
           <script key={src} type="module" src={src}></script>
         ))}
       </head>
-      <body className={bodyClassName} {...bodyAttributes}>{children}</body>
+      <body className={bodyClassName}>{children}</body>
     </html>
   );
 }

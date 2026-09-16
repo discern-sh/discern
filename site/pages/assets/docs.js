@@ -66,11 +66,8 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
   let drawerOpen = false;
   let drawerReturnFocus = null;
 
-  const documentCorpus = doc.body.dataset.documentCorpus ?? "manual";
-  const navigationLabel = documentCorpus === "map"
-    ? "Live Map navigation"
-    : "Manual navigation";
-  const navScrollKey = `discern:${documentCorpus}-nav-scroll`;
+  const navigationLabel = "Manual navigation";
+  const navScrollKey = "discern:manual-nav-scroll";
   const persistNavScroll = () => {
     if (!navScroll) return;
     try {

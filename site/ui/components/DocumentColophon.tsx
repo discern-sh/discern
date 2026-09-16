@@ -3,11 +3,12 @@ import type { ReactElement } from "react";
 import {
   colophonFacts,
   type ColophonIndex,
-  type RoutedDocPage,
+  type DecisionPage,
+  type DocsPage,
 } from "../../docs.tsx";
 
 export interface DocumentColophonProps {
-  readonly page: RoutedDocPage | null;
+  readonly page: DocsPage | DecisionPage | null;
   /** The index described when the colophon stands under no single page. */
   readonly index?: ColophonIndex;
 }
@@ -24,7 +25,7 @@ export function DocumentColophon(
         <a className="discern-mono" href={`${facts.route}.md`}>
           curl&nbsp;discern.sh{facts.route}.md
         </a>{" "}
-        or <code>discern {facts.reader} {facts.target} --raw</code>
+        or <code>discern docs {facts.target} --raw</code>
       </span>
       <span className="docs-colophon-links">
         {facts.related.map(({ label, href }) => (

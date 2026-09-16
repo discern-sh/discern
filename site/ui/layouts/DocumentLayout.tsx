@@ -4,9 +4,9 @@ import { Breadcrumbs, SkipLink } from "discern-design-system/react";
 import {
   type BreadcrumbTarget,
   breadcrumbTrail,
+  type DocsPage,
   type DocsSite,
-  type NavigablePage,
-  navigationFootLinks,
+  NAVIGATION_FOOT_LINKS,
 } from "../../docs.tsx";
 import { DOCUMENT_SEARCH_ROUTES } from "../../routes.ts";
 import type { TocItem } from "../../document_toc.tsx";
@@ -33,7 +33,7 @@ const ENHANCEMENT_BOOTSTRAP =
 export interface DocumentLayoutProps {
   readonly site: DocsSite;
   /** The page the navigation highlights; null on the manual cover and decisions. */
-  readonly current: NavigablePage | null;
+  readonly current: DocsPage | null;
   /** List only section landings, for the cover's deliberately small rail. */
   readonly compactNavigation?: boolean;
   /** The page family represented in the breadcrumb trail. */
@@ -59,7 +59,7 @@ export function DocumentLayout(
     children,
   }: DocumentLayoutProps,
 ): ReactElement {
-  const trail = breadcrumbTrail(site, "manual", breadcrumb);
+  const trail = breadcrumbTrail(site, breadcrumb);
   return (
     <>
       <SkipLink className="docs-skip" href={`#${MAIN_ID}`}>
@@ -74,11 +74,10 @@ export function DocumentLayout(
       <div className="docs-shell">
         <div className="docs-veil" data-drawer-close="" hidden />
         <DocumentNav
-          corpus="manual"
           sections={site.sections}
           current={current}
           compact={compactNavigation}
-          footLinks={navigationFootLinks("manual")}
+          footLinks={NAVIGATION_FOOT_LINKS}
         />
         <main id={MAIN_ID} className="docs-main">
           <Breadcrumbs
@@ -118,7 +117,6 @@ export function renderDocumentPage(
     scripts: ["discern.js"],
     siteModules: ["/assets/docs.js"],
     head: <HtmlFragment as="script" html={ENHANCEMENT_BOOTSTRAP} />,
-    bodyAttributes: { "data-document-corpus": "manual" },
     children,
   });
 }

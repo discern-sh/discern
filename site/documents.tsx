@@ -12,7 +12,6 @@
 import { DOCUMENT_SEARCH_ROUTES } from "./routes.ts";
 import {
   type DocsSite,
-  type DocumentCorpus,
   loadDocsSite,
   PUBLIC_MAP_ROUTE,
   renderDoc,
@@ -54,7 +53,7 @@ function respond(body: string, contentType: string, vary = false): Response {
 }
 
 /** Serve equivalent 404 help as plain text or minimal HTML according to reader negotiation. */
-function docsNotFound(asText: boolean, corpus: DocumentCorpus): Response {
+function docsNotFound(asText: boolean, corpus: "manual" | "map"): Response {
   const root = corpus === "map" ? PUBLIC_MAP_ROUTE : "/docs";
   const noun = corpus === "map" ? "Map page" : "manual page";
   if (asText) {

@@ -1,9 +1,9 @@
 /** A run of published pages, each named and described from the model. */
 import type { ReactElement } from "react";
-import type { NavigablePage } from "../../docs.tsx";
+import type { DocsPage } from "../../docs.tsx";
 
 export interface LeafListProps {
-  readonly pages: readonly NavigablePage[];
+  readonly pages: readonly DocsPage[];
   /** Number the run when its order is the reading order. */
   readonly ordered?: boolean;
   readonly className?: string;
