@@ -2154,6 +2154,78 @@ Deno.test("every open vocabulary root grows freely and refuses removals", () => 
   );
 });
 
+Deno.test("a malformed evolving record is reported from the complete manifest before pruning hides it", () => {
+  const tool = (record: JsonObject): JsonObject => ({
+    format: 1,
+    tools: [{
+      name: "voyage_probe",
+      description: "Probe the selected project.",
+      inputSchema: { type: "object", properties: {} },
+      [MANIFEST_STABILITY_FIELD]: STABILITY_TIER_EVOLVING,
+      ...record,
+    }],
+  });
+  const duplicate = tool({});
+  const duplicateTools = duplicate.tools as JsonObject[];
+  duplicateTools.push({ ...duplicateTools[0] });
+  const cases: [string, JsonObject, string][] = [
+    ["duplicate tool name", duplicate, 'duplicate name "voyage_probe"'],
+    ["missing tool name", tool({ name: 7 }), "$.tools[0].name"],
+    [
+      "request schema that is not an object",
+      tool({ inputSchema: "object" }),
+      "$.tools[0].inputSchema must be an object",
+    ],
+    [
+      "resource without a name",
+      { ...tool({}), resources: [{ kind: "resource", uri: "voyage://x" }] },
+      "$.resources[0].name",
+    ],
+  ];
+  for (const [label, current, expected] of cases) {
+    const issues = publicSchemaCompatibilityIssues(
+      tool({}),
+      current,
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    );
+    assert(
+      issues.some((issue) =>
+        issue.startsWith("current manifest") && issue.includes(expected)
+      ),
+      `${label}: ${JSON.stringify(issues)}`,
+    );
+  }
+
+  const command = (record: JsonObject): JsonObject => ({
+    format: 1,
+    implicit_flags: { command: ["--help"], root: ["--version"] },
+    commands: [{
+      path: ["sonar"],
+      description: "Probe the depths.",
+      aliases: [],
+      hidden: false,
+      hidden_when: null,
+      [MANIFEST_STABILITY_FIELD]: STABILITY_TIER_EVOLVING,
+      positionals: [],
+      usage: "",
+      flags: [],
+      ...record,
+    }],
+  });
+  const issues = publicSchemaCompatibilityIssues(
+    command({}),
+    command({ path: "sonar" }),
+    CLI_COMPATIBILITY_POLICY,
+  );
+  assert(
+    issues.some((issue) =>
+      issue.startsWith("current manifest") &&
+      issue.includes("$.commands[0].path")
+    ),
+    JSON.stringify(issues),
+  );
+});
+
 Deno.test("tool input enums and flag choices are append-only", () => {
   const tool = (values: string[]): JsonObject => ({
     format: 1,

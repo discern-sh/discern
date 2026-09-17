@@ -509,15 +509,36 @@ export function publicManifestValidityIssues(
   if (manifest.format !== 1) {
     issues.push(`${label}: $.format must be 1`);
   }
+  // Identities and request schemas are checked on the complete manifest,
+  // before evolving records are pruned, so a malformed evolving record is
+  // still reported.
   switch (policy) {
-    case MCP_TOOLS_COMPATIBILITY_POLICY:
-      objectArray(manifest.tools, `${label}: $.tools`, issues);
+    case MCP_TOOLS_COMPATIBILITY_POLICY: {
+      const tools = objectArray(manifest.tools, `${label}: $.tools`, issues);
+      recordsByStringField(tools, "name", `${label}: $.tools`, issues);
+      for (const [index, tool] of tools.entries()) {
+        if (!isObject(tool.inputSchema)) {
+          issues.push(
+            `${label}: $.tools[${index}].inputSchema must be an object`,
+          );
+        }
+      }
       if (manifest.resources !== undefined) {
-        objectArray(manifest.resources, `${label}: $.resources`, issues);
+        recordsByStringField(
+          objectArray(manifest.resources, `${label}: $.resources`, issues),
+          "name",
+          `${label}: $.resources`,
+          issues,
+        );
       }
       break;
+    }
     case CLI_COMPATIBILITY_POLICY:
-      objectArray(manifest.commands, `${label}: $.commands`, issues);
+      commandsByPath(
+        objectArray(manifest.commands, `${label}: $.commands`, issues),
+        `${label}: $.commands`,
+        issues,
+      );
       if (!isObject(manifest.implicit_flags)) {
         issues.push(`${label}: $.implicit_flags must be an object`);
       }
