@@ -1550,7 +1550,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [meta]
 #
-# What:    Installer bookkeeping.
+# What:    Project setup and adoption evidence.
 # Why:     discern writes these keys while setting up or upgrading the project.
 #          They record schema and setup evidence; nothing here needs
 #          hand-editing.
@@ -1559,6 +1559,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 [meta]
+  managed_version = "1.0.0"
   # The install schema version. `discern upgrade` bumps it; never edit it by
   # hand.
   schema_version = 1
