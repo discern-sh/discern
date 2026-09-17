@@ -11217,7 +11217,7 @@
               "type": "object",
               "properties": {
                 "command": {
-                  "$ref": "#/$defs/__schema0"
+                  "$ref": "#/$defs/DiscernHelpCommand"
                 }
               },
               "required": [
@@ -36992,8 +36992,8 @@
       ],
       "description": "The compact Proof claim: branch, trunk, validated commit, whole-diff statistics, and the one-line rendered Proof."
     },
-    "__schema0": {
-      "title": "__schema0",
+    "DiscernHelpCommand": {
+      "title": "DiscernHelpCommand",
       "type": "object",
       "properties": {
         "path": {
@@ -37090,7 +37090,7 @@
         "children": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/__schema0"
+            "$ref": "#/$defs/DiscernHelpCommand"
           }
         }
       },

@@ -2548,7 +2548,7 @@ export const HelpCommandDataSchema: z.ZodType<HelpCommandData> = z.lazy(() =>
     })),
     children: z.array(HelpCommandDataSchema),
   })
-);
+).meta({ id: "DiscernHelpCommand" });
 
 /** `help` — the selected live CLI command model. */
 export const HelpDataSchema = z.strictObject({

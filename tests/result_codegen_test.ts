@@ -33,6 +33,7 @@ import {
   PROOF_NOTE_PAYLOAD_TYPE,
   PROOF_NOTE_SCHEMA_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  PUBLIC_SCHEMA_PUBLICATIONS,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
   RESULT_SCHEMA_ID,
 } from "../src/shared/public_schemas.ts";
@@ -159,6 +160,44 @@ for (
     );
   });
 }
+
+/** Every definition name declared in a `$defs` map anywhere in the document. */
+function collectDefsKeys(node: unknown, keys: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    for (const item of node) collectDefsKeys(item, keys);
+  } else if (isRecord(node)) {
+    for (const [key, value] of Object.entries(node)) {
+      if (key === "$defs" && isRecord(value)) keys.push(...Object.keys(value));
+      collectDefsKeys(value, keys);
+    }
+  }
+  return keys;
+}
+
+// `z.toJSONSchema` names an unregistered recursive schema `__schemaN`, and once
+// a release tag exists that auto-name is frozen into the public contract. Every
+// registered publication enrols here, so a future unnamed recursive schema
+// fails the gate instead of shipping.
+Deno.test("no registered publication hoists an auto-named definition", async () => {
+  // Positive control: the walker reaches nested definition maps.
+  assertEquals(
+    collectDefsKeys({ a: { $defs: { __x: {}, N: { $defs: { __y: 1 } } } } }),
+    ["__x", "N", "__y"],
+  );
+  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+    const document: unknown = JSON.parse(
+      await Deno.readTextFile(
+        new URL(`../${publication.artifactPath}`, import.meta.url),
+      ),
+    );
+    assertEquals(
+      collectDefsKeys(document).filter((key) => key.startsWith("__")),
+      [],
+      `${publication.artifactPath} publishes an auto-named definition — ` +
+        "give the recursive schema a .meta({ id }) and regenerate",
+    );
+  }
+});
 
 Deno.test("the proof-note schema publishes one DSSE payload boundary", () => {
   const schema = buildProofNoteJsonSchema();

@@ -287,7 +287,7 @@ export type DiscernProofSummary = {
   }>;
 };
 
-export type __schema0 = {
+export type DiscernHelpCommand = {
   path: Array<string>;
   description: string;
   aliases: Array<string>;
@@ -308,7 +308,7 @@ export type __schema0 = {
     hidden: boolean;
     global: boolean;
   }>;
-  children: Array<__schema0>;
+  children: Array<DiscernHelpCommand>;
 };
 
 export type DiscernSubmissionRow = {
@@ -3661,7 +3661,7 @@ export type DiscernHelpResult = DiscernResultState & {
   message?: string;
   verb: "help";
   data?: {
-    command: __schema0;
+    command: DiscernHelpCommand;
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
