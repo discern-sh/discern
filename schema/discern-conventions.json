@@ -102,33 +102,6 @@
       "slug_collision_prefix": "wt-"
     }
   },
-  "hidden_verbs": {
-    "setup": {
-      "when": "bootstrapped"
-    },
-    "triangle": {
-      "when": "always"
-    }
-  },
-  "shell_only_verbs": {
-    "worktree": "a hook-driven command group; an agent must never operate on its own footing",
-    "identity": "identity-resolution plumbing",
-    "skills": "a command group (skills list/eject)",
-    "mcp": "the server itself — it cannot expose itself as one of its tools",
-    "scripts": "arbitrary project executables own their arguments and output",
-    "queue": "a shell command wrapper whose child owns its arguments, streams, and exit status",
-    "tidy": "embedded formatter output belongs to the interactive terminal boundary",
-    "desk": "the interactive human surface; it wields supervisory actions over other efforts",
-    "enter": "an interactive child-shell handoff across the worktree fleet",
-    "setup": "the one-time interactive setup flow, driven at a terminal",
-    "upgrade": "operates on the discern install itself, not a project state",
-    "uninstall": "operates on the discern install itself, not a project state",
-    "config": "config plumbing; agents read and edit discern.toml directly",
-    "help": "human-readable CLI reference; MCP tool schemas carry their own help",
-    "releases": "The CLI supplies offline release URLs; agents use their approved network tool for the external check.",
-    "licenses": "license-text dump for humans",
-    "triangle": "some mysteries belong to the shell"
-  },
   "providers": {
     "claude_code": {
       "instruction_file": "CLAUDE.md",

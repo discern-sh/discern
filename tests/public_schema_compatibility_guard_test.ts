@@ -31,6 +31,7 @@ import {
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../src/shared/public_schemas.ts";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_paths.ts";
+import { HIDDEN_VERBS } from "../src/shared/hidden_verbs.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
 import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
@@ -2335,6 +2336,31 @@ Deno.test("private storage registries stay outside the frozen conventions contra
   assert(Object.keys(ON_DISK_FORMATS).length > 0);
   assertEquals(Object.hasOwn(manifest, "git_admin_state"), false);
   assertEquals(Object.hasOwn(manifest, "local_formats"), false);
+});
+
+Deno.test("verb visibility stays in the CLI manifest and out of conventions", () => {
+  const conventionsPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
+  );
+  const cliPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === CLI_COMPATIBILITY_POLICY
+  );
+  assert(conventionsPublication !== undefined);
+  assert(cliPublication !== undefined);
+  const conventions = buildCurrentPublicSchema(conventionsPublication);
+  const cli = buildCurrentPublicSchema(cliPublication);
+  assertEquals(Object.hasOwn(conventions, "hidden_verbs"), false);
+  assertEquals(Object.hasOwn(conventions, "shell_only_verbs"), false);
+  assert(Array.isArray(cli.commands));
+  for (const [name, entry] of Object.entries(HIDDEN_VERBS)) {
+    const command = cli.commands.find((candidate) =>
+      isRecord(candidate) && Array.isArray(candidate.path) &&
+      candidate.path.length === 1 && candidate.path[0] === name
+    );
+    assert(isRecord(command), `${name}: missing from CLI manifest`);
+    assertEquals(Object.hasOwn(command, "hidden"), true, name);
+    assertEquals(command.hidden_when, entry.when, name);
+  }
 });
 
 Deno.test("the schema baseline is the highest predecessor version tag, never a release candidate at HEAD", async () => {

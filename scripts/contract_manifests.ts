@@ -8,7 +8,7 @@ import {
   IMPLICIT_ROOT_FLAGS,
   walkCliCommands,
 } from "../src/shared/cli_reference_codegen.ts";
-import { MCP_SHELL_ONLY_VERBS, TOOLS } from "../src/engine/mcp/server.ts";
+import { TOOLS } from "../src/engine/mcp/server.ts";
 import {
   CLI_COMPATIBILITY_POLICY,
   CLI_MANIFEST_ID,
@@ -179,13 +179,6 @@ export function buildConventionsManifest(
         slug_collision_prefix: WORKTREE_IDENTITY_CONTRACT.slugCollisionPrefix,
       },
     },
-    hidden_verbs: Object.fromEntries(
-      Object.entries(HIDDEN_VERBS).map(([name, entry]) => [
-        name,
-        { when: entry.when },
-      ]),
-    ),
-    shell_only_verbs: Object.fromEntries(MCP_SHELL_ONLY_VERBS),
     providers: providerConventions(),
     git: GIT_CONVENTIONS,
   };
