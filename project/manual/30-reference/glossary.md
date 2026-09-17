@@ -47,8 +47,11 @@ aliases:
   - "trunk"
   - "update"
   - "worktree resource"
+  - "discern graduate"
+  - "discern setup land"
   - "queue reconciliation"
   - "compiled agent file"
+  - "coupling.in_gate config key"
   - "co-change advisory"
   - "harness"
   - "binary version"
@@ -56,32 +59,50 @@ aliases:
   - "queue admission"
   - "read_error"
   - "file dispositions"
+  - "discern finish"
+  - "gate.stream config key"
   - "done --confirmed"
   - "write_access"
+  - "discern config set-capability"
+  - "discern config set-check"
+  - "capabilities config section"
+  - "checks config section"
   - "the binary's files"
   - "estate"
   - "not_initialized"
   - "not_set_up"
   - "no_such_step"
   - "edit_error"
-  - "guidance"
+  - "guidance config section"
+  - "project.logbook config key"
+  - "docs config section"
   - "not_found"
+  - "recipes config section"
   - "discern script"
+  - "repository.proof_notes config key"
   - "criterion"
+  - "discern scopes"
   - "scopes.docs"
   - "co-managed seed"
+  - "discern ratchets"
+  - "discern config set-ratchet"
+  - "ratchets config section"
   - "early validation"
   - "lookahead"
   - "integration branch"
   - "discern_main_branch"
   - "not_on_integration_branch"
   - "no_target"
+  - "discern integrate"
+  - "worktree.port config key"
+  - "worktree.ignored_file_drift config key"
   - "borrowed checkout"
   - "released checkout"
   - "retained checkout"
   - "execution environment"
   - "candidate installation"
   - "identity_error"
+  - "worktree.resources.<name>.gc config key"
 ---
 
 <!-- This reference is generated from the product-term registry. -->
@@ -192,11 +213,11 @@ Permission for a particular change to join the [trunk](#trunk). It can come from
 
 ### Logbook
 
-The local record of the project's use of discern. With recording enabled and a readable `discern.toml`, each CLI verb run and project-resolved Model Context Protocol (MCP) invocation adds metadata such as timing and outcome. It does not record code or command output. Worktrees share the record under `.git`; discern has no network path that sends it elsewhere. `[project].logbook = false` stops recording. See [the logbook](logbook.md).
+The local record of the project's use of discern. With recording enabled and a readable `discern.toml`, each CLI verb run and project-resolved Model Context Protocol (MCP) invocation adds metadata such as timing and outcome. It does not record code or command output. Worktrees share the record under `.git`; discern has no network path that sends it elsewhere. `[project].record_logbook = false` stops recording. See [the logbook](logbook.md).
 
 ### Map
 
-The project's account of how its software works and why. Agents maintain this documentation at `[map].dir` (default `discern/map/`). You can read it to understand the project and correct what agents have recorded. The gate checks configured documentation requirements; authors remain responsible for its meaning. `publish: false` in a page's frontmatter withholds it from every published surface ([ADR 0140](https://discern.sh/docs/decisions/0140-validated-frontmatter-and-the-publish-predicate)). Pointing `[map].dir` at existing docs is explicit consent to manage them ([ADR 0100](https://discern.sh/docs/decisions/0100-project-map-is-the-agents-map), [ADR 0195](https://discern.sh/docs/decisions/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths)).
+The project's account of how its software works and why. Agents maintain this documentation at `[map].dir` (default `discern/map`). You can read it to understand the project and correct what agents have recorded. The gate checks configured documentation requirements; authors remain responsible for its meaning. `publish: false` in a page's frontmatter withholds it from every published surface ([ADR 0140](https://discern.sh/docs/decisions/0140-validated-frontmatter-and-the-publish-predicate)). Pointing `[map].dir` at existing docs is explicit consent to manage them ([ADR 0100](https://discern.sh/docs/decisions/0100-project-map-is-the-agents-map), [ADR 0195](https://discern.sh/docs/decisions/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths)).
 
 ### Migration
 
