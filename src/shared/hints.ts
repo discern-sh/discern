@@ -2831,8 +2831,8 @@ export const HINTS = {
   }),
 
   /** The gate cannot persist its discern-owned state. */
-  "gate-failure-write-access": defineHint({
-    id: "gate-failure-write-access",
+  "gate-failure-write-denied": defineHint({
+    id: "gate-failure-write-denied",
     category: "next-step",
     audience: "all",
     when: "The gate cannot write discern-owned state.",
@@ -4094,10 +4094,10 @@ export const ERROR_FAILURE_RECOVERY = {
   detached_head: "evidence",
   diagrams_misaligned: "evidence",
   dirty_worktree: "evidence",
-  edit_error: "evidence",
+  edit_failed: "evidence",
   gate_failed: "evidence",
   gitignore_template_unavailable: "evidence",
-  identity_error: "evidence",
+  identity_failed: "evidence",
   incomplete: "tailored",
   internal_error: "evidence",
   invalid_arguments: "evidence",
@@ -4109,14 +4109,11 @@ export const ERROR_FAILURE_RECOVERY = {
   invalid_value: "evidence",
   no_docs: "evidence",
   no_map: "evidence",
+  no_project: "evidence",
   no_repository: "evidence",
-  no_such_step: "evidence",
-  no_target: "evidence",
-  not_found: "tailored",
-  not_initialized: "evidence",
+  no_trunk: "evidence",
   not_main_checkout: "evidence",
   not_on_trunk: "evidence",
-  not_set_up: "evidence",
   not_on_setup_branch: "evidence",
   partial_acceptance: "tailored",
   partial_materialization: "tailored",
@@ -4126,7 +4123,7 @@ export const ERROR_FAILURE_RECOVERY = {
   proposal_stale: "evidence",
   precondition_failed: "evidence",
   provisioned_resources: "evidence",
-  read_error: "evidence",
+  read_failed: "evidence",
   report_only_proof: "tailored",
   renamed_command: "evidence",
   renamed_config_key: "evidence",
@@ -4134,6 +4131,7 @@ export const ERROR_FAILURE_RECOVERY = {
   script_not_executable: "evidence",
   script_not_a_command: "evidence",
   setup_plan_failed: "evidence",
+  setup_unfinished: "evidence",
   skills_eject_failed: "evidence",
   tables_malformed: "evidence",
   templates_not_found: "evidence",
@@ -4144,7 +4142,9 @@ export const ERROR_FAILURE_RECOVERY = {
   unknown_command: "tailored",
   unknown_key: "evidence",
   unknown_standard: "evidence",
-  write_access: "evidence",
+  unknown_step: "evidence",
+  unknown_target: "tailored",
+  write_denied: "evidence",
 } as const satisfies Record<ErrorSlug, FailureRecoveryMode>;
 
 const FAILURE_RECOVERY_EVIDENCE_READERS = {
@@ -4263,7 +4263,7 @@ export const GATE_FAILURE_REMEDIES = {
   map_integrity: HINTS["gate-failure-map-integrity"],
   merge: HINTS["gate-failure-merge"],
   standards: HINTS["gate-failure-standards"],
-  write_access: HINTS["gate-failure-write-access"],
+  write_denied: HINTS["gate-failure-write-denied"],
 } as const satisfies Record<FailedStage, HintDef<undefined>>;
 
 /** Fire the registered remedy for a failed gate stage. Generated-drift callers

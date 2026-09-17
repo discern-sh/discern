@@ -518,6 +518,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     },
     definition:
       "The part of discern that runs its workflow commands. Commands such as `done`, `prepare`, `status`, `update`, and `accept` use this TypeScript implementation, compiled into the program. It runs the jobs, scopes, standards, and worktree settings the project declares without prescribing a language or framework. The embedded [tidy](#tidy) formatter operates on discern-owned surfaces. See [engine internals](../50-engine-internals/).",
+    retired: [
+      {
+        // The retired state-read error slug (now read_failed: operations
+        // that fail take the _failed suffix).
+        phrase: "read_error",
+        pattern: String.raw`\bread_error\b`,
+      },
+    ],
   },
   {
     term: "File ownership",
@@ -581,6 +589,12 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         phrase: "done --confirmed",
         pattern: String.raw`\bdone\s+--confirmed\b`,
       },
+      {
+        // The retired write-preflight error slug and failed stage (now
+        // write_denied: it names the refusal, not the capability probed).
+        phrase: "write_access",
+        pattern: String.raw`\bwrite_access\b`,
+      },
     ],
   },
   {
@@ -629,6 +643,30 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: { keep: "an everyday computing word" },
     definition:
       "The commands that set up and maintain discern in a project. They include `setup`, `upgrade`, [doctor](https://discern.sh/docs/reference/cli-reference#discern-doctor), and `config`. Some inspect and some change files; each runs and exits. The application does not need discern to run. See [getting started](../10-getting-started/).",
+    retired: [
+      {
+        // The retired root-discovery error slug (now no_project).
+        phrase: "not_initialized",
+        pattern: String.raw`\bnot_initialized\b`,
+      },
+      {
+        // The retired pre-setup gating slug (now setup_unfinished, matching
+        // the status field of the same name).
+        phrase: "not_set_up",
+        pattern: String.raw`\bnot_set_up\b`,
+      },
+      {
+        // The retired out-of-range setup-step error slug (now unknown_step).
+        phrase: "no_such_step",
+        pattern: String.raw`\bno_such_step\b`,
+      },
+      {
+        // The retired config-edit error slug (now edit_failed: operations
+        // that fail take the _failed suffix).
+        phrase: "edit_error",
+        pattern: String.raw`\bedit_error\b`,
+      },
+    ],
   },
   {
     term: "Landing authority",
@@ -656,7 +694,15 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       `The project's account of how its software works and why. Agents maintain this documentation at \`[map].dir\` (default \`${
         sourcePathDefault("map")
       }\`). You can read it to understand the project and correct what agents have recorded. The gate checks configured documentation requirements; authors remain responsible for its meaning. \`publish: false\` in a page's frontmatter withholds it from every published surface ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Pointing \`[map].dir\` at existing docs is explicit consent to manage them ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)).`,
-    retired: [retiredConfigKey("docs")],
+    retired: [
+      retiredConfigKey("docs"),
+      {
+        // The retired unresolved-target error slug (now unknown_target,
+        // joining the unknown_* family: docs, patterns, progress, await).
+        phrase: "not_found",
+        pattern: String.raw`\bnot_found\b`,
+      },
+    ],
   },
   {
     term: "Migration",
@@ -872,6 +918,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         phrase: "not_on_integration_branch",
         pattern: String.raw`\bnot_on_integration_branch\b`,
       },
+      {
+        // The retired missing-trunk error slug (now no_trunk).
+        phrase: "no_target",
+        pattern: String.raw`\bno_target\b`,
+      },
     ],
   },
   {
@@ -974,6 +1025,12 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         // Installing a composed candidate into a checkout for validation.
         pattern: String
           .raw`\bcandidate\s+installations?\b|\binstall(?:s|ed|ing)?\s+a\s+candidate\b`,
+      },
+      {
+        // The retired worktree-identity error slug (now identity_failed:
+        // operations that fail take the _failed suffix).
+        phrase: "identity_error",
+        pattern: String.raw`\bidentity_error\b`,
       },
     ],
   },

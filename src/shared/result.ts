@@ -284,7 +284,7 @@ export interface StepResult {
  *  - `standards` — a `[standards]` limit failed verification against the trunk:
  *    loosened or deleted on this branch, or the trunk's config was fetched but
  *    does not parse (the fail-fast never-loosen precondition).
- *  - `write_access` — a real write probe for Discern-owned state was denied
+ *  - `write_denied` — a real write probe for Discern-owned state was denied
  *    before the slow gate work began.
  *
  * Defined in this base vocabulary module (not the engine) because `result_schemas.ts`
@@ -311,7 +311,7 @@ export const FAILED_STAGES = [
   "map_integrity",
   "merge",
   "standards",
-  "write_access",
+  "write_denied",
 ] as const;
 
 /** One failed-stage label ({@link FAILED_STAGES}). */
@@ -399,10 +399,10 @@ export const ERROR_SLUGS = [
   "detached_head",
   "diagrams_misaligned",
   "dirty_worktree",
-  "edit_error",
+  "edit_failed",
   "gate_failed",
   "gitignore_template_unavailable",
-  "identity_error",
+  "identity_failed",
   "incomplete",
   "internal_error",
   "invalid_arguments",
@@ -414,15 +414,12 @@ export const ERROR_SLUGS = [
   "invalid_value",
   "no_docs",
   "no_map",
+  "no_project",
   "no_repository",
-  "no_such_step",
-  "no_target",
-  "not_found",
-  "not_initialized",
+  "no_trunk",
   "not_main_checkout",
   "not_on_setup_branch",
   "not_on_trunk",
-  "not_set_up",
   "partial_acceptance",
   "partial_materialization",
   "partial_refresh",
@@ -431,7 +428,7 @@ export const ERROR_SLUGS = [
   "proposal_failed",
   "proposal_stale",
   "provisioned_resources",
-  "read_error",
+  "read_failed",
   "renamed_command",
   "renamed_config_key",
   "report_only_proof",
@@ -439,6 +436,7 @@ export const ERROR_SLUGS = [
   "script_not_a_command",
   "script_not_executable",
   "setup_plan_failed",
+  "setup_unfinished",
   "skills_eject_failed",
   "tables_malformed",
   "templates_not_found",
@@ -449,7 +447,9 @@ export const ERROR_SLUGS = [
   "unknown_command",
   "unknown_key",
   "unknown_standard",
-  "write_access",
+  "unknown_step",
+  "unknown_target",
+  "write_denied",
 ] as const;
 
 /** One known live error slug ({@link ERROR_SLUGS}). */

@@ -183,11 +183,11 @@ type PatternsSource =
 
 /** A selected archive that cannot be resolved inside the registered store. */
 class ArchiveSelectionError extends Error {
-  readonly slug: "invalid_arguments" | "not_found" | "read_error";
+  readonly slug: "invalid_arguments" | "unknown_target" | "read_failed";
 
   /** Build a structured selector refusal. */
   constructor(
-    slug: "invalid_arguments" | "not_found" | "read_error",
+    slug: "invalid_arguments" | "unknown_target" | "read_failed",
     message: string,
     options?: ErrorOptions,
   ) {
@@ -219,12 +219,12 @@ async function readSelectedArchive(
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new ArchiveSelectionError(
-        "not_found",
+        "unknown_target",
         `No sealed logbook archive named ${filename} exists. Run \`discern patterns archives\` to list valid filenames.`,
       );
     }
     throw new ArchiveSelectionError(
-      "read_error",
+      "read_failed",
       `Could not inspect sealed logbook archive ${filename}: ${
         error instanceof Error ? error.message : String(error)
       }`,
@@ -241,7 +241,7 @@ async function readSelectedArchive(
     return await readLogbookFile(path, filename);
   } catch (error) {
     throw new ArchiveSelectionError(
-      "read_error",
+      "read_failed",
       `Could not read sealed logbook archive ${filename}: ${
         error instanceof Error ? error.message : String(error)
       }`,
@@ -1966,7 +1966,7 @@ export async function patternsResetResult(
     return {
       ok: false,
       verb: "patterns reset",
-      error: "read_error",
+      error: "read_failed",
       message: `Could not inspect the active logbook: ${
         error instanceof Error ? error.message : String(error)
       }`,
@@ -2003,7 +2003,7 @@ export async function patternsSealResult(
     return {
       ok: false,
       verb: "patterns seal",
-      error: "read_error",
+      error: "read_failed",
       message: `Could not inspect the active logbook: ${
         error instanceof Error ? error.message : String(error)
       }`,
@@ -2441,7 +2441,7 @@ export async function patternsArchivesResult(
     return {
       ok: false,
       verb: "patterns archives",
-      error: "read_error",
+      error: "read_failed",
       message: `Could not list sealed logbook archives: ${
         error instanceof Error ? error.message : String(error)
       }`,

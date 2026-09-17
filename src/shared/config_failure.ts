@@ -7,7 +7,7 @@ import {
 } from "./config_schema.ts";
 import type { ConfigIssue } from "./config_issues.ts";
 import { unknownRootSections } from "./config_issues.ts";
-import { notInitializedResult } from "./env.ts";
+import { noProjectResult } from "./env.ts";
 import { fire, HINTS, hintTexts, withFailureRecoveryHint } from "./hints.ts";
 import type { DiscernResult } from "./result.ts";
 
@@ -27,7 +27,7 @@ export function configFailureResult(
   if (error instanceof ConfigMissingError) {
     // A vanished checkout is a project state, not a config the user can fix in
     // place — the canonical "no discern project here" refusal fits exactly.
-    return withFailureRecoveryHint(notInitializedResult(verb, error.message));
+    return withFailureRecoveryHint(noProjectResult(verb, error.message));
   }
   if (error instanceof ConfigParseError) {
     return withFailureRecoveryHint({

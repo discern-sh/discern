@@ -190,7 +190,7 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
     const refused = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
     const res = decodeCliResult(refused.stdout, "setup accept");
-    assertEquals(res.error, "no_target");
+    assertEquals(res.error, "no_trunk");
     assertExists(res.message);
     assertStringIncludes(
       res.message,

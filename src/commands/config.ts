@@ -9,7 +9,7 @@ import { join, relative } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { Logger } from "../lib/log.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
-import { CONFIG_REL, NOT_INITIALIZED } from "../shared/env.ts";
+import { CONFIG_REL, NO_PROJECT } from "../shared/env.ts";
 import {
   type ConfigValueKind,
   configWriteIssues,
@@ -142,7 +142,7 @@ async function applyEditPlan(
       : `could not read the config: ${
         error instanceof Error ? error.message : String(error)
       }`;
-    return fail(opts, message, isMissing ? NOT_INITIALIZED : "read_error");
+    return fail(opts, message, isMissing ? NO_PROJECT : "read_failed");
   }
 
   let decision: EditDecision;
@@ -154,7 +154,7 @@ async function applyEditPlan(
       `could not plan the config edit: ${
         error instanceof Error ? error.message : String(error)
       }`,
-      "edit_error",
+      "edit_failed",
     );
   }
   if (!decision.ok) {
@@ -176,7 +176,7 @@ async function applyEditPlan(
       `could not edit the config: ${
         error instanceof Error ? error.message : String(error)
       }`,
-      "edit_error",
+      "edit_failed",
     );
   }
 

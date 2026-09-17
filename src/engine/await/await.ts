@@ -254,10 +254,11 @@ interface Evaluation {
 function refusal(
   error:
     | "invalid_arguments"
-    | "not_found"
     | "no_repository"
-    | "read_error"
-    | "write_access",
+    | "no_trunk"
+    | "read_failed"
+    | "unknown_target"
+    | "write_denied",
   message: string,
   hints: string[],
 ): DiscernResult<AwaitData> {
@@ -535,7 +536,7 @@ export async function awaitResult(
   }
   if (!(await localBranchExists(root, trunk))) {
     return refusal(
-      "not_found",
+      "no_trunk",
       `The trunk branch \`${trunk}\` does not exist locally, so no fleet condition can be observed against it.`,
       hintTexts([fire(HINTS["await-trunk-missing"], { trunk })]),
     );
@@ -562,21 +563,21 @@ export async function awaitResult(
     }
     if (stored.kind === "corrupt") {
       return refusal(
-        "read_error",
+        "read_failed",
         "discern couldn't read the saved `--resume` handle. Restart the watch with its condition.",
         failureRecoveryHintTexts("await"),
       );
     }
     if (stored.kind === "newer") {
       return refusal(
-        "read_error",
+        "read_failed",
         stored.reason,
         failureRecoveryHintTexts("await"),
       );
     }
     if (stored.kind === "unavailable") {
       return refusal(
-        "read_error",
+        "read_failed",
         "discern couldn't open continuation state in Git's administrative directory. Check that the Git directory is readable, then retry the same `--resume` handle.",
         failureRecoveryHintTexts("await"),
       );
@@ -594,7 +595,7 @@ export async function awaitResult(
     );
     if (payloadVersion.status === "newer") {
       return refusal(
-        "read_error",
+        "read_failed",
         newerOnDiskFormatMessage(
           "awaitContinuation",
           payloadVersion.found,
@@ -605,7 +606,7 @@ export async function awaitResult(
     resumed = parseAwaitContinuationPayload(stored.record.payload);
     if (resumed === undefined) {
       return refusal(
-        "read_error",
+        "read_failed",
         "discern couldn't read the saved `--resume` handle. Restart the watch with its condition.",
         failureRecoveryHintTexts("await"),
       );
@@ -719,7 +720,7 @@ export async function awaitResult(
       }
       if (recoveredLanding === undefined) {
         return refusal(
-          "not_found",
+          "unknown_target",
           `Branch \`${branch}\` was not found in this repository, and no accepted proof identifies its work on \`${trunk}\`.`,
           hintTexts([fire(HINTS["await-branch-missing"], { branch, trunk })]),
         );
@@ -743,7 +744,7 @@ export async function awaitResult(
     if (await worktreePathForEffortBranch(root, branch) === undefined) {
       const containing = await nearestContainingBranch(root, branch, trunk);
       return refusal(
-        "not_found",
+        "unknown_target",
         `No checkout holds branch \`${branch}\` — its worktree was reclaimed ` +
           `or removed, and a gate Proof can only be recorded inside one, so ` +
           `\`--green ${branch}\` can never be met.`,
@@ -855,7 +856,7 @@ export async function awaitResult(
     );
     if (initialSave.kind === "unavailable") {
       return refusal(
-        "write_access",
+        "write_denied",
         "discern couldn't save this await continuation in Git's administrative directory. Check that the Git directory is writable, then retry the watch.",
         failureRecoveryHintTexts("await"),
       );
@@ -967,7 +968,7 @@ export async function awaitResult(
       ? "restart the watch with its condition"
       : "retry the same `--resume` handle";
     return refusal(
-      "write_access",
+      "write_denied",
       `discern couldn't update this await continuation in Git's administrative directory. Check that the Git directory is writable, then ${retry}.`,
       failureRecoveryHintTexts("await"),
     );

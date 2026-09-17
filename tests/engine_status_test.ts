@@ -1074,7 +1074,7 @@ Deno.test("status: --all and --local together is a refusal", async () => {
   });
 });
 
-Deno.test("status: outside a discern project, the envelope is not_initialized", async () => {
+Deno.test("status: outside a discern project, the envelope is no_project", async () => {
   await withTempDir(async (dir) => {
     // No scaffold — there is no discern.toml in this dir or any parent.
     const r = await runAgent(dir, ["status", "--json"]);
@@ -1082,7 +1082,7 @@ Deno.test("status: outside a discern project, the envelope is not_initialized", 
     const obj = decodeCliResult(r.stdout, "status");
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "status");
-    assertEquals(obj.error, "not_initialized");
+    assertEquals(obj.error, "no_project");
     assertExists(obj.message);
     assertStringIncludes(obj.message, "no discern.toml");
     assertStringIncludes(obj.message, "discern setup");

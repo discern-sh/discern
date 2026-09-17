@@ -41,7 +41,7 @@ Recording must be enabled to collect new evidence. Existing active or sealed his
 
 With recording enabled and `discern.toml` readable, CLI verbs and MCP calls resolved to that project record local metadata. Effectful verbs add paired start and completion events with one invocation id. All worktrees share plain-text files in the repository's common Git administrative directory. The logbook excludes code, prompts, command output, and file contents.
 
-An MCP call whose explicit `path` falls outside every discern project returns `not_initialized` and records nothing. No project logbook or readable consent setting applies to that path.
+An MCP call whose explicit `path` falls outside every discern project returns `no_project` and records nothing. No project logbook or readable consent setting applies to that path.
 
 - **Read active history:** `discern patterns` reports findings. For raw JSON lines, locate the common Git directory with `git rev-parse --path-format=absolute --git-common-dir` and read its `discern/logbook/` month files. In the main checkout, the usual path is `.git/discern/logbook/`; a linked worktree's `.git` is a file pointing elsewhere.
 - **List and read sealed history:** `discern patterns archives`, then `discern patterns --logbook-file <filename>`. Add `--stats`, `--all`, or `--json` as needed.

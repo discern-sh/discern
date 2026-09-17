@@ -646,7 +646,7 @@ Deno.test("map is gated pre-setup but docs and help are not", async () => {
     // There is no project map to browse until setup seeds and fills it.
     const map = await runAgent(dir, ["map", "--json"]);
     assertEquals(map.code, 1, map.output);
-    assertEquals(decodeCliResult(map.stdout, "map").error, "not_set_up");
+    assertEquals(decodeCliResult(map.stdout, "map").error, "setup_unfinished");
 
     // `docs` stays open because it serves discern's bundled manual, not the
     // project's map.
@@ -661,7 +661,7 @@ Deno.test("map is gated pre-setup but docs and help are not", async () => {
   });
 });
 
-Deno.test("the map gate is a structured not_set_up result under --json", async () => {
+Deno.test("the map gate is a structured setup_unfinished result under --json", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["map", "--json"]);
@@ -669,7 +669,7 @@ Deno.test("the map gate is a structured not_set_up result under --json", async (
     const res = decodeCliResult(r.stdout, "map");
     assertEquals(res.ok, false);
     assertEquals(res.verb, "map");
-    assertEquals(res.error, "not_set_up");
+    assertEquals(res.error, "setup_unfinished");
   });
 });
 
@@ -689,7 +689,7 @@ Deno.test("done/prepare/test/standards run before setup is recorded, carrying th
       const res = decodeCliResult(r.stdout, verb);
       assertEquals(res.verb, verb, r.output);
       assert(
-        res.error !== "not_set_up",
+        res.error !== "setup_unfinished",
         `${verb} must not redirect to setup pre-setup: ${r.output}`,
       );
       assert(res.error !== "internal_error", `${verb} crashed: ${r.output}`);

@@ -3737,7 +3737,7 @@ export async function probeWorktreeViability(
 /**
  * Map a thrown worktree precondition / identity error to its {@link DiscernResult}
  * error fields, or undefined when `e` is neither. The single source of the failure
- * slugs (`precondition_failed`, `identity_error`) shared by the CLI runner
+ * slugs (`precondition_failed`, `identity_failed`) shared by the CLI runner
  * (`runWorktreeOp`) and the MCP server, so the two surfaces never diverge. The
  * caller rethrows when this returns undefined (a genuinely unexpected error).
  */
@@ -3753,7 +3753,7 @@ export function worktreeErrorResult(
       ok: false,
       verb,
       error: e instanceof IdentityError
-        ? "identity_error"
+        ? "identity_failed"
         : "precondition_failed",
       message: e.message,
     };

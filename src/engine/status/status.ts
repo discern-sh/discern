@@ -74,7 +74,7 @@ import {
   findRoot,
   installedConfigRel,
   NO_PROJECT_MESSAGE,
-  notInitializedResult,
+  noProjectResult,
 } from "../../shared/env.ts";
 import {
   setupProgress,
@@ -1353,7 +1353,7 @@ export async function runStatus(
   const root = await findRoot();
   if (root === undefined) {
     if (opts.json) {
-      emitResult(notInitializedResult("status"));
+      emitResult(noProjectResult("status"));
     } else {
       new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }

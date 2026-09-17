@@ -258,7 +258,7 @@ export async function operationProgressResult(
       return {
         ok: false,
         verb: "progress",
-        error: "not_found",
+        error: "unknown_target",
         message:
           "No operation with that handle is recorded in this repository. Journals expire after 7 days; when the bounded store fills, finished `await` records leave first, then the oldest finished operations.",
         hints: hintTexts([fire(HINTS["progress-handle-required"])]),
@@ -267,7 +267,7 @@ export async function operationProgressResult(
       return {
         ok: false,
         verb: "progress",
-        error: "not_found",
+        error: "unknown_target",
         message:
           "No long operation has been recorded in this repository yet. Journals appear when `done`, `test`, `standards`, `accept`, or an MCP `await` runs.",
         hints: hintTexts([fire(HINTS["progress-nothing-recorded"])]),
@@ -280,7 +280,7 @@ export async function operationProgressResult(
       return {
         ok: false,
         verb: "progress",
-        error: "not_found",
+        error: "unknown_target",
         message:
           `No long operation is recorded for this checkout. The most recent one in this repository is ${name}, progress handle ${handle}; pass that handle to read it.`,
         hints: hintTexts([fire(HINTS["progress-handle-required"])]),
@@ -290,7 +290,7 @@ export async function operationProgressResult(
       return {
         ok: false,
         verb: "progress",
-        error: "read_error",
+        error: "read_failed",
         message:
           `The recorded journal for that handle is unreadable (${reading.reason}). The operation itself is unaffected; the record cannot be presented.`,
         hints: hintTexts([fire(HINTS["progress-record-unreadable"])]),
@@ -316,7 +316,7 @@ export async function operationProgressResult(
       return {
         ok: false,
         verb: "progress",
-        error: "read_error",
+        error: "read_failed",
         message:
           `The journal store under this repository's Git directory could not be used: ${reading.reason}. The operation itself is unaffected; the record cannot be presented.`,
         hints: hintTexts([fire(HINTS["progress-record-unreadable"])]),

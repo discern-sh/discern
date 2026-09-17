@@ -19,10 +19,10 @@ export type DiscernKnownErrorSlug =
   | "detached_head"
   | "diagrams_misaligned"
   | "dirty_worktree"
-  | "edit_error"
+  | "edit_failed"
   | "gate_failed"
   | "gitignore_template_unavailable"
-  | "identity_error"
+  | "identity_failed"
   | "incomplete"
   | "internal_error"
   | "invalid_arguments"
@@ -34,15 +34,12 @@ export type DiscernKnownErrorSlug =
   | "invalid_value"
   | "no_docs"
   | "no_map"
+  | "no_project"
   | "no_repository"
-  | "no_such_step"
-  | "no_target"
-  | "not_found"
-  | "not_initialized"
+  | "no_trunk"
   | "not_main_checkout"
   | "not_on_setup_branch"
   | "not_on_trunk"
-  | "not_set_up"
   | "partial_acceptance"
   | "partial_materialization"
   | "partial_refresh"
@@ -51,7 +48,7 @@ export type DiscernKnownErrorSlug =
   | "proposal_failed"
   | "proposal_stale"
   | "provisioned_resources"
-  | "read_error"
+  | "read_failed"
   | "renamed_command"
   | "renamed_config_key"
   | "report_only_proof"
@@ -59,6 +56,7 @@ export type DiscernKnownErrorSlug =
   | "script_not_a_command"
   | "script_not_executable"
   | "setup_plan_failed"
+  | "setup_unfinished"
   | "skills_eject_failed"
   | "tables_malformed"
   | "templates_not_found"
@@ -69,7 +67,9 @@ export type DiscernKnownErrorSlug =
   | "unknown_command"
   | "unknown_key"
   | "unknown_standard"
-  | "write_access";
+  | "unknown_step"
+  | "unknown_target"
+  | "write_denied";
 
 export type DiscernResultState =
   & ({
@@ -288,7 +288,7 @@ export type DiscernProofSummary = {
   }>;
 };
 
-export type __schema0 = {
+export type DiscernHelpCommand = {
   path: Array<string>;
   description: string;
   aliases: Array<string>;
@@ -309,7 +309,7 @@ export type __schema0 = {
     hidden: boolean;
     global: boolean;
   }>;
-  children: Array<__schema0>;
+  children: Array<DiscernHelpCommand>;
 };
 
 export type DiscernSubmissionRow = {
@@ -3694,7 +3694,7 @@ export type DiscernHelpResult = DiscernResultState & {
   message?: string;
   verb: "help";
   data?: {
-    command: __schema0;
+    command: DiscernHelpCommand;
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
@@ -4092,7 +4092,7 @@ export type DiscernDoneResult = DiscernResultState & {
       | "map_integrity"
       | "merge"
       | "standards"
-      | "write_access"
+      | "write_denied"
       | null;
     scopes_changed: Array<string>;
     preview_actions?: Array<{

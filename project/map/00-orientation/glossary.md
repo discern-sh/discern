@@ -70,19 +70,26 @@ aliases:
   - binary version
   - queue prefix
   - queue admission
+  - read_error
   - file dispositions
   - discern finish
   - gate.stream config key
   - done --confirmed
+  - write_access
   - discern config set-capability
   - discern config set-check
   - capabilities config section
   - checks config section
   - the binary's files
   - estate
+  - not_initialized
+  - not_set_up
+  - no_such_step
+  - edit_error
   - guidance config section
   - project.logbook config key
   - docs config section
+  - not_found
   - recipes config section
   - discern script
   - repository.proof_notes config key
@@ -98,6 +105,7 @@ aliases:
   - integration branch
   - discern_main_branch
   - not_on_integration_branch
+  - no_target
   - discern integrate
   - worktree.port config key
   - worktree.ignored_file_drift config key
@@ -106,6 +114,7 @@ aliases:
   - retained checkout
   - execution environment
   - candidate installation
+  - identity_error
   - worktree.resources.<name>.gc config key
 ---
 

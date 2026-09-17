@@ -821,7 +821,7 @@ Rendered example:
 
 > Review and commit the gate-produced tracked changes named by the diagnostics, then re-run the current discern command.
 
-## `gate-failure-write-access`
+## `gate-failure-write-denied`
 
 - Category: `next-step`
 - Audience: `all`
