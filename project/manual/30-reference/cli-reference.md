@@ -145,12 +145,12 @@ Show what's true right now and what to do next (read-only; does not run the gate
 
 Usage: `discern status [options]`
 
-| Option      | Description                                                                                                                                                                                               |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--all`     | Include every worktree even when called from one (local view plus all worktrees).                                                                                                                         |
-| `--local`   | Show only this checkout, even in the main checkout.                                                                                                                                                       |
-| `--verbose` | Expand fleet attention, per-worktree evidence, configured checks, landing history, and full Proof pages. With JSON, return complete structured status; the default is the bounded orientation projection. |
-| `--json`    | Emit a bounded orientation result; add `--verbose` for complete structured status.                                                                                                                        |
+| Option          | Description                                                                                                                                                                                               |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--all`         | Include every worktree even when called from one (local view plus all worktrees).                                                                                                                         |
+| `--local`       | Show only this checkout, even in the main checkout.                                                                                                                                                       |
+| `-v, --verbose` | Expand fleet attention, per-worktree evidence, configured checks, landing history, and full Proof pages. With JSON, return complete structured status; the default is the bounded orientation projection. |
+| `--json`        | Emit a bounded orientation result; add `--verbose` for complete structured status.                                                                                                                        |
 
 ### `discern prepare`
 

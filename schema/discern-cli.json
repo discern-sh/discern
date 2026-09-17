@@ -6095,6 +6095,7 @@
         },
         {
           "spellings": [
+            "-v",
             "--verbose"
           ],
           "description": "Expand fleet attention, per-worktree evidence, configured checks, landing history, and full Proof pages. With JSON, return complete structured status; the default is the bounded orientation projection.",

@@ -166,6 +166,17 @@ Deno.test("setup is read-only and setup begin exclusively owns scaffold options"
   assert(!beginFlags.has("--yes"), "the private setup --yes input returned");
 });
 
+Deno.test("status and doctor share both verbose spellings", () => {
+  const model = liveModel();
+  for (const path of ["status", "doctor"]) {
+    const verbose = commandAt(model, path).options.find((option) =>
+      option.flags.includes("--verbose")
+    );
+    assert(verbose !== undefined, `${path} lost its verbose option`);
+    assertEquals(verbose.flags, ["-v", "--verbose"]);
+  }
+});
+
 Deno.test("every command describes itself and local JSON overrides equal their registry", () => {
   const commands = [...walkCliCommands(liveModel())];
   assertEquals(

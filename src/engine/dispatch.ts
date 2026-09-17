@@ -837,7 +837,7 @@ export function attachEngineCommands(
       "Show only this checkout, even in the main checkout.",
     )
     .option(
-      "--verbose",
+      "-v, --verbose",
       "Expand fleet attention, per-worktree evidence, configured checks, landing " +
         "history, and full Proof pages. With JSON, return complete structured " +
         "status; the default is the bounded orientation projection.",
