@@ -183,11 +183,11 @@ type PatternsSource =
 
 /** A selected archive that cannot be resolved inside the registered store. */
 class ArchiveSelectionError extends Error {
-  readonly slug: "invalid_arguments" | "not_found" | "read_error";
+  readonly slug: "invalid_arguments" | "unknown_target" | "read_error";
 
   /** Build a structured selector refusal. */
   constructor(
-    slug: "invalid_arguments" | "not_found" | "read_error",
+    slug: "invalid_arguments" | "unknown_target" | "read_error",
     message: string,
     options?: ErrorOptions,
   ) {
@@ -219,7 +219,7 @@ async function readSelectedArchive(
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new ArchiveSelectionError(
-        "not_found",
+        "unknown_target",
         `No sealed logbook archive named ${filename} exists. Run \`discern patterns archives\` to list valid filenames.`,
       );
     }

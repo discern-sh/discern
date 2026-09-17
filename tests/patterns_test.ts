@@ -936,8 +936,8 @@ const FIXTURES: Record<string, DetectorFixtures> = {
   },
   "docs-gap": {
     firing: run([
-      { verb: "docs", target: "gates", outcome: "refused", error: "not_found" },
-      { verb: "docs", target: "gates", outcome: "refused", error: "not_found" },
+      { verb: "docs", target: "gates", outcome: "refused", error: "unknown_target" },
+      { verb: "docs", target: "gates", outcome: "refused", error: "unknown_target" },
       { verb: "docs", target: "quickstart" },
       { verb: "map", target: "overview" },
       { verb: "docs", target: "standards" },
@@ -950,8 +950,8 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       { verb: "map", target: "e" },
     ]),
     sparse: run([
-      { verb: "docs", target: "gates", outcome: "refused", error: "not_found" },
-      { verb: "docs", target: "gates", outcome: "refused", error: "not_found" },
+      { verb: "docs", target: "gates", outcome: "refused", error: "unknown_target" },
+      { verb: "docs", target: "gates", outcome: "refused", error: "unknown_target" },
       { verb: "docs", target: "quickstart" },
       { verb: "map", target: "overview" },
     ]),

@@ -620,6 +620,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       `The project's account of how its software works and why. Agents maintain this documentation at \`[map].dir\` (default \`${
         sourcePathDefault("map")
       }\`). You can read it to understand the project and correct what agents have recorded. The gate checks configured documentation requirements; authors remain responsible for its meaning. \`publish: false\` in a page's frontmatter withholds it from every published surface ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Pointing \`[map].dir\` at existing docs is explicit consent to manage them ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)).`,
+    retired: [
+      {
+        // The retired unresolved-target error slug (now unknown_target,
+        // joining the unknown_* family: docs, patterns, progress, await).
+        phrase: "not_found",
+        pattern: String.raw`\bnot_found\b`,
+      },
+    ],
   },
   {
     term: "Migration",

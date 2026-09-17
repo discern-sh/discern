@@ -254,9 +254,10 @@ interface Evaluation {
 function refusal(
   error:
     | "invalid_arguments"
-    | "not_found"
     | "no_repository"
+    | "no_trunk"
     | "read_error"
+    | "unknown_target"
     | "write_access",
   message: string,
   hints: string[],
@@ -535,7 +536,7 @@ export async function awaitResult(
   }
   if (!(await localBranchExists(root, trunk))) {
     return refusal(
-      "not_found",
+      "no_trunk",
       `The trunk branch \`${trunk}\` does not exist locally, so no fleet condition can be observed against it.`,
       hintTexts([fire(HINTS["await-trunk-missing"], { trunk })]),
     );
@@ -719,7 +720,7 @@ export async function awaitResult(
       }
       if (recoveredLanding === undefined) {
         return refusal(
-          "not_found",
+          "unknown_target",
           `Branch \`${branch}\` was not found in this repository, and no accepted proof identifies its work on \`${trunk}\`.`,
           hintTexts([fire(HINTS["await-branch-missing"], { branch, trunk })]),
         );
@@ -743,7 +744,7 @@ export async function awaitResult(
     if (await worktreePathForEffortBranch(root, branch) === undefined) {
       const containing = await nearestContainingBranch(root, branch, trunk);
       return refusal(
-        "not_found",
+        "unknown_target",
         `No checkout holds branch \`${branch}\` — its worktree was reclaimed ` +
           `or removed, and a gate Proof can only be recorded inside one, so ` +
           `\`--green ${branch}\` can never be met.`,

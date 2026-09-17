@@ -417,7 +417,6 @@ export const ERROR_SLUGS = [
   "no_repository",
   "no_such_step",
   "no_trunk",
-  "not_found",
   "not_main_checkout",
   "not_on_setup_branch",
   "not_on_trunk",
@@ -448,6 +447,7 @@ export const ERROR_SLUGS = [
   "unknown_command",
   "unknown_key",
   "unknown_standard",
+  "unknown_target",
   "write_access",
 ] as const;
 

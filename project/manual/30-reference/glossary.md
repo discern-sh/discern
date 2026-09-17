@@ -61,6 +61,7 @@ aliases:
   - "not_initialized"
   - "not_set_up"
   - "guidance"
+  - "not_found"
   - "discern script"
   - "criterion"
   - "scopes.docs"

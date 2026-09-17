@@ -1191,7 +1191,7 @@ Deno.test("a publish: false doc is unreachable through every docs surface", asyn
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(target.code, 1);
-    assertEquals(decodeCliResult(target.stdout, "docs").error, "not_found");
+    assertEquals(decodeCliResult(target.stdout, "docs").error, "unknown_target");
 
     // ...absent from the TOC...
     const list = await runCli(
@@ -1231,7 +1231,7 @@ Deno.test("numbered contributor sections are unreachable through every docs surf
       assertEquals(result.code, 1, target);
       assertEquals(
         decodeCliResult(result.stdout, "docs").error,
-        "not_found",
+        "unknown_target",
         target,
       );
     }
@@ -1281,7 +1281,7 @@ Deno.test("docs --list prints a grouped TOC titled `discern docs`", async () => 
   });
 });
 
-Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
+Deno.test("docs <unknown> --json reports unknown_target, exit 1", async () => {
   await withTempDir(async (dir) => {
     const docs = await makeDocsFixture(dir);
     const { code, stdout } = await runCli(
@@ -1293,7 +1293,7 @@ Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
     const res = decodeCliResult(stdout, "docs");
     assertEquals(res.ok, false);
     assertEquals(res.verb, "docs");
-    assertEquals(res.error, "not_found");
+    assertEquals(res.error, "unknown_target");
     assertExists(res.message);
     assertStringIncludes(res.message, "nonesuch");
   });
@@ -1311,7 +1311,7 @@ Deno.test("docs <near miss> --json suggests valid doc targets", async () => {
     const res = decodeCliResult(stdout, "docs");
     assertEquals(res.ok, false);
     assertEquals(res.verb, "docs");
-    assertEquals(res.error, "not_found");
+    assertEquals(res.error, "unknown_target");
     assertExists(res.message);
     assertStringIncludes(res.message, "Closest match");
     assertDocsDataKey(res, "suggestions");
@@ -1388,7 +1388,7 @@ Deno.test("docs excludes internal _adr/_internal/_private from every view", asyn
     assertEquals(positioning.code, 1);
     assertEquals(
       decodeCliResult(positioning.stdout, "docs").error,
-      "not_found",
+      "unknown_target",
     );
 
     const list = await runCli(
@@ -1450,7 +1450,7 @@ Deno.test("docs --adr surfaces ONLY the ADR tree, never _internal/_private", asy
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(withoutAdr.code, 1);
-    assertEquals(decodeCliResult(withoutAdr.stdout, "docs").error, "not_found");
+    assertEquals(decodeCliResult(withoutAdr.stdout, "docs").error, "unknown_target");
   });
 });
 
@@ -1496,7 +1496,7 @@ Deno.test("a target naming _adr/ is its own opt-in, on docs and map alike", asyn
     ) {
       const refused = await runCli([verb, target, "--json"], dir, env);
       assertEquals(refused.code, 1, `${verb} ${target} must refuse`);
-      assertEquals(decodeCliResult(refused.stdout, verb).error, "not_found");
+      assertEquals(decodeCliResult(refused.stdout, verb).error, "unknown_target");
     }
 
     // A near-miss suggestion prints the canonical target, so retrying the
@@ -1730,7 +1730,7 @@ Deno.test("docs treats a command name as a manual target", async () => {
     assertEquals(result.code, 1);
     const envelope = decodeCliResult(result.stdout, "docs");
     assertEquals(envelope.verb, "docs");
-    assertEquals(envelope.error, "not_found");
+    assertEquals(envelope.error, "unknown_target");
   });
 });
 

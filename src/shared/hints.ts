@@ -4113,7 +4113,6 @@ export const ERROR_FAILURE_RECOVERY = {
   no_repository: "evidence",
   no_such_step: "evidence",
   no_trunk: "evidence",
-  not_found: "tailored",
   not_main_checkout: "evidence",
   not_on_trunk: "evidence",
   not_on_setup_branch: "evidence",
@@ -4144,6 +4143,7 @@ export const ERROR_FAILURE_RECOVERY = {
   unknown_command: "tailored",
   unknown_key: "evidence",
   unknown_standard: "evidence",
+  unknown_target: "tailored",
   write_access: "evidence",
 } as const satisfies Record<ErrorSlug, FailureRecoveryMode>;
 

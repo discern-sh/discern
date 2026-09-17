@@ -1010,7 +1010,7 @@ Bad:
 
 Better:
 
-> Claude Code encountered eight \`docs not_found\` refusals in this period; peer cohorts encountered none. Review the instructions compiled for that provider before drawing conclusions about the agent.`,
+> Claude Code encountered eight \`docs unknown_target\` refusals in this period; peer cohorts encountered none. Review the instructions compiled for that provider before drawing conclusions about the agent.`,
     }, {
       kind: "prose",
       heading: "Examples",

@@ -3363,7 +3363,6 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `no_repository: evidence`
   - `no_such_step: evidence`
   - `no_trunk: evidence`
-  - `not_found: tailored`
   - `not_main_checkout: evidence`
   - `not_on_trunk: evidence`
   - `not_on_setup_branch: evidence`
@@ -3394,6 +3393,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `unknown_command: tailored`
   - `unknown_key: evidence`
   - `unknown_standard: evidence`
+  - `unknown_target: tailored`
   - `write_access: evidence`
 - Guards: `tests/result_schemas_test.ts`
 - Glossary: not enrolled — the result-contract reference explains the two recovery modes without exposing this internal policy table
@@ -4162,7 +4162,6 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `no_repository`
   - `no_such_step`
   - `no_trunk`
-  - `not_found`
   - `not_main_checkout`
   - `not_on_setup_branch`
   - `not_on_trunk`
@@ -4193,6 +4192,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `unknown_command`
   - `unknown_key`
   - `unknown_standard`
+  - `unknown_target`
   - `write_access`
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`

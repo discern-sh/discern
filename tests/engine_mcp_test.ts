@@ -1805,7 +1805,7 @@ async function exerciseDocumentToolCore(
     target: contract.missingTarget,
   });
   assertEquals(miss.result.isError, true);
-  assertEquals(miss.result.structuredContent.error, "not_found");
+  assertEquals(miss.result.structuredContent.error, "unknown_target");
 
   const search = await mcp.callTool(5, contract.tool, {
     search: contract.search,
