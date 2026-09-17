@@ -51,16 +51,17 @@ export const DEFAULTS = {
 } as const;
 
 /** Render one registry path as a scope pattern. Configured sources use their
- * registry-derived live reference; directories follow the canonical trailing-
- * slash shape recorded by their registry default. */
+ * registry-derived live reference; directory references expand with their
+ * canonical trailing slash. */
 function neutralSourceScopePath(
   name: (typeof SOURCE_PATH_NAMES)[number],
 ): string {
   const entry = SOURCE_PATHS[name];
-  const path = sourcePathReference(name) ?? entry.defaultPath;
-  return entry.pathKind === "directory" && !entry.defaultPath.endsWith("/")
-    ? `${path}/`
-    : path;
+  const reference = sourcePathReference(name);
+  if (reference !== undefined) return reference;
+  return entry.pathKind === "directory"
+    ? `${entry.defaultPath.replace(/\/+$/, "")}/`
+    : entry.defaultPath;
 }
 
 const DOCUMENTATION_SCOPE_SOURCES = ["map", "todo"] as const;

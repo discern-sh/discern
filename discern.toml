@@ -301,7 +301,7 @@
 [scopes.instructions]
   paths = [
     "project/instructions.md",
-    "${skills.dir}/",
+    "${skills.dir}",
     ".claude/skills/",
     ".agents/skills/",
   ]
@@ -454,9 +454,9 @@
     "${map.dir}_internal/brand/visual-identity.md",
     "${map.dir}_internal/agent-integration-coverage.md",
     "${map.dir}_internal/cross-agent-behaviour-reference.md",
-    "${skills.dir}/discern-brand-voice/SKILL.md",
-    "${skills.dir}/discern-product-voice/SKILL.md",
-    "${skills.dir}/discern-agent-voice/SKILL.md",
+    "${skills.dir}discern-brand-voice/SKILL.md",
+    "${skills.dir}discern-product-voice/SKILL.md",
+    "${skills.dir}discern-agent-voice/SKILL.md",
     ".vale/DiscernBrand/ProductName.yml",
     ".vale/DiscernBrand/GenericVerbs.yml",
     ".vale/DiscernBrand/GenericAdjectives.yml",

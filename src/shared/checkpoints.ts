@@ -324,7 +324,7 @@ export const BUILT_IN_CHECKPOINTS: Readonly<
   },
   "skills-playbook": {
     question: "skills.executable",
-    paths: ["${skills.dir}/"],
+    paths: ["${skills.dir}"],
   },
   "gotchas-playbook": {
     question: "setup.failure-memory",

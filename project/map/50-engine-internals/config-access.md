@@ -44,7 +44,7 @@ Every configurable source path has an entry in the [paths registry](../../../src
 
 Every source-path registry entry with `resolution = "configured"` automatically exposes a live `${<config-key>}` reference. The current set includes `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, and `${project.todo}`; instruction sources expose no scalar reference because `[instructions].sources` is a list, and the fixed setup brief has no config key. [`expandSourcePathReferences`](../../../src/shared/source_path_references.ts) resolves the derived set in scope paths and gates, generated paths and runs, job commands, Standard commands, inputs and `per` extents, and configured map exports. Unregistered braced forms remain untouched for the shell or another downstream consumer.
 
-The fresh config renderer uses the same registry-derived references in its neutral scopes. Directory-prefix spelling follows the entry's registered path shape, so `${map.dir}` needs no appended slash while `${skills.dir}/` supplies one. Adding a configured source path therefore enrolls expansion automatically, and any neutral seed scope it joins renders the reference without another path-specific branch.
+The fresh config renderer uses the same registry-derived references in its neutral scopes. A directory reference expands with exactly one trailing slash whether its configured value includes one or not, while a file reference preserves the configured path. `${map.dir}README.md` and `${skills.dir}demo/SKILL.md` therefore remain stable across either directory spelling. Adding a configured source path enrolls expansion automatically, and any neutral seed scope it joins renders the reference without another path-specific branch.
 
 ## The read surface
 
