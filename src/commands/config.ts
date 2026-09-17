@@ -151,7 +151,7 @@ async function applyEditPlan(
       `could not plan the config edit: ${
         error instanceof Error ? error.message : String(error)
       }`,
-      "edit_error",
+      "edit_failed",
     );
   }
   if (!decision.ok) {
@@ -173,7 +173,7 @@ async function applyEditPlan(
       `could not edit the config: ${
         error instanceof Error ? error.message : String(error)
       }`,
-      "edit_error",
+      "edit_failed",
     );
   }
 

@@ -4094,7 +4094,7 @@ export const ERROR_FAILURE_RECOVERY = {
   detached_head: "evidence",
   diagrams_misaligned: "evidence",
   dirty_worktree: "evidence",
-  edit_error: "evidence",
+  edit_failed: "evidence",
   gate_failed: "evidence",
   gitignore_template_unavailable: "evidence",
   identity_error: "evidence",

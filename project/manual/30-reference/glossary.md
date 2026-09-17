@@ -61,6 +61,7 @@ aliases:
   - "not_initialized"
   - "not_set_up"
   - "no_such_step"
+  - "edit_error"
   - "guidance"
   - "not_found"
   - "discern script"

@@ -19,7 +19,7 @@ export type DiscernKnownErrorSlug =
   | "detached_head"
   | "diagrams_misaligned"
   | "dirty_worktree"
-  | "edit_error"
+  | "edit_failed"
   | "gate_failed"
   | "gitignore_template_unavailable"
   | "identity_error"

@@ -598,6 +598,12 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         phrase: "no_such_step",
         pattern: String.raw`\bno_such_step\b`,
       },
+      {
+        // The retired config-edit error slug (now edit_failed: operations
+        // that fail take the _failed suffix).
+        phrase: "edit_error",
+        pattern: String.raw`\bedit_error\b`,
+      },
     ],
   },
   {

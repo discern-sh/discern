@@ -3344,7 +3344,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `detached_head: evidence`
   - `diagrams_misaligned: evidence`
   - `dirty_worktree: evidence`
-  - `edit_error: evidence`
+  - `edit_failed: evidence`
   - `gate_failed: evidence`
   - `gitignore_template_unavailable: evidence`
   - `identity_error: evidence`
@@ -4143,7 +4143,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `detached_head`
   - `diagrams_misaligned`
   - `dirty_worktree`
-  - `edit_error`
+  - `edit_failed`
   - `gate_failed`
   - `gitignore_template_unavailable`
   - `identity_error`
