@@ -462,6 +462,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     },
     definition:
       "The part of discern that runs its workflow commands. Commands such as `done`, `prepare`, `status`, `update`, and `accept` use this TypeScript implementation, compiled into the program. It runs the jobs, scopes, standards, and worktree settings the project declares without prescribing a language or framework. The embedded [tidy](#tidy) formatter operates on discern-owned surfaces. See [engine internals](../50-engine-internals/).",
+    retired: [
+      {
+        // The retired state-read error slug (now read_failed: operations
+        // that fail take the _failed suffix).
+        phrase: "read_error",
+        pattern: String.raw`\bread_error\b`,
+      },
+    ],
   },
   {
     term: "File ownership",

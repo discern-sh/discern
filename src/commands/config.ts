@@ -139,7 +139,7 @@ async function applyEditPlan(
       : `could not read the config: ${
         error instanceof Error ? error.message : String(error)
       }`;
-    return fail(opts, message, isMissing ? NO_PROJECT : "read_error");
+    return fail(opts, message, isMissing ? NO_PROJECT : "read_failed");
   }
 
   let decision: EditDecision;

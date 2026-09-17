@@ -290,7 +290,7 @@ export async function operationProgressResult(
       return {
         ok: false,
         verb: "progress",
-        error: "read_error",
+        error: "read_failed",
         message:
           `The recorded journal for that handle is unreadable (${reading.reason}). The operation itself is unaffected; the record cannot be presented.`,
         hints: hintTexts([fire(HINTS["progress-record-unreadable"])]),
@@ -316,7 +316,7 @@ export async function operationProgressResult(
       return {
         ok: false,
         verb: "progress",
-        error: "read_error",
+        error: "read_failed",
         message:
           `The journal store under this repository's Git directory could not be used: ${reading.reason}. The operation itself is unaffected; the record cannot be presented.`,
         hints: hintTexts([fire(HINTS["progress-record-unreadable"])]),

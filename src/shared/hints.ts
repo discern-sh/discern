@@ -4123,7 +4123,7 @@ export const ERROR_FAILURE_RECOVERY = {
   proposal_stale: "evidence",
   precondition_failed: "evidence",
   provisioned_resources: "evidence",
-  read_error: "evidence",
+  read_failed: "evidence",
   report_only_proof: "tailored",
   renamed_command: "evidence",
   renamed_config_key: "evidence",

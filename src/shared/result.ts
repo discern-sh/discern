@@ -427,7 +427,7 @@ export const ERROR_SLUGS = [
   "proposal_failed",
   "proposal_stale",
   "provisioned_resources",
-  "read_error",
+  "read_failed",
   "renamed_command",
   "renamed_config_key",
   "report_only_proof",

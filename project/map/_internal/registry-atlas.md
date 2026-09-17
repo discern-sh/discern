@@ -3373,7 +3373,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `proposal_stale: evidence`
   - `precondition_failed: evidence`
   - `provisioned_resources: evidence`
-  - `read_error: evidence`
+  - `read_failed: evidence`
   - `report_only_proof: tailored`
   - `renamed_command: evidence`
   - `renamed_config_key: evidence`
@@ -4172,7 +4172,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `proposal_failed`
   - `proposal_stale`
   - `provisioned_resources`
-  - `read_error`
+  - `read_failed`
   - `renamed_command`
   - `renamed_config_key`
   - `report_only_proof`

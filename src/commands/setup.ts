@@ -2356,7 +2356,7 @@ export async function runSetupStep(
       emitResult({
         ok: false,
         verb: "setup step",
-        error: "read_error",
+        error: "read_failed",
         message,
         data: { next_action: "discern setup verify" },
       });

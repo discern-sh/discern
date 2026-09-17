@@ -808,7 +808,7 @@ Deno.test("an await payload written by a newer discern refuses resume without co
       timeoutSeconds: 0,
     });
     assertEquals(refused.ok, false);
-    assertEquals(refused.error, "read_error");
+    assertEquals(refused.error, "read_failed");
     assertStringIncludes(
       refused.message ?? "",
       "written by a newer discern",

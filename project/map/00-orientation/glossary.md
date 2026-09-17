@@ -67,6 +67,7 @@ aliases:
   - binary version
   - queue prefix
   - queue admission
+  - read_error
   - file dispositions
   - done --confirmed
   - the binary's files
