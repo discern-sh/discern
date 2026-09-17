@@ -1191,7 +1191,10 @@ Deno.test("a publish: false doc is unreachable through every docs surface", asyn
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(target.code, 1);
-    assertEquals(decodeCliResult(target.stdout, "docs").error, "unknown_target");
+    assertEquals(
+      decodeCliResult(target.stdout, "docs").error,
+      "unknown_target",
+    );
 
     // ...absent from the TOC...
     const list = await runCli(
@@ -1450,7 +1453,10 @@ Deno.test("docs --adr surfaces ONLY the ADR tree, never _internal/_private", asy
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(withoutAdr.code, 1);
-    assertEquals(decodeCliResult(withoutAdr.stdout, "docs").error, "unknown_target");
+    assertEquals(
+      decodeCliResult(withoutAdr.stdout, "docs").error,
+      "unknown_target",
+    );
   });
 });
 
@@ -1496,7 +1502,10 @@ Deno.test("a target naming _adr/ is its own opt-in, on docs and map alike", asyn
     ) {
       const refused = await runCli([verb, target, "--json"], dir, env);
       assertEquals(refused.code, 1, `${verb} ${target} must refuse`);
-      assertEquals(decodeCliResult(refused.stdout, verb).error, "unknown_target");
+      assertEquals(
+        decodeCliResult(refused.stdout, verb).error,
+        "unknown_target",
+      );
     }
 
     // A near-miss suggestion prints the canonical target, so retrying the

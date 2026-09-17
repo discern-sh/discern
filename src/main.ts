@@ -26,7 +26,10 @@ import { configFailureResult } from "./shared/config_failure.ts";
 import { interactiveHintTexts } from "./shared/hints.ts";
 import { findRoot } from "./shared/env.ts";
 import { isKnownJob, knownJobList } from "./shared/capabilities.ts";
-import { SETUP_UNFINISHED_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
+import {
+  SETUP_UNFINISHED_MESSAGE,
+  verbNeedsSetup,
+} from "./shared/setup_state.ts";
 import {
   normalizeVerbVariant,
   retiredCommandMessage,
@@ -1939,7 +1942,9 @@ export async function main(args: string[]): Promise<number> {
           message: SETUP_UNFINISHED_MESSAGE,
         });
       } else {
-        new Logger({ json: false, noColor: false }).error(SETUP_UNFINISHED_MESSAGE);
+        new Logger({ json: false, noColor: false }).error(
+          SETUP_UNFINISHED_MESSAGE,
+        );
       }
       return 1;
     }
