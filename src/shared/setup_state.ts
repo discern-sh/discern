@@ -138,10 +138,10 @@ export function setupNextAction(phase: SetupPhase): string {
 
 /**
  * The canonical refusal shown when a {@link SETUP_GATED_VERBS} verb runs
- * before setup — the same sentence in the CLI's `not_set_up` error and the MCP
+ * before setup — the same sentence in the CLI's `setup_unfinished` error and the MCP
  * tool's, so the funnel toward `discern setup` reads identically on both surfaces.
  */
-export const NOT_SET_UP_MESSAGE =
+export const SETUP_UNFINISHED_MESSAGE =
   "this project isn't set up yet. Run `discern` (or `discern setup`) to start " +
   "setup — your coding agent does it for you.";
 

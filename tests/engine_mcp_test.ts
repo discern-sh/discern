@@ -2267,18 +2267,18 @@ Deno.test("discern mcp: pre-setup gates map but not the gate proof verbs or docs
     await using mcp = await spawnMcp(dir);
     await mcp.initialize();
 
-    // `discern_map` still refuses with the structured not_set_up envelope — its
+    // `discern_map` still refuses with the structured setup_unfinished envelope — its
     // tree is empty until setup fills it.
     const refused = await mcp.callTool(2, "discern_map");
     assertEquals(refused.result.isError, true);
-    assertEquals(refused.result.structuredContent.error, "not_set_up");
+    assertEquals(refused.result.structuredContent.error, "setup_unfinished");
 
     // `discern_done` is a gate PROOF verb — un-gated during setup (ADR 0065) so
     // the agent can iterate while wiring capabilities — but it carries the
     // setup-in-progress hint so a green run can't be mistaken for "done".
     const finish = await mcp.callTool(3, "discern_done");
     assertEquals(finish.result.structuredContent.verb, "done");
-    assert(finish.result.structuredContent.error !== "not_set_up");
+    assert(finish.result.structuredContent.error !== "setup_unfinished");
     assertHasMcpHint(
       finish.result.structuredContent,
       HINTS["setup-unfinished-gate"],

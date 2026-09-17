@@ -1055,7 +1055,7 @@ Deno.test("logbook: every known-root MCP refusal records its final delivered res
       bootstrapped: false,
       tools: () => TOOLS.filter((tool) => verbNeedsSetup(verbOf(tool.name))),
       args: { dry_run: true },
-      error: "not_set_up",
+      error: "setup_unfinished",
     },
   ] as const;
 

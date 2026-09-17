@@ -3366,7 +3366,6 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `not_found: tailored`
   - `not_main_checkout: evidence`
   - `not_on_trunk: evidence`
-  - `not_set_up: evidence`
   - `not_on_setup_branch: evidence`
   - `partial_acceptance: tailored`
   - `partial_materialization: tailored`
@@ -3384,6 +3383,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `script_not_executable: evidence`
   - `script_not_a_command: evidence`
   - `setup_plan_failed: evidence`
+  - `setup_unfinished: evidence`
   - `skills_eject_failed: evidence`
   - `tables_malformed: evidence`
   - `templates_not_found: evidence`
@@ -4166,7 +4166,6 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `not_main_checkout`
   - `not_on_setup_branch`
   - `not_on_trunk`
-  - `not_set_up`
   - `partial_acceptance`
   - `partial_materialization`
   - `partial_refresh`
@@ -4183,6 +4182,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `script_not_a_command`
   - `script_not_executable`
   - `setup_plan_failed`
+  - `setup_unfinished`
   - `skills_eject_failed`
   - `tables_malformed`
   - `templates_not_found`

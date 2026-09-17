@@ -59,6 +59,7 @@ aliases:
   - "the binary's files"
   - "estate"
   - "not_initialized"
+  - "not_set_up"
   - "guidance"
   - "discern script"
   - "criterion"

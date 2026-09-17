@@ -119,7 +119,7 @@ import {
 } from "../../shared/result_schemas.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
 import {
-  NOT_SET_UP_MESSAGE,
+  SETUP_UNFINISHED_MESSAGE,
   verbNeedsSetup,
 } from "../../shared/setup_state.ts";
 import { Logger } from "../../lib/log.ts";
@@ -2172,8 +2172,8 @@ async function dispatchToolCall(
       result: {
         ok: false,
         verb: verbOf(tool.name),
-        error: "not_set_up",
-        message: NOT_SET_UP_MESSAGE,
+        error: "setup_unfinished",
+        message: SETUP_UNFINISHED_MESSAGE,
       },
       recording,
     };
@@ -2253,7 +2253,7 @@ export async function runTool(
  * Whether the pre-setup gate should let a setup-gated tool run: true once the
  * project records `[meta].bootstrapped`, and also true when the config cannot be
  * read — so the verb's own core surfaces the real config error rather than a
- * misleading `not_set_up` (the MCP mirror of the CLI's `configOk` guard). Resolved
+ * misleading `setup_unfinished` (the MCP mirror of the CLI's `configOk` guard). Resolved
  * per call, not once at startup, so a project set up mid-session (via the
  * CLI, alongside a long-lived server) is picked up without a restart.
  */
@@ -2295,7 +2295,7 @@ function asJson(data: unknown): string {
  * tool's pre-setup gate. */
 async function assertResourceSetUp(root: string): Promise<void> {
   if (!(await setupGatePasses(root))) {
-    throw new Error(NOT_SET_UP_MESSAGE);
+    throw new Error(SETUP_UNFINISHED_MESSAGE);
   }
 }
 

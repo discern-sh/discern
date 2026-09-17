@@ -587,6 +587,12 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         phrase: "not_initialized",
         pattern: String.raw`\bnot_initialized\b`,
       },
+      {
+        // The retired pre-setup gating slug (now setup_unfinished, matching
+        // the status field of the same name).
+        phrase: "not_set_up",
+        pattern: String.raw`\bnot_set_up\b`,
+      },
     ],
   },
   {

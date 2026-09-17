@@ -83,7 +83,7 @@ aliases:
 
 Find a command, check its options, or look up how the terminal reader works. Your agent usually runs these commands for you; this page is here when you want to understand an invocation or use the terminal yourself.
 
-`discern <command> --help` shows the same command options in your terminal. Help works before project setup; commands that need a configured project return `not_set_up` until setup is complete.
+`discern <command> --help` shows the same command options in your terminal. Help works before project setup; commands that need a configured project return `setup_unfinished` until setup is complete.
 
 ## Find a command
 
