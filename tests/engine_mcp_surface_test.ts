@@ -13,10 +13,12 @@ import {
   MCP_INSTRUCTIONS_BYTE_LIMIT,
   MCP_TOOL_DESCRIPTION_BYTE_LIMIT,
   mcpStartHint,
+  RESOURCES,
   toolDescriptionForProfile,
   TOOLS,
   verbOf,
 } from "../src/engine/mcp/server.ts";
+import { buildMcpToolsManifest } from "../scripts/contract_manifests.ts";
 import { CONSENT_GATED_VERBS } from "../src/shared/consent.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 
@@ -431,5 +433,35 @@ Deno.test("acceptance describes verified grants without requiring a new conversa
   assertStringIncludes(
     accept.description,
     "Recorded grants never cover a checkpoint variance or standard proposal",
+  );
+});
+
+Deno.test("mcp surface: every resource is registered from the table and published by the manifest", async () => {
+  const definitions = Object.values(RESOURCES);
+  const names = definitions.map((resource) => resource.name);
+  assertEquals(new Set(names).size, names.length, "resource names are unique");
+  const uris = definitions.map((resource) => resource.uri);
+  assertEquals(new Set(uris).size, uris.length, "resource URIs are unique");
+  for (const resource of definitions) {
+    assertEquals(
+      resource.kind === "template",
+      resource.uri.includes("{+"),
+      `${resource.name}: a template carries an RFC 6570 expansion; a resource does not`,
+    );
+    assert(resource.uri.startsWith("discern://"), resource.name);
+  }
+  assertEquals(
+    buildMcpToolsManifest().resources,
+    definitions.map(({ name, kind, uri }) => ({ name, kind, uri })),
+    "the manifest publishes the table verbatim",
+  );
+
+  // The SDK call is confined to the two table-driven helpers, so a resource
+  // cannot be registered without a frozen name and URI.
+  const source = await Deno.readTextFile(`${REPO}/src/engine/mcp/server.ts`);
+  assertEquals(
+    source.match(/server\.registerResource\(/g)?.length,
+    2,
+    "server.registerResource is called only by the fixed and template helpers",
   );
 });

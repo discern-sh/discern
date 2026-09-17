@@ -15,6 +15,7 @@ import {
 import { basename, join } from "@std/path";
 import { z } from "@zod/zod";
 import { stageBundledManual } from "../scripts/build.ts";
+import { buildMcpToolsManifest } from "../scripts/contract_manifests.ts";
 import {
   AWAIT_LONG_CALL_SECONDS,
   AWAIT_STRICT_CALL_SECONDS,
@@ -704,6 +705,48 @@ function initParams(
     clientInfo: { name: "test", version: "0" },
   };
 }
+
+Deno.test("mcp (live): the manifest lists exactly the resources and templates the running server registers", async () => {
+  // MCP lists concrete resources and URI templates through separate calls, so
+  // the parity check covers both listings against the one published table.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    await gitInit(dir);
+    await using mcp = await spawnMcp(dir);
+    await mcp.initialize();
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "resources/list" });
+    const listed = (await mcp.recv()).result.resources as {
+      name: string;
+      uri: string;
+    }[];
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "resources/templates/list",
+    });
+    const templates = (await mcp.recv()).result.resourceTemplates as {
+      name: string;
+      uriTemplate: string;
+    }[];
+    const manifest = buildMcpToolsManifest().resources as {
+      name: string;
+      kind: string;
+      uri: string;
+    }[];
+    const entry = (name: string, uri: string): string => `${name} ${uri}`;
+    assertEquals(
+      listed.map((resource) => entry(resource.name, resource.uri)).sort(),
+      manifest.filter((resource) => resource.kind === "resource")
+        .map((resource) => entry(resource.name, resource.uri)).sort(),
+    );
+    assertEquals(
+      templates.map((template) => entry(template.name, template.uriTemplate))
+        .sort(),
+      manifest.filter((resource) => resource.kind === "template")
+        .map((resource) => entry(resource.name, resource.uri)).sort(),
+    );
+  });
+});
 
 Deno.test("mcp: EVERY tool's live call echoes its own verb", async () => {
   // The verb echo was pinned tool-by-tool (14 of 15). The SDK advertises each tool's

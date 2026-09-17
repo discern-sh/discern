@@ -2277,6 +2277,129 @@ async function setupGatePasses(root: string): Promise<boolean> {
 const JSON_MIME = "application/json";
 const MARKDOWN_MIME = "text/markdown";
 
+/** One readable resource the server registers, by stable name. */
+export interface McpResourceDefinition {
+  /** The stable resource name a client lists and the manifest freezes. */
+  readonly name: string;
+  /** `resource` answers one concrete URI; `template` answers an RFC 6570 URI template. */
+  readonly kind: "resource" | "template";
+  /** The concrete URI or the URI template the resource answers. */
+  readonly uri: string;
+  readonly title: string;
+  readonly description: string;
+  readonly mimeType: string;
+}
+
+type FixedResourceDefinition = McpResourceDefinition & { kind: "resource" };
+type TemplateResourceDefinition = McpResourceDefinition & { kind: "template" };
+
+/**
+ * Every resource this server registers. Registration reads from this table
+ * alone and the MCP tools manifest publishes it, so a resource cannot exist on
+ * the wire without a frozen name and URI, and the live listing parity guard
+ * holds the two equal. Descriptions may change; names, kinds, and URIs are
+ * append-only by name.
+ */
+export const RESOURCES = {
+  status: {
+    name: "discern-status",
+    kind: "resource",
+    uri: "discern://status",
+    title: "Status snapshot",
+    description:
+      "A live discern_status snapshot: the git situation, what the gate would fire, the configured standards, and (from the main checkout) the worktree fleet.",
+    mimeType: JSON_MIME,
+  },
+  impact: {
+    name: "discern-impact",
+    kind: "resource",
+    uri: "discern://impact",
+    title: "Changed scopes",
+    description:
+      "The project scopes the current branch and working tree changed — what decides which scope gates fire.",
+    mimeType: JSON_MIME,
+  },
+  config: {
+    name: "discern-config",
+    kind: "resource",
+    uri: "discern://config",
+    title: "Resolved configuration",
+    description:
+      "The resolved discern.toml configuration for this project (fully defaulted).",
+    mimeType: JSON_MIME,
+  },
+  mapIndex: {
+    name: "discern-map-index",
+    kind: "resource",
+    uri: "discern://map",
+    title: "Project map index",
+    description:
+      "The index of the configured project map and its agent-maintained project knowledge: every page's canonical target, title, and summary.",
+    mimeType: JSON_MIME,
+  },
+  mapDoc: {
+    name: "discern-map-doc",
+    kind: "template",
+    uri: "discern://map/{+target}",
+    title: "Project map page",
+    description:
+      "One document from the configured project map and its agent-maintained project knowledge, by slug, section/slug, or path.",
+    mimeType: MARKDOWN_MIME,
+  },
+  docsIndex: {
+    name: "discern-docs-index",
+    kind: "resource",
+    uri: "discern://docs",
+    title: "Manual index",
+    description:
+      "The index of discern's complete published product manual: every page's canonical target, title, and summary, with stable manual identity and kind.",
+    mimeType: JSON_MIME,
+  },
+  docsDoc: {
+    name: "discern-docs-doc",
+    kind: "template",
+    uri: "discern://docs/{+target}",
+    title: "Manual page",
+    description:
+      "One document from discern's complete published product manual, by slug, section/slug, or path.",
+    mimeType: MARKDOWN_MIME,
+  },
+} as const satisfies Readonly<Record<string, McpResourceDefinition>>;
+
+/** Register one concrete resource from the table. */
+function registerFixedResource(
+  server: McpServer,
+  definition: FixedResourceDefinition,
+  read: (uri: URL) => Promise<ReturnType<typeof resourceText>>,
+): void {
+  server.registerResource(definition.name, definition.uri, {
+    title: definition.title,
+    description: definition.description,
+    mimeType: definition.mimeType,
+  }, read);
+}
+
+/** Register one URI-template resource from the table. */
+function registerTemplateResource(
+  server: McpServer,
+  definition: TemplateResourceDefinition,
+  read: (
+    uri: URL,
+    variables: { [key: string]: string | string[] },
+  ) => Promise<ReturnType<typeof resourceText>>,
+): void {
+  server.registerResource(
+    definition.name,
+    new ResourceTemplate(definition.uri, { list: undefined }),
+    {
+      title: definition.title,
+      description: definition.description,
+      mimeType: definition.mimeType,
+    },
+    read,
+  );
+}
+
 /** One resource read: a single text part carrying `text` at `uri` with `mimeType`. */
 function resourceText(
   uri: URL,
@@ -2312,43 +2435,30 @@ async function assertResourceSetUp(root: string): Promise<void> {
 function registerDocTree(
   server: McpServer,
   scheme: "map" | "docs",
-  label: string,
+  definitions: {
+    index: FixedResourceDefinition;
+    doc: TemplateResourceDefinition;
+  },
   index: () => Promise<DiscernResult<DocsData>>,
   single: (target: string) => Promise<DiscernResult<DocsData>>,
 ): void {
-  server.registerResource(
-    `discern-${scheme}-index`,
-    `discern://${scheme}`,
-    {
-      description:
-        `The index of ${label}: every page's canonical target, title, and summary${
-          scheme === "docs" ? ", with stable manual identity and kind" : ""
-        }.`,
-      mimeType: JSON_MIME,
-    },
-    async (uri: URL) => {
-      const result = await index();
-      if (!result.ok) {
-        throw new Error(result.message ?? `cannot read ${scheme}.`);
-      }
-      return resourceText(uri, JSON_MIME, asJson(result.data));
-    },
-  );
-  server.registerResource(
-    `discern-${scheme}-doc`,
-    // `{+target}` is RFC 6570 reserved-expansion: the bare `{target}` the SDK
-    // compiles stops its capture at a `/` (and a `,`), so only a slug-shaped target
-    // ever matched — `section/slug` and a path (both containing `/`) fell through to
-    // a not-found. The `+` operator captures the reserved set, `/` included, so all
-    // three forms the description advertises (and the discern_map/discern_docs tools
-    // accept) resolve as resources too. The variable is still named `target`, so the
-    // read handler's `variables.target` is unchanged.
-    new ResourceTemplate(`discern://${scheme}/{+target}`, { list: undefined }),
-    {
-      description:
-        `One document from ${label}, by slug, section/slug, or path.`,
-      mimeType: MARKDOWN_MIME,
-    },
+  registerFixedResource(server, definitions.index, async (uri: URL) => {
+    const result = await index();
+    if (!result.ok) {
+      throw new Error(result.message ?? `cannot read ${scheme}.`);
+    }
+    return resourceText(uri, JSON_MIME, asJson(result.data));
+  });
+  // `{+target}` is RFC 6570 reserved-expansion: the bare `{target}` the SDK
+  // compiles stops its capture at a `/` (and a `,`), so only a slug-shaped target
+  // ever matched — `section/slug` and a path (both containing `/`) fell through to
+  // a not-found. The `+` operator captures the reserved set, `/` included, so all
+  // three forms the description advertises (and the discern_map/discern_docs tools
+  // accept) resolve as resources too. The variable is still named `target`, so the
+  // read handler's `variables.target` is unchanged.
+  registerTemplateResource(
+    server,
+    definitions.doc,
     async (uri: URL, variables: { [key: string]: string | string[] }) => {
       const raw = variables.target;
       const target = Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? "");
@@ -2387,14 +2497,9 @@ function registerProjectResources(
     }
     return root;
   };
-  server.registerResource(
-    "discern-status",
-    "discern://status",
-    {
-      description:
-        "A live discern_status snapshot: the git situation, what the gate would fire, the configured standards, and (from the main checkout) the worktree fleet.",
-      mimeType: JSON_MIME,
-    },
+  registerFixedResource(
+    server,
+    RESOURCES.status,
     async (uri: URL) =>
       resourceText(
         uri,
@@ -2405,14 +2510,9 @@ function registerProjectResources(
       ),
   );
 
-  server.registerResource(
-    "discern-impact",
-    "discern://impact",
-    {
-      description:
-        "The project scopes the current branch and working tree changed — what decides which scope gates fire.",
-      mimeType: JSON_MIME,
-    },
+  registerFixedResource(
+    server,
+    RESOURCES.impact,
     async (uri: URL) =>
       resourceText(
         uri,
@@ -2421,14 +2521,9 @@ function registerProjectResources(
       ),
   );
 
-  server.registerResource(
-    "discern-config",
-    "discern://config",
-    {
-      description:
-        "The resolved discern.toml configuration for this project (fully defaulted).",
-      mimeType: JSON_MIME,
-    },
+  registerFixedResource(
+    server,
+    RESOURCES.config,
     async (uri: URL) =>
       resourceText(uri, JSON_MIME, asJson(await loadConfig(currentRoot()))),
   );
@@ -2438,7 +2533,7 @@ function registerProjectResources(
   registerDocTree(
     server,
     "map",
-    "the configured project map and its agent-maintained project knowledge",
+    { index: RESOURCES.mapIndex, doc: RESOURCES.mapDoc },
     async () => {
       const root = currentRoot();
       await assertResourceSetUp(root);
@@ -2457,7 +2552,7 @@ function registerDocsResources(server: McpServer, processCwd: string): void {
   registerDocTree(
     server,
     "docs",
-    "discern's complete published product manual",
+    { index: RESOURCES.docsIndex, doc: RESOURCES.docsDoc },
     () => docsResult(processCwd),
     (target) => docsResult(processCwd, { target }),
   );

@@ -9,7 +9,7 @@ import {
   IMPLICIT_ROOT_FLAGS,
   walkCliCommands,
 } from "../src/shared/cli_reference_codegen.ts";
-import { TOOLS } from "../src/engine/mcp/server.ts";
+import { RESOURCES, TOOLS } from "../src/engine/mcp/server.ts";
 import {
   CLI_COMPATIBILITY_POLICY,
   CLI_MANIFEST_ID,
@@ -118,7 +118,7 @@ function publicGitConventions(): Record<string, unknown> {
   );
 }
 
-/** Exact request-side payload advertised by `tools/list`, in live tool order. */
+/** Exact request-side payload advertised by `tools/list`, plus every readable resource and template. */
 export function buildMcpToolsManifest(): ContractManifest {
   return {
     $id: MCP_TOOLS_MANIFEST_ID,
@@ -135,6 +135,11 @@ export function buildMcpToolsManifest(): ContractManifest {
       ...(tool.annotations === undefined
         ? {}
         : { annotations: { ...tool.annotations } }),
+    })),
+    resources: Object.values(RESOURCES).map((resource) => ({
+      name: resource.name,
+      kind: resource.kind,
+      uri: resource.uri,
     })),
   };
 }

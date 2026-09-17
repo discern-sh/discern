@@ -697,5 +697,42 @@
         "openWorldHint": false
       }
     }
+  ],
+  "resources": [
+    {
+      "name": "discern-status",
+      "kind": "resource",
+      "uri": "discern://status"
+    },
+    {
+      "name": "discern-impact",
+      "kind": "resource",
+      "uri": "discern://impact"
+    },
+    {
+      "name": "discern-config",
+      "kind": "resource",
+      "uri": "discern://config"
+    },
+    {
+      "name": "discern-map-index",
+      "kind": "resource",
+      "uri": "discern://map"
+    },
+    {
+      "name": "discern-map-doc",
+      "kind": "template",
+      "uri": "discern://map/{+target}"
+    },
+    {
+      "name": "discern-docs-index",
+      "kind": "resource",
+      "uri": "discern://docs"
+    },
+    {
+      "name": "discern-docs-doc",
+      "kind": "template",
+      "uri": "discern://docs/{+target}"
+    }
   ]
 }

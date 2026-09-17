@@ -2284,6 +2284,70 @@ Deno.test("a new positional must be optional and trailing; existing positionals 
   );
 });
 
+Deno.test("MCP resources are append-only by name with immutable URI and kind, in any order", () => {
+  const manifest = (resources: JsonValue[]): JsonObject => ({
+    format: 1,
+    tools: [],
+    resources,
+  });
+  const status: JsonObject = {
+    name: "voyage-status",
+    kind: "resource",
+    uri: "voyage://status",
+  };
+  const page: JsonObject = {
+    name: "voyage-page",
+    kind: "template",
+    uri: "voyage://page/{+target}",
+  };
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      manifest([status]),
+      manifest([page, status]),
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "a new resource may join in any position",
+  );
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      manifest([status, page]),
+      manifest([page, status]),
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "listing order is not a promise",
+  );
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      manifest([status, page]),
+      manifest([status]),
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    ['$.resources[name="voyage-page"]: removed'],
+  );
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      manifest([status]),
+      manifest([{ ...status, uri: "voyage://state" }]),
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [
+      '$.resources[name="voyage-status"].uri: changed from "voyage://status" to "voyage://state"',
+    ],
+  );
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      manifest([page]),
+      manifest([{ ...page, kind: "resource" }]),
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [
+      '$.resources[name="voyage-page"].kind: changed from "template" to "resource"',
+    ],
+  );
+});
+
 Deno.test("the listing order of commands and tools is not a promise", () => {
   const cli = liveCliManifest();
   const reorderedCli = clone(cli);
@@ -2299,6 +2363,7 @@ Deno.test("the listing order of commands and tools is not a promise", () => {
   const mcp = liveMcpManifest();
   const reorderedMcp = clone(mcp);
   (reorderedMcp.tools as JsonValue[]).reverse();
+  (reorderedMcp.resources as JsonValue[]).reverse();
   assertEquals(
     publicSchemaCompatibilityIssues(
       mcp,

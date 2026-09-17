@@ -206,6 +206,37 @@ function mcpToolsManifestCompatibilityIssues(
       issues,
     );
   }
+  // Resources mirror tools: append-only by name, with the URI (or template)
+  // and the kind immutable. Their descriptions never enter the manifest.
+  const beforeResources = recordsByStringField(
+    objectArray(previous.resources ?? [], "$.resources", issues),
+    "name",
+    "$.resources",
+    issues,
+  );
+  const afterResources = recordsByStringField(
+    objectArray(current.resources ?? [], "$.resources", issues),
+    "name",
+    "$.resources",
+    issues,
+  );
+  for (const [name, prior] of beforeResources) {
+    const next = afterResources.get(name);
+    const resourcePath = `$.resources[name=${JSON.stringify(name)}]`;
+    if (next === undefined) {
+      issues.push(`${resourcePath}: removed`);
+      continue;
+    }
+    for (const key of ["kind", "uri"]) {
+      if (!sameJson(prior[key], next[key])) {
+        issues.push(
+          `${pathKey(resourcePath, key)}: changed from ${json(prior[key])} to ${
+            json(next[key])
+          }`,
+        );
+      }
+    }
+  }
   return issues;
 }
 
@@ -481,6 +512,9 @@ export function publicManifestValidityIssues(
   switch (policy) {
     case MCP_TOOLS_COMPATIBILITY_POLICY:
       objectArray(manifest.tools, `${label}: $.tools`, issues);
+      if (manifest.resources !== undefined) {
+        objectArray(manifest.resources, `${label}: $.resources`, issues);
+      }
       break;
     case CLI_COMPATIBILITY_POLICY:
       objectArray(manifest.commands, `${label}: $.commands`, issues);
