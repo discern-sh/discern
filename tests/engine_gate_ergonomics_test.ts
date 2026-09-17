@@ -125,7 +125,7 @@ Deno.test("gate stream: output is line-prefixed with the job label", async () =>
         'format = "echo HELLO-FROM-FIX"', // format is a fix-stage capability
         "",
         "[gate]",
-        "stream = true",
+        "stream_output = true",
         "fail_fast = false",
         "",
       ].join("\n"),

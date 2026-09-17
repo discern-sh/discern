@@ -98,7 +98,7 @@ async function runTestGateBody(
   presenterSlot: GateProgressPresenterSlot,
 ): ReturnType<typeof runTestGate> {
   const cfg = await loadConfig(root);
-  const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
+  const policy = resolveGateRunPolicy(cfg.gate.stream_output, surface);
   const group = stageGroup(cfg, "test");
   const { runOpts, out, flushDeferredOutput, slots } = gateRunContext(
     root,

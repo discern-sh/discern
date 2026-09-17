@@ -166,7 +166,7 @@ Deno.test("editor appends a brand-new section at EOF", () => {
 });
 
 Deno.test("editor conservatively appends a first record member when its managed banner is missing", () => {
-  const input = `[project]\nslug = "demo"\n\n[gate]\nstream = false\n`;
+  const input = `[project]\nslug = "demo"\n\n[gate]\nstream_output = false\n`;
   const out = new TomlEditor(input)
     .setString("standards.bundle.metric", "bundle_bytes")
     .toString();
@@ -183,7 +183,7 @@ paths   = ["docs/"]
 neutral = true
 
 [gate]
-stream = false
+stream_output = false
 `;
 
 Deno.test("editor inserts a brand-new section beside its existing dotted-family siblings, not at EOF", () => {
@@ -219,7 +219,7 @@ paths = ["docs/"]
 paths = ["native/**"]
 
 [gate]
-stream = false
+stream_output = false
 `;
   const out = new TomlEditor(sample)
     .setStringArray("scopes.assets.paths", ["assets/**"])
@@ -428,7 +428,7 @@ paths = [
 neutral = true
 
 [gate]
-stream = false
+stream_output = false
 `;
 
   const replaced = new TomlEditor(input)
@@ -441,7 +441,7 @@ paths = ["src/**", "unicode/é/**"]
 neutral = true
 
 [gate]
-stream = false
+stream_output = false
 `,
   );
 
@@ -453,7 +453,7 @@ stream = false
 neutral = true
 
 [gate]
-stream = false
+stream_output = false
 `,
   );
 });
@@ -789,17 +789,17 @@ Deno.test("insertKeyBlock places a documented key in canonical order", () => {
   assert(
     editor.insertKeyBlock(
       "gate",
-      "stream",
-      "# Stream output live.\nstream = false",
-      ["stream", "fail_fast"],
+      "stream_output",
+      "# Stream output live.\nstream_output = false",
+      ["stream_output", "fail_fast"],
     ),
   );
   assert(
     !editor.insertKeyBlock(
       "gate",
-      "stream",
-      "# Stream output live.\nstream = false",
-      ["stream", "fail_fast"],
+      "stream_output",
+      "# Stream output live.\nstream_output = false",
+      ["stream_output", "fail_fast"],
     ),
   );
 
@@ -808,7 +808,7 @@ Deno.test("insertKeyBlock places a documented key in canonical order", () => {
     [
       "[gate]",
       "# Stream output live.",
-      "stream = false",
+      "stream_output = false",
       "# Cancel siblings.",
       "fail_fast = true",
       "",
@@ -821,7 +821,7 @@ Deno.test("insertKeyBlock places a documented key in canonical order", () => {
 
 Deno.test("deleteSection removes an entire section and preserves CRLF style", () => {
   const input =
-    `[project]\r\nslug = "demo"\r\n\r\n[features]\r\nworktrees = true\r\nstandards = false\r\n\r\n[gate]\r\nstream = false\r\n`;
+    `[project]\r\nslug = "demo"\r\n\r\n[features]\r\nworktrees = true\r\nstandards = false\r\n\r\n[gate]\r\nstream_output = false\r\n`;
   const editor = new TomlEditor(input);
 
   assert(editor.deleteSection("features"));
@@ -830,7 +830,7 @@ Deno.test("deleteSection removes an entire section and preserves CRLF style", ()
   assertOnlyLineEnding(out, "\r\n");
   assertEquals(
     out,
-    `[project]\r\nslug = "demo"\r\n\r\n[gate]\r\nstream = false\r\n`,
+    `[project]\r\nslug = "demo"\r\n\r\n[gate]\r\nstream_output = false\r\n`,
   );
   assertEquals(parsedProjectSlug(out), "demo");
   assert(!editor.deleteSection("features"));

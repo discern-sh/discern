@@ -313,7 +313,7 @@ async function unrunGateResult(
     result,
     failedStage: "check/test",
     cfg,
-    policy: resolveGateRunPolicy(cfg.gate.stream, surface),
+    policy: resolveGateRunPolicy(cfg.gate.stream_output, surface),
     out: makeOut(false, { quiet: surface.kind === "quiet-result" }),
     changed: [],
     gotchasTail: undefined,
@@ -376,7 +376,7 @@ async function runCandidateGate(
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
   const cfg = await loadConfig(root);
-  const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
+  const policy = resolveGateRunPolicy(cfg.gate.stream_output, surface);
   let liveGroups: readonly JobGroup[] | undefined;
   if (gateOutputIsLive(policy)) {
     // Admission remains pure so the merge check below is still the first

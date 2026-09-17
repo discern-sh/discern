@@ -108,7 +108,7 @@ const NOISY_CONFIGS = [
   { name: "buffered", toml: NOISY_CONFIG },
   {
     name: "streamed",
-    toml: `${NOISY_CONFIG}\n[gate]\nstream = true\n`,
+    toml: `${NOISY_CONFIG}\n[gate]\nstream_output = true\n`,
   },
 ];
 

@@ -2158,7 +2158,7 @@ async function runUpdateGeneratedGroups(
   }
   ctx.log.info("Regenerating declared artifacts...");
   try {
-    const policy = resolveGateRunPolicy(ctx.config.gate.stream, {
+    const policy = resolveGateRunPolicy(ctx.config.gate.stream_output, {
       kind: "quiet-result",
     });
     const context = gateRunContext(ctx.root, ctx.config, policy);

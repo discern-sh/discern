@@ -302,11 +302,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "gate-streaming",
             title: "Live frame and static transcript",
             what:
-              "A live-capable terminal always combines stable Gate progress with a bounded job-output tail. On static surfaces, `[gate].stream` switches between grouped per-job output (the default) and line-prefixed streaming.",
+              "A live-capable terminal always combines stable Gate progress with a bounded job-output tail. On static surfaces, `[gate].stream_output` switches between grouped per-job output (the default) and line-prefixed streaming.",
             plain: {
               title: "Live progress with a bounded output tail",
               what:
-                "A live terminal shows what is running and what it is saying together. For CI, pipes, plain output, or terminals without cursor control, `[gate].stream` chooses whether output appears immediately with labels or stays grouped by job.",
+                "A live terminal shows what is running and what it is saying together. For CI, pipes, plain output, or terminals without cursor control, `[gate].stream_output` chooses whether output appears immediately with labels or stays grouped by job.",
             },
           },
           {

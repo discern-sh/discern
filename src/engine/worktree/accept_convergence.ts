@@ -177,7 +177,7 @@ export async function convergeMainCheckout(
       const run = gateRunContext(
         mainRepo,
         landingConfig,
-        resolveGateRunPolicy(landingConfig.gate.stream, {
+        resolveGateRunPolicy(landingConfig.gate.stream_output, {
           kind: "quiet-result",
         }),
         signal,

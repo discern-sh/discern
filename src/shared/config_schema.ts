@@ -915,7 +915,7 @@ const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
   ).describe(CONFIG_PROSE.standards.what);
 
 const gateSection = z.strictObject({
-  stream: z.boolean().default(false).describe(
+  stream_output: z.boolean().default(false).describe(
     "false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the gate frame's bounded tail; CI, pipes, and --plain are static.",
   ),
   fail_fast: z.boolean().default(true).describe(

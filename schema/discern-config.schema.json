@@ -1409,7 +1409,7 @@
       "default": {},
       "type": "object",
       "properties": {
-        "stream": {
+        "stream_output": {
           "default": false,
           "description": "false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the gate frame's bounded tail; CI, pipes, and --plain are static.",
           "type": "boolean"

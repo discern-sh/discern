@@ -1137,15 +1137,15 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
       async (dir) => {
         // Valid: "true"/"false" pass through tomlBool.
         const ok = await runCli(
-          ["config", "set", "gate.stream", "true", "--bool"],
+          ["config", "set", "gate.stream_output", "true", "--bool"],
           dir,
         );
         assertEquals(ok.code, 0, ok.stderr);
-        assertStringIncludes(await readToml(dir), "stream = true");
+        assertStringIncludes(await readToml(dir), "stream_output = true");
 
         // Invalid: a non-boolean value for a boolean key is refused.
         const bad = await runCli(
-          ["config", "set", "gate.stream", "yes", "--bool", "--json"],
+          ["config", "set", "gate.stream_output", "yes", "--bool", "--json"],
           dir,
         );
         assertEquals(bad.code, 1);

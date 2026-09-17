@@ -402,10 +402,10 @@ Deno.test("dead-position matching: keyed rows win over a same-path wildcard, in 
   assertEquals(deadConfigPosition("elsewhere", ["old"], table), undefined);
 });
 
-Deno.test("gate.fail_fast defaults ON; gate.stream defaults OFF", () => {
+Deno.test("gate.fail_fast defaults ON; gate.stream_output defaults OFF", () => {
   const c = parseConfigOrThrow("");
   assertEquals(c.gate.fail_fast, true);
-  assertEquals(c.gate.stream, false);
+  assertEquals(c.gate.stream_output, false);
   assertEquals(c.gate.concurrent_test_runs, 1);
   const off = parseConfigOrThrow("[gate]\nfail_fast = false\n");
   assertEquals(off.gate.fail_fast, false);
@@ -783,7 +783,9 @@ Deno.test("settableConfigValueKind reads the schema's type at a path", () => {
     kind: "string-array",
   });
   assertEquals(settableConfigValueKind("gate.timeout"), { kind: "number" });
-  assertEquals(settableConfigValueKind("gate.stream"), { kind: "boolean" });
+  assertEquals(settableConfigValueKind("gate.stream_output"), {
+    kind: "boolean",
+  });
   assertEquals(settableConfigValueKind("project.agents"), {
     kind: "string-array",
   });

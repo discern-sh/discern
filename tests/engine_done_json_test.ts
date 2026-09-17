@@ -397,7 +397,7 @@ Deno.test("done --json: stream-enabled failures capture output into the diagnost
         "lint = \"printf 'STREAM-JSON-MARKER\\n'; exit 1\"",
         "",
         "[gate]",
-        "stream = true",
+        "stream_output = true",
         "",
       ].join("\n"),
     );

@@ -119,7 +119,7 @@ aliases:
   - "checkpoints.<name>.question_file"
   - "checkpoints.<name>.teach"
   - "checkpoints.<name>.reference"
-  - "gate.stream"
+  - "gate.stream_output"
   - "gate.fail_fast"
   - "gate.timeout"
   - "gate.concurrent_test_runs"
@@ -536,7 +536,7 @@ How `discern done` runs its parallel stages. Fail-fast, a per-command time budge
 
 | Key                    | Type    | Default | Description                                                                                                                                                                                                     |
 | ---------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stream`               | boolean | `false` | false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the gate frame's bounded tail; CI, pipes, and --plain are static.                       |
+| `stream_output`        | boolean | `false` | false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the gate frame's bounded tail; CI, pipes, and --plain are static.                       |
 | `fail_fast`            | boolean | `true`  | Cancel the in-flight sibling commands the moment one fails; an agent-driven gate wants a fast abort. false runs every job and shows all failures in one pass.                                                   |
 | `timeout`              | number  | `600`   | Time budget in seconds for every command the gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the gate. 0 removes the bound. |
 | `concurrent_test_runs` | number  | `1`     | How many test stages may run on this machine at once; the rest wait for a slot. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>` shares the cap.                                               |

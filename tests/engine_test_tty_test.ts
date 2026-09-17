@@ -25,7 +25,7 @@ function config(command: string, stream = false): string {
     "",
     "[instructions]",
     "sources = []",
-    ...(stream ? ["", "[gate]", "stream = true"] : []),
+    ...(stream ? ["", "[gate]", "stream_output = true"] : []),
     "",
     "[jobs]",
     `test = ${JSON.stringify(command)}`,

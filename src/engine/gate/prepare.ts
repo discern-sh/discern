@@ -182,7 +182,7 @@ async function runPrepareGate(
 > {
   const cfg = await loadConfig(root);
   assertManagedMaterialWritable(cfg);
-  const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
+  const policy = resolveGateRunPolicy(cfg.gate.stream_output, surface);
   const plan = buildPreparePlan(cfg);
   const groups = [...plan.beforeRefresh, ...plan.afterRefresh];
   const { runOpts, out, runOut, flushDeferredOutput, slots } = gateRunContext(
