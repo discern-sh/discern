@@ -65,26 +65,6 @@ function recordsByStringField(
   return indexed;
 }
 
-/** Preserve the relative order of every existing member while allowing insertions. */
-function compareAppendOnlyOrder(
-  previous: readonly string[],
-  current: readonly string[],
-  path: string,
-  issues: string[],
-): void {
-  let cursor = 0;
-  for (const member of previous) {
-    const index = current.indexOf(member, cursor);
-    if (index < 0) {
-      issues.push(
-        `${path}: removed or reordered member ${JSON.stringify(member)}`,
-      );
-      return;
-    }
-    cursor = index + 1;
-  }
-}
-
 /** Existing MCP request schemas stay fixed except for optional properties. */
 function compareMcpInputSchema(
   previous: JsonValue | undefined,
@@ -200,12 +180,6 @@ function mcpToolsManifestCompatibilityIssues(
   const afterByName = recordsByStringField(
     after,
     "name",
-    "$.tools",
-    issues,
-  );
-  compareAppendOnlyOrder(
-    [...beforeByName.keys()],
-    [...afterByName.keys()],
     "$.tools",
     issues,
   );
@@ -376,26 +350,63 @@ function compareCliCommand(
     `${path}.aliases`,
     issues,
   );
-  const priorPositionals = objectArray(
+  comparePositionals(
     previous.positionals,
-    `${path}.positionals`,
-    issues,
-  );
-  const nextPositionals = objectArray(
     current.positionals,
     `${path}.positionals`,
     issues,
   );
-  priorPositionals.forEach((positional, index) => {
-    if (!sameJson(positional, nextPositionals[index])) {
-      issues.push(
-        `${path}.positionals[${index}]: changed or removed from ${
-          json(positional)
-        } to ${json(nextPositionals[index])}`,
+  compareCliFlags(previous.flags, current.flags, `${path}.flags`, issues);
+}
+
+/**
+ * Existing positionals keep their place, name, requiredness, arity, and value
+ * types, and their accepted values are append-only. A new positional must be
+ * optional and trailing, so an invocation written against the baseline still
+ * parses.
+ */
+function comparePositionals(
+  previous: JsonValue | undefined,
+  current: JsonValue | undefined,
+  path: string,
+  issues: string[],
+): void {
+  const before = objectArray(previous, path, issues);
+  const after = objectArray(current, path, issues);
+  before.forEach((positional, index) => {
+    const next = after[index];
+    const slotPath = `${path}[${index}]`;
+    if (next === undefined) {
+      issues.push(`${slotPath}: removed ${json(positional)}`);
+      return;
+    }
+    for (const key of ["name", "optional", "variadic", "value_types"]) {
+      if (!sameJson(positional[key], next[key])) {
+        issues.push(
+          `${pathKey(slotPath, key)}: changed from ${
+            json(positional[key])
+          } to ${json(next[key])}`,
+        );
+      }
+    }
+    if (positional.choices !== undefined || next.choices !== undefined) {
+      compareAppendOnlyStrings(
+        positional.choices,
+        next.choices,
+        `${slotPath}.choices`,
+        issues,
       );
     }
   });
-  compareCliFlags(previous.flags, current.flags, `${path}.flags`, issues);
+  after.slice(before.length).forEach((positional, offset) => {
+    if (positional.optional !== true) {
+      issues.push(
+        `${path}[${before.length + offset}]: added required positional ${
+          json(positional.name)
+        }`,
+      );
+    }
+  });
 }
 
 /** Compare the frozen CLI grammar. */
@@ -420,12 +431,6 @@ function cliManifestCompatibilityIssues(
   const after = objectArray(current.commands, "$.commands", issues);
   const beforeByPath = commandsByPath(before, "$.commands", issues);
   const afterByPath = commandsByPath(after, "$.commands", issues);
-  compareAppendOnlyOrder(
-    [...beforeByPath.keys()],
-    [...afterByPath.keys()],
-    "$.commands",
-    issues,
-  );
   for (const [id, prior] of beforeByPath) {
     const next = afterByPath.get(id);
     if (next === undefined) {

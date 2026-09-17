@@ -2177,6 +2177,138 @@ Deno.test("tool input enums and flag choices are append-only", () => {
   );
 });
 
+/** The live CLI grammar manifest, for probes against real command records. */
+function liveCliManifest(): JsonObject {
+  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === CLI_COMPATIBILITY_POLICY
+  );
+  assert(publication !== undefined);
+  return buildCurrentPublicSchema(publication);
+}
+
+/** The live MCP tools manifest. */
+function liveMcpManifest(): JsonObject {
+  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === MCP_TOOLS_COMPATIBILITY_POLICY
+  );
+  assert(publication !== undefined);
+  return buildCurrentPublicSchema(publication);
+}
+
+/** One live command record by its path. */
+function liveCommand(manifest: JsonObject, ...path: string[]): JsonObject {
+  const commands = manifest.commands as JsonObject[];
+  const record = commands.find((entry) =>
+    JSON.stringify(entry.path) === JSON.stringify(path)
+  );
+  assert(record !== undefined, `${path.join(" ")} is a live command`);
+  return record;
+}
+
+Deno.test("a new positional must be optional and trailing; existing positionals and choices are held", () => {
+  const baseline = liveCliManifest();
+  const requiredAppended = clone(baseline);
+  (liveCommand(requiredAppended, "status").positionals as JsonValue[]).push({
+    name: "target",
+    optional: false,
+    variadic: false,
+    value_types: ["string"],
+  });
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      requiredAppended,
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    ['$.commands[path=["status"]].positionals[0]: added required positional "target"'],
+  );
+
+  const optionalAppended = clone(baseline);
+  (liveCommand(optionalAppended, "status").positionals as JsonValue[]).push({
+    name: "target",
+    optional: true,
+    variadic: false,
+    value_types: ["string"],
+  });
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      optionalAppended,
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+
+  const action = (liveCommand(baseline, "accept").positionals as JsonObject[])[
+    0
+  ];
+  assert(action !== undefined && Array.isArray(action.choices));
+  assert(action.choices.length > 1, "the accept action lists its choices");
+  const choiceRemoved = clone(baseline);
+  const nextAction = (liveCommand(choiceRemoved, "accept")
+    .positionals as JsonObject[])[0];
+  assert(nextAction !== undefined && Array.isArray(nextAction.choices));
+  const dropped = nextAction.choices.pop();
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      choiceRemoved,
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    [
+      `$.commands[path=["accept"]].positionals[0].choices: removed ${
+        JSON.stringify(dropped)
+      }`,
+    ],
+  );
+  const choiceAdded = clone(baseline);
+  ((liveCommand(choiceAdded, "accept").positionals as JsonObject[])[0]
+    ?.choices as JsonValue[]).push("rehearse");
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      choiceAdded,
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+
+  const retyped = clone(baseline);
+  const retypedAction = (liveCommand(retyped, "accept")
+    .positionals as JsonObject[])[0];
+  assert(retypedAction !== undefined);
+  retypedAction.value_types = ["string"];
+  assert(
+    publicSchemaCompatibilityIssues(baseline, retyped, CLI_COMPATIBILITY_POLICY)
+      .some((issue) => issue.includes("positionals[0].value_types")),
+  );
+});
+
+Deno.test("the listing order of commands and tools is not a promise", () => {
+  const cli = liveCliManifest();
+  const reorderedCli = clone(cli);
+  (reorderedCli.commands as JsonValue[]).reverse();
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      cli,
+      reorderedCli,
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+  const mcp = liveMcpManifest();
+  const reorderedMcp = clone(mcp);
+  (reorderedMcp.tools as JsonValue[]).reverse();
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      mcp,
+      reorderedMcp,
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+});
+
 Deno.test("malformed public schemas fail before structural compatibility", () => {
   const malformedRequired = clone(CONFIG_INPUT_FIXTURE);
   malformedRequired.required = 7;
