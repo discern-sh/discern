@@ -825,6 +825,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         phrase: "not_on_integration_branch",
         pattern: String.raw`\bnot_on_integration_branch\b`,
       },
+      {
+        // The retired missing-trunk error slug (now no_trunk).
+        phrase: "no_target",
+        pattern: String.raw`\bno_target\b`,
+      },
     ],
   },
   {

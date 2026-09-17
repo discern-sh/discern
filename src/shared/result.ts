@@ -416,7 +416,7 @@ export const ERROR_SLUGS = [
   "no_project",
   "no_repository",
   "no_such_step",
-  "no_target",
+  "no_trunk",
   "not_found",
   "not_main_checkout",
   "not_on_setup_branch",

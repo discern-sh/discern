@@ -4112,7 +4112,7 @@ export const ERROR_FAILURE_RECOVERY = {
   no_project: "evidence",
   no_repository: "evidence",
   no_such_step: "evidence",
-  no_target: "evidence",
+  no_trunk: "evidence",
   not_found: "tailored",
   not_main_checkout: "evidence",
   not_on_trunk: "evidence",

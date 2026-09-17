@@ -424,7 +424,7 @@ export async function runSetupAccept(
     // both surfaces identically, rather than dead-ending.
     return emitAccept(opts, log, {
       ok: false,
-      error: "no_target",
+      error: "no_trunk",
       message:
         `The trunk branch \`${target}\` does not exist in this repository. In a ` +
         `brand-new repository the first commits are born on \`${branch}\`, so there is no ` +

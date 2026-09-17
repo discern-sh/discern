@@ -741,7 +741,7 @@ Deno.test("setup accept refuses when the integration branch does not exist", asy
     assertEquals(res.code, 1, res.output);
     assertEquals(
       decodeCliResult(res.stdout, "setup accept").error,
-      "no_target",
+      "no_trunk",
     );
   });
 });

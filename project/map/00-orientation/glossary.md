@@ -83,6 +83,7 @@ aliases:
   - integration branch
   - discern_main_branch
   - not_on_integration_branch
+  - no_target
   - borrowed checkout
   - released checkout
   - retained checkout
