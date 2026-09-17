@@ -52,6 +52,8 @@ export interface CliOption {
   hidden: boolean;
   /** True for a root `globalOption` inherited by every command. */
   global: boolean;
+  /** Accepted values for a flag whose single value has an enum type, in declaration order. */
+  choices?: string[];
 }
 
 /** One command in the live tree, with its full subcommand subtree. */
@@ -104,6 +106,17 @@ interface CommandView {
   getCommands(hidden?: boolean): CommandView[];
 }
 
+/** The accepted values of one registered enum type, or nothing for any other type. */
+function enumChoices(
+  cmd: CommandView,
+  type: string | undefined,
+): { choices?: string[] } {
+  const handler = type === undefined ? undefined : cmd.getType(type)?.handler;
+  return handler instanceof EnumType
+    ? { choices: handler.values().map(String) }
+    : {};
+}
+
 /** Walk one command into the plain model, `path` naming its position. */
 function walkCommand(
   cmd: CommandView,
@@ -120,18 +133,13 @@ function walkCommand(
     aliases: cmd.getAliases(),
     hidden,
     usage: args.length === 0 ? cmd.getUsage() : "",
-    args: args.map((a) => {
-      const handler = cmd.getType(a.type)?.handler;
-      return {
-        name: a.name,
-        optional: a.optional,
-        variadic: a.variadic,
-        value_types: [a.type],
-        ...(handler instanceof EnumType
-          ? { choices: handler.values().map(String) }
-          : {}),
-      };
-    }),
+    args: args.map((a) => ({
+      name: a.name,
+      optional: a.optional,
+      variadic: a.variadic,
+      value_types: [a.type],
+      ...enumChoices(cmd, a.type),
+    })),
     options: cmd.getOptions(true).map((o) => ({
       flags: [...o.flags],
       description: o.description,
@@ -141,6 +149,7 @@ function walkCommand(
       default_value: o.default ?? null,
       hidden: o.hidden === true,
       global: o.global === true,
+      ...(o.args?.length === 1 ? enumChoices(cmd, o.args[0]?.type) : {}),
     })),
     children: cmd.getCommands(true).map((c) =>
       walkCommand(

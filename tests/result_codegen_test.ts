@@ -6,7 +6,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import type { Ajv2020 } from "ajv-2020";
-import { Command } from "@cliffy/command";
+import { Command, EnumType } from "@cliffy/command";
 import { z } from "@zod/zod";
 import {
   buildProofNoteJsonSchema,
@@ -48,6 +48,7 @@ import {
 } from "../src/shared/result.ts";
 import { RESULT_COMPLETION_POLICIES } from "../src/shared/result_completion.ts";
 import { buildCli } from "../src/main.ts";
+import { cliCommandModel } from "../src/shared/cli_reference_codegen.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 import { withOpenVocabulariesAsStrings } from "../src/shared/result_vocabulary.ts";
 import type { DiscernTidyResult } from "../types/discern-json.d.ts";
@@ -786,6 +787,30 @@ Deno.test("command aliases normalize to their canonical JSON contract path", () 
   assertEquals(normalizeCliCommandPath(root, "config read"), "config read");
   assertEquals(normalizeCliCommandPath(root, "cfg r"), "config read");
   assertEquals(normalizeCliCommandPath(root, "cfg missing"), undefined);
+});
+
+Deno.test("the CLI manifest records the accepted values of an enum-typed flag and positional from the command's registered type", () => {
+  const root = new Command().name("fixture");
+  root.command(
+    "probe",
+    new Command()
+      .description("Inspect one fact.")
+      .type("probe-mode", new EnumType(["fast", "deep"]))
+      .arguments("<target:probe-mode>")
+      .option("--mode <mode:probe-mode>", "Select a mode.")
+      .option("--label <label:string>", "Name the probe."),
+  );
+  const manifest = buildCliManifest(cliCommandModel(root));
+  const probe = manifest.commands.find((command) =>
+    command.path.join(" ") === "probe"
+  );
+  assert(probe !== undefined, "the synthetic command is projected");
+  assertEquals(probe.positionals[0]?.choices, ["fast", "deep"]);
+  const byFlag = new Map(
+    probe.flags.map((flag) => [flag.spellings[0], flag.choices]),
+  );
+  assertEquals(byFlag.get("--mode"), ["fast", "deep"]);
+  assertEquals(byFlag.get("--label"), undefined);
 });
 
 Deno.test("MCP tools use the same schemas as the public result registry", () => {

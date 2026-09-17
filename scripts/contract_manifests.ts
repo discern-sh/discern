@@ -4,6 +4,7 @@ import { z } from "@zod/zod";
 import { buildCli } from "../src/main.ts";
 import {
   type CliArg,
+  type CliCommand,
   cliCommandModel,
   IMPLICIT_COMMAND_FLAGS,
   IMPLICIT_ROOT_FLAGS,
@@ -75,6 +76,8 @@ export interface CliManifestCommand {
     default: unknown;
     hidden: boolean;
     global: boolean;
+    /** Present only for a flag whose value has an enum type. */
+    choices?: string[];
   }>;
 }
 
@@ -145,8 +148,10 @@ export function buildMcpToolsManifest(): ContractManifest {
 }
 
 /** CLI grammar projected from the fully attached typed command model. */
-export function buildCliManifest(): CliContractManifest {
-  const commands = [...walkCliCommands(cliCommandModel(buildCli(false)))];
+export function buildCliManifest(
+  model: CliCommand = cliCommandModel(buildCli(false)),
+): CliContractManifest {
+  const commands = [...walkCliCommands(model)];
   return {
     $id: CLI_MANIFEST_ID,
     format: 1,
@@ -176,6 +181,9 @@ export function buildCliManifest(): CliContractManifest {
           default: option.default_value,
           hidden: option.hidden,
           global: option.global,
+          ...(option.choices === undefined
+            ? {}
+            : { choices: [...option.choices] }),
         })),
       };
     }),
