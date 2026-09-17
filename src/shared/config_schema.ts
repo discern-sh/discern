@@ -1146,10 +1146,13 @@ function summariseIssues(issues: ConfigIssue[]): string {
 }
 
 /** Turn one Zod issue into a {@link ConfigIssue}, with discern-specific hints
- * for retired config positions: dead positions come from the
- * DEAD_CONFIG_POSITIONS table, renamed keys from RETIRED_CONFIG_KEY_REDIRECTS
- * (both in vocabulary.ts), so retiring a position is a row, not a branch. */
-function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
+ * for retired config positions. Dead positions come from the live registry;
+ * renamed keys use an injectable lookup so the first future row can be proved
+ * without publishing a pre-release sentinel. */
+function toConfigIssues(
+  issue: z.core.$ZodIssue,
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
+): ConfigIssue[] {
   const path = issue.path.map((p) => String(p)).join(".");
   if (issue.code === "unrecognized_keys") {
     const keys = issue.keys.join(", ");
@@ -1159,7 +1162,7 @@ function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
         if (dead !== undefined) {
           return { path: key, message: dead.message(key) };
         }
-        const successor = retiredConfigKeySuccessor(key);
+        const successor = retiredLookup(key);
         return successor === undefined
           ? {
             kind: "unknown_root_section",
@@ -1211,9 +1214,14 @@ function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
 export function configSchemaIssues(
   parsed: unknown,
   schema: z.ZodType = configSchema,
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
 ): ConfigIssue[] {
   const result = schema.safeParse(parsed);
-  return result.success ? [] : result.error.issues.flatMap(toConfigIssues);
+  return result.success
+    ? []
+    : result.error.issues.flatMap((issue) =>
+      toConfigIssues(issue, retiredLookup)
+    );
 }
 
 /** Position-sensitive `[jobs]` rules that JSON Schema cannot express alone. */
@@ -1407,6 +1415,7 @@ function completedInstallMetadataIssues(parsed: unknown): ConfigIssue[] {
  * whose governing question source cannot be represented by the current schema. */
 export function validateConfigValue(
   parsed: unknown,
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
 ): { config: DiscernConfig | undefined; issues: ConfigIssue[] } {
   const jobIssues = jobFormIssues(parsed);
   const formIssues = [
@@ -1427,7 +1436,9 @@ export function validateConfigValue(
   const formOwners = new Set(
     jobIssues.map((issue) => issue.path.split(".").slice(0, 2).join(".")),
   );
-  const schemaIssues = result.error.issues.flatMap(toConfigIssues).filter(
+  const schemaIssues = result.error.issues.flatMap((issue) =>
+    toConfigIssues(issue, retiredLookup)
+  ).filter(
     (issue) => !formOwners.has(issue.path.split(".").slice(0, 2).join(".")),
   );
   return { config: undefined, issues: [...formIssues, ...schemaIssues] };
@@ -1724,6 +1735,7 @@ export function parseGoverningConfig(
  */
 export function parseConfig(
   text: string,
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
 ): { config: DiscernConfig | undefined; issues: ConfigIssue[] } {
   let parsed: unknown;
   try {
@@ -1731,7 +1743,7 @@ export function parseConfig(
   } catch (err) {
     throw new ConfigParseError(tomlSyntaxHint(err), { cause: err });
   }
-  return validateConfigValue(parsed);
+  return validateConfigValue(parsed, retiredLookup);
 }
 
 /**
@@ -2032,7 +2044,7 @@ export function configWriteIssues(text: string): ConfigIssue[] {
     ...semanticIssues,
     ...result.error.issues
       .filter((issue) => !isIncompleteRecordEntry(parsed, issue.path))
-      .flatMap(toConfigIssues),
+      .flatMap((issue) => toConfigIssues(issue)),
   ];
 }
 

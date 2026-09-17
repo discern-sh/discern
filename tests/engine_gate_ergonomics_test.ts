@@ -1,5 +1,5 @@
 /**
- * Engine tests for the long-job ergonomics (ADR 0006): `[gate].stream` (live
+ * Engine tests for the long-job ergonomics (ADR 0006): `[gate].stream_output` (live
  * line-prefixed output) and `[gate].fail_fast` (cancel in-flight siblings on
  * first failure). These drive `agent finish` with two independent commands in the
  * same parallel check stage: one fails fast and its sibling would otherwise
@@ -57,7 +57,7 @@ function failFastConfig(
     "",
     ...(opts.failFast === undefined ? [] : [
       "[gate]",
-      `stream = ${opts.stream ? "true" : "false"}`,
+      `stream_output = ${opts.stream ? "true" : "false"}`,
       `fail_fast = ${opts.failFast ? "true" : "false"}`,
     ]),
     "",

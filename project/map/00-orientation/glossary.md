@@ -60,32 +60,53 @@ aliases:
   - variance
   - worktree
   - worktree resource
+  - discern graduate
+  - discern setup land
   - queue reconciliation
   - compiled agent file
+  - coupling.in_gate config key
   - co-change advisory
   - harness
   - binary version
   - queue prefix
   - queue admission
   - file dispositions
+  - discern finish
+  - gate.stream config key
   - done --confirmed
+  - discern config set-capability
+  - discern config set-check
+  - capabilities config section
+  - checks config section
   - the binary's files
   - estate
-  - guidance
+  - guidance config section
+  - project.logbook config key
+  - docs config section
+  - recipes config section
   - discern script
+  - repository.proof_notes config key
   - criterion
+  - discern scopes
   - scopes.docs
   - co-managed seed
+  - discern ratchets
+  - discern config set-ratchet
+  - ratchets config section
   - early validation
   - lookahead
   - integration branch
   - discern_main_branch
   - not_on_integration_branch
+  - discern integrate
+  - worktree.port config key
+  - worktree.ignored_file_drift config key
   - borrowed checkout
   - released checkout
   - retained checkout
   - execution environment
   - candidate installation
+  - worktree.resources.<name>.gc config key
 ---
 
 <!-- This reference is generated from the product-term registry. -->

@@ -10,53 +10,46 @@ import {
   normalizeVerbVariant,
   RETIRED_COMMAND_REDIRECTS,
   retiredCommandMessage,
+  retiredCommandSuccessor,
   unknownCommandMessage,
   VERB_FORM_VARIANTS,
 } from "../src/shared/vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 
-/** Select a retired single-token command to prove root help hides redirects. */
+const SYNTHETIC_RETIRED_COMMAND_REDIRECTS = {
+  "zz-retired": "done",
+  "config zz-retired": "config set",
+} as const;
+
+/** Select a synthetic single-token retirement for variant checks. */
 function firstTopLevelRedirect(): [string, string] {
-  const entry = Object.entries(RETIRED_COMMAND_REDIRECTS).find(([command]) =>
-    !command.includes(" ")
+  const entry = Object.entries(SYNTHETIC_RETIRED_COMMAND_REDIRECTS).find(
+    ([command]) => !command.includes(" "),
   );
   assertExists(entry);
   return entry;
 }
 
-Deno.test("retired command spellings hard-error with their canonical successor", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    for (
-      const [retired, successor] of Object.entries(
-        RETIRED_COMMAND_REDIRECTS,
-      )
-    ) {
-      const retiredTokens = retired.split(" ");
-      const result = await runAgent(dir, retiredTokens);
-      assertEquals(result.code, 1, result.output);
-      assertTerminalTextIncludes(
-        result.stderr,
-        `✕ ${retiredCommandMessage(retired, successor)}`,
-      );
-
-      const json = await runAgent(dir, [...retiredTokens, "--json"]);
-      assertEquals(json.code, 1, json.output);
-      assertEquals(decodeCliResult(json.stdout, "discern"), {
-        ok: false,
-        verb: "discern",
-        error: "renamed_command",
-        message: retiredCommandMessage(retired, successor),
-        hints: [
-          HINTS["failure-recovery"].template({ verb: retired }),
-        ],
-      });
-    }
-  });
+Deno.test("retired command lookup and refusal copy work with synthetic rows", () => {
+  assertEquals(RETIRED_COMMAND_REDIRECTS, {});
+  for (
+    const [retired, successor] of Object.entries(
+      SYNTHETIC_RETIRED_COMMAND_REDIRECTS,
+    )
+  ) {
+    assertEquals(
+      retiredCommandSuccessor(retired, SYNTHETIC_RETIRED_COMMAND_REDIRECTS),
+      successor,
+    );
+    assertEquals(
+      retiredCommandMessage(retired, successor),
+      `\`discern ${retired}\` is not a discern command; run \`discern ${successor}\`.`,
+    );
+  }
 });
 
 Deno.test("a uniquely matching trailing-s variant only suggests the canonical command", async () => {
@@ -203,7 +196,7 @@ Deno.test("synonyms are suggestions only: none dispatches, every suggested verb 
       `synonym "${synonym}" must never be a registered verb`,
     );
     assert(
-      RETIRED_COMMAND_REDIRECTS[synonym] === undefined,
+      retiredCommandSuccessor(synonym) === undefined,
       `"${synonym}" cannot be both a retired spelling and a synonym`,
     );
     assert(
@@ -220,7 +213,7 @@ Deno.test("synonyms are suggestions only: none dispatches, every suggested verb 
 Deno.test("retired spellings are absent from the canonical verb registry", () => {
   for (
     const [retired, successor] of Object.entries(
-      RETIRED_COMMAND_REDIRECTS,
+      SYNTHETIC_RETIRED_COMMAND_REDIRECTS,
     ).filter(([command]) => !command.includes(" "))
   ) {
     assert(!KNOWN_VERBS.has(retired));

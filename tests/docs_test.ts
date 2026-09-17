@@ -26,10 +26,7 @@ import {
   withTempDir,
 } from "./helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
-import {
-  COMMAND_SYNONYM_SUGGESTIONS,
-  RETIRED_COMMAND_REDIRECTS,
-} from "../src/shared/vocabulary.ts";
+import { COMMAND_SYNONYM_SUGGESTIONS } from "../src/shared/vocabulary.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
 import { stageBundledManual } from "../scripts/build.ts";
 import {
@@ -1775,19 +1772,10 @@ Deno.test("help <verb> matches <verb> --help for every registered verb", async (
   });
 });
 
-Deno.test("help <target> points retired spellings and synonyms to canonical commands", async () => {
+Deno.test("help <target> points command synonyms to canonical commands", async () => {
   await withTempDir(async (dir) => {
     const docs = await makeDocsFixture(dir);
     const env = { DISCERN_DOCS_DIR: docs };
-    for (
-      const [retired, successor] of Object.entries(RETIRED_COMMAND_REDIRECTS)
-        .filter(([spelling]) => !spelling.includes(" "))
-    ) {
-      const r = await runCli(["help", retired], dir, env);
-      assertEquals(r.code, 1, r.stdout + r.stderr);
-      assertTerminalTextIncludes(r.stderr, "is not a discern command");
-      assertStringIncludes(r.stderr, successor);
-    }
     for (
       const [synonym, canonical] of Object.entries(COMMAND_SYNONYM_SUGGESTIONS)
     ) {

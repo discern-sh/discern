@@ -269,6 +269,10 @@ export const RETIRED_SYNONYM_FIELDS = {
     edit: "locked",
     reason: "a regex source; the guard proves it against its own phrase",
   },
+  launch: {
+    edit: "locked",
+    reason: "structural guard metadata for a retired launch spelling",
+  },
   allowed: { edit: "nested" },
 } as const satisfies Record<keyof RetiredSynonym, FieldSpec>;
 

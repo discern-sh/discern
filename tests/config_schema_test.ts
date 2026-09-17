@@ -31,6 +31,7 @@ import {
   DEAD_CONFIG_POSITIONS,
   deadConfigPosition,
   RETIRED_CONFIG_KEY_REDIRECTS,
+  retiredConfigKeySuccessor,
 } from "../src/shared/vocabulary.ts";
 import {
   KNOWN_JOBS,
@@ -247,14 +248,16 @@ Deno.test("current configs reject settings whose section home moved", () => {
   }
 });
 
-Deno.test("every retired top-level key is redirected to its successor", () => {
-  // Driven off the redirect table itself: a newly retired key enrols by being
-  // added there. Doubles as a collision guard — if a retired name is ever
-  // reintroduced as a live key, its config parses and this fails.
+Deno.test("a synthetic retired top-level key is redirected to its successor", () => {
+  assertEquals(RETIRED_CONFIG_KEY_REDIRECTS, {});
+  const redirects = { legacy_section: "instructions" } as const;
   for (
-    const [retired, successor] of Object.entries(RETIRED_CONFIG_KEY_REDIRECTS)
+    const [retired, successor] of Object.entries(redirects)
   ) {
-    const { config, issues } = parseConfig(`[${retired}.entry]\nvalue = 1\n`);
+    const { config, issues } = parseConfig(
+      `[${retired}.entry]\nvalue = 1\n`,
+      (key) => retiredConfigKeySuccessor(key, redirects),
+    );
     assertEquals(config, undefined, `[${retired}] should be rejected`);
     assertEquals(issues.length, 1, JSON.stringify(issues));
     assertEquals(issues[0]?.path, retired);

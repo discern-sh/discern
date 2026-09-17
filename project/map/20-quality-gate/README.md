@@ -29,7 +29,7 @@ Use `discern done` on the intended final commit. A green run on a clean branch a
 
 ## Live terminal presentation
 
-On a cursor-controlled terminal, `done`, `prepare`, `test`, and human composite gate runs share the package activity frame: lifecycle facts stay pinned; complete and partial subprocess lines feed a bounded tail. `[gate].stream` never gates this frame.
+On a cursor-controlled terminal, `done`, `prepare`, `test`, and human composite gate runs share the package activity frame: lifecycle facts stay pinned; complete and partial subprocess lines feed a bounded tail. `[gate].stream_output` never gates this frame.
 
 The package fits full, then compact, then append-only output. Resizes retain the same producer feed; interrupts restore the cursor. Success leaves stable facts without replaying the tail. Failure follows them with diagnostics and the full-output-artifact route.
 
