@@ -90,7 +90,7 @@ const ANSWERS = JSON.stringify({
         ensure: "tool database ensure",
         required: false,
         retries: 3,
-        gc: false,
+        prunable: false,
       },
     },
     setup: {

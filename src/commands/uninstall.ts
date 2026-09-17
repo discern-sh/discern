@@ -725,7 +725,7 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
   // entry holds the ONLY destroy command (frozen at create time) for an
   // external resource, so removing the runtime-state namespace would leak the
   // resource for good. `discern worktree prune` reclaims GC-eligible orphans;
-  // an entry marked `gc = false` needs its project's own teardown.
+  // an entry marked `prunable = false` needs its project's own teardown.
   const commonGitDir = await resolveCommonGitDir(root);
   const ledger = commonGitDir === undefined
     ? []

@@ -411,7 +411,7 @@ const COMPLETE_RECORD_DOC = {
         ensure: "tool database ensure",
         required: false,
         retries: 5,
-        gc: false,
+        prunable: false,
       },
     },
   },
@@ -526,7 +526,7 @@ Deno.test("the config document projects the exact bounded setup and worktree sch
           ensure: "tool cache ensure",
           required: false,
           retries: 3,
-          gc: false,
+          prunable: false,
         },
       },
       setup: {

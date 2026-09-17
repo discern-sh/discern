@@ -416,7 +416,7 @@ Deno.test("gate.fail_fast defaults ON; gate.stream_output defaults OFF", () => {
   );
 });
 
-Deno.test("worktree resource defaults: required/gc default true, retries 0, commands empty", () => {
+Deno.test("worktree resource defaults: required/prunable default true, retries 0, commands empty", () => {
   const c = parseConfigOrThrow(
     `[worktree.resources.db]\ncreate = "make-db"\n`,
   );
@@ -426,7 +426,7 @@ Deno.test("worktree resource defaults: required/gc default true, retries 0, comm
   assertEquals(db.destroy, "");
   assertEquals(db.ensure, "");
   assertEquals(db.required, true);
-  assertEquals(db.gc, true);
+  assertEquals(db.prunable, true);
   assertEquals(db.retries, 0);
 });
 

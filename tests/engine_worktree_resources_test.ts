@@ -382,7 +382,7 @@ Deno.test("worktree prune tears down every removed worktree resource in the same
       [
         'create  = "mkdir -p @MARKERS@ && touch @MARKERS@/@resource@.live"',
         'destroy = "rm -f @MARKERS@/@resource@.live && touch @MARKERS@/@resource@.gone && echo emulator >> @MARKERS@/destroy-order"',
-        "gc      = false",
+        "prunable = false",
       ].join("\n"),
       "emulator",
     );
@@ -458,7 +458,7 @@ Deno.test("worktree prune keeps a checkout when its teardown-only resource canno
       [
         'create  = "true"',
         'destroy = "false"',
-        "gc      = false",
+        "prunable = false",
       ].join("\n"),
     );
     const setup = await runAgent(wt, ["worktree", "setup"]);

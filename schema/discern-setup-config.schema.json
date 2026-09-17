@@ -1268,7 +1268,7 @@
                 "minimum": 0,
                 "maximum": 5
               },
-              "gc": {
+              "prunable": {
                 "default": true,
                 "description": "false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.",
                 "type": "boolean"

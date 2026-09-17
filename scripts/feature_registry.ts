@@ -885,13 +885,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "worktree-resources",
         title: "Per-worktree resources",
         what:
-          "`[worktree.resources.<name>]` declares an external thing a worktree needs in isolation — a database, an emulator, a container — as a `create` and a `destroy` command with optional `ensure`, `required`, `retries`, and `gc`. Resources are created top-to-bottom, destroyed bottom-to-top, and expanded with `@…@` identity tokens.",
+          "`[worktree.resources.<name>]` declares an external thing a worktree needs in isolation — a database, an emulator, a container — as a `create` and a `destroy` command with optional `ensure`, `required`, `retries`, and `prunable`. Resources are created top-to-bottom, destroyed bottom-to-top, and expanded with `@…@` identity tokens.",
         why:
           "Isolation extends past the checkout to everything the checkout touches.",
         plain: {
           title: "Separate supporting services for each copy",
           what:
-            "`[worktree.resources.<name>]` declares an outside thing a working copy needs for itself — an information store, a stand-in device, an isolated packaged app — as a `create` instruction and a `destroy` instruction, with the optional choices `ensure`, `required`, `retries`, and `gc`. discern creates services top to bottom, removes them bottom to top, and fills placeholders written `@…@` with the copy's real identity.",
+            "`[worktree.resources.<name>]` declares an outside thing a working copy needs for itself — an information store, a stand-in device, an isolated packaged app — as a `create` instruction and a `destroy` instruction, with the optional choices `ensure`, `required`, `retries`, and `prunable`. discern creates services top to bottom, removes them bottom to top, and fills placeholders written `@…@` with the copy's real identity.",
           why:
             "Separation covers not just the project's files but everything those files use.",
         },

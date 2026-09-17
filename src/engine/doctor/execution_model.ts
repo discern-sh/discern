@@ -122,7 +122,7 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "resource-destroy": {
     actor: "project",
     hint:
-      "Your `destroy` command for a per-worktree external resource. Runs at accept/teardown AND at orphan GC (`worktree prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
+      "Your `destroy` command for a per-worktree external resource. Runs at accept/teardown AND at orphan GC (`worktree prune`); author it idempotent and cwd-independent, and set `prunable = false` for a data-loss-sensitive resource you only want torn down explicitly.",
   },
   git: {
     actor: "discern",
@@ -613,8 +613,8 @@ function pruneVerb(cfg: DiscernConfig): VerbPlan {
     if (r.destroy !== "") {
       steps.push(step("resource-destroy", verbatimStepLabel(name), {
         note: r.destroy,
-        condition: r.gc === false
-          ? "never — gc = false (teardown-only; reclaimed only by an explicit accept/teardown)"
+        condition: r.prunable === false
+          ? "never — prunable = false (teardown-only; reclaimed only by an explicit accept/teardown)"
           : "if orphaned (its worktree vanished without a clean teardown)",
       }));
     }

@@ -46,7 +46,7 @@ function entry(over: Partial<ResourceEntry> = {}): ResourceEntry {
     destroy_command: "drop app-a-db",
     token_map: {},
     retries: 0,
-    gc: true,
+    prunable: true,
     created_at: "2026-01-01T00:00:00.000Z",
     ...over,
   };
@@ -90,9 +90,9 @@ Deno.test("classifyOrphans: a live git_key, path, OR handle keeps the entry", ()
   assertEquals(byHandle.reclaimable.length, 0);
 });
 
-Deno.test("classifyOrphans: a gc=false entry is never reclaimed (teardown-only)", () => {
+Deno.test("classifyOrphans: a non-prunable entry is never reclaimed (teardown-only)", () => {
   const { reclaimable, kept } = classifyOrphans(
-    items(entry({ gc: false })),
+    items(entry({ prunable: false })),
     NO_LIVE,
   );
   assertEquals(reclaimable.length, 0);
@@ -104,7 +104,7 @@ Deno.test("classifyOrphans: partitions a mixed ledger, preserving order", () => 
   const orphanA = entry({ git_key: "x", resource_identity: "app-x-db" });
   const guarded = entry({
     git_key: "y",
-    gc: false,
+    prunable: false,
     resource_identity: "app-y",
   });
   const orphanB = entry({ git_key: "z", resource_identity: "app-z-db" });
@@ -116,7 +116,7 @@ Deno.test("classifyOrphans: partitions a mixed ledger, preserving order", () => 
     "app-x-db",
     "app-z-db",
   ]);
-  assertEquals(kept, 2); // the live one + the gc=false one
+  assertEquals(kept, 2); // the live one + the non-prunable one
 });
 
 // ── plan projections ───────────────────────────────────────────────────────────

@@ -91,9 +91,9 @@ export interface ResourceSpec {
   required: boolean;
   /** Retries for create/destroy on a non-zero exit, with backoff (default 0). */
   retries: number;
-  /** May orphan-GC reclaim this resource? (default true; opt out for data-loss-
-   * sensitive resources so they are only torn down via explicit teardown). */
-  gc: boolean;
+  /** May orphan GC reclaim this resource? (default true; data-loss-sensitive
+   * resources can opt out so only explicit teardown removes them). */
+  prunable: boolean;
 }
 
 /** A required resource lifecycle command failed with its config identity intact. */
@@ -138,7 +138,7 @@ const resourceEntrySchema = z.object({
   /** Retries to honour when running destroy. */
   retries: z.number(),
   /** Whether orphan GC may reclaim this resource. */
-  gc: z.boolean(),
+  prunable: z.boolean(),
   created_at: z.string(),
 });
 
@@ -156,7 +156,7 @@ export function readResourceSpecs(config: DiscernConfig): ResourceSpec[] {
     ensure: r.ensure,
     required: r.required,
     retries: r.retries,
-    gc: r.gc,
+    prunable: r.prunable,
   }));
 }
 
@@ -530,7 +530,7 @@ export async function createResources(
             resolver,
           ),
           retries: spec.retries,
-          gc: spec.gc,
+          prunable: spec.prunable,
           created_at: wallTimeIso(clock.wallNow()),
         };
         await writeEntry(commonGitDir, intent);
@@ -939,7 +939,7 @@ export interface LiveWorktrees {
 export interface OrphanClassification {
   /** Entries whose worktree is provably gone and that GC may reclaim. */
   reclaimable: LedgerItem[];
-  /** Count of entries kept: live, path/handle-guarded, or `gc = false`. */
+  /** Count of entries kept: live, path/handle-guarded, or not prunable. */
   kept: number;
 }
 
@@ -947,7 +947,7 @@ export interface OrphanClassification {
  * The PURE orphan-reclaim DECISION: given the ledger and the live-worktree
  * snapshot, which entries are orphans GC may reclaim and how many it keeps. An
  * entry is KEPT when its worktree is still live (by git_key, path, OR resource
- * handle — the recycling guard) or it opted out of GC (`gc = false`); everything
+ * handle — the recycling guard) or it opted out of GC (`prunable = false`); everything
  * else is reclaimable. No I/O — the liveness sets and the ledger are passed in, so
  * this is unit-testable in microseconds and is the load-bearing safety logic the
  * effectful `gcOrphanResources` and the prune plan both build on (ADR 0027).
@@ -963,7 +963,7 @@ export function classifyOrphans(
     const isLive = live.gitKeys.has(e.git_key) ||
       live.paths.has(e.worktree_path) ||
       live.identities.has(e.resource_identity);
-    if (isLive || e.gc === false) {
+    if (isLive || e.prunable === false) {
       kept++;
       continue;
     }
@@ -977,7 +977,7 @@ export function classifyOrphans(
  * by construction: it only ever runs a destroy command that is IN this project's
  * ledger, and only when the owning worktree is provably gone (its `git_key` is not
  * live) AND no live worktree still holds the path or the resource handle. A
- * `gc = false` entry is never reclaimed here (teardown-only). Deletion is
+ * `prunable = false` entry is never reclaimed here (teardown-only). Deletion is
  * compare-and-swap. Best-effort: a failed destroy keeps the entry to retry.
  *
  * The liveness sets passed in are a SNAPSHOT; the destroy loop can run for

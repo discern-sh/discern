@@ -570,7 +570,7 @@
   #   @worktree@      this worktree's base handle (slug-id)
   #   @resource@      this resource's handle (slug-id-name)
   #
-  # Params:  create, destroy, ensure, required, retries, gc
+  # Params:  create, destroy, ensure, required, retries, prunable
   # Help:    `discern config explain worktree.resources`
   # ───────────────────────────────────────────────────────────────────────────
 
@@ -592,8 +592,8 @@
     # ensure   = "ensure-thing @resource@"   # optional: reconcile drift at session start
     # required = true                          # optional: false = create failure is non-fatal
     # retries  = 0                             # optional: retry create/destroy N times
-    # gc       = true                          # optional: false = never orphan-prune it
-  #                                          #   (teardown-only; for data-loss-sensitive ones)
+    # prunable = true                          # optional: false = never orphan-prune it
+  #                                           #   (teardown-only; for data-loss-sensitive ones)
 
   # Worktree setup commands, run after resources are provisioned:
   #   steps   one-shot scaffolding, run once at creation.

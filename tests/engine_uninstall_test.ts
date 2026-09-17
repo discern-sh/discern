@@ -486,7 +486,7 @@ Deno.test("uninstall refuses while the resource ledger records provisioned resou
         destroy_command: "true",
         token_map: {},
         retries: 0,
-        gc: true,
+        prunable: true,
         created_at: "2026-01-01T00:00:00.000Z",
       }),
     );

@@ -849,7 +849,7 @@ const resourceValue = z.strictObject({
   retries: z.number().int().min(0).max(5).default(0).describe(
     "Retry create/destroy this many times.",
   ),
-  gc: z.boolean().default(true).describe(
+  prunable: z.boolean().default(true).describe(
     "false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.",
   ),
 });

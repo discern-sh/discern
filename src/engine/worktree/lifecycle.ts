@@ -4475,7 +4475,7 @@ interface ContainedReclaimResult {
  * confirmed — is skipped, never force-reclaimed. A failed resource teardown
  * stops that candidate's reclaim outright: the checkout keeps owning its
  * resources, because the prune GC has already run this invocation and a
- * guarded (`gc = false`) resource would otherwise be stranded forever.
+ * guarded (`prunable = false`) resource would otherwise be stranded forever.
  */
 async function reclaimContainedWorktrees(
   ctx: LifecycleContext,

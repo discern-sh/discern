@@ -76,7 +76,7 @@ aliases:
   - "worktree.resources.<name>.ensure"
   - "worktree.resources.<name>.required"
   - "worktree.resources.<name>.retries"
-  - "worktree.resources.<name>.gc"
+  - "worktree.resources.<name>.prunable"
   - "worktree.setup"
   - "worktree.setup.steps"
   - "worktree.setup.ensure"
@@ -355,7 +355,7 @@ Runtime tokens, expanded per worktree when a command runs:
 | `ensure`   | string  | `""`    | Idempotently reconcile drift or re-readiness at session start.                                                                                                         |
 | `required` | boolean | `true`  | false makes a create failure non-fatal, so setup continues.                                                                                                            |
 | `retries`  | number  | `0`     | Retry create/destroy this many times.                                                                                                                                  |
-| `gc`       | boolean | `true`  | false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.                                                       |
+| `prunable` | boolean | `true`  | false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.                                                       |
 
 A per-worktree database, so test runs never clash:
 
