@@ -11,6 +11,8 @@
  */
 
 import {
+  CHECKPOINT_WHEN_FIRE_EXIT_CODE,
+  CHECKPOINT_WHEN_MATCH_LINE_PREFIX,
   CHECKPOINT_WHEN_PASS_EXIT_CODE,
   type CheckpointWhenInput,
 } from "../src/shared/checkpoints.ts";
@@ -197,8 +199,12 @@ async function main(): Promise<number> {
     checkpointInvocationRoot(),
     input,
   );
-  for (const path of matches) console.log(`DISCERN_MATCH ${path}`);
-  return matches.length > 0 ? 0 : CHECKPOINT_WHEN_PASS_EXIT_CODE;
+  for (const path of matches) {
+    console.log(`${CHECKPOINT_WHEN_MATCH_LINE_PREFIX} ${path}`);
+  }
+  return matches.length > 0
+    ? CHECKPOINT_WHEN_FIRE_EXIT_CODE
+    : CHECKPOINT_WHEN_PASS_EXIT_CODE;
 }
 
 if (import.meta.main) {

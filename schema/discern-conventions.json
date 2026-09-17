@@ -45,6 +45,26 @@
     "child-passthrough": "class",
     "signal-passthrough": "class"
   },
+  "script_protocols": {
+    "metric": {
+      "line_prefix": "DISCERN_METRIC",
+      "line_grammar": "DISCERN_METRIC <name> <number>"
+    },
+    "checkpoint_when": {
+      "input_environment_variable": "DISCERN_CHECKPOINT_INPUT",
+      "input_version": 1,
+      "input_fields": [
+        "version",
+        "checkpoint",
+        "policy_commit",
+        "changed_files",
+        "history"
+      ],
+      "match_line_prefix": "DISCERN_MATCH",
+      "fire_exit_status": 0,
+      "pass_exit_status": 10
+    }
+  },
   "checkpoints": {
     "map-focus": "map.focus",
     "instruction-economy": "instructions.economy",

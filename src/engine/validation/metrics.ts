@@ -6,6 +6,13 @@ import {
 import type { GateStandard } from "../../shared/result_schemas.ts";
 import { withoutDiagnosticReports } from "../gate/diagnostics.ts";
 
+/** Prefix for one standards-producer metric line. */
+export const DISCERN_METRIC_LINE_PREFIX = "DISCERN_METRIC";
+const DISCERN_METRIC_LINE_PATTERN = new RegExp(
+  `(?:^|\\s)${DISCERN_METRIC_LINE_PREFIX}[ \\t]+(\\S+)(?:[ \\t]+(\\S+))?`,
+  "gu",
+);
+
 /** Format a normalized value compactly: integers bare, otherwise up to two decimals
  * with trailing zeros trimmed (18.699… → "18.7", 18 → "18"). */
 export function fmtRate(n: number): string {
@@ -133,7 +140,7 @@ export function readMetrics(output: string): Record<string, number> {
   const metrics: Record<string, number> = {};
   for (
     const marker of withoutDiagnosticReports(output).matchAll(
-      /(?:^|\s)DISCERN_METRIC[ \t]+(\S+)(?:[ \t]+(\S+))?/gu,
+      DISCERN_METRIC_LINE_PATTERN,
     )
   ) {
     const name = marker[1];
@@ -146,7 +153,7 @@ export function readMetrics(output: string): Record<string, number> {
       throw new Error(
         `metric '${name ?? "<missing>"}' value is not a number: '${
           token ?? "<missing>"
-        }'. Emit a finite DISCERN_METRIC value.`,
+        }'. Emit a finite ${DISCERN_METRIC_LINE_PREFIX} value.`,
       );
     }
     Object.defineProperty(metrics, name, {
@@ -170,7 +177,7 @@ export function standardReading(
     : undefined;
   if (value === undefined || !Number.isFinite(value)) {
     throw new Error(
-      `could not read metric '${definition.metric}'. Emit a line: DISCERN_METRIC ${definition.metric} <number>.`,
+      `could not read metric '${definition.metric}'. Emit a line: ${DISCERN_METRIC_LINE_PREFIX} ${definition.metric} <number>.`,
     );
   }
   const per = definition.per;

@@ -20,11 +20,19 @@ import {
 } from "../src/shared/public_schemas.ts";
 import {
   DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+  DISCERN_ENVIRONMENT_VARIABLES,
   type DiscernEnvironmentVariableDefinition,
   publicEnvironmentVariableDefinitions,
 } from "../src/shared/environment_variables.ts";
 import { BUNDLED_SKILL_NAMES } from "../src/lib/skills.ts";
-import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
+import {
+  BUILT_IN_CHECKPOINTS,
+  CHECKPOINT_WHEN_FIRE_EXIT_CODE,
+  CHECKPOINT_WHEN_INPUT_FIELDS,
+  CHECKPOINT_WHEN_INPUT_VERSION,
+  CHECKPOINT_WHEN_MATCH_LINE_PREFIX,
+  CHECKPOINT_WHEN_PASS_EXIT_CODE,
+} from "../src/shared/checkpoints.ts";
 import { QUESTION_IDS } from "../src/shared/questions.ts";
 import { HIDDEN_VERBS } from "../src/shared/hidden_verbs.ts";
 import {
@@ -34,6 +42,7 @@ import {
 import { WORKTREE_IDENTITY_CONTRACT } from "../src/shared/worktree_identity_contract.ts";
 import { GIT_CONVENTIONS } from "../src/shared/git_conventions.ts";
 import { EXIT_STATUS_REGISTRY } from "../src/shared/exit_codes.ts";
+import { DISCERN_METRIC_LINE_PREFIX } from "../src/engine/validation/metrics.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 
 export type ContractManifest = Readonly<Record<string, unknown>>;
@@ -182,6 +191,21 @@ export function buildConventionsManifest(
         entry.kind === "exact" ? entry.code : entry.kind,
       ]),
     ),
+    script_protocols: {
+      metric: {
+        line_prefix: DISCERN_METRIC_LINE_PREFIX,
+        line_grammar: `${DISCERN_METRIC_LINE_PREFIX} <name> <number>`,
+      },
+      checkpoint_when: {
+        input_environment_variable:
+          DISCERN_ENVIRONMENT_VARIABLES.checkpointInput,
+        input_version: CHECKPOINT_WHEN_INPUT_VERSION,
+        input_fields: [...CHECKPOINT_WHEN_INPUT_FIELDS],
+        match_line_prefix: CHECKPOINT_WHEN_MATCH_LINE_PREFIX,
+        fire_exit_status: CHECKPOINT_WHEN_FIRE_EXIT_CODE,
+        pass_exit_status: CHECKPOINT_WHEN_PASS_EXIT_CODE,
+      },
+    },
     checkpoints: Object.fromEntries(
       Object.entries(BUILT_IN_CHECKPOINTS).map(([id, checkpoint]) => [
         id,
