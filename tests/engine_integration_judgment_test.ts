@@ -196,7 +196,7 @@ Deno.test("a variance receipt cannot follow a recomposition even when the unmet 
         "--confirmed",
         "--variance",
         "record-review",
-        "--composition",
+        "--composition-receipt",
         served.id,
         "--json",
       ]);
@@ -253,7 +253,7 @@ Deno.test("a variance receipt cannot follow a recomposition even when the unmet 
         "--confirmed",
         "--variance",
         "record-review",
-        "--composition",
+        "--composition-receipt",
         replacement.id,
         "--json",
       ], { env: { GIT_BIN: shim } });
@@ -286,7 +286,7 @@ Deno.test("a variance receipt cannot follow a recomposition even when the unmet 
         "--confirmed",
         "--variance",
         "record-review",
-        "--composition",
+        "--composition-receipt",
         current.id,
         "--json",
       ]);
@@ -356,7 +356,7 @@ Deno.test("a renewed integration judgment is served, answered with accept --met,
           "accept",
           "--met",
           "record-review",
-          "--composition",
+          "--composition-receipt",
           "0000",
           "--confirmed",
           "--json",
@@ -366,7 +366,7 @@ Deno.test("a renewed integration judgment is served, answered with accept --met,
       await assertDirectState();
       const dangling = await runAgent(alpha, [
         "accept",
-        "--composition",
+        "--composition-receipt",
         "0000",
         "--confirmed",
         "--json",
@@ -402,7 +402,7 @@ Deno.test("a renewed integration judgment is served, answered with accept --met,
       // continuation commands and machine-readably in the data block.
       assertStringIncludes(
         refusal.message,
-        `--composition ${servedRecord.id}`,
+        `--composition-receipt ${servedRecord.id}`,
       );
       assert(refusal.data !== undefined && !("issues" in refusal.data));
       assertEquals(refusal.data.integration_judgment, {
@@ -453,7 +453,7 @@ Deno.test("a renewed integration judgment is served, answered with accept --met,
       const unboundResult = decodeCliResult(unbound.stdout, "accept");
       assertEquals(unboundResult.error, "invalid_value");
       assert(unboundResult.message !== undefined);
-      assertStringIncludes(unboundResult.message, "--composition");
+      assertStringIncludes(unboundResult.message, "--composition-receipt");
 
       // The judgment answered in place continues the landing: the retained
       // composition is proven and lands, with no author-side update, no new
@@ -462,7 +462,7 @@ Deno.test("a renewed integration judgment is served, answered with accept --met,
         "accept",
         "--met",
         "record-review",
-        "--composition",
+        "--composition-receipt",
         servedRecord.id,
         "--confirmed",
         "--json",
@@ -532,7 +532,7 @@ Deno.test("an unmet integration judgment routes to the owner's variance, and the
         "record-review",
         "--why",
         "The combined record reorders rows; a follow-up restores the index.",
-        "--composition",
+        "--composition-receipt",
         servedRecord.id,
         "--confirmed",
         "--json",
@@ -544,7 +544,7 @@ Deno.test("an unmet integration judgment routes to the owner's variance, and the
       assertStringIncludes(varianceStop.message, "record-review");
       assertStringIncludes(
         varianceStop.message,
-        `--confirmed --variance record-review --composition ${servedRecord.id}`,
+        `--confirmed --variance record-review --composition-receipt ${servedRecord.id}`,
       );
       assert(
         varianceStop.data !== undefined && !("issues" in varianceStop.data),
@@ -571,7 +571,7 @@ Deno.test("an unmet integration judgment routes to the owner's variance, and the
       const unboundResult = decodeCliResult(unbound.stdout, "accept");
       assertEquals(unboundResult.error, "awaiting_variance");
       assert(unboundResult.message !== undefined);
-      assertStringIncludes(unboundResult.message, "--composition");
+      assertStringIncludes(unboundResult.message, "--composition-receipt");
 
       // The owner's complete, receipt-bound decision lands the retained
       // composition.
@@ -580,7 +580,7 @@ Deno.test("an unmet integration judgment routes to the owner's variance, and the
         "--confirmed",
         "--variance",
         "record-review",
-        "--composition",
+        "--composition-receipt",
         servedRecord.id,
         "--json",
       ]);
@@ -812,7 +812,7 @@ Deno.test("stale answers before and after replacement serving never approve anot
         "accept",
         "--met",
         "record-review",
-        "--composition",
+        "--composition-receipt",
         reviewed.id,
         "--confirmed",
         "--json",
@@ -859,7 +859,7 @@ Deno.test("stale answers before and after replacement serving never approve anot
         "accept",
         "--met",
         "record-review",
-        "--composition",
+        "--composition-receipt",
         replacement.id,
         "--confirmed",
         "--json",
@@ -900,7 +900,7 @@ Deno.test("stale answers before and after replacement serving never approve anot
         "accept",
         "--met",
         "record-review",
-        "--composition",
+        "--composition-receipt",
         replacement.id,
         "--confirmed",
         "--json",
@@ -922,7 +922,7 @@ Deno.test("stale answers before and after replacement serving never approve anot
         "accept",
         "--met",
         "record-review",
-        "--composition",
+        "--composition-receipt",
         fresh.id,
         "--confirmed",
         "--json",
@@ -1054,7 +1054,7 @@ Deno.test("a superseded composition whose cleanup fails blocks replacement: one 
         "accept",
         "--met",
         "record-review",
-        "--composition",
+        "--composition-receipt",
         fresh.id,
         "--confirmed",
         "--json",

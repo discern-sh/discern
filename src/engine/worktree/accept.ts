@@ -207,7 +207,7 @@ export interface AcceptRequest {
   /** The served composition receipt this call's answer or variance decision
    * binds to — required with declarations, and with a variance decision
    * resumed onto a retained composition. */
-  readonly composition?: string;
+  readonly compositionReceipt?: string;
   /** The live command tree, required by the integration gate run when the
    * trunk moved after the submission's Proof. */
   readonly cliModel?: CliModelProvider;
@@ -1400,7 +1400,7 @@ async function landEffortOnce(
     if (direct && carriesContinuation(request)) {
       refusal(
         "invalid_value",
-        `This landing is direct — ${effort.branch}'s proven revision already contains the current ${effort.trunk} tip — so no integration judgment awaits an answer here. Re-run discern accept without --met/--unmet/--composition. ${ACCEPT_NOTHING_LANDED}`,
+        `This landing is direct — ${effort.branch}'s proven revision already contains the current ${effort.trunk} tip — so no integration judgment awaits an answer here. Re-run discern accept without --met/--unmet/--composition-receipt. ${ACCEPT_NOTHING_LANDED}`,
       );
     }
     // A direct landing supersedes any composition retained for this author's

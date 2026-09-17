@@ -107,7 +107,7 @@ export function acceptDeclarationArguments(
   emergency: boolean,
   unmet: string | undefined,
   why: string | undefined,
-  composition?: string,
+  compositionReceipt?: string,
 ): AcceptDeclarationArguments {
   const refuse = (message: string): AcceptDeclarationArguments => ({
     kind: "refusal",
@@ -115,10 +115,11 @@ export function acceptDeclarationArguments(
   });
   if (
     emergency &&
-    (unmet !== undefined || why !== undefined || composition !== undefined)
+    (unmet !== undefined || why !== undefined ||
+      compositionReceipt !== undefined)
   ) {
     return refuse(
-      "--unmet, --why, and --composition answer an ordinary landing's served integration question; emergency preparation records met conclusions only.",
+      "--unmet, --why, and --composition-receipt answer an ordinary landing's served integration question; emergency preparation records met conclusions only.",
     );
   }
   if ((unmet === undefined) !== (why === undefined)) {
@@ -144,7 +145,7 @@ export function acceptRequestFields(
     readonly variance?: string[] | undefined;
     readonly approveStandard?: string[] | undefined;
     readonly met?: string[] | undefined;
-    readonly composition?: string | undefined;
+    readonly compositionReceipt?: string | undefined;
   },
   unmet: { id: string; why: string } | undefined,
 ): Omit<AcceptRequest, "cliModel" | "signal"> {
@@ -157,7 +158,9 @@ export function acceptRequestFields(
     approveStandard: o.approveStandard ?? [],
     met: o.met ?? [],
     ...(unmet === undefined ? {} : { unmet }),
-    ...(o.composition === undefined ? {} : { composition: o.composition }),
+    ...(o.compositionReceipt === undefined
+      ? {}
+      : { compositionReceipt: o.compositionReceipt }),
   };
 }
 

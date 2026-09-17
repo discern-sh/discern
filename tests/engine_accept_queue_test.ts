@@ -52,7 +52,7 @@ Deno.test("accept queue-only plans, queues idempotently, and rejects changed or 
         { approveStandard: ["token"] },
         { met: ["question"] },
         { unmet: { id: "question", why: "reason" } },
-        { composition: "receipt" },
+        { compositionReceipt: "receipt" },
       ]
     ) {
       assertEquals((await queue(request)).error, "invalid_arguments");

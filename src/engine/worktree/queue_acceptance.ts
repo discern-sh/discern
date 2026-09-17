@@ -149,7 +149,7 @@ export async function queueAcceptanceResult(
   if (
     request.confirmed || request.variance.length > 0 ||
     request.approveStandard.length > 0 || request.met.length > 0 ||
-    request.unmet !== undefined || request.composition !== undefined
+    request.unmet !== undefined || request.compositionReceipt !== undefined
   ) {
     return {
       ok: false,

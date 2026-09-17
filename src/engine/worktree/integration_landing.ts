@@ -306,7 +306,7 @@ async function adoptRetainedComposition(input: {
   readonly log: Logger;
   readonly declarations?: IntegrationDeclarations;
   /** The served composition receipt the caller answers. */
-  readonly composition?: string;
+  readonly compositionReceipt?: string;
   readonly operationHandle?: string;
 }): Promise<RetainedAdoption> {
   const { effort, submission, log } = input;
@@ -350,14 +350,14 @@ async function adoptRetainedComposition(input: {
     // call. A mismatched receipt never reveals the current one — the current
     // composition's question must be served afresh, not shortcut.
     if (input.declarations !== undefined) {
-      if (input.composition === undefined) {
+      if (input.compositionReceipt === undefined) {
         return {
           kind: "invalid-declarations",
           reason:
-            "an answer binds to the composition that served it: pass --composition with the receipt from the served refusal, or re-run discern accept to be served the current composition's question. The retained composition is unchanged.",
+            "an answer binds to the composition that served it: pass --composition-receipt with the receipt from the served refusal, or re-run discern accept to be served the current composition's question. The retained composition is unchanged.",
         };
       }
-      if (input.composition !== retained.id) {
+      if (input.compositionReceipt !== retained.id) {
         return {
           kind: "invalid-declarations",
           reason:
@@ -460,7 +460,7 @@ export async function runIntegrationAttempt(input: {
    * unless a matching retained composition exists. */
   readonly declarations?: IntegrationDeclarations;
   /** The served composition receipt a continuation names. */
-  readonly composition?: string;
+  readonly compositionReceipt?: string;
   readonly operationHandle?: string;
   readonly signal?: AbortSignal;
 }): Promise<IntegrationAttempt> {
@@ -479,7 +479,9 @@ export async function runIntegrationAttempt(input: {
   if (adoption.kind === "adopted") {
     return await proveComposition(input, adoption.record, true);
   }
-  if (input.declarations !== undefined || input.composition !== undefined) {
+  if (
+    input.declarations !== undefined || input.compositionReceipt !== undefined
+  ) {
     return {
       kind: "judgment-stale",
       reason: adoption.staleReason ??

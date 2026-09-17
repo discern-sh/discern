@@ -68,10 +68,11 @@ export function carriesContinuation(
   request: {
     readonly met: readonly string[];
     readonly unmet?: unknown;
-    readonly composition?: string;
+    readonly compositionReceipt?: string;
   },
 ): boolean {
-  return carriesDeclarations(request) || request.composition !== undefined;
+  return carriesDeclarations(request) ||
+    request.compositionReceipt !== undefined;
 }
 
 /** The read-only refusal when a receipt arrives with nothing to bind: a
@@ -81,12 +82,12 @@ export function unboundCompositionRefusal(
   request: {
     readonly met: readonly string[];
     readonly unmet?: unknown;
-    readonly composition?: string;
+    readonly compositionReceipt?: string;
     readonly variance: readonly string[];
   },
 ): DiscernResult<AcceptData> | undefined {
   if (
-    request.composition === undefined || carriesDeclarations(request) ||
+    request.compositionReceipt === undefined || carriesDeclarations(request) ||
     request.variance.length > 0
   ) {
     return undefined;
@@ -96,7 +97,7 @@ export function unboundCompositionRefusal(
     verb: "accept",
     error: "invalid_arguments",
     message:
-      "--composition binds an answer or a variance decision to the composition that served it; pass it with --met/--unmet or --confirmed --variance.",
+      "--composition-receipt binds an answer or a variance decision to the composition that served it; pass it with --met/--unmet or --confirmed --variance.",
   };
 }
 

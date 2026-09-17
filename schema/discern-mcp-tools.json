@@ -290,7 +290,7 @@
             ],
             "additionalProperties": false
           },
-          "composition": {
+          "composition_receipt": {
             "description": "The served composition receipt an answer or resumed variance decision binds to; the judgment refusal serves it (also in data.integration_judgment.composition). A replaced composition refuses the receipt and re-serves its own question.",
             "type": "string"
           },
