@@ -82,7 +82,7 @@ const ANSWERS = JSON.stringify({
     inherit_env: ["APP_KEY"],
     env_files: [".env.test"],
     export_port: true,
-    ignored_file_drift: false,
+    track_ignored_drift: false,
     resources: {
       database: {
         create: "tool database create",

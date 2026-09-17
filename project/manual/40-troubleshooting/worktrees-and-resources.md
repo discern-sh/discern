@@ -164,7 +164,7 @@ Read the named files before removing the checkout. Ignored files may hold local 
 
 When enabled, discern compares ignored files with the baseline recorded during worktree setup. That comparison is advisory; it does not preserve the file contents for you.
 
-For the optional comparison setting, see `[worktree].ignored_file_drift` in the [configuration reference](../30-reference/config-reference.md). Disabling the report does not turn local-only files into recoverable Git history.
+For the optional comparison setting, see `[worktree].track_ignored_drift` in the [configuration reference](../30-reference/config-reference.md). Disabling the report does not turn local-only files into recoverable Git history.
 
 ## A fleet row looks wrong
 

@@ -420,7 +420,7 @@ async function settleLanded(
       ? ignoredFileDriftDisabled()
       : await inspectIgnoredFileChanges(
         effort.path,
-        effort.ctx.config.worktree.ignored_file_drift,
+        effort.ctx.config.worktree.track_ignored_drift,
       ),
   );
   const convergenceStepStart = progress.steps.length;

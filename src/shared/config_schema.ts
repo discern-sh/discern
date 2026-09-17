@@ -886,7 +886,7 @@ const worktreeSection = z.strictObject({
   export_port: z.boolean().default(false).describe(
     "When true, worktree setup writes DISCERN_WORKTREE_PORT to the configured env files, the worktree hook warns when a sibling already uses the derived port, and status shows the port. The port is always derived; `discern identity --port` reports it either way.",
   ),
-  ignored_file_drift: z.boolean().default(true).describe(
+  track_ignored_drift: z.boolean().default(true).describe(
     "Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.",
   ),
   resources: z.record(z.string().regex(NAME_RE), resourceValue).default({})

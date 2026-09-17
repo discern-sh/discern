@@ -1091,7 +1091,7 @@ export async function worktreeSetup(
 
   await recordIgnoredFileBaseline(
     ctx.cwd,
-    ctx.config.worktree.ignored_file_drift,
+    ctx.config.worktree.track_ignored_drift,
   );
 
   // mark this worktree configured

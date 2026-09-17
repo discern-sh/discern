@@ -68,7 +68,7 @@ aliases:
   - "worktree.inherit_env"
   - "worktree.env_files"
   - "worktree.export_port"
-  - "worktree.ignored_file_drift"
+  - "worktree.track_ignored_drift"
   - "worktree.resources"
   - "worktree.resources.<name>"
   - "worktree.resources.<name>.create"
@@ -325,13 +325,13 @@ Standing grants for landing without a conversation. Landing needs the owner's ac
 
 The isolated-worktree workflow. Each effort runs in its own checkout, so parallel agents never collide. The git mechanics are generic; the resources and setup commands below are what make a fresh worktree ready for this project.
 
-| Key                  | Type     | Default                 | Description                                                                                                                                                                                                                                                       |
-| -------------------- | -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `root`               | string   | `""`                    | Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative path resolves against the repo root; absolute is used as-is.                                                              |
-| `inherit_env`        | string[] | `[]`                    | Names copied from the main checkout's declared env files. A value fills an empty entry or the first file's `<file>.example` default. A missing first file is created at mode 0600; existing modes stay unchanged.                                                 |
-| `env_files`          | string[] | `[".env",".env.local"]` | Env files read and written in order: the last definition wins; new values use the first existing file. Inheritance alone may create the first file. Managed values share one scoped marker.                                                                       |
-| `export_port`        | boolean  | `false`                 | When true, worktree setup writes DISCERN_WORKTREE_PORT to the configured env files, the worktree hook warns when a sibling already uses the derived port, and status shows the port. The port is always derived; `discern identity --port` reports it either way. |
-| `ignored_file_drift` | boolean  | `true`                  | Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.                                                                           |
+| Key                   | Type     | Default                 | Description                                                                                                                                                                                                                                                       |
+| --------------------- | -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `root`                | string   | `""`                    | Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative path resolves against the repo root; absolute is used as-is.                                                              |
+| `inherit_env`         | string[] | `[]`                    | Names copied from the main checkout's declared env files. A value fills an empty entry or the first file's `<file>.example` default. A missing first file is created at mode 0600; existing modes stay unchanged.                                                 |
+| `env_files`           | string[] | `[".env",".env.local"]` | Env files read and written in order: the last definition wins; new values use the first existing file. Inheritance alone may create the first file. Managed values share one scoped marker.                                                                       |
+| `export_port`         | boolean  | `false`                 | When true, worktree setup writes DISCERN_WORKTREE_PORT to the configured env files, the worktree hook warns when a sibling already uses the derived port, and status shows the port. The port is always derived; `discern identity --port` reports it either way. |
+| `track_ignored_drift` | boolean  | `true`                  | Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.                                                                           |
 
 ### `[worktree.resources.<name>]`
 

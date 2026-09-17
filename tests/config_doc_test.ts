@@ -518,7 +518,7 @@ Deno.test("the config document projects the exact bounded setup and worktree sch
       inherit_env: ["APP_KEY"],
       env_files: [".env.test"],
       export_port: true,
-      ignored_file_drift: false,
+      track_ignored_drift: false,
       resources: {
         cache: {
           create: "tool cache create",

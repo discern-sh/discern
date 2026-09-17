@@ -536,7 +536,7 @@ async function buildAcceptPlan(
   }
   const ignoredFileChanges = await inspectIgnoredFileChanges(
     effort.path,
-    effort.ctx.config.worktree.ignored_file_drift,
+    effort.ctx.config.worktree.track_ignored_drift,
   );
   await assertMainCheckoutReady(effort);
   return landingPlan(effort, ignoredFileChanges);

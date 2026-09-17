@@ -1128,7 +1128,7 @@ Deno.test("accept suppresses ignored-file drift detection when configured off", 
         'lint = ":"',
         "",
         "[worktree]",
-        "ignored_file_drift = false",
+        "track_ignored_drift = false",
         "",
       ].join("\n"),
     );
