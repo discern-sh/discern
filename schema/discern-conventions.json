@@ -32,6 +32,19 @@
     "discern-write-adr": true,
     "discern-write-it-once": true
   },
+  "exit_statuses": {
+    "success": 0,
+    "controlled-failure": 1,
+    "usage": 2,
+    "internal-error": 70,
+    "await-timeout": 124,
+    "executable-not-found": 127,
+    "sighup": 129,
+    "sigint": 130,
+    "sigterm": 143,
+    "child-passthrough": "class",
+    "signal-passthrough": "class"
+  },
   "checkpoints": {
     "map-focus": "map.focus",
     "instruction-economy": "instructions.economy",

@@ -33,6 +33,7 @@ import {
 } from "../src/shared/worktree_identity_fields.ts";
 import { WORKTREE_IDENTITY_CONTRACT } from "../src/shared/worktree_identity_contract.ts";
 import { GIT_CONVENTIONS } from "../src/shared/git_conventions.ts";
+import { EXIT_STATUS_REGISTRY } from "../src/shared/exit_codes.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 
 export type ContractManifest = Readonly<Record<string, unknown>>;
@@ -175,6 +176,12 @@ export function buildConventionsManifest(
       ),
     ),
     bundled_skills: membership(BUNDLED_SKILL_NAMES),
+    exit_statuses: Object.fromEntries(
+      EXIT_STATUS_REGISTRY.map((entry) => [
+        entry.id,
+        entry.kind === "exact" ? entry.code : entry.kind,
+      ]),
+    ),
     checkpoints: Object.fromEntries(
       Object.entries(BUILT_IN_CHECKPOINTS).map(([id, checkpoint]) => [
         id,
