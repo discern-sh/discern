@@ -1218,7 +1218,7 @@ Deno.test("re-entry (B48): a --reseed scaffold honours an explicit [instructions
     const answersPath = join(dir, "answers.json");
     await Deno.writeTextFile(
       answersPath,
-      JSON.stringify({ version: "2", agents: [] }),
+      JSON.stringify({ version: "1", agents: [] }),
     );
     const fresh = await runAgent(dir, [
       "setup",

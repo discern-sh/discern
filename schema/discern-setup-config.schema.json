@@ -10,7 +10,7 @@
       "type": "string"
     },
     "version": {
-      "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 2.",
+      "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 1.",
       "anyOf": [
         {
           "type": "string"

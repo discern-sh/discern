@@ -68,6 +68,7 @@ import {
 } from "./checkpoint_question_files.ts";
 import { type ConfigIssue, unknownRootSections } from "./config_issues.ts";
 import type { DiscernWrittenMetaKey } from "./config_metadata.ts";
+import { SETUP_CONFIG_SCHEMA_MAJOR } from "./public_schemas.ts";
 
 export { AGENT_NAMES } from "./agent_catalogue.ts";
 export type { ConfigIssue } from "./config_issues.ts";
@@ -1027,12 +1028,12 @@ export type ResourceConfig = z.infer<typeof resourceValue>;
  * `version` (assumed current) or carry a matching major; a different major is a
  * breaking shape this build refuses rather than misreads.
  */
-export const CONFIG_DOC_VERSION = "2";
+export const CONFIG_DOC_VERSION = String(SETUP_CONFIG_SCHEMA_MAJOR);
 
 /** The document's gate-config tables reuse the *same* building blocks as the live
  * config, so the document shape can never diverge from what the engine reads. The
- * base fields (name/slug/branch_prefix/brief/agents) remain flat version-2
- * install inputs; the bounded setup and worktree sections project their live
+ * base fields (name/slug/branch_prefix/brief/agents) are flat setup inputs;
+ * the bounded setup and worktree sections project their live
  * config shapes without admitting unrelated standing policy.
  *
  * Strictness is shared by the generated editor schema and runtime validation:

@@ -20,7 +20,7 @@ async function initializeSetupRepository(dir: string): Promise<void> {
 
 const ANSWERS = JSON.stringify({
   "$schema": "../schema/discern-setup-config.schema.json",
-  version: "2",
+  version: "1",
   name: "My App",
   slug: "my-app",
   branch_prefix: "agent/",
@@ -267,7 +267,7 @@ Deno.test("setup begin rejects the removed source-glob input surfaces", async ()
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "answers.json"),
-      JSON.stringify({ version: "2", slug: "x", source_globs: ["src/**"] }),
+      JSON.stringify({ version: "1", slug: "x", source_globs: ["src/**"] }),
     );
     await initializeSetupRepository(dir);
     const document = await runCli(
