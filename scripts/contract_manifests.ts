@@ -3,6 +3,7 @@
 import { z } from "@zod/zod";
 import { buildCli } from "../src/main.ts";
 import {
+  type CliArg,
   cliCommandModel,
   IMPLICIT_COMMAND_FLAGS,
   IMPLICIT_ROOT_FLAGS,
@@ -37,6 +38,32 @@ import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 
 export type ContractManifest = Readonly<Record<string, unknown>>;
+
+/** One command record in the generated CLI grammar manifest. */
+export interface CliManifestCommand {
+  path: string[];
+  description: string;
+  aliases: string[];
+  hidden: boolean;
+  hidden_when: string | null;
+  positionals: CliArg[];
+  usage: string;
+  flags: Array<{
+    spellings: string[];
+    description: string;
+    type_definition: string;
+    arity: number;
+    value_types: string[];
+    default: unknown;
+    hidden: boolean;
+    global: boolean;
+  }>;
+}
+
+/** The typed portion of the generated CLI grammar manifest. */
+export type CliContractManifest = ContractManifest & {
+  commands: CliManifestCommand[];
+};
 
 /** Committed artifacts owned by this generator. */
 export const CONTRACT_MANIFEST_ARTIFACTS = [
@@ -76,7 +103,7 @@ export function buildMcpToolsManifest(): ContractManifest {
 }
 
 /** CLI grammar projected from the fully attached typed command model. */
-export function buildCliManifest(): ContractManifest {
+export function buildCliManifest(): CliContractManifest {
   const commands = [...walkCliCommands(cliCommandModel(buildCli(false)))];
   return {
     $id: CLI_MANIFEST_ID,

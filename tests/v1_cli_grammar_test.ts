@@ -1,7 +1,6 @@
 /** The settled v1 command grammar, derived from the live Cliffy/result models. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { EnumType } from "@cliffy/command";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { buildCli } from "../src/main.ts";
 import {
@@ -37,53 +36,32 @@ function contractedPaths(): Set<string> {
   );
 }
 
-interface RawCommandView {
-  getName(): string;
-  getArguments(): ReadonlyArray<{ name: string; type: string }>;
-  getType(name: string): { handler: unknown } | undefined;
-  getCommands(hidden?: boolean): RawCommandView[];
-}
-
-interface ManifestCommandView {
-  path: string[];
-  positionals: Array<{
-    name: string;
-    value_types: string[];
-    choices?: string[];
-  }>;
-  flags: Array<{ spellings: string[] }>;
-}
-
 Deno.test("every enum positional publishes its type and choices in the CLI manifest", () => {
-  const manifest = buildCliManifest() as unknown as {
-    commands: ManifestCommandView[];
-  };
+  const manifest = buildCliManifest();
   let enumPositionals = 0;
-  const visit = (command: RawCommandView, path: string[]): void => {
+  for (const command of walkCliCommands(liveModel())) {
     const record = manifest.commands.find((entry) =>
-      entry.path.join(" ") === path.join(" ")
+      entry.path.join(" ") === command.path.join(" ")
     );
-    assert(record !== undefined, `manifest lost ${path.join(" ") || "root"}`);
-    for (const argument of command.getArguments()) {
-      const handler = command.getType(argument.type)?.handler;
-      if (!(handler instanceof EnumType)) continue;
+    assert(
+      record !== undefined,
+      `manifest lost ${command.path.join(" ") || "root"}`,
+    );
+    for (const argument of command.args) {
+      if (argument.choices === undefined) continue;
       enumPositionals += 1;
       const positional = record.positionals.find((entry) =>
         entry.name === argument.name
       );
       assert(
         positional !== undefined,
-        `manifest lost ${path.join(" ")} ${argument.name}`,
+        `manifest lost ${command.path.join(" ")} ${argument.name}`,
       );
-      assertEquals(positional.value_types, [argument.type]);
-      assertEquals(positional.choices, handler.values().map(String));
+      assertEquals(positional.value_types, argument.value_types);
+      assertEquals(positional.choices, argument.choices);
     }
-    for (const child of command.getCommands(true)) {
-      visit(child, [...path, child.getName()]);
-    }
-  };
+  }
 
-  visit(buildCli(true, "main") as unknown as RawCommandView, []);
   assert(
     enumPositionals > 0,
     "the live grammar must exercise enum positionals",
@@ -186,9 +164,7 @@ Deno.test("every command describes itself and its manifest lists each flag spell
     [],
   );
 
-  const manifest = buildCliManifest() as unknown as {
-    commands: ManifestCommandView[];
-  };
+  const manifest = buildCliManifest();
   for (const command of manifest.commands) {
     const spellings = command.flags.flatMap((flag) => flag.spellings);
     assertEquals(
