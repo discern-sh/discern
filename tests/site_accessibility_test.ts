@@ -1,13 +1,16 @@
 /**
  * Automated WCAG guard for the docs shell. Axe scans representative rendered
- * pages; interaction checks cover responsive and client-generated states
- * a layoutless DOM cannot activate (drawer, modal, reduced motion, no-JS).
+ * pages; interaction checks cover the client-generated states a layoutless
+ * DOM can activate (search modal, copy, navigation position). The package
+ * drawer follows a container query, so its contract runs in a real browser
+ * in `site_docs_shell_browser_test.ts`.
  */
 
 import { assertEquals } from "@std/assert";
 import axe from "axe-core";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
+import { designSystemAssetPath } from "../site/design_system.ts";
 import { decorateDocumentHtml, loadDocsSite } from "../site/docs.tsx";
 import { handler, PAGES } from "../site/serve.ts";
 
@@ -94,7 +97,8 @@ async function seriousAxeFindings(path: string): Promise<string[]> {
 
   // Audit the modal itself as well as its default-hidden state. Layoutless DOM
   // cannot click it open, but removing `hidden` exercises its static contract.
-  window.document.querySelector("[data-search]")?.removeAttribute("hidden");
+  window.document.querySelector("[data-discern-search-palette]")
+    ?.removeAttribute("hidden");
   const result = await window.axe.run(window.document, {
     runOnly: {
       type: "tag",
@@ -152,13 +156,13 @@ Deno.test("permalink controls stay outside every heading accessible name", () =>
     return {
       tag: heading?.tagName.toLowerCase(),
       text: heading?.textContent,
-      permalinkInsideHeading: heading?.querySelector(".docs-anchor") !== null,
+      permalinkInsideHeading:
+        heading?.querySelector(".discern-anchor-heading__anchor") !== null,
       permalinkNextToHeading: wrapper?.querySelector(
-        ":scope > .docs-anchor",
+        ":scope > .discern-anchor-heading__anchor",
       ) !== null,
-      label: wrapper?.querySelector(":scope > .docs-anchor")?.getAttribute(
-        "aria-label",
-      ),
+      label: wrapper?.querySelector(":scope > .discern-anchor-heading__anchor")
+        ?.getAttribute("aria-label"),
     };
   });
   dom.window.close();
@@ -218,7 +222,7 @@ Deno.test("navigation restores its position and keeps the current page visible",
   dom.window.document.querySelector(".docs-toc")?.remove();
   const document = dom.window.document;
   const navScroll = document.querySelector<HTMLElement>(
-    ".docs-nav-scroll",
+    "#docs-nav",
   );
   const current = navScroll?.querySelector<HTMLElement>(
     '[aria-current="page"]',
@@ -308,148 +312,6 @@ Deno.test("deep links expose page and heading context without competing claims",
   });
 });
 
-Deno.test("mobile drawer performs the complete modal focus contract", async () => {
-  const html = await (await get("/docs")).text();
-  const client = await executableDocsClient();
-  const dom = new JSDOM(html, {
-    runScripts: "outside-only",
-    url: "https://discern.sh/docs",
-  });
-  let drawerMediaListener:
-    | ((event: { matches: boolean }) => void)
-    | undefined;
-  const drawerMedia = {
-    matches: true,
-    addEventListener: (
-      type: string,
-      listener: (event: { matches: boolean }) => void,
-    ) => {
-      if (type === "change") drawerMediaListener = listener;
-    },
-  };
-  Object.defineProperty(dom.window, "matchMedia", {
-    value: () => drawerMedia,
-  });
-  dom.window.document.querySelector(".docs-toc")?.remove();
-  dom.window.eval(client);
-
-  const document = dom.window.document;
-  const burger = document.querySelector<HTMLElement>("[data-drawer-toggle]");
-  const nav = document.querySelector<HTMLElement>("#docs-nav");
-  const background = [
-    document.querySelector<HTMLElement>(".docs-skip"),
-    document.querySelector<HTMLElement>(".docs-brand"),
-    document.querySelector<HTMLElement>(".docs-brand-docs"),
-    document.querySelector<HTMLElement>(".discern-docs-header__middle"),
-    document.querySelector<HTMLElement>(".discern-docs-header__actions"),
-    document.querySelector<HTMLElement>(".docs-main"),
-    document.querySelector<HTMLElement>(".docs-rail"),
-  ].filter((element): element is HTMLElement => element !== null);
-  const navLinks = nav?.querySelectorAll<HTMLElement>("a[href]") ?? [];
-  const firstLink = navLinks[0];
-  const lastLink = navLinks[navLinks.length - 1];
-  if (!burger || !nav || !firstLink || !lastLink) {
-    throw new Error("mobile drawer fixture has no complete focus surface");
-  }
-  if (!drawerMediaListener) {
-    throw new Error("mobile drawer did not subscribe to breakpoint changes");
-  }
-
-  const initiallyClosed = {
-    navInert: nav.inert,
-    expanded: burger.getAttribute("aria-expanded"),
-  };
-  burger.focus();
-  burger.click();
-  await Promise.resolve();
-  const opened = {
-    expanded: burger.getAttribute("aria-expanded"),
-    label: burger.getAttribute("aria-label"),
-    role: nav.getAttribute("role"),
-    modal: nav.getAttribute("aria-modal"),
-    navLabel: nav.getAttribute("aria-label"),
-    focusedFirstLink: document.activeElement === firstLink,
-    backgroundInert: background.every((element) => element.inert),
-    navInteractive: !nav.inert,
-  };
-
-  lastLink.focus();
-  document.dispatchEvent(
-    new dom.window.KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
-  );
-  const forwardWrapsToBurger = document.activeElement === burger;
-  burger.focus();
-  document.dispatchEvent(
-    new dom.window.KeyboardEvent("keydown", {
-      key: "Tab",
-      shiftKey: true,
-      bubbles: true,
-    }),
-  );
-  const backwardWrapsToLastLink = document.activeElement === lastLink;
-  document.dispatchEvent(
-    new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-  );
-  const closed = {
-    expanded: burger.getAttribute("aria-expanded"),
-    label: burger.getAttribute("aria-label"),
-    role: nav.getAttribute("role"),
-    modal: nav.getAttribute("aria-modal"),
-    navLabel: nav.getAttribute("aria-label"),
-    restoredToBurger: document.activeElement === burger,
-    backgroundInteractive: background.every((element) => !element.inert),
-    navInert: nav.inert,
-  };
-  drawerMedia.matches = false;
-  drawerMediaListener({ matches: false });
-  const wide = {
-    navInteractive: !nav.inert,
-    expanded: burger.getAttribute("aria-expanded"),
-  };
-  drawerMedia.matches = true;
-  drawerMediaListener({ matches: true });
-  const narrowAgain = {
-    navInert: nav.inert,
-    expanded: burger.getAttribute("aria-expanded"),
-  };
-  dom.window.close();
-
-  assertEquals(initiallyClosed, {
-    navInert: true,
-    expanded: "false",
-  });
-  assertEquals(opened, {
-    expanded: "true",
-    label: "Close navigation",
-    role: "dialog",
-    modal: "true",
-    navLabel: "Manual navigation",
-    focusedFirstLink: true,
-    backgroundInert: true,
-    navInteractive: true,
-  });
-  assertEquals(forwardWrapsToBurger, true);
-  assertEquals(backwardWrapsToLastLink, true);
-  assertEquals(closed, {
-    expanded: "false",
-    label: "Open navigation",
-    role: null,
-    modal: null,
-    navLabel: null,
-    restoredToBurger: true,
-    backgroundInteractive: true,
-    navInert: true,
-  });
-  assertEquals(wide, {
-    navInteractive: true,
-    expanded: "false",
-  });
-  assertEquals(narrowAgain, {
-    navInert: true,
-    expanded: "false",
-  });
-});
-
 Deno.test("search keeps its modal focus contract without showModal support", async () => {
   const html = await (await get("/docs")).text();
   const client = await executableDocsClient();
@@ -467,16 +329,21 @@ Deno.test("search keeps its modal focus contract without showModal support", asy
   const opener = document.querySelector<HTMLButtonElement>(
     "[data-search-open]",
   );
-  const palette = document.querySelector<HTMLDialogElement>("[data-search]");
-  const input = document.querySelector<HTMLInputElement>("[data-search-input]");
+  const palette = document.querySelector<HTMLDialogElement>(
+    "[data-discern-search-palette]",
+  );
+  const input = palette?.querySelector<HTMLInputElement>(
+    "[data-discern-search-palette-input]",
+  );
   const close = palette?.querySelector<HTMLButtonElement>(
-    ".discern-search-palette__close",
+    "[data-discern-search-palette-close]",
   );
   const background = [
     document.querySelector<HTMLElement>(".docs-skip"),
     document.querySelector<HTMLElement>(".docs-top"),
-    document.querySelector<HTMLElement>(".docs-shell"),
+    document.querySelector<HTMLElement>("[data-discern-docs-layout]"),
   ].filter((element): element is HTMLElement => element !== null);
+  assertEquals(background.length, 3, "the fallback inerts the whole shell");
   if (!opener || !palette || !input || !close) {
     throw new Error("search fallback fixture has no complete modal surface");
   }
@@ -528,6 +395,9 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
   const css = await Deno.readTextFile(
     new URL("../site/pages/assets/docs.css", import.meta.url),
   );
+  const runtimeCss = await (await get(
+    designSystemAssetPath("docs", "discern.css"),
+  )).text();
   const client = await Deno.readTextFile(
     new URL("../site/pages/assets/docs.js", import.meta.url),
   );
@@ -543,13 +413,29 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
       attribute("[data-search-open]", "aria-label") !== null,
     ],
     [
-      "drawer identifies its controlled nav",
-      attribute("[data-drawer-toggle]", "aria-controls") === "docs-nav",
+      "the drawer toggle names its controlled nav and both of its states",
+      attribute("[data-discern-docs-drawer-toggle]", "aria-controls") ===
+        "docs-nav" &&
+      attribute(
+          "[data-discern-docs-drawer-toggle]",
+          "data-discern-open-label",
+        ) ===
+        "Open navigation" &&
+      attribute(
+          "[data-discern-docs-drawer-toggle]",
+          "data-discern-close-label",
+        ) === "Close navigation",
+    ],
+    [
+      "the open drawer takes the manual navigation's name",
+      attribute("#docs-nav", "data-discern-docs-drawer-label") ===
+        "Manual navigation",
     ],
     [
       "search input is a labelled combobox",
-      attribute("[data-search-input]", "role") === "combobox" &&
-      attribute("[data-search-input]", "aria-controls") ===
+      attribute("[data-discern-search-palette-input]", "role") ===
+        "combobox" &&
+      attribute("[data-discern-search-palette-input]", "aria-controls") ===
         "docs-search-results",
     ],
     [
@@ -559,23 +445,21 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
     [
       "search has an explicit close control",
       attribute(
-        "[data-search] button.discern-search-palette__close",
+        "[data-discern-search-palette] [data-discern-search-palette-close]",
         "aria-label",
-      )?.startsWith("Close search") === true,
+      ) === "Close search",
     ],
     [
-      "drawer and dialog background state uses inert",
+      "the search fallback's background state uses inert",
       /\.inert\s*=/.test(client),
     ],
-    ["drawer label exposes open state", /Close navigation/.test(client)],
     [
       "search options expose selection",
       /aria-selected/.test(client) && /aria-activedescendant/.test(client),
     ],
     [
-      "focus is moved, trapped, and restored",
-      /focusFirstInDrawer/.test(client) && /trapFocus/.test(client) &&
-      /restoreFocus/.test(client),
+      "search focus is trapped and restored without showModal",
+      /trapFocus/.test(client) && /restoreFocus/.test(client),
     ],
     [
       "the theme control names its destination and its opted-in root",
@@ -589,19 +473,26 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
       /aria-live/.test(client) && /Copy failed/.test(client),
     ],
     [
-      "no-JS mobile navigation stays in flow",
-      document.getElementById("docs-nav") !== null &&
-      /html:not\(\.docs-js\) \.docs-nav/.test(css),
+      "no-JS navigation stays in flow: the toggle ships hidden and the nav is the layout's",
+      attribute("[data-discern-docs-drawer-toggle]", "hidden") !== null &&
+      document.getElementById("docs-nav")?.closest(
+          "[data-discern-docs-layout]",
+        ) !== null,
     ],
     [
-      "drawer honors reduced motion; palette motion is design-system-owned",
-      /prefers-reduced-motion:\s*reduce/.test(css) &&
-      /\.docs-nav/.test(css),
+      "no-JS readers never see the script-only search control",
+      /html:not\(\.docs-js\) \.docs-search-btn/.test(css),
+    ],
+    [
+      "drawer and palette motion is design-system-owned",
+      !/transition/.test(css.slice(css.indexOf("/* ── Responsive"))) &&
+      /prefers-reduced-motion:\s*reduce/.test(runtimeCss),
     ],
     [
       "print keeps the document while removing interactive chrome",
       /@media print/.test(css) && /\.docs-search/.test(css) &&
       /\.docs-copy/.test(css) && /\.doc-body/.test(css) &&
+      /#docs-nav/.test(css) && /\.docs-toc/.test(css) &&
       /max-width:\s*none/.test(css),
     ],
     [

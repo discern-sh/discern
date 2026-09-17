@@ -1,6 +1,13 @@
-/** The corpus search palette, rendered as static markup for page-owned enhancement. */
+/** The corpus search palette, rendered in the package's static mode for page-owned enhancement. */
 import type { ReactElement } from "react";
-import { Icon, Kbd, SearchPalette } from "discern-design-system/react";
+import {
+  Icon,
+  Kbd,
+  SearchPalette,
+  SearchPaletteEmpty,
+  SearchPaletteList,
+  SearchPaletteStatus,
+} from "discern-design-system/react";
 import { SearchIcon } from "./DocumentIcons.tsx";
 
 export interface DocumentSearchProps {
@@ -13,15 +20,12 @@ export interface DocumentSearchProps {
 /** The listbox the combobox controls and the script fills. */
 const RESULTS_ID = "docs-search-results";
 
-/** The page-owned script finds the field by this hook, not by package anatomy. */
-const INPUT_HOOK = { "data-search-input": "" };
-
 /**
- * The package palette is a hydrated component: its effects and handlers do
- * not run in this server-rendered output. The rendered dialog, field, and hint
- * are the static contract; the results region carries the page-owned hooks
- * that `docs.js` activates, including the fallback for readers whose
- * `<dialog>` lacks `showModal()`.
+ * Without `onOpenChange` the package renders the dialog closed and stamps
+ * its bindable hooks on the dialog, field, and close control; `docs.js`
+ * owns opening, dismissal, the query, and the fallback for readers whose
+ * `<dialog>` lacks `showModal()`. The results region carries the page-owned
+ * hooks that script fills.
  */
 export function DocumentSearch(
   { searchLabel, endpoint }: DocumentSearchProps,
@@ -32,10 +36,9 @@ export function DocumentSearch(
       <div className="docs-search-backdrop" data-search-backdrop="" hidden />
       <SearchPalette
         className="docs-search"
-        open={false}
-        onOpenChange={() => undefined}
         label={label}
         placeholder={`${label}…`}
+        closeAriaLabel="Close search"
         icon={
           <Icon className="docs-search-icon">
             <SearchIcon />
@@ -61,32 +64,18 @@ export function DocumentSearch(
           "aria-controls": RESULTS_ID,
           autoComplete: "off",
           spellCheck: false,
-          ...INPUT_HOOK,
         }}
-        data-search=""
         data-search-endpoint={endpoint}
       >
-        <ul
-          className="docs-search-results"
-          id={RESULTS_ID}
-          role="listbox"
-          aria-label="Search results"
-          data-search-results=""
-        />
+        <SearchPaletteList id={RESULTS_ID} data-search-results="" />
         <button
           className="docs-search-all"
           type="button"
           data-search-all=""
           hidden
         />
-        <p className="docs-search-empty" data-search-empty="" hidden />
-        <div
-          className="discern-visually-hidden"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          data-search-status=""
-        />
+        <SearchPaletteEmpty data-search-empty="" />
+        <SearchPaletteStatus data-search-status="" />
       </SearchPalette>
     </>
   );

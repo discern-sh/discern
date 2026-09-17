@@ -15,7 +15,7 @@ discern uses one exact `@discern-sh/design-system` alias. It resolves to an immu
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.33.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.35.0"
 ```
 
 Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer Proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. The docs site's fenced-code renderer uses the same projection export. `deno.lock` records the release integrity and its transitive dependencies. Those public exports are the complete consumer application programming interface (API); source paths, registry addresses, cache internals and distribution files never appear in consumer imports. Committed local dependency overrides are rejected.
@@ -40,7 +40,7 @@ Use a one-shot build when another process already serves the generated site:
 discern scripts site-design-system -- --build-only
 ```
 
-Pass an absolute checkout path after the script name to override the sibling checkout. The local link provides visual and integration evidence only. Ordinary builds and gates use the committed immutable dependency. Follow the [package adoption procedure](../80-development/terminal-applications.md#package-source-and-releases) before changing that pin.
+Pass an absolute checkout path after the script name to override the sibling checkout. The helper runs under the committed pin, so its own module graph reaches the site only through [`site/dev_invocation.ts`](../../../site/dev_invocation.ts), the shared reading of the preview task; a local checkout whose exports the pinned release lacks can then still be linked and served, which [`tests/site_local_design_system_test.ts`](../../../tests/site_local_design_system_test.ts) holds. The local link provides visual and integration evidence only. Ordinary builds and gates use the committed immutable dependency. Follow the [package adoption procedure](../80-development/terminal-applications.md#package-source-and-releases) before changing that pin.
 
 ## CLI-owned integration
 

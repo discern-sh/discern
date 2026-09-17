@@ -14,8 +14,6 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import {
   assignedWorktreePort,
   DEFAULT_SITE_DEV_PORT,
-  type DenoRunInvocation,
-  denoRunInvocation,
   LOCAL_SITE_BUILD_TASKS,
   localHandler,
   localSiteBuildCommandArgs,
@@ -28,6 +26,10 @@ import {
   SITE_DEV_BROWSER_HOST,
   siteDevPortInUseError,
 } from "../site/dev.ts";
+import {
+  type DenoRunInvocation,
+  denoRunInvocation,
+} from "../site/dev_invocation.ts";
 import { quietDenoRunArgs, withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit, writeConfig } from "./engine_helpers.ts";
 import {

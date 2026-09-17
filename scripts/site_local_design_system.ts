@@ -4,7 +4,7 @@
  */
 
 import { dirname, fromFileUrl, join, resolve, toFileUrl } from "@std/path";
-import { denoRunInvocation } from "../site/dev.ts";
+import { denoRunInvocation } from "../site/dev_invocation.ts";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
 import { mainRepoPath } from "../src/engine/worktree/git.ts";

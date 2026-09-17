@@ -18,18 +18,14 @@ body {
   }
 }
 
-.docs-shell {
+/* The package layout owns the columns, their sticky rails, and the drawer;
+   the shell runs wider than the package's article measure. */
+.docs-layout {
+  --discern-docs-layout-max: var(--docs-page-max);
   --docs-content-width: 46rem;
-
-  display: grid;
-  grid-template-columns: 16.5rem minmax(0, 1fr) 14.5rem;
-  gap: 0 clamp(1.75rem, 4vw, 4.25rem);
-  width: min(100% - 2 * var(--discern-space-6), var(--docs-page-max));
-  margin-inline: auto;
-  align-items: start;
 }
 
-.docs-shell a:focus-visible,
+.docs-layout a:focus-visible,
 .docs-top a:focus-visible,
 .docs-top button:focus-visible {
   border-radius: var(--discern-radius-xs);
@@ -43,10 +39,10 @@ body {
 
 /* ── Top bar ───────────────────────────────────────────────────────────── */
 
-/* The package bar measures its inner row against the page maximum; the
-   shell's three columns run wider than an article, so the bar follows them. */
+/* The shell's three columns run wider than an article, so the bar's inner
+   row follows them rather than the page maximum. */
 .docs-top {
-  --discern-page-max: var(--docs-page-max);
+  --discern-docs-header-max: var(--docs-page-max);
 }
 
 .docs-brand-lockup {
@@ -109,23 +105,6 @@ body {
 
 /* ── Chapter nav (left rail) ───────────────────────────────────────────── */
 
-.docs-nav {
-  position: sticky;
-  top: 56px;
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100dvh - 56px);
-  padding-block: 0 var(--discern-space-4);
-}
-
-.docs-nav-scroll {
-  flex: 1;
-  overflow-y: auto;
-  padding-block-start: var(--discern-space-8);
-  padding-right: var(--discern-space-2);
-  scrollbar-width: thin;
-}
-
 .docs-nav-chapter-title {
   display: inline-flex;
   gap: var(--discern-space-2);
@@ -147,7 +126,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: var(--discern-space-4);
-  margin-top: 0;
+  margin-top: var(--discern-space-6);
   padding-top: var(--discern-space-4);
   border-top: 1px solid var(--discern-color-border);
   font-size: 0.6875rem;
@@ -162,31 +141,12 @@ body {
   color: var(--discern-color-accent-600);
 }
 
-.docs-veil {
-  display: none;
-}
-
-/* ── Contents rail (right) ─────────────────────────────────────────────── */
-
-.docs-rail {
-  position: sticky;
-  top: 56px;
-  max-height: calc(100dvh - 56px);
-  overflow-y: auto;
-  padding-block: var(--discern-space-8);
-  scrollbar-width: thin;
-}
-
 /* ── Main column ───────────────────────────────────────────────────────── */
-
-.docs-main {
-  padding-block: var(--discern-space-8) var(--discern-space-20);
-}
 
 /* Mono glyphs run optically smaller than the text face. Keep inline code just
    below the surrounding type across every docs composition, while leaving
    code sheets to their own fixed scale. */
-.docs-main :not(pre) > code {
+.docs-layout :not(pre) > code {
   font-size: 0.9em;
 }
 
@@ -203,7 +163,9 @@ body {
 }
 
 .doc-body :is(h1, h2, h3, h4)[id] {
-  scroll-margin-top: calc(56px + var(--discern-space-4));
+  scroll-margin-top: calc(
+    var(--discern-docs-layout-sticky-offset) + var(--discern-space-4)
+  );
 }
 
 .doc-body h1 {
@@ -870,86 +832,10 @@ body {
 
 /* ── Responsive ────────────────────────────────────────────────────────── */
 
-@media (min-width: 64.0625em) {
-  .docs-burger {
-    display: none;
-  }
-}
-
-@media (max-width: 80em) {
-  .docs-shell {
-    grid-template-columns: 16.5rem minmax(0, 1fr);
-  }
-
-  .docs-rail {
-    display: none;
-  }
-}
-
-@media (max-width: 64em) {
-  .docs-shell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .docs-js .docs-nav {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 55;
-    width: min(19rem, 84vw);
-    max-height: none;
-    padding: var(--discern-space-4) var(--discern-space-5);
-    border-right: 1px solid var(--discern-color-border);
-    background: var(--discern-color-canvas);
-    transform: translateX(-103%);
-    transition: transform var(--discern-duration-medium)
-      var(--discern-ease-out);
-  }
-
-  .docs-js .docs-nav.is-open {
-    transform: none;
-    box-shadow: var(--discern-shadow-pop);
-  }
-
-  .docs-js .docs-veil {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    background: var(--discern-color-overlay);
-  }
-
-  .docs-js .docs-veil[hidden] {
-    display: none;
-  }
-
-  html:not(.docs-js) .docs-burger,
-  html:not(.docs-js) .docs-search-btn,
-  html:not(.docs-js) .docs-theme,
-  html:not(.docs-js) .docs-veil {
-    display: none;
-  }
-
-  html:not(.docs-js) .docs-nav {
-    position: static;
-    width: auto;
-    max-height: none;
-    padding-block: var(--discern-space-6);
-    transform: none;
-    transition: none;
-  }
-
-  .docs-main {
-    padding-top: var(--discern-space-6);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .docs-nav {
-    animation: none !important;
-    transition: none !important;
-  }
+/* Search runs on page-owned script; the package controls carry their own
+   inactive state without it. */
+html:not(.docs-js) .docs-search-btn {
+  display: none;
 }
 
 @media (forced-colors: active) {
@@ -961,24 +847,12 @@ body {
     border-color: CanvasText;
   }
 
-  .docs-shell a:focus-visible,
+  .docs-layout a:focus-visible,
   .docs-top a:focus-visible,
   .docs-top button:focus-visible,
   .docs-search-all:focus-visible {
     outline-color: Highlight;
   }
-}
-
-.docs-heading-row {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-}
-
-.docs-heading-row > :is(h2, h3, h4) {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
 }
 
 @media (max-width: 40em) {
@@ -1005,21 +879,16 @@ body {
 
 @media print {
   .docs-top,
-  .docs-nav,
-  .docs-rail,
+  #docs-nav,
+  .docs-toc,
   .docs-pager,
   .docs-search,
   .docs-search-backdrop,
   .docs-complete-browse,
   .docs-copy,
-  .docs-anchor,
+  .docs-heading-row > a,
   .docs-skip {
     display: none !important;
-  }
-
-  .docs-shell {
-    display: block;
-    width: auto;
   }
 
   .doc-body {

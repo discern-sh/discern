@@ -1,6 +1,7 @@
-/* discern.sh document routes — modal navigation/search, contents scroll spy, and prose
-   enhancements. Plain local modules, no third-party dependencies, no network
-   beyond the active corpus's one-way search-index fetch. */
+/* discern.sh document routes — modal search, navigation position, contents
+   scroll spy, and prose enhancements. The package runtime owns the navigation
+   drawer. Plain local modules, no third-party dependencies, no network beyond
+   the active corpus's one-way search-index fetch. */
 import { activeTocIndex } from "./docs-toc.js";
 import { searchPages } from "./search.js";
 import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
@@ -47,107 +48,48 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
     }
   };
 
-  // ── Drawer ───────────────────────────────────────────────────────────────
+  // ── Navigation position ──────────────────────────────────────────────────
 
+  // The package layout's navigation column is the scroll container, in flow
+  // at a wide allocation and as the drawer at a narrow one.
   const nav = $("#docs-nav");
-  const navScroll = nav ? $(".docs-nav-scroll", nav) : null;
-  const drawerVeil = $("[data-drawer-close]");
-  const burger = $("[data-drawer-toggle]");
-  const drawerMedia = matchMedia("(max-width: 64em)");
-  const drawerBackground = [
-    $(".docs-skip"),
-    $(".docs-brand"),
-    $(".docs-brand-docs"),
-    $(".discern-docs-header__middle"),
-    $(".discern-docs-header__actions"),
-    $(".docs-main"),
-    $(".docs-rail"),
-  ];
-  let drawerOpen = false;
-  let drawerReturnFocus = null;
+  const drawerToggle = $("[data-discern-docs-drawer-toggle]");
 
-  const navigationLabel = "Manual navigation";
   const navScrollKey = "discern:manual-nav-scroll";
   const persistNavScroll = () => {
-    if (!navScroll) return;
+    if (!nav) return;
     try {
-      sessionStorage.setItem(navScrollKey, String(navScroll.scrollTop));
+      sessionStorage.setItem(navScrollKey, String(nav.scrollTop));
     } catch {
       // discern-best-effort: site-docs-scroll-write-fallback
       // Storage can be disabled without making documentation navigation fail.
     }
   };
   const revealCurrentNavItem = () => {
-    if (!navScroll) return;
-    const current = $('[aria-current="page"]', navScroll);
+    if (!nav) return;
+    const current = $('[aria-current="page"]', nav);
     if (!current) return;
-    const viewport = navScroll.getBoundingClientRect();
+    const viewport = nav.getBoundingClientRect();
     const item = current.getBoundingClientRect();
     if (item.top < viewport.top) {
-      navScroll.scrollTop -= viewport.top - item.top;
+      nav.scrollTop -= viewport.top - item.top;
     } else if (item.bottom > viewport.bottom) {
-      navScroll.scrollTop += item.bottom - viewport.bottom;
+      nav.scrollTop += item.bottom - viewport.bottom;
     }
   };
-  if (navScroll) {
+  if (nav) {
     try {
       const saved = Number(sessionStorage.getItem(navScrollKey));
-      if (Number.isFinite(saved) && saved >= 0) navScroll.scrollTop = saved;
+      if (Number.isFinite(saved) && saved >= 0) nav.scrollTop = saved;
     } catch {
       // discern-best-effort: site-docs-scroll-read-fallback
       // Storage can be disabled without making documentation navigation fail.
     }
     queueMicrotask(revealCurrentNavItem);
-    navScroll.addEventListener("scroll", persistNavScroll, { passive: true });
-    navScroll.addEventListener("click", persistNavScroll);
+    nav.addEventListener("scroll", persistNavScroll, { passive: true });
+    nav.addEventListener("click", persistNavScroll);
     addEventListener("pagehide", persistNavScroll);
   }
-
-  const focusFirstInDrawer = () => {
-    const first = nav ? focusablesIn(nav)[0] : null;
-    if (first) first.focus();
-  };
-
-  const syncDrawerAvailability = () => {
-    if (nav) nav.inert = drawerMedia.matches && !drawerOpen;
-  };
-
-  const setDrawer = (open, shouldRestore = true) => {
-    if (!nav || !burger || !drawerMedia.matches && open) return;
-    drawerOpen = open;
-    syncDrawerAvailability();
-    nav.classList.toggle("is-open", open);
-    if (drawerVeil) drawerVeil.hidden = !open;
-    burger.setAttribute("aria-expanded", String(open));
-    burger.setAttribute(
-      "aria-label",
-      open ? "Close navigation" : "Open navigation",
-    );
-    setInert(drawerBackground, open);
-    doc.body.classList.toggle("docs-no-scroll", open);
-
-    if (open) {
-      drawerReturnFocus = burger;
-      nav.setAttribute("role", "dialog");
-      nav.setAttribute("aria-modal", "true");
-      nav.setAttribute("aria-label", navigationLabel);
-      queueMicrotask(focusFirstInDrawer);
-    } else {
-      nav.removeAttribute("role");
-      nav.removeAttribute("aria-modal");
-      nav.removeAttribute("aria-label");
-      if (shouldRestore) restoreFocus(drawerReturnFocus ?? burger);
-      drawerReturnFocus = null;
-    }
-  };
-
-  burger?.addEventListener("click", () => setDrawer(!drawerOpen));
-  drawerVeil?.addEventListener("click", () => setDrawer(false));
-  drawerMedia.addEventListener("change", (event) => {
-    if (!event.matches && drawerOpen) setDrawer(false, false);
-    else syncDrawerAvailability();
-  });
-  syncDrawerAvailability();
 
   // ── Prose enhancements ───────────────────────────────────────────────────
 
@@ -316,20 +258,19 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
 
   // ── Search palette ───────────────────────────────────────────────────────
 
-  const palette = $("[data-search]");
-  const input = $("[data-search-input]");
+  // The package renders the palette statically and stamps these hooks for
+  // the consumer script that owns its lifecycle; the results region carries
+  // the page's own hooks.
+  const palette = $("[data-discern-search-palette]");
+  const input = $("[data-discern-search-palette-input]");
+  const close = $("[data-discern-search-palette-close]");
   const list = $("[data-search-results]");
   const empty = $("[data-search-empty]");
   const status = $("[data-search-status]");
   const showAll = $("[data-search-all]");
   const searchBackdrop = $("[data-search-backdrop]");
 
-  if (palette && input && list && empty && status && showAll) {
-    // The palette frame, field, and close control are the package's; the
-    // results anatomy is created here, so its container classes are too.
-    const close = $(".discern-search-palette__close", palette);
-    list.classList.add("discern-search-palette__list");
-    empty.classList.add("discern-search-palette__empty");
+  if (palette && input && close && list && empty && status && showAll) {
     let pages = null;
     let loadState = "idle";
     let allResults = [];
@@ -342,7 +283,7 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
     const searchBackground = [
       $(".docs-skip"),
       $(".docs-top"),
-      $(".docs-shell"),
+      $("[data-discern-docs-layout]"),
     ];
 
     const syncSelection = () => {
@@ -466,8 +407,10 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
         setInert(searchBackground, false);
         if (searchBackdrop) searchBackdrop.hidden = true;
         palette.removeAttribute("data-dialog-fallback");
-        restoreFocus(searchReturnFocus);
       }
+      // The native dialog returns focus to where it was; when the drawer gave
+      // way to the palette that place is inert now, so the toggle takes it.
+      restoreFocus(searchReturnFocus);
       fallbackDialog = false;
       searchReturnFocus = null;
     };
@@ -477,8 +420,11 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
     // readers that implement <dialog> without showModal().
     const openSearch = () => {
       if (palette.open) return;
-      if (drawerOpen) setDrawer(false, false);
-      searchReturnFocus = doc.activeElement;
+      // An open drawer yields to the palette; the toggle is where focus
+      // returns once the palette closes.
+      const drawerOpen = drawerToggle?.getAttribute("aria-expanded") === "true";
+      searchReturnFocus = drawerOpen ? drawerToggle : doc.activeElement;
+      if (drawerOpen) drawerToggle.click();
       if (typeof palette.showModal === "function") {
         palette.showModal();
       } else {
@@ -542,7 +488,7 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
     for (const trigger of $$("[data-search-open]")) {
       trigger.addEventListener("click", () => openSearch());
     }
-    close?.addEventListener("click", () => closeSearch());
+    close.addEventListener("click", () => closeSearch());
 
     doc.addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -559,15 +505,6 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
           } else {
             trapFocus(event, focusablesIn(palette));
           }
-        }
-        return;
-      }
-      if (drawerOpen) {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          setDrawer(false);
-        } else {
-          trapFocus(event, [burger, ...focusablesIn(nav)].filter(Boolean));
         }
         return;
       }

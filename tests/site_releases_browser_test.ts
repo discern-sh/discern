@@ -1,11 +1,13 @@
 /** Real-layout release checks: readable commands, keyboard access, contrast, and no-JS. */
 import { assert, assertEquals } from "@std/assert";
-import axe from "axe-core";
-import { Buffer } from "buffer";
 import { handlerWithRouting } from "../site/serve.ts";
 import { INSTALL_COMMAND } from "../src/shared/product_identity.ts";
 import { THEME_STORAGE_KEY } from "../site/theme.ts";
-import { launchBrowser } from "./browser_helpers.ts";
+import {
+  axeFindings,
+  launchBrowser,
+  serveThroughHandler,
+} from "./browser_helpers.ts";
 import {
   releasePageCatalogue,
   releasePageRouting,
@@ -49,21 +51,11 @@ Deno.test(
         });
         context.setDefaultTimeout(10_000);
         const page = await context.newPage();
-        await page.route("http://127.0.0.1:18899/**", async (route) => {
-          const request = route.request();
-          const response = await handlerWithRouting(
-            new Request(request.url(), {
-              method: request.method(),
-              headers: request.headers(),
-            }),
-            routing,
-          );
-          await route.fulfill({
-            status: response.status,
-            headers: Object.fromEntries(response.headers),
-            body: Buffer.from(await response.arrayBuffer()),
-          });
-        });
+        await serveThroughHandler(
+          page,
+          "http://127.0.0.1:18899",
+          (request) => handlerWithRouting(request, routing),
+        );
         const failures: string[] = [];
         page.on("pageerror", (error) => failures.push(error.message));
         try {
@@ -147,27 +139,7 @@ Deno.test(
             }).waitFor();
           }
           if (mode.javaScriptEnabled) {
-            await page.evaluate(axe.source);
-            const findings = await page.evaluate(async () => {
-              const runner = (window as unknown as { axe: typeof axe }).axe;
-              const result = await runner.run(document, {
-                runOnly: {
-                  type: "tag",
-                  values: [
-                    "wcag2a",
-                    "wcag2aa",
-                    "wcag21a",
-                    "wcag21aa",
-                    "wcag22aa",
-                  ],
-                },
-              });
-              return result.violations.map((violation) => ({
-                id: violation.id,
-                nodes: violation.nodes.map((node) => node.target),
-              }));
-            });
-            assertEquals(findings, [], mode.name);
+            assertEquals(await axeFindings(page), [], mode.name);
           }
           assertEquals(failures, [], mode.name);
         } finally {

@@ -10,12 +10,13 @@ import {
   type RenderedDoc,
   sectionLeaves,
 } from "../../docs.tsx";
-import { authoredHeadingNumberClass } from "../../document_toc.tsx";
+import { authoredHeadingNumberClass } from "../../document_toc.ts";
 import {
   DocumentLayout,
   renderDocumentPage,
 } from "../layouts/DocumentLayout.tsx";
 import { DocumentColophon } from "../components/DocumentColophon.tsx";
+import { DocumentHeading } from "../components/DocumentHeading.tsx";
 import { DocumentPager } from "../components/DocumentPager.tsx";
 import { HtmlFragment } from "../components/HtmlFragment.tsx";
 import { LeafList } from "../components/LeafList.tsx";
@@ -57,8 +58,8 @@ function SectionIndex(
   const leaves = sectionLeaves(site, page);
   if (leaves.length === 0) return null;
   return (
-    <section className="docs-section-index" aria-label="In this section">
-      <h2>In this section</h2>
+    <section className="docs-section-index" aria-labelledby="section-pages">
+      <DocumentHeading id="section-pages" text="In this section" />
       <LeafList pages={leaves} ordered />
     </section>
   );

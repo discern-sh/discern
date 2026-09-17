@@ -124,7 +124,7 @@ function navigationItems(document: Document): InstructionItem[] {
   const items: InstructionItem[] = [];
   for (
     const section of document.querySelectorAll(
-      ".docs-nav-scroll .discern-docs-nav__section",
+      "#docs-nav .discern-docs-nav__section",
     )
   ) {
     const sectionTitle = section.querySelector(".docs-nav-chapter-title")
@@ -532,7 +532,10 @@ export async function runSiteSmoke(
     );
     sameItems(
       "/docs complete browse",
-      [...docs.querySelectorAll(".docs-complete-browse a")].map((link) => ({
+      // Route links only: each chapter heading also carries its permalink.
+      [...docs.querySelectorAll('.docs-complete-browse a[href^="/"]')].map((
+        link,
+      ) => ({
         route: link.getAttribute("href") ?? "",
         title: (link.textContent ?? "").trim(),
       })),
@@ -567,7 +570,9 @@ export async function runSiteSmoke(
     );
     sameItems("/map repository directory", entries, mapItems, fail);
     if (
-      mapDocument.querySelector(".docs-nav, .docs-rail, main details") !== null
+      mapDocument.querySelector(
+        "[data-discern-docs-layout], .docs-toc, main details",
+      ) !== null
     ) {
       fail("/map: the directory must remain visible without document rails");
     }

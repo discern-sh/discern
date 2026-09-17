@@ -8,8 +8,11 @@ import {
   sectionIndexOf,
 } from "../../docs.tsx";
 
-/** The drawer control names this element; page-owned script toggles it. */
+/** The layout's navigation column, which the header's drawer toggle controls. */
 export const DOCUMENT_NAVIGATION_ID = "docs-nav";
+
+/** The dialog name the package drawer gives the open navigation. */
+export const DOCUMENT_NAVIGATION_LABEL = "Manual navigation";
 
 export interface DocumentNavProps {
   readonly sections: readonly DocsSection[];
@@ -53,17 +56,13 @@ function navigationSections(
   }));
 }
 
-/**
- * Below the drawer breakpoint, page-owned script turns the `aside` into a
- * modal dialog; without script it stays in flow above the document.
- */
+/** The contents of the layout's navigation column: the package nav, then the reference foot. */
 export function DocumentNav(
   { sections, current, compact = false, footLinks }: DocumentNavProps,
 ): ReactElement {
   return (
-    <aside className="docs-nav" id={DOCUMENT_NAVIGATION_ID}>
+    <>
       <DocsNav
-        className="docs-nav-scroll"
         label="Manual"
         sections={navigationSections(sections, current, compact)}
       />
@@ -72,6 +71,6 @@ export function DocumentNav(
           <a key={href} href={href}>{label}</a>
         ))}
       </div>
-    </aside>
+    </>
   );
 }

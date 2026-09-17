@@ -1,7 +1,7 @@
 /** Local design-system development keeps the published consumer pin untouched. */
 
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
-import { join } from "@std/path";
+import { fromFileUrl, join, toFileUrl } from "@std/path";
 import {
   assertLocalDesignSystemPackage,
   isLocalPackageResolution,
@@ -10,7 +10,10 @@ import {
   serverArgs,
   watchTaskCommand,
 } from "../scripts/site_local_design_system.ts";
+import { moduleSpecifiers } from "./design_system_dependency.ts";
 import { withTempDir } from "./helpers.ts";
+
+const ROOT = fromFileUrl(new URL("../", import.meta.url));
 
 Deno.test("the linked server derives its sandbox from the watch task", () => {
   const args = serverArgs(
@@ -271,5 +274,22 @@ Deno.test("resolution proof accepts any file in the selected checkout and reject
       "/tmp/future-component-system",
     ),
     false,
+  );
+});
+
+Deno.test("the helper loads without the site's package graph, so it can serve an ahead checkout", async () => {
+  // The helper runs under the committed pin. If its own graph reached the
+  // site's package consumers, a local checkout exporting something the pinned
+  // release lacks could never be previewed: the helper would fail to load
+  // before writing the link. Only the parse it shares with the preview task
+  // may come from `site/`.
+  const modules = await moduleSpecifiers(
+    join(ROOT, "scripts/site_local_design_system.ts"),
+  );
+  assertEquals(
+    modules.filter((specifier) =>
+      specifier.startsWith(toFileUrl(join(ROOT, "site")).href)
+    ),
+    [toFileUrl(join(ROOT, "site/dev_invocation.ts")).href],
   );
 });

@@ -6,7 +6,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { fromFileUrl, join } from "@std/path";
+import { fromFileUrl, join, toFileUrl } from "@std/path";
 import {
   packageManifest,
   RUNTIME_MANIFEST_SCHEMA_VERSION,
@@ -36,6 +36,7 @@ import {
   DESIGN_SYSTEM_PACKAGE,
   DESIGN_SYSTEM_SPECIFIER,
   DESIGN_SYSTEM_VERSION,
+  moduleSpecifiers,
   reactRuntimeModules,
 } from "./design_system_dependency.ts";
 
@@ -80,14 +81,6 @@ const DENO_LOCK_SCHEMA = z.object({
   workspace: z.object({ links: z.record(z.string(), z.json()).optional() }),
 }).passthrough();
 
-const DENO_INFO_SCHEMA = z.object({
-  modules: z.array(
-    z.object({
-      specifier: z.string().optional(),
-    }).passthrough(),
-  ).optional(),
-}).passthrough();
-
 const RUNTIME_MANIFEST_SCHEMA = z.object({
   schemaVersion: z.literal(RUNTIME_MANIFEST_SCHEMA_VERSION),
   package: z.string(),
@@ -127,26 +120,6 @@ const RUNTIME_MANIFEST_SCHEMA = z.object({
     ),
   }).passthrough(),
 }).passthrough();
-
-/** Read Deno's resolved module graph for one site entrypoint. */
-async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
-  const output = await new Deno.Command(Deno.execPath(), {
-    args: ["info", "--json", entrypoint],
-    cwd: ROOT,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  if (!output.success) {
-    throw new Error(new TextDecoder().decode(output.stderr));
-  }
-  const info = decodeWith(
-    DENO_INFO_SCHEMA,
-    new TextDecoder().decode(output.stdout),
-  );
-  return (info.modules ?? []).flatMap((module) =>
-    module.specifier === undefined ? [] : [module.specifier]
-  );
-}
 
 /** Run a repository-scoped Git probe with captured output for design-system provenance checks. */
 async function git(args: string[]): Promise<Deno.CommandOutput> {
@@ -309,6 +282,27 @@ Deno.test("the production server renders React without importing its browser ent
   );
 });
 
+Deno.test("the corpus model the route inventory evaluates during codegen stays React-free", async () => {
+  // Codegen evaluates `site/docs.tsx` through the route inventory under a
+  // permission set that excludes the `NODE_ENV` read `react-dom` performs on
+  // load. React joins the model in `site/documents.tsx` and under `site/ui/`.
+  // The automatic JSX transform declares `react/jsx-runtime` for every
+  // `.tsx` module; a module without JSX never imports it at run time.
+  const modules = await moduleSpecifiers(join(ROOT, "site/docs.tsx"));
+  assertEquals(
+    reactRuntimeModules(modules).filter((specifier) =>
+      !specifier.endsWith("/jsx-runtime")
+    ),
+    [],
+  );
+  assertEquals(
+    modules.filter((specifier) =>
+      specifier.startsWith(toFileUrl(join(ROOT, "site/ui")).href)
+    ),
+    [],
+  );
+});
+
 Deno.test("each emitted bundle is the dependency closure of the site selection", async () => {
   for (
     const name of Object.keys(DESIGN_SYSTEM_BUNDLES) as DesignSystemBundleName[]
@@ -375,9 +369,18 @@ Deno.test("the docs bundle excludes unrelated compositions and optional grain", 
   );
   assert(unrelated.length > 0, "the exclusion set must stay non-empty");
   assert(unrelated.every((component) => !selected.has(component.id)));
+  // A class a selected component owns is expected in the bundle even when an
+  // unrelated composition's stylesheet also targets it, as Prose targets the
+  // Anchor heading row; only classes no selected component owns prove leakage.
+  const selectedClasses = new Set(
+    packageManifest.components
+      .filter((component) => selected.has(component.id))
+      .flatMap((component) => component.ownedClasses),
+  );
   const css = await Deno.readTextFile(join(bundleRoot("docs"), "discern.css"));
   for (const component of unrelated) {
     for (const ownedClass of component.ownedClasses) {
+      if (selectedClasses.has(ownedClass)) continue;
       assert(
         !css.includes(`.${ownedClass}`),
         `docs CSS contains ${ownedClass}`,
