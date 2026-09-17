@@ -37,6 +37,7 @@ import {
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
   RESULT_SCHEMA_ID,
 } from "../src/shared/public_schemas.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 import { ERROR_SLUGS } from "../src/shared/result.ts";
 import { RESULT_COMPLETION_POLICIES } from "../src/shared/result_completion.ts";
 import { buildCli } from "../src/main.ts";
@@ -185,7 +186,8 @@ Deno.test("no registered publication hoists an auto-named definition", async () 
     ["__x", "N", "__y"],
   );
   for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
-    const document: unknown = JSON.parse(
+    const document = decodeWith(
+      z.record(z.string(), z.unknown()),
       await Deno.readTextFile(
         new URL(`../${publication.artifactPath}`, import.meta.url),
       ),
