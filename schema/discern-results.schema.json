@@ -8876,6 +8876,7 @@
     },
     "DiscernTriangleResult": {
       "title": "DiscernTriangleResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -14444,6 +14445,7 @@
     },
     "DiscernImprovementResult": {
       "title": "DiscernImprovementResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -19270,6 +19272,7 @@
     },
     "DiscernTidyResult": {
       "title": "DiscernTidyResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -20139,6 +20142,7 @@
     },
     "DiscernCouplingResult": {
       "title": "DiscernCouplingResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -21222,6 +21226,7 @@
     },
     "DiscernPatternsResult": {
       "title": "DiscernPatternsResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -23640,6 +23645,7 @@
     },
     "DiscernPatternsResetResult": {
       "title": "DiscernPatternsResetResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -24135,6 +24141,7 @@
     },
     "DiscernPatternsSealResult": {
       "title": "DiscernPatternsSealResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -24625,6 +24632,7 @@
     },
     "DiscernPatternsArchivesResult": {
       "title": "DiscernPatternsArchivesResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -25088,6 +25096,7 @@
     },
     "DiscernDeskResult": {
       "title": "DiscernDeskResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -25497,6 +25506,7 @@
     },
     "DiscernEnterResult": {
       "title": "DiscernEnterResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -28694,6 +28704,7 @@
     },
     "DiscernWorktreeRenameResult": {
       "title": "DiscernWorktreeRenameResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -34708,6 +34719,7 @@
     },
     "DiscernWorktreeParkResult": {
       "title": "DiscernWorktreeParkResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "ok": {
@@ -37633,6 +37645,7 @@
     },
     "DiscernImprovementMcpToolResult": {
       "title": "DiscernImprovementMcpToolResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "content": {
@@ -37861,6 +37874,7 @@
     },
     "DiscernCouplingMcpToolResult": {
       "title": "DiscernCouplingMcpToolResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "content": {
@@ -37937,6 +37951,7 @@
     },
     "DiscernPatternsMcpToolResult": {
       "title": "DiscernPatternsMcpToolResult",
+      "x-discern-stability": "evolving",
       "type": "object",
       "properties": {
         "content": {
@@ -38618,6 +38633,7 @@
       "commands": [
         "triangle"
       ],
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome"
@@ -38808,6 +38824,7 @@
         "improvement"
       ],
       "mcp_tool": "discern_improvement",
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome"
@@ -38940,6 +38957,7 @@
       "commands": [
         "tidy"
       ],
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome",
@@ -38982,6 +39000,7 @@
         "coupling"
       ],
       "mcp_tool": "discern_coupling",
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome"
@@ -39024,6 +39043,7 @@
         "patterns"
       ],
       "mcp_tool": "discern_patterns",
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome"
@@ -39044,6 +39064,7 @@
       "commands": [
         "patterns reset"
       ],
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome",
@@ -39064,6 +39085,7 @@
       "commands": [
         "patterns seal"
       ],
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome",
@@ -39084,6 +39106,7 @@
       "commands": [
         "patterns archives"
       ],
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome"
@@ -39103,6 +39126,7 @@
       "commands": [
         "desk"
       ],
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome",
@@ -39123,6 +39147,7 @@
       "commands": [
         "enter"
       ],
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome"
@@ -39190,6 +39215,7 @@
       "commands": [
         "worktree rename"
       ],
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome",
@@ -39404,6 +39430,7 @@
       "commands": [
         "worktree park"
       ],
+      "stability": "evolving",
       "completion_policy": {
         "required_postconditions": [
           "declared-outcome",

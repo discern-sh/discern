@@ -510,6 +510,7 @@
       "name": "discern_coupling",
       "title": "Show co-change coupling",
       "description": "Surface the files that historically change TOGETHER as a read-only advisory mined from git history, so a touched file's habitual sibling isn't forgotten. Three forms: with NO file it is DIFF-AWARE, reporting the files that co-change with your current change set but are MISSING from it (the primary surface); pass `file` to query ONE file's top co-change partners (its blast radius); pass `file` AND `with` to drill into the shared history of TWO files — the commits where both changed, with dates and subjects, to judge a coupling essential vs incidental. The partners (data.partners) and the shared commits (data.commits) carry their evidence in plain counts, and the human-readable finding rides in hints[]. You decide whether a strong coupling is an essential invariant to lock with a forcing-function, or incidental and ignorable. The list is not exhaustive.",
+      "stability": "evolving",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -539,6 +540,7 @@
       "name": "discern_patterns",
       "title": "Read the practice patterns",
       "description": "Read the project's local, metadata-only logbook and return advisory workflow findings without changing files, configuration, authority, or retry policy. Each data.findings member carries a plain summary, concrete observed evidence with the relevant counts and denominator, its exact subject and scope, structured evidence, any material limitations, and one next_step. data.investigations connects eligible findings with the same summary/observed distinction, a bounded evidence boundary, one diagnostic_action, and a falsifier; treat estimated values only as estimates, cohort findings as descriptive rather than comparative judgments, and adjacency as non-causal. data.detectors includes fired, quiet, and insufficient-evidence states; do not treat limited history as a clean bill. The default keeps a bounded set of findings; data.findings_total reports any omitted count and all: true returns the larger complete set. Trends compare only runs sharing recorded setup conditions and name excluded runs in their evidence. Active history is the default; logbook_file selects one sealed archive basename from `discern patterns archives` without changing the active recorder. stats: true adds practice Stats from the same local evidence. Findings never block the gate. Retry only after the named evidence or precondition changes.",
+      "stability": "evolving",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -669,6 +671,7 @@
       "name": "discern_improvement",
       "title": "Find the next improvement",
       "description": "Return the ranked next action for improving the project, plus the full health audit and open qualitative reviews behind it for agent and owner to evaluate together. data.next_action is the single highest-value improvement to make now; data.categories carries the deterministic findings and review material. A score of 100 means nothing objectively weak, not that the project is done. Pass a category to focus one area.",
+      "stability": "evolving",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",

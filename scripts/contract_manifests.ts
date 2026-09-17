@@ -15,10 +15,17 @@ import {
   CLI_MANIFEST_ID,
   CONVENTIONS_COMPATIBILITY_POLICY,
   CONVENTIONS_MANIFEST_ID,
+  MANIFEST_STABILITY_FIELD,
   MCP_TOOLS_COMPATIBILITY_POLICY,
   MCP_TOOLS_MANIFEST_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  type StabilityTier,
 } from "../src/shared/public_schemas.ts";
+import {
+  type ResultContract,
+  resultContractForCommand,
+  resultContractForMcpTool,
+} from "../src/shared/result_contracts.ts";
 import {
   DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
   DISCERN_ENVIRONMENT_VARIABLES,
@@ -55,6 +62,8 @@ export interface CliManifestCommand {
   aliases: string[];
   hidden: boolean;
   hidden_when: string | null;
+  /** Present only for an evolving command; a stable command carries no tier. */
+  stability?: StabilityTier;
   positionals: CliArg[];
   usage: string;
   flags: Array<{
@@ -86,6 +95,15 @@ export function renderContractManifest(manifest: ContractManifest): string {
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
+/** The stability field a manifest record carries when its contract is evolving. */
+function recordStability(
+  contract: ResultContract | undefined,
+): { stability?: StabilityTier } {
+  return contract?.stability === undefined
+    ? {}
+    : { [MANIFEST_STABILITY_FIELD]: contract.stability };
+}
+
 /** Turn an ordered string registry into an append-only object membership map. */
 function membership(values: readonly string[]): Record<string, true> {
   return Object.fromEntries(values.map((value) => [value, true]));
@@ -110,6 +128,7 @@ export function buildMcpToolsManifest(): ContractManifest {
       name: tool.name,
       ...(tool.title === undefined ? {} : { title: tool.title }),
       description: tool.description,
+      ...recordStability(resultContractForMcpTool(tool.name)),
       inputSchema: z.toJSONSchema(z.strictObject(tool.inputSchema), {
         io: "input",
       }),
@@ -140,6 +159,7 @@ export function buildCliManifest(): CliContractManifest {
         aliases: [...command.aliases],
         hidden: command.hidden,
         hidden_when: hidden?.when ?? null,
+        ...recordStability(resultContractForCommand(command.path.join(" "))),
         positionals: command.args.map((argument) => ({ ...argument })),
         usage: command.usage,
         flags: command.options.map((option) => ({

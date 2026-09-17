@@ -27,6 +27,7 @@ import {
   RESULT_CONTRACT_REFERENCE_FIELDS,
 } from "../src/shared/result_contracts.ts";
 import {
+  MANIFEST_STABILITY_FIELD,
   PROOF_NOTE_DSSE_ENVELOPE,
   PROOF_NOTE_DSSE_PROTOCOL,
   PROOF_NOTE_PAYLOAD_DEFINITION,
@@ -34,8 +35,10 @@ import {
   PROOF_NOTE_SCHEMA_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
   PUBLIC_SCHEMA_PUBLICATIONS,
+  PUBLIC_SCHEMA_STABILITY_KEY,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
   RESULT_SCHEMA_ID,
+  STABILITY_TIER_EVOLVING,
 } from "../src/shared/public_schemas.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { ERROR_SLUGS } from "../src/shared/result.ts";
@@ -44,6 +47,8 @@ import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 import type { DiscernTidyResult } from "../types/discern-json.d.ts";
 import {
+  buildCliManifest,
+  buildMcpToolsManifest,
   renderCliManifest,
   renderConventionsManifest,
   renderMcpToolsManifest,
@@ -381,6 +386,80 @@ Deno.test("result contract metadata uses only the canonical schema-reference fie
       ].sort(),
       `${contract.id} should publish only its semantic CLI/MCP references`,
     );
+  }
+});
+
+Deno.test("every contract's stability tier is projected into each artifact that lists it, and into no help text", () => {
+  // The registry field is the single source: the result schema's contract
+  // records and definitions, the CLI grammar manifest, the MCP tools manifest,
+  // and the declarations all carry exactly the tier the contract declares.
+  // Parity runs over EVERY contract, so a stable one acquiring a tier from a
+  // stray generator list fails as surely as an evolving one losing it.
+  const schema = buildResultJsonSchema();
+  const records = schema["x-discern-contracts"];
+  assert(Array.isArray(records) && isRecord(schema.$defs));
+  const defs = schema.$defs;
+  const cli = buildCliManifest();
+  const mcp = buildMcpToolsManifest();
+  const tools = mcp.tools;
+  assert(Array.isArray(tools));
+  const declarations = renderResultTypesDts();
+  const evolving: string[] = [];
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    const tier = contract.stability;
+    if (tier !== undefined) evolving.push(contract.id);
+    const record = records.find((value) =>
+      isRecord(value) && value.id === contract.id
+    );
+    assert(isRecord(record), `${contract.id} publishes a contract record`);
+    assertEquals(record[MANIFEST_STABILITY_FIELD], tier, contract.id);
+    const typeName = `Discern${pascalCase(contract.id)}Result`;
+    const definition = defs[typeName];
+    assert(isRecord(definition), `${typeName} is defined`);
+    assertEquals(definition[PUBLIC_SCHEMA_STABILITY_KEY], tier, typeName);
+    const declared = declarations.includes(
+      `may change in any release. */\nexport type ${typeName} =`,
+    );
+    assertEquals(declared, tier !== undefined, `${typeName} declaration`);
+    if (contract.mcpTool !== undefined) {
+      const mcpTypeName = `Discern${pascalCase(contract.id)}McpToolResult`;
+      const wrapper = defs[mcpTypeName];
+      assert(isRecord(wrapper), `${mcpTypeName} is defined`);
+      assertEquals(wrapper[PUBLIC_SCHEMA_STABILITY_KEY], tier, mcpTypeName);
+      const tool = tools.find((value) =>
+        isRecord(value) && value.name === contract.mcpTool
+      );
+      assert(isRecord(tool), `${contract.mcpTool} is a manifest tool`);
+      assertEquals(tool[MANIFEST_STABILITY_FIELD], tier, contract.mcpTool);
+    }
+    for (const command of contract.commands) {
+      const path = command === "discern" ? [] : command.split(" ");
+      const entry = cli.commands.find((value) =>
+        JSON.stringify(value.path) === JSON.stringify(path)
+      );
+      assert(entry !== undefined, `${command} is a manifest command`);
+      assertEquals(entry.stability, tier, command);
+    }
+  }
+  assert(evolving.length > 0, "the projection needs an evolving contract");
+
+  // The tier lives in the artifacts, never in the text agents re-read.
+  const marker = new RegExp(STABILITY_TIER_EVOLVING, "i");
+  for (const entry of cli.commands) {
+    const prose = [
+      entry.description,
+      entry.usage,
+      ...entry.flags.map((flag) => flag.description),
+    ].join("\n");
+    assert(
+      !marker.test(prose),
+      `${entry.path.join(" ")} help text is unmarked`,
+    );
+  }
+  for (const tool of tools) {
+    assert(isRecord(tool));
+    const prose = [tool.title, tool.description].join("\n");
+    assert(!marker.test(prose), `${String(tool.name)} description is unmarked`);
   }
 });
 

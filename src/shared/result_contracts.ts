@@ -723,11 +723,27 @@ export function registeredCliCommandPaths(root: Command): string[] {
   return paths.sort();
 }
 
-/** The published result verb for one canonical command path. */
-export function cliJsonResultVerb(commandPath: string): string | undefined {
+/** The registered result contract that owns one canonical command path. */
+export function resultContractForCommand(
+  commandPath: string,
+): ResultContract | undefined {
   return CLI_JSON_RESULT_CONTRACTS.find((contract) =>
     contract.commands.includes(commandPath)
-  )?.verb;
+  );
+}
+
+/** The published result verb for one canonical command path. */
+export function cliJsonResultVerb(commandPath: string): string | undefined {
+  return resultContractForCommand(commandPath)?.verb;
+}
+
+/** The registered result contract exposed as one MCP tool. */
+export function resultContractForMcpTool(
+  toolName: string,
+): ResultContract | undefined {
+  return CLI_JSON_RESULT_CONTRACTS.find((contract) =>
+    contract.mcpTool === toolName
+  );
 }
 
 /** The registered result contract for one serialized envelope discriminator. */

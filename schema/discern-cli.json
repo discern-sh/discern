@@ -1347,6 +1347,7 @@
       "aliases": [],
       "hidden": true,
       "hidden_when": "always",
+      "stability": "evolving",
       "positionals": [],
       "usage": "",
       "flags": [
@@ -3972,6 +3973,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [],
       "usage": "",
       "flags": [
@@ -4839,6 +4841,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [
         {
           "name": "type",
@@ -5332,6 +5335,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [
         {
           "name": "file",
@@ -5591,6 +5595,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [],
       "usage": "",
       "flags": [
@@ -5717,6 +5722,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [],
       "usage": "",
       "flags": [
@@ -5805,6 +5811,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [],
       "usage": "",
       "flags": [
@@ -5905,6 +5912,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [],
       "usage": "",
       "flags": [
@@ -6128,6 +6136,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [],
       "usage": "",
       "flags": [
@@ -6215,6 +6224,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [],
       "usage": "",
       "flags": [
@@ -7382,6 +7392,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [
         {
           "name": "title",
@@ -7591,6 +7602,7 @@
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
+      "stability": "evolving",
       "positionals": [
         {
           "name": "worktree",

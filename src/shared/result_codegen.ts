@@ -24,12 +24,14 @@ import {
   type ResultContract,
 } from "./result_contracts.ts";
 import {
+  MANIFEST_STABILITY_FIELD,
   PROOF_NOTE_DSSE_ENVELOPE,
   PROOF_NOTE_DSSE_PROTOCOL,
   PROOF_NOTE_PAYLOAD_DEFINITION,
   PROOF_NOTE_PAYLOAD_TYPE,
   PROOF_NOTE_SCHEMA_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  PUBLIC_SCHEMA_STABILITY_KEY,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
   RESULT_SCHEMA_ID,
 } from "./public_schemas.ts";
@@ -112,6 +114,20 @@ function typeName(contract: ResultContract): string {
 /** Derive the exported MCP wrapper type name for a registered contract. */
 function mcpTypeName(contract: ResultContract): string {
   return `Discern${pascalCase(contract.id)}McpToolResult`;
+}
+
+/** The stability keyword a contract's generated definitions carry, if any. */
+function definitionStability(contract: ResultContract): JsonObject {
+  return contract.stability === undefined
+    ? {}
+    : { [PUBLIC_SCHEMA_STABILITY_KEY]: contract.stability };
+}
+
+/** The stability field a contract's metadata record carries, if any. */
+function recordStability(contract: ResultContract): JsonObject {
+  return contract.stability === undefined
+    ? {}
+    : { [MANIFEST_STABILITY_FIELD]: contract.stability };
 }
 
 /** Point a JSON Schema reference at a named root definition. */
@@ -281,6 +297,7 @@ export function buildResultJsonSchema(): JsonObject {
     const name = typeName(contract);
     defs[name] = {
       title: name,
+      ...definitionStability(contract),
       ...referenceResultState(
         generatedSchema(contract.schema, hoisted),
         resultState,
@@ -291,6 +308,7 @@ export function buildResultJsonSchema(): JsonObject {
   for (const contract of MCP_RESULT_CONTRACTS) {
     defs[mcpTypeName(contract)] = {
       title: mcpTypeName(contract),
+      ...definitionStability(contract),
       ...mcpToolResultSchema(refFor(typeName(contract))),
     };
   }
@@ -314,6 +332,7 @@ export function buildResultJsonSchema(): JsonObject {
       verb: contract.verb,
       commands: [...contract.commands],
       ...(contract.mcpTool === undefined ? {} : { mcp_tool: contract.mcpTool }),
+      ...recordStability(contract),
       completion_policy: completionPolicyMetadata(contract),
       [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: `#/$defs/${typeName(contract)}`,
       ...(contract.mcpTool === undefined ? {} : {
@@ -687,6 +706,20 @@ function renderGenericTypeAlias(
   return `export type ${name} = ${genericName}<\n  ${innerType}\n>;`;
 }
 
+/** The declaration comment an evolving contract's aliases carry. */
+const EVOLVING_DECLARATION_COMMENT =
+  "/** Evolving: this result shape may change in any release. */";
+
+/** Prefix a declaration with the evolving comment when its contract carries the tier. */
+function withStabilityComment(
+  contract: ResultContract,
+  declaration: string,
+): string {
+  return contract.stability === undefined
+    ? declaration
+    : `${EVOLVING_DECLARATION_COMMENT}\n${declaration}`;
+}
+
 /** Render a schema-derived alias, including formatter-stable intersections. */
 function renderSchemaTypeAlias(name: string, type: string): string {
   if (!type.startsWith("& ")) {
@@ -728,7 +761,13 @@ export function renderResultTypesDts(): string {
     const name = typeName(contract);
     const def = defs[name];
     if (isObject(def)) {
-      out.push(renderSchemaTypeAlias(name, schemaToType(def)), "");
+      out.push(
+        withStabilityComment(
+          contract,
+          renderSchemaTypeAlias(name, schemaToType(def)),
+        ),
+        "",
+      );
     }
   }
   out.push(
@@ -798,10 +837,13 @@ export function renderResultTypesDts(): string {
   );
   for (const contract of MCP_RESULT_CONTRACTS) {
     out.push(
-      renderGenericTypeAlias(
-        mcpTypeName(contract),
-        "DiscernMcpToolResult",
-        typeName(contract),
+      withStabilityComment(
+        contract,
+        renderGenericTypeAlias(
+          mcpTypeName(contract),
+          "DiscernMcpToolResult",
+          typeName(contract),
+        ),
       ),
       "",
     );

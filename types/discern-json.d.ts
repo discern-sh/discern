@@ -2911,6 +2911,7 @@ export type DiscernLicensesResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernTriangleResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -4636,6 +4637,7 @@ export type DiscernTestResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernImprovementResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -6046,6 +6048,7 @@ export type DiscernRefreshResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernTidyResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -6344,6 +6347,7 @@ export type DiscernImpactResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernCouplingResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -6701,6 +6705,7 @@ export type DiscernAwaitResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernPatternsResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -7208,6 +7213,7 @@ export type DiscernPatternsResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernPatternsResetResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -7369,6 +7375,7 @@ export type DiscernPatternsResetResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernPatternsSealResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -7529,6 +7536,7 @@ export type DiscernPatternsSealResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernPatternsArchivesResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -7683,6 +7691,7 @@ export type DiscernPatternsArchivesResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernDeskResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -7827,6 +7836,7 @@ export type DiscernDeskResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernEnterResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -8726,6 +8736,7 @@ export type DiscernStartResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernWorktreeRenameResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -10641,6 +10652,7 @@ export type DiscernWorktreeDropResult = DiscernResultState & {
   };
 };
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernWorktreeParkResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -11673,6 +11685,7 @@ export type DiscernPrepareMcpToolResult = DiscernMcpToolResult<
 
 export type DiscernTestMcpToolResult = DiscernMcpToolResult<DiscernTestResult>;
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernImprovementMcpToolResult = DiscernMcpToolResult<
   DiscernImprovementResult
 >;
@@ -11697,6 +11710,7 @@ export type DiscernImpactMcpToolResult = DiscernMcpToolResult<
   DiscernImpactResult
 >;
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernCouplingMcpToolResult = DiscernMcpToolResult<
   DiscernCouplingResult
 >;
@@ -11705,6 +11719,7 @@ export type DiscernAwaitMcpToolResult = DiscernMcpToolResult<
   DiscernAwaitResult
 >;
 
+/** Evolving: this result shape may change in any release. */
 export type DiscernPatternsMcpToolResult = DiscernMcpToolResult<
   DiscernPatternsResult
 >;
