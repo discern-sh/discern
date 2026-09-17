@@ -119,7 +119,7 @@ function providerConventions(): Record<string, unknown> {
         ? provider.mcp.integration.configFile
         : provider.mcp.kind === "pending"
         ? provider.mcp.targetFile
-        : null;
+        : undefined;
       const hookEvents = provider.hooks === undefined ? {} : Object.fromEntries(
         provider.hooks.commands.map((command) => [
           command.event,
@@ -128,12 +128,20 @@ function providerConventions(): Record<string, unknown> {
       );
       return [name, {
         instruction_file: provider.instructionFile.path,
-        skills_directory: provider.skillsDir?.path ?? null,
-        mcp_file: mcpFile,
-        hooks_file: provider.hooks?.settingsFile ?? null,
+        ...(provider.skillsDir === undefined
+          ? {}
+          : { skills_directory: provider.skillsDir.path }),
+        ...(mcpFile === undefined ? {} : { mcp_file: mcpFile }),
+        ...(provider.hooks === undefined
+          ? {}
+          : { hooks_file: provider.hooks.settingsFile }),
         hook_events: hookEvents,
-        worktree_app_file: provider.worktreeApp?.configFile ?? null,
-        project_rules_file: provider.projectRules?.rulesFile ?? null,
+        ...(provider.worktreeApp === undefined
+          ? {}
+          : { worktree_app_file: provider.worktreeApp.configFile }),
+        ...(provider.projectRules === undefined
+          ? {}
+          : { project_rules_file: provider.projectRules.rulesFile }),
         local_state_files: Object.fromEntries(
           (provider.localState ?? []).map((entry) => [entry.path, true]),
         ),

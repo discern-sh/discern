@@ -113,8 +113,6 @@
         "WorktreeCreate": "worktree-create",
         "WorktreeRemove": "worktree-remove"
       },
-      "worktree_app_file": null,
-      "project_rules_file": null,
       "local_state_files": {
         ".claude/settings.local.json": true
       }
@@ -139,8 +137,6 @@
       "hook_events": {
         "SessionStart": "session-start"
       },
-      "worktree_app_file": null,
-      "project_rules_file": null,
       "local_state_files": {}
     },
     "cursor": {
@@ -151,8 +147,6 @@
       "hook_events": {
         "sessionStart": "session-start"
       },
-      "worktree_app_file": null,
-      "project_rules_file": null,
       "local_state_files": {}
     },
     "copilot": {
@@ -163,8 +157,6 @@
       "hook_events": {
         "sessionStart": "session-start"
       },
-      "worktree_app_file": null,
-      "project_rules_file": null,
       "local_state_files": {}
     }
   },

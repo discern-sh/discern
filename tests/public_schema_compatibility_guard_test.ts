@@ -90,6 +90,20 @@ function jsonObjects(
   ];
 }
 
+/** Locate every null leaf in a JSON value with a stable diagnostic path. */
+function nullLeafPaths(value: JsonValue, path = "$"): string[] {
+  if (value === null) return [path];
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) =>
+      nullLeafPaths(item, `${path}[${index}]`)
+    );
+  }
+  if (!isRecord(value)) return [];
+  return Object.entries(value).flatMap(([key, item]) =>
+    nullLeafPaths(item, `${path}.${key}`)
+  );
+}
+
 /** Split a generated PascalCase definition name into semantic word segments. */
 function definitionSegments(value: string): string[] {
   return value
@@ -2361,6 +2375,15 @@ Deno.test("verb visibility stays in the CLI manifest and out of conventions", ()
     assertEquals(Object.hasOwn(command, "hidden"), true, name);
     assertEquals(command.hidden_when, entry.when, name);
   }
+});
+
+Deno.test("the conventions manifest omits absent provider capabilities", () => {
+  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
+  );
+  assert(publication !== undefined);
+  const manifest = buildCurrentPublicSchema(publication);
+  assertEquals(nullLeafPaths(manifest), []);
 });
 
 Deno.test("the schema baseline is the highest predecessor version tag, never a release candidate at HEAD", async () => {
