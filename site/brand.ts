@@ -22,12 +22,6 @@ export const AGENTS_TITLE =
 export const AGENTS_DESCRIPTION =
   "discern gives coding agents explicit project state, bounded results, isolated work, project-specific instructions, useful refusals, and Proof tied to the exact completed change.";
 
-/** Exact metadata for the concise trust and evidence gateway. */
-export const TRUST_TITLE =
-  "Trust discern — inspect its evidence and boundaries";
-export const TRUST_DESCRIPTION =
-  "Inspect what discern proves, what stays local, who controls landing, and the live project Map its agents maintain under discern's own practice.";
-
 /** Route-specific social copy, which can address an out-of-context human share. */
 export const SOCIAL_PAGE_METADATA: Readonly<
   Record<string, { title: string; description: string; image: string }>
@@ -37,12 +31,6 @@ export const SOCIAL_PAGE_METADATA: Readonly<
     description:
       "Developer software designed around the machine doing the work, while the person responsible keeps the final decision.",
     image: "/assets/agents-og.png",
-  },
-  "/trust": {
-    title: "Trust starts with inspectable boundaries.",
-    description:
-      "See what discern proves, what it does not decide, what stays local, and the live Map maintained under its own practice.",
-    image: "/assets/og-card.png",
   },
 };
 
@@ -54,7 +42,6 @@ export const SOCIAL_PAGE_METADATA: Readonly<
 export const SELF_TITLED_PAGES: Readonly<Record<string, string>> = {
   "/": LANDING_TITLE,
   "/agents": AGENTS_TITLE,
-  "/trust": TRUST_TITLE,
   [RELEASE_ROUTES.html]: RELEASE_TITLE,
 };
 

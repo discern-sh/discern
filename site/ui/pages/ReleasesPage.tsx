@@ -337,7 +337,7 @@ function ReleasesPage(
               </p>
             )}
           <p className="releases-disclosure" data-release-disclosure="">
-            {checkDisclosure(model)} <a href="/trust">About local control</a>
+            {checkDisclosure(model)} <a href="/docs/understand/local-control">About local control</a>
           </p>
         </div>
         <VersionCard model={model} />

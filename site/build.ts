@@ -39,7 +39,6 @@ export const COPIED_PAGE_ASSETS = [
   "landing.css",
   "map.css",
   "releases.css",
-  "trust.css",
 ] as const;
 
 /** Old generated pages removed on every build so local previews cannot retain them. */
@@ -48,6 +47,7 @@ export const RETIRED_SITE_OUTPUTS = [
   "pages/content-design-demo.html",
   "pages/v2.html",
   "pages/agents.md",
+  "pages/trust.html",
   "pages/fragments",
 ] as const;
 

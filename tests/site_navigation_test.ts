@@ -78,15 +78,15 @@ Deno.test("public React pages share the complete header and footer", async () =>
 });
 
 Deno.test("navigation states the exact page apart from the branch containing it", () => {
-  assertEquals(navigationCurrent("/trust", "/trust"), "page");
+  assertEquals(navigationCurrent("/releases", "/releases"), "page");
   assertEquals(
     navigationCurrent("/docs", "/docs/reference/glossary"),
     "section",
   );
   assertEquals(navigationCurrent("/docs", "/docs-studio"), undefined);
-  assertEquals(navigationCurrent("/releases", "/trust"), undefined);
+  assertEquals(navigationCurrent("/docs", "/releases"), undefined);
   assertEquals(
-    navigationCurrent("/", "/trust"),
+    navigationCurrent("/", "/releases"),
     undefined,
     "a root destination never claims the branch below it",
   );

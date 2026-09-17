@@ -20,7 +20,6 @@ export function renderNotFoundPage(): string {
         <p style={{ maxWidth: "34rem", lineHeight: 1.7 }}>
           404 — no such page.<br />
           Available pages: <a href="/">discern.sh</a> ·{" "}
-          <a href="/agents">/agents</a> · <a href="/trust">/trust</a> ·{" "}
           <a href="/releases">/releases</a> · <a href="/docs">/docs</a> ·{" "}
           <a href="/map">/map</a> · <a href="/llms.txt">/llms.txt</a>
         </p>

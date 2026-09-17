@@ -40,19 +40,13 @@ The marked Markdown is the authority for every command and outcome in the projec
 
 [`site/page-src/agents.css`](../../../site/page-src/agents.css) owns its `.agents-*` composition selectors. The page composes static package components through their typed slots and published CSS variables; consumer selectors never reach into package-owned classes. It uses the shared public navigation and system-aware theme control. [`site/renderers.ts`](../../../site/renderers.ts) exhaustively maps each `MARKETING_PAGES` route to its static renderer, so adding a registry member without a composition fails type checking.
 
-## The trust composition
-
-[`site/ui/pages/TrustPage.tsx`](../../../site/ui/pages/TrustPage.tsx) is the concise evaluator gateway at `/trust`. It frames local control, inspectable gate and Proof evidence, and the inspectable map without becoming another product or security authority. Every material statement is selected from [`PUBLIC_CLAIMS`](../../../scripts/brand/claims.ts), and each evidence card links to the exact manual or public-Map destination that owns the detail.
-
-[`site/page-src/trust.css`](../../../site/page-src/trust.css) owns only its `.trust-*` composition selectors. The page is static, has no page-specific JavaScript, and shares the compositions bundle, theme bootstrap, skip-link contract, metadata path, and generated branding with the other marketing pages.
-
 ## The release composition
 
 The [human release page](releases.md#the-human-page) is rendered at request time from the shared comparison model. It uses the same package through its public semantic HTML contract, preserving a framework-free handler and browser. The version card and installer command use package components; the reading rail and responsive rhythm belong to the release stylesheet. All comparison states and complete notes work without scripts.
 
 ## Public-site prose
 
-[`site/marketing_pages.ts`](../../../site/marketing_pages.ts) enrolls every public marketing composition in building, serving, route discovery, runtime checks, and public prose checks. Each member names its output, authored source, register, negotiation policy, and prose policy. A guarded page joins [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts), the site scope, and the site prose standards through that registration. The homepage and `/trust` use the brand register; `/agents` uses the public agent register.
+[`site/marketing_pages.ts`](../../../site/marketing_pages.ts) enrolls every public marketing composition in building, serving, route discovery, runtime checks, and public prose checks. Each member names its output, authored source, register, negotiation policy, and prose policy. A guarded page joins [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts), the site scope, and the site prose standards through that registration. The homepage uses the brand register; `/agents` uses the public agent register.
 
 The projection keeps the authored blocks a visitor reads and removes markup, attributes, code, artefact data, and repeated rendered copies. It stages each page under its declared register so the generated brand rules apply. `deno task site:prose-check` blocks Vale errors. `deno task site:prose` emits the alert numerator and exact word denominator consumed by `[standards.site_prose]`; `deno task site:reading-grade` reads the same projection for `[standards.site_reading_grade]`.
 
