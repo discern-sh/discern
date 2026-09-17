@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--public-marketing-pages)                                               | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 3       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 920     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 924     | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 1       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -106,7 +106,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 69      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
-| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 50      | —                | node `bundled-docs`         |
+| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 51      | —                | node `bundled-docs`         |
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
 | [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 54      | —                | node `bundled-docs`         |
@@ -115,7 +115,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 397     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 398     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 25      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -479,7 +479,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 920
+- Members: 924
   - `/`
   - `/agents`
   - `/trust`
@@ -589,6 +589,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/reference/logbook.md`
   - `/docs/reference/mcp-and-results`
   - `/docs/reference/mcp-and-results.md`
+  - `/docs/reference/compatibility`
+  - `/docs/reference/compatibility.md`
   - `/docs/troubleshooting`
   - `/docs/troubleshooting.md`
   - `/docs/troubleshooting/setup-and-integrations`
@@ -1337,6 +1339,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0407-the-gate-strips-the-desk-marker.md`
   - `/docs/decisions/0408-project-code-holds-no-exclusion-boundary`
   - `/docs/decisions/0408-project-code-holds-no-exclusion-boundary.md`
+  - `/docs/decisions/0409-public-contracts-split-durable-enforcement-from-session-judgment`
+  - `/docs/decisions/0409-public-contracts-split-durable-enforcement-from-session-judgment.md`
   - `/docs/decisions/0001-project-owned-recipes`
   - `/docs/decisions/0001-project-owned-recipes.md`
   - `/docs/decisions/0002-first-class-side-gates`
@@ -3092,7 +3096,7 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-failure-map-integrity`
   - `gate-failure-merge`
   - `gate-failure-standards`
-  - `gate-failure-write-access`
+  - `gate-failure-write-denied`
   - `gate-prove-it-works`
   - `gate-relay-proof`
   - `gate-land-under-verified-authority`
@@ -3342,10 +3346,10 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `detached_head: evidence`
   - `diagrams_misaligned: evidence`
   - `dirty_worktree: evidence`
-  - `edit_error: evidence`
+  - `edit_failed: evidence`
   - `gate_failed: evidence`
   - `gitignore_template_unavailable: evidence`
-  - `identity_error: evidence`
+  - `identity_failed: evidence`
   - `incomplete: tailored`
   - `internal_error: evidence`
   - `invalid_arguments: evidence`
@@ -3357,14 +3361,11 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `invalid_value: evidence`
   - `no_docs: evidence`
   - `no_map: evidence`
+  - `no_project: evidence`
   - `no_repository: evidence`
-  - `no_such_step: evidence`
-  - `no_target: evidence`
-  - `not_found: tailored`
-  - `not_initialized: evidence`
+  - `no_trunk: evidence`
   - `not_main_checkout: evidence`
   - `not_on_trunk: evidence`
-  - `not_set_up: evidence`
   - `not_on_setup_branch: evidence`
   - `partial_acceptance: tailored`
   - `partial_materialization: tailored`
@@ -3374,7 +3375,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `proposal_stale: evidence`
   - `precondition_failed: evidence`
   - `provisioned_resources: evidence`
-  - `read_error: evidence`
+  - `read_failed: evidence`
   - `report_only_proof: tailored`
   - `renamed_command: evidence`
   - `renamed_config_key: evidence`
@@ -3382,6 +3383,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `script_not_executable: evidence`
   - `script_not_a_command: evidence`
   - `setup_plan_failed: evidence`
+  - `setup_unfinished: evidence`
   - `skills_eject_failed: evidence`
   - `tables_malformed: evidence`
   - `templates_not_found: evidence`
@@ -3392,7 +3394,9 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `unknown_command: tailored`
   - `unknown_key: evidence`
   - `unknown_standard: evidence`
-  - `write_access: evidence`
+  - `unknown_step: evidence`
+  - `unknown_target: tailored`
+  - `write_denied: evidence`
 - Guards: `tests/result_schemas_test.ts`
 - Glossary: not enrolled — the result-contract reference explains the two recovery modes without exposing this internal policy table
 - Feature canon: described by the `hints` node
@@ -4141,10 +4145,10 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `detached_head`
   - `diagrams_misaligned`
   - `dirty_worktree`
-  - `edit_error`
+  - `edit_failed`
   - `gate_failed`
   - `gitignore_template_unavailable`
-  - `identity_error`
+  - `identity_failed`
   - `incomplete`
   - `internal_error`
   - `invalid_arguments`
@@ -4156,15 +4160,12 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `invalid_value`
   - `no_docs`
   - `no_map`
+  - `no_project`
   - `no_repository`
-  - `no_such_step`
-  - `no_target`
-  - `not_found`
-  - `not_initialized`
+  - `no_trunk`
   - `not_main_checkout`
   - `not_on_setup_branch`
   - `not_on_trunk`
-  - `not_set_up`
   - `partial_acceptance`
   - `partial_materialization`
   - `partial_refresh`
@@ -4173,7 +4174,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `proposal_failed`
   - `proposal_stale`
   - `provisioned_resources`
-  - `read_error`
+  - `read_failed`
   - `renamed_command`
   - `renamed_config_key`
   - `report_only_proof`
@@ -4181,6 +4182,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `script_not_a_command`
   - `script_not_executable`
   - `setup_plan_failed`
+  - `setup_unfinished`
   - `skills_eject_failed`
   - `tables_malformed`
   - `templates_not_found`
@@ -4191,7 +4193,9 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `unknown_command`
   - `unknown_key`
   - `unknown_standard`
-  - `write_access`
+  - `unknown_step`
+  - `unknown_target`
+  - `write_denied`
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — the result-contract reference documents this machine failure vocabulary; command diagnostics supply reader-facing explanations
@@ -4243,7 +4247,7 @@ The machine-stable vocabulary for explicitly optional degradation that may coexi
 Every strictly admitted published product-manual page, identified by its stable authored page id.
 
 - Source: `src/lib/manual.ts` — `buildManualProjection`
-- Members: 50
+- Members: 51
   - `manual-home`
   - `start-index`
   - `start-evaluate-discern`
@@ -4288,6 +4292,7 @@ Every strictly admitted published product-manual page, identified by its stable 
   - `reference-proof-and-checkpoint-formats`
   - `reference-logbook`
   - `reference-results-and-mcp`
+  - `reference-compatibility`
   - `troubleshooting-index`
   - `troubleshoot-setup-and-integrations`
   - `troubleshoot-gate-and-proof`
@@ -4508,7 +4513,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 397
+- Members: 398
   - `0003`
   - `0005`
   - `0006`
@@ -4875,6 +4880,7 @@ The numbered decision records in the map, including records later superseded.
   - `0406`
   - `0407`
   - `0408`
+  - `0409`
   - `0001`
   - `0002`
   - `0004`
