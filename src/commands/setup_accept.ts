@@ -325,7 +325,7 @@ export async function runSetupAccept(
   if (root === undefined) {
     return emitAccept(opts, log, {
       ok: false,
-      error: "not_initialized",
+      error: "no_project",
       message: NO_PROJECT_MESSAGE,
       data: { next_action: "discern setup verify" },
       code: 1,
@@ -424,7 +424,7 @@ export async function runSetupAccept(
     // both surfaces identically, rather than dead-ending.
     return emitAccept(opts, log, {
       ok: false,
-      error: "no_target",
+      error: "no_trunk",
       message:
         `The trunk branch \`${target}\` does not exist in this repository. In a ` +
         `brand-new repository the first commits are born on \`${branch}\`, so there is no ` +
@@ -580,7 +580,7 @@ export async function runSetupAccept(
   if (!writeAuthority.ok) {
     return emitAccept(opts, log, {
       ok: false,
-      error: "write_access",
+      error: "write_denied",
       message: writePreflightFailureMessage(writeAuthority),
       diagnostics: [
         writePreflightDiagnostic(writeAuthority, ACCEPT_COMMAND),

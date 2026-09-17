@@ -1553,14 +1553,14 @@ Deno.test("map defaults to the configured [map].dir", async () => {
   });
 });
 
-Deno.test("map <unknown> --json reports not_found, exit 1", async () => {
+Deno.test("map <unknown> --json reports unknown_target, exit 1", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(["map", "nonesuch", "--json"], dir);
     assertEquals(code, 1);
     const res = decodeCliResult(stdout, "map");
     assertEquals(res.ok, false);
-    assertEquals(res.error, "not_found");
+    assertEquals(res.error, "unknown_target");
     assertExists(res.message);
     assertStringIncludes(res.message, "nonesuch");
   });
@@ -1573,7 +1573,7 @@ Deno.test("map <near miss> --json suggests valid doc targets", async () => {
     assertEquals(code, 1);
     const res = decodeCliResult(stdout, "map");
     assertEquals(res.ok, false);
-    assertEquals(res.error, "not_found");
+    assertEquals(res.error, "unknown_target");
     assertExists(res.message);
     assertStringIncludes(res.message, "Closest match");
     assertMapDataKey(res, "suggestions");
@@ -1641,7 +1641,7 @@ Deno.test("searching an empty map succeeds unless an absent scope was requested"
       "--json",
     ], dir);
     assertEquals(scoped.code, 1);
-    assertEquals(decodeCliResult(scoped.stdout, "map").error, "not_found");
+    assertEquals(decodeCliResult(scoped.stdout, "map").error, "unknown_target");
   });
 });
 

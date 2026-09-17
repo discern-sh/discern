@@ -95,13 +95,13 @@ async function seedMixedLogbook(main: string): Promise<void> {
     verb: "docs",
     target: "missing-guide",
     outcome: "refused",
-    error: "not_found",
+    error: "unknown_target",
   }));
   events.push(event(21, {
     verb: "docs",
     target: "missing-guide",
     outcome: "refused",
-    error: "not_found",
+    error: "unknown_target",
   }));
   events.push(event(22, { verb: "docs", target: "quickstart" }));
   events.push(event(23, { verb: "map", target: "the-logbook" }));

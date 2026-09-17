@@ -1617,7 +1617,7 @@ Deno.test("config errors cleanly when not initialized", async () => {
       dir,
     );
     assertEquals(r.code, 1);
-    assertEquals(decodeCliResult(r.stdout, "config").error, "not_initialized");
+    assertEquals(decodeCliResult(r.stdout, "config").error, "no_project");
   });
 });
 

@@ -133,7 +133,7 @@ Deno.test("a store that exists but cannot be used is reported as such, not as a 
     await Deno.writeTextFile(join(store, "operations"), "not a directory\n");
     const read = await operationProgressResult(root);
     assert(!read.ok);
-    assertEquals(read.error, "read_error");
+    assertEquals(read.error, "read_failed");
     assertStringIncludes(read.message ?? "", "could not be used");
     assertStringIncludes(
       read.message ?? "",
@@ -148,7 +148,7 @@ Deno.test("reconnect refusals name the exact condition without touching anything
     const none = await operationProgressResult(root);
     assertEquals(none.ok, false);
     assert(!none.ok);
-    assertEquals(none.error, "not_found");
+    assertEquals(none.error, "unknown_target");
     const invalid = await operationProgressResult(root, {
       handle: "R1-XXXX-XXXX-99",
     });
@@ -211,7 +211,7 @@ Deno.test("reconnect refusals name the exact condition without touching anything
       );
       const named = await operationProgressResult(root);
       assert(!named.ok);
-      assertEquals(named.error, "not_found");
+      assertEquals(named.error, "unknown_target");
       assertStringIncludes(
         named.message ?? "",
         `\`done\` on agent/sibling, progress handle ${elsewhere.handle}`,

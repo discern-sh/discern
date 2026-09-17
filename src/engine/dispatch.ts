@@ -35,7 +35,7 @@ import {
   CONFIG_REL,
   findRoot,
   NO_PROJECT_MESSAGE,
-  notInitializedResult,
+  noProjectResult,
 } from "../shared/env.ts";
 import {
   resolveConfigPath,
@@ -148,16 +148,16 @@ function jsonFrom(options: unknown): boolean {
 /**
  * Resolve the project root, or refuse and exit 1. The refusal is the engine's
  * ONE not-initialized chokepoint: under either quiet result format it emits the
- * uniform `not_initialized` envelope on stdout — including the stable slug a
+ * uniform `no_project` envelope on stdout — including the stable slug a
  * caller branches on — and in terminal mode the canonical stderr line. Every engine verb that needs a
  * project passes its verb name and json flag here, so a new verb inherits the
- * structured refusal for free (`tests/engine_not_initialized_test.ts` holds the
+ * structured refusal for free (`tests/engine_no_project_test.ts` holds the
  * whole verb surface to it).
  */
 async function requireRoot(verb: string, _json: boolean): Promise<string> {
   const root = await findRoot();
   if (root === undefined) {
-    throw new CliRefusal(notInitializedResult(verb));
+    throw new CliRefusal(noProjectResult(verb));
   }
   return root;
 }
@@ -1189,7 +1189,7 @@ export function attachEngineCommands(
             emitResult({
               ok: false,
               verb: "identity",
-              error: "identity_error",
+              error: "identity_failed",
               message: e.message,
             });
           } else {
@@ -2109,7 +2109,7 @@ export async function runConfigRead(
   const root = await findRoot();
   if (root === undefined) {
     if (opts.json ?? false) {
-      emitResult(notInitializedResult("config"));
+      emitResult(noProjectResult("config"));
     } else {
       new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }

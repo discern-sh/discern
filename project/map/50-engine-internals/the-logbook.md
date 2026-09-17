@@ -109,7 +109,7 @@ The logbook records masked limits separately. Standard readings lift the configu
 
 ## The recording points
 
-Each surface has 1 recording point after it resolves a project. MCP dispatch opens the recorder only after resolving a project root, then `runTool` completes that known-root result after delivery-time hints are attached. This includes refusals returned before a verb handler runs. An explicit `path` outside every discern project returns `not_initialized` without recording. That path has no project logbook to host the event and no readable `discern.toml` setting to consent to it.
+Each surface has 1 recording point after it resolves a project. MCP dispatch opens the recorder only after resolving a project root, then `runTool` completes that known-root result after delivery-time hints are attached. This includes refusals returned before a verb handler runs. An explicit `path` outside every discern project returns `no_project` without recording. That path has no project logbook to host the event and no readable `discern.toml` setting to consent to it.
 
 CLI uses `recordedExit`, the shared action wrapper, which owns `Deno.exit`, timing, and completion recording. Both surfaces open the recorder with the verb, driver evidence, and flags known at invocation. From the canonical verb vocabulary, the recorder classifies effectful calls, automatically appends their begin, and reuses its id at completion. A parity test enrolls every effectful top-level CLI verb. Result envelopes reach the recorder through the `emitResult` and gate seams; verbs without one (`identity`, `script`) still record a minimal completion.
 

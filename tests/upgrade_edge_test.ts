@@ -117,20 +117,20 @@ async function recordedSchema(dir: string): Promise<number> {
 
 // ---- pre-flight refusals --------------------------------------------------
 
-Deno.test("upgrade with no discern.toml fails as not_initialized (--json)", async () => {
+Deno.test("upgrade with no discern.toml fails as no_project (--json)", async () => {
   await withTempDir(async (dir) => {
     // A bare dir is not an install: there is no discern.toml to refresh.
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1);
     const res = decodeCliResult(r.stdout, "upgrade");
     assertEquals(res.ok, false);
-    assertEquals(res.error, "not_initialized");
+    assertEquals(res.error, "no_project");
     assertExists(res.message);
     assertStringIncludes(res.message, "discern setup");
   });
 });
 
-Deno.test("upgrade with no discern.toml fails as not_initialized (human)", async () => {
+Deno.test("upgrade with no discern.toml fails as no_project (human)", async () => {
   await withTempDir(async (dir) => {
     const r = await runCli(["upgrade"], dir);
     assertEquals(r.code, 1);

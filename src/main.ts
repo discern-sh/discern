@@ -26,7 +26,10 @@ import { configFailureResult } from "./shared/config_failure.ts";
 import { interactiveHintTexts } from "./shared/hints.ts";
 import { findRoot } from "./shared/env.ts";
 import { isKnownJob, knownJobList } from "./shared/capabilities.ts";
-import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
+import {
+  SETUP_UNFINISHED_MESSAGE,
+  verbNeedsSetup,
+} from "./shared/setup_state.ts";
 import {
   normalizeVerbVariant,
   retiredCommandMessage,
@@ -1924,7 +1927,7 @@ export async function main(args: string[]): Promise<number> {
     // browse an empty tree. A clean funnel, not a generic block: `help` (discern's
     // own docs), status/doctor/config and the setup/plumbing verbs stay open, and a
     // parse-broken config still surfaces its own TOML error (the configOk guard).
-    // It fires in --json too, as a structured `not_set_up` result, so an agent
+    // It fires in --json too, as a structured `setup_unfinished` result, so an agent
     // consuming JSON learns to set up rather than misreading an empty pass.
     if (
       inProject && configOk && !bootstrapped && verbNeedsSetup(verb)
@@ -1933,11 +1936,13 @@ export async function main(args: string[]): Promise<number> {
         emitResult({
           ok: false,
           verb,
-          error: "not_set_up",
-          message: NOT_SET_UP_MESSAGE,
+          error: "setup_unfinished",
+          message: SETUP_UNFINISHED_MESSAGE,
         });
       } else {
-        new Logger({ json: false, noColor: false }).error(NOT_SET_UP_MESSAGE);
+        new Logger({ json: false, noColor: false }).error(
+          SETUP_UNFINISHED_MESSAGE,
+        );
       }
       return 1;
     }

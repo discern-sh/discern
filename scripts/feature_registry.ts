@@ -361,7 +361,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "write-preflight",
         title: "Git write authority proven first",
         what:
-          "Before an applied command performs a discern-owned Git write, the shared CLI and MCP boundary performs a create/write/rename/remove round trip in the common Git administration directory and any checkout surface that command may mutate. Gate, setup, Standards, and worktree creation supplement that broad proof with their exact planned targets. Read-only commands and dry runs never probe. A denial is a structured `write_access` failure naming the blocked path and reproducing the invocation.",
+          "Before an applied command performs a discern-owned Git write, the shared CLI and MCP boundary performs a create/write/rename/remove round trip in the common Git administration directory and any checkout surface that command may mutate. Gate, setup, Standards, and worktree creation supplement that broad proof with their exact planned targets. Read-only commands and dry runs never probe. A denial is a structured `write_denied` failure naming the blocked path and reproducing the invocation.",
         why:
           "A sandbox denial costs a few filesystem operations up front instead of partial lifecycle state or a discarded slow run.",
         plain: {

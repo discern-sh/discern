@@ -505,7 +505,7 @@ function proposalFailure(
     | "dirty_worktree"
     | "proposal_failed"
     | "proposal_stale"
-    | "write_access",
+    | "write_denied",
   message: string,
   diagnostic?: Diagnostic,
   verb: "standards" | "standards propose" = "standards propose",
@@ -952,7 +952,7 @@ async function groundProposalRequest(
     const preflight = await preflightProposalWrites(root);
     if (!preflight.ok) {
       return refuse(
-        "write_access",
+        "write_denied",
         writePreflightFailureMessage(preflight),
         writePreflightDiagnostic(preflight, "discern standards propose"),
       );

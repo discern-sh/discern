@@ -29,7 +29,7 @@ import {
 
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
-import { notInitializedResult } from "../shared/env.ts";
+import { noProjectResult } from "../shared/env.ts";
 import { readTextIfExists } from "../shared/fs_presence.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
@@ -199,7 +199,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     const message =
       "no discern install here — run `discern setup begin` first. `upgrade` refreshes an existing install.";
     if (options.json) {
-      log.result(notInitializedResult("upgrade", message));
+      log.result(noProjectResult("upgrade", message));
     } else {
       log.error(message);
     }

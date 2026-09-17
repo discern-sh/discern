@@ -272,7 +272,7 @@ export function writePreflightFailureResult<T>(
   return {
     ok: false,
     verb,
-    error: "write_access",
+    error: "write_denied",
     message: writePreflightFailureMessage(failure),
     diagnostics: [writePreflightDiagnostic(failure, reproduceCmd)],
   };
