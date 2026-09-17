@@ -44,6 +44,7 @@ import {
   pathKey,
   sameJson,
   stringSet,
+  withoutEvolvingMembers,
 } from "./public_contract_compatibility_common.ts";
 import {
   isManifestCompatibility,
@@ -1131,11 +1132,24 @@ export function publicSchemaCompatibilityIssues(
   if (issues.length > 0) {
     return issues;
   }
+  // The complete artifacts are what consumers receive, so both must be valid
+  // as published; only the comparison is confined to their stable members.
+  const stablePrevious = withoutEvolvingMembers(previous);
+  const stableCurrent = withoutEvolvingMembers(current);
+  issues.push(
+    ...publicSchemaValidityIssues(
+      stableCurrent,
+      "current schema (stable members)",
+    ),
+  );
+  if (issues.length > 0) {
+    return issues;
+  }
   compareNode(
-    previous,
-    current,
+    stablePrevious,
+    stableCurrent,
     "$",
-    comparisonContext(previous, current, policy),
+    comparisonContext(stablePrevious, stableCurrent, policy),
     issues,
   );
   return issues;

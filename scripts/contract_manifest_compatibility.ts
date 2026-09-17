@@ -16,6 +16,7 @@ import {
   pathKey,
   sameJson,
   stringSet,
+  withoutEvolvingMembers,
   withoutSchemaDocumentation,
 } from "./public_contract_compatibility_common.ts";
 
@@ -497,15 +498,23 @@ export function publicManifestCompatibilityIssues(
     ...publicManifestValidityIssues(current, policy, "current manifest"),
   ];
   if (issues.length > 0) return issues;
+  // Evolving records are exempt from the same-major rules; compare the stable
+  // remainder of both manifests after the complete ones have been validated.
+  const stablePrevious = withoutEvolvingMembers(previous);
+  const stableCurrent = withoutEvolvingMembers(current);
   switch (policy) {
     case MCP_TOOLS_COMPATIBILITY_POLICY:
-      issues.push(...mcpToolsManifestCompatibilityIssues(previous, current));
+      issues.push(
+        ...mcpToolsManifestCompatibilityIssues(stablePrevious, stableCurrent),
+      );
       break;
     case CLI_COMPATIBILITY_POLICY:
-      issues.push(...cliManifestCompatibilityIssues(previous, current));
+      issues.push(
+        ...cliManifestCompatibilityIssues(stablePrevious, stableCurrent),
+      );
       break;
     case CONVENTIONS_COMPATIBILITY_POLICY:
-      compareImmutableObjectSubset(previous, current, "$", issues);
+      compareImmutableObjectSubset(stablePrevious, stableCurrent, "$", issues);
       break;
     case CONFIG_SCHEMA_COMPATIBILITY_POLICY:
     case RESULT_SCHEMA_COMPATIBILITY_POLICY:

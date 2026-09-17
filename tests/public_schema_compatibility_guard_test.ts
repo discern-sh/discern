@@ -21,15 +21,19 @@ import {
   publicSchemaPublicationCompatibilityIssues,
   publicSchemaPublicationIdentityIssues,
 } from "../scripts/public_schema_compatibility.ts";
+import { withoutEvolvingMembers } from "../scripts/public_contract_compatibility_common.ts";
 import {
   CLI_COMPATIBILITY_POLICY,
   CONFIG_SCHEMA_COMPATIBILITY_POLICY,
   CONVENTIONS_COMPATIBILITY_POLICY,
+  MANIFEST_STABILITY_FIELD,
   MCP_TOOLS_COMPATIBILITY_POLICY,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
   PUBLIC_SCHEMA_PUBLICATIONS,
+  PUBLIC_SCHEMA_STABILITY_KEY,
   type PublicSchemaPublication,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
+  STABILITY_TIER_EVOLVING,
 } from "../src/shared/public_schemas.ts";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_paths.ts";
 import { GIT_CONVENTIONS } from "../src/shared/git_conventions.ts";
@@ -1526,6 +1530,360 @@ Deno.test("result compatibility rejects removed contracts and known error slugs"
       '$.x-discern-error-slugs: removed value "launch_failed"',
     ],
   );
+});
+
+/**
+ * The launch fixture plus one `survey` contract that shares the `VoyageStringSignal`
+ * definition with `launch` and owns `VoyageSurveyDetail` alone. `evolving`
+ * marks the survey contract, its definitions, and its record with the tier.
+ */
+function fixtureWithSurvey(evolving: boolean): JsonObject {
+  const schema = clone(RESULT_OUTPUT_FIXTURE);
+  const defs = schema.$defs as JsonObject;
+  const tier = evolving
+    ? { [PUBLIC_SCHEMA_STABILITY_KEY]: STABILITY_TIER_EVOLVING }
+    : {};
+  defs.VoyageSurveyDetail = { type: "object", properties: {} };
+  defs.VoyageSurveyResult = {
+    ...tier,
+    type: "object",
+    properties: {
+      verb: { const: "survey" },
+      ok: { type: "boolean" },
+      signal: { $ref: "#/$defs/VoyageStringSignal" },
+      detail: { $ref: "#/$defs/VoyageSurveyDetail" },
+    },
+    required: ["verb", "ok"],
+  };
+  defs.VoyageSurveyMcpToolResult = {
+    ...tier,
+    type: "object",
+    properties: {
+      structuredContent: { $ref: "#/$defs/VoyageSurveyResult" },
+    },
+    required: ["structuredContent"],
+  };
+  (
+    (defs.VoyageCliResult as JsonObject).oneOf as JsonValue[]
+  ).push({ $ref: "#/$defs/VoyageSurveyResult" });
+  (
+    (defs.VoyageMcpResult as JsonObject).oneOf as JsonValue[]
+  ).push({ $ref: "#/$defs/VoyageSurveyMcpToolResult" });
+  (schema["x-discern-contracts"] as JsonValue[]).push({
+    id: "voyageSurvey",
+    verb: "survey",
+    commands: ["survey"],
+    mcp_tool: "voyage_survey",
+    ...(evolving
+      ? { [MANIFEST_STABILITY_FIELD]: STABILITY_TIER_EVOLVING }
+      : {}),
+    [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageSurveyResult",
+    [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]: "#/$defs/VoyageSurveyMcpToolResult",
+  });
+  return schema;
+}
+
+Deno.test("an evolving result contract may change shape or disappear without a same-major issue", () => {
+  const baseline = fixtureWithSurvey(true);
+  const removed = clone(RESULT_OUTPUT_FIXTURE);
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      removed,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "removing an evolving contract",
+  );
+
+  const reshaped = fixtureWithSurvey(true);
+  const survey = (reshaped.$defs as JsonObject)
+    .VoyageSurveyResult as JsonObject;
+  survey.required = ["verb", "ok", "signal"];
+  (survey.properties as JsonObject).signal = { type: "number" };
+  delete (survey.properties as JsonObject).detail;
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      reshaped,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "reshaping an evolving contract",
+  );
+
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      fixtureWithSurvey(false),
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "graduating an evolving contract to stable",
+  );
+});
+
+Deno.test("removing or demoting a stable result contract is a same-major issue naming it", () => {
+  const stable = fixtureWithSurvey(false);
+  const removal = publicSchemaCompatibilityIssues(
+    stable,
+    clone(RESULT_OUTPUT_FIXTURE),
+    RESULT_SCHEMA_COMPATIBILITY_POLICY,
+  );
+  assert(
+    removal.some((issue) => issue.includes("voyageSurvey")),
+    JSON.stringify(removal),
+  );
+  const demotion = publicSchemaCompatibilityIssues(
+    stable,
+    fixtureWithSurvey(true),
+    RESULT_SCHEMA_COMPATIBILITY_POLICY,
+  );
+  assert(
+    demotion.some((issue) => issue.includes('removed contract "voyageSurvey"')),
+    JSON.stringify(demotion),
+  );
+});
+
+Deno.test("pruning evolving members keeps shared definitions and retires exclusive ones", () => {
+  const pruned = withoutEvolvingMembers(fixtureWithSurvey(true));
+  const defs = pruned.$defs as JsonObject;
+  assert(
+    defs.VoyageStringSignal !== undefined,
+    "a definition the stable launch contract still reaches survives",
+  );
+  assertEquals(defs.VoyageSurveyDetail, undefined);
+  assertEquals(defs.VoyageSurveyResult, undefined);
+  assertEquals(defs.VoyageSurveyMcpToolResult, undefined);
+  assertEquals(
+    (pruned["x-discern-contracts"] as JsonObject[]).map((record) => record.id),
+    ["voyageLaunch"],
+  );
+  assertEquals((defs.VoyageCliResult as JsonObject).oneOf, [
+    { $ref: "#/$defs/VoyageLaunchResult" },
+  ]);
+  assertEquals(compileErrorOrUndefined(pruned), undefined);
+
+  // A stable contract losing the shared definition is still a break.
+  const current = clone(RESULT_OUTPUT_FIXTURE);
+  delete (current.$defs as JsonObject).VoyageStringSignal;
+  assert(
+    publicSchemaCompatibilityIssues(
+      fixtureWithSurvey(true),
+      current,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes("VoyageStringSignal")),
+  );
+});
+
+Deno.test("an invalid complete artifact is reported before its evolving members are pruned", () => {
+  const current = fixtureWithSurvey(true);
+  const survey = (current.$defs as JsonObject).VoyageSurveyResult as JsonObject;
+  survey.required = 7;
+  const issues = publicSchemaCompatibilityIssues(
+    fixtureWithSurvey(true),
+    current,
+    RESULT_SCHEMA_COMPATIBILITY_POLICY,
+  );
+  assert(
+    issues.some((issue) =>
+      issue.includes("current schema") && issue.includes("must be array")
+    ),
+    JSON.stringify(issues),
+  );
+});
+
+Deno.test("an evolving config section may change or disappear; demoting a stable one is an issue", () => {
+  const evolvingSection: JsonObject = {
+    [PUBLIC_SCHEMA_STABILITY_KEY]: STABILITY_TIER_EVOLVING,
+    type: "object",
+    properties: { depth: { type: "number", default: 1 } },
+    additionalProperties: false,
+  };
+  // Optional, like every evolving section: an evolving key that documents
+  // could omit is the case the tier exists for.
+  const baseline = clone(CONFIG_INPUT_FIXTURE);
+  (baseline.properties as JsonObject).sonar = evolvingSection;
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      CONFIG_INPUT_FIXTURE,
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "removing an evolving section",
+  );
+  const reshaped = clone(baseline);
+  ((reshaped.properties as JsonObject).sonar as JsonObject).properties = {
+    depth: { type: "string" },
+  };
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      reshaped,
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "reshaping an evolving section",
+  );
+  const stable = clone(baseline);
+  delete ((stable.properties as JsonObject).sonar as JsonObject)[
+    PUBLIC_SCHEMA_STABILITY_KEY
+  ];
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      stable,
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "graduating an evolving section",
+  );
+  const demoted = publicSchemaCompatibilityIssues(
+    stable,
+    baseline,
+    CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+  );
+  assert(
+    demoted.some((issue) =>
+      issue.includes("sonar") && issue.includes("removed")
+    ),
+    JSON.stringify(demoted),
+  );
+  // A required mention leaves with the property it names.
+  const requiredBaseline = clone(baseline);
+  requiredBaseline.required = ["beacon", "sonar"];
+  assertEquals(withoutEvolvingMembers(requiredBaseline).required, ["beacon"]);
+});
+
+Deno.test("evolving manifest records may change or disappear; demoting a stable one is an issue", () => {
+  const command = (stability: boolean): JsonObject => ({
+    path: ["sonar"],
+    description: "Probe the depths.",
+    aliases: [],
+    hidden: false,
+    hidden_when: null,
+    ...(stability
+      ? { [MANIFEST_STABILITY_FIELD]: STABILITY_TIER_EVOLVING }
+      : {}),
+    positionals: [],
+    usage: "",
+    flags: [],
+  });
+  const cli = (stability: boolean | undefined): JsonObject => ({
+    format: 1,
+    implicit_flags: { command: ["--help"], root: ["--version"] },
+    commands: stability === undefined ? [] : [command(stability)],
+  });
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      cli(true),
+      cli(undefined),
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "removing an evolving command",
+  );
+  const reshaped = cli(true);
+  ((reshaped.commands as JsonObject[])[0] as JsonObject).positionals = [{
+    name: "target",
+    optional: false,
+    variadic: false,
+    value_types: ["string"],
+  }];
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      cli(true),
+      reshaped,
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "reshaping an evolving command",
+  );
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      cli(true),
+      cli(false),
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "graduating an evolving command",
+  );
+  const demoted = publicSchemaCompatibilityIssues(
+    cli(false),
+    cli(true),
+    CLI_COMPATIBILITY_POLICY,
+  );
+  assert(
+    demoted.some((issue) =>
+      issue.includes("sonar") && issue.includes("removed")
+    ),
+    JSON.stringify(demoted),
+  );
+
+  const tool = (stability: boolean): JsonObject => ({
+    name: "voyage_sonar",
+    description: "Probe the depths.",
+    ...(stability
+      ? { [MANIFEST_STABILITY_FIELD]: STABILITY_TIER_EVOLVING }
+      : {}),
+    inputSchema: { type: "object", properties: {} },
+  });
+  const mcp = (stability: boolean | undefined): JsonObject => ({
+    format: 1,
+    tools: stability === undefined ? [] : [tool(stability)],
+  });
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      mcp(true),
+      mcp(undefined),
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "removing an evolving tool",
+  );
+  const demotedTool = publicSchemaCompatibilityIssues(
+    mcp(false),
+    mcp(true),
+    MCP_TOOLS_COMPATIBILITY_POLICY,
+  );
+  assert(
+    demotedTool.some((issue) =>
+      issue.includes("voyage_sonar") && issue.includes("removed")
+    ),
+    JSON.stringify(demotedTool),
+  );
+});
+
+Deno.test("every live publication still compiles once its evolving members are pruned", () => {
+  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+    const complete = buildCurrentPublicSchema(publication);
+    const pruned = withoutEvolvingMembers(complete);
+    if (
+      publication.compatibility === CONFIG_SCHEMA_COMPATIBILITY_POLICY ||
+      publication.compatibility === RESULT_SCHEMA_COMPATIBILITY_POLICY
+    ) {
+      assertEquals(
+        compileErrorOrUndefined(pruned),
+        undefined,
+        `${publication.artifactPath} must compile without its evolving members`,
+      );
+    } else {
+      assertEquals(
+        publicManifestValidityIssues(
+          pruned,
+          publication.compatibility,
+          publication.artifactPath,
+        ),
+        [],
+      );
+    }
+    assertEquals(
+      JSON.stringify(pruned).includes(STABILITY_TIER_EVOLVING),
+      false,
+      `${publication.artifactPath} keeps no evolving member after pruning`,
+    );
+  }
 });
 
 Deno.test("malformed public schemas fail before structural compatibility", () => {
