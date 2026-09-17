@@ -597,7 +597,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     runningCase: "lowercase",
     plain: { phrase: "the activity record", match: String.raw`\blogbooks?\b` },
     definition:
-      "The local record of the project's use of discern. With recording enabled and a readable `discern.toml`, each CLI verb run and project-resolved Model Context Protocol (MCP) invocation adds metadata such as timing and outcome. It does not record code or command output. Worktrees share the record under `.git`; discern has no network path that sends it elsewhere. `[project].logbook = false` stops recording. See [the logbook](../70-reference/the-logbook.md).",
+      "The local record of the project's use of discern. With recording enabled and a readable `discern.toml`, each CLI verb run and project-resolved Model Context Protocol (MCP) invocation adds metadata such as timing and outcome. It does not record code or command output. Worktrees share the record under `.git`; discern has no network path that sends it elsewhere. `[project].record_logbook = false` stops recording. See [the logbook](../70-reference/the-logbook.md).",
   },
   {
     term: "Map",

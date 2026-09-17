@@ -2209,7 +2209,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "logbook-powered",
     title: "Logbook-powered capabilities",
     what:
-      "The advisory capabilities that switch off with `[project].logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.",
+      "The advisory capabilities that switch off with `[project].record_logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.",
     source: {
       kind: "module",
       module: "src/shared/logbook_powered.ts",

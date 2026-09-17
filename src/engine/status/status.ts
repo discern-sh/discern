@@ -393,7 +393,7 @@ export async function statusResult(
   }
   const recentCompleted = await recentCompletedTasks(
     root,
-    cfg.project.logbook,
+    cfg.project.record_logbook,
     data.landed_proof,
   );
   if (recentCompleted.length > 0) {
@@ -494,7 +494,7 @@ export async function statusResult(
       return undefined;
     });
     let logbookActivity: FleetLogbookActivity | undefined;
-    if (cfg.project.logbook) {
+    if (cfg.project.record_logbook) {
       const commonGitDir = await resolveCommonGitDir(root);
       if (commonGitDir !== undefined) {
         logbookActivity = await readFleetLogbookActivity(
@@ -694,7 +694,7 @@ export async function statusResult(
     nowMs,
     gateProof,
     landingAuthority,
-    logbookEnabled: cfg.project.logbook,
+    logbookEnabled: cfg.project.record_logbook,
     checkpointPreview,
     releaseDue,
   });

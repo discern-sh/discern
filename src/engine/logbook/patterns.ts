@@ -339,7 +339,7 @@ export async function patternsResult(
       ...(first !== undefined ? { first_at: first.at } : {}),
       ...(last !== undefined ? { last_at: last.at } : {}),
       branches: branches.size,
-      recording: config.project.logbook,
+      recording: config.project.record_logbook,
     },
     population: scorePopulation(facts),
     findings,
@@ -387,7 +387,7 @@ export async function patternsResult(
       );
     }
   }
-  if (!config.project.logbook) {
+  if (!config.project.record_logbook) {
     hints.push(fire(HINTS["patterns-recording-off"]));
   }
 
@@ -1643,7 +1643,7 @@ async function activeLifecycleSnapshot(
     archiveBytes,
     fingerprint: hex(new Uint8Array(digest)),
     currentEpoch: configEpoch(config).fingerprint,
-    recording: config.project.logbook,
+    recording: config.project.record_logbook,
   };
 }
 

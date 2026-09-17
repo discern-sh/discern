@@ -122,7 +122,7 @@ async function runTestGateBody(
       verb: "test",
       hints: hintTexts(hints),
     };
-    if (cfg.project.logbook) {
+    if (cfg.project.record_logbook) {
       const validation = await captureValidationStart(
         root,
         cfg,
@@ -167,7 +167,7 @@ async function runTestGateBody(
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
   let validation: ValidationStart | undefined;
-  if (cfg.project.logbook) {
+  if (cfg.project.record_logbook) {
     // The snapshot is the last project-state read before the standalone test
     // group starts. Capture failures are evidence, never command failures.
     validation = await captureValidationStart(

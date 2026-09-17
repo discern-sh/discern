@@ -53,7 +53,7 @@ The **logbook** is a local activity record. It holds metadata about discern use,
 
 The record lives in Git's administrative storage rather than tracked project files. discern does not upload it. It can help your agent investigate repeated failures or slow checks; [Evidence and improvement](evidence-and-improvement.md) explains that use, and [the logbook reference](../30-reference/logbook.md) lists the recorded fields.
 
-You can turn recording off with `[project].logbook = false`. Sealing or removing existing history uses an owner command that asks for confirmation in a terminal. The reference explains those choices and which features depend on recording.
+You can turn recording off with `[project].record_logbook = false`. Sealing or removing existing history uses an owner command that asks for confirmation in a terminal. The reference explains those choices and which features depend on recording.
 
 A landed change's **Proof** is also recorded locally by default, as a note attached to its Git commit. You can explicitly configure fetching of other Proof notes through ordinary Git transport; publishing notes remains a separate Git action. discern does not automatically upload them. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) gives the sharing and removal commands.
 

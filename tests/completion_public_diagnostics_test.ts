@@ -17,7 +17,7 @@ Deno.test("E11 public test reports existing readings once without full gate dema
       `[project]
 slug = 'sample'
 agents = []
-logbook = false
+record_logbook = false
 [jobs]
 format = "printf f >> executions"
 build = "printf b >> executions"

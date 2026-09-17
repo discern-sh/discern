@@ -8,7 +8,7 @@
  *    the git common dir, attributed by BRANCH name — from a linked worktree
  *    too, where the shared common dir converges all fleet activity into one
  *    logbook;
- *  - `[project].logbook = false` stops all writes;
+ *  - `[project].record_logbook = false` stops all writes;
  *  - an unwritable logbook directory changes no verb's outcome — recording
  *    degrades to silence, never interference;
  *  - a limit-only standards edit (what a pin writes) holds the config-epoch
@@ -842,10 +842,10 @@ Deno.test("logbook: a standards pin lands pin events and holds the epoch", async
   });
 });
 
-Deno.test("logbook: [project].logbook = false stops all writes", async () => {
+Deno.test("logbook: [project].record_logbook = false stops all writes", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, `[project]\nlogbook = false\n`);
+    await writeConfig(dir, `[project]\nrecord_logbook = false\n`);
     await gitInit(dir);
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);

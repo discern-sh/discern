@@ -37,7 +37,7 @@ The closing account names detectors with no finding and those with insufficient 
 
 `patterns` runs every detector, including batch detectors that need longitudinal history. Inline detectors also appear on the working command named by their scope: branch findings project the canonical summary after a qualifying green Proof, session findings project that summary beside the next step in `status`, and project findings keep the complete two-layer shape in `improvement`. Short surfaces never author parallel wording. The Proof waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
-An empty logbook is a normal state, and the report identifies it. A repository that never recorded, or opted out with `[project].logbook = false`, still gets a readable answer.
+An empty logbook is a normal state, and the report identifies it. A repository that never recorded, or opted out with `[project].record_logbook = false`, still gets a readable answer.
 
 `discern patterns --stats` reads the same logbook for what went well and renders [practice stats](practice-stats.md) instead of the detector report: accepted changes, validation routes, green streaks, cycle times, Standards trends, per-checkpoint economics, and agent cohorts in a card of plain counts.
 
@@ -127,7 +127,7 @@ discern patterns seal
 
 Both lifecycle actions are CLI-only owner operations. Their `--dry-run` forms render the complete event count, date span, source-file list, bytes, and destination or deletion scope without requesting confirmation or changing files; add `--json` for the same structured plan or `--markdown` for its Markdown presentation. Apply requires terminal stdin and stdout, operation outside CI and global `--plain`, and an explicit Yes to a confirmation that defaults to No. Pipes, `--json`, and `--markdown` apply refuse. There is no confirmation flag or environment bypass. This supersedes the earlier unattended-reset choice ([ADR 0272](../_adr/0272-logbook-lifecycle-actions-require-terminal-confirmation.md)).
 
-Reset removes only active history. Archive seals it and starts a fresh active logbook. [Logbook lifecycle](../70-reference/logbook-lifecycle.md) specifies the transaction, recovery path, recorder boundary, and historical-read commands. Recording starts again after either action unless `[project].logbook = false`.
+Reset removes only active history. Archive seals it and starts a fresh active logbook. [Logbook lifecycle](../70-reference/logbook-lifecycle.md) specifies the transaction, recovery path, recorder boundary, and historical-read commands. Recording starts again after either action unless `[project].record_logbook = false`.
 
 Result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md). [The logbook](../70-reference/the-logbook.md) covers the recording substrate.
 

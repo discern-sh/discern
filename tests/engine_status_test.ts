@@ -493,7 +493,7 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
 Deno.test("status fleet: logbook-off rows degrade to git activity and carry the point-of-use hint", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await writeConfig(dir, "[project]\nrecord_logbook = false\n");
     await gitInit(dir);
     await addReadyWorktree(dir, "alpha");
 

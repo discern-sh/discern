@@ -320,7 +320,7 @@ export type PatternsDetector = z.infer<typeof patternsDetectorSchema>;
 /** The logbook the report was read from, in counts: parsed events, skipped
  * torn/foreign lines, events set aside as one-time-setup work (recorded, kept,
  * but excluded from analysis), month files, the span, distinct branches seen,
- * and whether recording is currently on (`[project].logbook`) — the report
+ * and whether recording is currently on (`[project].record_logbook`) — the report
  * reads existing history either way. */
 const patternsLogbookSchema = z.strictObject({
   source: z.discriminatedUnion("kind", [

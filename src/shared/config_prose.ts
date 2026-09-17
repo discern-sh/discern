@@ -101,7 +101,7 @@ export const CONFIG_PROSE = {
     why:
       "The name and slug appear in worktree, branch, and site names and in every compiled instruction file, so agents and humans see one identity everywhere.",
     keys: {
-      logbook: {
+      record_logbook: {
         detail: [
           "Recording on is recommended. History cannot be recorded after the fact,",
           "and while recording is off this project goes without:",

@@ -132,7 +132,7 @@ async function variedCheckpointEvidence(
   root: string,
   config: DiscernConfig,
 ): Promise<CheckpointVarianceSummary[]> {
-  if (!config.project.logbook) {
+  if (!config.project.record_logbook) {
     return [];
   }
   try {

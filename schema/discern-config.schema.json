@@ -31,7 +31,7 @@
           "type": "string",
           "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
         },
-        "logbook": {
+        "record_logbook": {
           "default": true,
           "description": "When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, with no code or output. Files stay under .git, outside commits and any network; false stops all writes.",
           "type": "boolean"

@@ -1072,7 +1072,7 @@ Rendered example:
 
 Rendered example:
 
-> Practice-history findings aren't available because `[project].logbook` is off.
+> Practice-history findings aren't available because `[project].record_logbook` is off.
 
 ## `lifecycle-convergence-failed`
 
@@ -1248,7 +1248,7 @@ Rendered example:
 
 Rendered example:
 
-> Recording is off ([project].logbook = false), so new runs aren't recorded. This report reads the history that already exists.
+> Recording is off ([project].record_logbook = false), so new runs aren't recorded. This report reads the history that already exists.
 
 ## `patterns-reset-empty`
 
@@ -1281,7 +1281,7 @@ Rendered example:
 
 Rendered example:
 
-> Set [project].logbook = false to stop recording. Otherwise, recording resumes on the next verb run after this reset.
+> Set [project].record_logbook = false to stop recording. Otherwise, recording resumes on the next verb run after this reset.
 
 ## `progress-handle-required`
 
@@ -1913,7 +1913,7 @@ Interactive example:
 
 Rendered example:
 
-> Per-worktree actions aren't available because `[project].logbook` is off.
+> Per-worktree actions aren't available because `[project].record_logbook` is off.
 
 ## `status-fleet-member-broken`
 

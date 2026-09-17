@@ -697,7 +697,7 @@ async function runCandidateGate(
   );
   progress?.replaceGroups(plan.groups);
   let validation: ValidationStart | undefined;
-  if (cfg.project.logbook) {
+  if (cfg.project.record_logbook) {
     validation = await validationBoundaryNotReached(
       root,
       cfg,
@@ -735,7 +735,9 @@ async function runCandidateGate(
         await generatedBoundary.observer.before(...args);
         await treeBoundary.observer.before(...args);
         const stage = configured.stages.get(args[0].selector);
-        if (cfg.project.logbook && (stage === "check" || stage === "test")) {
+        if (
+          cfg.project.record_logbook && (stage === "check" || stage === "test")
+        ) {
           validationCapture ??= captureValidationStart(
             root,
             cfg,

@@ -3431,7 +3431,7 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 
 ## `logbook-powered` — Logbook-powered capabilities
 
-The advisory capabilities that switch off with `[project].logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.
+The advisory capabilities that switch off with `[project].record_logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.
 
 - Source: `src/shared/logbook_powered.ts` — `LOGBOOK_POWERED`
 - Members: 9

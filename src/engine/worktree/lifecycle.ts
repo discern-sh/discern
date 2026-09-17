@@ -4114,13 +4114,14 @@ async function pruneContainedScan(
   const trunk = integrationBranch(ctx.config.repository.trunk);
   const nowMs = SYSTEM_CLOCK.wallNow();
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
-  const activity = ctx.config.project.logbook && commonGitDir !== undefined
-    ? await readFleetLogbookActivity(
-      commonGitDir,
-      configEpoch(ctx.config).fingerprint,
-      nowMs,
-    )
-    : undefined;
+  const activity =
+    ctx.config.project.record_logbook && commonGitDir !== undefined
+      ? await readFleetLogbookActivity(
+        commonGitDir,
+        configEpoch(ctx.config).fingerprint,
+        nowMs,
+      )
+      : undefined;
   const currentPath = await Deno.realPath(ctx.root);
   const scanned = await scanContainedWorktrees(ctx.root, {
     mainBranch: trunk,

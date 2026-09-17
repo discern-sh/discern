@@ -317,8 +317,8 @@ export function buildTestRunSlotAcquirer(
           kind: "queued",
           hint: fire(HINTS["gate-test-run-queued"], {
             cap,
-            logbookOff: !cfg.project.logbook,
-            ...(cfg.project.logbook
+            logbookOff: !cfg.project.record_logbook,
+            ...(cfg.project.record_logbook
               ? await waitDecoration(root, cfg)
               : NO_DECORATION),
           }),

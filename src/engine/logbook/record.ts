@@ -15,7 +15,7 @@
  *    removes them.
  *
  * What gets recorded, and when it doesn't:
- *  - The toggle is `[project].logbook` (default on). `false` stops all writes.
+ *  - `[project].record_logbook` defaults on; `false` stops all writes.
  *  - Outside a discern project, nothing records (there is no config to consent
  *    through and no `.git` to write under). An UNREADABLE config also records
  *    nothing — if the consent state can't be read, the conservative reading
@@ -257,7 +257,7 @@ async function gatherContext(
   let trunk: string;
   try {
     const config = await loadConfig(root);
-    if (!config.project.logbook) {
+    if (!config.project.record_logbook) {
       return undefined;
     }
     epoch = configEpoch(config);

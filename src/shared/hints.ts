@@ -920,7 +920,7 @@ export const HINTS = {
       "A fleet survey cannot show per-worktree actions because logbook recording is disabled.",
     example: undefined,
     template: (): string =>
-      "Per-worktree actions aren't available because `[project].logbook` is off.",
+      "Per-worktree actions aren't available because `[project].record_logbook` is off.",
   }),
 
   "status-no-active-worktrees": defineHint({
@@ -1722,7 +1722,7 @@ export const HINTS = {
     when: "`patterns` runs while logbook recording is off.",
     example: undefined,
     template: (): string =>
-      "Recording is off ([project].logbook = false), so new runs aren't " +
+      "Recording is off ([project].record_logbook = false), so new runs aren't " +
       "recorded. This report reads the history that already exists.",
   }),
 
@@ -1783,7 +1783,7 @@ export const HINTS = {
     family: "patterns-reset",
     example: undefined,
     template: (): string =>
-      "Set [project].logbook = false to stop recording. Otherwise, recording " +
+      "Set [project].record_logbook = false to stop recording. Otherwise, recording " +
       "resumes on the next verb run after this reset.",
   }),
 
@@ -1857,7 +1857,7 @@ export const HINTS = {
       "`improvement` runs while logbook recording is off, so the practice-history group has nothing to read.",
     example: undefined,
     template: (): string =>
-      "Practice-history findings aren't available because `[project].logbook` is off.",
+      "Practice-history findings aren't available because `[project].record_logbook` is off.",
   }),
 
   /** A failed score threshold recovers through the report's ranked action, not
@@ -1962,7 +1962,7 @@ export const HINTS = {
             : `; historical duration for the first operation's command: ~${typical}`
         }.`;
       const estimate = logbookOff
-        ? " Other operation activity was not recorded ([project].logbook = false)."
+        ? " Other operation activity was not recorded ([project].record_logbook = false)."
         : " These observations do not establish queue order or an estimated start time.";
       return `${queued}${flight}${estimate}`;
     },

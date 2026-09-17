@@ -716,7 +716,7 @@ const projectSection = z.strictObject({
   todo: projectFilePath.default(SOURCE_PATHS.todo.defaultPath).describe(
     "The deferred-work ledger: the running TODO list agents read and maintain, relative to the project root.",
   ),
-  logbook: z.boolean().default(true).describe(
+  record_logbook: z.boolean().default(true).describe(
     "When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, with no code or output. " +
       "Files stay under .git, outside commits and any network; false stops all writes.",
   ),

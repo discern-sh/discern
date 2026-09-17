@@ -21,7 +21,7 @@ export async function project(
     `[project]
 slug = 'sample'
 agents = []
-logbook = false
+record_logbook = false
 [jobs]
 test = { run = ${JSON.stringify(testRun)}, inputs = ${
       JSON.stringify(testInputs)

@@ -861,7 +861,7 @@ async function disableLogbook(dir: string): Promise<void> {
   const text = await Deno.readTextFile(path);
   await Deno.writeTextFile(
     path,
-    text.replace("logbook = true", "logbook = false"),
+    text.replace("record_logbook = true", "record_logbook = false"),
   );
 }
 
@@ -2432,8 +2432,8 @@ Deno.test("doctor execution-model, logbook, and nested-repository checks run ove
         await Deno.writeTextFile(
           p,
           (await Deno.readTextFile(p)).replace(
-            "logbook = true",
-            "logbook = false",
+            "record_logbook = true",
+            "record_logbook = false",
           ),
         );
         const off = await runDoctorJsonCli(dir);

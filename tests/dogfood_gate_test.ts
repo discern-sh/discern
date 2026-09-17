@@ -27,7 +27,7 @@ Deno.test("this repository declares its own Gate, Standards, Map, worktrees, and
     await fileExists(join(REPO, mapDir, "README.md")),
     `the configured Map has no README at ${mapDir}`,
   );
-  assert(config.project.logbook, "discern.toml turns the Logbook off");
+  assert(config.project.record_logbook, "discern.toml turns the Logbook off");
   assert(
     config.repository.branch_prefix.length > 0,
     "discern.toml declares no worktree branch prefix",

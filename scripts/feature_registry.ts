@@ -1627,13 +1627,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "logbook",
         title: "The logbook",
         what:
-          "With recording on and a readable `discern.toml`, CLI verbs and MCP invocations resolved to that project record metadata under `.git`, shared by the repository's worktrees. Invocation and completion observations carry durable identities, timings, outcomes, names, and fired hint IDs. They contain no code or command output. The logbook never leaves the machine (a gate test keeps its code free of network paths), rotates by age, and `[project].logbook = false` stops all writes.",
+          "With recording on and a readable `discern.toml`, CLI verbs and MCP invocations resolved to that project record metadata under `.git`, shared by the repository's worktrees. Invocation and completion observations carry durable identities, timings, outcomes, names, and fired hint IDs. They contain no code or command output. The logbook never leaves the machine (a gate test keeps its code free of network paths), rotates by age, and `[project].record_logbook = false` stops all writes.",
         why:
           "The practice becomes measurable evidence without anything leaving the building.",
         plain: {
           title: "The activity record",
           what:
-            "With recording on and readable settings, each instruction run — typed, or made through the coding-agent connection — records basic facts in the version history's housekeeping area (the `.git` folder), shared by the project's working copies. These facts identify each operation and carry timings, outcomes, names, and which advice notes appeared — never code, and never printed output. The record never leaves the machine (a test in the final check keeps its code free of any internet route), old lines age out, and `[project].logbook = false` stops all writes.",
+            "With recording on and readable settings, each instruction run — typed, or made through the coding-agent connection — records basic facts in the version history's housekeeping area (the `.git` folder), shared by the project's working copies. These facts identify each operation and carry timings, outcomes, names, and which advice notes appeared — never code, and never printed output. The record never leaves the machine (a test in the final check keeps its code free of any internet route), old lines age out, and `[project].record_logbook = false` stops all writes.",
           why:
             "The way of working becomes measurable evidence, without anything leaving the building.",
         },

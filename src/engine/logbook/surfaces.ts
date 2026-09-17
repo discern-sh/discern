@@ -97,7 +97,7 @@ async function withInlineFacts<T>(
   fallback: T,
   read: (facts: StreamFacts) => T,
 ): Promise<T> {
-  if (!config.project.logbook) {
+  if (!config.project.record_logbook) {
     return fallback;
   }
   try {

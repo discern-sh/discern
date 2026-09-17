@@ -871,7 +871,7 @@ export async function awaitResult(
           join(commonGitDir, "refs", "heads"),
           join(commonGitDir, "refs", "notes"),
           join(commonGitDir, "packed-refs"),
-          ...(cfg.project.logbook ? [logbookDir(commonGitDir)] : []),
+          ...(cfg.project.record_logbook ? [logbookDir(commonGitDir)] : []),
         ]),
         startMs + timeoutSeconds * 1000,
         opts.pollIntervalMs ?? AWAIT_POLL_INTERVAL_MS,
