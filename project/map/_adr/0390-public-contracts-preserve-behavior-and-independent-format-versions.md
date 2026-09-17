@@ -1,5 +1,7 @@
 # ADR 0390: Public contracts preserve behavior and independent format versions
 
+> **Amendment ([ADR 0409](0409-public-contracts-split-durable-enforcement-from-session-judgment.md)).** The uniform comparison regime splits into tiers: durable publications keep the hard gate, session publications move toward recorded judgment with owner variance, evolving members are exempt from comparison, and output vocabularies are open or closed by role. The documentation and private-format boundaries this record sets are unchanged.
+
 **Status**: accepted on 2026-09-12. Amends [ADR 0208](0208-public-contracts-version-by-schema-major.md) and the format-publication boundary of [ADR 0368](0368-local-durable-formats-declare-forward-skew.md).
 
 ## Context

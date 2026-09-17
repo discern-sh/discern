@@ -9,6 +9,7 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { Ajv2020 } from "ajv-2020";
 import { z } from "@zod/zod";
+import { publicManifestValidityIssues } from "../scripts/contract_manifest_compatibility.ts";
 import {
   buildCurrentPublicSchema,
   initialPublicationIssues,
@@ -30,6 +31,9 @@ import {
   type PublicSchemaPublication,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../src/shared/public_schemas.ts";
+import { GIT_ADMIN_STATE } from "../src/shared/git_admin_paths.ts";
+import { GIT_CONVENTIONS } from "../src/shared/git_conventions.ts";
+import { HIDDEN_VERBS } from "../src/shared/hidden_verbs.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
 import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
@@ -86,6 +90,20 @@ function jsonObjects(
       jsonObjects(item, `${path}.${key}`)
     ),
   ];
+}
+
+/** Locate every null leaf in a JSON value with a stable diagnostic path. */
+function nullLeafPaths(value: JsonValue, path = "$"): string[] {
+  if (value === null) return [path];
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) =>
+      nullLeafPaths(item, `${path}[${index}]`)
+    );
+  }
+  if (!isRecord(value)) return [];
+  return Object.entries(value).flatMap(([key, item]) =>
+    nullLeafPaths(item, `${path}.${key}`)
+  );
 }
 
 /** Split a generated PascalCase definition name into semantic word segments. */
@@ -219,6 +237,36 @@ const VOYAGE_PUBLICATION: PublicSchemaPublication = {
   label: "voyage results",
   contract: "voyage result envelopes",
 };
+
+Deno.test("conventions validity requires the durable registry and protocol objects", () => {
+  const manifest: JsonObject = {
+    format: 1,
+    git: {},
+    providers: {},
+    exit_statuses: {},
+    script_protocols: {},
+  };
+  assertEquals(
+    publicManifestValidityIssues(
+      manifest,
+      CONVENTIONS_COMPATIBILITY_POLICY,
+      "fixture",
+    ),
+    [],
+  );
+  for (const key of ["exit_statuses", "script_protocols"]) {
+    const missing = clone(manifest);
+    delete missing[key];
+    assertEquals(
+      publicManifestValidityIssues(
+        missing,
+        CONVENTIONS_COMPATIBILITY_POLICY,
+        "fixture",
+      ),
+      [`fixture: $.${key} must be an object`],
+    );
+  }
+});
 
 /**
  * Deliberately hand-typed contract-major tripwire. This is test evidence, not
@@ -2109,6 +2157,8 @@ Deno.test("the conventions manifest permits new members but keeps existing value
     format: 1,
     git: { refs: { proof: "refs/example/proof" } },
     providers: { agent: { hooks_file: ".agent/hooks.json" } },
+    exit_statuses: {},
+    script_protocols: {},
   };
   const compatible = clone(previous);
   assert(isRecord(compatible.providers));
@@ -2324,28 +2374,69 @@ Deno.test("MCP documentation changes traverse schema children without relaxing t
   }
 });
 
-Deno.test("private format revisions do not enter the frozen conventions contract", () => {
+Deno.test("private storage registries stay outside the frozen conventions contract", () => {
   const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
     entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
   );
   assert(publication !== undefined);
   const manifest = buildCurrentPublicSchema(publication);
-  assert(isRecord(manifest.local_formats));
-  for (const format of Object.values(ON_DISK_FORMATS)) {
-    const published = manifest.local_formats[format.id];
-    assert(isRecord(published), format.id);
-    assertEquals(
-      Object.hasOwn(published, "version"),
-      format.location.kind === "git-note",
-      format.id,
+  assert(Object.keys(GIT_ADMIN_STATE).length > 0);
+  assert(Object.keys(ON_DISK_FORMATS).length > 0);
+  assertEquals(Object.hasOwn(manifest, "git_admin_state"), false);
+  assertEquals(Object.hasOwn(manifest, "local_formats"), false);
+});
+
+Deno.test("verb visibility stays in the CLI manifest and out of conventions", () => {
+  const conventionsPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
+  );
+  const cliPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === CLI_COMPATIBILITY_POLICY
+  );
+  assert(conventionsPublication !== undefined);
+  assert(cliPublication !== undefined);
+  const conventions = buildCurrentPublicSchema(conventionsPublication);
+  const cli = buildCurrentPublicSchema(cliPublication);
+  assertEquals(Object.hasOwn(conventions, "hidden_verbs"), false);
+  assertEquals(Object.hasOwn(conventions, "shell_only_verbs"), false);
+  assert(Array.isArray(cli.commands));
+  for (const [name, entry] of Object.entries(HIDDEN_VERBS)) {
+    const command = cli.commands.find((candidate) =>
+      isRecord(candidate) && Array.isArray(candidate.path) &&
+      candidate.path.length === 1 && candidate.path[0] === name
     );
-    assertEquals(published.version_field, format.versionField, format.id);
-    assertEquals(
-      published.newer_version_policy,
-      format.newerVersionPolicy,
-      format.id,
-    );
+    assert(isRecord(command), `${name}: missing from CLI manifest`);
+    assertEquals(Object.hasOwn(command, "hidden"), true, name);
+    assertEquals(command.hidden_when, entry.when, name);
   }
+});
+
+Deno.test("the conventions manifest omits absent provider capabilities", () => {
+  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
+  );
+  assert(publication !== undefined);
+  const manifest = buildCurrentPublicSchema(publication);
+  assertEquals(nullLeafPaths(manifest), []);
+});
+
+Deno.test("the conventions manifest publishes Git coordinates without behavior descriptions", () => {
+  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
+  );
+  assert(publication !== undefined);
+  const manifest = buildCurrentPublicSchema(publication);
+  assert(isRecord(manifest.git));
+  assertEquals(
+    Object.keys(manifest.git),
+    Object.keys(GIT_CONVENTIONS).filter((key) =>
+      key !== "bounds" && key !== "no_attribution_effects"
+    ),
+  );
+  assertEquals(Object.hasOwn(manifest.git, "bounds"), false);
+  assertEquals(Object.hasOwn(manifest.git, "no_attribution_effects"), false);
+  assert(Object.hasOwn(GIT_CONVENTIONS, "bounds"));
+  assert(Object.hasOwn(GIT_CONVENTIONS, "no_attribution_effects"));
 });
 
 Deno.test("the schema baseline is the highest predecessor version tag, never a release candidate at HEAD", async () => {

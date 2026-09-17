@@ -9,7 +9,7 @@ import {
   IMPLICIT_ROOT_FLAGS,
   walkCliCommands,
 } from "../src/shared/cli_reference_codegen.ts";
-import { MCP_SHELL_ONLY_VERBS, TOOLS } from "../src/engine/mcp/server.ts";
+import { TOOLS } from "../src/engine/mcp/server.ts";
 import {
   CLI_COMPATIBILITY_POLICY,
   CLI_MANIFEST_ID,
@@ -19,13 +19,21 @@ import {
   MCP_TOOLS_MANIFEST_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
 } from "../src/shared/public_schemas.ts";
-import { DISCERN_ENVIRONMENT_VARIABLE_NAMES } from "../src/shared/environment_variables.ts";
+import {
+  DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+  DISCERN_ENVIRONMENT_VARIABLES,
+  type DiscernEnvironmentVariableDefinition,
+  publicEnvironmentVariableDefinitions,
+} from "../src/shared/environment_variables.ts";
 import { BUNDLED_SKILL_NAMES } from "../src/lib/skills.ts";
 import {
-  GIT_ADMIN_STATE,
-  GIT_ADMIN_STATE_NAMESPACE,
-} from "../src/shared/git_admin_paths.ts";
-import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
+  BUILT_IN_CHECKPOINTS,
+  CHECKPOINT_WHEN_FIRE_EXIT_CODE,
+  CHECKPOINT_WHEN_INPUT_FIELDS,
+  CHECKPOINT_WHEN_INPUT_VERSION,
+  CHECKPOINT_WHEN_MATCH_LINE_PREFIX,
+  CHECKPOINT_WHEN_PASS_EXIT_CODE,
+} from "../src/shared/checkpoints.ts";
 import { QUESTION_IDS } from "../src/shared/questions.ts";
 import { HIDDEN_VERBS } from "../src/shared/hidden_verbs.ts";
 import {
@@ -34,7 +42,8 @@ import {
 } from "../src/shared/worktree_identity_fields.ts";
 import { WORKTREE_IDENTITY_CONTRACT } from "../src/shared/worktree_identity_contract.ts";
 import { GIT_CONVENTIONS } from "../src/shared/git_conventions.ts";
-import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { EXIT_STATUS_REGISTRY } from "../src/shared/exit_codes.ts";
+import { DISCERN_METRIC_LINE_PREFIX } from "../src/engine/validation/metrics.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 
 export type ContractManifest = Readonly<Record<string, unknown>>;
@@ -80,6 +89,15 @@ export function renderContractManifest(manifest: ContractManifest): string {
 /** Turn an ordered string registry into an append-only object membership map. */
 function membership(values: readonly string[]): Record<string, true> {
   return Object.fromEntries(values.map((value) => [value, true]));
+}
+
+/** Repository-coordinate subset of the Git registry's mixed concerns. */
+function publicGitConventions(): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(GIT_CONVENTIONS).filter(([key]) =>
+      key !== "bounds" && key !== "no_attribution_effects"
+    ),
+  );
 }
 
 /** Exact request-side payload advertised by `tools/list`, in live tool order. */
@@ -147,7 +165,7 @@ function providerConventions(): Record<string, unknown> {
         ? provider.mcp.integration.configFile
         : provider.mcp.kind === "pending"
         ? provider.mcp.targetFile
-        : null;
+        : undefined;
       const hookEvents = provider.hooks === undefined ? {} : Object.fromEntries(
         provider.hooks.commands.map((command) => [
           command.event,
@@ -156,12 +174,20 @@ function providerConventions(): Record<string, unknown> {
       );
       return [name, {
         instruction_file: provider.instructionFile.path,
-        skills_directory: provider.skillsDir?.path ?? null,
-        mcp_file: mcpFile,
-        hooks_file: provider.hooks?.settingsFile ?? null,
+        ...(provider.skillsDir === undefined
+          ? {}
+          : { skills_directory: provider.skillsDir.path }),
+        ...(mcpFile === undefined ? {} : { mcp_file: mcpFile }),
+        ...(provider.hooks === undefined
+          ? {}
+          : { hooks_file: provider.hooks.settingsFile }),
         hook_events: hookEvents,
-        worktree_app_file: provider.worktreeApp?.configFile ?? null,
-        project_rules_file: provider.projectRules?.rulesFile ?? null,
+        ...(provider.worktreeApp === undefined
+          ? {}
+          : { worktree_app_file: provider.worktreeApp.configFile }),
+        ...(provider.projectRules === undefined
+          ? {}
+          : { project_rules_file: provider.projectRules.rulesFile }),
         local_state_files: Object.fromEntries(
           (provider.localState ?? []).map((entry) => [entry.path, true]),
         ),
@@ -171,21 +197,41 @@ function providerConventions(): Record<string, unknown> {
 }
 
 /** Frozen names and values spanning every v1 convention registry. */
-export function buildConventionsManifest(): ContractManifest {
+export function buildConventionsManifest(
+  environmentVariableDefinitions: Readonly<
+    Record<string, DiscernEnvironmentVariableDefinition>
+  > = DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+): ContractManifest {
   return {
     $id: CONVENTIONS_MANIFEST_ID,
     format: 1,
     [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]: CONVENTIONS_COMPATIBILITY_POLICY,
-    environment_variables: membership(DISCERN_ENVIRONMENT_VARIABLE_NAMES),
-    bundled_skills: membership(BUNDLED_SKILL_NAMES),
-    git_admin_state: {
-      namespace: GIT_ADMIN_STATE_NAMESPACE,
-      entries: Object.fromEntries(
-        Object.entries(GIT_ADMIN_STATE).map(([key, entry]) => [
-          key,
-          { ...entry },
-        ]),
+    environment_variables: membership(
+      publicEnvironmentVariableDefinitions(environmentVariableDefinitions).map(
+        (definition) => definition.name,
       ),
+    ),
+    bundled_skills: membership(BUNDLED_SKILL_NAMES),
+    exit_statuses: Object.fromEntries(
+      EXIT_STATUS_REGISTRY.map((entry) => [
+        entry.id,
+        entry.kind === "exact" ? entry.code : entry.kind,
+      ]),
+    ),
+    script_protocols: {
+      metric: {
+        line_prefix: DISCERN_METRIC_LINE_PREFIX,
+        line_grammar: `${DISCERN_METRIC_LINE_PREFIX} <name> <number>`,
+      },
+      checkpoint_when: {
+        input_environment_variable:
+          DISCERN_ENVIRONMENT_VARIABLES.checkpointInput,
+        input_version: CHECKPOINT_WHEN_INPUT_VERSION,
+        input_fields: [...CHECKPOINT_WHEN_INPUT_FIELDS],
+        match_line_prefix: CHECKPOINT_WHEN_MATCH_LINE_PREFIX,
+        fire_exit_status: CHECKPOINT_WHEN_FIRE_EXIT_CODE,
+        pass_exit_status: CHECKPOINT_WHEN_PASS_EXIT_CODE,
+      },
     },
     checkpoints: Object.fromEntries(
       Object.entries(BUILT_IN_CHECKPOINTS).map(([id, checkpoint]) => [
@@ -208,28 +254,8 @@ export function buildConventionsManifest(): ContractManifest {
         slug_collision_prefix: WORKTREE_IDENTITY_CONTRACT.slugCollisionPrefix,
       },
     },
-    hidden_verbs: Object.fromEntries(
-      Object.entries(HIDDEN_VERBS).map(([name, entry]) => [
-        name,
-        { when: entry.when },
-      ]),
-    ),
-    shell_only_verbs: Object.fromEntries(MCP_SHELL_ONLY_VERBS),
     providers: providerConventions(),
-    local_formats: Object.fromEntries(
-      Object.values(ON_DISK_FORMATS).map((format) => [
-        format.id,
-        {
-          ...(format.location.kind === "git-note"
-            ? { version: format.version }
-            : {}),
-          version_field: format.versionField,
-          newer_version_policy: format.newerVersionPolicy,
-          location: format.location,
-        },
-      ]),
-    ),
-    git: GIT_CONVENTIONS,
+    git: publicGitConventions(),
   };
 }
 

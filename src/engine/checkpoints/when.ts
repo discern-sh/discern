@@ -33,6 +33,8 @@ import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import type { WhenOutcome } from "./types.ts";
 import {
+  CHECKPOINT_WHEN_FIRE_EXIT_CODE,
+  CHECKPOINT_WHEN_MATCH_LINE_PREFIX,
   CHECKPOINT_WHEN_PASS_EXIT_CODE,
   type CheckpointWhenInput,
 } from "../../shared/checkpoints.ts";
@@ -48,6 +50,9 @@ export const CHECKPOINT_WHEN_OUTPUT_BYTES = 256 * 1024;
 const ADVISORY_EXCERPT_MAX = 160;
 
 const DECODER = new TextDecoder();
+const CHECKPOINT_WHEN_MATCH_LINE_PATTERN = new RegExp(
+  `(?:^|\\s)${CHECKPOINT_WHEN_MATCH_LINE_PREFIX}\\s+(.*)$`,
+);
 
 /** One line of the command's own output, flattened, for an advisory. */
 function outputExcerpt(output: Uint8Array): string {
@@ -75,7 +80,7 @@ export function parseDiscernMatches(output: string): string[] {
   const matches: string[] = [];
   for (const raw of output.split("\n")) {
     const line = raw.endsWith("\r") ? raw.slice(0, -1) : raw;
-    const m = /(?:^|\s)DISCERN_MATCH\s+(.*)$/.exec(line);
+    const m = CHECKPOINT_WHEN_MATCH_LINE_PATTERN.exec(line);
     if (m === null) {
       continue;
     }
@@ -222,7 +227,7 @@ export async function runWhenCommand(
         `checkpoint '${checkpointId}': the when command exceeded its ${CHECKPOINT_WHEN_OUTPUT_BYTES}-byte output limit; the trigger is indeterminate.`,
     };
   }
-  if (result.result.code === 0) {
+  if (result.result.code === CHECKPOINT_WHEN_FIRE_EXIT_CODE) {
     return {
       kind: "fire",
       matches: parseDiscernMatches(DECODER.decode(result.output)),
@@ -237,7 +242,7 @@ export async function runWhenCommand(
     reason: "when_invalid_exit",
     advisory:
       `checkpoint '${checkpointId}': the when command exited ${result.result.code} ` +
-      `(exit 0 fires, exit 10 passes); the trigger is indeterminate.` +
+      `(exit ${CHECKPOINT_WHEN_FIRE_EXIT_CODE} fires, exit ${CHECKPOINT_WHEN_PASS_EXIT_CODE} passes); the trigger is indeterminate.` +
       (excerpt.length === 0 ? "" : ` Output: ${outputExcerpt(excerpt)}`),
   };
 }

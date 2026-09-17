@@ -1,5 +1,7 @@
 /** Bounded, read-only checkpoint host for expensive test execution growth. */
 import {
+  CHECKPOINT_WHEN_FIRE_EXIT_CODE,
+  CHECKPOINT_WHEN_MATCH_LINE_PREFIX,
   CHECKPOINT_WHEN_PASS_EXIT_CODE,
   type CheckpointWhenInput,
 } from "../src/shared/checkpoints.ts";
@@ -172,10 +174,12 @@ async function main(): Promise<number> {
   const root = await checkpointProjectRoot(checkpointInvocationRoot());
   const findings = await matchingExecutionChanges(root, input);
   for (const finding of findings) {
-    console.log(`DISCERN_MATCH ${finding.path}`);
+    console.log(`${CHECKPOINT_WHEN_MATCH_LINE_PREFIX} ${finding.path}`);
     console.error(`${finding.path}: ${finding.reason}`);
   }
-  return findings.length > 0 ? 0 : CHECKPOINT_WHEN_PASS_EXIT_CODE;
+  return findings.length > 0
+    ? CHECKPOINT_WHEN_FIRE_EXIT_CODE
+    : CHECKPOINT_WHEN_PASS_EXIT_CODE;
 }
 
 if (import.meta.main) {

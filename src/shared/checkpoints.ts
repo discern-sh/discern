@@ -17,6 +17,8 @@
  * diff-introduced (the conversion rule), so an accrued pairing can never ship.
  */
 
+import { EXIT_SUCCESS } from "./exit_codes.ts";
+
 /**
  * The two checkpoint modes:
  *   - `stop`: `discern done` refuses to run any gate job until the agent
@@ -43,8 +45,12 @@ export type CheckpointChangeKind = (typeof CHECKPOINT_CHANGE_KINDS)[number];
 /** Structured checkpoint-command protocol. One shared authority owns the
  * version and shape written to `DISCERN_CHECKPOINT_INPUT`. */
 export const CHECKPOINT_WHEN_INPUT_VERSION = 1 as const;
+/** The decisive fire outcome for a checkpoint `when` command. */
+export const CHECKPOINT_WHEN_FIRE_EXIT_CODE = EXIT_SUCCESS;
 /** The only decisive non-fire outcome for a checkpoint `when` command. */
 export const CHECKPOINT_WHEN_PASS_EXIT_CODE = 10 as const;
+/** Prefix for one path declaration emitted by a checkpoint `when` command. */
+export const CHECKPOINT_WHEN_MATCH_LINE_PREFIX = "DISCERN_MATCH";
 export interface CheckpointWhenInput {
   version: typeof CHECKPOINT_WHEN_INPUT_VERSION;
   checkpoint: { id: string; mode: CheckpointMode };
@@ -58,6 +64,24 @@ export interface CheckpointWhenInput {
   }[];
   history?: { count: number; fingerprint: string };
 }
+
+/** Require one tuple to contain every key in the checkpoint input contract. */
+function checkpointWhenInputFields<
+  const Fields extends readonly (keyof CheckpointWhenInput)[],
+>(
+  fields: keyof CheckpointWhenInput extends Fields[number] ? Fields : never,
+): Fields {
+  return fields;
+}
+
+/** Top-level fields written to the checkpoint input document, in wire order. */
+export const CHECKPOINT_WHEN_INPUT_FIELDS = checkpointWhenInputFields([
+  "version",
+  "checkpoint",
+  "policy_commit",
+  "changed_files",
+  "history",
+]);
 
 /** Safety limits for the literal UTF-8 line-pattern dialect. The two pattern
  * fields may each carry 16 patterns, so 2 MiB of admitted bytes bounds the

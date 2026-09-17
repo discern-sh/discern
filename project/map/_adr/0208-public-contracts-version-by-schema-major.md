@@ -2,6 +2,7 @@
 
 > **Amendments.**
 >
+> - **[ADR 0409](0409-public-contracts-split-durable-enforcement-from-session-judgment.md) — enforcement tiers, evolving members, and vocabulary roles:** The eight publications split into a durable tier under the permanent hard gate and a session tier destined for checkpoint judgment with owner variance. Evolving members are exempt from comparison, output vocabularies are open or closed by role, and the session tier's deprecation promise departs from strict semantic versioning.
 > - **[ADR 0390](0390-public-contracts-preserve-behavior-and-independent-format-versions.md) — documentation and private formats:** Descriptive CLI/MCP text and schema documentation may evolve without a new major. Private format revisions remain internal; public Proof-note versions keep their schema guarantee.
 > - **[ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md) — durable channel:** The landing receipt note carries a schema-fragment URI in-band as its DSSE `payloadType`. A Git note has no schema-selection channel, so the authenticated payload type names its compatibility major and published definition. The no-payload-version rule for negotiated result and configuration channels is unchanged.
 

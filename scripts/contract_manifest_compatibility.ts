@@ -471,6 +471,12 @@ export function publicManifestValidityIssues(
       if (!isObject(manifest.git) || !isObject(manifest.providers)) {
         issues.push(`${label}: conventions registries must be objects`);
       }
+      if (!isObject(manifest.exit_statuses)) {
+        issues.push(`${label}: $.exit_statuses must be an object`);
+      }
+      if (!isObject(manifest.script_protocols)) {
+        issues.push(`${label}: $.script_protocols must be an object`);
+      }
       break;
     case CONFIG_SCHEMA_COMPATIBILITY_POLICY:
     case RESULT_SCHEMA_COMPATIBILITY_POLICY:
