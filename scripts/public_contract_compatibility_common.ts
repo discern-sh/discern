@@ -5,6 +5,7 @@ import {
   PUBLIC_SCHEMA_STABILITY_KEY,
   STABILITY_TIER_EVOLVING,
 } from "../src/shared/public_schemas.ts";
+import { RESULT_VOCABULARY_KEYWORD } from "../src/shared/result.ts";
 
 export type JsonValue =
   | null
@@ -248,12 +249,30 @@ function withoutReferencesTo(
   return result;
 }
 
+/** Every vocabulary key a schema node names through the vocabulary keyword. */
+function vocabularyReferences(value: JsonValue, found: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) vocabularyReferences(entry, found);
+    return;
+  }
+  if (!isObject(value)) return;
+  for (const [key, child] of Object.entries(value)) {
+    if (key === RESULT_VOCABULARY_KEYWORD && typeof child === "string") {
+      found.add(child);
+    } else {
+      vocabularyReferences(child, found);
+    }
+  }
+}
+
 /**
  * Project an artifact onto its stable members. Evolving records leave the
  * root arrays (contract metadata, commands, tools), evolving definitions and
  * properties leave the schema with every pure reference to them, and a
  * definition that only evolving members reached is retired with them; a
- * definition a stable member still reaches survives. Comparators compare the
+ * definition a stable member still reaches survives. A root vocabulary array
+ * follows the same rule: one that only retired nodes named leaves with them,
+ * while one a stable node still names survives. Comparators compare the
  * projected baseline with the projected current artifact, so an evolving
  * member may change or disappear freely, graduation appears as an addition,
  * and demotion appears as a removal of the member it demotes.
@@ -262,6 +281,8 @@ export function withoutEvolvingMembers(artifact: JsonObject): JsonObject {
   const { $defs: definitions, ...body } = artifact;
   const completeDefinitions = isObject(definitions) ? definitions : {};
   const reachableBefore = reachableDefinitions(body, completeDefinitions);
+  const namedBefore = new Set<string>();
+  vocabularyReferences(artifact, namedBefore);
   const removed = new Set<string>();
   const prunedRoot: JsonObject = {};
   for (const [key, value] of Object.entries(artifact)) {
@@ -282,11 +303,15 @@ export function withoutEvolvingMembers(artifact: JsonObject): JsonObject {
     if (reachableBefore.has(name) && !reachableAfter.has(name)) continue;
     retired[name] = definition;
   }
+  const namedAfter = new Set<string>();
+  vocabularyReferences({ ...detachedBody, $defs: retired }, namedAfter);
   // Keep the artifact's own key order so comparison diagnostics read in the
   // order the artifact is written.
   return Object.fromEntries(
-    Object.entries(detached).map((
-      [key, value],
-    ) => [key, key === "$defs" ? retired : value]),
+    Object.entries(detached).flatMap(([key, value]) => {
+      if (key === "$defs") return [[key, retired]];
+      if (namedBefore.has(key) && !namedAfter.has(key)) return [];
+      return [[key, value]];
+    }),
   );
 }

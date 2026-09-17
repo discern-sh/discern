@@ -44,7 +44,10 @@ import {
   RESULT_CONTRACT_REFERENCE_FIELDS,
 } from "../src/shared/result_contracts.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
-import { RESULT_OPEN_VOCABULARIES } from "../src/shared/result.ts";
+import {
+  RESULT_OPEN_VOCABULARIES,
+  RESULT_VOCABULARY_KEYWORD,
+} from "../src/shared/result.ts";
 import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -2076,6 +2079,53 @@ Deno.test("input enums are append-only while closed output enums are frozen in b
       RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ),
     ['$.$defs.VoyageLaunchResult.properties.outcome.enum: removed value "failed"'],
+  );
+});
+
+Deno.test("a vocabulary root only an evolving member names leaves with it; one a stable member names is held", () => {
+  const vocabulary = "x-discern-coupling-modes";
+  const withVocabulary = (evolving: boolean, shared: boolean): JsonObject => {
+    const schema = fixtureWithSurvey(evolving);
+    const defs = schema.$defs as JsonObject;
+    (defs.VoyageSurveyDetail as JsonObject).properties = {
+      mode: { type: "string", [RESULT_VOCABULARY_KEYWORD]: vocabulary },
+    };
+    if (shared) {
+      (defs.VoyageStringSignal as JsonObject)[RESULT_VOCABULARY_KEYWORD] =
+        vocabulary;
+    }
+    schema[vocabulary] = ["strict", "advisory"];
+    return schema;
+  };
+  const pruned = withoutEvolvingMembers(withVocabulary(true, false));
+  assertEquals(pruned[vocabulary], undefined);
+  assertEquals(
+    withoutEvolvingMembers(withVocabulary(true, true))[vocabulary],
+    ["strict", "advisory"],
+  );
+  assertEquals(
+    withoutEvolvingMembers(withVocabulary(false, false))[vocabulary],
+    ["strict", "advisory"],
+  );
+
+  // Removing the evolving contract with its vocabulary is not an issue.
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      withVocabulary(true, false),
+      clone(RESULT_OUTPUT_FIXTURE),
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+  // Removing the vocabulary a stable member still names is.
+  const stableRemoved = withVocabulary(true, true);
+  delete stableRemoved[vocabulary];
+  assert(
+    publicSchemaCompatibilityIssues(
+      withVocabulary(true, true),
+      stableRemoved,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.startsWith(`$.${vocabulary}:`)),
   );
 });
 
