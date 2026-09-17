@@ -532,7 +532,10 @@ export async function runSiteSmoke(
     );
     sameItems(
       "/docs complete browse",
-      [...docs.querySelectorAll(".docs-complete-browse a")].map((link) => ({
+      // Route links only: each chapter heading also carries its permalink.
+      [...docs.querySelectorAll('.docs-complete-browse a[href^="/"]')].map((
+        link,
+      ) => ({
         route: link.getAttribute("href") ?? "",
         title: (link.textContent ?? "").trim(),
       })),
