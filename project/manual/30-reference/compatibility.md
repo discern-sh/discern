@@ -98,7 +98,7 @@ The conventions manifest records these protocols, together with the public envir
 
 ## Pinning a schema
 
-Each published schema's `$id` is a real URL: `https://discern.sh/schema/v1/<name>`. That URL serves the current 1.x schema for its surface, and the [schema table](mcp-and-results.md#published-schemas-and-types) links every one.
+Each published schema's `$id` is the address it is served from: a `/schema/v1/` path on `discern.sh` that names its surface. That address serves the current 1.x schema, and the [schema table](mcp-and-results.md#published-schemas-and-types) links every one.
 
 To pin, save a copy. A pinned copy validates the stable members it knew when you saved it. Refresh the copy before validating anything that uses an addition — a configuration file with a newer optional key, a result from a newer contract.
 
