@@ -200,6 +200,8 @@ export interface RecordedRunOptions {
   readonly waitedMs?: () => number | undefined;
   /** A mixed runner received the operand that selects its effectful form. */
   readonly hasOperands?: boolean;
+  /** A positional action that selects one command mode. */
+  readonly action?: string;
 }
 
 /** A failed completion contract always owns a failing process status. */
@@ -309,6 +311,7 @@ async function runClassifiedCliOperation(
     readonly flags?: readonly string[];
     readonly dryRun: boolean;
     readonly hasOperands?: boolean;
+    readonly action?: string;
   },
 ): Promise<number> {
   const { OperationLockError } = await loadModule(() =>
@@ -345,6 +348,7 @@ async function runClassifiedCliOperation(
         ...(options.hasOperands === undefined
           ? {}
           : { hasOperands: options.hasOperands }),
+        ...(options.action === undefined ? {} : { action: options.action }),
         ...(options.dryRun ? { dryRun: true } : {}),
       },
       async () => {
@@ -411,6 +415,7 @@ export async function recordedRun(
     ...(opts.hasOperands === undefined
       ? {}
       : { hasOperands: opts.hasOperands }),
+    ...(opts.action === undefined ? {} : { action: opts.action }),
   };
   const lockBoundary = operationEffectPolicy(verb, operationFacts)?.lock;
   const run = () => runClassifiedCliOperation(verb, body, operationFacts);
@@ -510,6 +515,7 @@ export async function recordedRun(
 export function recordedExit<TThis, A extends unknown[]>(
   verb: string,
   body: VerbBody<TThis, A>,
+  options?: (...args: A) => RecordedRunOptions,
 ): (this: TThis, ...args: A) => Promise<void> {
   const top = verb.split(" ")[0];
   recordedCommandPaths.add(verb);
@@ -525,6 +531,7 @@ export function recordedExit<TThis, A extends unknown[]>(
         verb,
         "cli",
         async () => (await body.apply(this, args)) ?? 0,
+        options?.(...args),
       ),
     );
   };

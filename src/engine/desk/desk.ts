@@ -609,7 +609,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       path,
       {
         command: "accept",
-        flags: ["queue-only"],
+        action: "queue",
         ...(options.dryRun ? { dryRun: true } : {}),
       },
       async (signal) =>

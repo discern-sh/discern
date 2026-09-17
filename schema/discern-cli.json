@@ -534,7 +534,10 @@
         {
           "name": "n",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "number"
+          ]
         }
       ],
       "usage": "",
@@ -1435,7 +1438,10 @@
         {
           "name": "target",
           "optional": true,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -1634,7 +1640,10 @@
         {
           "name": "target",
           "optional": true,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -1831,7 +1840,10 @@
         {
           "name": "command",
           "optional": true,
-          "variadic": true
+          "variadic": true,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -2012,12 +2024,18 @@
         {
           "name": "name",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         },
         {
           "name": "command",
           "optional": true,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -2273,12 +2291,18 @@
         {
           "name": "name",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         },
         {
           "name": "globs",
           "optional": false,
-          "variadic": true
+          "variadic": true,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -2508,7 +2532,10 @@
         {
           "name": "name",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -2838,12 +2865,18 @@
         {
           "name": "key",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         },
         {
           "name": "value",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -2985,7 +3018,10 @@
         {
           "name": "key",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -3079,7 +3115,10 @@
         {
           "name": "key",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -3173,7 +3212,10 @@
         {
           "name": "key",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -3267,7 +3309,10 @@
         {
           "name": "key",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -3361,7 +3406,10 @@
         {
           "name": "key",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -3455,7 +3503,10 @@
         {
           "name": "path",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -4127,7 +4178,10 @@
         {
           "name": "handle",
           "optional": true,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -4331,12 +4385,18 @@
         {
           "name": "name",
           "optional": true,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         },
         {
           "name": "args",
           "optional": true,
-          "variadic": true
+          "variadic": true,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -4429,7 +4489,10 @@
         {
           "name": "names",
           "optional": true,
-          "variadic": true
+          "variadic": true,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -4559,7 +4622,10 @@
         {
           "name": "name",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -4777,7 +4843,10 @@
         {
           "name": "type",
           "optional": true,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -5058,7 +5127,10 @@
         {
           "name": "name",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -5264,12 +5336,18 @@
         {
           "name": "file",
           "optional": true,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         },
         {
           "name": "with",
           "optional": true,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -6382,7 +6460,14 @@
         {
           "name": "action",
           "optional": true,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "accept-action"
+          ],
+          "choices": [
+            "emergency",
+            "queue"
+          ]
         }
       ],
       "usage": "",
@@ -6475,21 +6560,9 @@
         },
         {
           "spellings": [
-            "--queue-only"
-          ],
-          "description": "Record the current clean, proven revision in the landing queue and return without starting checks or landing. Reuses recorded authority; an active or later accept --target <effort> walk can pick it up.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
-        },
-        {
-          "spellings": [
             "--target"
           ],
-          "description": "Select the effort by id, path, or branch, from any checkout. With --queue-only, record its current proven revision; otherwise start landing under applicable authority.",
+          "description": "Select the effort by id, path, or branch, from any checkout. With accept queue, record its current proven revision; otherwise start landing under applicable authority.",
           "type_definition": "<effort:string>",
           "arity": 1,
           "value_types": [
@@ -6790,7 +6863,10 @@
         {
           "name": "worktree",
           "optional": true,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -7309,7 +7385,10 @@
         {
           "name": "title",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -7515,7 +7594,10 @@
         {
           "name": "worktree",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",
@@ -7621,7 +7703,10 @@
         {
           "name": "worktree",
           "optional": false,
-          "variadic": false
+          "variadic": false,
+          "value_types": [
+            "string"
+          ]
         }
       ],
       "usage": "",

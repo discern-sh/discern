@@ -604,7 +604,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
     );
     const queueStop = await runAgent(worktree, [
       "accept",
-      "--queue-only",
+      "queue",
       "--json",
     ]);
     assertEquals(queueStop.code, 1, queueStop.output);

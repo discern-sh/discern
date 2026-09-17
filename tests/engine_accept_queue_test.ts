@@ -26,7 +26,7 @@ import type { AcceptData } from "../src/shared/result_schemas.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import { serializeResult } from "../src/shared/result_serialization.ts";
 
-Deno.test("accept queue-only plans, queues idempotently, and rejects changed or unproven work", async () => {
+Deno.test("accept queue plans, queues idempotently, and rejects changed or unproven work", async () => {
   await withTempDir(async (root) => {
     const path = await project(root);
     const context = await lifecycleContext(
@@ -89,7 +89,7 @@ Deno.test("accept queue-only plans, queues idempotently, and rejects changed or 
     await git(path, "branch", "-m", branch);
     const cliPreview = await runAgent(root, [
       "accept",
-      "--queue-only",
+      "queue",
       "--target",
       branch,
       "--dry-run",
@@ -132,21 +132,18 @@ Deno.test("accept queue-only plans, queues idempotently, and rejects changed or 
     assertEquals(await readSubmission(path), record);
     const cliQueued = await runAgent(path, [
       "accept",
-      "--queue-only",
+      "queue",
       "--json",
     ]);
     assertEquals(cliQueued.code, 0, cliQueued.output);
     assertEquals(decodeCliResult(cliQueued.stdout, "accept").data, queued.data);
-    const mixed = await runAgent(path, [
+    const retired = await runAgent(path, [
       "accept",
-      "emergency",
       "--queue-only",
-      "--reason",
-      "review",
       "--json",
     ]);
     assertEquals(
-      decodeCliResult(mixed.stdout, "accept").error,
+      decodeCliResult(retired.stdout, "accept").error,
       "invalid_arguments",
     );
     const renewed = await runAgent(path, ["done", "--json"]);

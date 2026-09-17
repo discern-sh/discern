@@ -60,7 +60,7 @@ export function teardownPlanToEngine(plan: TeardownPlan): EnginePlan {
   };
 }
 
-/** The observed facts needed to explain one queue-only submission effect. */
+/** The observed facts needed to explain one queue-action submission effect. */
 export interface SubmissionPlan {
   readonly path: string;
   readonly branch: string;

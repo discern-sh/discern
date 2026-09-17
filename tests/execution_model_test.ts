@@ -351,7 +351,7 @@ Deno.test("execution model: update, acceptance and submission derive their cores
     step.kind === "resource-destroy" ? ["db"] : [step.label]
   );
   assertEquals(accept.steps.map((step) => step.label), acceptLabels);
-  const submit = model.find((plan) => plan.verb === "accept --queue-only");
+  const submit = model.find((plan) => plan.verb === "accept queue");
   assert(submit !== undefined);
   const submission = submissionPlanToEngine({
     path: "/repo.worktrees/model-test",

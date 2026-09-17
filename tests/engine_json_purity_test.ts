@@ -473,7 +473,7 @@ const LIFECYCLE_CASES: readonly LifecycleCase[] = [
     commandPath: "accept",
     envelopeVerb: "accept",
     cwd: "worktree",
-    args: () => ["accept", "--queue-only"],
+    args: () => ["accept", "queue"],
   },
   {
     commandPath: "update",

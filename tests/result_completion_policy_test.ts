@@ -595,7 +595,7 @@ Deno.test("policy-created failures retain registered recovery across every effec
   assertEquals(evaluated.hints?.[0], result.hints?.[0]);
 });
 
-Deno.test("accept queue-only succeeds only with its recorded submission and no landing claim", () => {
+Deno.test("accept queue succeeds only with its recorded submission and no landing claim", () => {
   const revision = {
     path: "/task",
     branch: "agent/task",

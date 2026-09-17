@@ -164,7 +164,12 @@ Deno.test("manual CLI generation enrolls a future command alias and exact parser
     description: "Synthetic future public contract.",
     aliases: ["future-alias"],
     hidden: false,
-    args: [{ name: "value", optional: false, variadic: false }],
+    args: [{
+      name: "value",
+      optional: false,
+      variadic: false,
+      value_types: ["string"],
+    }],
     usage: "",
     options: [],
     children: [],

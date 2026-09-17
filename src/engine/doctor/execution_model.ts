@@ -582,7 +582,7 @@ function queueAcceptanceVerb(): VerbPlan {
     unchanged: false,
   });
   return {
-    verb: "accept --queue-only",
+    verb: "accept queue",
     when:
       "When joining the landing queue with a clean, proven revision. Revalidate Proof and required decisions; record the submission without starting checks or landing.",
     steps: projected.steps.map((planned) =>

@@ -144,5 +144,11 @@ export function logbookVerbIsEffectful(
 /** The explicit emergency action is part of accept, with a separate exact confirmation exchange. */
 export const EMERGENCY_ACCEPT_ACTION = "emergency";
 
-/** MCP queue admission selects the CLI accept --queue-only mode. */
+/** Queue admission records a submission without starting its landing. */
 export const QUEUE_ACCEPT_ACTION = "queue";
+
+/** Every positional action accepted by the CLI and MCP acceptance surfaces. */
+export const ACCEPT_ACTIONS = [
+  EMERGENCY_ACCEPT_ACTION,
+  QUEUE_ACCEPT_ACTION,
+] as const;

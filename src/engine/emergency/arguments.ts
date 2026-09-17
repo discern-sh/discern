@@ -2,53 +2,46 @@
 import type { AcceptData } from "../../shared/result_schemas.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { AcceptRequest } from "../worktree/accept.ts";
-import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
+import {
+  ACCEPT_ACTIONS,
+  EMERGENCY_ACCEPT_ACTION,
+  QUEUE_ACCEPT_ACTION,
+} from "../../shared/verbs.ts";
 import type { EmergencyOptions } from "./action.ts";
 
 type EmergencyArguments =
   | {
     readonly kind: "options";
-    readonly value: { emergency?: EmergencyOptions };
+    readonly value: { emergency?: EmergencyOptions; queueOnly?: true };
   }
   | { readonly kind: "refusal"; readonly result: DiscernResult<AcceptData> };
 
 /** Require the explicit action before interpreting emergency fields; ordinary consent stays separate. */
 export function emergencyArguments(
   action: string | undefined,
-  fields:
-    & { readonly queueOnly?: boolean | undefined }
-    & {
-      readonly [
-        K in
-          | "reason"
-          | "approvalToken"
-          | "recover"
-          | "confirmed"
-          | "dryRun"
-          | "prepare"
-          | "preparationReceipt"
-          | "met"
-      ]?: EmergencyOptions[K] | undefined;
-    },
+  fields: {
+    readonly [
+      K in
+        | "reason"
+        | "approvalToken"
+        | "recover"
+        | "confirmed"
+        | "dryRun"
+        | "prepare"
+        | "preparationReceipt"
+        | "met"
+    ]?: EmergencyOptions[K] | undefined;
+  },
 ): EmergencyArguments {
-  if (fields.queueOnly && action !== undefined) {
-    return {
-      kind: "refusal",
-      result: {
-        ok: false,
-        verb: "accept",
-        error: "invalid_arguments",
-        message:
-          "--queue-only cannot be combined with an acceptance action. Use it alone to record the proven revision without landing.",
-      },
-    };
-  }
   let message: string | undefined;
-  if (action !== undefined && action !== EMERGENCY_ACCEPT_ACTION) {
+  if (
+    action !== undefined &&
+    !ACCEPT_ACTIONS.includes(action as (typeof ACCEPT_ACTIONS)[number])
+  ) {
     message =
-      "Use accept for ordinary landing or accept emergency for the explicit exception exchange.";
+      "Use accept for ordinary landing, accept queue to record the proven revision without landing, or accept emergency for the explicit exception exchange.";
   } else if (
-    action === undefined &&
+    action !== EMERGENCY_ACCEPT_ACTION &&
     (fields.reason !== undefined || fields.approvalToken !== undefined ||
       fields.recover !== undefined || fields.prepare !== undefined ||
       fields.preparationReceipt !== undefined)
@@ -75,7 +68,9 @@ export function emergencyArguments(
   }
   return {
     kind: "options",
-    value: action === EMERGENCY_ACCEPT_ACTION
+    value: action === QUEUE_ACCEPT_ACTION
+      ? { queueOnly: true }
+      : action === EMERGENCY_ACCEPT_ACTION
       ? {
         emergency: {
           ...(fields.prepare === undefined ? {} : { prepare: fields.prepare }),

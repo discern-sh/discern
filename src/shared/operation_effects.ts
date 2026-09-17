@@ -61,6 +61,8 @@ export type OperationGitWriteAuthority =
 export interface OperationInvocationFacts {
   /** Long flag names without their leading dashes or values. */
   readonly flags?: readonly string[];
+  /** A positional action that selects one command mode. */
+  readonly action?: string;
   /** Whether a command-group runner received the child/target operand. */
   readonly hasOperands?: boolean;
   /** A plan-only invocation never needs an exclusion lock. */
@@ -551,7 +553,7 @@ export function operationEffectPolicy(
 ):
   | (OperationEffectPolicy & { readonly lock: OperationLockBoundary })
   | undefined {
-  const policy = command === "accept" && facts.flags?.includes("queue-only")
+  const policy = command === "accept" && facts.action === "queue"
     ? ACCEPT_QUEUE
     : OPERATION_EFFECTS[command as keyof typeof OPERATION_EFFECTS] ??
       INTERACTIVE_OPERATION_EFFECTS[

@@ -1,6 +1,7 @@
 /** The settled v1 command grammar, derived from the live Cliffy/result models. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { EnumType } from "@cliffy/command";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { buildCli } from "../src/main.ts";
 import {
@@ -10,6 +11,8 @@ import {
 } from "../src/shared/cli_reference_codegen.ts";
 import { CLI_JSON_RESULT_CONTRACTS } from "../src/shared/result_contracts.ts";
 import { CLI_JSON_DESCRIPTION_OVERRIDES } from "../src/shared/result_formats.ts";
+import { ACCEPT_ACTIONS } from "../src/shared/verbs.ts";
+import { buildCliManifest } from "../scripts/contract_manifests.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
@@ -34,6 +37,63 @@ function contractedPaths(): Set<string> {
     CLI_JSON_RESULT_CONTRACTS.flatMap((contract) => [...contract.commands]),
   );
 }
+
+interface RawCommandView {
+  getName(): string;
+  getArguments(): ReadonlyArray<{ name: string; type: string }>;
+  getType(name: string): { handler: unknown } | undefined;
+  getCommands(hidden?: boolean): RawCommandView[];
+}
+
+interface ManifestCommandView {
+  path: string[];
+  positionals: Array<{
+    name: string;
+    value_types: string[];
+    choices?: string[];
+  }>;
+}
+
+Deno.test("every enum positional publishes its type and choices in the CLI manifest", () => {
+  const manifest = buildCliManifest() as unknown as {
+    commands: ManifestCommandView[];
+  };
+  let enumPositionals = 0;
+  const visit = (command: RawCommandView, path: string[]): void => {
+    const record = manifest.commands.find((entry) =>
+      entry.path.join(" ") === path.join(" ")
+    );
+    assert(record !== undefined, `manifest lost ${path.join(" ") || "root"}`);
+    for (const argument of command.getArguments()) {
+      const handler = command.getType(argument.type)?.handler;
+      if (!(handler instanceof EnumType)) continue;
+      enumPositionals += 1;
+      const positional = record.positionals.find((entry) =>
+        entry.name === argument.name
+      );
+      assert(
+        positional !== undefined,
+        `manifest lost ${path.join(" ")} ${argument.name}`,
+      );
+      assertEquals(positional.value_types, [argument.type]);
+      assertEquals(positional.choices, handler.values().map(String));
+    }
+    for (const child of command.getCommands(true)) {
+      visit(child, [...path, child.getName()]);
+    }
+  };
+
+  visit(buildCli(true, "main") as unknown as RawCommandView, []);
+  assert(
+    enumPositionals > 0,
+    "the live grammar must exercise enum positionals",
+  );
+  const accept = manifest.commands.find((entry) =>
+    entry.path.join(" ") === "accept"
+  );
+  assert(accept !== undefined);
+  assertEquals(accept.positionals[0]?.choices, [...ACCEPT_ACTIONS]);
+});
 
 Deno.test("the live command and result models expose only the settled v1 names", () => {
   const paths = new Set(
@@ -235,6 +295,15 @@ Deno.test("retired commands receive no alias while generic suggestions use the l
     assertEquals(oldAction.code, 2, oldAction.stdout + oldAction.stderr);
     assertEquals(
       decodeCliResult(oldAction.stdout, "patterns").error,
+      "invalid_arguments",
+    );
+
+    const unknownAcceptAction = await runCli(
+      ["accept", "later", "--json"],
+      dir,
+    );
+    assertEquals(
+      decodeCliResult(unknownAcceptAction.stdout, "accept").error,
       "invalid_arguments",
     );
 

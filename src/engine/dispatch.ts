@@ -8,7 +8,7 @@
  */
 
 import { loadModule } from "../shared/module_loading.ts";
-import { Command } from "@cliffy/command";
+import { Command, EnumType } from "@cliffy/command";
 import { join, relative } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
@@ -95,6 +95,7 @@ import {
 } from "../shared/mcp_timeout_policy.ts";
 import { LOGBOOK_LIFECYCLE_ACTIONS } from "../shared/logbook_lifecycle.ts";
 import { CLI_JSON_DESCRIPTION_OVERRIDES } from "../shared/result_formats.ts";
+import { ACCEPT_ACTIONS } from "../shared/verbs.ts";
 
 export { reportUnknownCommand } from "./unknown_command.ts";
 export {
@@ -938,7 +939,8 @@ export function attachEngineCommands(
     }));
 
   root
-    .command("accept [action:string]")
+    .command("accept [action:accept-action]")
+    .type("accept-action", new EnumType(ACCEPT_ACTIONS))
     .description(
       `Submit this worktree's proven commit and land it on the trunk${trunkName}, ` +
         "the shared landing branch. Landing needs the owner's consent in this " +
@@ -953,12 +955,8 @@ export function attachEngineCommands(
     )
     .option("--dry-run", "Show the selected acceptance plan; touch nothing.")
     .option(
-      "--queue-only",
-      "Record the current clean, proven revision in the landing queue and return without starting checks or landing. Reuses recorded authority; an active or later accept --target <effort> walk can pick it up.",
-    )
-    .option(
       "--target <effort:string>",
-      "Select the effort by id, path, or branch, from any checkout. With --queue-only, record its current proven revision; otherwise start landing under applicable authority.",
+      "Select the effort by id, path, or branch, from any checkout. With accept queue, record its current proven revision; otherwise start landing under applicable authority.",
     )
     .option(
       "--prepare",
@@ -1028,52 +1026,62 @@ export function attachEngineCommands(
         "generic landing grants never authorize a standard limit proposal.",
       { collect: true },
     )
-    .action(recordedExit("accept", async (o, action: string | undefined) => {
-      const {
-        acceptDeclarationArguments,
-        acceptRequestFields,
-        emergencyArguments,
-      } = await loadModule(() => import("./emergency/arguments.ts"));
-      const parsed = emergencyArguments(action, o);
-      if (parsed.kind === "refusal") throw new CliRefusal(parsed.result);
-      const declarations = acceptDeclarationArguments(
-        parsed.value.emergency !== undefined,
-        o.unmet,
-        o.why,
-        o.compositionReceipt,
-      );
-      if (declarations.kind === "refusal") {
-        throw new CliRefusal(declarations.result);
-      }
-      const json = jsonFrom(o);
-      return await runWorktreeOp(
-        async (ctx) => {
-          if (parsed.value.emergency !== undefined) {
-            const { emergencyResult } = await loadModule(() =>
-              import("./emergency/action.ts")
+    .action(recordedExit(
+      "accept",
+      async (o, action: unknown) => {
+        const {
+          acceptDeclarationArguments,
+          acceptRequestFields,
+          emergencyArguments,
+        } = await loadModule(() => import("./emergency/arguments.ts"));
+        const parsed = emergencyArguments(
+          typeof action === "string" ? action : undefined,
+          o,
+        );
+        if (parsed.kind === "refusal") throw new CliRefusal(parsed.result);
+        const declarations = acceptDeclarationArguments(
+          parsed.value.emergency !== undefined,
+          o.unmet,
+          o.why,
+          o.compositionReceipt,
+        );
+        if (declarations.kind === "refusal") {
+          throw new CliRefusal(declarations.result);
+        }
+        const json = jsonFrom(o);
+        return await runWorktreeOp(
+          async (ctx) => {
+            if (parsed.value.emergency !== undefined) {
+              const { emergencyResult } = await loadModule(() =>
+                import("./emergency/action.ts")
+              );
+              const { emitOrRenderWorktreeResult } = await loadModule(() =>
+                import("./worktree/lifecycle.ts")
+              );
+              emitOrRenderWorktreeResult(
+                ctx,
+                await emergencyResult(ctx, parsed.value.emergency),
+                json,
+              );
+              return;
+            }
+            const { acceptLanding } = await loadModule(() =>
+              import("./worktree/accept.ts")
             );
-            const { emitOrRenderWorktreeResult } = await loadModule(() =>
-              import("./worktree/lifecycle.ts")
-            );
-            emitOrRenderWorktreeResult(
-              ctx,
-              await emergencyResult(ctx, parsed.value.emergency),
+            await acceptLanding(ctx, {
+              ...acceptRequestFields(
+                { ...o, queueOnly: parsed.value.queueOnly },
+                declarations.unmet,
+              ),
               json,
-            );
-            return;
-          }
-          const { acceptLanding } = await loadModule(() =>
-            import("./worktree/accept.ts")
-          );
-          await acceptLanding(ctx, {
-            ...acceptRequestFields(o, declarations.unmet),
-            json,
-            cliModel,
-          });
-        },
-        { json, verb: "accept" },
-      );
-    }));
+              cliModel,
+            });
+          },
+          { json, verb: "accept" },
+        );
+      },
+      (_o, action) => typeof action === "string" ? { action } : {},
+    ));
 
   root
     .command("update")

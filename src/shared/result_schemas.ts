@@ -1701,7 +1701,7 @@ export type QueueSubmissionData = z.infer<typeof QueueSubmissionDataSchema>;
 
 export const AcceptDataSchema = z.strictObject({
   revision: SubmissionRevisionSchema.optional(),
-  /** Present for accept --queue-only / MCP action: queue. */
+  /** Present for CLI `accept queue` / MCP action: queue. */
   submission: QueueSubmissionDataSchema.optional(),
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),
   /** Present on a judgment or variance stop over a retained composition. */

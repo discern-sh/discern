@@ -20,6 +20,7 @@
  */
 
 import { COMMAND_GROUPS } from "../cli_help.ts";
+import { EnumType } from "@cliffy/command";
 import { renderMarkdownHtml } from "../lib/markdown.ts";
 import { repositoryBlobUrl } from "./brand.ts";
 import { renderExitStatusTable } from "./exit_codes.ts";
@@ -29,6 +30,10 @@ export interface CliArg {
   name: string;
   optional: boolean;
   variadic: boolean;
+  /** Parser value types, in argument order. */
+  value_types: string[];
+  /** Accepted values for an enum-typed positional, in declaration order. */
+  choices?: string[];
 }
 
 /** One flag a command accepts, as declared (every spelling in `flags`). */
@@ -83,7 +88,9 @@ interface CommandView {
     name: string;
     optional: boolean;
     variadic: boolean;
+    type: string;
   }>;
+  getType(name: string): { handler: unknown } | undefined;
   getOptions(hidden?: boolean): ReadonlyArray<{
     name: string;
     flags: string[];
@@ -113,11 +120,18 @@ function walkCommand(
     aliases: cmd.getAliases(),
     hidden,
     usage: args.length === 0 ? cmd.getUsage() : "",
-    args: args.map((a) => ({
-      name: a.name,
-      optional: a.optional,
-      variadic: a.variadic,
-    })),
+    args: args.map((a) => {
+      const handler = cmd.getType(a.type)?.handler;
+      return {
+        name: a.name,
+        optional: a.optional,
+        variadic: a.variadic,
+        value_types: [a.type],
+        ...(handler instanceof EnumType
+          ? { choices: handler.values().map(String) }
+          : {}),
+      };
+    }),
     options: cmd.getOptions(true).map((o) => ({
       flags: [...o.flags],
       description: o.description,

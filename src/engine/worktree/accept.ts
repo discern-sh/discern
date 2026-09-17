@@ -13,7 +13,7 @@ export {
   type LandingSubject,
 } from "./accept_subject.ts";
 /**
- * Accept a proven revision, or record it with --queue-only without starting landing.
+ * Accept a proven revision, or record it with `accept queue` without starting landing.
  *
  * The invoking checkout or --target selects the effort. Queue-only admission
  * rechecks its current clean revision and complete Proof under checkout and

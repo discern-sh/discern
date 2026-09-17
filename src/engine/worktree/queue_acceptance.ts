@@ -59,13 +59,13 @@ async function submissionPlan(ctx: LifecycleContext, target?: string): Promise<{
   const effort = await effortCheckout(ctx, target);
   if (effort === undefined) {
     throw new WorktreeGitError(
-      "Run discern accept --queue-only from the proven effort's worktree, or select it with --target.",
+      "Run discern accept queue from the proven effort's worktree, or select it with --target.",
     );
   }
   const subject = await resolveSubject(effort);
   if (subject === undefined || !subject.atHead) {
     throw new WorktreeGitError(
-      `${effort.branch} has no current complete Proof. Commit the work and run discern done, then discern accept --queue-only.`,
+      `${effort.branch} has no current complete Proof. Commit the work and run discern done, then discern accept queue.`,
     );
   }
   const clean = await runGit([
@@ -76,7 +76,7 @@ async function submissionPlan(ctx: LifecycleContext, target?: string): Promise<{
   ], { cwd: effort.path });
   if (!clean.success || clean.stdout !== "") {
     throw new WorktreeGitError(
-      "Submission requires a readable, clean worktree. Commit the intended work and run discern done, then discern accept --queue-only.",
+      "Submission requires a readable, clean worktree. Commit the intended work and run discern done, then discern accept queue.",
     );
   }
   const recorded = await readSubmission(effort.path);

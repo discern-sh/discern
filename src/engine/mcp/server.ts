@@ -1,7 +1,4 @@
-import {
-  EMERGENCY_ACCEPT_ACTION,
-  QUEUE_ACCEPT_ACTION,
-} from "../../shared/verbs.ts";
+import { ACCEPT_ACTIONS } from "../../shared/verbs.ts";
 import { emergencyArguments } from "../emergency/arguments.ts";
 import { type EmergencyOptions, emergencyResult } from "../emergency/action.ts";
 import { acceptLandingResult } from "../worktree/accept.ts";
@@ -1141,7 +1138,7 @@ export const TOOLS: McpTool[] = orderTools([
       target: z.string().optional().describe(
         "Select the effort by id, path, or branch, from any checkout. Queue mode records its current proven revision; ordinary acceptance starts landing under applicable authority.",
       ),
-      action: z.enum([EMERGENCY_ACCEPT_ACTION, QUEUE_ACCEPT_ACTION]).optional()
+      action: z.enum(ACCEPT_ACTIONS).optional()
         .describe(
           "Omit to submit and start landing. Select queue to record the current proven revision and return without starting checks or landing; it reuses recorded authority and starts no background run. Select emergency only for an explicit exception with fresh exact owner approval; ordinary grants do not cover it.",
         ),
@@ -1218,16 +1215,12 @@ export const TOOLS: McpTool[] = orderTools([
         : undefined;
     },
     run: (root, args, signal, context) => {
-      const parsed = emergencyArguments(
-        args.action === QUEUE_ACCEPT_ACTION ? undefined : args.action,
-        {
-          queueOnly: args.action === QUEUE_ACCEPT_ACTION,
-          ...args,
-          preparationReceipt: args.preparation_receipt,
-          approvalToken: args.approval_token,
-          dryRun: args.dry_run === true,
-        },
-      );
+      const parsed = emergencyArguments(args.action, {
+        ...args,
+        preparationReceipt: args.preparation_receipt,
+        approvalToken: args.approval_token,
+        dryRun: args.dry_run === true,
+      });
       if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
       if (
         parsed.value.emergency !== undefined &&
@@ -1244,7 +1237,7 @@ export const TOOLS: McpTool[] = orderTools([
         );
       }
       return acceptToolResult(root, {
-        queueOnly: args.action === QUEUE_ACCEPT_ACTION,
+        queueOnly: parsed.value.queueOnly === true,
         ...(parsed.value.emergency === undefined
           ? {}
           : { emergency: parsed.value.emergency }),
@@ -1779,7 +1772,11 @@ function mcpCallFacts(
   verb: string,
   args: Record<string, unknown>,
   cliModel: CliModelProvider,
-): { flags: string[] | undefined; target: string | undefined } {
+): {
+  flags: string[] | undefined;
+  target: string | undefined;
+  action: string | undefined;
+} {
   if (verb === "standards propose" && Array.isArray(args.proposals)) {
     const targets = args.proposals.flatMap((entry) => {
       if (typeof entry !== "object" || entry === null || !("name" in entry)) {
@@ -1792,6 +1789,7 @@ function mcpCallFacts(
     return {
       flags: ["reason"],
       target: targets.length === 0 ? undefined : targets.join(" "),
+      action: undefined,
     };
   }
   let positionalNames: readonly string[] = [];
@@ -1810,10 +1808,6 @@ function mcpCallFacts(
     .map((k) => k.replaceAll("_", "-"))
     .sort();
   const targets = positionalNames.flatMap((name) => {
-    if (
-      verb === "accept" && name === "action" &&
-      args.action === QUEUE_ACCEPT_ACTION
-    ) return [];
     const value = args[name];
     if (typeof value === "string" && value !== "") return [value];
     if (Array.isArray(value)) {
@@ -1829,11 +1823,14 @@ function mcpCallFacts(
   ) {
     targets.push(args.target);
   }
-  if (verb === "accept" && args.action === QUEUE_ACCEPT_ACTION) {
-    names.push("queue-only");
-  }
   const target = targets.length > 0 ? targets.join(" ") : undefined;
-  return { flags: names.length > 0 ? names : undefined, target };
+  return {
+    flags: names.length > 0 ? names : undefined,
+    target,
+    action: positional.has("action") && typeof args.action === "string"
+      ? args.action
+      : undefined,
+  };
 }
 
 /** Recording state opened as soon as a call's project root is known. Context
@@ -1855,10 +1852,11 @@ function beginMcpRecording(
   cliModel: CliModelProvider = missingCliModel,
 ): McpRecording {
   const driver = mcpDriverFacts(mcpClient);
-  const { flags } = mcpCallFacts(verb, args, cliModel);
+  const { action, flags } = mcpCallFacts(verb, args, cliModel);
   const dryRun = args.dry_run === true;
   const operationFacts = {
     ...(flags === undefined ? {} : { flags }),
+    ...(action === undefined ? {} : { action }),
     dryRun,
   };
   const lockBoundary = operationEffectPolicy(verb, operationFacts)?.lock;
@@ -1913,13 +1911,14 @@ async function runVerb(
   try {
     throwIfCrashProbe();
     const command = operationCommand(tool, args);
-    const { flags } = mcpCallFacts(command, args, cliModel);
+    const { action, flags } = mcpCallFacts(command, args, cliModel);
     return {
       result: await executeOperation(
         root,
         {
           command,
           ...(flags === undefined ? {} : { flags }),
+          ...(action === undefined ? {} : { action }),
           ...(args.dry_run === true ? { dryRun: true } : {}),
         },
         (operationSignal) =>

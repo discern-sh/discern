@@ -81,7 +81,7 @@ The planning agent records that arrangement in the briefs and gives each depende
 
 Starting work and approving its landing are separate decisions, and review before landing is a choice you make per task rather than a turn every task owes you. A task whose scope you have already granted can finish its checks and land on its own; a task you want to see first stops at its Proof—the evidence for its exact checked commit—and waits. Ask the planning agent to state which is which in each brief. A later task's approval does not automatically approve earlier work included in it. [Proof, review, and authority](../20-understand/proof.md) explains how those decisions accompany the completed change.
 
-The agents coordinate the rest without you. A finished task submits its proven commit for landing, an agent waiting for a sibling holds one call until the sibling is ready, and a task you pre-authorized can land when its agent starts acceptance on a green commit. Explicit queue-only submission waits for an active or later acceptance walk. A brief does not need to ask for a separate test run before the full check, a message to you when an independent task is ready to land, or a preview kept open until landing; none of them changes what the checks prove or what acceptance decides.
+The agents coordinate the rest without you. A finished task submits its proven commit for landing, an agent waiting for a sibling holds one call until the sibling is ready, and a task you pre-authorized can land when its agent starts acceptance on a green commit. The explicit queue action waits for an active or later acceptance walk. A brief does not need to ask for a separate test run before the full check, a message to you when an independent task is ready to land, or a preview kept open until landing; none of them changes what the checks prove or what acceptance decides.
 
 ## 5. Start the agreed tasks
 
@@ -125,7 +125,7 @@ Pre-authorizing an effort alone does not queue a revision. After the agent has s
 
 A later edit makes the current Proof stale because the work no longer matches the checked commit. The agent renews that evidence before the new revision can be submitted.
 
-The command-line equivalent is `discern accept --queue-only` from the proven worktree. Use `discern accept --queue-only --dry-run` to review its revision and authority.
+The command-line equivalent is `discern accept queue` from the proven worktree. Use `discern accept queue --dry-run` to review its revision and authority.
 
 <!-- BEGIN DESK ACTION REGISTRY -->
 
@@ -135,7 +135,7 @@ The command-line equivalent is `discern accept --queue-only` from the proven wor
 | `retry_setup`  | Manage | Retry setup                                                            | `discern worktree setup`             | No by default; Retry                                             |
 | `done`         | Work   | Run final checks                                                       | `discern done`                       | No by default; Run                                               |
 | `accept`       | Review | Accept and land now                                                    | `discern accept`                     | No by default; Land                                              |
-| `submit`       | Review | Join the landing queue                                                 | `discern accept --queue-only`        | No by default; Queue                                             |
+| `submit`       | Review | Join the landing queue                                                 | `discern accept queue`               | No by default; Queue                                             |
 | `update`       | Manage | Update branch from &lt;trunk&gt;                                       | `discern update`                     | No by default; Update                                            |
 | `agent`        | Work   | Start or resume agent                                                  | `<configured-agent>`                 | None                                                             |
 | `follow_up`    | Work   | Start a follow-up from this task                                       | `discern start --from <branch>`      | None                                                             |
