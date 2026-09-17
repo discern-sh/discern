@@ -396,7 +396,7 @@ Deno.test("done: current green Proof is reused on every surface without any Gate
             assertEquals(envelope.error, "gate_failed", result.output);
             assertEquals(
               parseGateJson(result.stdout).data.failed_stage,
-              "write_access",
+              "write_denied",
               result.output,
             );
             assertEquals(parseGateJson(result.stdout).data.proof, undefined);

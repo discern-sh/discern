@@ -151,7 +151,7 @@ Deno.test("desk pre-setup: the setup redirect fires before the surface", async (
     const r = await runAgent(dir, ["desk", "--json"]);
     assertEquals(r.code, 1, r.output);
     const envelope = decodeCliResult(r.stdout, "desk");
-    assertEquals(envelope.error, "not_set_up");
+    assertEquals(envelope.error, "setup_unfinished");
   });
 });
 

@@ -2,7 +2,7 @@
  * The outside-a-project `--json` contract, held over the WHOLE verb surface.
  *
  * An agent that runs `discern <verb> --json` outside any discern project must
- * get a structured envelope on stdout to branch on — the `not_initialized`
+ * get a structured envelope on stdout to branch on — the `no_project`
  * slug for every verb that needs a project — never a bare stderr line with an
  * empty stdout (the pre-fix `requireRoot` behavior, which left `discern done
  * --json` mute). The spec below is TOTAL over the `KNOWN_VERBS` SSOT: a new
@@ -27,7 +27,7 @@ import {
 /** One verb's expected outside-a-project `--json` behavior. */
 type OutsideSpec =
   /** Runs `run` + `--json`; expects exit 1 and the uniform refusal envelope. */
-  | { run: string[]; verb: string; expect: "not_initialized" }
+  | { run: string[]; verb: string; expect: "no_project" }
   /** Runs `run` + `--json`; expects a DIFFERENT pinned structured envelope. */
   | { run: string[]; verb: string; expect: "envelope"; ok: boolean }
   /** Not executed here — the reason must say where the behavior lives instead. */
@@ -41,71 +41,71 @@ const SPEC: Record<string, OutsideSpec> = {
     ok: true,
   },
   // Engine verbs behind the requireRoot chokepoint — the uniform refusal.
-  done: { run: ["done"], verb: "done", expect: "not_initialized" },
-  prepare: { run: ["prepare"], verb: "prepare", expect: "not_initialized" },
-  test: { run: ["test"], verb: "test", expect: "not_initialized" },
+  done: { run: ["done"], verb: "done", expect: "no_project" },
+  prepare: { run: ["prepare"], verb: "prepare", expect: "no_project" },
+  test: { run: ["test"], verb: "test", expect: "no_project" },
   await: {
     run: ["await", "--trunk-moved", "--timeout", "0"],
     verb: "await",
-    expect: "not_initialized",
+    expect: "no_project",
   },
   improvement: {
     run: ["improvement"],
     verb: "improvement",
-    expect: "not_initialized",
+    expect: "no_project",
   },
   checkpoints: {
     run: ["checkpoints"],
     verb: "checkpoints",
-    expect: "not_initialized",
+    expect: "no_project",
   },
   progress: {
     run: ["progress"],
     verb: "progress",
-    expect: "not_initialized",
+    expect: "no_project",
   },
   standards: {
     run: ["standards"],
     verb: "standards",
-    expect: "not_initialized",
+    expect: "no_project",
   },
-  refresh: { run: ["refresh"], verb: "refresh", expect: "not_initialized" },
-  tidy: { run: ["tidy"], verb: "tidy", expect: "not_initialized" },
-  impact: { run: ["impact"], verb: "impact", expect: "not_initialized" },
-  coupling: { run: ["coupling"], verb: "coupling", expect: "not_initialized" },
-  patterns: { run: ["patterns"], verb: "patterns", expect: "not_initialized" },
-  status: { run: ["status"], verb: "status", expect: "not_initialized" },
-  accept: { run: ["accept"], verb: "accept", expect: "not_initialized" },
-  update: { run: ["update"], verb: "update", expect: "not_initialized" },
-  start: { run: ["start"], verb: "start", expect: "not_initialized" },
+  refresh: { run: ["refresh"], verb: "refresh", expect: "no_project" },
+  tidy: { run: ["tidy"], verb: "tidy", expect: "no_project" },
+  impact: { run: ["impact"], verb: "impact", expect: "no_project" },
+  coupling: { run: ["coupling"], verb: "coupling", expect: "no_project" },
+  patterns: { run: ["patterns"], verb: "patterns", expect: "no_project" },
+  status: { run: ["status"], verb: "status", expect: "no_project" },
+  accept: { run: ["accept"], verb: "accept", expect: "no_project" },
+  update: { run: ["update"], verb: "update", expect: "no_project" },
+  start: { run: ["start"], verb: "start", expect: "no_project" },
   worktree: {
     run: ["worktree", "setup"],
     verb: "worktree setup",
-    expect: "not_initialized",
+    expect: "no_project",
   },
-  identity: { run: ["identity"], verb: "identity", expect: "not_initialized" },
+  identity: { run: ["identity"], verb: "identity", expect: "no_project" },
   skills: {
     run: ["skills", "list"],
     verb: "skills list",
-    expect: "not_initialized",
+    expect: "no_project",
   },
-  scripts: { run: ["scripts"], verb: "scripts", expect: "not_initialized" },
+  scripts: { run: ["scripts"], verb: "scripts", expect: "no_project" },
   queue: {
     skip:
       "exec-style wrapper; engine_queue_test proves it runs without a project and emits no result envelope",
   },
 
   // Installer verbs with their own guards — same slug, verb-tailored message.
-  upgrade: { run: ["upgrade"], verb: "upgrade", expect: "not_initialized" },
+  upgrade: { run: ["upgrade"], verb: "upgrade", expect: "no_project" },
   uninstall: {
     run: ["uninstall"],
     verb: "uninstall",
-    expect: "not_initialized",
+    expect: "no_project",
   },
   config: {
     run: ["config", "get", "repository.trunk"],
     verb: "config",
-    expect: "not_initialized",
+    expect: "no_project",
   },
 
   // Pinned alternatives — structured envelopes with their OWN outcome. Pinning
@@ -140,7 +140,7 @@ const SPEC: Record<string, OutsideSpec> = {
       "(running it would scaffold one here)",
   },
   mcp: {
-    skip: "long-running stdio server; runTool's per-tool not_initialized " +
+    skip: "long-running stdio server; runTool's per-tool no_project " +
       "guard is covered by tests/engine_mcp_test.ts over the whole TOOLS table",
   },
   help: {
@@ -163,7 +163,7 @@ Deno.test("the outside-a-project spec covers EXACTLY the CLI verb SSOT", () => {
     unspecifiedVerbs(KNOWN_VERBS, SPEC),
     [],
     "a CLI verb has no outside-a-project --json expectation — add a SPEC " +
-      "entry proving the not_initialized envelope (or pin its alternative)",
+      "entry proving the no_project envelope (or pin its alternative)",
   );
   assertEquals(
     Object.keys(SPEC).filter((v) => !KNOWN_VERBS.has(v)).sort(),
@@ -204,12 +204,12 @@ Deno.test("every verb answers `--json` outside a project with a structured envel
             );
           }
           assertEquals(result.verb, spec.verb, label);
-          if (spec.expect === "not_initialized") {
+          if (spec.expect === "no_project") {
             assertEquals(r.code, 1, `${label}: ${r.output}`);
             assertEquals(result.ok, false, label);
             assertEquals(
               result.error,
-              "not_initialized",
+              "no_project",
               `${label} must refuse with the uniform machine slug`,
             );
             return;

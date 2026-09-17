@@ -675,7 +675,7 @@ async function runCandidateGate(
   } else {
     writeAccessFailure = writePreflight;
     if (failedStage === null) {
-      failedStage = "write_access";
+      failedStage = "write_denied";
       writeAccessDiag = writePreflightDiagnostic(
         writePreflight,
         "discern done",

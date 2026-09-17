@@ -170,7 +170,7 @@ export const GATE_FAILED_STAGE_LABEL = {
   map_integrity: "Map integrity",
   merge: "Trunk integration",
   standards: "Standard limits",
-  write_access: "discern write access",
+  write_denied: "discern write access",
 } as const satisfies Readonly<Record<FailedStage, string>>;
 
 /** Exhaustive diagnostic mapping into the package severity vocabulary. */

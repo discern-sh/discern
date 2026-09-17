@@ -28,6 +28,7 @@ For setup and first-use steps, start in [Getting started](../10-getting-started/
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | [Result formats & delivery](result-surfaces.md)                           | Choose terminal, Markdown, JSON, or MCP delivery for one prepared result.                   |
 | [MCP tools & results](mcp-and-results.md#compatibility-by-schema-version) | Integrate with tools, resources, result envelopes, schemas, and exit codes.                 |
+| [Compatibility policy](compatibility-policy.md)                           | Change or verify the public compatibility policy: registry, comparators, guard, evolving.   |
 | [Proof note format](proof-note-format.md)                                 | Consume the durable Proof record attached to each landed commit.                            |
 | [Files & ownership](artifact-ownership.md)                                | See what discern writes, who may edit or overwrite it, Git treatment, and removal rules.    |
 | [The Logbook](the-logbook.md)                                             | See what discern records about its own runs, and read, delete, or disable it.               |

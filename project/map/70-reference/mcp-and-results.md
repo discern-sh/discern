@@ -64,7 +64,7 @@ Choose among terminal, Markdown, JSON, and MCP delivery through [Result formats 
 
 Every project-operating tool accepts an optional `path` that selects the discern project or worktree for that call. Pass an absolute filesystem path anywhere inside the intended checkout, including another repository in a multi-repo workspace. discern resolves the project root. Omit `path` to use the checkout the MCP server currently targets. Relative paths are rejected because the server's process directory is not the caller's directory. `discern_docs` needs no project. After a successful `discern_start`, later calls use the new worktree by default. After `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
 
-Tools that require completed setup return a controlled `not_set_up` result until setup finishes. A tool rejects undeclared input keys instead of dropping them.
+Tools that require completed setup return a controlled `setup_unfinished` result until setup finishes. A tool rejects undeclared input keys instead of dropping them.
 
 `discern_standards` requires an `action`. `action: "measure"` accepts `names`, `force`, and `pin`. `action: "propose"` accepts an ordered `proposals` array of unique `{ name, reason }` entries and records every simultaneous breach in one transaction. Proposal reasons are technical justification, not approval or landing authority. The scalar `discern standards propose` CLI command remains available for terminal compatibility.
 
@@ -117,7 +117,7 @@ A failed JSON, Markdown, or MCP result always includes a registered next action.
 
 `setup begin` and `accept` check for the required permission before changing anything. Without permission, they return `awaiting_consent` and leave the project unchanged. The result names what needs review and gives the confirmed command that continues the operation. `setup begin` provides this contract in terminal, JSON, and Markdown CLI output. `accept` also provides it through MCP. Dry runs need no permission because they only show the plan.
 
-Setup consent is not write authority. Effectful commands probe plan-derived targets before mutation; denial returns `write_access`, the exact path and retry, with phase unchanged. Read-only commands do not probe ([Setup command boundaries](setup-command-boundaries.md)).
+Setup consent is not write authority. Effectful commands probe plan-derived targets before mutation; denial returns `write_denied`, the exact path and retry, with phase unchanged. Read-only commands do not probe ([Setup command boundaries](setup-command-boundaries.md)).
 
 Setup pages carry owner-facing semantic prose once. Compact `spine.owner_moments` projections preserve identity, kind, phase, purpose, recommendation, option ids, wait boundary, and relay protection. Compatibility fields derive from the same enrolled moments, so terminal, Markdown, JSON, and Model Context Protocol (MCP) share one authority without duplicating prose.
 

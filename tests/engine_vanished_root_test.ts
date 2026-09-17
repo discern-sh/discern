@@ -63,7 +63,7 @@ Deno.test("a vanished held root refuses with recovery and re-aims at the spawn r
     const status = statusTool();
     const refusal = await runTool(status, working, {}, undefined, sameVersion);
     assertEquals(refusal.isError, true);
-    assertEquals(refusal.structuredContent.error, "not_initialized");
+    assertEquals(refusal.structuredContent.error, "no_project");
     const message = refusal.structuredContent.message as string;
     assertStringIncludes(message, gone);
     assertStringIncludes(message, home);
@@ -101,7 +101,7 @@ Deno.test("every MCP tool refuses a vanished held root before its verb runs", as
         assertEquals(result.isError, false, JSON.stringify(result));
       } else {
         assertEquals(result.isError, true, `${tool.name} must refuse`);
-        assertEquals(result.structuredContent.error, "not_initialized");
+        assertEquals(result.structuredContent.error, "no_project");
         assertStringIncludes(result.structuredContent.message as string, gone);
       }
       assertEquals(working.get(), home, `${tool.name} must repair the root`);
@@ -127,7 +127,7 @@ Deno.test("a future tool inherits the vanished-root refusal without enrolment", 
     };
     const result = await runTool(probe, working, {}, undefined, sameVersion);
     assertEquals(result.isError, true);
-    assertEquals(result.structuredContent.error, "not_initialized");
+    assertEquals(result.structuredContent.error, "no_project");
     assertEquals(result.structuredContent.verb, verbOf(probe.name));
     assertEquals(working.get(), home);
   });
@@ -145,7 +145,7 @@ Deno.test("a vanished spawn root refuses with the path recovery and moves nothin
       sameVersion,
     );
     assertEquals(result.isError, true);
-    assertEquals(result.structuredContent.error, "not_initialized");
+    assertEquals(result.structuredContent.error, "no_project");
     const message = result.structuredContent.message as string;
     assertStringIncludes(message, gone);
     assertStringIncludes(message, "`path`");
@@ -179,7 +179,7 @@ Deno.test("the config chokepoints turn a missing file into the typed refusal", a
       const mapped = configFailureResult("patterns", thrown);
       assert(mapped !== undefined, "the boundary must recognize the error");
       assertEquals(mapped.ok, false);
-      assertEquals(mapped.error, "not_initialized");
+      assertEquals(mapped.error, "no_project");
       assertStringIncludes(mapped.message ?? "", gone);
     }
   });

@@ -50,21 +50,21 @@ export const NO_PROJECT_MESSAGE =
   "Run the read-only `discern setup` welcome, then `discern setup begin` when ready to create one here; or move into an existing discern project.";
 
 /** The stable slug a structured consumer branches on when root discovery fails. */
-export const NOT_INITIALIZED = "not_initialized";
+export const NO_PROJECT = "no_project";
 
 /**
- * The uniform not-initialized refusal envelope — the ONE constructor behind
+ * The uniform no-project refusal envelope — the ONE constructor behind
  * every surface's "no discern project here" result (the CLI's `requireRoot`,
  * `status`, the MCP server's per-tool guard, and the installer verbs), so the
  * slug and shape cannot drift between emitters. A verb with tailored recovery
  * advice passes its own `message`; the default is the canonical discovery
  * refusal.
  */
-export function notInitializedResult(
+export function noProjectResult(
   verb: string,
   message: string = NO_PROJECT_MESSAGE,
 ): DiscernResult<never> {
-  return { ok: false, verb, error: NOT_INITIALIZED, message };
+  return { ok: false, verb, error: NO_PROJECT, message };
 }
 
 /**

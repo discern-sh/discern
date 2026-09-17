@@ -217,7 +217,7 @@ Deno.test("pre-setup: the redirect fires for every global flag before every gate
         const res = decodeCliResult(r.stdout, verb);
         assertEquals(
           res.error,
-          "not_set_up",
+          "setup_unfinished",
           `${label} must hard-redirect to setup (ADR 0036): ${r.output}`,
         );
         assertEquals(res.verb, verb, label);

@@ -16,8 +16,8 @@ aliases:
   - "setup step journal"
   - "ambiguous setup step"
   - "command not found"
-  - "not_initialized"
-  - "write_access"
+  - "no_project"
+  - "write_denied"
   - "schema_version_too_new"
   - "partial_refresh"
   - "unsupported platform"
@@ -48,7 +48,7 @@ Use the reported condition to choose the next step:
 | No project found                | Move into the existing project. For a new installation here, read `discern setup`, then begin with `discern setup begin`.                     |
 | Unsupported platform            | Use a supported macOS or Linux environment. On Windows, use WSL 2. See the [support matrix](../30-reference/platforms-and-providers.md).      |
 | `schema_version_too_new`        | [Upgrade the binary](../10-guides/maintain-or-remove-discern.md), then retry. This project's configuration was written by a newer discern.    |
-| `write_access` or a denied path | Check the exact path named in the result. Give the invocation access to that path through your environment's permission controls, then retry. |
+| `write_denied` or a denied path | Check the exact path named in the result. Give the invocation access to that path through your environment's permission controls, then retry. |
 
 A denied write leaves the setup phase available to resume. discern checks the paths its plan needs; it cannot change your system's permissions or promise that access will remain available later.
 

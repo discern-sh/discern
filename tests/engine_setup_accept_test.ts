@@ -114,7 +114,7 @@ Deno.test("adoption preflight preserves setup acceptance's missing and invalid c
     const path = join(dir, "discern.toml");
     for (
       const [text, error, action] of [
-        [undefined, "not_initialized", "discern setup verify"],
+        [undefined, "no_project", "discern setup verify"],
         ["[meta\ninvalid", "invalid_config", "discern doctor"],
         [
           '[meta]\nschema_version = "one"\n',
@@ -184,7 +184,7 @@ Deno.test("setup accept refuses read-only on one proved setup branch, then fast-
           const denied = await runAgent(dir, ["setup", "accept", "--json"]);
           assertEquals(denied.code, 1, denied.output);
           const envelope = decodeCliResult(denied.stdout, "setup accept");
-          assertEquals(envelope.error, "write_access");
+          assertEquals(envelope.error, "write_denied");
           assertExists(envelope.message);
           assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
           assertEquals(
@@ -741,7 +741,7 @@ Deno.test("setup accept refuses when the integration branch does not exist", asy
     assertEquals(res.code, 1, res.output);
     assertEquals(
       decodeCliResult(res.stdout, "setup accept").error,
-      "no_target",
+      "no_trunk",
     );
   });
 });

@@ -345,7 +345,7 @@ Deno.test("await --green reads the sibling's proof, and a landing satisfies it t
     await git(dir, "branch", "solo");
     const solo = await awaitResult(dir, { green: "solo", timeoutSeconds: 0 });
     assertEquals(solo.ok, false);
-    assert("error" in solo && solo.error === "not_found");
+    assert("error" in solo && solo.error === "unknown_target");
     assert(
       solo.message?.includes("No checkout holds branch") === true,
       solo.message,
@@ -384,7 +384,7 @@ Deno.test("await --green on a reclaimed stage points at the containing branch", 
       timeoutSeconds: 0,
     });
     assertEquals(refused.ok, false);
-    assert("error" in refused && refused.error === "not_found");
+    assert("error" in refused && refused.error === "unknown_target");
     assert(
       refused.hints?.some((h) => h.includes("--green agent/stage2")) === true,
       `the refusal must point at the containing branch\n${
@@ -808,7 +808,7 @@ Deno.test("an await payload written by a newer discern refuses resume without co
       timeoutSeconds: 0,
     });
     assertEquals(refused.ok, false);
-    assertEquals(refused.error, "read_error");
+    assertEquals(refused.error, "read_failed");
     assertStringIncludes(
       refused.message ?? "",
       "written by a newer discern",
@@ -1043,7 +1043,7 @@ Deno.test("the CLI exits 0 on met, 124 on not-yet, 1 on refusal", async () => {
     assertEquals(refused.code, 1);
     const refusal = decodeCliResult(refused.stdout, "await");
     assertEquals(refusal.ok, false);
-    assertEquals(refusal.error, "not_found");
+    assertEquals(refusal.error, "unknown_target");
   });
 });
 
