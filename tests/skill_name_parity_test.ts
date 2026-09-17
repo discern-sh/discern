@@ -59,6 +59,22 @@ const NON_SKILL_TOKENS = new Map<string, string>([
     "the frozen MCP tools manifest's published artifact basename",
   ],
   [
+    "discern-map-index",
+    "a registered MCP resource name the tools manifest publishes, not a skill",
+  ],
+  [
+    "discern-map-doc",
+    "a registered MCP resource template name the tools manifest publishes, not a skill",
+  ],
+  [
+    "discern-docs-index",
+    "a registered MCP resource name the tools manifest publishes, not a skill",
+  ],
+  [
+    "discern-docs-doc",
+    "a registered MCP resource template name the tools manifest publishes, not a skill",
+  ],
+  [
     "discern-checkpoint-input",
     "the registered OS-temp filename prefix for one checkpoint command input",
   ],

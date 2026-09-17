@@ -92,9 +92,8 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
   },
   {
     path: "project/manual/30-reference/mcp-and-results.md",
-    counts: { "current-repository": PUBLIC_SCHEMA_PUBLICATIONS.length + 1 },
-    reason:
-      "codegen projects schema source links; the authored reference links the runtime boundary source",
+    counts: { "current-repository": PUBLIC_SCHEMA_PUBLICATIONS.length },
+    reason: "codegen projects one schema source link per publication",
   },
   {
     path: "project/manual/30-reference/platforms-and-providers.md",

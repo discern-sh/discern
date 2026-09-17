@@ -14,6 +14,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import {
   clip,
   DIGEST_BEGIN,
@@ -27,6 +28,7 @@ import {
   type JsonValue,
 } from "../scripts/public_contract_compatibility_common.ts";
 import { EXIT_STATUS_REGISTRY } from "../src/shared/exit_codes.ts";
+import { decodeJson } from "../src/shared/runtime_decode.ts";
 import { ERROR_FAILURE_RECOVERY } from "../src/shared/hints.ts";
 import {
   compatibilityContract,
@@ -58,12 +60,16 @@ function cells(line: string): string[] {
   return line.split(/(?<!\\)\|/);
 }
 
+const JsonValueSchema: z.ZodType<JsonValue> = z.json();
+
 /** Read one committed artifact as the JSON object the digest renders from. */
 async function artifactOf(
   publication: PublicSchemaPublication,
 ): Promise<JsonObject> {
-  const value: JsonValue = JSON.parse(
+  const value = decodeJson(
+    JsonValueSchema,
     await Deno.readTextFile(join(REPO_ROOT, publication.artifactPath)),
+    publication.artifactPath,
   );
   assert(isObject(value), `${publication.artifactPath} is not a JSON object`);
   return value;
