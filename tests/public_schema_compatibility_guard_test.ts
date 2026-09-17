@@ -2157,6 +2157,8 @@ Deno.test("the conventions manifest permits new members but keeps existing value
     format: 1,
     git: { refs: { proof: "refs/example/proof" } },
     providers: { agent: { hooks_file: ".agent/hooks.json" } },
+    exit_statuses: {},
+    script_protocols: {},
   };
   const compatible = clone(previous);
   assert(isRecord(compatible.providers));
