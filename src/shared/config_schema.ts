@@ -884,7 +884,7 @@ const worktreeSection = z.strictObject({
     "Env files read and written in order: the last definition wins; new values use the first existing file. Inheritance alone may create the first file. Managed values share one scoped marker.",
   ),
   export_port: z.boolean().default(false).describe(
-    "When true, worktree setup writes DISCERN_WORKTREE_PORT to the configured env files, the worktree hook warns when a sibling already uses the derived port, and status shows the port. The port is always derived; `discern identity --port` reports it either way.",
+    "When true, setup writes DISCERN_WORKTREE_PORT to configured env files, hooks warn when a sibling uses the derived port, and status shows it. The port exists either way, and `discern identity --port` always reports it.",
   ),
   track_ignored_drift: z.boolean().default(true).describe(
     "Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.",

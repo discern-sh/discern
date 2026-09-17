@@ -1222,7 +1222,7 @@
         },
         "export_port": {
           "default": false,
-          "description": "When true, worktree setup writes DISCERN_WORKTREE_PORT to the configured env files, the worktree hook warns when a sibling already uses the derived port, and status shows the port. The port is always derived; `discern identity --port` reports it either way.",
+          "description": "When true, setup writes DISCERN_WORKTREE_PORT to configured env files, hooks warn when a sibling uses the derived port, and status shows it. The port exists either way, and `discern identity --port` always reports it.",
           "type": "boolean"
         },
         "track_ignored_drift": {

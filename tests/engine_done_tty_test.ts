@@ -64,7 +64,7 @@ const CONFIG = [
 function liveOutputConfig(command: string, stream: boolean): string {
   return `${
     CONFIG.replace('format = "true"', `format = ${JSON.stringify(command)}`)
-  }\n[gate]\nstream = ${stream}\n`;
+  }\n[gate]\nstream_output = ${stream}\n`;
 }
 
 /** The stable package summary left immediately before cursor restoration. */

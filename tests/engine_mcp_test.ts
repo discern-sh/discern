@@ -2310,7 +2310,7 @@ Deno.test("discern mcp: noisy Gate output stays inside the result under both str
         `format = "printf 'MCP-GATE-NOISE\\n'; exit 7"`,
         "",
         "[gate]",
-        `stream = ${stream}`,
+        `stream_output = ${stream}`,
         "",
       ].join("\n");
     await writeConfig(dir, gateConfig(false));
@@ -2348,7 +2348,7 @@ Deno.test("discern mcp: noisy Gate output stays inside the result under both str
       assertEquals(
         response.result.structuredContent.ok,
         false,
-        `stream = ${stream}: ${
+        `stream_output = ${stream}: ${
           JSON.stringify(response.result.structuredContent)
         }`,
       );
@@ -2356,7 +2356,7 @@ Deno.test("discern mcp: noisy Gate output stays inside the result under both str
       assertStringIncludes(
         JSON.stringify(response.result.structuredContent.diagnostics),
         "MCP-GATE-NOISE",
-        `stream = ${stream}`,
+        `stream_output = ${stream}`,
       );
     }
     assertEquals(await mcp.close(), 0);

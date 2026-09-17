@@ -79,7 +79,7 @@ const RICH_TOML = [
   "limit = 80",
   "",
   "[worktree]",
-  "port = true",
+  "export_port = true",
   'inherit_env = ["SECRET"]',
   "",
   "[worktree.resources.db]",
