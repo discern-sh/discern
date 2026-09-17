@@ -234,14 +234,14 @@ format = "discern tidy"
 root = ""
 # [worktree.resources.db]
 # create = "createdb @db@"
-port = false
+export_port = false
 # inherit_env = []
 `,
     expected: `[worktree]
   root = ""
   # [worktree.resources.db]
     # create = "createdb @db@"
-  port = false
+  export_port = false
   # inherit_env = []
 `,
   },

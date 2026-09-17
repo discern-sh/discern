@@ -914,11 +914,11 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
       "config set infers types (number / bool / string)",
       async (dir) => {
         await runCli(["config", "set", "standards.coverage.limit", "80"], dir);
-        await runCli(["config", "set", "worktree.port", "false"], dir);
+        await runCli(["config", "set", "worktree.export_port", "false"], dir);
         await runCli(["config", "set", "repository.trunk", "trunk"], dir);
         const toml = await readToml(dir);
         assertStringIncludes(toml, "limit = 80"); // number (inferred)
-        assertStringIncludes(toml, "port = false"); // bool (inferred)
+        assertStringIncludes(toml, "export_port = false"); // bool (inferred)
         assertStringIncludes(toml, 'trunk = "trunk"'); // string (inferred)
       },
     ],
@@ -1057,15 +1057,20 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
         await Deno.writeTextFile(
           path,
           (await Deno.readTextFile(path)).replace(
-            "port = false",
-            "port = false   # deterministic dev-server port",
+            "export_port = false",
+            "export_port = false   # deterministic dev-server port",
           ),
         );
-        const r = await runCli(["config", "set", "worktree.port", "true"], dir);
+        const r = await runCli([
+          "config",
+          "set",
+          "worktree.export_port",
+          "true",
+        ], dir);
         assertEquals(r.code, 0, r.stderr);
         assertStringIncludes(
           await readToml(dir),
-          "port = true # deterministic dev-server port",
+          "export_port = true # deterministic dev-server port",
         );
       },
     ],

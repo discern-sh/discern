@@ -971,9 +971,9 @@
           },
           "uniqueItems": true
         },
-        "port": {
+        "export_port": {
           "default": false,
-          "description": "Record each worktree's deterministic dev-server port in its env files, for tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports it either way.",
+          "description": "When true, worktree setup writes DISCERN_WORKTREE_PORT to the configured env files, the worktree hook warns when a sibling already uses the derived port, and status shows the port. The port is always derived; `discern identity --port` reports it either way.",
           "type": "boolean"
         },
         "ignored_file_drift": {

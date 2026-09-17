@@ -88,7 +88,7 @@ Identity values passed to resource commands or written to configured worktree en
 
 | Variable                  | What it does                                                                                                                          |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `DISCERN_WORKTREE_PORT`   | Deterministic development port written to a configured worktree env file when `[worktree].port = true`.                               |
+| `DISCERN_WORKTREE_PORT`   | Deterministic development port written to a configured worktree env file when `[worktree].export_port = true`.                        |
 | `DISCERN_WORKTREE`        | Generic worktree handle supplied to resource commands and written to configured env files when resources are declared.                |
 | `DISCERN_RESOURCE_<NAME>` | Stable handle for one declared resource. `<NAME>` is the resource name uppercased with non-alphanumeric runs replaced by underscores. |
 

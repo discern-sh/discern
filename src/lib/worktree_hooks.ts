@@ -154,7 +154,7 @@ export async function worktreeCreateHook(): Promise<number> {
     // only — never fails the hook.
     let usedPorts: Set<number> | undefined;
     let settings: IdentitySettings | undefined;
-    if (config.worktree.port) {
+    if (config.worktree.export_port) {
       try {
         settings = await loadIdentitySettings(cwd);
         usedPorts = await livePortsInUse(

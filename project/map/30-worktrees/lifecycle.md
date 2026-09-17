@@ -36,7 +36,7 @@ Setup runs in this order:
 | Branch               | Creates or confirms the worktree branch.                                                   |
 | Environment          | Copies declared values from the main checkout.                                             |
 | Resources            | Creates each declared resource and records its handle.                                     |
-| Identity             | Records the deterministic port when `[worktree].port` is on and an env file exists.        |
+| Identity             | Exports the deterministic port when `[worktree].export_port` is on.                        |
 | One-time setup       | Journals and runs incomplete `[worktree.setup].steps`; completed identities stay complete. |
 | Shared convergence   | Runs `[repository].ensure` for checkout-generic dependencies and generated state.          |
 | Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.              |

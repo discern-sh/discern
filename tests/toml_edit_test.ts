@@ -412,11 +412,11 @@ Deno.test("editor sets array, number and bool values", () => {
   const out = new TomlEditor(SAMPLE)
     .setStringArray("scopes.native", ["native/**", "native/lib/**"])
     .setNumber("standards.coverage.limit", "80")
-    .setBool("worktree.port", false)
+    .setBool("worktree.export_port", false)
     .toString();
   assertStringIncludes(out, 'native = ["native/**", "native/lib/**"]');
   assertStringIncludes(out, "limit = 80");
-  assertStringIncludes(out, "port = false");
+  assertStringIncludes(out, "export_port = false");
 });
 
 Deno.test("editor replaces and deletes multiline array values as one value span", () => {

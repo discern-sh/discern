@@ -81,7 +81,7 @@ const ANSWERS = JSON.stringify({
     root: "../worktrees",
     inherit_env: ["APP_KEY"],
     env_files: [".env.test"],
-    port: true,
+    export_port: true,
     ignored_file_drift: false,
     resources: {
       database: {

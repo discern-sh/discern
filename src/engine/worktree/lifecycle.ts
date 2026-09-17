@@ -459,7 +459,7 @@ async function recordPort(
   ctx: LifecycleContext,
   identity: WorktreeIdentity,
 ): Promise<void> {
-  if (!ctx.config.worktree.port) {
+  if (!ctx.config.worktree.export_port) {
     return;
   }
   const port = String(identity.port);
@@ -508,7 +508,7 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
       });
     }
   }
-  if (ctx.config.worktree.port) {
+  if (ctx.config.worktree.export_port) {
     steps.push({
       kind: "env",
       label: BUILT_IN_STEP_LABELS.recordPort,
@@ -2826,15 +2826,15 @@ export async function updateResult(
  * The deterministic dev-server ports currently claimed by the trunk and LIVE
  * worktrees — each derived from checkout identity, so no registry or env file
  * is needed. Used at mint time to re-roll an id whose port would collide with
- * either the trunk or a live sibling. Empty when `[worktree].port` is off. Fails
- * open per linked-worktree row.
+ * either the trunk or a live sibling. Empty when `[worktree].export_port` is
+ * off. Fails open per linked-worktree row.
  */
 export async function livePortsInUse(
   ctx: LifecycleContext,
   settings: IdentitySettings,
 ): Promise<Set<number>> {
   const ports = new Set<number>();
-  if (!ctx.config.worktree.port) {
+  if (!ctx.config.worktree.export_port) {
     return ports;
   }
   const fleet = await listWorktreeFleet(

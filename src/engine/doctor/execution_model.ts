@@ -409,7 +409,7 @@ function startVerb(cfg: DiscernConfig): VerbPlan {
       note: cfg.worktree.inherit_env.join(", "),
     }));
   }
-  if (cfg.worktree.port) {
+  if (cfg.worktree.export_port) {
     steps.push(step("env", BUILT_IN_STEP_LABELS.recordPort, {
       note: "deterministic dev-server port → .env",
     }));

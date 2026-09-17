@@ -541,10 +541,10 @@
   # first. They also carry the port and resource handles.
   env_files = [".env", ".env.local"]
 
-  # Give each worktree a deterministic dev-server port (hashed from its id) so
-  # concurrent worktrees never collide. Read it with `discern identity --port`.
-  # This is derived IDENTITY, not a resource — it provisions nothing.
-  port = true
+  # Write DISCERN_WORKTREE_PORT to the configured env files, warn when a sibling
+  # already uses the derived port, and show it in status. The port always exists;
+  # `discern identity --port` reports it either way.
+  export_port = true
 
   # Track ignored files at worktree setup and report the top-level ignored
   # paths that changed before the worktree is removed. Turn it off when ignored

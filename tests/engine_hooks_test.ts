@@ -280,7 +280,7 @@ Deno.test("hook WorktreeCreate: warns when the caller-named worktree's port coll
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n[worktree]\nport = true\n',
+      '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n[worktree]\nexport_port = true\n',
     );
     await gitInit(dir);
     // The hook takes the caller's name verbatim (no mint, so no re-roll) — find
