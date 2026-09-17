@@ -35,7 +35,6 @@ export function DocumentHeader(
       brand={
         <>
           <IconButton
-            className="docs-burger"
             icon={<MenuIcon />}
             label="Open navigation"
             hidden
@@ -57,7 +56,6 @@ export function DocumentHeader(
       }
       actions={
         <ThemeToggle
-          className="docs-theme"
           lightGlyph={<SunIcon className="docs-theme-icon" />}
           darkGlyph={<MoonIcon className="docs-theme-icon" />}
         />

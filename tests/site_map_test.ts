@@ -151,7 +151,7 @@ Deno.test("the Map overview lists every admitted repository entry without docume
   );
   assertEquals(
     document.querySelector(
-      ".docs-nav, .docs-rail, [data-discern-search-palette], main details",
+      "[data-discern-docs-layout], .docs-toc, [data-discern-search-palette], main details",
     ),
     null,
   );

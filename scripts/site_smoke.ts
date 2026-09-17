@@ -567,7 +567,9 @@ export async function runSiteSmoke(
     );
     sameItems("/map repository directory", entries, mapItems, fail);
     if (
-      mapDocument.querySelector(".docs-nav, .docs-rail, main details") !== null
+      mapDocument.querySelector(
+        "[data-discern-docs-layout], .docs-toc, main details",
+      ) !== null
     ) {
       fail("/map: the directory must remain visible without document rails");
     }
