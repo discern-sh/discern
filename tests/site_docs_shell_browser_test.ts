@@ -6,11 +6,13 @@
  * the breakpoint crossing, the skip link, and the no-JavaScript fallback.
  */
 import { assert, assertEquals } from "@std/assert";
-import axe from "axe-core";
-import { Buffer } from "buffer";
 import type { Browser, BrowserContext, Page } from "playwright-core";
 import { handler } from "../site/serve.ts";
-import { launchBrowser } from "./browser_helpers.ts";
+import {
+  axeFindings,
+  launchBrowser,
+  serveThroughHandler,
+} from "./browser_helpers.ts";
 
 const ORIGIN = "http://127.0.0.1:18899";
 const NARROW = { width: 720, height: 800 };
@@ -51,20 +53,7 @@ async function openContext(
   });
   context.setDefaultTimeout(10_000);
   const page = await context.newPage();
-  await page.route(`${ORIGIN}/**`, async (route) => {
-    const request = route.request();
-    const response = await handler(
-      new Request(request.url(), {
-        method: request.method(),
-        headers: request.headers(),
-      }),
-    );
-    await route.fulfill({
-      status: response.status,
-      headers: Object.fromEntries(response.headers),
-      body: Buffer.from(await response.arrayBuffer()),
-    });
-  });
+  await serveThroughHandler(page, ORIGIN, handler);
   const failures: string[] = [];
   page.on("pageerror", (error) => failures.push(error.message));
   return { context, page, failures };
@@ -211,27 +200,7 @@ Deno.test("the served docs shell keeps its drawer, skip link, and no-script cont
           );
 
           // The open drawer is a valid dialog to an automated audit.
-          await page.evaluate(axe.source);
-          const findings = await page.evaluate(async () => {
-            const runner = (window as unknown as { axe: typeof axe }).axe;
-            const result = await runner.run(document, {
-              runOnly: {
-                type: "tag",
-                values: [
-                  "wcag2a",
-                  "wcag2aa",
-                  "wcag21a",
-                  "wcag21aa",
-                  "wcag22aa",
-                ],
-              },
-            });
-            return result.violations.map((violation) => ({
-              id: violation.id,
-              nodes: violation.nodes.map((node) => node.target),
-            }));
-          });
-          assertEquals(findings, []);
+          assertEquals(await axeFindings(page), []);
 
           await page.keyboard.press("Escape");
           await drawerSettled(page, "closed");
