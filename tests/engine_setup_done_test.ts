@@ -96,7 +96,7 @@ Deno.test("setup done refuses denied planned writes before refresh, commit, work
       assertEquals(denied.code, 1, denied.output);
       const envelope = decodeCliResult(denied.stdout, "setup done");
       assert(envelope.message !== undefined);
-      assertEquals(envelope.error, "write_access");
+      assertEquals(envelope.error, "write_denied");
       assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
       assertEquals(
         envelope.diagnostics?.[0]?.reproduce_cmd,
@@ -1583,7 +1583,7 @@ Deno.test("setup begin refuses denied Git branch authority before checkout or sc
       ]);
       assertEquals(denied.code, 1, denied.output);
       const envelope = decodeCliResult(denied.stdout, "setup begin");
-      assertEquals(envelope.error, "write_access");
+      assertEquals(envelope.error, "write_denied");
       assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
       assertEquals(
         envelope.diagnostics?.[0]?.reproduce_cmd,

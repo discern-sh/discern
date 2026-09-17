@@ -529,6 +529,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     retired: [{
       phrase: "done --confirmed",
       pattern: String.raw`\bdone\s+--confirmed\b`,
+    }, {
+      // The retired write-preflight error slug and failed stage (now
+      // write_denied: it names the refusal, not the capability probed).
+      phrase: "write_access",
+      pattern: String.raw`\bwrite_access\b`,
     }],
   },
   {

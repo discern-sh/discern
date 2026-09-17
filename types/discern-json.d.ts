@@ -69,7 +69,7 @@ export type DiscernKnownErrorSlug =
   | "unknown_standard"
   | "unknown_step"
   | "unknown_target"
-  | "write_access";
+  | "write_denied";
 
 export type DiscernResultState =
   & ({
@@ -4055,7 +4055,7 @@ export type DiscernDoneResult = DiscernResultState & {
       | "map_integrity"
       | "merge"
       | "standards"
-      | "write_access"
+      | "write_denied"
       | null;
     scopes_changed: Array<string>;
     preview_actions?: Array<{

@@ -117,7 +117,7 @@ A failed JSON, Markdown, or MCP result always includes a registered next action.
 
 `setup begin` and `accept` check for the required permission before changing anything. Without permission, they return `awaiting_consent` and leave the project unchanged. The result names what needs review and gives the confirmed command that continues the operation. `setup begin` provides this contract in terminal, JSON, and Markdown CLI output. `accept` also provides it through MCP. Dry runs need no permission because they only show the plan.
 
-Setup consent is not write authority. Effectful commands probe plan-derived targets before mutation; denial returns `write_access`, the exact path and retry, with phase unchanged. Read-only commands do not probe ([Setup command boundaries](setup-command-boundaries.md)).
+Setup consent is not write authority. Effectful commands probe plan-derived targets before mutation; denial returns `write_denied`, the exact path and retry, with phase unchanged. Read-only commands do not probe ([Setup command boundaries](setup-command-boundaries.md)).
 
 Setup pages carry owner-facing semantic prose once. Compact `spine.owner_moments` projections preserve identity, kind, phase, purpose, recommendation, option ids, wait boundary, and relay protection. Compatibility fields derive from the same enrolled moments, so terminal, Markdown, JSON, and Model Context Protocol (MCP) share one authority without duplicating prose.
 

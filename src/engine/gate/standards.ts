@@ -649,7 +649,7 @@ function standardsWriteAccessFailure(
   return {
     ok: false,
     verb: "standards",
-    error: "write_access",
+    error: "write_denied",
     message: writePreflightFailureMessage(failure),
     diagnostics: [writePreflightDiagnostic(failure, reproduceCmd)],
   };

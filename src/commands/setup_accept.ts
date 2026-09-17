@@ -580,7 +580,7 @@ export async function runSetupAccept(
   if (!writeAuthority.ok) {
     return emitAccept(opts, log, {
       ok: false,
-      error: "write_access",
+      error: "write_denied",
       message: writePreflightFailureMessage(writeAuthority),
       diagnostics: [
         writePreflightDiagnostic(writeAuthority, ACCEPT_COMMAND),

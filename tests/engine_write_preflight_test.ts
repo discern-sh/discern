@@ -144,7 +144,7 @@ Deno.test("done fails before any gate job when its later Git-admin write is unav
       assertEquals(r.code, 1, r.output);
       const obj = parseJson(r.stdout, "done");
       assertResultDataKey(obj, "failed_stage");
-      assertEquals(obj.data.failed_stage, "write_access");
+      assertEquals(obj.data.failed_stage, "write_denied");
       assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
       assertStringIncludes(obj.diagnostics?.[0]?.message ?? "", ".git");
       assertEquals(await pathExists(join(dir, marker)), false);
@@ -179,7 +179,7 @@ Deno.test("start proves its complete write plan before Git creates a branch or w
       ]);
       assertEquals(run.code, 1, run.output);
       const envelope = parseJson(run.stdout, "start");
-      assertEquals(envelope.error, "write_access");
+      assertEquals(envelope.error, "write_denied");
       assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
       assertEquals(
         envelope.diagnostics?.[0]?.reproduce_cmd,
@@ -225,7 +225,7 @@ Deno.test("start proves the dynamic destination tree before creating its branch"
       ]);
       assertEquals(run.code, 1, run.output);
       const envelope = parseJson(run.stdout, "start");
-      assertEquals(envelope.error, "write_access");
+      assertEquals(envelope.error, "write_denied");
       assertEquals(
         envelope.diagnostics?.[0]?.reproduce_cmd,
         "discern start --name denied-destination",
@@ -279,7 +279,7 @@ Deno.test("the CLI Git boundary preserves the invoked retry and omits presentati
       ]);
       assertEquals(run.code, 1, run.output);
       const envelope = parseJson(run.stdout, "update");
-      assertEquals(envelope.error, "write_access");
+      assertEquals(envelope.error, "write_denied");
       assertEquals(
         envelope.diagnostics?.[0]?.reproduce_cmd,
         "discern update --from HEAD",
@@ -306,7 +306,7 @@ for (
         const r = await runAgent(dir, args);
         assertEquals(r.code, 1, r.output);
         const obj = parseJson(r.stdout, "standards");
-        assertEquals(obj.error, "write_access");
+        assertEquals(obj.error, "write_denied");
         assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
         assertStringIncludes(obj.message ?? "", ".git");
         assertEquals(await pathExists(join(dir, marker)), false);
@@ -329,7 +329,7 @@ Deno.test("standards --pin fails before measuring when discern.toml cannot be re
       const r = await runAgent(dir, ["standards", "--pin", "--json"]);
       assertEquals(r.code, 1, r.output);
       const obj = parseJson(r.stdout, "standards");
-      assertEquals(obj.error, "write_access");
+      assertEquals(obj.error, "write_denied");
       assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
       assertStringIncludes(obj.message ?? "", "discern.toml");
       assertEquals(await pathExists(join(dir, marker)), false);
@@ -355,7 +355,7 @@ Deno.test("standards --pin probes the common Git directory before measuring in a
       const r = await runAgent(wt, ["standards", "--pin", "--json"]);
       assertEquals(r.code, 1, r.output);
       const obj = parseJson(r.stdout, "standards");
-      assertEquals(obj.error, "write_access");
+      assertEquals(obj.error, "write_denied");
       assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
       assertEquals(
         obj.diagnostics?.[0]?.reproduce_cmd,

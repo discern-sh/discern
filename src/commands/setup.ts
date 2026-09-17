@@ -1444,7 +1444,7 @@ function emitSetupWriteAccessRefusal(
   const result: DiscernResult = {
     ok: false,
     verb,
-    error: "write_access",
+    error: "write_denied",
     message: writePreflightFailureMessage(failure),
     diagnostics: [writePreflightDiagnostic(failure, reproduceCmd)],
     data: { next_action: reproduceCmd },

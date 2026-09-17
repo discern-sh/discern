@@ -184,7 +184,7 @@ Deno.test("setup accept refuses read-only on one proved setup branch, then fast-
           const denied = await runAgent(dir, ["setup", "accept", "--json"]);
           assertEquals(denied.code, 1, denied.output);
           const envelope = decodeCliResult(denied.stdout, "setup accept");
-          assertEquals(envelope.error, "write_access");
+          assertEquals(envelope.error, "write_denied");
           assertExists(envelope.message);
           assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
           assertEquals(

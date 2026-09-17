@@ -3094,7 +3094,7 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-failure-map-integrity`
   - `gate-failure-merge`
   - `gate-failure-standards`
-  - `gate-failure-write-access`
+  - `gate-failure-write-denied`
   - `gate-prove-it-works`
   - `gate-relay-proof`
   - `gate-land-under-verified-authority`
@@ -3394,7 +3394,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `unknown_standard: evidence`
   - `unknown_step: evidence`
   - `unknown_target: tailored`
-  - `write_access: evidence`
+  - `write_denied: evidence`
 - Guards: `tests/result_schemas_test.ts`
 - Glossary: not enrolled — the result-contract reference explains the two recovery modes without exposing this internal policy table
 - Feature canon: described by the `hints` node
@@ -4193,7 +4193,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `unknown_standard`
   - `unknown_step`
   - `unknown_target`
-  - `write_access`
+  - `write_denied`
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — the result-contract reference documents this machine failure vocabulary; command diagnostics supply reader-facing explanations

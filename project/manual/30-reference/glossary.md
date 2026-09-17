@@ -57,6 +57,7 @@ aliases:
   - "read_error"
   - "file dispositions"
   - "done --confirmed"
+  - "write_access"
   - "the binary's files"
   - "estate"
   - "not_initialized"

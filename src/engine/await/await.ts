@@ -258,7 +258,7 @@ function refusal(
     | "no_trunk"
     | "read_failed"
     | "unknown_target"
-    | "write_access",
+    | "write_denied",
   message: string,
   hints: string[],
 ): DiscernResult<AwaitData> {
@@ -856,7 +856,7 @@ export async function awaitResult(
     );
     if (initialSave.kind === "unavailable") {
       return refusal(
-        "write_access",
+        "write_denied",
         "discern couldn't save this await continuation in Git's administrative directory. Check that the Git directory is writable, then retry the watch.",
         failureRecoveryHintTexts("await"),
       );
@@ -968,7 +968,7 @@ export async function awaitResult(
       ? "restart the watch with its condition"
       : "retry the same `--resume` handle";
     return refusal(
-      "write_access",
+      "write_denied",
       `discern couldn't update this await continuation in Git's administrative directory. Check that the Git directory is writable, then ${retry}.`,
       failureRecoveryHintTexts("await"),
     );

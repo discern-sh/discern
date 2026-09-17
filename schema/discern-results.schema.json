@@ -12523,7 +12523,7 @@
                         "map_integrity",
                         "merge",
                         "standards",
-                        "write_access"
+                        "write_denied"
                       ]
                     },
                     {
@@ -39458,6 +39458,6 @@
     "unknown_standard",
     "unknown_step",
     "unknown_target",
-    "write_access"
+    "write_denied"
   ]
 }

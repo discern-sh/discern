@@ -2831,8 +2831,8 @@ export const HINTS = {
   }),
 
   /** The gate cannot persist its discern-owned state. */
-  "gate-failure-write-access": defineHint({
-    id: "gate-failure-write-access",
+  "gate-failure-write-denied": defineHint({
+    id: "gate-failure-write-denied",
     category: "next-step",
     audience: "all",
     when: "The gate cannot write discern-owned state.",
@@ -4144,7 +4144,7 @@ export const ERROR_FAILURE_RECOVERY = {
   unknown_standard: "evidence",
   unknown_step: "evidence",
   unknown_target: "tailored",
-  write_access: "evidence",
+  write_denied: "evidence",
 } as const satisfies Record<ErrorSlug, FailureRecoveryMode>;
 
 const FAILURE_RECOVERY_EVIDENCE_READERS = {
@@ -4263,7 +4263,7 @@ export const GATE_FAILURE_REMEDIES = {
   map_integrity: HINTS["gate-failure-map-integrity"],
   merge: HINTS["gate-failure-merge"],
   standards: HINTS["gate-failure-standards"],
-  write_access: HINTS["gate-failure-write-access"],
+  write_denied: HINTS["gate-failure-write-denied"],
 } as const satisfies Record<FailedStage, HintDef<undefined>>;
 
 /** Fire the registered remedy for a failed gate stage. Generated-drift callers
