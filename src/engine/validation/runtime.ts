@@ -10,7 +10,11 @@ import {
   executionEvent,
 } from "../completion/events.ts";
 import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
-import { validationInputFile } from "./inputs.ts";
+import {
+  observeCheckoutInputFile,
+  ValidationInputError,
+  validationInputFile,
+} from "./input_identity.ts";
 /** Production adapters use existing supervised jobs, common records and bounded artifacts. */
 import { join } from "@std/path";
 import type {
@@ -37,7 +41,7 @@ import { runGit } from "../../shared/subprocess.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { lstatIfExists } from "../../shared/fs_presence.ts";
 import { containedCheckoutFile } from "./inputs.ts";
-import { readCompleteCapture, runCapturedCommands } from "../jobs/captured.ts";
+import { runCapturedCommands } from "../jobs/captured.ts";
 import {
   commands,
   type ResolvedObligation,
@@ -135,7 +139,17 @@ export async function observeValidationInputs(
     "-z",
   ], { cwd: root, maxOutputBytes: 16 * 1024 * 1024, timeoutMs: 60_000 });
   if (!listed.success) {
-    throw new Error("cannot enumerate declared validation inputs");
+    const cause = listed.timedOut === true
+      ? "timed out"
+      : listed.outputLimitExceeded === true
+      ? "exceeded its output bound"
+      : `exited ${listed.code}`;
+    const detail = listed.stderr.trim();
+    throw new ValidationInputError(
+      `Validation inputs cannot be enumerated: git ls-files ${cause}${
+        detail === "" ? "" : `: ${detail}`
+      }. Repair the checkout's Git state, then re-run the current discern command.`,
+    );
   }
   const files: Record<string, ValidationInputs["files"][string]> = {};
   for (
@@ -150,10 +164,11 @@ export async function observeValidationInputs(
     if (entry.kind === "directory") {
       if (!boundary) continue;
       await containedCheckoutFile(root, entry.path);
-      throw new Error(
+      throw new ValidationInputError(
         `Validation input ${
           JSON.stringify(path)
         } is a Git directory record, not captured file bytes. Commit or reconcile the nested repository before validating this source.`,
+        path,
       );
     }
     const safe = await containedCheckoutFile(root, path);
@@ -161,22 +176,20 @@ export async function observeValidationInputs(
     if (stat === undefined) continue;
     if (!stat.isFile && !stat.isSymlink) {
       if (!boundary) continue;
-      throw new Error(
-        `Validation input is not a regular file or link: ${path}`,
+      throw new ValidationInputError(
+        `Validation input ${
+          JSON.stringify(path)
+        } is not a regular file or link. Replace it with a regular file, ignore it, or move it outside the checkout before validating this source.`,
+        path,
       );
     }
     if (!requested) continue;
-    const bytes = stat.isSymlink
-      ? new TextEncoder().encode(await Deno.readLink(safe))
-      : await readCompleteCapture(safe);
-    files[path] = await validationInputFile(
-      bytes,
-      stat.isSymlink
-        ? "120000"
-        : ((stat.mode ?? 0) & 0o111) === 0
-        ? "100644"
-        : "100755",
-    );
+    files[path] = stat.isSymlink
+      ? await validationInputFile(
+        new TextEncoder().encode(await Deno.readLink(safe)),
+        "120000",
+      )
+      : await observeCheckoutInputFile(safe, path, stat);
   }
   return {
     files,

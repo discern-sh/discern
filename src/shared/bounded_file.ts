@@ -11,8 +11,13 @@ export async function readBoundedFile(
     throw new TypeError("Capture requires a finite nonnegative byte bound.");
   }
   const observed = await Deno.lstat(path);
-  if (!observed.isFile || observed.isSymlink || observed.size > limit) {
-    throw new Error("capture exceeds its byte bound or is not a regular file");
+  if (!observed.isFile || observed.isSymlink) {
+    throw new Error(`capture of ${path} is not a regular file`);
+  }
+  if (observed.size > limit) {
+    throw new Error(
+      `capture of ${path} exceeds its byte bound: ${observed.size} bytes observed, ${limit} bytes allowed`,
+    );
   }
   const file = await Deno.open(path, { read: true });
   try {
@@ -22,7 +27,7 @@ export async function readBoundedFile(
       before.dev !== observed.dev
     ) {
       throw new Error(
-        "producer capture exceeds its byte bound or is not a file",
+        `capture of ${path} exceeds its byte bound or is not a regular file`,
       );
     }
     const bytes = new Uint8Array(before.size + 1);
@@ -30,7 +35,9 @@ export async function readBoundedFile(
     while (length < bytes.length) {
       const read = await file.read(bytes.subarray(length));
       if (read === null) break;
-      if (read === 0) throw new Error("producer capture read made no progress");
+      if (read === 0) {
+        throw new Error(`capture of ${path} read made no progress`);
+      }
       length += read;
     }
     const after = await file.stat();
@@ -41,7 +48,7 @@ export async function readBoundedFile(
       length !== before.size || after.size !== before.size ||
       after.mtime?.getTime() !== before.mtime?.getTime() ||
       after.ctime?.getTime() !== before.ctime?.getTime()
-    ) throw new Error("producer capture changed while being read");
+    ) throw new Error(`capture of ${path} changed while being read`);
     return bytes.slice(0, length);
   } finally {
     file.close();
