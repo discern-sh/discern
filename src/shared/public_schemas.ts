@@ -174,7 +174,8 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     major: CONFIG_SCHEMA_MAJOR,
     compatibility: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     label: "`discern.toml` configuration",
-    contract: "Every section, key, and value type the engine validates.",
+    contract:
+      "Every section, key, and value type the engine validates, with evolving sections marked.",
   },
   {
     id: SETUP_CONFIG_SCHEMA_ID,
@@ -191,7 +192,8 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     major: RESULT_SCHEMA_MAJOR,
     compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
     label: "Result contracts",
-    contract: "Every CLI `--json` and MCP tool result envelope.",
+    contract:
+      "Every CLI `--json` and MCP tool result envelope, with open vocabularies published as strings, closed vocabularies as enums, and evolving contracts marked.",
   },
   {
     id: PROOF_NOTE_SCHEMA_ID,
@@ -209,7 +211,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     compatibility: MCP_TOOLS_COMPATIBILITY_POLICY,
     label: "MCP tools manifest",
     contract:
-      "Tool order, names, request schemas, and safety annotations; descriptive text may evolve.",
+      "Tool names, request schemas, and safety annotations, plus every resource name, kind, and URI; listing order and descriptive text are not promised.",
   },
   {
     id: CLI_MANIFEST_ID,
@@ -218,7 +220,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     compatibility: CLI_COMPATIBILITY_POLICY,
     label: "CLI grammar manifest",
     contract:
-      "Command paths, aliases, positional arguments, flags, option value counts and types, defaults, and visibility.",
+      "Command paths, aliases, positional arguments, flags, option value counts and types, defaults, and visibility; listing order is not promised.",
   },
   {
     id: CONVENTIONS_MANIFEST_ID,
@@ -249,19 +251,23 @@ export const PUBLIC_SCHEMA_REFERENCE_START =
 export const PUBLIC_SCHEMA_REFERENCE_END =
   "<!-- END GENERATED: public schema publications -->";
 
-/** State the same-major additions permitted by a publication's policy. */
-function compatibilityContract(
+/**
+ * State the same-major changes a publication's policy permits: what may be
+ * added, how its enums move, and that evolving members are exempt. The
+ * reference table and the contract digest both render this sentence.
+ */
+export function compatibilityContract(
   policy: PublicSchemaCompatibility,
 ): string {
   switch (policy) {
     case RESULT_SCHEMA_COMPATIBILITY_POLICY:
-      return "Same-major releases may add only optional fields, new contracts, and error slugs.";
+      return "Same-major releases may add optional fields, new contracts, and members of any open vocabulary. A closed decision vocabulary changes only with a new major. Members marked evolving may change in any release.";
     case CONFIG_SCHEMA_COMPATIBILITY_POLICY:
-      return "Same-major releases may add only optional keys and sections.";
+      return "Same-major releases may add optional keys, sections, and enum members. Existing keys, types, and defaults stay. Sections marked evolving may change in any release.";
     case MCP_TOOLS_COMPATIBILITY_POLICY:
-      return "Same-major releases may update documentation and add tools or optional inputs; existing identities, safety annotations, and requests stay compatible.";
+      return "Same-major releases may update documentation, add tools, resources, and optional inputs, and add accepted input values. Existing identities, URIs, safety annotations, and requests stay compatible. Listing order is not promised. Tools marked evolving may change in any release.";
     case CLI_COMPATIBILITY_POLICY:
-      return "Same-major releases may update help and add commands, aliases, options, and positional arguments without changing existing grammar.";
+      return "Same-major releases may update help, add commands, aliases, and options, add accepted values, and append optional positional arguments. Existing grammar stays. Listing order is not promised. Commands marked evolving may change in any release.";
     case CONVENTIONS_COMPATIBILITY_POLICY:
       return "Same-major releases may add names; published existing values are immutable. Private format versions are not published here.";
   }
