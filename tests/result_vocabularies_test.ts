@@ -31,30 +31,13 @@ import {
   withOpenVocabulariesAsStrings,
 } from "../src/shared/result_vocabulary.ts";
 
+import { jsonObjects } from "./json_objects.ts";
+
 type JsonObject = Record<string, unknown>;
 
 /** Narrow unknown JSON to an object record. */
 function isRecord(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-interface Located {
-  readonly path: string;
-  readonly node: JsonObject;
-}
-
-/** Every object node in a JSON value with a stable diagnostic path. */
-function objects(value: unknown, path = "$"): Located[] {
-  if (Array.isArray(value)) {
-    return value.flatMap((item, index) => objects(item, `${path}[${index}]`));
-  }
-  if (!isRecord(value)) return [];
-  return [
-    { path, node: value },
-    ...Object.entries(value).flatMap(([key, item]) =>
-      objects(item, `${path}.${key}`)
-    ),
-  ];
 }
 
 const OUTPUT_PUBLICATIONS = PUBLIC_SCHEMA_PUBLICATIONS.filter((publication) =>
@@ -157,7 +140,7 @@ Deno.test("an open vocabulary publishes as a string with its members at the root
 Deno.test("every enum in a published output schema is a registered closed vocabulary, and every open one is a string", () => {
   const offenders: string[] = [];
   for (const { artifact, schema } of LIVE_OUTPUT_SCHEMAS) {
-    for (const { path, node } of objects(schema)) {
+    for (const { path, value: node } of jsonObjects(schema)) {
       const marker = node[RESULT_VOCABULARY_KEYWORD];
       if (Array.isArray(node.enum)) {
         if (typeof marker !== "string") {
@@ -194,7 +177,7 @@ Deno.test("every open vocabulary a schema uses publishes its registry members at
   const usedDecision = new Set<string>();
   for (const { artifact, schema } of LIVE_OUTPUT_SCHEMAS) {
     const referenced = new Set<string>();
-    for (const { node } of objects(schema)) {
+    for (const { value: node } of jsonObjects(schema)) {
       const marker = node[RESULT_VOCABULARY_KEYWORD];
       if (typeof marker !== "string") continue;
       if (isOpenVocabularyKey(marker)) referenced.add(marker);

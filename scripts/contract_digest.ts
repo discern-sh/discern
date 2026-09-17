@@ -461,7 +461,7 @@ const ERROR_SLUG_VOCABULARY =
   "x-discern-error-slugs" satisfies ResultOpenVocabularyKey;
 
 /** Collect the first schema node carrying each vocabulary keyword, walking every object and array. */
-function vocabularyNodes(
+export function vocabularyNodes(
   value: JsonValue | undefined,
   found: Map<string, JsonObject> = new Map(),
 ): Map<string, JsonObject> {

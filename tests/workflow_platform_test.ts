@@ -12,6 +12,7 @@ import { parse as parseYaml } from "@std/yaml";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 import { parseConfigOrThrow, toCommand } from "../src/shared/config_schema.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { jsonObjects, type LocatedObject } from "./json_objects.ts";
 import { withTempDir } from "./temp_dir.ts";
 import { readMetrics } from "../src/engine/validation/metrics.ts";
 
@@ -38,33 +39,9 @@ const wslGateActionSource = await Deno.readTextFile(WSL_GATE_ACTION);
 const macosGateActionSource = await Deno.readTextFile(MACOS_GATE_ACTION);
 const entitlementsSource = await Deno.readTextFile(ENTITLEMENTS);
 
-interface LocatedMapping {
-  path: string;
-  value: Record<string, unknown>;
-}
-
-/** Every mapping in a parsed YAML document, including mappings nested in arrays. */
-function yamlMappings(value: unknown, path = "$"): LocatedMapping[] {
-  if (Array.isArray(value)) {
-    return value.flatMap((item, index) =>
-      yamlMappings(item, `${path}[${index}]`)
-    );
-  }
-  if (value === null || typeof value !== "object") {
-    return [];
-  }
-  const record = value as Record<string, unknown>;
-  return [
-    { path, value: record },
-    ...Object.entries(record).flatMap(([key, item]) =>
-      yamlMappings(item, `${path}.${key}`)
-    ),
-  ];
-}
-
 interface GithubYaml {
   path: string;
-  mappings: LocatedMapping[];
+  mappings: LocatedObject[];
 }
 
 /** Parse every workflow or local action under `.github`; new YAML auto-enrols. */
@@ -76,7 +53,7 @@ async function githubYaml(files: readonly string[]): Promise<GithubYaml[]> {
     );
     documents.push({
       path: rel,
-      mappings: yamlMappings(parseYaml(source)),
+      mappings: jsonObjects(parseYaml(source)),
     });
   }
   return documents;
@@ -292,7 +269,7 @@ Deno.test("every authoritative checkout fetches release tags for compatibility b
 Deno.test("the release-tag guard catches a future shallow checkout", () => {
   const fixture: GithubYaml = {
     path: "future-workflow.yml",
-    mappings: yamlMappings(parseYaml(`
+    mappings: jsonObjects(parseYaml(`
 jobs:
   contract_gate:
     steps:
@@ -314,7 +291,7 @@ jobs:
           DISCERN_TRUNK: elsewhere
         run: discern status
 `);
-  const paths = yamlMappings(fixture)
+  const paths = jsonObjects(fixture)
     .filter(({ value }) => Object.hasOwn(value, "DISCERN_TRUNK"))
     .map(({ path }) => `${path}.DISCERN_TRUNK`);
   assertEquals(paths, [
@@ -356,7 +333,7 @@ Deno.test("local and hosted full gates select isolated JUnit output", async () =
 Deno.test("the reporter guard catches a future full-gate container", () => {
   const fixture: GithubYaml = {
     path: "future-workflow.yml",
-    mappings: yamlMappings(parseYaml(`
+    mappings: jsonObjects(parseYaml(`
 jobs:
   container_gate:
     container: denoland/deno:latest
@@ -443,7 +420,7 @@ Deno.test("hosted full gates converge locked Deno dependencies before parallel j
 Deno.test("the dependency guard catches a future cold full-gate container", () => {
   const fixture: GithubYaml = {
     path: "future-action.yml",
-    mappings: yamlMappings(parseYaml(`
+    mappings: jsonObjects(parseYaml(`
 runs:
   using: composite
   steps:
@@ -646,7 +623,7 @@ Deno.test("instrumented producer and nested hosted gates fit their containing bu
     ["./.github/actions/wsl-gate", parseYaml(wslGateActionSource)],
   ]);
   for (const source of [gateSource, releaseSource]) {
-    for (const { value } of yamlMappings(parseYaml(source))) {
+    for (const { value } of jsonObjects(parseYaml(source))) {
       if (!Array.isArray(value.steps)) {
         continue;
       }
@@ -656,7 +633,7 @@ Deno.test("instrumented producer and nested hosted gates fit their containing bu
         }
         const action = actions.get(String(step.uses));
         if (action === undefined) continue;
-        const nested = yamlMappings(action).filter(({ value }) =>
+        const nested = jsonObjects(action).filter(({ value }) =>
           isFullGateCommand(value.run)
         );
         assert(nested.length > 0);

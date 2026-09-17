@@ -21,6 +21,7 @@ import {
   DIGEST_END,
   renderContractDigest,
   spliceDigest,
+  vocabularyNodes,
 } from "../scripts/contract_digest.ts";
 import {
   isObject,
@@ -43,7 +44,6 @@ import {
 import {
   RESULT_DECISION_VOCABULARIES,
   RESULT_OPEN_VOCABULARIES,
-  RESULT_VOCABULARY_KEYWORD,
 } from "../src/shared/result.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
@@ -111,21 +111,11 @@ function flat(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** Collect the first schema node carrying each vocabulary keyword, independently of the renderer's walk. */
-function vocabularyEnums(
-  value: JsonValue | undefined,
-  found: Map<string, string[]> = new Map(),
-): Map<string, string[]> {
-  if (Array.isArray(value)) {
-    for (const member of value) vocabularyEnums(member, found);
-  } else if (isObject(value)) {
-    const key = value[RESULT_VOCABULARY_KEYWORD];
-    if (typeof key === "string" && !found.has(key)) {
-      found.set(key, strings(value.enum));
-    }
-    for (const child of Object.values(value)) vocabularyEnums(child, found);
-  }
-  return found;
+/** The members of each closed vocabulary an artifact carries, by key. */
+function vocabularyEnums(value: JsonValue | undefined): Map<string, string[]> {
+  return new Map(
+    [...vocabularyNodes(value)].map(([key, node]) => [key, strings(node.enum)]),
+  );
 }
 
 /** Whether a manifest record or schema node carries the evolving tier under `marker`. */
