@@ -4,11 +4,12 @@
  * `result.ts` registers every output vocabulary with its key, name, and
  * members. This module turns a registry entry into the Zod enum a strict writer
  * schema uses, binding the enum to its key in a dedicated registry. That
- * binding is never global metadata: Zod's own JSON Schema conversion, which the
- * MCP server uses to advertise output schemas, carries nothing extra, and only
- * the public generators stamp the `x-discern-vocabulary` keyword through
- * {@link stampResultVocabulary}. The proof-note reader widens the open
- * vocabularies through {@link withOpenVocabulariesAsStrings}.
+ * binding is never global metadata: Zod's own JSON Schema conversion carries
+ * nothing extra, and only the public generators stamp the
+ * `x-discern-vocabulary` keyword through {@link stampResultVocabulary}. The
+ * proof-note readers and the MCP server's advertised output schemas widen the
+ * open vocabularies through {@link withOpenVocabulariesAsStrings}, so a value a
+ * newer writer recorded validates at every boundary that carries it.
  */
 
 import { z } from "@zod/zod";
@@ -84,10 +85,14 @@ export function stampResultVocabulary(
   }
 }
 
-/** Rebuild a schema with the same definition except the named fields. */
+/** Rebuild a schema with the same definition except the named fields. The
+ * clone keeps the original's global metadata, so an identified object still
+ * hoists into `$defs` and keeps its description when projected. */
 function rebuilt<T extends z.ZodType>(schema: T, changes: object): T {
   const definition: T["_zod"]["def"] = { ...schema._zod.def, ...changes };
-  return z.core.clone(schema, definition);
+  const clone = z.core.clone(schema, definition);
+  const metadata = schema.meta();
+  return metadata === undefined ? clone : clone.meta(metadata);
 }
 
 /** Transform every child schema, returning the same instance when none changed. */
@@ -116,6 +121,20 @@ function children<T extends z.ZodType>(
 export function withOpenVocabulariesAsStrings<T extends z.ZodType>(
   schema: T,
 ): T {
+  const cached = WIDENED.get(schema);
+  if (cached !== undefined) return cached as T;
+  const widened = widenOpenVocabularies(schema);
+  WIDENED.set(schema, widened);
+  return widened;
+}
+
+/** Each writer schema's projection, so a schema shared by several fields
+ * projects to one instance and an identified object keeps a single `$defs`
+ * entry when the projection is converted to JSON Schema. */
+const WIDENED = new WeakMap<z.ZodType, z.ZodType>();
+
+/** One projection step: rebuild the path to each open enumeration as a string. */
+function widenOpenVocabularies<T extends z.ZodType>(schema: T): T {
   const transform = withOpenVocabulariesAsStrings;
   if (schema instanceof z.ZodEnum) {
     const key = resultVocabularyKey(schema);

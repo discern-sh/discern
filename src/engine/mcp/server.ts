@@ -37,6 +37,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import process from "process";
 import { isAbsolute, join } from "@std/path";
 import { z } from "@zod/zod";
+import { withOpenVocabulariesAsStrings } from "../../shared/result_vocabulary.ts";
 import {
   CONFIG_REL,
   findRoot,
@@ -278,7 +279,8 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   inputSchema: TShape;
   /** The complete result schema this tool advertises. The SDK validates every
    * call's `structuredContent` against it, including the envelope's structural
-   * state contract, so it MUST match what the verb actually returns (ADR 0041). */
+   * state contract, so it MUST match what the verb actually returns (ADR 0041).
+   * {@link defineTool} widens its open vocabularies before the table holds it. */
   outputSchema: z.ZodType;
   /** Honest behavioral hints (read-only / destructive / …). */
   annotations?: ToolAnnotations;
@@ -321,13 +323,19 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
 
 /** Collect one tool with its handler's `args` typed from its own `inputSchema`
  * (`TShape` inferred per call), then stored in the heterogeneous {@link TOOLS} table
- * widened to the default shape. An identity at runtime; its only job is to carry the
- * per-tool shape into the handler's signature so a field typo or a drift from the
- * declared schema is a compile error. */
+ * widened to the default shape. It carries the per-tool shape into the handler's
+ * signature so a field typo or a drift from the declared schema is a compile
+ * error, and it projects the registry's strict result schema onto the one the
+ * server advertises: every open vocabulary widens to a string, the same way the
+ * published results schema states it, so a result carrying a member a newer
+ * writer recorded (a durable note read back by `status`) still validates. */
 function defineTool<TShape extends z.ZodRawShape>(
   tool: McpTool<TShape>,
 ): McpTool<TShape> {
-  return tool;
+  return {
+    ...tool,
+    outputSchema: withOpenVocabulariesAsStrings(tool.outputSchema),
+  };
 }
 
 /**

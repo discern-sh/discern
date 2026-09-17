@@ -49,6 +49,7 @@ import {
 import { RESULT_COMPLETION_POLICIES } from "../src/shared/result_completion.ts";
 import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
+import { withOpenVocabulariesAsStrings } from "../src/shared/result_vocabulary.ts";
 import type { DiscernTidyResult } from "../types/discern-json.d.ts";
 import {
   buildCliManifest,
@@ -804,10 +805,9 @@ Deno.test("MCP tools use the same schemas as the public result registry", () => 
       contract.schema instanceof z.ZodObject,
       `${name} result schema should be a Zod object`,
     );
-    assertEquals(
-      tool.outputSchema,
-      contract.schema,
-      `${name} should advertise the same output schema the registry publishes`,
+    assert(
+      tool.outputSchema === withOpenVocabulariesAsStrings(contract.schema),
+      `${name} should advertise the registry schema with its open vocabularies widened`,
     );
   }
 });

@@ -21,6 +21,20 @@ import {
 import { buildMcpToolsManifest } from "../scripts/contract_manifests.ts";
 import { CONSENT_GATED_VERBS } from "../src/shared/consent.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
+import { MCP_RESULT_CONTRACTS } from "../src/shared/result_contracts.ts";
+import {
+  canonicalProof,
+  StatusOutputSchema,
+  TolerantProofSchema,
+} from "../src/shared/result_schemas.ts";
+import {
+  isDecisionVocabularyKey,
+  isOpenVocabularyKey,
+  stampResultVocabulary,
+} from "../src/shared/result_vocabulary.ts";
+import { RESULT_VOCABULARY_KEYWORD } from "../src/shared/result.ts";
+import { projectStatusResult } from "../src/shared/result_wire.ts";
+import { jsonObjects } from "./json_objects.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
@@ -210,6 +224,89 @@ Deno.test("mcp surface: every described data field exists in that tool's output 
     }
   }
   assertEquals(failures, []);
+});
+
+Deno.test("mcp surface: every advertised output schema widens each open vocabulary to a string and keeps each closed one enumerated", () => {
+  const offenders: string[] = [];
+  for (const contract of MCP_RESULT_CONTRACTS) {
+    const tool = TOOLS.find((candidate) => candidate.name === contract.mcpTool);
+    assert(tool !== undefined, `${contract.mcpTool} is not registered`);
+    const advertised = new Map(
+      jsonObjects(z.toJSONSchema(tool.outputSchema)).map((
+        { path, value },
+      ) => [path, value]),
+    );
+    const stamped = z.toJSONSchema(contract.schema, {
+      override: stampResultVocabulary,
+    });
+    for (const { path, value } of jsonObjects(stamped)) {
+      const key = value[RESULT_VOCABULARY_KEYWORD];
+      if (typeof key !== "string") continue;
+      const node = advertised.get(path);
+      const where = `${tool.name} ${path} (${key})`;
+      if (node === undefined) {
+        offenders.push(`${where}: missing from the advertised schema`);
+      } else if (isOpenVocabularyKey(key)) {
+        if (node.type !== "string" || node.enum !== undefined) {
+          offenders.push(`${where}: open vocabulary is not a plain string`);
+        }
+      } else if (isDecisionVocabularyKey(key)) {
+        if (!Array.isArray(node.enum)) {
+          offenders.push(`${where}: closed vocabulary lost its enum`);
+        }
+      }
+    }
+  }
+  assertEquals(offenders, [], offenders.join("\n"));
+});
+
+Deno.test("mcp surface: a status result carrying an unknown open member read from a durable note validates against the advertised schema", () => {
+  const status = TOOLS.find((tool) => tool.name === "discern_status");
+  assert(status !== undefined);
+  const recorded = TolerantProofSchema.parse({
+    branch: "agent/review",
+    trunk: "main",
+    head: "123456789abc",
+    files_total: 1,
+    insertions: 1,
+    deletions: 0,
+    line: "Proof line.",
+    markdown: "Proof page.",
+    checkpoint_drops: [{
+      scope: "policy",
+      checkpoint: null,
+      mode: null,
+      policy_commit: "a".repeat(40),
+      reason: "future_reason",
+      account: "a reason a later writer registered",
+    }],
+  });
+  const result = projectStatusResult({
+    ok: true,
+    verb: "status",
+    data: {
+      location: "worktree",
+      root: "/repo",
+      worktree: null,
+      git: null,
+      standards: [],
+      gate_proof: {
+        status: "honored",
+        proof_data: canonicalProof(recorded),
+      },
+    },
+  }, { wireProjection: "full" });
+  assert(
+    !StatusOutputSchema.safeParse(result).success,
+    "the strict writer schema names only the members this build knows",
+  );
+  const advertised = status.outputSchema.safeParse(result);
+  assert(
+    advertised.success,
+    `the advertised schema must carry the member through: ${
+      advertised.success ? "" : advertised.error.message
+    }`,
+  );
 });
 
 Deno.test("mcp surface: done declarations preserve their deliberate asymmetry", () => {
