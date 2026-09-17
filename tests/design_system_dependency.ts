@@ -5,7 +5,7 @@ import { decodeWith } from "./decode_cli_result.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 
-export const DESIGN_SYSTEM_VERSION = "0.34.0";
+export const DESIGN_SYSTEM_VERSION = "0.35.0";
 export const DESIGN_SYSTEM_SPECIFIER =
   `jsr:@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}`;
 export const DESIGN_SYSTEM_PACKAGE =
