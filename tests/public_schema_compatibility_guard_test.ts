@@ -30,6 +30,7 @@ import {
   type PublicSchemaPublication,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../src/shared/public_schemas.ts";
+import { GIT_ADMIN_STATE } from "../src/shared/git_admin_paths.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
 import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
@@ -2324,28 +2325,16 @@ Deno.test("MCP documentation changes traverse schema children without relaxing t
   }
 });
 
-Deno.test("private format revisions do not enter the frozen conventions contract", () => {
+Deno.test("private storage registries stay outside the frozen conventions contract", () => {
   const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
     entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
   );
   assert(publication !== undefined);
   const manifest = buildCurrentPublicSchema(publication);
-  assert(isRecord(manifest.local_formats));
-  for (const format of Object.values(ON_DISK_FORMATS)) {
-    const published = manifest.local_formats[format.id];
-    assert(isRecord(published), format.id);
-    assertEquals(
-      Object.hasOwn(published, "version"),
-      format.location.kind === "git-note",
-      format.id,
-    );
-    assertEquals(published.version_field, format.versionField, format.id);
-    assertEquals(
-      published.newer_version_policy,
-      format.newerVersionPolicy,
-      format.id,
-    );
-  }
+  assert(Object.keys(GIT_ADMIN_STATE).length > 0);
+  assert(Object.keys(ON_DISK_FORMATS).length > 0);
+  assertEquals(Object.hasOwn(manifest, "git_admin_state"), false);
+  assertEquals(Object.hasOwn(manifest, "local_formats"), false);
 });
 
 Deno.test("the schema baseline is the highest predecessor version tag, never a release candidate at HEAD", async () => {

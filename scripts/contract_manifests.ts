@@ -24,10 +24,6 @@ import {
   publicEnvironmentVariableDefinitions,
 } from "../src/shared/environment_variables.ts";
 import { BUNDLED_SKILL_NAMES } from "../src/lib/skills.ts";
-import {
-  GIT_ADMIN_STATE,
-  GIT_ADMIN_STATE_NAMESPACE,
-} from "../src/shared/git_admin_paths.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
 import { QUESTION_IDS } from "../src/shared/questions.ts";
 import { HIDDEN_VERBS } from "../src/shared/hidden_verbs.ts";
@@ -37,7 +33,6 @@ import {
 } from "../src/shared/worktree_identity_fields.ts";
 import { WORKTREE_IDENTITY_CONTRACT } from "../src/shared/worktree_identity_contract.ts";
 import { GIT_CONVENTIONS } from "../src/shared/git_conventions.ts";
-import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 
 export type ContractManifest = Readonly<Record<string, unknown>>;
@@ -163,15 +158,6 @@ export function buildConventionsManifest(
       ),
     ),
     bundled_skills: membership(BUNDLED_SKILL_NAMES),
-    git_admin_state: {
-      namespace: GIT_ADMIN_STATE_NAMESPACE,
-      entries: Object.fromEntries(
-        Object.entries(GIT_ADMIN_STATE).map(([key, entry]) => [
-          key,
-          { ...entry },
-        ]),
-      ),
-    },
     checkpoints: Object.fromEntries(
       Object.entries(BUILT_IN_CHECKPOINTS).map(([id, checkpoint]) => [
         id,
@@ -201,19 +187,6 @@ export function buildConventionsManifest(
     ),
     shell_only_verbs: Object.fromEntries(MCP_SHELL_ONLY_VERBS),
     providers: providerConventions(),
-    local_formats: Object.fromEntries(
-      Object.values(ON_DISK_FORMATS).map((format) => [
-        format.id,
-        {
-          ...(format.location.kind === "git-note"
-            ? { version: format.version }
-            : {}),
-          version_field: format.versionField,
-          newer_version_policy: format.newerVersionPolicy,
-          location: format.location,
-        },
-      ]),
-    ),
     git: GIT_CONVENTIONS,
   };
 }
