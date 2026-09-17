@@ -3,6 +3,9 @@ import { RELEASE_ROUTES } from "../src/shared/product_identity.ts";
 /** Brand primitives shared by the site's generated and request-time shells. */
 export { DISCERN_MARK } from "../src/shared/brand.ts";
 
+/** The author's public profile, credited in the site footer. */
+export const DISCERN_AUTHOR_URL = "https://github.com/jackwh";
+
 /** One theme-aware, drawn favicon shared by every public page. */
 export const DISCERN_FAVICON_PATH = "/assets/favicon.svg";
 
