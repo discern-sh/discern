@@ -128,6 +128,16 @@ export interface ResultContract {
   mcpTool?: string | undefined;
   /** Additional predicate invocations selected inside one command path. */
   predicates?: readonly CliJsonPredicateContract[] | undefined;
+  /**
+   * The contract's compatibility tier. Absent means stable: the command paths,
+   * the MCP tool, and the result shape keep the published same-major promise.
+   * `"evolving"` marks all three together as complete and supported but still
+   * free to change shape, or disappear, in any release; the public artifacts
+   * carry the fact, the comparators exempt the member, and help text and tool
+   * descriptions never show it. Removing the marker graduates the member;
+   * adding it to a member that was stable in a release is a break.
+   */
+  stability?: "evolving" | undefined;
 }
 
 const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
@@ -228,6 +238,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "triangle",
     schema: TriangleOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.inventory,
+    stability: "evolving",
   },
   {
     id: "map",
@@ -308,6 +319,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     schema: ImprovementOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.improvement,
     mcpTool: "discern_improvement",
+    stability: "evolving",
   },
   {
     id: "checkpoints",
@@ -354,6 +366,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "tidy",
     schema: TidyOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
+    stability: "evolving",
   },
   {
     id: "impact",
@@ -377,6 +390,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     schema: CouplingOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.coupling,
     mcpTool: "discern_coupling",
+    stability: "evolving",
   },
   {
     id: "await",
@@ -393,6 +407,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     schema: PatternsOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.patterns,
     mcpTool: "discern_patterns",
+    stability: "evolving",
   },
   {
     id: "patternsReset",
@@ -400,6 +415,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "patterns reset",
     schema: PatternsResetOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.patternsLifecycle,
+    stability: "evolving",
   },
   {
     id: "patternsSeal",
@@ -407,6 +423,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "patterns seal",
     schema: PatternsSealOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.patternsLifecycle,
+    stability: "evolving",
   },
   {
     id: "patternsArchives",
@@ -414,6 +431,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "patterns archives",
     schema: PatternsArchivesOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.patternsLifecycle,
+    stability: "evolving",
   },
   {
     id: "desk",
@@ -421,6 +439,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "desk",
     schema: DeskOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
+    stability: "evolving",
   },
   {
     id: "enter",
@@ -428,6 +447,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "enter",
     schema: EnterOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
+    stability: "evolving",
   },
   {
     id: "status",
@@ -451,6 +471,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "worktree rename",
     schema: TaskRenameOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.taskRename,
+    stability: "evolving",
   },
   {
     id: "worktreeEnsure",
@@ -523,6 +544,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "worktree park",
     schema: WorktreeParkOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
+    stability: "evolving",
   },
   {
     id: "worktreePrune",
