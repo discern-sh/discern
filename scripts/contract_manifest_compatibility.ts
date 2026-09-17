@@ -72,6 +72,25 @@ function compareMcpInputSchema(
   path: string,
   issues: string[],
 ): void {
+  if (Array.isArray(previous) && Array.isArray(current)) {
+    // Alternatives and other positional keyword lists compare member by
+    // member, so an enum nested in a union still meets the enum rule.
+    if (previous.length !== current.length) {
+      issues.push(
+        `${path}: changed from ${json(previous)} to ${json(current)}`,
+      );
+      return;
+    }
+    for (const [index, before] of previous.entries()) {
+      compareMcpInputSchema(
+        before,
+        current[index],
+        `${path}[${index}]`,
+        issues,
+      );
+    }
+    return;
+  }
   if (!isObject(previous) || !isObject(current)) {
     if (!sameJson(previous, current)) {
       issues.push(

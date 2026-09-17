@@ -2257,6 +2257,53 @@ Deno.test("tool input enums and flag choices are append-only", () => {
     ],
   );
 
+  // An enum nested in a union, such as a nullable input, meets the same rule.
+  const nullable = (values: string[]): JsonObject => ({
+    format: 1,
+    tools: [{
+      name: "voyage_probe",
+      description: "Probe the selected project.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          mode: {
+            anyOf: [{ type: "string", enum: values }, { type: "null" }],
+          },
+        },
+      },
+    }],
+  });
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      nullable(["fast"]),
+      nullable(["fast", "deep"]),
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      nullable(["fast", "deep"]),
+      nullable(["fast"]),
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [
+      '$.tools[name="voyage_probe"].inputSchema.properties.mode.anyOf[0].enum: removed "deep"',
+    ],
+  );
+  const widened = nullable(["fast"]);
+  const property = ((((widened.tools as JsonObject[])[0] as JsonObject)
+    .inputSchema as JsonObject).properties as JsonObject).mode as JsonObject;
+  (property.anyOf as JsonValue[]).push({ type: "number" });
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      nullable(["fast"]),
+      widened,
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ).map((issue) => issue.split(": changed from")[0]),
+    ['$.tools[name="voyage_probe"].inputSchema.properties.mode.anyOf'],
+  );
+
   const cli = (choices: string[]): JsonObject => ({
     format: 1,
     implicit_flags: { command: ["--help"], root: ["--version"] },
