@@ -385,6 +385,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0407 — The gate strips the desk marker](0407-the-gate-strips-the-desk-marker.md)
 - [0408 — Project code holds no exclusion boundary](0408-project-code-holds-no-exclusion-boundary.md)
 - [0409 — Public contracts split durable enforcement from session judgment](0409-public-contracts-split-durable-enforcement-from-session-judgment.md)
+- [0410 — The public contract programme closes before the first tag](0410-the-public-contract-programme-closes-before-the-first-tag.md)
 
 <!-- END GENERATED: current ADR records -->
 

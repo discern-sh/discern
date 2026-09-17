@@ -3,10 +3,10 @@
  * digest. Every command, tool, result shape, configuration key, and convention
  * becomes a table, so the contract can be reviewed without reading the JSON.
  *
- * `deno run --allow-read scripts/contract_digest.ts` prints the digest.
- * Adding `--allow-write --into <file>` replaces the marker-delimited block in
- * that Markdown document. The digest is passed through the tidy Markdown
- * formatter first, so `discern tidy` has nothing left to change.
+ * `deno task codegen` writes the digest to the map page its framing policy
+ * names; `deno run --allow-read scripts/contract_digest.ts` prints it. The
+ * digest is passed through the tidy Markdown formatter first, so `discern
+ * tidy` has nothing left to change.
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
@@ -30,6 +30,7 @@ import {
   type ResultOpenVocabularyKey,
 } from "../src/shared/result.ts";
 import { decodeJson } from "../src/shared/runtime_decode.ts";
+import { GENERATED_INVENTORY_POLICIES } from "./generated_inventory_policy.ts";
 import {
   isEvolving,
   isObject,
@@ -37,13 +38,8 @@ import {
   type JsonValue,
 } from "./public_contract_compatibility_common.ts";
 
-/** Opens the generated block inside a hand-authored review document. */
-export const DIGEST_BEGIN = "<!-- BEGIN GENERATED: public contract digest -->";
-/** Closes the generated block inside a hand-authored review document. */
-export const DIGEST_END = "<!-- END GENERATED: public contract digest -->";
-
-const REGENERATE_COMMAND =
-  "deno run --allow-read --allow-write scripts/contract_digest.ts --into <file>";
+/** The framing the generated page carries: banner, title, and reading notes. */
+const POLICY = GENERATED_INVENTORY_POLICIES["public-schema-publications"];
 
 /** Artifact paths in reading order; publications outside this list follow generically. */
 const READING_ORDER: readonly PublicSchemaPublication["artifactPath"][] = [
@@ -214,7 +210,7 @@ function keyRows(
       const name = prefix === "" ? key : `${prefix}.${key}`;
       rows.push([
         code(name) + (required.includes(key) ? " **(req)**" : ""),
-        typeOf(value),
+        code(typeOf(value)),
         value.default === undefined ? "" : code(JSON.stringify(value.default)),
         Array.isArray(value.enum) ? codes(value.enum) : "",
         clip(descriptionOf(value), 140),
@@ -289,7 +285,7 @@ function renderCli(
   }
   lines.push("### Commands", "");
   lines.push(...table(
-    ["Command", "Hidden", "Positionals", "Own flags", "Description"],
+    ["Command", "Hidden", "Positional arguments", "Own flags", "Description"],
     commands.map((command) => {
       const path = strings(command.path).join(" ") || "(root)";
       const hiddenWhen = typeof command.hidden_when === "string"
@@ -330,7 +326,7 @@ function renderCli(
     );
     const rows = positionals.map((argument) => [
       code(`<${inline(argument.name)}>`),
-      `positional${argument.variadic === true ? ", variadic" : ""}${
+      `positional${argument.variadic === true ? ", repeating" : ""}${
         argument.optional === true ? ", optional" : ", required"
       }`,
       "",
@@ -365,15 +361,19 @@ function renderMcp(
     ["Tool", "Title", "Annotations", "Inputs"],
     tools.map((tool) => {
       const annotations = isObject(tool.annotations)
-        ? Object.entries(tool.annotations).filter(([, value]) => value === true)
-          .map(([key]) => key.replace("Hint", "")).join(", ")
+        ? codes(
+          Object.entries(tool.annotations).filter(([, value]) => value === true)
+            .map(([key]) => key.replace("Hint", "")),
+        )
         : "";
       const properties = pathValue(tool, ["inputSchema", "properties"]);
       const required = strings(pathValue(tool, ["inputSchema", "required"]));
       const inputs = isObject(properties)
-        ? Object.entries(properties).map(([key, value]) =>
-          `${key}${required.includes(key) ? "*" : ""}:${typeOf(value)}`
-        ).join(", ")
+        ? codes(
+          Object.entries(properties).map(([key, value]) =>
+            `${key}${required.includes(key) ? "*" : ""}:${typeOf(value)}`
+          ),
+        )
         : "";
       return [
         withStability(code(tool.name), tool, MANIFEST_STABILITY_FIELD),
@@ -403,7 +403,7 @@ function renderMcp(
       ["Input", "Type", "Required", "Description"],
       Object.entries(properties).map(([key, value]) => [
         code(key),
-        typeOf(value),
+        code(typeOf(value)),
         required.includes(key) ? "yes" : "",
         clip(isObject(value) ? descriptionOf(value) : "", 170),
       ]),
@@ -414,13 +414,13 @@ function renderMcp(
     lines.push(
       "### Resources and resource templates",
       "",
-      "A `template` URI carries a placeholder the client fills in; a `resource` URI is read as written.",
+      "A `template` URI carries a placeholder the client fills in; a `resource` URI is read as written. Names are written plain: a hyphenated `discern-` name in a code span reads as a skill citation to the map preflight.",
       "",
     );
     lines.push(...table(
       ["Resource", "Kind", "URI"],
       resources.map((resource) => [
-        code(resource.name),
+        inline(resource.name),
         inline(resource.kind),
         code(resource.uri),
       ]),
@@ -440,14 +440,14 @@ function dataBranches(data: JsonValue | undefined): string[] {
   };
   const branches = flatten(data).map((alternative) => {
     if (!isObject(alternative)) return String(alternative);
-    if (typeof alternative.$ref === "string") return typeOf(alternative);
+    if (typeof alternative.$ref === "string") return code(typeOf(alternative));
     if (isObject(alternative.properties)) {
       const required = strings(alternative.required);
       return Object.keys(alternative.properties).map((key) =>
-        required.includes(key) ? `**${key}**` : key
+        required.includes(key) ? `**${code(key)}**` : code(key)
       ).join(", ");
     }
-    return typeOf(alternative);
+    return code(typeOf(alternative));
   });
   return branches.length === 0 ? ["(none)"] : branches;
 }
@@ -564,13 +564,13 @@ function renderResults(
       Object.entries(envelope).map(([key, value]) => {
         const items = pathValue(value, ["items", "properties"]);
         const nested = isObject(items)
-          ? `items: ${Object.keys(items).join(", ")}`
+          ? `items: ${codes(Object.keys(items))}`
           : isObject(value) && isObject(value.properties)
-          ? `fields: ${Object.keys(value.properties).join(", ")}`
+          ? `fields: ${codes(Object.keys(value.properties))}`
           : "";
         return [
           code(key) + (required.includes(key) ? " **(req)**" : ""),
-          typeOf(value),
+          code(typeOf(value)),
           nested,
         ];
       }),
@@ -601,17 +601,17 @@ function renderResults(
   lines.push(
     "### Completion policies",
     "",
-    "A completion policy is the semantic authority for when `ok: true` is allowed: which postconditions must hold, which degradations may ride as advisories, and how refusal, cancellation, partial effect, and no-op are reported.",
+    "A completion policy is the semantic authority for when `ok: true` is allowed: which conditions must hold, which degradations may ride as advisories, and how refusal, cancellation, partial effect, and no-op are reported.",
     "",
   );
   lines.push(...table(
     [
       "Verb",
-      "Required postconditions",
+      "Required conditions",
       "Optional advisories",
       "cancel",
       "partial",
-      "no_op",
+      "`no_op`",
       "recovery",
     ],
     contracts.map((contract) => {
@@ -620,12 +620,12 @@ function renderResults(
         : {};
       return [
         withStability(code(contract.verb), contract, MANIFEST_STABILITY_FIELD),
-        strings(policy.required_postconditions).join(", "),
-        clip(strings(policy.optional_advisories).join(", "), 120),
-        inline(policy.cancellation),
-        inline(policy.partial_effect),
-        inline(policy.no_op),
-        inline(policy.recovery_owner),
+        codes(strings(policy.required_postconditions)),
+        clip(codes(strings(policy.optional_advisories)), 160),
+        code(policy.cancellation),
+        code(policy.partial_effect),
+        code(policy.no_op),
+        code(policy.recovery_owner),
       ];
     }),
   ));
@@ -638,9 +638,9 @@ function renderResults(
       code(name),
       clip(
         isObject(definition) && isObject(definition.properties)
-          ? Object.keys(definition.properties).join(", ")
-          : typeOf(definition),
-        200,
+          ? codes(Object.keys(definition.properties))
+          : code(typeOf(definition)),
+        260,
       ),
     ]),
   ));
@@ -666,7 +666,7 @@ function renderConfig(
     Object.entries(sections).map(([name, value]) => [
       sectionName(name, value),
       required.includes(name) ? "yes" : "",
-      typeOf(value),
+      code(typeOf(value)),
       clip(isObject(value) ? descriptionOf(value) : "", 150),
     ]),
   ));
@@ -857,7 +857,7 @@ function renderConventions(
     if (handled.has(key)) continue;
     const rows: string[][] = [];
     flatRows(value, "", rows);
-    lines.push(`### ${key}`, "");
+    lines.push(`### ${code(key)}`, "");
     lines.push(...table(["Convention", "Value"], rows));
   }
   return lines;
@@ -954,17 +954,16 @@ function orderedPublications(): PublicSchemaPublication[] {
   return [...named, ...rest];
 }
 
-/** Render the complete digest from the artifacts under `root`, formatted for tidy stability. */
-export async function renderContractDigest(root: string): Promise<string> {
+/** Render the complete digest page from the artifacts under `root`, formatted for tidy stability. */
+export async function renderContractDigestDoc(root: string): Promise<string> {
   const lines: string[] = [
-    "# Contract reference (generated from `schema/`)",
+    POLICY.banner,
     "",
-    `_Generated by ${
-      code("scripts/contract_digest.ts")
-    } from the committed artifacts. Regenerate with ${
-      code(REGENERATE_COMMAND)
-    }; edits inside the markers are overwritten._`,
+    `# ${POLICY.title}`,
     "",
+    `_${POLICY.subtitle}_`,
+    "",
+    ...POLICY.framing.flatMap((paragraph) => [paragraph, ""]),
   ];
   const publications = orderedPublications();
   for (const [index, publication] of publications.entries()) {
@@ -986,30 +985,7 @@ export async function renderContractDigest(root: string): Promise<string> {
   );
 }
 
-/** Replace the marker-delimited digest block, refusing a document without both markers. */
-export function spliceDigest(document: string, digest: string): string {
-  const start = document.indexOf(DIGEST_BEGIN);
-  const end = document.indexOf(DIGEST_END);
-  if (start < 0 || end < start) {
-    throw new Error(
-      `the document is missing the ${DIGEST_BEGIN} … ${DIGEST_END} markers`,
-    );
-  }
-  return `${
-    document.slice(0, start + DIGEST_BEGIN.length)
-  }\n\n${digest.trim()}\n\n${document.slice(end)}`;
-}
-
 if (import.meta.main) {
   const root = dirname(dirname(fromFileUrl(import.meta.url)));
-  const digest = await renderContractDigest(root);
-  const flag = Deno.args.indexOf("--into");
-  const target = flag >= 0 ? Deno.args[flag + 1] : undefined;
-  if (target === undefined) {
-    console.log(digest);
-  } else {
-    const document = await Deno.readTextFile(target);
-    await Deno.writeTextFile(target, spliceDigest(document, digest));
-    console.log(`Regenerated the contract digest in ${target}`);
-  }
+  console.log(await renderContractDigestDoc(root));
 }

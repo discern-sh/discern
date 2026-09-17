@@ -2789,6 +2789,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/config_codegen_test.ts",
+      "tests/contract_digest_test.ts",
       "tests/public_schema_compatibility_guard_test.ts",
       "tests/result_codegen_test.ts",
       "tests/reference_docs_test.ts",
@@ -2804,6 +2805,13 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         path: "schema/discern-proof-note.schema.json",
         kind: "generated-file",
         banner: false,
+      },
+      {
+        path: GENERATED_INVENTORY_POLICIES["public-schema-publications"]
+          .artifactPath,
+        kind: "generated-file",
+        banner: true,
+        framingPolicy: "public-schema-publications",
       },
     ],
     enrolledIn: {
@@ -4452,7 +4460,7 @@ function canonCell(enrollment: CanonEnrolment): string {
 
 /** Paths whose naming convention makes them generated inventory surfaces. */
 function isGeneratedInventoryPath(path: string): boolean {
-  return /(?:inventory|registry-atlas)\.md$/.test(path);
+  return /(?:inventory|registry-atlas|contract-digest)\.md$/.test(path);
 }
 
 /**

@@ -43,7 +43,7 @@ A result contract becomes evolving through the `stability` field on `ResultContr
 
 ## The enum rule
 
-Input enumerations are append-only. The schema comparator keeps only removals under `config-input`. The manifest comparator treats tool input enumerations, including one nested in a union such as a nullable input, and the `choices` of a positional or flag the same way. Every other keyword of a request schema is held member by member, so a union that gains or loses an alternative is a change. The CLI manifest records those choices from the enum type a command registers, for a positional and for a flag with one enum-typed value, so the rule has real input as soon as a command declares one.
+Input enumerations are append-only. The schema comparator keeps only removals under `config-input`. The manifest comparator treats tool input enumerations, including one nested in a union such as an input that also accepts null, and the `choices` of a positional or flag the same way. Every other keyword of a request schema is held member by member, so a union that gains or loses an alternative is a change. The CLI manifest records those choices from the enum type a command registers, for a positional and for a flag with one enum-typed value, so the rule has real input as soon as a command declares one.
 
 Output enumerations carry a role. The registries in [`src/shared/result.ts`](../../../src/shared/result.ts) record it, and a binding identifies it rather than membership. `RESULT_OPEN_VOCABULARIES` and `RESULT_DECISION_VOCABULARIES` map each `x-discern-…` root key to a declaration name and its members. [`src/shared/result_vocabulary.ts`](../../../src/shared/result_vocabulary.ts) builds every strict runtime enumeration from an entry and binds the instance to its key in a dedicated Zod registry. The public generators stamp that key onto the node as `x-discern-vocabulary`. Zod's own conversion carries nothing, so an unrelated enumeration with the same values cannot change role by accident.
 
@@ -72,7 +72,8 @@ The same rule permits a role's first aggregate. The baseline must have no regist
 
 ## Where the policy is written down
 
-- The decision record: `project/map/_private/planning/discern-public-contract.md`, sections "Decisions taken on 2026-09-17" and Part 1.
+- Every published member on one page: the generated [public contract digest](../_internal/public-contract-digest.md), rendered from the committed artifacts by `deno task codegen`.
+- The programme that closed the contract before the first tag: [ADR 0410](../_adr/0410-the-public-contract-programme-closes-before-the-first-tag.md).
 - The rationale: [ADR 0409](../_adr/0409-public-contracts-split-durable-enforcement-from-session-judgment.md), amending [ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md) (identity and majors) and [ADR 0390](../_adr/0390-public-contracts-preserve-behavior-and-independent-format-versions.md) (documentation and private formats).
 - The public promise: the manual's [compatibility page](https://discern.sh/docs/reference/compatibility) (`project/manual/30-reference/compatibility.md`).
 - The runtime side of the vocabularies: [Result contracts and protocol adapters](../50-engine-internals/the-result-envelope.md#runtime-schemas-and-enrollment).

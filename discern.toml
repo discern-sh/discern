@@ -438,6 +438,7 @@
     "${map.dir}_internal/feature-canon-agent-benefits.md",
     "${map.dir}_internal/hint-inventory.md",
     "${map.dir}_internal/practice-canon.md",
+    "${map.dir}_internal/public-contract-digest.md",
     "${map.dir}_internal/registry-atlas.md",
     "${map.dir}_internal/tip-inventory.md",
     "${map.dir}_internal/voice-enforcement-coverage.md",

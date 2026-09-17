@@ -102,6 +102,8 @@ import {
   REGISTRY_ATLAS_PAGE_REL,
   renderRegistryAtlasDoc,
 } from "./canonical_sets.ts";
+import { renderContractDigestDoc } from "./contract_digest.ts";
+import { GENERATED_INVENTORY_POLICIES } from "./generated_inventory_policy.ts";
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 import {
   CLA_ASSISTANT_METADATA_PATH,
@@ -456,6 +458,13 @@ await write(publicSchemaArtifact(CLI_MANIFEST_ID), renderCliManifest());
 await write(
   publicSchemaArtifact(CONVENTIONS_MANIFEST_ID),
   renderConventionsManifest(),
+);
+console.log(
+  "Regenerating the public contract digest from the committed artifacts:",
+);
+await write(
+  GENERATED_INVENTORY_POLICIES["public-schema-publications"].artifactPath,
+  await renderContractDigestDoc(repoRoot),
 );
 console.log(
   "Regenerating the public schema reference from PUBLIC_SCHEMA_PUBLICATIONS:",

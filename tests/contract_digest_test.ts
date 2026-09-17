@@ -7,22 +7,15 @@
  * resources all come from there, never from a list kept in the renderer.
  */
 
-import {
-  assert,
-  assertEquals,
-  assertStringIncludes,
-  assertThrows,
-} from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
 import {
   clip,
-  DIGEST_BEGIN,
-  DIGEST_END,
-  renderContractDigest,
-  spliceDigest,
+  renderContractDigestDoc,
   vocabularyNodes,
 } from "../scripts/contract_digest.ts";
+import { GENERATED_INVENTORY_POLICIES } from "../scripts/generated_inventory_policy.ts";
 import {
   isObject,
   type JsonObject,
@@ -48,7 +41,8 @@ import {
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
-const digest = await renderContractDigest(REPO_ROOT);
+const POLICY = GENERATED_INVENTORY_POLICIES["public-schema-publications"];
+const digest = await renderContractDigestDoc(REPO_ROOT);
 
 /** Count the backticks on one line; an odd count means an open code span. */
 function backticks(line: string): number {
@@ -305,7 +299,7 @@ Deno.test("every MCP resource and resource template is listed with its kind and 
     for (const resource of resources) {
       assertStringIncludes(
         section,
-        `| ${span(resource.name)} | ${String(resource.kind)} | ${
+        `| ${String(resource.name)} | ${String(resource.kind)} | ${
           span(resource.uri)
         } |`,
         `${publication.artifactPath} does not list ${resource.name}`,
@@ -318,8 +312,20 @@ Deno.test("every MCP resource and resource template is listed with its kind and 
 
 Deno.test("the digest is already in the tidy Markdown convention", async () => {
   assertEquals(
-    await canonicalGeneratedMarkdown("contract-digest.md", digest),
+    await canonicalGeneratedMarkdown(POLICY.artifactPath, digest),
     digest,
+  );
+});
+
+Deno.test("the digest page opens with its framing policy and the committed page matches the renderer", async () => {
+  assert(digest.startsWith(`${POLICY.banner}\n\n# ${POLICY.title}\n`));
+  for (const paragraph of POLICY.framing) {
+    assertStringIncludes(digest, paragraph);
+  }
+  assertEquals(
+    await Deno.readTextFile(join(REPO_ROOT, POLICY.artifactPath)),
+    digest,
+    `${POLICY.artifactPath} has drifted from the artifacts — run \`deno task codegen\` and commit the result`,
   );
 });
 
@@ -363,19 +369,4 @@ Deno.test("clip never leaves a code span open and keeps short text intact", () =
   assert(cut.endsWith("…"), cut);
   const inside = clip("Read `discern_update_overlap_report_fields` now", 16);
   assertEquals(backticks(inside) % 2, 0, inside);
-});
-
-Deno.test("spliceDigest replaces only the marker block and refuses a document without markers", () => {
-  const document =
-    `# Review\n\nprose before\n\n${DIGEST_BEGIN}\n\nold digest\n\n${DIGEST_END}\n\nprose after\n`;
-  const spliced = spliceDigest(document, "# New digest\n\n| a |\n| --- |\n");
-  assertStringIncludes(spliced, "prose before\n\n" + DIGEST_BEGIN);
-  assertStringIncludes(spliced, DIGEST_END + "\n\nprose after\n");
-  assertStringIncludes(spliced, "# New digest");
-  assert(!spliced.includes("old digest"));
-  assertThrows(
-    () => spliceDigest("# Review without markers\n", "digest"),
-    Error,
-    "markers",
-  );
 });
