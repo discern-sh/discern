@@ -33,6 +33,8 @@ This tracked backlog publishes with the repository by design. It records inspect
 
 ## Public site follow-ups
 
+- [ ] **Create the `/trust` page.** The pre-launch trust gateway was removed; design a replacement that frames local control, gate and Proof evidence, and the inspectable map from the claims registry, then register it as a published marketing page with the brand register. Evidence: `site/marketing_pages.ts`; `scripts/brand/claims.ts`; `site/ui/pages/HomePage.tsx`.
+- [ ] **Reconsider the hidden `/agents` page.** The For Agents composition stays registered but unpublished; decide whether to publish it, rework it, or retire it with its stylesheet, script, word-ceiling Standard, and social metadata. Evidence: `site/marketing_pages.ts`; `site/ui/pages/AgentsPage.tsx`; `discern.toml`.
 - [ ] **Review checkout locking for long-running project scripts.** Let a site watcher coexist with preparation in its worktree through an appropriate script capability or per-script locking policy, while preserving exclusion for scripts that mutate protected checkout state. Evidence: `src/engine/project_scripts.ts`; `src/engine/operation_execution.ts`; `src/engine/operation_lock.ts`; `project/scripts/site-watch`.
 
 - [ ] **Adopt a package search-palette lifecycle when one ships.** The design system's static Search palette leaves opening, dismissal, the query, the `showModal()` fallback, and script-built results to the consumer; move that page-owned script onto the package behaviour once the package records one, keeping the modal contract the accessibility tests hold. Evidence: `site/pages/assets/docs.js`; `site/ui/components/DocumentSearch.tsx`; `tests/site_accessibility_test.ts`.
