@@ -94,7 +94,8 @@ async function seriousAxeFindings(path: string): Promise<string[]> {
 
   // Audit the modal itself as well as its default-hidden state. Layoutless DOM
   // cannot click it open, but removing `hidden` exercises its static contract.
-  window.document.querySelector("[data-search]")?.removeAttribute("hidden");
+  window.document.querySelector("[data-discern-search-palette]")
+    ?.removeAttribute("hidden");
   const result = await window.axe.run(window.document, {
     runOnly: {
       type: "tag",
@@ -467,10 +468,14 @@ Deno.test("search keeps its modal focus contract without showModal support", asy
   const opener = document.querySelector<HTMLButtonElement>(
     "[data-search-open]",
   );
-  const palette = document.querySelector<HTMLDialogElement>("[data-search]");
-  const input = document.querySelector<HTMLInputElement>("[data-search-input]");
+  const palette = document.querySelector<HTMLDialogElement>(
+    "[data-discern-search-palette]",
+  );
+  const input = palette?.querySelector<HTMLInputElement>(
+    "[data-discern-search-palette-input]",
+  );
   const close = palette?.querySelector<HTMLButtonElement>(
-    ".discern-search-palette__close",
+    "[data-discern-search-palette-close]",
   );
   const background = [
     document.querySelector<HTMLElement>(".docs-skip"),
@@ -548,8 +553,9 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
     ],
     [
       "search input is a labelled combobox",
-      attribute("[data-search-input]", "role") === "combobox" &&
-      attribute("[data-search-input]", "aria-controls") ===
+      attribute("[data-discern-search-palette-input]", "role") ===
+        "combobox" &&
+      attribute("[data-discern-search-palette-input]", "aria-controls") ===
         "docs-search-results",
     ],
     [
@@ -559,9 +565,9 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
     [
       "search has an explicit close control",
       attribute(
-        "[data-search] button.discern-search-palette__close",
+        "[data-discern-search-palette] [data-discern-search-palette-close]",
         "aria-label",
-      )?.startsWith("Close search") === true,
+      ) === "Close search",
     ],
     [
       "drawer and dialog background state uses inert",

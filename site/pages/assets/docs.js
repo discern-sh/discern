@@ -316,20 +316,19 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
 
   // ── Search palette ───────────────────────────────────────────────────────
 
-  const palette = $("[data-search]");
-  const input = $("[data-search-input]");
+  // The package renders the palette statically and stamps these hooks for
+  // the consumer script that owns its lifecycle; the results region carries
+  // the page's own hooks.
+  const palette = $("[data-discern-search-palette]");
+  const input = $("[data-discern-search-palette-input]");
+  const close = $("[data-discern-search-palette-close]");
   const list = $("[data-search-results]");
   const empty = $("[data-search-empty]");
   const status = $("[data-search-status]");
   const showAll = $("[data-search-all]");
   const searchBackdrop = $("[data-search-backdrop]");
 
-  if (palette && input && list && empty && status && showAll) {
-    // The palette frame, field, and close control are the package's; the
-    // results anatomy is created here, so its container classes are too.
-    const close = $(".discern-search-palette__close", palette);
-    list.classList.add("discern-search-palette__list");
-    empty.classList.add("discern-search-palette__empty");
+  if (palette && input && close && list && empty && status && showAll) {
     let pages = null;
     let loadState = "idle";
     let allResults = [];
@@ -542,7 +541,7 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
     for (const trigger of $$("[data-search-open]")) {
       trigger.addEventListener("click", () => openSearch());
     }
-    close?.addEventListener("click", () => closeSearch());
+    close.addEventListener("click", () => closeSearch());
 
     doc.addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
