@@ -495,7 +495,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "proof-notes",
             title: "Durable proof notes",
             what:
-              'After a landing, `discern accept` writes the structured Proof to the landed trunk commit as a Git note in a versioned envelope ready for later signing, adding no commit to trunk history. `[repository].proof_notes = "fetch"` carries notes through ordinary fetches; publishing them stays an explicit push.',
+              'After a landing, `discern accept` writes the structured Proof to the landed trunk commit as a Git note in a versioned envelope ready for later signing, adding no commit to trunk history. `[repository].proof_notes_mode = "fetch"` carries notes through ordinary fetches; publishing them stays an explicit push.',
             why:
               "The review evidence outlives the worktree's removal and travels with the exact commit it vouches for.",
             plain: {

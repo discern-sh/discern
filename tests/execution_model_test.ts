@@ -336,7 +336,7 @@ Deno.test("execution model: update, acceptance and submission derive their cores
     worktreePath: "/repo.worktrees/model-test",
     mainRepo: "/repo",
     trunk: cfg.repository.trunk,
-    proofNotes: cfg.repository.proof_notes,
+    proofNotes: cfg.repository.proof_notes_mode,
     repositoryEnsureSteps: cfg.repository.ensure,
     smokeSteps: [],
     hasResources: true,

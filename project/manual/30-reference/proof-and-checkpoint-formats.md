@@ -85,7 +85,7 @@ Local recording changes no remote transport. To carry Proofs between clones:
 
 ```toml
 [repository]
-proof_notes = "fetch"
+proof_notes_mode = "fetch"
 ```
 
 Refresh or lifecycle convergence adds this mapping once per remote:

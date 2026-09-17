@@ -68,7 +68,7 @@
           "description": "Branch prefix for worktrees created by discern, e.g. \"agent/my-feature\".",
           "type": "string"
         },
-        "proof_notes": {
+        "proof_notes_mode": {
           "default": "local",
           "description": "Both modes record landed Proof notes locally. \"fetch\" also manages fetch-only transport. Publishing remains an explicit owner action; there is no off mode.",
           "type": "string",

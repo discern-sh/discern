@@ -197,13 +197,13 @@ Deno.test("launch numeric bounds reject fractions and out-of-range values", () =
 Deno.test("Proof-note mode is exactly local or fetch, and both load", () => {
   for (const mode of ["local", "fetch"]) {
     assertEquals(
-      parseConfigOrThrow(`[repository]\nproof_notes = "${mode}"\n`)
-        .repository.proof_notes,
+      parseConfigOrThrow(`[repository]\nproof_notes_mode = "${mode}"\n`)
+        .repository.proof_notes_mode,
       mode,
     );
   }
   assertEquals(
-    parseConfig('[repository]\nproof_notes = "off"\n').config,
+    parseConfig('[repository]\nproof_notes_mode = "off"\n').config,
     undefined,
   );
 });
@@ -219,7 +219,7 @@ Deno.test("repository owns the trunk, branch prefix, and shared convergence comm
   assertEquals(config.repository, {
     trunk: "stable",
     branch_prefix: "change/",
-    proof_notes: "local",
+    proof_notes_mode: "local",
     ensure: ["npm install", "make generated"],
   });
 });

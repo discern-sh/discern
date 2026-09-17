@@ -468,7 +468,7 @@ export function landingPlan(
     worktreePath: effort.path,
     mainRepo: effort.mainRepo,
     trunk: effort.trunk,
-    proofNotes: effort.ctx.config.repository.proof_notes,
+    proofNotes: effort.ctx.config.repository.proof_notes_mode,
     repositoryEnsureSteps: effort.ctx.config.repository.ensure,
     smokeSteps: planStageJobs(effort.ctx.config, "test")
       .filter((job) =>
@@ -691,7 +691,7 @@ async function recoverInterruptedJournal(
       const recording = await recordLandingProofNote({
         mainRepo: interrupted.transaction.main_repo,
         commit: interrupted.transaction.target,
-        mode: effort.ctx.config.repository.proof_notes,
+        mode: effort.ctx.config.repository.proof_notes_mode,
         proof: matching,
         checkpointDrops: uniqueCheckpointDrops([
           ...(matching?.checkpoint_drops ?? []),

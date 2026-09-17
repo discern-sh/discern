@@ -416,7 +416,10 @@ const PROBES: Record<string, DryRunProbe> = {
       const config = await Deno.readTextFile(configPath);
       await Deno.writeTextFile(
         configPath,
-        config.replace('proof_notes = "local"', 'proof_notes = "fetch"'),
+        config.replace(
+          'proof_notes_mode = "local"',
+          'proof_notes_mode = "fetch"',
+        ),
       );
       await git(
         dir,

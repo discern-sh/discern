@@ -735,7 +735,7 @@ const repositorySection = z.strictObject({
   branch_prefix: z.string().default(DEFAULT_WORKTREE_BRANCH_PREFIX).describe(
     `Branch prefix for worktrees created by discern, e.g. "${DEFAULT_WORKTREE_BRANCH_PREFIX}my-feature".`,
   ),
-  proof_notes: z.enum(["local", "fetch"]).default("local").describe(
+  proof_notes_mode: z.enum(["local", "fetch"]).default("local").describe(
     'Both modes record landed Proof notes locally. "fetch" also manages fetch-only transport. Publishing remains an explicit owner action; there is no off mode.',
   ),
   ensure: z.array(z.string()).default([]).describe(

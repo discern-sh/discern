@@ -20,7 +20,7 @@ aliases:
   - "repository"
   - "repository.trunk"
   - "repository.branch_prefix"
-  - "repository.proof_notes"
+  - "repository.proof_notes_mode"
   - "repository.ensure"
   - "map.dir"
   - "instructions.sources"
@@ -170,12 +170,12 @@ The project's identity and the paths discern keeps for it. The name and slug app
 
 Policy every checkout of this repository shares. The trunk is where accepted work lands and where the gate compares from. Branch naming and convergence commands keep the main checkout and every linked worktree usable after their tracked tree changes.
 
-| Key             | Type               | Default    | Description                                                                                                                                                                                                                                                                                                          |
-| --------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `trunk`         | string             | `"main"`   | The shared branch the gate compares against and completed work lands on. Detected at setup; DISCERN_TRUNK overrides it per invocation.                                                                                                                                                                               |
-| `branch_prefix` | string             | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature".                                                                                                                                                                                                                                             |
-| `proof_notes`   | `local` \| `fetch` | `"local"`  | Both modes record landed Proof notes locally. "fetch" also manages fetch-only transport. Publishing remains an explicit owner action; there is no off mode. `local` adds no transport; `fetch` manages a fetch-only mapping per remote. Publish only when the owner chooses: `git push <remote> refs/notes/discern`. |
-| `ensure`        | string[]           | `[]`       | Idempotent commands that make any checkout usable for its tracked tree, such as installing dependencies from a lockfile. They run in order on every worktree pass and after a landing.                                                                                                                               |
+| Key                | Type               | Default    | Description                                                                                                                                                                                                                                                                                                          |
+| ------------------ | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trunk`            | string             | `"main"`   | The shared branch the gate compares against and completed work lands on. Detected at setup; DISCERN_TRUNK overrides it per invocation.                                                                                                                                                                               |
+| `branch_prefix`    | string             | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature".                                                                                                                                                                                                                                             |
+| `proof_notes_mode` | `local` \| `fetch` | `"local"`  | Both modes record landed Proof notes locally. "fetch" also manages fetch-only transport. Publishing remains an explicit owner action; there is no off mode. `local` adds no transport; `fetch` manages a fetch-only mapping per remote. Publish only when the owner chooses: `git push <remote> refs/notes/discern`. |
+| `ensure`           | string[]           | `[]`       | Idempotent commands that make any checkout usable for its tracked tree, such as installing dependencies from a lockfile. They run in order on every worktree pass and after a landing.                                                                                                                               |
 
 ## `[map]`
 

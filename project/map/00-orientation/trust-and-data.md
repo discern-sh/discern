@@ -41,7 +41,7 @@ A green landing records a DSSE-compatible Proof note under `refs/notes/discern`.
 
 Only the current split v1 envelope is a readable Proof note. The note is authored by `discern <done@discern.sh>` unless `DISCERN_NO_ATTRIBUTION` asks Git to use the repository identity instead. Delete one with `git notes --ref=discern remove <commit>`, or delete the local channel with `git update-ref -d refs/notes/discern`.
 
-This local record is on by default. It changes no remote setting and sends nothing anywhere. `[repository].proof_notes = "fetch"` separately opts into transport: refresh adds a fetch mapping into `refs/discern/remotes/<remote>/notes`. The mapping remains valid when a remote has no Proof note, including before its first publication and after deletion. Your ordinary `git fetch` can carry the remote Proof history. discern still makes no network request.
+This local record is on by default. It changes no remote setting and sends nothing anywhere. `[repository].proof_notes_mode = "fetch"` separately opts into transport: refresh adds a fetch mapping into `refs/discern/remotes/<remote>/notes`. The mapping remains valid when a remote has no Proof note, including before its first publication and after deletion. Your ordinary `git fetch` can carry the remote Proof history. discern still makes no network request.
 
 There is no push mapping. Configuring one would change plain `git push`, so publishing stays explicit. GitHub stores the ref but does not show it on commit pages. Branch and tag CI triggers ignore a notes-only push; raw push webhooks may still observe it. [Proof notes](../20-quality-gate/proof-notes.md) has the commands and recovery.
 

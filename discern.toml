@@ -92,7 +92,7 @@
   # This repository carries landed proof notes through ordinary fetches. A remote
   # does not need to have published its first proof note. Publishing remains an
   # explicit `git push <remote> refs/notes/discern`.
-  proof_notes = "fetch"
+  proof_notes_mode = "fetch"
 
   # Idempotent commands that make any checkout usable for its tracked tree,
   # such as installing dependencies from a lockfile. They run in order on every

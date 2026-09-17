@@ -523,7 +523,7 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
     worktreePath: "the worktree directory",
     mainRepo: "the trunk checkout",
     trunk: cfg.repository.trunk,
-    proofNotes: cfg.repository.proof_notes,
+    proofNotes: cfg.repository.proof_notes_mode,
     repositoryEnsureSteps: cfg.repository.ensure,
     smokeSteps,
     hasResources: destroyable.length > 0,

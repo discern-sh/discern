@@ -56,7 +56,7 @@ function proofConfig(mode: "local" | "fetch"): string {
     "",
     "[repository]",
     'trunk = "main"',
-    `proof_notes = "${mode}"`,
+    `proof_notes_mode = "${mode}"`,
     "",
     "[instructions]",
     "sources = []",
