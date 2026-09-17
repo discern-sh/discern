@@ -334,7 +334,11 @@ Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discer
     await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the Map skeletons
     for (
       const rel of [
-        `${SOURCE_PATHS.map.defaultPath}development/getting-started.md`,
+        join(
+          SOURCE_PATHS.map.defaultPath,
+          "development",
+          "getting-started.md",
+        ),
       ]
     ) {
       const body = await Deno.readTextFile(join(dir, rel));
