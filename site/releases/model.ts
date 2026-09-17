@@ -1,6 +1,9 @@
 /** Pure release comparison and its versioned public JSON contract. */
 import { z } from "@zod/zod";
-import { decisionVocabulary } from "../../src/shared/result_vocabulary.ts";
+import {
+  decisionVocabulary,
+  stampResultVocabulary,
+} from "../../src/shared/result_vocabulary.ts";
 import { compareVersions, parseVersion } from "../../src/shared/semver.ts";
 import {
   DISCERN_INSTALL_URL,
@@ -13,7 +16,7 @@ import {
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../../src/shared/public_schemas.ts";
 import { type AuthoredRelease, publicRelease } from "./records.ts";
-import { rewritePublicOutput } from "../../src/shared/result_codegen.ts";
+import { publicOutputSchema } from "../../src/shared/result_codegen.ts";
 
 export const publicationSchema = z.strictObject({
   version: z.string(),
@@ -183,16 +186,19 @@ export function compareReleases(
 
 /** Publish the same validation spine as an independently versioned result schema. */
 export function releaseJsonSchema(): Record<string, unknown> {
-  const schema = rewritePublicOutput(
-    z.json().parse({
-      ...z.toJSONSchema(z.union([comparisonSchema, releaseErrorSchema])),
-      $id: RELEASE_SCHEMA_ID,
-      [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
-        RESULT_SCHEMA_COMPATIBILITY_POLICY,
+  const generated = z.json().parse({
+    ...z.toJSONSchema(z.union([comparisonSchema, releaseErrorSchema]), {
+      override: stampResultVocabulary,
     }),
-  );
-  if (typeof schema !== "object" || schema === null || Array.isArray(schema)) {
-    throw new TypeError("the rewritten releases schema must be an object");
+    $id: RELEASE_SCHEMA_ID,
+    [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+  });
+  if (
+    typeof generated !== "object" || generated === null ||
+    Array.isArray(generated)
+  ) {
+    throw new TypeError("the generated releases schema must be an object");
   }
-  return schema;
+  return publicOutputSchema(generated);
 }

@@ -1,6 +1,10 @@
 /** Public schema identities and the root generated artifacts served at them. */
 
 import { ON_DISK_FORMATS } from "./on_disk_formats.ts";
+import {
+  RESULT_OPEN_VOCABULARIES,
+  RESULT_VOCABULARY_KEYWORD,
+} from "./result.ts";
 
 /** Build one public schema identifier from its major and artifact name. */
 function publicSchemaId<const Major extends number, const Name extends string>(
@@ -104,16 +108,22 @@ export const PUBLIC_SCHEMA_STABILITY_KEY = "x-discern-stability";
 /** Record field carrying a manifest member's stability tier. */
 export const MANIFEST_STABILITY_FIELD = "stability";
 
-/** Every discern extension keyword accepted by strict public-schema compilers. */
-export const PUBLIC_SCHEMA_EXTENSION_KEYWORDS = [
+/**
+ * Every discern extension keyword accepted by strict public-schema compilers:
+ * the fixed root and node keywords, the vocabulary marker, and one root key
+ * per open vocabulary, derived from the registry so a new vocabulary enrols
+ * the moment it exists.
+ */
+export const PUBLIC_SCHEMA_EXTENSION_KEYWORDS: readonly string[] = [
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
   PUBLIC_SCHEMA_STABILITY_KEY,
+  RESULT_VOCABULARY_KEYWORD,
   "x-discern-contracts",
   "x-discern-dsse-envelope",
   "x-discern-dsse-protocol",
-  "x-discern-error-slugs",
   "x-discern-payload-type",
-] as const;
+  ...Object.keys(RESULT_OPEN_VOCABULARIES),
+];
 
 export const CONFIG_SCHEMA_COMPATIBILITY_POLICY = "config-input";
 export const RESULT_SCHEMA_COMPATIBILITY_POLICY = "result-output";

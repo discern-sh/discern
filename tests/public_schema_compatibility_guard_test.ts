@@ -44,6 +44,7 @@ import {
   RESULT_CONTRACT_REFERENCE_FIELDS,
 } from "../src/shared/result_contracts.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
+import { RESULT_OPEN_VOCABULARIES } from "../src/shared/result.ts";
 import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -1868,6 +1869,7 @@ const NON_IDENTITY_KEYS = new Set([
   "examples",
   "title",
   "usage",
+  ...Object.keys(RESULT_OPEN_VOCABULARIES),
 ]);
 
 /**

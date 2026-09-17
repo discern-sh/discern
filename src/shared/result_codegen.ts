@@ -40,7 +40,15 @@ import {
   ProofNotePayloadSchema,
   ProofNoteSchema,
 } from "./result_schemas.ts";
-import { ERROR_SLUGS } from "./result.ts";
+import {
+  RESULT_OPEN_VOCABULARIES,
+  RESULT_VOCABULARY_KEYWORD,
+  type ResultOpenVocabularyKey,
+} from "./result.ts";
+import {
+  isOpenVocabularyKey,
+  stampResultVocabulary,
+} from "./result_vocabulary.ts";
 import { RESULT_COMPLETION_POLICIES } from "./result_completion.ts";
 import { PROOF_NOTES_REF } from "./git_conventions.ts";
 
@@ -69,15 +77,25 @@ function isObject(value: unknown): value is JsonObject {
 }
 
 /**
- * Convert one Zod schema to its JSON-schema body. Sub-schemas registered with
- * a metadata `id` (the named definitions, e.g. the proof) convert to
- * root-relative `$refs` with their definition beside the body — `hoisted`
- * collects those definitions so the caller can place them in the document's
- * root `$defs`, where the generated references point. Identical repeats
- * coalesce; two different definitions under one name refuse loudly.
+ * Convert one Zod schema to its JSON-schema body, stamping every output
+ * vocabulary with its key. Sub-schemas registered with a metadata `id` (the
+ * named definitions, e.g. the proof) convert to root-relative `$refs` with
+ * their definition beside the body — `hoisted` collects those definitions so
+ * the caller can place them in the document's root `$defs`, where the
+ * generated references point. Identical repeats coalesce; two different
+ * definitions under one name refuse loudly. `stamp: false` yields the plain
+ * conversion Zod performs on its own, which is what an envelope's embedded
+ * state metadata carries.
  */
-function generatedSchema(schema: z.ZodType, hoisted: JsonObject): JsonObject {
-  const raw = z.toJSONSchema(schema, { io: "output" }) as JsonObject;
+function generatedSchema(
+  schema: z.ZodType,
+  hoisted: JsonObject,
+  stamp = true,
+): JsonObject {
+  const raw = z.toJSONSchema(schema, {
+    io: "output",
+    ...(stamp ? { override: stampResultVocabulary } : {}),
+  }) as JsonObject;
   const { $schema: _schema, $defs, ...body } = raw;
   if (isObject($defs)) {
     for (const [name, def] of Object.entries($defs)) {
@@ -170,37 +188,51 @@ function mcpToolResultSchema(structuredContentRef: JsonObject): JsonObject {
   };
 }
 
-/** Relax a strict runtime schema to the additive compatibility policy we publish. */
-function publicSchema(schema: JsonObject): JsonObject {
-  const rewritten = rewritePublicOutput(schema);
-  return isObject(rewritten) ? rewritten : schema;
+/**
+ * Relax a strict runtime schema to the additive compatibility policy we
+ * publish: object fields stay additive, every open vocabulary becomes a
+ * string that keeps its vocabulary key, and the known members of each open
+ * vocabulary the document uses are published under that key at the root, in
+ * registry order. Closed decision vocabularies keep their enums.
+ */
+export function publicOutputSchema(schema: JsonObject): JsonObject {
+  const used = new Set<ResultOpenVocabularyKey>();
+  const rewritten = rewriteOutputNode(schema, used);
+  const published: JsonObject = {};
+  for (const [key, vocabulary] of Object.entries(RESULT_OPEN_VOCABULARIES)) {
+    if (isOpenVocabularyKey(key) && used.has(key)) {
+      published[key] = [...vocabulary.values];
+    }
+  }
+  return { ...(isObject(rewritten) ? rewritten : schema), ...published };
 }
 
-/** Recognize the runtime's closed error-slug enum by ordered canonical membership. */
-function isErrorSlugEnum(value: JsonObject): boolean {
-  return Array.isArray(value.enum) &&
-    value.enum.length === ERROR_SLUGS.length &&
-    value.enum.every((member, index) => member === ERROR_SLUGS[index]);
-}
-
-/** Recursively permit additive fields and future error slugs in public output. */
-export function rewritePublicOutput(value: JsonValue): JsonValue {
+/** Recursively permit additive fields and widen open vocabularies, recording the keys met. */
+function rewriteOutputNode(
+  value: JsonValue,
+  used: Set<ResultOpenVocabularyKey>,
+): JsonValue {
   if (Array.isArray(value)) {
-    return value.map(rewritePublicOutput);
+    return value.map((entry) => rewriteOutputNode(entry, used));
   }
   if (!isObject(value)) {
     return value;
+  }
+  const vocabulary = value[RESULT_VOCABULARY_KEYWORD];
+  const open = typeof vocabulary === "string" &&
+    isOpenVocabularyKey(vocabulary);
+  if (open) {
+    used.add(vocabulary);
   }
   const out: JsonObject = {};
   for (const [key, child] of Object.entries(value)) {
     if (key === "additionalProperties" && child === false) {
       continue;
     }
-    if (key === "error" && isObject(child) && isErrorSlugEnum(child)) {
-      out[key] = { type: "string" };
+    if (open && key === "enum") {
       continue;
     }
-    out[key] = rewritePublicOutput(child);
+    out[key] = rewriteOutputNode(child, used);
   }
   if (Array.isArray(out.prefixItems)) {
     const tupleLength = out.prefixItems.length;
@@ -289,6 +321,9 @@ export function buildResultJsonSchema(): JsonObject {
   const defs: JsonObject = {};
   const hoisted: JsonObject = {};
   const resultState = generatedSchema(EnvelopeStateSchema, hoisted);
+  // Each envelope embeds the state constraint as plain metadata, so the
+  // repeat is recognized against the unstamped conversion.
+  const embeddedResultState = generatedSchema(EnvelopeStateSchema, {}, false);
   defs[RESULT_STATE_DEFINITION] = {
     title: RESULT_STATE_DEFINITION,
     ...resultState,
@@ -300,7 +335,7 @@ export function buildResultJsonSchema(): JsonObject {
       ...definitionStability(contract),
       ...referenceResultState(
         generatedSchema(contract.schema, hoisted),
-        resultState,
+        embeddedResultState,
       ),
     };
   }
@@ -314,7 +349,7 @@ export function buildResultJsonSchema(): JsonObject {
   }
   defs.DiscernCliJsonResult = cliUnionSchema();
   defs.DiscernMcpJsonResult = mcpUnionSchema();
-  return publicSchema({
+  return publicOutputSchema({
     $schema: "https://json-schema.org/draft/2020-12/schema",
     $id: RESULT_SCHEMA_ID,
     [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
@@ -341,8 +376,7 @@ export function buildResultJsonSchema(): JsonObject {
         }`,
       }),
     })),
-    "x-discern-error-slugs": [...ERROR_SLUGS],
-  }) as JsonObject;
+  });
 }
 
 /** Serialize the published result schema with stable indentation and a final newline. */
@@ -395,7 +429,7 @@ export function buildProofNoteJsonSchema(): JsonObject {
       },
     },
   };
-  return publicSchema({
+  return publicOutputSchema({
     $schema: "https://json-schema.org/draft/2020-12/schema",
     $id: PROOF_NOTE_SCHEMA_ID,
     [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
@@ -418,7 +452,7 @@ export function buildProofNoteJsonSchema(): JsonObject {
     "x-discern-dsse-protocol": PROOF_NOTE_DSSE_PROTOCOL,
     ...annotatedBody,
     ...(Object.keys(defs).length > 0 ? { $defs: defs } : {}),
-  }) as JsonObject;
+  });
 }
 
 /** Serialize the proof-envelope schema with stable indentation and a final newline. */
@@ -735,15 +769,21 @@ function renderSchemaTypeAlias(name: string, type: string): string {
 export function renderResultTypesDts(): string {
   const schema = buildResultJsonSchema();
   const defs = isObject(schema.$defs) ? schema.$defs : {};
-  const out: string[] = [
-    `// ${GENERATED_BANNER}`,
-    "",
-    renderUnionTypeAlias(
-      "DiscernKnownErrorSlug",
-      ERROR_SLUGS.map((slug) => literal(slug)),
-    ),
-    "",
-  ];
+  const out: string[] = [`// ${GENERATED_BANNER}`, ""];
+  // One known-members union per open vocabulary the schema publishes, in
+  // registry order. The fields themselves stay `string`: a newer engine may
+  // emit a member these declarations do not yet name.
+  for (const [key, vocabulary] of Object.entries(RESULT_OPEN_VOCABULARIES)) {
+    const members = schema[key];
+    if (!Array.isArray(members)) continue;
+    out.push(
+      renderUnionTypeAlias(
+        `DiscernKnown${vocabulary.name}`,
+        members.map(literal),
+      ),
+      "",
+    );
+  }
   // The named definitions the contracts reference (hoisted from metadata ids)
   // render first, so every later `$ref` resolves to an exported type.
   const contractNames = new Set([

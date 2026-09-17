@@ -477,6 +477,9 @@ export type ErrorSlug = (typeof ERROR_SLUGS)[number];
 
 // ── the published output vocabularies ───────────────────────────────────────
 
+/** Schema-node keyword naming the vocabulary an output enum or string carries. */
+export const RESULT_VOCABULARY_KEYWORD = "x-discern-vocabulary";
+
 /** One published output vocabulary: its declaration name and current members. */
 export interface ResultVocabulary {
   /**

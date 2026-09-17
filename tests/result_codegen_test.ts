@@ -41,7 +41,11 @@ import {
   STABILITY_TIER_EVOLVING,
 } from "../src/shared/public_schemas.ts";
 import { decodeWith } from "./decode_cli_result.ts";
-import { ERROR_SLUGS } from "../src/shared/result.ts";
+import {
+  ERROR_SLUGS,
+  RESULT_OPEN_VOCABULARIES,
+  RESULT_VOCABULARY_KEYWORD,
+} from "../src/shared/result.ts";
 import { RESULT_COMPLETION_POLICIES } from "../src/shared/result_completion.ts";
 import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
@@ -596,26 +600,38 @@ Deno.test("public result contracts publish known error slugs without closing the
     assert(isRecord(error), `${typeName}.error should be a schema`);
     assertEquals(
       error,
-      { type: "string" },
+      {
+        type: "string",
+        [RESULT_VOCABULARY_KEYWORD]: "x-discern-error-slugs",
+      },
       `${typeName}.error must accept future slugs in the public schema`,
     );
   }
-
-  const types = renderResultTypesDts();
-  const alias = types.match(
-    /export type DiscernKnownErrorSlug =\n?([\s\S]*?);\n\n/,
-  );
   assert(
-    alias !== null,
-    "generated types should publish the known-error union",
-  );
-  const members = [...(alias[0].matchAll(/"([^"]+)"/g))]
-    .map((match) => match[1]);
-  assertEquals(members, [...ERROR_SLUGS]);
-  assert(
-    !types.includes("error?:\n    |"),
+    !renderResultTypesDts().includes("error?:\n    |"),
     "generated envelope error fields should remain forward-compatible strings",
   );
+});
+
+Deno.test("the declarations export one known-members union per published open vocabulary", () => {
+  const schema = buildResultJsonSchema();
+  const types = renderResultTypesDts();
+  for (const [key, vocabulary] of Object.entries(RESULT_OPEN_VOCABULARIES)) {
+    const published = schema[key];
+    const alias = types.match(
+      new RegExp(
+        `export type DiscernKnown${vocabulary.name} =\\n?([\\s\\S]*?);\\n\\n`,
+      ),
+    );
+    if (!Array.isArray(published)) {
+      assertEquals(alias, null, `${vocabulary.name} is not published here`);
+      continue;
+    }
+    assert(alias !== null, `${vocabulary.name} needs a known-members union`);
+    const members = [...(alias[0].matchAll(/"([^"]+)"/g))]
+      .map((match) => String(match[1]));
+    assertEquals(members, published.map(String), vocabulary.name);
+  }
 });
 
 Deno.test("public JSON schema exposes reachable CLI and MCP union entrypoints", () => {

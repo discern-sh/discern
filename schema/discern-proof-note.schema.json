@@ -181,7 +181,8 @@
                   "enum": [
                     "strict",
                     "report"
-                  ]
+                  ],
+                  "x-discern-vocabulary": "x-discern-validation-modes"
                 },
                 "requirements": {
                   "minItems": 1,
@@ -200,7 +201,8 @@
                           "job",
                           "scope",
                           "standard"
-                        ]
+                        ],
+                        "x-discern-vocabulary": "x-discern-requirement-kinds"
                       },
                       "definition": {
                         "type": "string",
@@ -234,7 +236,8 @@
                               "job",
                               "scope",
                               "standard"
-                            ]
+                            ],
+                            "x-discern-vocabulary": "x-discern-requirement-kinds"
                           },
                           "definition": {
                             "type": "string",
@@ -368,14 +371,16 @@
                         "enum": [
                           "completion",
                           "diagnostic"
-                        ]
+                        ],
+                        "x-discern-vocabulary": "x-discern-evidence-purposes"
                       },
                       "mode": {
                         "type": "string",
                         "enum": [
                           "strict",
                           "report"
-                        ]
+                        ],
+                        "x-discern-vocabulary": "x-discern-validation-modes"
                       },
                       "applicability": {
                         "type": "object",
@@ -727,14 +732,16 @@
                     "enum": [
                       "completion",
                       "diagnostic"
-                    ]
+                    ],
+                    "x-discern-vocabulary": "x-discern-evidence-purposes"
                   },
                   "mode": {
                     "type": "string",
                     "enum": [
                       "strict",
                       "report"
-                    ]
+                    ],
+                    "x-discern-vocabulary": "x-discern-validation-modes"
                   },
                   "state": {
                     "oneOf": [
@@ -891,11 +898,7 @@
                           },
                           "outcome": {
                             "type": "string",
-                            "enum": [
-                              "passed",
-                              "failed",
-                              "cancelled"
-                            ]
+                            "x-discern-vocabulary": "x-discern-attempt-outcomes"
                           },
                           "finished_at": {
                             "type": "integer",
@@ -987,7 +990,8 @@
           "enum": [
             "strict",
             "report"
-          ]
+          ],
+          "x-discern-vocabulary": "x-discern-validation-modes"
         },
         "checkpoint_drops": {
           "type": "array",
@@ -1011,15 +1015,7 @@
                   },
                   "reason": {
                     "type": "string",
-                    "enum": [
-                      "merge_base_unresolved",
-                      "governing_config_unreadable",
-                      "governing_config_invalid",
-                      "open_question_store_unreadable",
-                      "open_question_store_corrupt",
-                      "declaration_evidence_unavailable",
-                      "strand_check_unavailable"
-                    ]
+                    "x-discern-vocabulary": "x-discern-policy-checkpoint-drop-reasons"
                   },
                   "account": {
                     "type": "string",
@@ -1049,38 +1045,15 @@
                     "enum": [
                       "stop",
                       "advise"
-                    ]
+                    ],
+                    "x-discern-vocabulary": "x-discern-checkpoint-modes"
                   },
                   "policy_commit": {
                     "type": "string"
                   },
                   "reason": {
                     "type": "string",
-                    "enum": [
-                      "checkpoint_missing_question",
-                      "checkpoint_question_file_missing",
-                      "checkpoint_question_file_invalid_path",
-                      "checkpoint_question_file_not_regular",
-                      "checkpoint_question_file_oversized",
-                      "checkpoint_question_file_invalid_utf8",
-                      "checkpoint_question_file_unreadable",
-                      "checkpoint_question_source_conflict",
-                      "checkpoint_selector_conflict",
-                      "checkpoint_unknown_scope",
-                      "effort_diff_unreadable",
-                      "trigger_content_unavailable",
-                      "trigger_history_unavailable",
-                      "when_spawn_failed",
-                      "when_timeout",
-                      "when_invalid_exit",
-                      "when_cancelled",
-                      "when_input_failed",
-                      "when_input_cleanup_failed",
-                      "when_output_limit",
-                      "open_question_store_rebuilt",
-                      "subject_unavailable",
-                      "open_question_store_write_failed"
-                    ]
+                    "x-discern-vocabulary": "x-discern-entry-checkpoint-drop-reasons"
                   },
                   "account": {
                     "type": "string",
@@ -1130,7 +1103,8 @@
                 "enum": [
                   "up",
                   "down"
-                ]
+                ],
+                "x-discern-vocabulary": "x-discern-proposal-directions"
               },
               "trunk_limit": {
                 "type": "number"
@@ -1212,11 +1186,7 @@
           "properties": {
             "source": {
               "type": "string",
-              "enum": [
-                "conversation",
-                "standing-grant",
-                "effort-grant"
-              ]
+              "x-discern-vocabulary": "x-discern-consent-sources"
             },
             "scopes": {
               "type": "array",
@@ -1266,7 +1236,8 @@
                 "enum": [
                   "up",
                   "down"
-                ]
+                ],
+                "x-discern-vocabulary": "x-discern-proposal-directions"
               },
               "trunk_limit": {
                 "type": "number"
@@ -1481,7 +1452,8 @@
                           "job",
                           "scope",
                           "standard"
-                        ]
+                        ],
+                        "x-discern-vocabulary": "x-discern-requirement-kinds"
                       },
                       "definition": {
                         "type": "string",
@@ -1500,7 +1472,8 @@
                       "failed",
                       "unrun",
                       "stale"
-                    ]
+                    ],
+                    "x-discern-vocabulary": "x-discern-exception-states"
                   },
                   "evidence_id": {
                     "anyOf": [
@@ -1670,5 +1643,49 @@
       ],
       "description": "The Proof claim carried as UTF-8 JSON in the DSSE payload: the landed commit, structured gate facts, separate human presentation, optional acceptance evidence (consent plus authorized variances), and optional issuer assertion and intent reference."
     }
-  }
+  },
+  "x-discern-policy-checkpoint-drop-reasons": [
+    "merge_base_unresolved",
+    "governing_config_unreadable",
+    "governing_config_invalid",
+    "open_question_store_unreadable",
+    "open_question_store_corrupt",
+    "declaration_evidence_unavailable",
+    "strand_check_unavailable"
+  ],
+  "x-discern-entry-checkpoint-drop-reasons": [
+    "checkpoint_missing_question",
+    "checkpoint_question_file_missing",
+    "checkpoint_question_file_invalid_path",
+    "checkpoint_question_file_not_regular",
+    "checkpoint_question_file_oversized",
+    "checkpoint_question_file_invalid_utf8",
+    "checkpoint_question_file_unreadable",
+    "checkpoint_question_source_conflict",
+    "checkpoint_selector_conflict",
+    "checkpoint_unknown_scope",
+    "effort_diff_unreadable",
+    "trigger_content_unavailable",
+    "trigger_history_unavailable",
+    "when_spawn_failed",
+    "when_timeout",
+    "when_invalid_exit",
+    "when_cancelled",
+    "when_input_failed",
+    "when_input_cleanup_failed",
+    "when_output_limit",
+    "open_question_store_rebuilt",
+    "subject_unavailable",
+    "open_question_store_write_failed"
+  ],
+  "x-discern-consent-sources": [
+    "conversation",
+    "standing-grant",
+    "effort-grant"
+  ],
+  "x-discern-attempt-outcomes": [
+    "passed",
+    "failed",
+    "cancelled"
+  ]
 }

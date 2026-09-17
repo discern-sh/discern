@@ -19,7 +19,8 @@
             "update-available",
             "ahead",
             "no-stable-release"
-          ]
+          ],
+          "x-discern-vocabulary": "x-discern-release-statuses"
         },
         "latest_stable": {
           "type": "object",
@@ -47,7 +48,8 @@
                 "stable",
                 "prerelease",
                 "candidate"
-              ]
+              ],
+              "x-discern-vocabulary": "x-discern-release-publications"
             }
           },
           "required": [
@@ -85,7 +87,8 @@
                   "stable",
                   "prerelease",
                   "candidate"
-                ]
+                ],
+                "x-discern-vocabulary": "x-discern-release-publications"
               }
             },
             "required": [
@@ -127,7 +130,8 @@
                       "stable",
                       "prerelease",
                       "candidate"
-                    ]
+                    ],
+                    "x-discern-vocabulary": "x-discern-release-publications"
                   }
                 },
                 "required": [
@@ -166,7 +170,8 @@
                       "stable",
                       "prerelease",
                       "candidate"
-                    ]
+                    ],
+                    "x-discern-vocabulary": "x-discern-release-publications"
                   }
                 },
                 "required": [
@@ -205,7 +210,8 @@
                       "stable",
                       "prerelease",
                       "candidate"
-                    ]
+                    ],
+                    "x-discern-vocabulary": "x-discern-release-publications"
                   }
                 },
                 "required": [
