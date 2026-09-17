@@ -124,7 +124,7 @@ function navigationItems(document: Document): InstructionItem[] {
   const items: InstructionItem[] = [];
   for (
     const section of document.querySelectorAll(
-      ".docs-nav-scroll .discern-docs-nav__section",
+      "#docs-nav .discern-docs-nav__section",
     )
   ) {
     const sectionTitle = section.querySelector(".docs-nav-chapter-title")

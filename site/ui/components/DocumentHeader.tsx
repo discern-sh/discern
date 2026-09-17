@@ -22,8 +22,9 @@ export interface DocumentHeaderProps {
 }
 
 /**
- * The page-owned scripts activate the drawer and search controls through
- * their `data-*` hooks; the package behavior activates the theme control.
+ * The package behaviors activate the drawer toggle, which renders hidden
+ * until the layout makes the navigation a drawer, and the theme control;
+ * page-owned script activates the search control through its `data-*` hook.
  */
 export function DocumentHeader(
   { rootRoute, contextLabel, searchLabel, navigationId }: DocumentHeaderProps,
@@ -37,7 +38,10 @@ export function DocumentHeader(
             className="docs-burger"
             icon={<MenuIcon />}
             label="Open navigation"
-            data-drawer-toggle=""
+            hidden
+            data-discern-docs-drawer-toggle=""
+            data-discern-open-label="Open navigation"
+            data-discern-close-label="Close navigation"
             aria-controls={navigationId}
             aria-expanded={false}
           />

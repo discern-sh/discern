@@ -177,7 +177,7 @@ Deno.test("the manual cover shows task guidance before its complete browse tree"
   const res = await get("/docs", BROWSER);
   const html = await res.text();
   const dom = new JSDOM(html);
-  const nav = dom.window.document.querySelector(".docs-nav-scroll");
+  const nav = dom.window.document.querySelector("#docs-nav");
   const childRoutes = [...nav?.querySelectorAll("li > a") ?? []]
     .map((link) => link.getAttribute("href") ?? "");
   assertEquals(
@@ -239,7 +239,7 @@ Deno.test("every guide keeps the complete canonical nav and marks only itself", 
   for (const current of site.pages) {
     const html = await (await get(current.route, BROWSER)).text();
     const dom = new JSDOM(html);
-    const nav = dom.window.document.querySelector(".docs-nav-scroll");
+    const nav = dom.window.document.querySelector("#docs-nav");
     assertEquals(
       [...nav?.querySelectorAll("li > a") ?? []].map((link) =>
         link.getAttribute("href")
@@ -297,7 +297,7 @@ Deno.test("docs navigation foot keeps the three durable reference links visible"
     );
     assertEquals(
       dom.window.document.querySelectorAll(
-        ".docs-nav-scroll [aria-current='page']",
+        "#docs-nav [aria-current='page']",
       ).length,
       0,
       route,
@@ -520,13 +520,23 @@ Deno.test("document structure arrives before enhancement scripts can paint", asy
   );
 
   const shell = await (await get("/docs", BROWSER)).text();
-  const bootstrap = shell.indexOf('classList.add("docs-js")');
   const firstStylesheet = shell.indexOf('<link rel="stylesheet"');
-  assert(bootstrap >= 0, "the docs enhancement class is missing");
-  assert(
-    bootstrap < firstStylesheet,
-    "the enhancement class must resolve before the first stylesheet",
-  );
+  for (
+    const [marker, statement] of [
+      ["the docs enhancement class", 'classList.add("docs-js")'],
+      [
+        "the package drawer's first-paint marker",
+        'setAttribute("data-discern-docs-drawer-enhanced","")',
+      ],
+    ] as const
+  ) {
+    const bootstrap = shell.indexOf(statement);
+    assert(bootstrap >= 0, `${marker} is missing`);
+    assert(
+      bootstrap < firstStylesheet,
+      `${marker} must resolve before the first stylesheet`,
+    );
+  }
 });
 
 Deno.test("the setup tutorial has a literal title without changing its durable route", async () => {
@@ -875,23 +885,51 @@ Deno.test("rendered Markdown rules use the editorial discern mark", async () => 
   assertStringIncludes(css, "transform: translate(-50%, -60%)");
 });
 
-Deno.test("the docs rails scroll flush beneath the header and footer rule", async () => {
+Deno.test("the docs rails are the package layout's columns, not site composition", async () => {
   const css = await Deno.readTextFile(
     new URL("../site/pages/assets/docs.css", import.meta.url),
   );
+  // The package layout owns the sticky rails, the drawer, and the columns;
+  // the site keeps the shell wider than the package's article measure.
+  assertEquals(css.includes("position: sticky"), false);
+  assertEquals(css.includes("position: fixed"), true, "the search fallback");
   assertStringIncludes(
     css,
-    ".docs-nav {\n  position: sticky;\n  top: 56px;",
+    ".docs-layout {\n  --discern-docs-layout-max: var(--docs-page-max);",
   );
-  assertStringIncludes(css, "padding-block: 0 var(--discern-space-4);");
-  assertStringIncludes(
-    css,
-    ".docs-nav-scroll {\n  flex: 1;\n  overflow-y: auto;\n  padding-block-start: var(--discern-space-8);",
-  );
-  assertStringIncludes(css, "margin-top: 0;");
   assertEquals(css.includes(".docs-chapters::before"), false);
   assertEquals(css.includes(".docs-toc-d3"), false);
   assertEquals(css.includes(".docs-nav-disclosure"), false);
+
+  const site = await loadDocsSite();
+  const page = site.pages.find((candidate) => !candidate.isIndex);
+  assert(page !== undefined);
+  const dom = new JSDOM(await (await get(page.route, BROWSER)).text());
+  const document = dom.window.document;
+  const layout = document.querySelector("[data-discern-docs-layout]");
+  const navigation = document.getElementById("docs-nav");
+  const contents = document.querySelector(".docs-toc");
+  const main = document.getElementById("doc");
+  const facts = {
+    navigationInLayout: navigation?.closest("[data-discern-docs-layout]") ===
+      layout,
+    contentsInRail: contents?.closest("aside")?.getAttribute("aria-label"),
+    mainInLayout: main?.closest("[data-discern-docs-layout]") === layout,
+    skipLinkTargetsMain: document.querySelector(".docs-skip")?.getAttribute(
+      "href",
+    ),
+    toggleControlsNavigation: document.querySelector(
+      "[data-discern-docs-drawer-toggle]",
+    )?.getAttribute("aria-controls"),
+  };
+  dom.window.close();
+  assertEquals(facts, {
+    navigationInLayout: true,
+    contentsInRail: "Contents",
+    mainInLayout: true,
+    skipLinkTargetsMain: "#doc",
+    toggleControlsNavigation: "docs-nav",
+  });
 });
 
 Deno.test("table words remain physically readable", async () => {
@@ -959,7 +997,7 @@ Deno.test("inline code shares one readable optical scale across docs content", a
   // undersized legacy 0.8125em included — must join this set deliberately.
   assertEquals(sizes, [
     "/assets/docs.css .doc-body pre > code → font: 400 0.8125rem/1.7 var(--discern-font-mono)",
-    "/assets/docs.css .docs-main :not(pre) > code → font-size: 0.9em",
+    "/assets/docs.css .docs-layout :not(pre) > code → font-size: 0.9em",
   ]);
 });
 
@@ -1055,8 +1093,11 @@ Deno.test("decisions stay outside the sidebar and enter through the colophon", a
   const site = await loadDocsSite();
   const res = await get("/docs", BROWSER);
   const html = await res.text();
-  const sidebar = /<aside class="docs-nav"[\s\S]*?<\/aside>/.exec(html)?.[0] ??
+  const dom = new JSDOM(html);
+  const sidebar = dom.window.document.getElementById("docs-nav")?.innerHTML ??
     "";
+  dom.window.close();
+  assert(sidebar.length > 0);
   assert(!sidebar.includes(`href="${site.decisions.route}"`));
   assertStringIncludes(
     html,

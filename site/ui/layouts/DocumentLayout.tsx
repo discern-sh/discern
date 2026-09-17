@@ -1,6 +1,6 @@
 /** The reading chrome every manual and decision page shares. */
 import type { ReactElement, ReactNode } from "react";
-import { Breadcrumbs, SkipLink } from "discern-design-system/react";
+import { Breadcrumbs, DocsLayout, SkipLink } from "discern-design-system/react";
 import {
   type BreadcrumbTarget,
   breadcrumbTrail,
@@ -15,20 +15,23 @@ import { DocumentContents } from "../components/DocumentContents.tsx";
 import { DocumentHeader } from "../components/DocumentHeader.tsx";
 import {
   DOCUMENT_NAVIGATION_ID,
+  DOCUMENT_NAVIGATION_LABEL,
   DocumentNav,
 } from "../components/DocumentNav.tsx";
 import { DocumentSearch } from "../components/DocumentSearch.tsx";
 import { HtmlFragment } from "../components/HtmlFragment.tsx";
 
-/** The skip link's destination: the document's main landmark. */
+/** The skip link's destination: the layout's main landmark. */
 const MAIN_ID = "doc";
 
 /**
- * Marks the root before the first stylesheet resolves, so the stylesheet can
- * hide script-only controls and float the navigation only when script runs.
+ * Marks the root before the first stylesheet resolves. The package drawer
+ * reads its own marker so the navigation can start off-canvas without a
+ * layout shift; the site class hides its script-only search control.
  */
 const ENHANCEMENT_BOOTSTRAP =
-  'document.documentElement.classList.add("docs-js");';
+  'document.documentElement.classList.add("docs-js");' +
+  'document.documentElement.setAttribute("data-discern-docs-drawer-enhanced","");';
 
 export interface DocumentLayoutProps {
   readonly site: DocsSite;
@@ -45,9 +48,10 @@ export interface DocumentLayoutProps {
 }
 
 /**
- * Top bar, chapter navigation, one `<main>`, the contents rail, and the search
- * palette. Page-owned script adds the drawer, search, copy, and scroll-spy
- * behaviors to this markup; without it every destination stays in flow.
+ * Top bar, then the package Docs layout: chapter navigation, one `<main>`,
+ * and the contents rail, with the package's drawer behavior activating the
+ * header's toggle at a narrow allocation. Page-owned script adds search,
+ * copy, and scroll-spy behaviors; without it every destination stays in flow.
  */
 export function DocumentLayout(
   {
@@ -71,30 +75,31 @@ export function DocumentLayout(
         searchLabel="the manual"
         navigationId={DOCUMENT_NAVIGATION_ID}
       />
-      <div className="docs-shell">
-        <div className="docs-veil" data-drawer-close="" hidden />
-        <DocumentNav
-          sections={site.sections}
-          current={current}
-          compact={compactNavigation}
-          footLinks={NAVIGATION_FOOT_LINKS}
-        />
-        <main id={MAIN_ID} className="docs-main">
-          <Breadcrumbs
-            className="docs-crumbs"
-            items={trail.ancestors}
-            current={trail.current}
+      <DocsLayout
+        className="docs-layout"
+        mainId={MAIN_ID}
+        navigationId={DOCUMENT_NAVIGATION_ID}
+        navigationLabel={DOCUMENT_NAVIGATION_LABEL}
+        navigation={
+          <DocumentNav
+            sections={site.sections}
+            current={current}
+            compact={compactNavigation}
+            footLinks={NAVIGATION_FOOT_LINKS}
           />
-          {children}
-        </main>
-        {contents.length > 0
-          ? (
-            <div className="docs-rail">
-              <DocumentContents items={contents} />
-            </div>
-          )
-          : null}
-      </div>
+        }
+        railLabel="Contents"
+        rail={contents.length > 0
+          ? <DocumentContents items={contents} />
+          : undefined}
+      >
+        <Breadcrumbs
+          className="docs-crumbs"
+          items={trail.ancestors}
+          current={trail.current}
+        />
+        {children}
+      </DocsLayout>
       <DocumentSearch
         searchLabel="the manual"
         endpoint={DOCUMENT_SEARCH_ROUTES.manual}
