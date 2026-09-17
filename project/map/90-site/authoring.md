@@ -32,9 +32,9 @@ It prints the localhost address, builds the site, and watches authored inputs. R
 
 ## Add a public route
 
-Use [`MARKETING_PAGES`](../../../site/marketing_pages.ts) for a static composition and its exhaustive renderer table in [`site/renderers.ts`](../../../site/renderers.ts). Fixed non-document endpoints belong in [`SITE_ENDPOINTS`](../../../site/routes.ts), whose handler choices are exhaustive. Document URLs derive from their admitted source models.
+Use [`MARKETING_PAGES`](../../../site/marketing_pages.ts) for a static composition and its exhaustive renderer table in [`site/renderers.ts`](../../../site/renderers.ts); a member marked unpublished keeps its prose checks while staying off every public surface. Fixed non-document endpoints belong in [`SITE_ENDPOINTS`](../../../site/routes.ts), whose handler choices are exhaustive. Document URLs derive from their admitted source models.
 
-[`siteRoutes`](../../../site/routes.ts) combines these authorities into HTML pages, raw editions, fixed responses, and the asset namespace. The sitemap selects HTML routes; the `project/map/_internal/registry-atlas.md` derives the complete inventory. The [route tests](../../../tests/site_routes_test.ts) exercise new members, duplicate rejection, and the actual endpoint responses.
+[`siteRoutes`](../../../site/routes.ts) combines these authorities into HTML pages, raw editions, fixed responses, and the asset namespace. The sitemap selects HTML routes; the `project/map/_internal/registry-atlas.md` derives the complete inventory. The [route tests](../../../tests/site_routes_test.ts) exercise new members, duplicate rejection, unpublished members staying unreachable, and the actual endpoint responses.
 
 ## Shared layouts
 
