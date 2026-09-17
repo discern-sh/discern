@@ -389,23 +389,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
       reason: "Bounds MCP request waits in the repository test suite.",
     },
   },
-  testAcceptanceJournal: {
-    name: "DISCERN_TEST_ACCEPTANCE_JOURNAL",
-    group: "test-controls",
-    documentation: {
-      public: false,
-      reason:
-        "Passes an acceptance-journal fixture path between test processes.",
-    },
-  },
-  testEffortGrant: {
-    name: "DISCERN_TEST_EFFORT_GRANT",
-    group: "test-controls",
-    documentation: {
-      public: false,
-      reason: "Passes an effort-grant fixture path between test processes.",
-    },
-  },
   testMainRefLock: {
     name: "DISCERN_TEST_MAIN_REF_LOCK",
     group: "test-controls",
