@@ -168,7 +168,7 @@ function isErrorSlugEnum(value: JsonObject): boolean {
 }
 
 /** Recursively permit additive fields and future error slugs in public output. */
-function rewritePublicOutput(value: JsonValue): JsonValue {
+export function rewritePublicOutput(value: JsonValue): JsonValue {
   if (Array.isArray(value)) {
     return value.map(rewritePublicOutput);
   }

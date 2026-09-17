@@ -55,8 +55,7 @@
             "summary",
             "body",
             "publication"
-          ],
-          "additionalProperties": false
+          ]
         },
         "applicable": {
           "type": "array",
@@ -94,8 +93,7 @@
               "summary",
               "body",
               "publication"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "history": {
@@ -137,8 +135,7 @@
                   "summary",
                   "body",
                   "publication"
-                ],
-                "additionalProperties": false
+                ]
               }
             },
             "prereleases": {
@@ -177,8 +174,7 @@
                   "summary",
                   "body",
                   "publication"
-                ],
-                "additionalProperties": false
+                ]
               }
             },
             "candidates": {
@@ -217,8 +213,7 @@
                   "summary",
                   "body",
                   "publication"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
@@ -226,8 +221,7 @@
             "stable",
             "prereleases",
             "candidates"
-          ],
-          "additionalProperties": false
+          ]
         },
         "history_coverage": {
           "type": "object",
@@ -246,8 +240,7 @@
           "required": [
             "before_earliest_known",
             "complete"
-          ],
-          "additionalProperties": false
+          ]
         },
         "urls": {
           "type": "object",
@@ -269,8 +262,7 @@
             "html",
             "json",
             "installer"
-          ],
-          "additionalProperties": false
+          ]
         },
         "recommendation": {
           "type": "object",
@@ -284,8 +276,7 @@
           },
           "required": [
             "version"
-          ],
-          "additionalProperties": false
+          ]
         }
       },
       "required": [
@@ -295,8 +286,7 @@
         "history",
         "history_coverage",
         "urls"
-      ],
-      "additionalProperties": false
+      ]
     },
     {
       "type": "object",
@@ -317,8 +307,7 @@
         "schema_version",
         "error",
         "message"
-      ],
-      "additionalProperties": false
+      ]
     }
   ],
   "$id": "https://discern.sh/schema/v1/discern-releases.schema.json",

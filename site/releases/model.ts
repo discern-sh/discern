@@ -12,6 +12,7 @@ import {
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../../src/shared/public_schemas.ts";
 import { type AuthoredRelease, publicRelease } from "./records.ts";
+import { rewritePublicOutput } from "../../src/shared/result_codegen.ts";
 
 export const publicationSchema = z.strictObject({
   version: z.string(),
@@ -187,10 +188,16 @@ export function compareReleases(
 
 /** Publish the same validation spine as an independently versioned result schema. */
 export function releaseJsonSchema(): Record<string, unknown> {
-  return {
-    ...z.toJSONSchema(z.union([comparisonSchema, releaseErrorSchema])),
-    $id: RELEASE_SCHEMA_ID,
-    [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
-      RESULT_SCHEMA_COMPATIBILITY_POLICY,
-  };
+  const schema = rewritePublicOutput(
+    z.json().parse({
+      ...z.toJSONSchema(z.union([comparisonSchema, releaseErrorSchema])),
+      $id: RELEASE_SCHEMA_ID,
+      [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
+        RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    }),
+  );
+  if (typeof schema !== "object" || schema === null || Array.isArray(schema)) {
+    throw new TypeError("the rewritten releases schema must be an object");
+  }
+  return schema;
 }

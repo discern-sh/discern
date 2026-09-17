@@ -61,6 +61,7 @@ import { loadDocsSite } from "../site/docs.tsx";
 import { buildSiteRedirectTable, STATIC_REDIRECTS } from "../site/seo.tsx";
 import { sitePublicationPlan } from "../scripts/release_site.ts";
 import { releasePlan } from "../scripts/release_plan.ts";
+import { publicSchemaAjv } from "../scripts/public_schema_compatibility.ts";
 import {
   loadReleaseContext,
   publishedReleases,
@@ -70,6 +71,7 @@ import {
   renderReleaseMetadata,
   verifyReleaseMetadata,
 } from "../scripts/release_metadata.ts";
+
 import {
   BUILD_TARGETS,
   releaseArtifactPaths,
@@ -79,6 +81,27 @@ import { runGit, runShell } from "../src/shared/subprocess.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+
+/** Find strict-object keywords that would reject a future optional field. */
+function closedObjectPaths(value: unknown, path = "$"): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) =>
+      closedObjectPaths(item, `${path}[${index}]`)
+    );
+  }
+  if (typeof value !== "object" || value === null) return [];
+  const entries = Object.entries(value);
+  return [
+    ...(entries.some(([key, child]) =>
+        key === "additionalProperties" && child === false
+      )
+      ? [path]
+      : []),
+    ...entries.flatMap(([key, child]) =>
+      closedObjectPaths(child, `${path}.${key}`)
+    ),
+  ];
+}
 
 /** Build a reviewable source fixture with its version only in the filename. */
 function source(version: string, metadata = ""): ReleaseSource {
@@ -693,6 +716,19 @@ Deno.test("live authority drives metadata, site build, JSON schema, and GitHub b
   });
   assert(tracked.success);
   assertEquals(tracked.stdout.trim(), "");
+});
+
+Deno.test("the releases schema accepts additive fields and rejects unknown statuses", () => {
+  const schema = releaseJsonSchema();
+  assertEquals(closedObjectPaths(schema), []);
+  const validate = publicSchemaAjv(false).compile(schema);
+  const current = compareReleases([]);
+  assertEquals(validate(current), true);
+  assertEquals(
+    validate({ ...current, future_optional_field: "future value" }),
+    true,
+  );
+  assertEquals(validate({ ...current, status: "future-status" }), false);
 });
 
 Deno.test("compiled metadata resolves Unicode and unnamed families from an arbitrary directory", async () => {
