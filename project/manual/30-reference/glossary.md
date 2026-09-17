@@ -187,7 +187,7 @@ The local record of the project's use of discern. With recording enabled and a r
 
 ### Map
 
-The project's account of how its software works and why. Agents maintain this documentation at `[map].dir` (default `discern/map/`). You can read it to understand the project and correct what agents have recorded. The gate checks configured documentation requirements; authors remain responsible for its meaning. `publish: false` in a page's frontmatter withholds it from every published surface ([ADR 0140](https://discern.sh/docs/decisions/0140-validated-frontmatter-and-the-publish-predicate)). Pointing `[map].dir` at existing docs is explicit consent to manage them ([ADR 0100](https://discern.sh/docs/decisions/0100-project-map-is-the-agents-map), [ADR 0195](https://discern.sh/docs/decisions/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths)).
+The project's account of how its software works and why. Agents maintain this documentation at `[map].dir` (default `discern/map`). You can read it to understand the project and correct what agents have recorded. The gate checks configured documentation requirements; authors remain responsible for its meaning. `publish: false` in a page's frontmatter withholds it from every published surface ([ADR 0140](https://discern.sh/docs/decisions/0140-validated-frontmatter-and-the-publish-predicate)). Pointing `[map].dir` at existing docs is explicit consent to manage them ([ADR 0100](https://discern.sh/docs/decisions/0100-project-map-is-the-agents-map), [ADR 0195](https://discern.sh/docs/decisions/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths)).
 
 ### Migration
 

@@ -181,9 +181,9 @@ Policy every checkout of this repository shares. The trunk is where accepted wor
 
 Where the project map lives. The map is the documentation tree agents maintain and `discern map` browses. Its location also feeds the `${map.dir}` reference other sections use.
 
-| Key   | Type   | Default          | Description                                                                                                                      |
-| ----- | ------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `dir` | string | `"discern/map/"` | Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it. |
+| Key   | Type   | Default         | Description                                                                                                                      |
+| ----- | ------ | --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `dir` | string | `"discern/map"` | Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it. |
 
 ## `[instructions]`
 

@@ -44,7 +44,7 @@ Most of the material you will want to read lives in the visible `discern/` folde
 | Path                      | Ownership     | What it contains                                     | How to change it                              |
 | ------------------------- | ------------- | ---------------------------------------------------- | --------------------------------------------- |
 | `discern/instructions.md` | Project-owned | Working rules supplied to every configured agent.    | Edit the source, then run `discern refresh`.  |
-| `discern/map/`            | Project-owned | The maintained project guide, called the map.        | Update the Markdown as the project changes.   |
+| `discern/map`             | Project-owned | The maintained project guide, called the map.        | Update the Markdown as the project changes.   |
 | `discern/TODO.md`         | Project-owned | Work deferred for a later task.                      | Add or revise entries in the file.            |
 | `discern/brief.md`        | Project-owned | The project description, when captured during setup. | Update it when the project's purpose changes. |
 | `discern/skills/`         | Project-owned | Reusable agent playbooks your project authors.       | Add or edit a skill at its source.            |

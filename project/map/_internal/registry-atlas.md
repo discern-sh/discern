@@ -4920,7 +4920,7 @@ Every project-tree path discern writes or maintains, with its operational owners
 - Source: `src/lib/artifact_ownership.ts` — `projectArtifactPaths`
 - Members: 27
   - `discern/instructions.md`
-  - `discern/map/`
+  - `discern/map`
   - `discern/skills`
   - `discern/scripts`
   - `discern/TODO.md`
