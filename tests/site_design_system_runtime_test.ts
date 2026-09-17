@@ -23,7 +23,7 @@ import {
   type DesignSystemBundleName,
 } from "../site/design_system.ts";
 import { SITE_APPEARANCE } from "../site/appearance.ts";
-import { MARKETING_PAGES } from "../site/marketing_pages.ts";
+import { PUBLISHED_MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { renderMarketingPage } from "../site/renderers.ts";
 import { handler } from "../site/serve.ts";
@@ -421,7 +421,7 @@ Deno.test("generated output is ignored and reproducible from its selections", as
     assertEquals(ignored.code, 0, `${path} must be ignored`);
   }
 
-  for (const page of MARKETING_PAGES) {
+  for (const page of PUBLISHED_MARKETING_PAGES) {
     assertEquals(
       await Deno.readTextFile(join(ROOT, "site", page.page)),
       await formatGeneratedText(renderMarketingPage(page.route), "html"),

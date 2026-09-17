@@ -9,6 +9,6 @@ import { proseWordCount } from "./prose_lib.ts";
 
 const page = projectSiteProse().find(({ route }) => route === "/agents");
 if (page === undefined) {
-  throw new Error("the marketing-page registry no longer serves /agents");
+  throw new Error("the marketing-page registry no longer registers /agents");
 }
 console.log(`DISCERN_METRIC agents_page_words ${proseWordCount(page.prose)}`);

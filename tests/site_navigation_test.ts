@@ -2,7 +2,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { JSDOM } from "jsdom";
 import { loadDocsSite } from "../site/docs.tsx";
-import { MARKETING_PAGES } from "../site/marketing_pages.ts";
+import { PUBLISHED_MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { SITE_ENDPOINTS } from "../site/routes.ts";
 import {
   navigationCurrent,
@@ -22,7 +22,7 @@ function withoutCurrentState(header: string): string {
 Deno.test("public React pages share the complete header and footer", async () => {
   const site = await loadDocsSite();
   const routes = [
-    ...MARKETING_PAGES.map((page) => page.route),
+    ...PUBLISHED_MARKETING_PAGES.map((page) => page.route),
     ...SITE_ENDPOINTS.filter((endpoint) => endpoint.format === "html").map(
       (endpoint) => endpoint.path,
     ),

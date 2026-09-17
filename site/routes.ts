@@ -1,6 +1,9 @@
 /** Public route membership, derived from each content authority. */
 import type { DocsSite } from "./docs.tsx";
-import { MARKETING_PAGES, type MarketingPage } from "./marketing_pages.ts";
+import {
+  type MarketingPage,
+  PUBLISHED_MARKETING_PAGES,
+} from "./marketing_pages.ts";
 import {
   DISCERN_INSTALL_ROUTE,
   RELEASE_ROUTES,
@@ -116,7 +119,7 @@ export const SITE_ENDPOINTS: readonly SiteEndpoint[] = [
 /** Project browser/raw pairs and fixed endpoints without a second list of document names. */
 export function siteRoutes(
   site: DocsSite,
-  marketing: readonly MarketingPage[] = MARKETING_PAGES,
+  marketing: readonly MarketingPage[] = PUBLISHED_MARKETING_PAGES,
 ): RouteDescription[] {
   const documents = [
     site.landing,

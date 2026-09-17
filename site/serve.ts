@@ -43,7 +43,7 @@ import {
   STATIC_REDIRECTS,
 } from "./seo.tsx";
 import { securityTxt } from "./security.ts";
-import { MARKETING_PAGES } from "./marketing_pages.ts";
+import { PUBLISHED_MARKETING_PAGES } from "./marketing_pages.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 
@@ -53,14 +53,14 @@ import type { CatalogueRecord } from "./releases/model.ts";
 import { releaseResponse } from "./releases/response.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
-/** Routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
+/** Published routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
 export const PAGES: Readonly<
   Record<
     string,
     { page: string; negotiable: boolean }
   >
 > = Object.fromEntries(
-  MARKETING_PAGES.map((entry) => [
+  PUBLISHED_MARKETING_PAGES.map((entry) => [
     entry.route,
     {
       page: entry.page,

@@ -16,7 +16,7 @@ The public pages for discern live in this repository, so the gate checks the sit
 
 | Surface                  | Authority                                                                                                                          | Public role                                                                                     |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `/`, `/agents`           | [`MARKETING_PAGES`](../../../site/marketing_pages.ts) and the typed compositions under [`site/ui/pages/`](../../../site/ui/pages/) | Desire and agent-native orientation.                                                            |
+| `/`                      | [`MARKETING_PAGES`](../../../site/marketing_pages.ts) and the typed compositions under [`site/ui/pages/`](../../../site/ui/pages/) | Desire. The registry also holds the unpublished `/agents` composition.                          |
 | `/releases`              | [Release records and comparison](releases.md)                                                                                      | Release history and stable recommendations rendered from the shared comparison model.           |
 | `/docs`                  | The validated manual projection from `project/manual/`                                                                             | Current product documentation, exact reference, and recovery.                                   |
 | `/map`                   | The configured Map filtered by canonical tier and publication policy                                                               | Inspectable evidence of the account discern's agents maintain for project work and human audit. |
@@ -49,7 +49,7 @@ Production's canonical origin is `https://discern.sh`, and page URLs have no tra
 
 ## Reader negotiation
 
-Browsers receive Hypertext Markup Language (HTML). `/` and `/agents` negotiate the shared plaintext edition for command-line text clients. `/releases` negotiates its own model-driven text projection; its explicit `.txt` and `.json` routes retain their formats. Manual and decision routes, plus the map root, serve pristine Markdown to text clients and through their `.md` forms. Negotiated responses carry `Vary: Accept, User-Agent`.
+Browsers receive Hypertext Markup Language (HTML). `/` negotiates the shared plaintext edition for command-line text clients. `/releases` negotiates its own model-driven text projection; its explicit `.txt` and `.json` routes retain their formats. Manual and decision routes, plus the map root, serve pristine Markdown to text clients and through their `.md` forms. Negotiated responses carry `Vary: Accept, User-Agent`.
 
 Rendered pages may remove frontmatter, source-only comments, and presentation-only markers. Their raw editions remain the authored bytes. Search is built from the same reader-visible Markdown projection as rendering, so source-only comments cannot become search vocabulary or snippets while literal examples inside inline or fenced code remain searchable.
 
@@ -74,6 +74,6 @@ Every response class, including assets, redirects, and errors, receives the same
 
 ## Current state
 
-The homepage and For Agents page are static build output from typed sources. Manual and decision pages render at request time through the document layout. The map overview uses the shared marketing layout and links to repository sources; its entries have no individual website endpoints. The map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
+The homepage is static build output from a typed source. Manual and decision pages render at request time through the document layout. The map overview uses the shared marketing layout and links to repository sources; its entries have no individual website endpoints. The map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
 
 `deno task site:build` owns ignored output under `site/pages/`, and Deno Deploy runs that build before starting the handler. Never hand-edit generated shells or emitted design-system assets.
