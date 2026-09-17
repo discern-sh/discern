@@ -39,10 +39,10 @@ body {
 
 /* ── Top bar ───────────────────────────────────────────────────────────── */
 
-/* The package bar measures its inner row against the page maximum; the
-   shell's three columns run wider than an article, so the bar follows them. */
+/* The shell's three columns run wider than an article, so the bar's inner
+   row follows them rather than the page maximum. */
 .docs-top {
-  --discern-page-max: var(--docs-page-max);
+  --discern-docs-header-max: var(--docs-page-max);
 }
 
 .docs-brand-lockup {
