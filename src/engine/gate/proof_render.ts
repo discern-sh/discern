@@ -504,6 +504,10 @@ export function renderLandingProofLine(
       return `${line}${PROOF_LINE_SEPARATOR}landed under standing grant: ${
         consent.scopes?.map(code).join(", ") ?? "(none)"
       }`;
+    default:
+      // Consent sources are an open vocabulary: a note from a newer writer
+      // may name one this build has no wording for.
+      return `${line}${PROOF_LINE_SEPARATOR}landed under ${consent.source}`;
   }
 }
 

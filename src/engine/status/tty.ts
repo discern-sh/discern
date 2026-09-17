@@ -285,6 +285,9 @@ function proofPresentation(entry: StatusFleetEntry): ProofPresentation {
         return { label: "unavailable", tone: "yellow" };
       case "read_failed":
         return { label: "unreadable", tone: "red" };
+      default:
+        // Proof statuses are an open vocabulary; show an unknown one as read.
+        return { label: proof.status, tone: "dim" };
     }
   })();
   return {

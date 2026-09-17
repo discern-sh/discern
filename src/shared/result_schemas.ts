@@ -30,7 +30,11 @@ import {
  */
 
 import { z } from "@zod/zod";
-import { decisionVocabulary, openVocabulary } from "./result_vocabulary.ts";
+import {
+  decisionVocabulary,
+  openVocabulary,
+  withOpenVocabulariesAsStrings,
+} from "./result_vocabulary.ts";
 import { isSingleRunnableSetupCommand } from "./setup_next_action.ts";
 import {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -603,8 +607,11 @@ export const ProofSummarySchema = z.strictObject(PROOF_SUMMARY_FIELDS).meta({
     "commit, whole-diff statistics, and the one-line rendered Proof.",
 });
 /** Compatibility readers' view of an earlier or structurally wider proof.
- * Unknown fields remain readable but never enter the strict runtime proof. */
-export const TolerantProofSchema = z.looseObject(PROOF_FIELDS);
+ * Unknown fields remain readable but never enter the strict runtime proof,
+ * and an unknown member of an open vocabulary reads as opaque. */
+export const TolerantProofSchema = withOpenVocabulariesAsStrings(
+  z.looseObject(PROOF_FIELDS),
+);
 
 /** Project a tolerant or structurally wider proof onto the strict runtime
  * fields in one fixed order. Every compatibility reader shares this boundary. */
@@ -818,33 +825,37 @@ export const ProofNoteSchema = z.strictObject({
   }),
 });
 /** The durable reader's payload schema. Unknown additive fields pass at every
- * level while the required proof claim remains stable within this major. */
-export const TolerantProofNotePayloadSchema = z.looseObject({
-  subject: z.looseObject({ commit: z.string() }),
-  proof: z.looseObject({
-    completion: CompleteProofEvidenceSchema,
-    ...DURABLE_PROOF_FACT_FIELDS,
-    mode: decisionVocabulary("x-discern-validation-modes").optional(),
-    checkpoint_drops: z.array(CheckpointDropSchema).optional(),
-    standard_proposals: z.array(StandardLimitProposalSchema).optional(),
-  }),
-  presentation: z.looseObject(PROOF_PRESENTATION_FIELDS),
-  acceptance: z.looseObject({
-    consent: z.looseObject({
-      source: z.string(),
-      scopes: z.array(z.string()).optional(),
+ * level and an unknown member of an open vocabulary reads as opaque, while the
+ * required proof claim and every closed vocabulary remain stable within this
+ * major. */
+export const TolerantProofNotePayloadSchema = withOpenVocabulariesAsStrings(
+  z.looseObject({
+    subject: z.looseObject({ commit: z.string() }),
+    proof: z.looseObject({
+      completion: CompleteProofEvidenceSchema,
+      ...DURABLE_PROOF_FACT_FIELDS,
+      mode: decisionVocabulary("x-discern-validation-modes").optional(),
+      checkpoint_drops: z.array(CheckpointDropSchema).optional(),
+      standard_proposals: z.array(StandardLimitProposalSchema).optional(),
     }),
-    variances: z.array(z.looseObject({
-      checkpoint: z.string(),
-      definition_hash: z.string(),
-      subject: z.string(),
-      why: z.string(),
-    })),
-    standard_proposals: z.array(StandardLimitProposalSchema),
-  }).optional(),
-  issuer: z.looseObject(PROOF_ISSUER_FIELDS).optional(),
-  brief: z.string().optional(),
-});
+    presentation: z.looseObject(PROOF_PRESENTATION_FIELDS),
+    acceptance: z.looseObject({
+      consent: z.looseObject({
+        source: z.string(),
+        scopes: z.array(z.string()).optional(),
+      }),
+      variances: z.array(z.looseObject({
+        checkpoint: z.string(),
+        definition_hash: z.string(),
+        subject: z.string(),
+        why: z.string(),
+      })),
+      standard_proposals: z.array(StandardLimitProposalSchema),
+    }).optional(),
+    issuer: z.looseObject(PROOF_ISSUER_FIELDS).optional(),
+    brief: z.string().optional(),
+  }),
+);
 
 /** The durable reader's envelope schema. Signature entries stay opaque until
  * a signing profile and verifier exist; their bytes remain in the Git note. */

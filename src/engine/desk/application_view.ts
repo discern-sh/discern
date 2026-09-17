@@ -124,6 +124,9 @@ export function deskProofLabel(row: DeskRow): string {
       return "Proof unreadable";
     case "unavailable":
       return "Proof unknown";
+    default:
+      // Proof statuses are an open vocabulary; show an unknown one as read.
+      return `Proof ${row.decision.proof.status}`;
   }
 }
 /** Preserve the status-projected exact submission, including older submitted work. */

@@ -37,6 +37,7 @@ import {
   TolerantProofNotePayloadSchema,
   TolerantProofNoteSchema,
 } from "../../shared/result_schemas.ts";
+import { withOpenVocabulariesAsStrings } from "../../shared/result_vocabulary.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import { abbreviatedObjectIdMatches } from "../../shared/tree_identity.ts";
@@ -678,6 +679,14 @@ function decodeProofNotePayload(encoded: string): unknown {
   return parsed;
 }
 
+/** The strict writer contract as the reader applies it: every closed
+ * vocabulary and object boundary as written, every open vocabulary widened to
+ * any string, so a note from a newer writer that adds an open member still
+ * reads and one that adds a closed member is refused. */
+const ReadableProofNotePayloadSchema = withOpenVocabulariesAsStrings(
+  ProofNotePayloadSchema,
+);
+
 /** Recognize an incomplete prelaunch claim without publishing another payload contract. */
 const IncompleteProofNotePayloadSchema = TolerantProofNotePayloadSchema.extend({
   proof: TolerantProofNotePayloadSchema.shape.proof.omit({ completion: true }),
@@ -756,8 +765,8 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   );
   if (!reading.success) return undefined;
   const payload = reading.data;
-  const canonical = ProofNotePayloadSchema.safeParse(
-    knownPayloadFields(ProofNotePayloadSchema, payload),
+  const canonical = ReadableProofNotePayloadSchema.safeParse(
+    knownPayloadFields(ReadableProofNotePayloadSchema, payload),
   );
   if (!canonical.success) return undefined;
   const proof = proofFromProofPayload(payload);

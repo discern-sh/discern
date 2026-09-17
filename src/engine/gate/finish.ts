@@ -1263,6 +1263,9 @@ function gateProofHint(
       case "cleared":
       case "clear_failed":
         return undefined;
+      default:
+        // Recording statuses are an open vocabulary; an unknown one fires no hint.
+        return undefined;
     }
   }
   if (proof.status === "clear_failed") {

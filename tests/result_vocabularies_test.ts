@@ -28,6 +28,7 @@ import {
   isOpenVocabularyKey,
   openVocabulary,
   stampResultVocabulary,
+  withOpenVocabulariesAsStrings,
 } from "../src/shared/result_vocabulary.ts";
 
 type JsonObject = Record<string, unknown>;
@@ -235,4 +236,51 @@ Deno.test("strict public-schema compilers accept the vocabulary marker and every
   for (const key of Object.keys(RESULT_OPEN_VOCABULARIES)) {
     assert(PUBLIC_SCHEMA_EXTENSION_KEYWORDS.includes(key), key);
   }
+});
+
+Deno.test("the reader projection widens open vocabularies only and keeps every other constraint", () => {
+  const writer = z.strictObject({
+    kind: openVocabulary("x-discern-step-kinds"),
+    outcome: decisionVocabulary("x-discern-step-outcomes"),
+    drops: z.array(z.strictObject({
+      reason: openVocabulary("x-discern-policy-checkpoint-drop-reasons"),
+    })).min(1),
+    source: openVocabulary("x-discern-consent-sources").optional(),
+  }).refine((value) => value.drops.length < 3, "at most two drops");
+  const reader = withOpenVocabulariesAsStrings(writer);
+  const future = {
+    kind: "future-kind",
+    outcome: "ok",
+    drops: [{ reason: "future_reason" }],
+    source: "future-grant",
+  };
+  assert(reader.safeParse(future).success, "open members read as opaque");
+  assert(!writer.safeParse(future).success, "the writer stays strict");
+  assert(
+    !reader.safeParse({ ...future, outcome: "future" }).success,
+    "a closed vocabulary still refuses an unknown member",
+  );
+  assert(
+    !reader.safeParse({ ...future, extra: true }).success,
+    "object strictness survives",
+  );
+  assert(
+    !reader.safeParse({ ...future, drops: [] }).success,
+    "array constraints survive",
+  );
+  assert(
+    !reader.safeParse({
+      ...future,
+      drops: [{ reason: "a" }, { reason: "b" }, { reason: "c" }],
+    }).success,
+    "refinements survive",
+  );
+
+  const closedOnly = z.strictObject({
+    outcome: decisionVocabulary("x-discern-step-outcomes"),
+  });
+  assert(
+    withOpenVocabulariesAsStrings(closedOnly) === closedOnly,
+    "a schema without an open vocabulary is returned unchanged",
+  );
 });

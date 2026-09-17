@@ -692,6 +692,97 @@ Deno.test("durable proof projection excludes live proof telemetry", () => {
   });
 });
 
+Deno.test("the durable reader reads an unknown open-vocabulary member and refuses an unknown closed one", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Landing from a newer writer",
+      "--no-gpg-sign",
+    );
+    const commit = await gitOut(dir, "rev-parse", "HEAD");
+    const proof = syntheticProof(commit, "agent/newer");
+    const note = (payload: unknown): string =>
+      `${
+        JSON.stringify({
+          payloadType: PROOF_NOTE_PAYLOAD_TYPE,
+          payload: encodedProofPayload(payload),
+          signatures: [],
+        })
+      }\n`;
+    const claim = {
+      completion: proof.completion,
+      branch: proof.branch,
+      trunk: proof.trunk,
+      head: proof.head,
+      files_total: proof.files_total,
+      insertions: proof.insertions,
+      deletions: proof.deletions,
+    };
+    const presentation = { line: proof.line, markdown: proof.markdown };
+
+    // Checkpoint drop reasons and consent sources are open vocabularies: a
+    // member this build does not know reads as opaque and stays on the proof.
+    const futureDrop = {
+      scope: "policy",
+      checkpoint: null,
+      mode: null,
+      reason: "future_reason",
+      account: "a reason this build does not know",
+    };
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      note({
+        subject: { commit },
+        proof: { ...claim, checkpoint_drops: [futureDrop] },
+        presentation,
+        acceptance: {
+          consent: { source: "future-grant" },
+          variances: [],
+          standard_proposals: [],
+        },
+      }),
+      commit,
+    );
+    const open = await readProofNoteAt(dir, commit);
+    assertEquals(open.status, "valid");
+    if (open.status === "valid") {
+      assertEquals(
+        open.proof.checkpoint_drops?.map((drop) => drop.reason),
+        ["future_reason"],
+      );
+      assertEquals(open.acceptance?.consent.source, "future-grant");
+    }
+
+    // The validation mode is a closed decision vocabulary: an unknown member
+    // makes the note unreadable rather than silently misread.
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "--force",
+      "-m",
+      note({
+        subject: { commit },
+        proof: { ...claim, mode: "future" },
+        presentation,
+      }),
+      commit,
+    );
+    assertEquals(await readProofNoteAt(dir, commit), { status: "missing" });
+  });
+});
+
 Deno.test("proof-note replay keys identity to subject and stable claim", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");

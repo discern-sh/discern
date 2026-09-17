@@ -48,6 +48,9 @@ export function awaitConditionDescription(
       return `the work from \`${data.branch}\` to reach \`${data.trunk}\``;
     case "trunk-moved":
       return `\`${data.trunk}\` to change from the revision at the start of this watch`;
+    default:
+      // Await conditions are an open vocabulary; describe an unknown one by name.
+      return `the \`${data.condition}\` condition to hold`;
   }
 }
 
