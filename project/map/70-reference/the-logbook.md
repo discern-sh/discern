@@ -14,7 +14,7 @@ _The logbook is a local activity record containing metadata rather than code or 
 
 With recording on and `discern.toml` readable, each command-line interface (CLI) verb run and each Model Context Protocol (MCP) invocation resolved to that project adds an event. Effectful verbs add paired start and completion events with one invocation id and the operation registry's resolved exclusion boundary. All worktrees share plain-text files under `.git`.
 
-An MCP call whose explicit `path` falls outside every discern project returns `not_initialized` and records nothing. No project logbook or readable consent setting applies to that path.
+An MCP call whose explicit `path` falls outside every discern project returns `no_project` and records nothing. No project logbook or readable consent setting applies to that path.
 
 - **Read active history:** `discern patterns` reports the findings ([practice patterns](../20-quality-gate/patterns.md)). `cat .git/discern/logbook/*.jsonl` shows the raw active lines.
 - **List and read sealed history:** `discern patterns archives`, then `discern patterns --logbook-file <filename>`. Add `--stats`, `--all`, or `--json` as needed.

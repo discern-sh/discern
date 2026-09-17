@@ -1132,7 +1132,7 @@ Deno.test("logbook: an MCP path outside every project has no project logbook to 
         if (tool.rootIndependent !== true) {
           assertEquals(
             delivered.structuredContent.error,
-            "not_initialized",
+            "no_project",
             `${tool.name}: an outside-project path must not fall back to the held root`,
           );
         }

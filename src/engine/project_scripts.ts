@@ -15,7 +15,7 @@ import {
   findRoot,
   installedConfigRel,
   NO_PROJECT_MESSAGE,
-  notInitializedResult,
+  noProjectResult,
   projectScriptProcessEnv,
 } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
@@ -363,7 +363,7 @@ export async function runProjectScript(
   const root = await findRoot();
   if (root === undefined) {
     if (opts.json ?? false) {
-      emitResult(notInitializedResult("scripts"));
+      emitResult(noProjectResult("scripts"));
     } else {
       new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }

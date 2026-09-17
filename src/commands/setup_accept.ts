@@ -325,7 +325,7 @@ export async function runSetupAccept(
   if (root === undefined) {
     return emitAccept(opts, log, {
       ok: false,
-      error: "not_initialized",
+      error: "no_project",
       message: NO_PROJECT_MESSAGE,
       data: { next_action: "discern setup verify" },
       code: 1,

@@ -16,7 +16,7 @@ aliases:
   - "setup step journal"
   - "ambiguous setup step"
   - "command not found"
-  - "not_initialized"
+  - "no_project"
   - "write_access"
   - "schema_version_too_new"
   - "partial_refresh"

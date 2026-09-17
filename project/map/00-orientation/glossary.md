@@ -71,6 +71,7 @@ aliases:
   - done --confirmed
   - the binary's files
   - estate
+  - not_initialized
   - guidance
   - discern script
   - criterion

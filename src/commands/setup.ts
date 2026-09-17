@@ -2356,7 +2356,7 @@ export async function runSetupStep(
       emitResult({
         ok: false,
         verb: "setup step",
-        error: "not_initialized",
+        error: "read_error",
         message,
         data: { next_action: "discern setup verify" },
       });
@@ -3955,7 +3955,7 @@ async function rootOrError(
       emitResult({
         ok: false,
         verb,
-        error: "not_initialized",
+        error: "no_project",
         message: NO_PROJECT_MESSAGE,
         data: { next_action: "discern setup verify" },
       });

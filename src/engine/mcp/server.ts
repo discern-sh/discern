@@ -44,7 +44,7 @@ import {
   CONFIG_REL,
   findRoot,
   NO_PROJECT_MESSAGE,
-  notInitializedResult,
+  noProjectResult,
 } from "../../shared/env.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { evaluateResultCompletion } from "../../shared/result_completion.ts";
@@ -287,7 +287,7 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   annotations?: ToolAnnotations;
   /** This verb's result does not depend on WHICH project it runs in — it serves the
    * same answer from anywhere, so it must stay reachable even when the server spawned
-   * outside any discern project. {@link runTool}'s `not_initialized` guard reads this
+   * outside any discern project. {@link runTool}'s `no_project` guard reads this
    * declared property (the single source of truth the surface guards walk) instead of
    * special-casing a tool name: a root-independent tool with no resolvable root runs
    * against the process cwd rather than being refused. `discern_docs` is the sole
@@ -426,7 +426,7 @@ function standardsActionFailure(message: string): DiscernResult {
  * The optional `path` override every root-operating tool carries (ADR 0062 §2): an
  * explicit project to act on instead of the server's current working root, resolved
  * through `findRoot(path)` in {@link runTool} (so any directory inside a worktree
- * resolves to its root, and a non-project path falls through to `not_initialized`).
+ * resolves to its root, and a non-project path falls through to `no_project`).
  * `path` wins over the working root for that one call. The resolution is not fenced
  * to the spawn project: the target may be ANY discern project on disk, which is what
  * makes the surface work across a multi-repo setup (ADR 0111). Spread into each
@@ -1661,7 +1661,7 @@ function unresolvedInstalledVersion(): Promise<undefined> {
  * when the held root's checkout vanishes between calls, dispatch refuses and
  * re-aims back at the spawn root while it remains a live project. `undefined`
  * when the server spawned outside a discern project — {@link runTool}'s
- * `not_initialized` guard handles that.
+ * `no_project` guard handles that.
  * The verb cores stay pure functions of an explicit `root`; this is only the
  * server-layer default they receive, resolved per call in {@link runTool}.
  */
@@ -2037,7 +2037,7 @@ function vanishedHeldRootMessage(
  * Resolve and run one tool call. The per-call root is the explicit
  * `path` argument when given (ADR 0062 §2 — resolved through `findRoot`, so any
  * directory inside a worktree resolves to its root and a non-project path falls
- * through to `not_initialized`), else the server's current working root — re-pointed
+ * through to `no_project`), else the server's current working root — re-pointed
  * by `discern_start` / reset by `discern_accept` via {@link McpTool.reaimAfterResult},
  * applied here after a non-preview call with matching effect evidence. Every refusal returns a normal
  * error {@link DiscernResult} to {@link runTool}'s one completion boundary — a
@@ -2109,7 +2109,7 @@ async function dispatchToolCall(
     }
     if (tool.rootIndependent !== true) {
       return {
-        result: notInitializedResult(
+        result: noProjectResult(
           verbOf(tool.name),
           vanishedHeldRootMessage(root, home),
         ),
@@ -2149,7 +2149,7 @@ async function dispatchToolCall(
       };
     }
     return {
-      result: notInitializedResult(verbOf(tool.name)),
+      result: noProjectResult(verbOf(tool.name)),
       recording: undefined,
     };
   }

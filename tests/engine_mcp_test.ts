@@ -911,7 +911,7 @@ Deno.test("mcp: discern_patterns carries synthesized investigations beside raw f
 // B38 class guard: a tool declared root-INDEPENDENT must stay reachable when the
 // server spawned OUTSIDE any discern project (working root undefined), because it
 // serves the same answer from anywhere — the CLI serves `discern docs` from
-// anywhere too. The pre-fix runTool applied ONE uniform not_initialized guard to
+// anywhere too. The pre-fix runTool applied ONE uniform no_project guard to
 // every tool, refusing docs outside a project.
 //
 // Driven off the TOOLS table's `rootIndependent` flag (the single source of
@@ -952,7 +952,7 @@ Deno.test("mcp: a root-independent tool serves from a server spawned outside any
   }
 
   // Every OTHER tool genuinely operates on the project — outside one it must refuse
-  // with not_initialized (never silently run against the wrong place). `dry_run`
+  // with no_project (never silently run against the wrong place). `dry_run`
   // keeps any that DID slip through fast and side-effect-free.
   for (const tool of TOOLS.filter((t) => t.rootIndependent !== true)) {
     const res = await runTool(tool, outsideAnyProject(), { dry_run: true });
@@ -963,8 +963,8 @@ Deno.test("mcp: a root-independent tool serves from a server spawned outside any
     );
     assertEquals(
       res.structuredContent.error,
-      "not_initialized",
-      `${tool.name} outside a project must refuse with not_initialized, got ${
+      "no_project",
+      `${tool.name} outside a project must refuse with no_project, got ${
         JSON.stringify(res.structuredContent.error)
       }`,
     );
@@ -2806,7 +2806,7 @@ Deno.test("WorkingRoot: seeds from the spawn root and re-points on set", () => {
 });
 
 Deno.test("WorkingRoot: an undefined spawn root (outside a project) stays undefined until set", () => {
-  // Spawned outside a discern project → undefined, which runTool's not_initialized
+  // Spawned outside a discern project → undefined, which runTool's no_project
   // guard turns into the uniform refusal envelope.
   const w = new WorkingRoot(undefined);
   assertEquals(w.get(), undefined);
@@ -3548,12 +3548,12 @@ Deno.test("discern mcp: discern_start with `path` creates the worktree for ANOTH
   });
 });
 
-Deno.test("discern mcp: a `path` outside any discern project falls through to not_initialized", async () => {
+Deno.test("discern mcp: a `path` outside any discern project falls through to no_project", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     // A path with no discern.toml in it or any ancestor (the system temp, outside the
-    // project tree) → findRoot returns undefined → the uniform not_initialized refusal.
+    // project tree) → findRoot returns undefined → the uniform no_project refusal.
     await withTempDir(async (outside) => {
       await using mcp = await spawnMcp(dir);
       await mcp.send({
@@ -3573,7 +3573,7 @@ Deno.test("discern mcp: a `path` outside any discern project falls through to no
       assertEquals(refused.result.isError, true);
       assertEquals(
         refused.result.structuredContent.error,
-        "not_initialized",
+        "no_project",
       );
       assertEquals(await mcp.close(), 0);
     }, { prefix: "discern-not-a-project-" });

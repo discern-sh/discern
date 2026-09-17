@@ -3359,11 +3359,11 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `invalid_value: evidence`
   - `no_docs: evidence`
   - `no_map: evidence`
+  - `no_project: evidence`
   - `no_repository: evidence`
   - `no_such_step: evidence`
   - `no_target: evidence`
   - `not_found: tailored`
-  - `not_initialized: evidence`
   - `not_main_checkout: evidence`
   - `not_on_trunk: evidence`
   - `not_set_up: evidence`
@@ -4158,11 +4158,11 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `invalid_value`
   - `no_docs`
   - `no_map`
+  - `no_project`
   - `no_repository`
   - `no_such_step`
   - `no_target`
   - `not_found`
-  - `not_initialized`
   - `not_main_checkout`
   - `not_on_setup_branch`
   - `not_on_trunk`

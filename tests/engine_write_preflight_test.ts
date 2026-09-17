@@ -259,7 +259,7 @@ Deno.test("a Git repository without discern keeps the command's not-initialized 
       const run = await runAgent(dir, ["update", "--json"]);
       assertEquals(run.code, 1, run.output);
       const envelope = parseJson(run.stdout, "update");
-      assertEquals(envelope.error, "not_initialized");
+      assertEquals(envelope.error, "no_project");
     });
   });
 });

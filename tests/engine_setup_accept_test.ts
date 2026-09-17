@@ -114,7 +114,7 @@ Deno.test("adoption preflight preserves setup acceptance's missing and invalid c
     const path = join(dir, "discern.toml");
     for (
       const [text, error, action] of [
-        [undefined, "not_initialized", "discern setup verify"],
+        [undefined, "no_project", "discern setup verify"],
         ["[meta\ninvalid", "invalid_config", "discern doctor"],
         [
           '[meta]\nschema_version = "one"\n',

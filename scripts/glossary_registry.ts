@@ -581,6 +581,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: { keep: "an everyday computing word" },
     definition:
       "The commands that set up and maintain discern in a project. They include `setup`, `upgrade`, [doctor](https://discern.sh/docs/reference/cli-reference#discern-doctor), and `config`. Some inspect and some change files; each runs and exits. The application does not need discern to run. See [getting started](../10-getting-started/).",
+    retired: [
+      {
+        // The retired root-discovery error slug (now no_project).
+        phrase: "not_initialized",
+        pattern: String.raw`\bnot_initialized\b`,
+      },
+    ],
   },
   {
     term: "Landing authority",
