@@ -76,7 +76,7 @@ Deno.test("manual sections, source directories, site, and projection share one r
   assertEquals(sourceDirs, registered);
   assertEquals(manual.sections.map((section) => section.dir), registered);
   assertEquals(site.sections.map((section) => section.dir), registered);
-  assertEquals(manual.pages.length, 50);
+  assertEquals(manual.pages.length, 51);
   assertEquals(
     manual.pages.filter((page) => page.kind === "tutorial").length,
     4,
@@ -88,7 +88,7 @@ Deno.test("manual sections, source directories, site, and projection share one r
   );
   assertEquals(
     manual.pages.filter((page) => page.kind === "reference").length,
-    12,
+    13,
   );
   assertEquals(
     manual.pages.filter((page) => page.kind === "troubleshooting").length,

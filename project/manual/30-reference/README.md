@@ -45,5 +45,6 @@ If you have a goal but don't yet know the relevant command, start with the [guid
 | Proof records, checkpoint declarations, and their exact formats.  | [Proof and checkpoint formats](proof-and-checkpoint-formats.md) |
 | The local activity record and its storage, fields, and retention. | [Logbook](logbook.md)                                           |
 | MCP tools, structured results, schemas, and integrations.         | [MCP and results](mcp-and-results.md)                           |
+| What a release may change, evolving members, and schema pinning.  | [Compatibility](compatibility.md)                               |
 
 The [explanations](../20-understand/README.md) help interpret these details. For a result that failed or refused to proceed, [troubleshooting](../40-troubleshooting/README.md) helps you find the next step.
