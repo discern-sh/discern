@@ -193,7 +193,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
     label: "Result contracts",
     contract:
-      "Every CLI `--json` and MCP tool result envelope, with open vocabularies published as strings, closed vocabularies as enums, and evolving contracts marked.",
+      "Every CLI `--json` and MCP tool result envelope, with open vocabularies published as strings, closed vocabularies enumerated, and evolving contracts marked.",
   },
   {
     id: PROOF_NOTE_SCHEMA_ID,
