@@ -121,7 +121,10 @@ export function withoutSchemaDocumentation(
 }
 
 /** Whether a node carries the evolving tier under the given field or keyword. */
-function isEvolving(value: JsonValue | undefined, marker: string): boolean {
+export function isEvolving(
+  value: JsonValue | undefined,
+  marker: string,
+): boolean {
   return isObject(value) && value[marker] === STABILITY_TIER_EVOLVING;
 }
 

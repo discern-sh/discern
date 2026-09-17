@@ -16,11 +16,22 @@ import { DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS } from "../src/shared/environm
 import { EXIT_STATUS_REGISTRY } from "../src/shared/exit_codes.ts";
 import { ERROR_FAILURE_RECOVERY } from "../src/shared/hints.ts";
 import {
+  compatibilityContract,
+  MANIFEST_STABILITY_FIELD,
   PUBLIC_SCHEMA_PUBLICATIONS,
+  PUBLIC_SCHEMA_STABILITY_KEY,
   type PublicSchemaPublication,
+  STABILITY_TIER_EVOLVING,
 } from "../src/shared/public_schemas.ts";
+import {
+  RESULT_DECISION_VOCABULARIES,
+  RESULT_OPEN_VOCABULARIES,
+  RESULT_VOCABULARY_KEYWORD,
+  type ResultOpenVocabularyKey,
+} from "../src/shared/result.ts";
 import { decodeJson } from "../src/shared/runtime_decode.ts";
 import {
+  isEvolving,
   isObject,
   type JsonObject,
   type JsonValue,
@@ -115,6 +126,21 @@ function descriptionOf(schema: JsonObject): string {
   return typeof schema.description === "string" ? schema.description : "";
 }
 
+/**
+ * Append the stability tier to a member's name when the record or schema node
+ * carries one below stable. Manifest records carry it as a field and schema
+ * nodes as a keyword; the caller passes whichever the artifact uses.
+ */
+function withStability(
+  name: string,
+  node: JsonObject,
+  marker: string,
+): string {
+  return isEvolving(node, marker)
+    ? `${name} (${STABILITY_TIER_EVOLVING})`
+    : name;
+}
+
 /** Render a table, escaping pipes in every cell so the tidy parser keeps each row intact. */
 function table(
   headers: readonly string[],
@@ -129,11 +155,14 @@ function table(
   ];
 }
 
-/** Open one lettered section for a publication, naming its artifact and policy. */
+/**
+ * Open one lettered section for a publication: its artifact, what the
+ * registry says it promises, and the same-major changes its policy permits.
+ * Both sentences come from the registry, so the digest never restates them.
+ */
 function section(
   letter: string,
   publication: PublicSchemaPublication,
-  rules: string,
 ): string[] {
   return [
     "",
@@ -141,7 +170,9 @@ function section(
       code(publication.artifactPath)
     }, policy ${code(publication.compatibility)})`,
     "",
-    rules,
+    publication.contract,
+    "",
+    compatibilityContract(publication.compatibility),
     "",
   ];
 }
@@ -228,11 +259,7 @@ function renderCli(
   publication: PublicSchemaPublication,
   manifest: JsonObject,
 ): string[] {
-  const lines = section(
-    letter,
-    publication,
-    "Frozen per command: path, aliases, hidden flag, positional arguments by position, and every flag's spellings, value type, arity, default, visibility, and global-ness. Descriptions may change. New commands, aliases, flags, and trailing positionals may be added.",
-  );
+  const lines = section(letter, publication);
   const implicit = manifest.implicit_flags;
   if (isObject(implicit)) {
     lines.push(
@@ -277,7 +304,7 @@ function renderCli(
         flag.global !== true
       ).map((flag) => strings(flag.spellings).join("/")).join(" ");
       return [
-        code(path),
+        withStability(code(path), command, MANIFEST_STABILITY_FIELD),
         command.hidden === true ? `yes${hiddenWhen}` : "",
         positionals === "" ? "" : code(positionals),
         clip(flags, 200),
@@ -291,7 +318,16 @@ function renderCli(
     const positionals = objects(command.positionals);
     if (own.length === 0 && positionals.length === 0) continue;
     const path = strings(command.path).join(" ") || "(root)";
-    lines.push(`**${code(`discern ${path}`)}**`, "");
+    lines.push(
+      `**${
+        withStability(
+          code(`discern ${path}`),
+          command,
+          MANIFEST_STABILITY_FIELD,
+        )
+      }**`,
+      "",
+    );
     const rows = positionals.map((argument) => [
       code(`<${inline(argument.name)}>`),
       `positional${argument.variadic === true ? ", variadic" : ""}${
@@ -323,11 +359,7 @@ function renderMcp(
   publication: PublicSchemaPublication,
   manifest: JsonObject,
 ): string[] {
-  const lines = section(
-    letter,
-    publication,
-    "Frozen: tool names, their relative order, safety annotations, and each input's name, type, and requiredness. Titles and descriptions may change. New tools and new optional inputs may be added.",
-  );
+  const lines = section(letter, publication);
   const tools = objects(manifest.tools);
   lines.push(...table(
     ["Tool", "Title", "Annotations", "Inputs"],
@@ -344,7 +376,7 @@ function renderMcp(
         ).join(", ")
         : "";
       return [
-        code(tool.name),
+        withStability(code(tool.name), tool, MANIFEST_STABILITY_FIELD),
         clip(tool.title, 60),
         annotations,
         clip(inputs, 220),
@@ -361,7 +393,12 @@ function renderMcp(
     const properties = pathValue(tool, ["inputSchema", "properties"]);
     if (!isObject(properties) || Object.keys(properties).length === 0) continue;
     const required = strings(pathValue(tool, ["inputSchema", "required"]));
-    lines.push(`**${code(tool.name)}** — ${clip(tool.title, 80)}`, "");
+    lines.push(
+      `**${
+        withStability(code(tool.name), tool, MANIFEST_STABILITY_FIELD)
+      }** — ${clip(tool.title, 80)}`,
+      "",
+    );
     lines.push(...table(
       ["Input", "Type", "Required", "Description"],
       Object.entries(properties).map(([key, value]) => [
@@ -374,10 +411,19 @@ function renderMcp(
   }
   const resources = objects(manifest.resources);
   if (resources.length > 0) {
-    lines.push("### Resources", "");
+    lines.push(
+      "### Resources and resource templates",
+      "",
+      "A `template` URI carries a placeholder the client fills in; a `resource` URI is read as written.",
+      "",
+    );
     lines.push(...table(
-      ["Resource", "URI"],
-      resources.map((resource) => [code(resource.name), code(resource.uri)]),
+      ["Resource", "Kind", "URI"],
+      resources.map((resource) => [
+        code(resource.name),
+        inline(resource.kind),
+        code(resource.uri),
+      ]),
     ));
   }
   return lines;
@@ -406,22 +452,105 @@ function dataBranches(data: JsonValue | undefined): string[] {
   return branches.length === 0 ? ["(none)"] : branches;
 }
 
-/** Name the enum members found at one path inside the envelope schema. */
-function enumAt(root: JsonObject, keys: readonly string[]): string {
-  return codes(strings(pathValue(root, keys)));
+/**
+ * The one open vocabulary whose members carry a second attribute: the hint
+ * registry classes each error slug's recovery, so it renders as its own table
+ * instead of one row of members.
+ */
+const ERROR_SLUG_VOCABULARY =
+  "x-discern-error-slugs" satisfies ResultOpenVocabularyKey;
+
+/** Collect the first schema node carrying each vocabulary keyword, walking every object and array. */
+function vocabularyNodes(
+  value: JsonValue | undefined,
+  found: Map<string, JsonObject> = new Map(),
+): Map<string, JsonObject> {
+  if (Array.isArray(value)) {
+    for (const member of value) vocabularyNodes(member, found);
+  } else if (isObject(value)) {
+    const key = value[RESULT_VOCABULARY_KEYWORD];
+    if (typeof key === "string" && !found.has(key)) found.set(key, value);
+    for (const child of Object.values(value)) vocabularyNodes(child, found);
+  }
+  return found;
 }
 
-/** Render the results schema: the shared envelope, its vocabularies, every verb's data, and the slugs. */
+/**
+ * Render the vocabularies one artifact publishes, in registry order: every
+ * open vocabulary carried as a member array at the schema root, the error
+ * slugs with their recovery class, and every closed vocabulary carried as an
+ * `enum` node wherever it sits. With `everyDecision`, the closed table lists
+ * the whole decision registry, leaving the members empty for an entry this
+ * artifact carries nowhere.
+ */
+function renderVocabularies(
+  schema: JsonObject,
+  everyDecision: boolean,
+): string[] {
+  const lines: string[] = [];
+  const openRows = Object.entries(RESULT_OPEN_VOCABULARIES).flatMap((
+    [key, vocabulary],
+  ) =>
+    key === ERROR_SLUG_VOCABULARY || !Array.isArray(schema[key])
+      ? []
+      : [[code(key), vocabulary.name, codes(strings(schema[key]))]]
+  );
+  if (openRows.length > 0) {
+    lines.push(
+      "### Open vocabularies (member arrays at the schema root)",
+      "",
+      "Each field carrying one is published as `type: string`; the name is its `DiscernKnown<Name>` declaration.",
+      "",
+    );
+    lines.push(...table(["Vocabulary", "Name", "Members"], openRows));
+  }
+  const slugs = strings(schema[ERROR_SLUG_VOCABULARY]);
+  if (slugs.length > 0) {
+    const recovery = new Map(Object.entries(ERROR_FAILURE_RECOVERY));
+    lines.push(
+      `### Error slugs (${code(ERROR_SLUG_VOCABULARY)})`,
+      "",
+      "The recovery class comes from the hint registry: `evidence` slugs let the generic recovery floor stand when the result carries a message or diagnostic; `tailored` slugs require a narrower registered next step.",
+      "",
+    );
+    lines.push(...table(
+      ["Slug", "Recovery class"],
+      slugs.map((slug) => [code(slug), recovery.get(slug) ?? ""]),
+    ));
+  }
+  const nodes = vocabularyNodes(schema);
+  const closedRows = Object.entries(RESULT_DECISION_VOCABULARIES).flatMap((
+    [key, vocabulary],
+  ) => {
+    const node = nodes.get(key);
+    if (node === undefined && !everyDecision) return [];
+    return [[
+      code(key),
+      vocabulary.name,
+      node === undefined ? "" : codes(strings(node.enum)),
+    ]];
+  });
+  if (closedRows.length > 0) {
+    lines.push(
+      "### Closed vocabularies (`enum` nodes)",
+      "",
+      everyDecision
+        ? "Members are read from this artifact; an empty cell means it carries no field of that vocabulary."
+        : "Members are read from this artifact's `enum` nodes.",
+      "",
+    );
+    lines.push(...table(["Vocabulary", "Name", "Members"], closedRows));
+  }
+  return lines;
+}
+
+/** Render the results schema: the shared envelope, every verb's data and policy, the shared definitions, and the vocabularies. */
 function renderResults(
   letter: string,
   publication: PublicSchemaPublication,
   schema: JsonObject,
 ): string[] {
-  const lines = section(
-    letter,
-    publication,
-    "Every CLI `--json` result and every MCP `structuredContent` is one `DiscernResult`, discriminated by `verb`. Frozen: existing field names, types, meanings, and requiredness; the `verb` literals; each contract's `completion_policy`; the `$defs` names. Additions allowed: optional fields, new verbs and contracts, new error slugs. Bold marks a required field.",
-  );
+  const lines = section(letter, publication);
   const defs = isObject(schema.$defs) ? schema.$defs : {};
   const contracts = objects(schema["x-discern-contracts"]);
   const envelope = pathValue(defs, ["DiscernRootResult", "properties"]);
@@ -446,46 +575,11 @@ function renderResults(
         ];
       }),
     ));
-    lines.push("### Closed vocabularies inside the envelope", "");
-    lines.push(...table(["Vocabulary", "Members"], [
-      [
-        "step `kind`",
-        enumAt(envelope, ["steps", "items", "properties", "kind", "enum"]),
-      ],
-      [
-        "step `disposition`",
-        enumAt(envelope, [
-          "steps",
-          "items",
-          "properties",
-          "disposition",
-          "enum",
-        ]),
-      ],
-      [
-        "step `outcome`",
-        enumAt(envelope, ["steps", "items", "properties", "outcome", "enum"]),
-      ],
-      [
-        "advisory `kind`",
-        enumAt(envelope, ["advisories", "items", "properties", "kind", "enum"]),
-      ],
-      [
-        "diagnostic `severity`",
-        enumAt(envelope, [
-          "diagnostics",
-          "items",
-          "properties",
-          "severity",
-          "enum",
-        ]),
-      ],
-    ]));
   }
   lines.push(
     "### Per-verb `data` shapes",
     "",
-    "One row per alternative of the `data` union, usually success first and refusal last. `→Name` points at a shared `$defs` entry.",
+    "One row per alternative of the `data` union, usually success first and refusal last. Bold marks a required field; `→Name` points at a shared `$defs` entry.",
     "",
   );
   lines.push(...table(
@@ -498,14 +592,14 @@ function renderResults(
         pathValue(definition, ["properties", "data"]),
       );
       return [
-        code(contract.verb),
+        withStability(code(contract.verb), contract, MANIFEST_STABILITY_FIELD),
         typeof contract.mcp_tool === "string" ? code(contract.mcp_tool) : "",
         branches.map((branch) => clip(branch, 600)).join("<br>— "),
       ];
     }),
   ));
   lines.push(
-    "### Completion policies (frozen per verb)",
+    "### Completion policies",
     "",
     "A completion policy is the semantic authority for when `ok: true` is allowed: which postconditions must hold, which degradations may ride as advisories, and how refusal, cancellation, partial effect, and no-op are reported.",
     "",
@@ -525,7 +619,7 @@ function renderResults(
         ? contract.completion_policy
         : {};
       return [
-        code(contract.verb),
+        withStability(code(contract.verb), contract, MANIFEST_STABILITY_FIELD),
         strings(policy.required_postconditions).join(", "),
         clip(strings(policy.optional_advisories).join(", "), 120),
         inline(policy.cancellation),
@@ -535,7 +629,7 @@ function renderResults(
       ];
     }),
   ));
-  lines.push("### Shared `$defs` (frozen names)", "");
+  lines.push("### Shared `$defs`", "");
   lines.push(...table(
     ["Definition", "Fields"],
     Object.entries(defs).filter(([name]) => !name.endsWith("Result")).map((
@@ -550,20 +644,7 @@ function renderResults(
       ),
     ]),
   ));
-  lines.push(
-    "### Error slugs (`x-discern-error-slugs`; open metadata, append-only)",
-    "",
-    "The recovery class comes from the hint registry: `evidence` slugs let the generic recovery floor stand when the result carries a message or diagnostic; `tailored` slugs require a narrower registered next step.",
-    "",
-  );
-  const recovery = new Map(Object.entries(ERROR_FAILURE_RECOVERY));
-  lines.push(...table(
-    ["Slug", "Recovery class"],
-    strings(schema["x-discern-error-slugs"]).map((slug) => [
-      code(slug),
-      recovery.get(slug) ?? "",
-    ]),
-  ));
+  lines.push(...renderVocabularies(schema, true));
   return lines;
 }
 
@@ -572,15 +653,18 @@ function renderConfig(
   letter: string,
   publication: PublicSchemaPublication,
   schema: JsonObject,
-  rules: string,
 ): string[] {
-  const lines = section(letter, publication, rules);
+  const lines = section(letter, publication);
   const sections = isObject(schema.properties) ? schema.properties : {};
   const required = strings(schema.required);
+  const sectionName = (name: string, value: JsonValue): string =>
+    isObject(value)
+      ? withStability(code(`[${name}]`), value, PUBLIC_SCHEMA_STABILITY_KEY)
+      : code(`[${name}]`);
   lines.push(...table(
     ["Section", "Required", "Kind", "Description"],
     Object.entries(sections).map(([name, value]) => [
-      code(`[${name}]`),
+      sectionName(name, value),
       required.includes(name) ? "yes" : "",
       typeOf(value),
       clip(isObject(value) ? descriptionOf(value) : "", 150),
@@ -607,7 +691,10 @@ function renderConfig(
       keyRows(value, "", 2, rows);
     }
     if (rows.length === 0) continue;
-    lines.push(`### [${name}]`, "");
+    lines.push(
+      `### ${withStability(`[${name}]`, value, PUBLIC_SCHEMA_STABILITY_KEY)}`,
+      "",
+    );
     lines.push(...table(KEY_HEADERS, rows));
   }
   return lines;
@@ -630,11 +717,7 @@ function renderConventions(
   publication: PublicSchemaPublication,
   manifest: JsonObject,
 ): string[] {
-  const lines = section(
-    letter,
-    publication,
-    "Every existing leaf value is immutable within the major; new keys may join. This is the strictest manifest: it freezes names and values, such as paths, ref names, port bases, and trailers.",
-  );
+  const lines = section(letter, publication);
   const definitions = new Map<string, EnvironmentVariableDefinition>(
     Object.values(DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS).map((
       definition,
@@ -780,17 +863,13 @@ function renderConventions(
   return lines;
 }
 
-/** Render any other schema publication generically: root keys, alternatives, definitions, and extensions. */
+/** Render any other schema publication generically: root keys, alternatives, definitions, vocabularies, and extensions. */
 function renderDefinitions(
   letter: string,
   publication: PublicSchemaPublication,
   schema: JsonObject,
 ): string[] {
-  const lines = section(
-    letter,
-    publication,
-    `${publication.contract} Frozen like results: existing fields keep their names, types, and requiredness; optional fields may be added.`,
-  );
+  const lines = section(letter, publication);
   const rootRows: string[][] = [];
   keyRows(schema, "", 0, rootRows);
   if (rootRows.length > 0) {
@@ -813,6 +892,7 @@ function renderDefinitions(
     keyRows(definition, "", 0, rows);
     lines.push(`**${code(name)}**`, "", ...table(KEY_HEADERS, rows));
   }
+  lines.push(...renderVocabularies(schema, false));
   for (const [key, value] of Object.entries(schema)) {
     if (key.startsWith("x-discern-") && typeof value === "string") {
       lines.push(`${code(key)}: <${value}>`, "");
@@ -852,19 +932,8 @@ function renderPublication(
     case "schema/discern-results.schema.json":
       return renderResults(letter, publication, artifact);
     case "schema/discern-config.schema.json":
-      return renderConfig(
-        letter,
-        publication,
-        artifact,
-        "Closed authoring schema: unknown keys are rejected at runtime. Frozen: every existing key's name, type, meaning, and default, because omitting a key means its default. Allowed within the major: new optional keys and sections, and a required key becoming optional.",
-      );
     case "schema/discern-setup-config.schema.json":
-      return renderConfig(
-        letter,
-        publication,
-        artifact,
-        "The JSON answers document consumed only by `discern setup begin --config`. Closed at authoring time; at runtime unknown same-major fields are ignored. Frozen like `discern.toml`: key names, types, and defaults.",
-      );
+      return renderConfig(letter, publication, artifact);
     case "schema/discern-conventions.json":
       return renderConventions(letter, publication, artifact);
     default:
