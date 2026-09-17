@@ -130,209 +130,225 @@ const CLOSED_NARROW = {
   focusInNavigation: false,
 } as const;
 
-Deno.test("the docs drawer performs the complete modal focus contract on the served shell", async () => {
+Deno.test("the served docs shell keeps its drawer, skip link, and no-script contracts in a browser", async (test) => {
+  // One browser serves both contexts; each step opens its own.
   const browser = await launchBrowser();
   try {
-    const { context, page, failures } = await openContext(browser, {
-      javaScriptEnabled: true,
-    });
-    try {
-      await page.goto(`${ORIGIN}/docs`);
-      await drawerSettled(page, "closed");
-      assertEquals(await drawerState(page), {
-        ...CLOSED_NARROW,
-        focusOnToggle: false,
-      });
-
-      // The skip link is the first stop and lands on the layout's main.
-      await page.keyboard.press("Tab");
-      assertEquals(await page.locator(":focus").getAttribute("href"), "#doc");
-      await page.keyboard.press("Enter");
-      assertEquals(await page.evaluate(() => location.hash), "#doc");
-
-      const toggle = page.locator("[data-discern-docs-drawer-toggle]");
-      await toggle.focus();
-      await toggle.click();
-      await drawerSettled(page, "open");
-      await page.waitForFunction(
-        (navigationId) =>
-          document.getElementById(navigationId)?.contains(
-            document.activeElement,
-          ) === true,
-        NAVIGATION_ID,
-      );
-      assertEquals(await drawerState(page), {
-        expanded: "true",
-        label: "Close navigation",
-        toggleHidden: false,
-        role: "dialog",
-        modal: "true",
-        navLabel: "Manual navigation",
-        navInert: false,
-        backgroundInert: true,
-        focusInNavigation: true,
-        focusOnToggle: false,
-      });
-      assertEquals(
-        await page.evaluate(
-          (navigationId) =>
-            document.activeElement ===
-              document.getElementById(navigationId)?.querySelector("a[href]"),
-          NAVIGATION_ID,
-        ),
-        true,
-        "focus moves to the first navigation link",
-      );
-
-      // Tab wraps between the toggle and the navigation's last focusable.
-      await page.locator(`#${NAVIGATION_ID} a[href]`).last().focus();
-      await page.keyboard.press("Tab");
-      assertEquals((await drawerState(page)).focusOnToggle, true);
-      await page.keyboard.press("Shift+Tab");
-      assertEquals(
-        await page.evaluate((navigationId) => {
-          const links = document.getElementById(navigationId)?.querySelectorAll(
-            "a[href]",
-          );
-          return document.activeElement === links?.[links.length - 1];
-        }, NAVIGATION_ID),
-        true,
-        "Shift+Tab from the toggle reaches the last navigation link",
-      );
-
-      // The open drawer is a valid dialog to an automated audit.
-      await page.evaluate(axe.source);
-      const findings = await page.evaluate(async () => {
-        const runner = (window as unknown as { axe: typeof axe }).axe;
-        const result = await runner.run(document, {
-          runOnly: {
-            type: "tag",
-            values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
-          },
+    await test.step(
+      "the docs drawer performs the complete modal focus contract",
+      async () => {
+        const { context, page, failures } = await openContext(browser, {
+          javaScriptEnabled: true,
         });
-        return result.violations.map((violation) => ({
-          id: violation.id,
-          nodes: violation.nodes.map((node) => node.target),
-        }));
-      });
-      assertEquals(findings, []);
+        try {
+          await page.goto(`${ORIGIN}/docs`);
+          await drawerSettled(page, "closed");
+          assertEquals(await drawerState(page), {
+            ...CLOSED_NARROW,
+            focusOnToggle: false,
+          });
 
-      await page.keyboard.press("Escape");
-      await drawerSettled(page, "closed");
-      assertEquals(await drawerState(page), {
-        ...CLOSED_NARROW,
-        focusOnToggle: true,
-      });
+          // The skip link is the first stop and lands on the layout's main.
+          await page.keyboard.press("Tab");
+          assertEquals(
+            await page.locator(":focus").getAttribute("href"),
+            "#doc",
+          );
+          await page.keyboard.press("Enter");
+          assertEquals(await page.evaluate(() => location.hash), "#doc");
 
-      // Search yields the drawer: the palette opens over a closed drawer and
-      // hands focus back to the toggle once it closes.
-      await toggle.click();
-      await drawerSettled(page, "open");
-      await page.keyboard.press("Meta+k");
-      await drawerSettled(page, "closed");
-      assertEquals(
-        await page.evaluate(() =>
-          document.querySelector<HTMLDialogElement>(
-            "[data-discern-search-palette]",
-          )?.open
-        ),
-        true,
-        "the palette opens once the drawer has closed",
-      );
-      await page.keyboard.press("Escape");
-      // The dialog's close event, where the site restores focus, follows
-      // the open attribute's removal by a task.
-      await page.waitForFunction(() =>
-        document.querySelector<HTMLDialogElement>(
-            "[data-discern-search-palette]",
-          )?.open === false &&
-        document.activeElement ===
-          document.querySelector("[data-discern-docs-drawer-toggle]")
-      );
-      assertEquals(await drawerState(page), {
-        ...CLOSED_NARROW,
-        focusOnToggle: true,
-      });
+          const toggle = page.locator("[data-discern-docs-drawer-toggle]");
+          await toggle.focus();
+          await toggle.click();
+          await drawerSettled(page, "open");
+          await page.waitForFunction(
+            (navigationId) =>
+              document.getElementById(navigationId)?.contains(
+                document.activeElement,
+              ) === true,
+            NAVIGATION_ID,
+          );
+          assertEquals(await drawerState(page), {
+            expanded: "true",
+            label: "Close navigation",
+            toggleHidden: false,
+            role: "dialog",
+            modal: "true",
+            navLabel: "Manual navigation",
+            navInert: false,
+            backgroundInert: true,
+            focusInNavigation: true,
+            focusOnToggle: false,
+          });
+          assertEquals(
+            await page.evaluate(
+              (navigationId) =>
+                document.activeElement ===
+                  document.getElementById(navigationId)?.querySelector(
+                    "a[href]",
+                  ),
+              NAVIGATION_ID,
+            ),
+            true,
+            "focus moves to the first navigation link",
+          );
 
-      // Crossing the breakpoint while open closes without moving focus; a
-      // wide navigation is never inert or toggled.
-      await toggle.click();
-      await drawerSettled(page, "open");
-      await page.setViewportSize(WIDE);
-      await drawerSettled(page, null);
-      assertEquals(await drawerState(page), {
-        expanded: "false",
-        label: "Open navigation",
-        toggleHidden: true,
-        role: null,
-        modal: null,
-        navLabel: null,
-        navInert: false,
-        backgroundInert: false,
-        focusInNavigation: true,
-        focusOnToggle: false,
-      });
-      await page.setViewportSize(NARROW);
-      await drawerSettled(page, "closed");
-      assertEquals(
-        (await drawerState(page)).navInert,
-        true,
-        "a narrow navigation is inert until opened",
-      );
-      assertEquals(failures, []);
-    } finally {
-      await context.close();
-    }
-  } finally {
-    await browser.close();
-  }
-});
+          // Tab wraps between the toggle and the navigation's last focusable.
+          await page.locator(`#${NAVIGATION_ID} a[href]`).last().focus();
+          await page.keyboard.press("Tab");
+          assertEquals((await drawerState(page)).focusOnToggle, true);
+          await page.keyboard.press("Shift+Tab");
+          assertEquals(
+            await page.evaluate((navigationId) => {
+              const links = document.getElementById(navigationId)
+                ?.querySelectorAll(
+                  "a[href]",
+                );
+              return document.activeElement === links?.[links.length - 1];
+            }, NAVIGATION_ID),
+            true,
+            "Shift+Tab from the toggle reaches the last navigation link",
+          );
 
-Deno.test("without JavaScript the docs navigation stays in flow above the document", async () => {
-  const browser = await launchBrowser();
-  try {
-    const { context, page } = await openContext(browser, {
-      javaScriptEnabled: false,
-    });
-    try {
-      await page.goto(`${ORIGIN}/docs`);
-      const facts = await page.evaluate((navigationId) => {
-        const nav = document.getElementById(navigationId);
-        const main = document.getElementById("doc");
-        const toggle = document.querySelector<HTMLElement>(
-          "[data-discern-docs-drawer-toggle]",
-        );
-        const search = document.querySelector<HTMLElement>(
-          "[data-search-open]",
-        );
-        if (!nav || !main || !toggle || !search) {
-          throw new Error("the no-script fixture is incomplete");
+          // The open drawer is a valid dialog to an automated audit.
+          await page.evaluate(axe.source);
+          const findings = await page.evaluate(async () => {
+            const runner = (window as unknown as { axe: typeof axe }).axe;
+            const result = await runner.run(document, {
+              runOnly: {
+                type: "tag",
+                values: [
+                  "wcag2a",
+                  "wcag2aa",
+                  "wcag21a",
+                  "wcag21aa",
+                  "wcag22aa",
+                ],
+              },
+            });
+            return result.violations.map((violation) => ({
+              id: violation.id,
+              nodes: violation.nodes.map((node) => node.target),
+            }));
+          });
+          assertEquals(findings, []);
+
+          await page.keyboard.press("Escape");
+          await drawerSettled(page, "closed");
+          assertEquals(await drawerState(page), {
+            ...CLOSED_NARROW,
+            focusOnToggle: true,
+          });
+
+          // Search yields the drawer: the palette opens over a closed drawer and
+          // hands focus back to the toggle once it closes.
+          await toggle.click();
+          await drawerSettled(page, "open");
+          await page.keyboard.press("Meta+k");
+          await drawerSettled(page, "closed");
+          assertEquals(
+            await page.evaluate(() =>
+              document.querySelector<HTMLDialogElement>(
+                "[data-discern-search-palette]",
+              )?.open
+            ),
+            true,
+            "the palette opens once the drawer has closed",
+          );
+          await page.keyboard.press("Escape");
+          // The dialog's close event, where the site restores focus, follows
+          // the open attribute's removal by a task.
+          await page.waitForFunction(() =>
+            document.querySelector<HTMLDialogElement>(
+                "[data-discern-search-palette]",
+              )?.open === false &&
+            document.activeElement ===
+              document.querySelector("[data-discern-docs-drawer-toggle]")
+          );
+          assertEquals(await drawerState(page), {
+            ...CLOSED_NARROW,
+            focusOnToggle: true,
+          });
+
+          // Crossing the breakpoint while open closes without moving focus; a
+          // wide navigation is never inert or toggled.
+          await toggle.click();
+          await drawerSettled(page, "open");
+          await page.setViewportSize(WIDE);
+          await drawerSettled(page, null);
+          assertEquals(await drawerState(page), {
+            expanded: "false",
+            label: "Open navigation",
+            toggleHidden: true,
+            role: null,
+            modal: null,
+            navLabel: null,
+            navInert: false,
+            backgroundInert: false,
+            focusInNavigation: true,
+            focusOnToggle: false,
+          });
+          await page.setViewportSize(NARROW);
+          await drawerSettled(page, "closed");
+          assertEquals(
+            (await drawerState(page)).navInert,
+            true,
+            "a narrow navigation is inert until opened",
+          );
+          assertEquals(failures, []);
+        } finally {
+          await context.close();
         }
-        return {
-          navigationAboveDocument: nav.getBoundingClientRect().bottom <=
-            main.getBoundingClientRect().top,
-          navigationInert: nav.inert,
-          navigationVisible: nav.getClientRects().length > 0,
-          toggleShown: toggle.getClientRects().length > 0,
-          searchShown: search.getClientRects().length > 0,
-        };
-      }, NAVIGATION_ID);
-      assertEquals(facts, {
-        navigationAboveDocument: true,
-        navigationInert: false,
-        navigationVisible: true,
-        toggleShown: false,
-        searchShown: false,
-      });
-      assert(
-        await page.evaluate(() =>
-          document.documentElement.scrollWidth <= innerWidth
-        ),
-        "the shell reflows within a narrow viewport",
-      );
-    } finally {
-      await context.close();
-    }
+      },
+    );
+
+    await test.step(
+      "without JavaScript the navigation stays in flow above the document",
+      async () => {
+        const { context, page } = await openContext(browser, {
+          javaScriptEnabled: false,
+        });
+        try {
+          await page.goto(`${ORIGIN}/docs`);
+          const facts = await page.evaluate((navigationId) => {
+            const nav = document.getElementById(navigationId);
+            const main = document.getElementById("doc");
+            const toggle = document.querySelector<HTMLElement>(
+              "[data-discern-docs-drawer-toggle]",
+            );
+            const search = document.querySelector<HTMLElement>(
+              "[data-search-open]",
+            );
+            if (!nav || !main || !toggle || !search) {
+              throw new Error("the no-script fixture is incomplete");
+            }
+            return {
+              navigationAboveDocument: nav.getBoundingClientRect().bottom <=
+                main.getBoundingClientRect().top,
+              navigationInert: nav.inert,
+              navigationVisible: nav.getClientRects().length > 0,
+              toggleShown: toggle.getClientRects().length > 0,
+              searchShown: search.getClientRects().length > 0,
+            };
+          }, NAVIGATION_ID);
+          assertEquals(facts, {
+            navigationAboveDocument: true,
+            navigationInert: false,
+            navigationVisible: true,
+            toggleShown: false,
+            searchShown: false,
+          });
+          assert(
+            await page.evaluate(() =>
+              document.documentElement.scrollWidth <= innerWidth
+            ),
+            "the shell reflows within a narrow viewport",
+          );
+        } finally {
+          await context.close();
+        }
+      },
+    );
   } finally {
     await browser.close();
   }
