@@ -2,9 +2,9 @@ import type { ReactElement } from "react";
 /** Homepage shell for the public landing page. */
 
 import {
+  ApproachBackdrop,
   Button,
   Grid,
-  HarmonicBackdrop,
   Heading,
   Icon,
   Kicker,
@@ -67,7 +67,7 @@ function HomePage(): ReactElement {
   return (
     <MarketingLayout currentPath="/">
       <section className="homepage-artwork" aria-labelledby="homepage-title">
-        <HarmonicBackdrop presence={1.8} />
+        <ApproachBackdrop />
         <div className="homepage-copy">
           <Kicker className="homepage-eyebrow">
             <span aria-hidden="true">{DISCERN_MARK}</span> discern v1.0.0

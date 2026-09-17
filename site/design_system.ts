@@ -55,7 +55,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "tag",
       "window",
       "skip-link",
-      "harmonic-backdrop",
+      "approach-backdrop",
       "card",
       "command",
     ],
