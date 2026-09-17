@@ -105,7 +105,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`security-disclosure`](#security-disclosure--security-disclosure)                                                    | `site/security.ts#SECURITY_DISCLOSURE`                                            | 9       | —                | —                           |
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 69      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
-| [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
+| [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 16      | —                | node `published-contracts`  |
 | [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 50      | —                | node `bundled-docs`         |
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
@@ -4219,13 +4219,14 @@ The executed-step outcomes shared by runtime validation, result rendering, and p
 The machine-stable vocabulary for explicitly optional degradation that may coexist with a successful completion verdict.
 
 - Source: `src/shared/result.ts` — `RESULT_ADVISORY_KINDS`
-- Members: 15
+- Members: 16
   - `acceptance-cleanup-incomplete`
   - `checkpoint-evidence-dropped`
   - `checkout-clean-observation-unavailable`
   - `doctor-warning`
   - `execution-cap-unavailable`
   - `generated-attribute-pattern-untranslated`
+  - `governing-config-key-ignored`
   - `ignored-file-observation-unavailable`
   - `landing-authority-unverified`
   - `optional-resource-unavailable`

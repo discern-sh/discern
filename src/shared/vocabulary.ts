@@ -32,9 +32,14 @@ export const RETIRED_CONFIG_KEY_REDIRECTS: Readonly<Record<string, string>> = {
   checks: "jobs",
 };
 
-/** The successor for a retired top-level config key, if `key` is one. */
-export function retiredConfigKeySuccessor(key: string): string | undefined {
-  return RETIRED_CONFIG_KEY_REDIRECTS[key];
+/** The successor for a retired config key path, if `key` is one. `redirects`
+ * is injectable so the migration and governing-read mechanisms can be proved
+ * before a production retirement exists. */
+export function retiredConfigKeySuccessor(
+  key: string,
+  redirects: Readonly<Record<string, string>> = RETIRED_CONFIG_KEY_REDIRECTS,
+): string | undefined {
+  return redirects[key];
 }
 
 /** One retired config position that is DEAD — it is rejected during parsing,

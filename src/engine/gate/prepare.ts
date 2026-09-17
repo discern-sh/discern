@@ -77,6 +77,7 @@ import {
   assertManagedMaterialWritable,
   managedMaterialBoundary,
 } from "../../shared/managed_version.ts";
+import { governingConfigKeyIgnoredAdvisory } from "../governing_config_advisory.ts";
 
 interface PrepareRefreshRun {
   readonly ok: boolean;
@@ -284,8 +285,10 @@ async function runPrepareGate(
   // `checkpoints`, and both `done` paths): serve each required question while
   // the change is still in the inner loop. Read-only and advisory — it touches
   // only `hints`, and a checkpoint-free effort adds nothing.
-  const checkpointHints = checkpointInspectionHints(
-    await inspectCheckpointObligations(root, cfg),
+  const checkpointInspection = await inspectCheckpointObligations(root, cfg);
+  const checkpointHints = checkpointInspectionHints(checkpointInspection);
+  const governingConfigAdvisory = governingConfigKeyIgnoredAdvisory(
+    checkpointInspection.ignoredConfigKeys,
   );
   const gotchasTail = failedStage === null
     ? undefined
@@ -310,6 +313,9 @@ async function runPrepareGate(
     data: { producer_executions: producerExecutions, measurement: "none" },
     steps,
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+    ...(governingConfigAdvisory === undefined
+      ? {}
+      : { advisories: [governingConfigAdvisory] }),
     ...(() => {
       const hints = mergeHintTexts(refresh.hints, hintTexts(firedHints));
       return hints.length > 0 ? { hints } : {};

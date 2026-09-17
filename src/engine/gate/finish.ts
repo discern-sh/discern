@@ -195,6 +195,7 @@ import {
   managedMaterialBoundary,
   trunkManagedVersionBoundary,
 } from "../managed_version.ts";
+import { governingConfigKeyIgnoredAdvisory } from "../governing_config_advisory.ts";
 
 /** Candidate coordination wraps the gate's existing plan, judgment and validation seams. */
 async function runGate(
@@ -465,6 +466,7 @@ async function runCandidateGate(
     StandardLimitProposalData
   > = new Map();
   let tier1Diagnostics: Diagnostic[] = [];
+  let standardsIgnoredConfigKeys: readonly string[] = [];
   let limitsWarning: FiredHint | undefined;
   if (failedStage === null) {
     const proposalInspection = await inspectActiveStandardLimitProposals(
@@ -481,6 +483,7 @@ async function runCandidateGate(
       cfg,
     );
     standardLimitProposals = verification.proposals;
+    standardsIgnoredConfigKeys = verification.ignoredConfigKeys;
     for (const stale of proposalInspection.stale) {
       if (verification.blockedStandards.has(stale.proposal.standard)) {
         verification.diagnostics.unshift(
@@ -875,6 +878,16 @@ async function runCandidateGate(
     : gateCheckpointsData(checkpointPreflight);
   if (result.data !== undefined && checkpointData !== undefined) {
     result.data.checkpoints = checkpointData;
+  }
+  const governingConfigAdvisory = governingConfigKeyIgnoredAdvisory([
+    ...standardsIgnoredConfigKeys,
+    ...(checkpointPreflight?.ignoredConfigKeys ?? []),
+  ]);
+  if (governingConfigAdvisory !== undefined) {
+    result.advisories = [
+      ...(result.advisories ?? []),
+      governingConfigAdvisory,
+    ];
   }
   // 6a. The standards' envelope fields (ADR 0133): the per-standard outcomes and
   //     the Tier-1 verification, plus the measured value patched into each
@@ -1523,12 +1536,18 @@ function awaitingDeclarationRefusal(
     scopes_changed: [],
     ...(checkpoints === undefined ? {} : { checkpoints }),
   };
+  const governingConfigAdvisory = governingConfigKeyIgnoredAdvisory(
+    preflight.ignoredConfigKeys,
+  );
   return {
     ok: false,
     verb: "done",
     error: AWAITING_DECLARATION_SLUG,
     message,
     data,
+    ...(governingConfigAdvisory === undefined
+      ? {}
+      : { advisories: [governingConfigAdvisory] }),
     hints: hintTexts([
       fire(HINTS["checkpoint-declare"], { ids }),
       ...(ciRecovery ? [fire(HINTS["checkpoint-ci-recovery"])] : []),

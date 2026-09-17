@@ -28,7 +28,6 @@ import {
   type ConfigIssue,
   type DiscernConfig,
   governingConfigValue,
-  type parseConfig,
   parseGoverningConfig,
   validateConfigValue,
 } from "../../shared/config_schema.ts";
@@ -109,6 +108,8 @@ export interface GoverningPolicy {
   generatedGroups: ResolvedGeneratedGroup[];
   /** Structured accounts of anything that could not govern. */
   drops: CheckpointDrop[];
+  /** Current-schema-unknown keys ignored while reading committed policy. */
+  ignoredConfigKeys: string[];
 }
 
 interface UnresolvedCheckpointDrop {
@@ -513,6 +514,7 @@ export async function loadGoverningPolicy(
     return {
       checkpoints: [],
       generatedGroups: [],
+      ignoredConfigKeys: [],
       drops: [policyCheckpointDrop(
         expectedPredecessor === undefined
           ? "merge_base_unresolved"
@@ -533,6 +535,7 @@ export async function loadGoverningPolicy(
       policyCommit,
       checkpoints: [],
       generatedGroups: [],
+      ignoredConfigKeys: [],
       drops: [policyCheckpointDrop(
         "governing_config_unreadable",
         `the governing configuration at ${
@@ -543,7 +546,13 @@ export async function loadGoverningPolicy(
     };
   }
   if (listed.stdout === "") {
-    return { policyCommit, checkpoints: [], generatedGroups: [], drops: [] };
+    return {
+      policyCommit,
+      checkpoints: [],
+      generatedGroups: [],
+      ignoredConfigKeys: [],
+      drops: [],
+    };
   }
   // `:./` anchors the path at this project root even when the repository's
   // top level sits above it — the same spelling the standards trunk read uses.
@@ -555,6 +564,7 @@ export async function loadGoverningPolicy(
       policyCommit,
       checkpoints: [],
       generatedGroups: [],
+      ignoredConfigKeys: [],
       drops: [policyCheckpointDrop(
         "governing_config_unreadable",
         `the governing configuration at ${
@@ -564,13 +574,13 @@ export async function loadGoverningPolicy(
       )],
     };
   }
-  let parsed: ReturnType<typeof parseConfig>;
+  let parsed: ReturnType<typeof parseGoverningConfig>;
   let sourceDrops: UnresolvedCheckpointDrop[] = [];
   let checkpointOrder: string[] | undefined;
   try {
     parsed = parseGoverningConfig(shown.stdout);
   } catch {
-    parsed = { config: undefined, issues: [] };
+    parsed = { config: undefined, issues: [], ignoredKeyPaths: [] };
   }
   if (parsed.config === undefined) {
     const recovered = recoverHistoricalQuestionSources(
@@ -578,7 +588,11 @@ export async function loadGoverningPolicy(
       parsed.issues,
     );
     if (recovered !== undefined) {
-      parsed = { config: recovered.config, issues: [] };
+      parsed = {
+        config: recovered.config,
+        issues: [],
+        ignoredKeyPaths: parsed.ignoredKeyPaths,
+      };
       sourceDrops = recovered.drops;
       checkpointOrder = recovered.checkpointOrder;
     }
@@ -588,6 +602,7 @@ export async function loadGoverningPolicy(
       policyCommit,
       checkpoints: [],
       generatedGroups: [],
+      ignoredConfigKeys: parsed.ignoredKeyPaths,
       drops: [policyCheckpointDrop(
         "governing_config_invalid",
         `the governing configuration at ${
@@ -634,6 +649,7 @@ export async function loadGoverningPolicy(
       policyCommit,
       checkpoints: [],
       generatedGroups: [],
+      ignoredConfigKeys: parsed.ignoredKeyPaths,
       drops: [policyCheckpointDrop(
         "governing_config_invalid",
         `the governing generated-path model at ${
@@ -647,6 +663,7 @@ export async function loadGoverningPolicy(
     policyCommit,
     checkpoints: resolved.checkpoints,
     generatedGroups,
+    ignoredConfigKeys: parsed.ignoredKeyPaths,
     drops: [...sourceDrops, ...resolved.drops].sort((left, right) => {
       if (checkpointOrder === undefined) return 0;
       return checkpointOrder.indexOf(left.checkpoint) -

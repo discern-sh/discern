@@ -18,6 +18,12 @@ The optional `meta.managed_version` records successful project adoption. Its [ad
 
 Adoption preflight uses the [raw reader](../../../src/shared/config_read.ts) only to classify version evidence. The selected verb retains strict validation and its own recovery. This preserves setup's incomplete-metadata repair while preventing it from bypassing a readable newer adoption. A valid newer schema keeps its existing hard refusal; malformed governing configuration keeps the established policy diagnostic.
 
+### Governing reads
+
+Live reads of the working `discern.toml` are strict: an unrecognized key is a refusal. A governing read of committed policy has a different compatibility duty because the running binary and the committed document may sit on opposite sides of a key rename. [`parseGoverningConfig`](../../../src/shared/config_schema.ts) applies registered retired-key redirects to a read-only copy first, then removes every key the current schema does not recognize at any depth. It returns each removed dotted key path with the parsed config. Gate and checkpoint callers turn those paths into a typed advisory, so a committed value cannot silently disappear.
+
+Redirects run before unknown-key removal because a renamed path can affect which policy governs. A path key can feed `${map.dir}` references in instruction sources, scopes, generated groups, and checkpoints; replacing the retired value with today's default would silently change their coverage. Tests inject a synthetic nested path retirement and hold the resolved checkpoint selectors and generated ownership equal on both spellings. The working config never uses this tolerant projection.
+
 ## The config template and its prose
 
 The shipped `templates/discern.toml.tmpl` is a generated file ([ADR 0363](../_adr/0363-the-config-template-is-generated-from-the-schema-and-a-prose-registry.md)). [`config_template_codegen.ts`](../../../src/shared/config_template_codegen.ts) renders it from the schema's per-key `describe()` prose and the [config prose registry](../../../src/shared/config_prose.ts), which owns each documented unit's what and why, an optional detail table, worked examples, seeded entries, and the per-key hints the scaffold shows. A section's schema description is the registry's `what`. `deno task codegen` writes the template; the codegen sync test and the repository's `[generated.codegen]` group hold the committed copy equal to the renderer.

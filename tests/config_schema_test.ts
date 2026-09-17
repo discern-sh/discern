@@ -40,6 +40,8 @@ import {
 import { KNOWN_AGENTS } from "../src/lib/config.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
+import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 
 // ── defaults ───────────────────────────────────────────────────────────────────
 
@@ -306,6 +308,77 @@ Deno.test("a governing document carrying every registered dead section still gov
   assert(governed !== undefined, "the governing parse reads the remainder");
   assertEquals(governed.project.name, "governed");
   assertEquals(governed.standards["sample"]?.limit, 5);
+});
+
+Deno.test("governing reads strip and report every unrecognized key while live reads stay strict", () => {
+  const document = [
+    "future_root = true",
+    "",
+    "[worktree]",
+    "future_toggle = true",
+    "",
+    "[worktree.resources.db]",
+    'create = "true"',
+    'future_attribute = "value"',
+    "",
+    "[scopes.docs]",
+    'paths = ["docs/**"]',
+    'future_attribute = "value"',
+    "",
+  ].join("\n");
+
+  assertEquals(parseConfig(document).config, undefined, "live parse refuses");
+  const governed = parseGoverningConfig(document);
+  assert(governed.config !== undefined, JSON.stringify(governed.issues));
+  assertEquals([...governed.ignoredKeyPaths].sort(), [
+    "future_root",
+    "scopes.docs.future_attribute",
+    "worktree.future_toggle",
+    "worktree.resources.db.future_attribute",
+  ]);
+  assertEquals(governed.config.scopes.docs?.paths, ["docs/**"]);
+  assertEquals(governed.config.worktree.resources.db?.create, "true");
+});
+
+Deno.test("a governing path-key redirect preserves checkpoint selectors and generated ownership", () => {
+  const document = (mapKey: string): string =>
+    [
+      "[map]",
+      `${mapKey} = "project/map"`,
+      "",
+      "[instructions]",
+      'sources = ["${map.dir}instructions/*.md"]',
+      "",
+      "[scopes.docs]",
+      'paths = ["${map.dir}docs/**"]',
+      "",
+      "[generated.reference]",
+      'paths = ["${map.dir}generated/**"]',
+      'run = "true"',
+      "",
+      "[checkpoints.instruction-economy]",
+      "",
+      "[checkpoints.docs-review]",
+      'scope = "docs"',
+      'question = "Review the governed map."',
+      "",
+    ].join("\n");
+  const current = parseGoverningConfig(document("dir"));
+  const redirected = parseGoverningConfig(
+    document("old_dir"),
+    (path) => path === "map.old_dir" ? "map.dir" : undefined,
+  );
+  assert(current.config !== undefined, JSON.stringify(current.issues));
+  assert(redirected.config !== undefined, JSON.stringify(redirected.issues));
+  assertEquals(redirected.ignoredKeyPaths, []);
+  assertEquals(
+    resolveCheckpoints(redirected.config),
+    resolveCheckpoints(current.config),
+  );
+  assertEquals(
+    resolveGeneratedGroups(redirected.config),
+    resolveGeneratedGroups(current.config),
+  );
 });
 
 Deno.test("dead-position matching: keyed rows win over a same-path wildcard, in table order", () => {

@@ -197,6 +197,7 @@ export const RESULT_ADVISORY_KINDS = [
   "doctor-warning",
   "execution-cap-unavailable",
   "generated-attribute-pattern-untranslated",
+  "governing-config-key-ignored",
   "ignored-file-observation-unavailable",
   "landing-authority-unverified",
   "optional-resource-unavailable",
