@@ -706,48 +706,6 @@ function initParams(
   };
 }
 
-Deno.test("mcp (live): the manifest lists exactly the resources and templates the running server registers", async () => {
-  // MCP lists concrete resources and URI templates through separate calls, so
-  // the parity check covers both listings against the one published table.
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: true });
-    await gitInit(dir);
-    await using mcp = await spawnMcp(dir);
-    await mcp.initialize();
-    await mcp.send({ jsonrpc: "2.0", id: 2, method: "resources/list" });
-    const listed = (await mcp.recv()).result.resources as {
-      name: string;
-      uri: string;
-    }[];
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "resources/templates/list",
-    });
-    const templates = (await mcp.recv()).result.resourceTemplates as {
-      name: string;
-      uriTemplate: string;
-    }[];
-    const manifest = buildMcpToolsManifest().resources as {
-      name: string;
-      kind: string;
-      uri: string;
-    }[];
-    const entry = (name: string, uri: string): string => `${name} ${uri}`;
-    assertEquals(
-      listed.map((resource) => entry(resource.name, resource.uri)).sort(),
-      manifest.filter((resource) => resource.kind === "resource")
-        .map((resource) => entry(resource.name, resource.uri)).sort(),
-    );
-    assertEquals(
-      templates.map((template) => entry(template.name, template.uriTemplate))
-        .sort(),
-      manifest.filter((resource) => resource.kind === "template")
-        .map((resource) => entry(resource.name, resource.uri)).sort(),
-    );
-  });
-});
-
 Deno.test("mcp: EVERY tool's live call echoes its own verb", async () => {
   // The verb echo was pinned tool-by-tool (14 of 15). The SDK advertises each tool's
   // outputSchema as z.literal(verb), but a copy-paste tool whose CORE returns another
@@ -4617,6 +4575,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "resources/list" });
     const list = await mcp.recv();
     const resources = list.result.resources as {
+      name: string;
       uri: string;
       description?: string;
     }[];
@@ -4653,12 +4612,33 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     });
     const templates = await mcp.recv();
     const resourceTemplates = templates.result.resourceTemplates as {
+      name: string;
       uriTemplate: string;
       description?: string;
     }[];
     const tpl = resourceTemplates.map((t) => t.uriTemplate);
     assert(tpl.includes("discern://map/{+target}"), JSON.stringify(tpl));
     assert(tpl.includes("discern://docs/{+target}"), JSON.stringify(tpl));
+
+    // The published manifest lists exactly what this server registers. MCP
+    // lists concrete resources and URI templates through separate calls, so
+    // parity covers both listings against the one resources table.
+    const manifest = buildMcpToolsManifest().resources as {
+      name: string;
+      kind: string;
+      uri: string;
+    }[];
+    const entry = (name: string, uri: string): string => `${name} ${uri}`;
+    assertEquals(
+      resources.map((r) => entry(r.name, r.uri)).sort(),
+      manifest.filter((r) => r.kind === "resource")
+        .map((r) => entry(r.name, r.uri)).sort(),
+    );
+    assertEquals(
+      resourceTemplates.map((t) => entry(t.name, t.uriTemplate)).sort(),
+      manifest.filter((r) => r.kind === "template")
+        .map((r) => entry(r.name, r.uri)).sort(),
+    );
     assertStringIncludes(
       resourceTemplates.find((t) =>
         t.uriTemplate === "discern://docs/{+target}"
