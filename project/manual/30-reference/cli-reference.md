@@ -117,23 +117,15 @@ Interactive task supervision and worktree entry.
 
 ### `discern desk`
 
-Open the live desk: see tasks, review Proof and changes, open an agent, run Project Scripts, or review acceptance and worktree controls. Bare `discern` opens the desk.
+Open the live desk: see tasks, review Proof and changes, open an agent, run Project Scripts, or review acceptance and worktree controls. Bare `discern` opens the desk. The desk is interactive only; use status --markdown or status --json to list every worktree.
 
 Usage: `discern desk [options]`
 
-| Option   | Description                                                                                      |
-| -------- | ------------------------------------------------------------------------------------------------ |
-| `--json` | The desk is interactive only; use `status --markdown` or `status --json` to list every worktree. |
-
 ### `discern enter`
 
-Choose a worktree and open a child shell at the matching project-relative directory.
+Choose a worktree and open a child shell at the matching project-relative directory. This command is interactive only; use status --all --json to inspect the fleet.
 
 Usage: `discern enter [options]`
-
-| Option   | Description                                                                       |
-| -------- | --------------------------------------------------------------------------------- |
-| `--json` | This command is interactive only; use `status --all --json` to inspect the fleet. |
 
 ## Agentic loop
 
@@ -150,7 +142,6 @@ Usage: `discern status [options]`
 | `--all`         | Include every worktree even when called from one (local view plus all worktrees).                                                                                                                         |
 | `--local`       | Show only this checkout, even in the main checkout.                                                                                                                                                       |
 | `-v, --verbose` | Expand fleet attention, per-worktree evidence, configured checks, landing history, and full Proof pages. With JSON, return complete structured status; the default is the bounded orientation projection. |
-| `--json`        | Emit a bounded orientation result; add `--verbose` for complete structured status.                                                                                                                        |
 
 ### `discern prepare`
 
@@ -563,10 +554,6 @@ Test whether a key or section exists. Bare: print nothing and exit 0/1. JSON: re
 
 Usage: `discern config has <key> [options]`
 
-| Option   | Description                                                                                             |
-| -------- | ------------------------------------------------------------------------------------------------------- |
-| `--json` | Emit a JSON result with the predicate in `data.present` and exit successfully for either Boolean value. |
-
 #### `discern config subsections`
 
 Print the immediate child table names under a section.
@@ -674,14 +661,13 @@ Usage: `discern skills eject <name> [options]`
 
 ### `discern impact`
 
-Show which configured scopes the branch and working tree wake in the quality gate. Scopes are named regions of the repository with their own gate jobs.
+Show which configured scopes the branch and working tree wake in the quality gate. Scopes are named regions of the repository with their own gate jobs. With --has, JSON reports data.membership and exits successfully for either Boolean value.
 
 Usage: `discern impact [options]`
 
-| Option          | Description                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| `--json`        | Emit a JSON result; `--has` reports `data.membership` and exits successfully for either Boolean value. |
-| `--has <scope>` | Test one scope. Bare: print nothing and exit 0/1. JSON: report `data.membership` and exit 0.           |
+| Option          | Description                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| `--has <scope>` | Test one scope. Bare: print nothing and exit 0/1. JSON: report `data.membership` and exit 0. |
 
 ### `discern coupling`
 
@@ -709,24 +695,22 @@ Usage: `discern patterns archives [options]`
 
 #### `discern patterns reset`
 
-Permanently remove the active logbook after terminal confirmation. Sealed archives and other Git-admin state remain.
+Permanently remove the active logbook after terminal confirmation. Sealed archives and other Git-admin state remain. A dry-run previews one result; apply is refused with --json or --markdown.
 
 Usage: `discern patterns reset [options]`
 
 | Option      | Description                                                                 |
 | ----------- | --------------------------------------------------------------------------- |
-| `--json`    | Preview as one result; apply is refused with `--json` or `--markdown`.      |
 | `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
 
 #### `discern patterns seal`
 
-Seal the active event history into a timestamped archive and begin a fresh active logbook after terminal confirmation.
+Seal the active event history into a timestamped archive and begin a fresh active logbook after terminal confirmation. A dry-run previews one result; apply is refused with --json or --markdown.
 
 Usage: `discern patterns seal [options]`
 
 | Option      | Description                                                                 |
 | ----------- | --------------------------------------------------------------------------- |
-| `--json`    | Preview as one result; apply is refused with `--json` or `--markdown`.      |
 | `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
 
 ### `discern map`

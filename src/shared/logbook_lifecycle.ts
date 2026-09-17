@@ -15,12 +15,12 @@ export const LOGBOOK_LIFECYCLE_ACTIONS = [
   {
     name: "reset",
     description:
-      "Permanently remove the active logbook after terminal confirmation. Sealed archives and other Git-admin state remain.",
+      "Permanently remove the active logbook after terminal confirmation. Sealed archives and other Git-admin state remain. A dry-run previews one result; apply is refused with --json or --markdown.",
   },
   {
     name: "seal",
     description:
-      "Seal the active event history into a timestamped archive and begin a fresh active logbook after terminal confirmation.",
+      "Seal the active event history into a timestamped archive and begin a fresh active logbook after terminal confirmation. A dry-run previews one result; apply is refused with --json or --markdown.",
   },
 ] as const satisfies readonly LogbookLifecycleAction[];
 

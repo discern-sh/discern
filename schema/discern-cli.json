@@ -3222,6 +3222,18 @@
       "flags": [
         {
           "spellings": [
+            "--json"
+          ],
+          "description": "Emit one JSON result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
             "--markdown"
           ],
           "description": "Emit one Markdown result on stdout.",
@@ -3281,18 +3293,6 @@
           "default": null,
           "hidden": false,
           "global": true
-        },
-        {
-          "spellings": [
-            "--json"
-          ],
-          "description": "Emit a JSON result with the predicate in `data.present` and exit successfully for either Boolean value.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
         }
       ]
     },
@@ -5227,13 +5227,25 @@
       "path": [
         "impact"
       ],
-      "description": "Show which configured scopes the branch and working tree wake in the quality gate. Scopes are named regions of the repository with their own gate jobs.",
+      "description": "Show which configured scopes the branch and working tree wake in the quality gate. Scopes are named regions of the repository with their own gate jobs. With --has, JSON reports data.membership and exits successfully for either Boolean value.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
       "positionals": [],
       "usage": "",
       "flags": [
+        {
+          "spellings": [
+            "--json"
+          ],
+          "description": "Emit one JSON result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
         {
           "spellings": [
             "--markdown"
@@ -5295,18 +5307,6 @@
           "default": null,
           "hidden": false,
           "global": true
-        },
-        {
-          "spellings": [
-            "--json"
-          ],
-          "description": "Emit a JSON result; `--has` reports `data.membership` and exits successfully for either Boolean value.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
         },
         {
           "spellings": [
@@ -5801,13 +5801,25 @@
         "patterns",
         "reset"
       ],
-      "description": "Permanently remove the active logbook after terminal confirmation. Sealed archives and other Git-admin state remain.",
+      "description": "Permanently remove the active logbook after terminal confirmation. Sealed archives and other Git-admin state remain. A dry-run previews one result; apply is refused with --json or --markdown.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
       "positionals": [],
       "usage": "",
       "flags": [
+        {
+          "spellings": [
+            "--json"
+          ],
+          "description": "Emit one JSON result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
         {
           "spellings": [
             "--markdown"
@@ -5869,18 +5881,6 @@
           "default": null,
           "hidden": false,
           "global": true
-        },
-        {
-          "spellings": [
-            "--json"
-          ],
-          "description": "Preview as one result; apply is refused with `--json` or `--markdown`.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
         },
         {
           "spellings": [
@@ -5901,13 +5901,25 @@
         "patterns",
         "seal"
       ],
-      "description": "Seal the active event history into a timestamped archive and begin a fresh active logbook after terminal confirmation.",
+      "description": "Seal the active event history into a timestamped archive and begin a fresh active logbook after terminal confirmation. A dry-run previews one result; apply is refused with --json or --markdown.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
       "positionals": [],
       "usage": "",
       "flags": [
+        {
+          "spellings": [
+            "--json"
+          ],
+          "description": "Emit one JSON result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
         {
           "spellings": [
             "--markdown"
@@ -5969,18 +5981,6 @@
           "default": null,
           "hidden": false,
           "global": true
-        },
-        {
-          "spellings": [
-            "--json"
-          ],
-          "description": "Preview as one result; apply is refused with `--json` or `--markdown`.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
         },
         {
           "spellings": [
@@ -6007,6 +6007,18 @@
       "positionals": [],
       "usage": "",
       "flags": [
+        {
+          "spellings": [
+            "--json"
+          ],
+          "description": "Emit one JSON result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
         {
           "spellings": [
             "--markdown"
@@ -6105,18 +6117,6 @@
           "default": null,
           "hidden": false,
           "global": false
-        },
-        {
-          "spellings": [
-            "--json"
-          ],
-          "description": "Emit a bounded orientation result; add `--verbose` for complete structured status.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
         }
       ]
     },
@@ -6124,13 +6124,25 @@
       "path": [
         "desk"
       ],
-      "description": "Open the live desk: see tasks, review Proof and changes, open an agent, run Project Scripts, or review acceptance and worktree controls. Bare `discern` opens the desk.",
+      "description": "Open the live desk: see tasks, review Proof and changes, open an agent, run Project Scripts, or review acceptance and worktree controls. Bare `discern` opens the desk. The desk is interactive only; use status --markdown or status --json to list every worktree.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
       "positionals": [],
       "usage": "",
       "flags": [
+        {
+          "spellings": [
+            "--json"
+          ],
+          "description": "Emit one JSON result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
         {
           "spellings": [
             "--markdown"
@@ -6192,18 +6204,6 @@
           "default": null,
           "hidden": false,
           "global": true
-        },
-        {
-          "spellings": [
-            "--json"
-          ],
-          "description": "The desk is interactive only; use `status --markdown` or `status --json` to list every worktree.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
         }
       ]
     },
@@ -6211,13 +6211,25 @@
       "path": [
         "enter"
       ],
-      "description": "Choose a worktree and open a child shell at the matching project-relative directory.",
+      "description": "Choose a worktree and open a child shell at the matching project-relative directory. This command is interactive only; use status --all --json to inspect the fleet.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
       "positionals": [],
       "usage": "",
       "flags": [
+        {
+          "spellings": [
+            "--json"
+          ],
+          "description": "Emit one JSON result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
         {
           "spellings": [
             "--markdown"
@@ -6279,18 +6291,6 @@
           "default": null,
           "hidden": false,
           "global": true
-        },
-        {
-          "spellings": [
-            "--json"
-          ],
-          "description": "This command is interactive only; use `status --all --json` to inspect the fleet.",
-          "type_definition": "",
-          "arity": 0,
-          "value_types": [],
-          "default": null,
-          "hidden": false,
-          "global": false
         }
       ]
     },

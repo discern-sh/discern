@@ -76,7 +76,6 @@ import { SYSTEM_CLOCK } from "./shared/clock.ts";
 import { EXIT_USAGE } from "./shared/exit_codes.ts";
 import { withSetupResultNextAction } from "./shared/setup_next_action.ts";
 import {
-  CLI_JSON_DESCRIPTION_OVERRIDES,
   CLI_RESULT_FORMATS,
   CLI_RESULT_RENDER,
   type ResultOutputFormat,
@@ -1183,7 +1182,6 @@ export function buildCli(
       "Test whether a key or section exists. Bare: print nothing and exit 0/1. JSON: report `data.present` and exit 0.",
     )
     .arguments("<key:string>")
-    .option("--json", CLI_JSON_DESCRIPTION_OVERRIDES["config has"])
     .action(
       recordedExit(
         "config has",

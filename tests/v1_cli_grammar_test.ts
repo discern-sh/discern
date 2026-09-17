@@ -10,7 +10,6 @@ import {
   walkCliCommands,
 } from "../src/shared/cli_reference_codegen.ts";
 import { CLI_JSON_RESULT_CONTRACTS } from "../src/shared/result_contracts.ts";
-import { CLI_JSON_DESCRIPTION_OVERRIDES } from "../src/shared/result_formats.ts";
 import { ACCEPT_ACTIONS } from "../src/shared/verbs.ts";
 import { buildCliManifest } from "../scripts/contract_manifests.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
@@ -52,6 +51,7 @@ interface ManifestCommandView {
     value_types: string[];
     choices?: string[];
   }>;
+  flags: Array<{ spellings: string[] }>;
 }
 
 Deno.test("every enum positional publishes its type and choices in the CLI manifest", () => {
@@ -177,7 +177,7 @@ Deno.test("status and doctor share both verbose spellings", () => {
   }
 });
 
-Deno.test("every command describes itself and local JSON overrides equal their registry", () => {
+Deno.test("every command describes itself and its manifest lists each flag spelling once", () => {
   const commands = [...walkCliCommands(liveModel())];
   assertEquals(
     commands.filter((command) =>
@@ -186,14 +186,22 @@ Deno.test("every command describes itself and local JSON overrides equal their r
     [],
   );
 
-  const observed = commands.flatMap((command) =>
-    command.options
-      .filter((option) => !option.global && option.flags.includes("--json"))
-      .map((option) => [command.path.join(" "), option.description] as const)
-  ).sort(([left], [right]) => left.localeCompare(right));
-  const expected = Object.entries(CLI_JSON_DESCRIPTION_OVERRIDES)
-    .sort(([left], [right]) => left.localeCompare(right));
-  assertEquals(observed, expected);
+  const manifest = buildCliManifest() as unknown as {
+    commands: ManifestCommandView[];
+  };
+  for (const command of manifest.commands) {
+    const spellings = command.flags.flatMap((flag) => flag.spellings);
+    assertEquals(
+      spellings.length,
+      new Set(spellings).size,
+      `${command.path.join(" ") || "root"} repeats a flag spelling`,
+    );
+    assertEquals(
+      spellings.filter((spelling) => spelling === "--json").length,
+      command.path.join(" ") === "queue" ? 0 : 1,
+      `${command.path.join(" ") || "root"} must list its JSON surface once`,
+    );
+  }
 });
 
 Deno.test("nested help has one typed result in every JSON flag position", async () => {

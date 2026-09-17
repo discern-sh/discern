@@ -94,7 +94,6 @@ import {
   MCP_STRICT_TOOL_CALLS_FLAG,
 } from "../shared/mcp_timeout_policy.ts";
 import { LOGBOOK_LIFECYCLE_ACTIONS } from "../shared/logbook_lifecycle.ts";
-import { CLI_JSON_DESCRIPTION_OVERRIDES } from "../shared/result_formats.ts";
 import { ACCEPT_ACTIONS } from "../shared/verbs.ts";
 
 export { reportUnknownCommand } from "./unknown_command.ts";
@@ -639,11 +638,8 @@ export function attachEngineCommands(
     .command("impact")
     .description(
       "Show which configured scopes the branch and working tree wake in the quality " +
-        "gate. Scopes are named regions of the repository with their own gate jobs.",
-    )
-    .option(
-      "--json",
-      CLI_JSON_DESCRIPTION_OVERRIDES.impact,
+        "gate. Scopes are named regions of the repository with their own gate jobs. " +
+        "With --has, JSON reports data.membership and exits successfully for either Boolean value.",
     )
     .option(
       "--has <scope:string>",
@@ -789,10 +785,6 @@ export function attachEngineCommands(
       new Command()
         .description(action.description)
         .option(
-          "--json",
-          CLI_JSON_DESCRIPTION_OVERRIDES[invocation],
-        )
-        .option(
           "--dry-run",
           "Render the complete plan without requesting confirmation or changing files.",
         )
@@ -842,10 +834,6 @@ export function attachEngineCommands(
         "history, and full Proof pages. With JSON, return complete structured " +
         "status; the default is the bounded orientation projection.",
     )
-    .option(
-      "--json",
-      CLI_JSON_DESCRIPTION_OVERRIDES.status,
-    )
     .action(recordedExit("status", async (o) => {
       const { runStatus } = await loadModule(() =>
         import("./status/status.ts")
@@ -863,11 +851,8 @@ export function attachEngineCommands(
     .description(
       "Open the live desk: see tasks, review Proof and changes, open an agent, " +
         "run Project Scripts, or review acceptance and worktree controls. " +
-        "Bare `discern` opens the desk.",
-    )
-    .option(
-      "--json",
-      CLI_JSON_DESCRIPTION_OVERRIDES.desk,
+        "Bare `discern` opens the desk. The desk is interactive only; use " +
+        "status --markdown or status --json to list every worktree.",
     )
     .action(
       recordedExit("desk", async (o) => {
@@ -879,11 +864,8 @@ export function attachEngineCommands(
   root
     .command("enter")
     .description(
-      "Choose a worktree and open a child shell at the matching project-relative directory.",
-    )
-    .option(
-      "--json",
-      CLI_JSON_DESCRIPTION_OVERRIDES.enter,
+      "Choose a worktree and open a child shell at the matching project-relative directory. " +
+        "This command is interactive only; use status --all --json to inspect the fleet.",
     )
     .action(
       recordedExit("enter", async (o) => {
