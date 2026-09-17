@@ -721,7 +721,7 @@ Deno.test("historical Logbook selection accepts only regular registered archive 
     assertEquals(missing.code, 1, missing.output);
     assertEquals(
       decodeCliResult(missing.stdout, "patterns").error,
-      "not_found",
+      "unknown_target",
     );
     assertEquals(await Deno.readFile(archivePath), before);
   });

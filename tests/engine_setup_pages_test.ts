@@ -206,12 +206,12 @@ Deno.test("setup step <n> human output renders the operational spine from the pa
   });
 });
 
-Deno.test("setup step on a non-existent step is a structured no_such_step", async () => {
+Deno.test("setup step on a non-existent step is a structured unknown_step", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["setup", "step", "99", "--json"]);
     assertEquals(r.code, 1, r.output);
-    assertEquals(decodeCliResult(r.stdout, "setup step").error, "no_such_step");
+    assertEquals(decodeCliResult(r.stdout, "setup step").error, "unknown_step");
   });
 });
 

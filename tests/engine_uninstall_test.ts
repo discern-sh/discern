@@ -562,13 +562,13 @@ Deno.test("uninstall refuses while a linked worktree is still active", async () 
   });
 });
 
-Deno.test("uninstall outside a discern install reports not_initialized", async () => {
+Deno.test("uninstall outside a discern install reports no_project", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "README.md"), "# not discern\n");
     await gitInit(dir);
     const result = await runAgent(dir, ["uninstall", "--json"]);
     assertEquals(result.code, 1, result.output);
     const envelope = decodeCliResult(result.stdout, "uninstall");
-    assertEquals(envelope.error, "not_initialized");
+    assertEquals(envelope.error, "no_project");
   });
 });

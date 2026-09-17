@@ -402,7 +402,7 @@ export function renderCliReferenceModel(
     ...(manual
       ? [
         "",
-        "`discern <command> --help` shows the same command options in your terminal. Help works before project setup; commands that need a configured project return `not_set_up` until setup is complete.",
+        "`discern <command> --help` shows the same command options in your terminal. Help works before project setup; commands that need a configured project return `setup_unfinished` until setup is complete.",
         "",
         "## Find a command",
         "",

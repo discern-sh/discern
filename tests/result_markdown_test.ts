@@ -880,7 +880,7 @@ Deno.test("documentation suggestions and coupling commits survive text-only deli
     {
       ok: false,
       verb: "docs",
-      error: "not_found",
+      error: "unknown_target",
       message: "No exact document matched.",
       data: {
         suggestions: [{
@@ -956,7 +956,7 @@ Deno.test("common Markdown composition preserves authored terminal punctuation",
       {
         ok: false,
         verb: "docs",
-        error: "not_found",
+        error: "unknown_target",
         message: "No exact document matched.",
         data: {
           suggestions: [{ path: `docs/${label}.md`, title: value }],

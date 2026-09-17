@@ -1793,7 +1793,7 @@ async function treeResult(
         return {
           ok: false,
           verb: desc.verb,
-          error: "not_found",
+          error: "unknown_target",
           message: notFoundMessage(opts.target, []),
           hints: hintTexts([fire(HINTS["docs-find-target"])]),
         };
@@ -1823,7 +1823,7 @@ async function treeResult(
         return {
           ok: false,
           verb: desc.verb,
-          error: "not_found",
+          error: "unknown_target",
           message: notFoundMessage(opts.target, suggestions),
           hints: hintTexts([fire(HINTS["docs-find-target"])]),
           ...(suggestions.length > 0
@@ -1883,7 +1883,7 @@ async function treeResult(
       return {
         ok: false,
         verb: desc.verb,
-        error: "not_found",
+        error: "unknown_target",
         message: notFoundMessage(opts.target, suggestions),
         hints: hintTexts([fire(HINTS["docs-find-target"])]),
         ...(suggestions.length > 0

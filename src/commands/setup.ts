@@ -1444,7 +1444,7 @@ function emitSetupWriteAccessRefusal(
   const result: DiscernResult = {
     ok: false,
     verb,
-    error: "write_access",
+    error: "write_denied",
     message: writePreflightFailureMessage(failure),
     diagnostics: [writePreflightDiagnostic(failure, reproduceCmd)],
     data: { next_action: reproduceCmd },
@@ -2356,7 +2356,7 @@ export async function runSetupStep(
       emitResult({
         ok: false,
         verb: "setup step",
-        error: "not_initialized",
+        error: "read_failed",
         message,
         data: { next_action: "discern setup verify" },
       });
@@ -2412,7 +2412,7 @@ export async function runSetupStep(
       emitResult({
         ok: false,
         verb: "setup step",
-        error: "no_such_step",
+        error: "unknown_step",
         message,
         data: { next_action: "discern setup begin" },
       });
@@ -3955,7 +3955,7 @@ async function rootOrError(
       emitResult({
         ok: false,
         verb,
-        error: "not_initialized",
+        error: "no_project",
         message: NO_PROJECT_MESSAGE,
         data: { next_action: "discern setup verify" },
       });

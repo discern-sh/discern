@@ -81,7 +81,7 @@ Deno.test("a Git writer probes Git administration without enrolling file-only wr
           }),
         OperationLockError,
       );
-      assertEquals(refusal.result.error, "write_access");
+      assertEquals(refusal.result.error, "write_denied");
       assertEquals(refusal.result.diagnostics?.[0]?.tool, "write-access");
       assertEquals(
         refusal.result.diagnostics?.[0]?.reproduce_cmd,
@@ -98,7 +98,7 @@ Deno.test("a Git writer probes Git administration without enrolling file-only wr
         undefined,
         () => Promise.resolve(undefined),
       );
-      assertEquals(routed.structuredContent.error, "write_access");
+      assertEquals(routed.structuredContent.error, "write_denied");
       const routedMessage = routed.structuredContent.message;
       assert(typeof routedMessage === "string");
       assertStringIncludes(routedMessage, gitAdmin);
@@ -293,7 +293,7 @@ Deno.test("acceptance lock preserves structured write-access evidence", async ()
         () => withAcceptanceTransactionLock(worktree, () => Promise.resolve()),
         WorktreeResultError,
       );
-      assertEquals(refusal.result.error, "write_access");
+      assertEquals(refusal.result.error, "write_denied");
       assertEquals(refusal.result.diagnostics?.[0]?.tool, "write-access");
       assertEquals(
         refusal.result.diagnostics?.[0]?.reproduce_cmd,

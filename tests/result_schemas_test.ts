@@ -655,7 +655,7 @@ Deno.test("canonical error slugs stay sorted and exclude retired synonyms", () =
   );
   const retiredSynonyms = {
     dirty_tree: "dirty_worktree",
-    no_project: "not_initialized",
+    not_initialized: "no_project",
     not_setup_branch: "not_on_setup_branch",
     uncommitted_changes: "dirty_worktree",
   } as const;
