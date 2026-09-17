@@ -138,6 +138,12 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
     reason: "the public Map carries exact release-verification commands",
   },
   {
+    path: "project/map/_internal/public-contract-digest.md",
+    counts: { "current-repository": 1 },
+    reason:
+      "codegen projects the environment-variable registry, whose install variable names its default repository",
+  },
+  {
     path: "project/map/_internal/registry-atlas.md",
     counts: { "current-repository": 3 },
     reason: "codegen projects the security-disclosure registry",
