@@ -4097,7 +4097,7 @@ export const ERROR_FAILURE_RECOVERY = {
   edit_failed: "evidence",
   gate_failed: "evidence",
   gitignore_template_unavailable: "evidence",
-  identity_error: "evidence",
+  identity_failed: "evidence",
   incomplete: "tailored",
   internal_error: "evidence",
   invalid_arguments: "evidence",

@@ -132,7 +132,7 @@ Deno.test("identity refuses undeclared resource names on bare and JSON surfaces"
     assertEquals(json.stderr, "");
     const envelope = decodeCliResult(json.stdout, "identity");
     assertEquals(envelope.ok, false);
-    assertEquals(envelope.error, "identity_error");
+    assertEquals(envelope.error, "identity_failed");
     assertEquals(envelope.message?.includes("Declared resources: cache"), true);
   });
 });
@@ -155,7 +155,7 @@ Deno.test("identity JSON failures distinguish resolution from malformed argument
     const resolutionEnvelope = decodeCliResult(resolution.stdout, "identity");
     assertEquals(resolutionEnvelope.ok, false);
     assertEquals(resolutionEnvelope.verb, "identity");
-    assertEquals(resolutionEnvelope.error, "identity_error");
+    assertEquals(resolutionEnvelope.error, "identity_failed");
     assert(
       Array.isArray(resolutionEnvelope.hints) &&
         resolutionEnvelope.hints.length > 0,

@@ -93,6 +93,7 @@ aliases:
   - retained checkout
   - execution environment
   - candidate installation
+  - identity_error
 ---
 
 <!-- This reference is generated from the product-term registry. -->

@@ -1199,7 +1199,7 @@ export function attachEngineCommands(
             emitResult({
               ok: false,
               verb: "identity",
-              error: "identity_error",
+              error: "identity_failed",
               message: e.message,
             });
           } else {

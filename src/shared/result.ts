@@ -401,7 +401,7 @@ export const ERROR_SLUGS = [
   "edit_failed",
   "gate_failed",
   "gitignore_template_unavailable",
-  "identity_error",
+  "identity_failed",
   "incomplete",
   "internal_error",
   "invalid_arguments",

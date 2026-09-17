@@ -951,6 +951,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       // Installing a composed candidate into a checkout for validation.
       pattern: String
         .raw`\bcandidate\s+installations?\b|\binstall(?:s|ed|ing)?\s+a\s+candidate\b`,
+    }, {
+      // The retired worktree-identity error slug (now identity_failed:
+      // operations that fail take the _failed suffix).
+      phrase: "identity_error",
+      pattern: String.raw`\bidentity_error\b`,
     }],
   },
   {

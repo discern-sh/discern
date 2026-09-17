@@ -3347,7 +3347,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `edit_failed: evidence`
   - `gate_failed: evidence`
   - `gitignore_template_unavailable: evidence`
-  - `identity_error: evidence`
+  - `identity_failed: evidence`
   - `incomplete: tailored`
   - `internal_error: evidence`
   - `invalid_arguments: evidence`
@@ -4146,7 +4146,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `edit_failed`
   - `gate_failed`
   - `gitignore_template_unavailable`
-  - `identity_error`
+  - `identity_failed`
   - `incomplete`
   - `internal_error`
   - `invalid_arguments`
