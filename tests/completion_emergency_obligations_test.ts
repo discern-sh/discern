@@ -103,7 +103,7 @@ Deno.test("a later strict done on the integrated trunk resolves outstanding vali
       "--reason",
       reason,
       "--confirmed",
-      "--confirmation",
+      "--approval-token",
       token,
       "--json",
     ]);

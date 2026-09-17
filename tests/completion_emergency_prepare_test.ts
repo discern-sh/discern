@@ -218,7 +218,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     assertEquals(previewEnvelope.error, "awaiting_consent");
     assertStringIncludes(
       previewEnvelope.message ?? "",
-      `--preparation-receipt ${receipt}, --confirmed, and --confirmation`,
+      `--preparation-receipt ${receipt}, --confirmed, and --approval-token`,
     );
 
     // A conclusion revised after preparation invalidates the receipt: the
@@ -292,7 +292,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       "--preparation-receipt",
       receipt3,
       "--confirmed",
-      "--confirmation",
+      "--approval-token",
       token,
     );
     assertEquals(landed.code, 0, landed.output);

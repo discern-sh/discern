@@ -92,7 +92,7 @@ async function approvedExchange(
     "--reason",
     reason,
     "--confirmed",
-    "--confirmation",
+    "--approval-token",
     token,
     "--json",
   ]);

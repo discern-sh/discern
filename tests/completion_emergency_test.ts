@@ -153,7 +153,7 @@ Deno.test("emergency serves an exact confirmation, excludes recorded grants, and
       "--reason",
       reason,
       "--confirmed",
-      "--confirmation",
+      "--approval-token",
       token,
       "--json",
     ]);
@@ -263,7 +263,7 @@ Deno.test("emergency refuses a changed subject and a replayed confirmation witho
       "--reason",
       reason,
       "--confirmed",
-      "--confirmation",
+      "--approval-token",
       token,
       "--json",
     ]);
@@ -287,7 +287,7 @@ Deno.test("emergency refuses a changed subject and a replayed confirmation witho
       "--reason",
       "A different justification",
       "--confirmed",
-      "--confirmation",
+      "--approval-token",
       replayEmergency.confirmation,
       "--json",
     ]);
@@ -393,7 +393,7 @@ Deno.test("a recorded authorization refuses confirmation replay, and recovery se
       "--reason",
       reason,
       "--confirmed",
-      "--confirmation",
+      "--approval-token",
       token,
       "--json",
     ]);

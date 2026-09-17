@@ -6597,7 +6597,7 @@
         },
         {
           "spellings": [
-            "--confirmation"
+            "--approval-token"
           ],
           "description": "Emergency only: the current preview token approved by the owner, with --confirmed.",
           "type_definition": "<token:string>",

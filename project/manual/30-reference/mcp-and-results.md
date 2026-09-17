@@ -118,27 +118,27 @@ Model Context Protocol (MCP) lets a coding agent call discern directly. The tool
 
 The input object is strict: undeclared keys are rejected. Accepted keys are listed below; each tool's schema marks which are required.
 
-| Tool                  | Accepted input keys                                                                                                                                                                      |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern_status`      | `all`, `local`, `verbose`, `path`                                                                                                                                                        |
-| `discern_start`       | `name`, `title`, `brief`, `from`, `path`, `dry_run`                                                                                                                                      |
-| `discern_prepare`     | `path`                                                                                                                                                                                   |
-| `discern_done`        | `dry_run`, `ci`, `rerun`, `met`, `unmet`, `path`, `standalone`, `policy_base`                                                                                                            |
-| `discern_update`      | `from`, `dry_run`, `path`                                                                                                                                                                |
-| `discern_await`       | `green`, `landed`, `trunk_moved`, `resume`, `timeout`, `path`                                                                                                                            |
-| `discern_progress`    | `handle`, `path`                                                                                                                                                                         |
-| `discern_accept`      | `action`, `target`, `prepare`, `preparation_receipt`, `met`, `unmet`, `composition`, `reason`, `confirmation`, `recover`, `dry_run`, `confirmed`, `variance`, `approve_standard`, `path` |
-| `discern_test`        | `path`                                                                                                                                                                                   |
-| `discern_standards`   | `action`, `dry_run`, `force`, `pin`, `names`, `proposals`, `path`                                                                                                                        |
-| `discern_impact`      | `path`                                                                                                                                                                                   |
-| `discern_coupling`    | `file`, `with`, `path`                                                                                                                                                                   |
-| `discern_patterns`    | `stats`, `all`, `logbook_file`, `path`                                                                                                                                                   |
-| `discern_checkpoints` | `path`                                                                                                                                                                                   |
-| `discern_refresh`     | `dry_run`, `path`                                                                                                                                                                        |
-| `discern_map`         | `target`, `search`, `path`                                                                                                                                                               |
-| `discern_docs`        | `target`, `search`                                                                                                                                                                       |
-| `discern_doctor`      | `verbose`, `path`                                                                                                                                                                        |
-| `discern_improvement` | `category`, `min_score`, `path`                                                                                                                                                          |
+| Tool                  | Accepted input keys                                                                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `discern_status`      | `all`, `local`, `verbose`, `path`                                                                                                                                                          |
+| `discern_start`       | `name`, `title`, `brief`, `from`, `path`, `dry_run`                                                                                                                                        |
+| `discern_prepare`     | `path`                                                                                                                                                                                     |
+| `discern_done`        | `dry_run`, `ci`, `rerun`, `met`, `unmet`, `path`, `standalone`, `policy_base`                                                                                                              |
+| `discern_update`      | `from`, `dry_run`, `path`                                                                                                                                                                  |
+| `discern_await`       | `green`, `landed`, `trunk_moved`, `resume`, `timeout`, `path`                                                                                                                              |
+| `discern_progress`    | `handle`, `path`                                                                                                                                                                           |
+| `discern_accept`      | `action`, `target`, `prepare`, `preparation_receipt`, `met`, `unmet`, `composition`, `reason`, `approval_token`, `recover`, `dry_run`, `confirmed`, `variance`, `approve_standard`, `path` |
+| `discern_test`        | `path`                                                                                                                                                                                     |
+| `discern_standards`   | `action`, `dry_run`, `force`, `pin`, `names`, `proposals`, `path`                                                                                                                          |
+| `discern_impact`      | `path`                                                                                                                                                                                     |
+| `discern_coupling`    | `file`, `with`, `path`                                                                                                                                                                     |
+| `discern_patterns`    | `stats`, `all`, `logbook_file`, `path`                                                                                                                                                     |
+| `discern_checkpoints` | `path`                                                                                                                                                                                     |
+| `discern_refresh`     | `dry_run`, `path`                                                                                                                                                                          |
+| `discern_map`         | `target`, `search`, `path`                                                                                                                                                                 |
+| `discern_docs`        | `target`, `search`                                                                                                                                                                         |
+| `discern_doctor`      | `verbose`, `path`                                                                                                                                                                          |
+| `discern_improvement` | `category`, `min_score`, `path`                                                                                                                                                            |
 
 #### Completion options
 
@@ -152,7 +152,7 @@ Your agent omits `action` for ordinary acceptance. From the effort's worktree, t
 
 If checkpoint questions block emergency planning, your agent first supplies `action: "emergency"`, `prepare: true`, and the `reason`. Preparation runs checkpoint triggers and serves their questions without running validation jobs. The agent records satisfied served questions through `met`, an array of checkpoint ids, and receives a `preparation` receipt. That receipt goes into `preparation_receipt` on the later preview and confirmed call. Changed revisions or declarations require fresh preparation; an unmet question still blocks emergency integration. `dry_run: true` previews preparation without running triggers or recording answers. Preparation cannot be combined with confirmation or transition recovery.
 
-For emergency integration, your agent calls `discern_accept` with `action: "emergency"` and a `reason`. You review the displayed trunk, repair revision, reason, and checks that failed, never ran, or have stale evidence before your agent supplies `confirmed` and the plan’s `confirmation` token. The token expires after 15 minutes; a changed plan needs fresh approval. The repair must include actual trunk and exclude other unlanded efforts. Checkpoint judgments and protected policy remain prerequisites. The exception has its own record type and cannot serve as passing Proof. This action does not push, deploy, or change external branch protections. `recover` resumes an interrupted emergency by landing id.
+For emergency integration, your agent calls `discern_accept` with `action: "emergency"` and a `reason`. You review the displayed trunk, repair revision, reason, and checks that failed, never ran, or have stale evidence before your agent supplies `confirmed` and the plan's `approval_token`. The token expires after 15 minutes; a changed plan needs fresh approval. The repair must include actual trunk and exclude other unlanded efforts. Checkpoint judgments and protected policy remain prerequisites. The exception has its own record type and cannot serve as passing Proof. This action does not push, deploy, or change external branch protections. `recover` resumes an interrupted emergency by landing id.
 
 #### Choose a project or worktree
 

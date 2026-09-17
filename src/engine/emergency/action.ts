@@ -69,7 +69,7 @@ export interface EmergencyOptions {
   readonly preparationReceipt?: string;
   readonly met?: readonly string[];
   readonly reason?: string;
-  readonly confirmation?: string;
+  readonly approvalToken?: string;
   readonly confirmed?: boolean;
   readonly dryRun?: boolean;
   readonly recover?: string;
@@ -197,8 +197,8 @@ async function prepareAndIntegrate(
   };
   if (
     options.dryRun || !options.confirmed ||
-    options.confirmation === undefined ||
-    !await emergencyConfirmationCurrent(plan, options.confirmation, now)
+    options.approvalToken === undefined ||
+    !await emergencyConfirmationCurrent(plan, options.approvalToken, now)
   ) {
     return {
       verb: "accept",
@@ -220,10 +220,10 @@ async function prepareAndIntegrate(
         options.preparationReceipt === undefined
           ? ""
           : `--preparation-receipt ${options.preparationReceipt}, `
-      }--confirmed, and --confirmation ${confirmation}. The confirmation expires in 15 minutes; changed subjects require another review.`,
+      }--confirmed, and --approval-token ${confirmation}. The confirmation expires in 15 minutes; changed subjects require another review.`,
     };
   }
-  const approvedToken = options.confirmation;
+  const approvedToken = options.approvalToken;
   const id = emergencyId(await sha256Hex(approvedToken));
   const previous = await readCompletionRecord(plan.root, {
     kind: "exception",

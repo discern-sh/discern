@@ -1136,7 +1136,7 @@ export const TOOLS: McpTool[] = orderTools([
       "After landing, report the effects and unresolved cleanup, ending with data.proof_line verbatim. " +
       "The full review page remains available through `discern status --verbose`. " +
       "Use action: emergency with reason for an explicit exception. prepare with met records served judgments; preparation_receipt carries its receipt. " +
-      "Review the failed, unrun and stale obligations, then pass the owner's exact confirmation token with confirmed. No grant covers this exception and no passing Proof is issued. recover reconciles an interrupted emergency landing. No mode pushes.",
+      "Review the failed, unrun and stale obligations, then pass the owner's exact approval_token with confirmed. No grant covers this exception and no passing Proof is issued. recover reconciles an interrupted emergency landing. No mode pushes.",
     inputSchema: {
       target: z.string().optional().describe(
         "Select the effort by id, path, or branch, from any checkout. Queue mode records its current proven revision; ordinary acceptance starts landing under applicable authority.",
@@ -1176,7 +1176,7 @@ export const TOOLS: McpTool[] = orderTools([
           "data.integration_judgment.composition). A replaced composition " +
           "refuses the receipt and re-serves its own question.",
       ),
-      confirmation: z.string().optional().describe(
+      approval_token: z.string().optional().describe(
         "The owner's currently approved emergency preview token. Requires confirmed; changed subjects need a new review.",
       ),
       recover: z.string().optional().describe(
@@ -1224,6 +1224,7 @@ export const TOOLS: McpTool[] = orderTools([
           queueOnly: args.action === QUEUE_ACCEPT_ACTION,
           ...args,
           preparationReceipt: args.preparation_receipt,
+          approvalToken: args.approval_token,
           dryRun: args.dry_run === true,
         },
       );

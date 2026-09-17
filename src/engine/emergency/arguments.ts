@@ -21,7 +21,7 @@ export function emergencyArguments(
       readonly [
         K in
           | "reason"
-          | "confirmation"
+          | "approvalToken"
           | "recover"
           | "confirmed"
           | "dryRun"
@@ -49,7 +49,7 @@ export function emergencyArguments(
       "Use accept for ordinary landing or accept emergency for the explicit exception exchange.";
   } else if (
     action === undefined &&
-    (fields.reason !== undefined || fields.confirmation !== undefined ||
+    (fields.reason !== undefined || fields.approvalToken !== undefined ||
       fields.recover !== undefined || fields.prepare !== undefined ||
       fields.preparationReceipt !== undefined)
   ) {
@@ -84,9 +84,9 @@ export function emergencyArguments(
             : { preparationReceipt: fields.preparationReceipt }),
           ...(fields.met === undefined ? {} : { met: fields.met }),
           ...(fields.reason === undefined ? {} : { reason: fields.reason }),
-          ...(fields.confirmation === undefined
+          ...(fields.approvalToken === undefined
             ? {}
-            : { confirmation: fields.confirmation }),
+            : { approvalToken: fields.approvalToken }),
           ...(fields.recover === undefined ? {} : { recover: fields.recover }),
           confirmed: fields.confirmed === true,
           dryRun: fields.dryRun === true,
@@ -167,13 +167,13 @@ export function emergencyOptionError(options: {
   readonly preparationReceipt?: string | undefined;
   readonly met?: readonly string[] | undefined;
   readonly confirmed?: boolean | undefined;
-  readonly confirmation?: string | undefined;
+  readonly approvalToken?: string | undefined;
   readonly recover?: string | undefined;
 }): string | undefined {
   if (
     options.prepare &&
     (options.preparationReceipt !== undefined || options.confirmed ||
-      options.confirmation !== undefined || options.recover !== undefined)
+      options.approvalToken !== undefined || options.recover !== undefined)
   ) {
     return "Emergency preparation cannot be combined with a receipt, confirmation, or transition recovery. Prepare first, then review a separate integration plan.";
   }

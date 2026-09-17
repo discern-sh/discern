@@ -17,7 +17,7 @@ The [preparation action](../../../src/engine/emergency/prepare.ts) retains an im
 
 ## Exact owner decision
 
-The preview changes no project state. After the owner approves the displayed plan, repeat the emergency action with the same reason, `--confirmed`, its `--confirmation` token, and the same preparation receipt when present. A token expires after 15 minutes. Source, trunk, policy, reason, and exception changes invalidate it. An ordinary grant or previous emergency supplies no consent.
+The preview changes no project state. After the owner approves the displayed plan, repeat the emergency action with the same reason, `--confirmed`, its `--approval-token`, and the same preparation receipt when present. A token expires after 15 minutes. Source, trunk, policy, reason, and exception changes invalidate it. An ordinary grant or previous emergency supplies no consent.
 
 The [planner](../../../src/engine/emergency/plan.ts) binds this exchange. The [machine inventory](../../../src/engine/emergency/evidence.ts) uses the ordinary evidence selector and artifact audit. A failed standard remains failed when its producer exited successfully. A check that never ran remains `unrun`; inapplicable or report-only evidence remains stale.
 

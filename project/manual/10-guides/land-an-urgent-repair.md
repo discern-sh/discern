@@ -46,7 +46,7 @@ When you approve, say so plainly:
 
 > Approved. Land it as an emergency with that reason.
 
-The agent repeats the command with your confirmation and the token from the plan. The token expires after 15 minutes and stops matching if the repair, the shared branch, or the reason changes; a changed plan comes back for a fresh decision. Standing grants, earlier approvals, and permission to land ordinary work never cover this step.
+The agent repeats the command with your confirmation and the plan's `--approval-token`. The token expires after 15 minutes and stops matching if the repair, the shared branch, or the reason changes; a changed plan comes back for a fresh decision. Standing grants, earlier approvals, and permission to land ordinary work never cover this step.
 
 ## 3. Read what landed
 

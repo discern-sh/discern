@@ -996,7 +996,7 @@ export function attachEngineCommands(
       "Emergency only: explain why integration must precede validation.",
     )
     .option(
-      "--confirmation <token:string>",
+      "--approval-token <token:string>",
       "Emergency only: the current preview token approved by the owner, with --confirmed.",
     )
     .option(
