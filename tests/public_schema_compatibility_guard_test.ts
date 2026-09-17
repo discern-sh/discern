@@ -2009,6 +2009,174 @@ Deno.test("every live publication still compiles once its evolving members are p
   }
 });
 
+Deno.test("input enums are append-only while closed output enums are frozen in both directions", () => {
+  const configBaseline = clone(CONFIG_INPUT_FIXTURE);
+  (configBaseline.properties as JsonObject).heading = {
+    type: "string",
+    enum: ["north", "south"],
+  };
+  const configGrown = clone(configBaseline);
+  ((configGrown.properties as JsonObject).heading as JsonObject).enum = [
+    "north",
+    "south",
+    "east",
+  ];
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      configBaseline,
+      configGrown,
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "a config enum may grow",
+  );
+  const configShrunk = clone(configBaseline);
+  ((configShrunk.properties as JsonObject).heading as JsonObject).enum = [
+    "north",
+  ];
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      configBaseline,
+      configShrunk,
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    ['$.properties.heading.enum: removed value "south"'],
+  );
+
+  const resultBaseline = clone(RESULT_OUTPUT_FIXTURE);
+  const launch = (resultBaseline.$defs as JsonObject)
+    .VoyageLaunchResult as JsonObject;
+  (launch.properties as JsonObject).outcome = {
+    type: "string",
+    enum: ["ok", "failed"],
+  };
+  const outcomeOf = (schema: JsonObject): JsonObject =>
+    ((schema.$defs as JsonObject).VoyageLaunchResult as JsonObject)
+      .properties as JsonObject;
+  const resultGrown = clone(resultBaseline);
+  (outcomeOf(resultGrown).outcome as JsonObject).enum = [
+    "ok",
+    "failed",
+    "held",
+  ];
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      resultBaseline,
+      resultGrown,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    ['$.$defs.VoyageLaunchResult.properties.outcome.enum: added value "held"'],
+  );
+  const resultShrunk = clone(resultBaseline);
+  (outcomeOf(resultShrunk).outcome as JsonObject).enum = ["ok"];
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      resultBaseline,
+      resultShrunk,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    ['$.$defs.VoyageLaunchResult.properties.outcome.enum: removed value "failed"'],
+  );
+});
+
+Deno.test("every open vocabulary root grows freely and refuses removals", () => {
+  const baseline = clone(RESULT_OUTPUT_FIXTURE);
+  baseline["x-discern-advisory-kinds"] = ["signal-lost"];
+  const grown = clone(baseline);
+  grown["x-discern-advisory-kinds"] = ["signal-lost", "signal-weak"];
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      grown,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+  const shrunk = clone(baseline);
+  shrunk["x-discern-advisory-kinds"] = [];
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      baseline,
+      shrunk,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    ['$.x-discern-advisory-kinds: removed value "signal-lost"'],
+  );
+});
+
+Deno.test("tool input enums and flag choices are append-only", () => {
+  const tool = (values: string[]): JsonObject => ({
+    format: 1,
+    tools: [{
+      name: "voyage_probe",
+      description: "Probe the selected project.",
+      inputSchema: {
+        type: "object",
+        properties: { mode: { type: "string", enum: values } },
+      },
+    }],
+  });
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      tool(["fast"]),
+      tool(["fast", "deep"]),
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      tool(["fast", "deep"]),
+      tool(["fast"]),
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [
+      '$.tools[name="voyage_probe"].inputSchema.properties.mode.enum: removed "deep"',
+    ],
+  );
+
+  const cli = (choices: string[]): JsonObject => ({
+    format: 1,
+    implicit_flags: { command: ["--help"], root: ["--version"] },
+    commands: [{
+      path: ["probe"],
+      description: "Inspect one fact.",
+      aliases: [],
+      hidden: false,
+      hidden_when: null,
+      positionals: [],
+      usage: "",
+      flags: [{
+        spellings: ["--mode"],
+        description: "Select a mode.",
+        type_definition: "<mode:probe-mode>",
+        arity: 1,
+        value_types: ["probe-mode"],
+        default: null,
+        hidden: false,
+        global: false,
+        choices,
+      }],
+    }],
+  });
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      cli(["fast"]),
+      cli(["fast", "deep"]),
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      cli(["fast", "deep"]),
+      cli(["fast"]),
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    ['$.commands[path=["probe"]].flags[flag="--mode"].choices: removed "deep"'],
+  );
+});
+
 Deno.test("malformed public schemas fail before structural compatibility", () => {
   const malformedRequired = clone(CONFIG_INPUT_FIXTURE);
   malformedRequired.required = 7;

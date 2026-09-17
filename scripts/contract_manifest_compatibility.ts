@@ -133,6 +133,12 @@ function compareMcpInputSchema(
       }
       continue;
     }
+    if (key === "enum") {
+      // Tool inputs are append-only: a request valid against the baseline
+      // stays valid when the accepted values grow.
+      compareAppendOnlyStrings(before, after, childPath, issues);
+      continue;
+    }
     if (key === "required") {
       const beforeRequired = stringSet(before);
       const afterRequired = stringSet(after);
@@ -312,6 +318,15 @@ function compareCliFlags(
       `${flagPath}.spellings`,
       issues,
     );
+    if (prior.choices !== undefined || next.choices !== undefined) {
+      // Accepted values are append-only, like every other input enum.
+      compareAppendOnlyStrings(
+        prior.choices,
+        next.choices,
+        `${flagPath}.choices`,
+        issues,
+      );
+    }
     for (
       const key of [
         "type_definition",

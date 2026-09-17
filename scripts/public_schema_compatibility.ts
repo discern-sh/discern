@@ -35,6 +35,7 @@ import {
   buildResultJsonSchema,
 } from "../src/shared/result_codegen.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
+import { isOpenVocabularyKey } from "../src/shared/result_vocabulary.ts";
 import {
   isObject,
   json,
@@ -1015,6 +1016,16 @@ function compareNode(
     const before = previous[key];
     const after = current[key];
     const childPath = pathKey(path, key);
+    if (isOpenVocabularyKey(key)) {
+      // An open vocabulary's published members grow freely; a member that
+      // disappears breaks every consumer that recognized it.
+      const localIssues: string[] = [];
+      compareStringSets(before, after, childPath, localIssues);
+      issues.push(
+        ...localIssues.filter((issue) => !issue.includes(": added value ")),
+      );
+      continue;
+    }
     switch (key) {
       case "properties":
         compareProperties(
@@ -1034,9 +1045,20 @@ function compareNode(
       case "required":
         compareRequired(before, after, childPath, context, issues);
         break;
-      case "enum":
-        compareStringSets(before, after, childPath, issues);
+      case "enum": {
+        // Inputs are append-only: a document written against the baseline
+        // still validates when the enum grows. Output enums that reach this
+        // case are closed decision vocabularies, where engine code branches
+        // on the value, so a member added or removed is a break.
+        const localIssues: string[] = [];
+        compareStringSets(before, after, childPath, localIssues);
+        issues.push(
+          ...(context.policy === CONFIG_SCHEMA_COMPATIBILITY_POLICY
+            ? localIssues.filter((issue) => !issue.includes(": added value "))
+            : localIssues),
+        );
         break;
+      }
       case "type":
         if (context.allowTypeSetWidening) {
           compareTypeSetInclusion(before, after, childPath, issues);
@@ -1090,16 +1112,6 @@ function compareNode(
           );
         }
         break;
-      case "x-discern-error-slugs": {
-        const localIssues: string[] = [];
-        compareStringSets(before, after, childPath, localIssues);
-        issues.push(
-          ...(context.policy === RESULT_SCHEMA_COMPATIBILITY_POLICY
-            ? localIssues.filter((issue) => !issue.includes(": added value "))
-            : localIssues),
-        );
-        break;
-      }
       case "x-discern-contracts":
         compareContracts(before, after, childPath, context, issues);
         break;
