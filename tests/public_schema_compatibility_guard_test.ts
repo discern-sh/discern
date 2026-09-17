@@ -31,6 +31,7 @@ import {
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../src/shared/public_schemas.ts";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_paths.ts";
+import { GIT_CONVENTIONS } from "../src/shared/git_conventions.ts";
 import { HIDDEN_VERBS } from "../src/shared/hidden_verbs.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
@@ -2384,6 +2385,25 @@ Deno.test("the conventions manifest omits absent provider capabilities", () => {
   assert(publication !== undefined);
   const manifest = buildCurrentPublicSchema(publication);
   assertEquals(nullLeafPaths(manifest), []);
+});
+
+Deno.test("the conventions manifest publishes Git coordinates without behavior descriptions", () => {
+  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
+  );
+  assert(publication !== undefined);
+  const manifest = buildCurrentPublicSchema(publication);
+  assert(isRecord(manifest.git));
+  assertEquals(
+    Object.keys(manifest.git),
+    Object.keys(GIT_CONVENTIONS).filter((key) =>
+      key !== "bounds" && key !== "no_attribution_effects"
+    ),
+  );
+  assertEquals(Object.hasOwn(manifest.git, "bounds"), false);
+  assertEquals(Object.hasOwn(manifest.git, "no_attribution_effects"), false);
+  assert(Object.hasOwn(GIT_CONVENTIONS, "bounds"));
+  assert(Object.hasOwn(GIT_CONVENTIONS, "no_attribution_effects"));
 });
 
 Deno.test("the schema baseline is the highest predecessor version tag, never a release candidate at HEAD", async () => {

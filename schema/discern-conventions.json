@@ -210,33 +210,6 @@
       "name": "discern",
       "email": "done@discern.sh",
       "trailer": "Co-authored-by: discern <done@discern.sh>"
-    },
-    "no_attribution_effects": {
-      "trigger": {
-        "environment_variable": "DISCERN_NO_ATTRIBUTION",
-        "active_when": "non-empty"
-      },
-      "commit_trailer": {
-        "attributed": "included",
-        "unattributed": "omitted"
-      },
-      "generated_marker": {
-        "attributed": "product-and-source",
-        "unattributed": "source-only"
-      },
-      "proof_note_author": {
-        "attributed": "discern-machine",
-        "unattributed": "ambient-git-identity"
-      },
-      "proof_record": {
-        "attributed": "recorded",
-        "unattributed": "recorded"
-      }
-    },
-    "bounds": {
-      "drop_recovery_refs": 32,
-      "retired_worktree_path_days": 90,
-      "retired_worktree_path_entries": 256
     }
   }
 }

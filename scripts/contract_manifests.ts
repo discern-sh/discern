@@ -54,6 +54,15 @@ function membership(values: readonly string[]): Record<string, true> {
   return Object.fromEntries(values.map((value) => [value, true]));
 }
 
+/** Repository-coordinate subset of the Git registry's mixed concerns. */
+function publicGitConventions(): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(GIT_CONVENTIONS).filter(([key]) =>
+      key !== "bounds" && key !== "no_attribution_effects"
+    ),
+  );
+}
+
 /** Exact request-side payload advertised by `tools/list`, in live tool order. */
 export function buildMcpToolsManifest(): ContractManifest {
   return {
@@ -188,7 +197,7 @@ export function buildConventionsManifest(
       },
     },
     providers: providerConventions(),
-    git: GIT_CONVENTIONS,
+    git: publicGitConventions(),
   };
 }
 
