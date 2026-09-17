@@ -258,6 +258,20 @@ function proofFromEntry(entry: StatusFleetEntry): GateProofCheckData {
   };
 }
 
+/** The label and tone for each known proof-check status. The status is an
+ * open vocabulary, so an unknown member from a newer writer shows as read. */
+const PROOF_STATUS_PRESENTATIONS: Readonly<
+  Record<GateProofCheckStatus, Omit<ProofPresentation, "status" | "detail">>
+> = {
+  honored: { label: "honored", tone: "green" },
+  report_only: { label: "report only", tone: "yellow" },
+  missing: { label: "missing", tone: "dim" },
+  stale: { label: "stale", tone: "yellow" },
+  dirty: { label: "dirty worktree", tone: "dim" },
+  unavailable: { label: "unavailable", tone: "yellow" },
+  read_failed: { label: "unreadable", tone: "red" },
+};
+
 /** Project the proof-check vocabulary into a labelled, toned fact. */
 function proofPresentation(entry: StatusFleetEntry): ProofPresentation {
   const proof = proofFromEntry(entry);
@@ -269,27 +283,8 @@ function proofPresentation(entry: StatusFleetEntry): ProofPresentation {
       }`
       : undefined
   );
-  const base = ((): Omit<ProofPresentation, "status" | "detail"> => {
-    switch (proof.status) {
-      case "honored":
-        return { label: "honored", tone: "green" };
-      case "report_only":
-        return { label: "report only", tone: "yellow" };
-      case "missing":
-        return { label: "missing", tone: "dim" };
-      case "stale":
-        return { label: "stale", tone: "yellow" };
-      case "dirty":
-        return { label: "dirty worktree", tone: "dim" };
-      case "unavailable":
-        return { label: "unavailable", tone: "yellow" };
-      case "read_failed":
-        return { label: "unreadable", tone: "red" };
-      default:
-        // Proof statuses are an open vocabulary; show an unknown one as read.
-        return { label: proof.status, tone: "dim" };
-    }
-  })();
+  const base = PROOF_STATUS_PRESENTATIONS[proof.status] ??
+    { label: proof.status, tone: "dim" };
   return {
     status: proof.status,
     ...base,
