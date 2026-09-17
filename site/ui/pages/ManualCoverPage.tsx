@@ -8,7 +8,7 @@ import {
   type RenderedDoc,
   sectionIndexOf,
 } from "../../docs.tsx";
-import { authoredHeadingNumberClass } from "../../document_toc.tsx";
+import { authoredHeadingNumberClass } from "../../document_toc.ts";
 import {
   DocumentLayout,
   renderDocumentPage,

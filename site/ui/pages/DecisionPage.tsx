@@ -6,7 +6,7 @@ import {
   type DocsSite,
   type RenderedDoc,
 } from "../../docs.tsx";
-import { authoredHeadingNumberClass } from "../../document_toc.tsx";
+import { authoredHeadingNumberClass } from "../../document_toc.ts";
 import {
   DocumentLayout,
   renderDocumentPage,

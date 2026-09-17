@@ -9,7 +9,7 @@ import {
   NAVIGATION_FOOT_LINKS,
 } from "../../docs.tsx";
 import { DOCUMENT_SEARCH_ROUTES } from "../../routes.ts";
-import type { TocItem } from "../../document_toc.tsx";
+import type { TocItem } from "../../document_toc.ts";
 import { renderDocument } from "../Document.tsx";
 import { DocumentContents } from "../components/DocumentContents.tsx";
 import { DocumentHeader } from "../components/DocumentHeader.tsx";
@@ -87,7 +87,13 @@ export function DocumentLayout(
           />
           {children}
         </main>
-        <DocumentContents items={contents} />
+        {contents.length > 0
+          ? (
+            <div className="docs-rail">
+              <DocumentContents items={contents} />
+            </div>
+          )
+          : null}
       </div>
       <DocumentSearch
         searchLabel="the manual"

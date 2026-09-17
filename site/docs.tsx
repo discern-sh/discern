@@ -50,11 +50,11 @@ import {
   glossarySummary,
 } from "../scripts/glossary_registry.ts";
 import { repositoryBlobUrl, repositoryTreeUrl } from "../src/shared/brand.ts";
-import type { TocItem } from "./document_toc.tsx";
+import type { TocItem } from "./document_toc.ts";
 import { renderWorkflowMarkdown } from "./workflow.tsx";
 
 export { decorateDocumentHtml } from "./document_html.tsx";
-export type { TocItem } from "./document_toc.tsx";
+export type { TocItem } from "./document_toc.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const MANUAL_DIR = resolveRepositoryManualDir(REPO_ROOT).abs;

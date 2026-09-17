@@ -10,7 +10,7 @@ import {
   type RenderedDoc,
   sectionLeaves,
 } from "../../docs.tsx";
-import { authoredHeadingNumberClass } from "../../document_toc.tsx";
+import { authoredHeadingNumberClass } from "../../document_toc.ts";
 import {
   DocumentLayout,
   renderDocumentPage,

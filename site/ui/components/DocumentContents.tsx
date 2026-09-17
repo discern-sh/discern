@@ -1,19 +1,25 @@
-/** The right-hand contents rail for one rendered document. */
+/** The on-page contents for one rendered document. */
 import type { ReactElement } from "react";
-import { tableOfContentsHtml, type TocItem } from "../../document_toc.tsx";
-import { HtmlFragment } from "./HtmlFragment.tsx";
+import { TableOfContents } from "discern-design-system/react";
+import { contentsItems, type TocItem } from "../../document_toc.ts";
+
+/** The accessible name shared by the contents landmark and its visible title. */
+const CONTENTS_LABEL = "On this page";
 
 /**
- * Authored procedures number their own H2s and leave framing sections
- * unnumbered; the package Table of contents numbers every top-level item
- * itself and offers no per-item override, so the site's renderer still
- * emits this rail until the package accepts authored numbers.
+ * The package numbers the entries; an authored procedure's own numbers pass
+ * through `contentsItems` untouched. Page-owned script adds the scroll spy
+ * to this markup.
  */
 export function DocumentContents(
   { items }: { readonly items: readonly TocItem[] },
-): ReactElement | null {
-  if (items.length === 0) return null;
+): ReactElement {
   return (
-    <HtmlFragment className="docs-rail" html={tableOfContentsHtml(items)} />
+    <TableOfContents
+      className="docs-toc"
+      title={CONTENTS_LABEL}
+      label={CONTENTS_LABEL}
+      items={contentsItems(items)}
+    />
   );
 }
