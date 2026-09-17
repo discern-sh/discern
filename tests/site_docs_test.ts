@@ -28,6 +28,7 @@ import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
 import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
 import {
+  adjacentPages,
   createGlossaryProseRenderer,
   docsLlmsSection,
   type DocsPage,
@@ -312,6 +313,22 @@ Deno.test("docs navigation foot keeps the three durable reference links visible"
     );
     dom.window.close();
   }
+});
+
+Deno.test("previous and next follow the reading order and declare their relation", async () => {
+  const site = await loadDocsSite();
+  const page = site.pages[1];
+  assert(page !== undefined, "the pager fixture needs a second page");
+  const { previous, next } = adjacentPages(site, page);
+  assert(previous !== undefined && next !== undefined);
+  const dom = new JSDOM(await (await get(page.route, BROWSER)).text());
+  const links = [...dom.window.document.querySelectorAll(".docs-pager a")]
+    .map((link) => [link.getAttribute("rel"), link.getAttribute("href")]);
+  dom.window.close();
+  assertEquals(links, [
+    ["prev", previous.route],
+    ["next", next.route],
+  ]);
 });
 
 Deno.test("the manual cover renders its authored root and raw-reader colophon", async () => {
