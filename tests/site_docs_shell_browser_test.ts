@@ -240,12 +240,19 @@ Deno.test("the docs drawer performs the complete modal focus contract on the ser
         "the palette opens once the drawer has closed",
       );
       await page.keyboard.press("Escape");
+      // The dialog's close event, where the site restores focus, follows
+      // the open attribute's removal by a task.
       await page.waitForFunction(() =>
         document.querySelector<HTMLDialogElement>(
-          "[data-discern-search-palette]",
-        )?.open === false
+            "[data-discern-search-palette]",
+          )?.open === false &&
+        document.activeElement ===
+          document.querySelector("[data-discern-docs-drawer-toggle]")
       );
-      assertEquals((await drawerState(page)).focusOnToggle, true);
+      assertEquals(await drawerState(page), {
+        ...CLOSED_NARROW,
+        focusOnToggle: true,
+      });
 
       // Crossing the breakpoint while open closes without moving focus; a
       // wide navigation is never inert or toggled.
