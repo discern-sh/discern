@@ -393,37 +393,35 @@ const RETIRED_COMMAND_TOKENS = [
   "`worktree:*`",
 ];
 
-interface ForbiddenLaunchVocabulary {
-  kind: "command" | "config-key";
-  spelling: string;
-}
-
 /** Private-era launch spellings retained only so the structural guard can
  * prevent them returning to executable or published positions. */
-const PRELAUNCH_FORBIDDEN_LAUNCH_VOCABULARY = [
-  { kind: "command", spelling: "graduate" },
-  { kind: "command", spelling: "setup land" },
-  { kind: "command", spelling: "config set-capability" },
-  { kind: "command", spelling: "config set-check" },
-  { kind: "command", spelling: "finish" },
-  { kind: "command", spelling: "scopes" },
-  { kind: "command", spelling: "ratchets" },
-  { kind: "command", spelling: "config set-ratchet" },
-  { kind: "command", spelling: "integrate" },
-  { kind: "config-key", spelling: "capabilities" },
-  { kind: "config-key", spelling: "checks" },
-  { kind: "config-key", spelling: "coupling.in_gate" },
-  { kind: "config-key", spelling: "gate.stream" },
-  { kind: "config-key", spelling: "guidance" },
-  { kind: "config-key", spelling: "project.logbook" },
-  { kind: "config-key", spelling: "docs" },
-  { kind: "config-key", spelling: "recipes" },
-  { kind: "config-key", spelling: "repository.proof_notes" },
-  { kind: "config-key", spelling: "ratchets" },
-  { kind: "config-key", spelling: "worktree.port" },
-  { kind: "config-key", spelling: "worktree.ignored_file_drift" },
-  { kind: "config-key", spelling: "worktree.resources.*.gc" },
-] as const satisfies readonly ForbiddenLaunchVocabulary[];
+const PRELAUNCH_FORBIDDEN_COMMANDS = [
+  "graduate",
+  "setup land",
+  "config set-capability",
+  "config set-check",
+  "finish",
+  "scopes",
+  "ratchets",
+  "config set-ratchet",
+  "integrate",
+] as const;
+
+const PRELAUNCH_FORBIDDEN_CONFIG_KEYS = [
+  "capabilities",
+  "checks",
+  "coupling.in_gate",
+  "gate.stream",
+  "guidance",
+  "project.logbook",
+  "docs",
+  "recipes",
+  "repository.proof_notes",
+  "ratchets",
+  "worktree.port",
+  "worktree.ignored_file_drift",
+  "worktree.resources.*.gc",
+] as const;
 
 /** Operational and product-text trees where command/config vocabulary is executable. */
 const COMMAND_SURFACE_TREES = [
@@ -677,11 +675,7 @@ interface ForbiddenPosition {
  */
 function retiredLaunchPositions(): ForbiddenPosition[] {
   const positions: ForbiddenPosition[] = [];
-  for (
-    const { spelling: retired } of PRELAUNCH_FORBIDDEN_LAUNCH_VOCABULARY.filter(
-      (entry) => entry.kind === "command",
-    )
-  ) {
+  for (const retired of PRELAUNCH_FORBIDDEN_COMMANDS) {
     const words = retired.split(" ");
     const cli = words.map(escapeRegExp).join("\\s+");
     const mcp = words.map(escapeRegExp).join("_");
@@ -728,11 +722,7 @@ function retiredLaunchPositions(): ForbiddenPosition[] {
     }
   }
 
-  for (
-    const { spelling: retired } of PRELAUNCH_FORBIDDEN_LAUNCH_VOCABULARY.filter(
-      (entry) => entry.kind === "config-key",
-    )
-  ) {
+  for (const retired of PRELAUNCH_FORBIDDEN_CONFIG_KEYS) {
     if (retired.includes(".")) {
       const segments = retired.split(".");
       const segmentPattern = (segment: string): string =>
@@ -797,11 +787,7 @@ function retiredLaunchPositions(): ForbiddenPosition[] {
 Deno.test("retired launch vocabulary stays out of callable and config positions", async () => {
   const offenders: string[] = [];
   const liveConfigSections = new Set(configSectionNames());
-  for (
-    const { spelling: retired } of PRELAUNCH_FORBIDDEN_LAUNCH_VOCABULARY.filter(
-      (entry) => entry.kind === "config-key",
-    )
-  ) {
+  for (const retired of PRELAUNCH_FORBIDDEN_CONFIG_KEYS) {
     const probe = retired.replaceAll("*", "fixture");
     const isLive = retired.includes(".")
       ? settableConfigValueKind(probe) !== undefined

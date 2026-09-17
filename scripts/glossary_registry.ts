@@ -316,7 +316,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         // plural "criteria" stays ordinary English (acceptance criteria,
         // removal criteria) on unrelated surfaces.
         phrase: "criterion",
-        pattern: String.raw`\bcriterion\b`,
       },
     ],
     definition:
@@ -470,7 +469,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         // The retired state-read error slug (now read_failed: operations
         // that fail take the _failed suffix).
         phrase: "read_error",
-        pattern: String.raw`\bread_error\b`,
       },
     ],
   },
@@ -532,13 +530,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     retired: [
       {
         phrase: "done --confirmed",
-        pattern: String.raw`\bdone\s+--confirmed\b`,
       },
       {
         // The retired write-preflight error slug and failed stage (now
         // write_denied: it names the refusal, not the capability probed).
         phrase: "write_access",
-        pattern: String.raw`\bwrite_access\b`,
       },
     ],
   },
@@ -591,24 +587,20 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       {
         // The retired root-discovery error slug (now no_project).
         phrase: "not_initialized",
-        pattern: String.raw`\bnot_initialized\b`,
       },
       {
         // The retired pre-setup gating slug (now setup_unfinished, matching
         // the status field of the same name).
         phrase: "not_set_up",
-        pattern: String.raw`\bnot_set_up\b`,
       },
       {
         // The retired out-of-range setup-step error slug (now unknown_step).
         phrase: "no_such_step",
-        pattern: String.raw`\bno_such_step\b`,
       },
       {
         // The retired config-edit error slug (now edit_failed: operations
         // that fail take the _failed suffix).
         phrase: "edit_error",
-        pattern: String.raw`\bedit_error\b`,
       },
     ],
   },
@@ -642,7 +634,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         // The retired unresolved-target error slug (now unknown_target,
         // joining the unknown_* family: docs, patterns, progress, await).
         phrase: "not_found",
-        pattern: String.raw`\bnot_found\b`,
       },
     ],
   },
@@ -843,17 +834,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       {
         // The retired per-invocation override env var (now DISCERN_TRUNK).
         phrase: "DISCERN_MAIN_BRANCH",
-        pattern: String.raw`\bDISCERN_MAIN_BRANCH\b`,
       },
       {
         // The retired setup error slug (now not_on_trunk).
         phrase: "not_on_integration_branch",
-        pattern: String.raw`\bnot_on_integration_branch\b`,
       },
       {
         // The retired missing-trunk error slug (now no_trunk).
         phrase: "no_target",
-        pattern: String.raw`\bno_target\b`,
       },
     ],
   },
@@ -873,7 +861,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     }, {
       phrase: "lookahead",
       // The retired [completion] knob that enabled early validation.
-      pattern: String.raw`\blookahead\b`,
     }],
   },
   {
@@ -959,7 +946,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         // The retired worktree-identity error slug (now identity_failed:
         // operations that fail take the _failed suffix).
         phrase: "identity_error",
-        pattern: String.raw`\bidentity_error\b`,
       },
     ],
   },
