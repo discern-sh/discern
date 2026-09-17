@@ -14,13 +14,13 @@ The public pages for discern live in this repository, so the gate checks the sit
 
 [`site/serve.ts`](../../../site/serve.ts) is the production fetch handler. It combines independently owned reading surfaces:
 
-| Surface                  | Authority                                                                                                                          | Public role                                                                                     |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `/`                      | [`MARKETING_PAGES`](../../../site/marketing_pages.ts) and the typed compositions under [`site/ui/pages/`](../../../site/ui/pages/) | Desire. The registry also holds the unpublished `/agents` composition.                          |
-| `/releases`              | [Release records and comparison](releases.md)                                                                                      | Release history and stable recommendations rendered from the shared comparison model.           |
-| `/docs`                  | The validated manual projection from `project/manual/`                                                                             | Current product documentation, exact reference, and recovery.                                   |
-| `/map`                   | The configured Map filtered by canonical tier and publication policy                                                               | Inspectable evidence of the account discern's agents maintain for project work and human audit. |
-| `/docs/decisions`        | Published records under `project/map/_adr/`                                                                                        | Project history, explicitly outside current product documentation.                              |
+| Surface           | Authority                                                                                                                          | Public role                                                                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `/`               | [`MARKETING_PAGES`](../../../site/marketing_pages.ts) and the typed compositions under [`site/ui/pages/`](../../../site/ui/pages/) | Desire. The registry also holds the unpublished `/agents` composition.                          |
+| `/releases`       | [Release records and comparison](releases.md)                                                                                      | Release history and stable recommendations rendered from the shared comparison model.           |
+| `/docs`           | The validated manual projection from `project/manual/`                                                                             | Current product documentation, exact reference, and recovery.                                   |
+| `/map`            | The configured Map filtered by canonical tier and publication policy                                                               | Inspectable evidence of the account discern's agents maintain for project work and human audit. |
+| `/docs/decisions` | Published records under `project/map/_adr/`                                                                                        | Project history, explicitly outside current product documentation.                              |
 
 The main implementation boundaries are:
 

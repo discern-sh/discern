@@ -116,10 +116,10 @@ Mixed Result summaries compose through the package's group renderer, which align
 
 [`site/design_system.ts`](../../../site/design_system.ts) contains the complete integration. Its `DESIGN_SYSTEM_BUNDLES` table declares:
 
-| Bundle         | Routes                                    | Selection                                              | Optional assets |
-| -------------- | ----------------------------------------- | ------------------------------------------------------ | --------------- |
-| `docs`         | `/docs` and its descendants               | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
-| `compositions` | `/` and `/releases`                       | Marketing, Editorial, and shared display parts         | fonts           |
+| Bundle         | Routes                      | Selection                                              | Optional assets |
+| -------------- | --------------------------- | ------------------------------------------------------ | --------------- |
+| `docs`         | `/docs` and its descendants | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
+| `compositions` | `/` and `/releases`         | Marketing, Editorial, and shared display parts         | fonts           |
 
 The table also owns the emitted public directories. Beside it, [`SITE_APPEARANCE`](../../../site/appearance.ts) is the single browser Appearance authority: it selects the package's symmetric scope CSS and names the Accent roots and hue 255 that retain discern's blue identity. [`site/build.ts`](../../../site/build.ts) passes that scope selection and each bundle selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a schema-4 manifest, and the requested assets. The production marketing and docs document builders put the shared root contract on `<html>`; nested fixed-theme specimen and art roots reuse its Accent activation and inherit the hue. The discern integration reads package outputs instead of copying the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 

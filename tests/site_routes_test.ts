@@ -1,10 +1,5 @@
 /** Route authorities enroll new pages, raw editions, dispatch, and atlas projections. */
-import {
-  assert,
-  assertEquals,
-  assertRejects,
-  assertThrows,
-} from "@std/assert";
+import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import {
   MARKETING_PAGES,
   PUBLISHED_MARKETING_PAGES,
