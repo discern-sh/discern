@@ -81,16 +81,15 @@ Deno.test("public completion refuses deferrals and preserves committed governing
     );
     assertEquals(raw.standards.coverage.measure, measure);
   }
-  assertEquals(
-    validateConfigValue(
-      governingConfigValue({
-        standards: {
-          m: { run: "measure", direction: "up", limit: 1, measure: "unknown" },
-        },
-      }),
-    ).config,
-    undefined,
-  );
+  const unknown = {
+    standards: {
+      m: { run: "measure", direction: "up", limit: 1, measure: "unknown" },
+    },
+  };
+  const governed = validateConfigValue(governingConfigValue(unknown));
+  assert(governed.config !== undefined);
+  assertEquals(governed.config.standards.m?.limit, 1);
+  assertEquals(unknown.standards.m.measure, "unknown");
 });
 
 Deno.test("setup writes complete producer and consumer declarations", () => {
