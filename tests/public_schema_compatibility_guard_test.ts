@@ -39,7 +39,11 @@ import { GIT_ADMIN_STATE } from "../src/shared/git_admin_paths.ts";
 import { GIT_CONVENTIONS } from "../src/shared/git_conventions.ts";
 import { HIDDEN_VERBS } from "../src/shared/hidden_verbs.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
-import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
+import {
+  CLI_JSON_RESULT_CONTRACTS,
+  RESULT_CONTRACT_REFERENCE_FIELDS,
+} from "../src/shared/result_contracts.ts";
+import { configSchema } from "../src/shared/config_schema.ts";
 import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -1852,6 +1856,123 @@ Deno.test("evolving manifest records may change or disappear; demoting a stable 
       issue.includes("voyage_sonar") && issue.includes("removed")
     ),
     JSON.stringify(demotedTool),
+  );
+});
+
+/** Object keys whose values are documentation or vocabulary members, never a
+ * member's identity: a step kind spelled like a verb is not the verb. */
+const NON_IDENTITY_KEYS = new Set([
+  "$comment",
+  "description",
+  "enum",
+  "examples",
+  "title",
+  "usage",
+]);
+
+/**
+ * Every place an artifact names one of `names` outside a record or node that
+ * carries the evolving tier. A CLI command is named by its joined `path`; every
+ * other member by an exact object key or string leaf.
+ */
+function unannotatedMentions(
+  value: JsonValue,
+  names: ReadonlySet<string>,
+  path = "$",
+  annotated = false,
+): string[] {
+  if (typeof value === "string") {
+    return !annotated && names.has(value) ? [`${path} = ${value}`] : [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) =>
+      unannotatedMentions(entry, names, `${path}[${index}]`, annotated)
+    );
+  }
+  if (!isRecord(value)) return [];
+  const evolving =
+    value[MANIFEST_STABILITY_FIELD] === STABILITY_TIER_EVOLVING ||
+    value[PUBLIC_SCHEMA_STABILITY_KEY] === STABILITY_TIER_EVOLVING;
+  const inside = annotated || evolving;
+  const found: string[] = [];
+  if (
+    !inside && Array.isArray(value.path) &&
+    names.has(value.path.filter((word) => typeof word === "string").join(" "))
+  ) {
+    found.push(`${path}.path = ${JSON.stringify(value.path)}`);
+  }
+  for (const [key, child] of Object.entries(value)) {
+    if (NON_IDENTITY_KEYS.has(key)) continue;
+    const childPath = `${path}.${key}`;
+    if (!inside && names.has(key)) {
+      const childEvolving = isRecord(child) &&
+        (child[PUBLIC_SCHEMA_STABILITY_KEY] === STABILITY_TIER_EVOLVING ||
+          child[MANIFEST_STABILITY_FIELD] === STABILITY_TIER_EVOLVING);
+      if (!childEvolving) found.push(`${childPath} (key)`);
+    }
+    found.push(...unannotatedMentions(child, names, childPath, inside));
+  }
+  return found;
+}
+
+Deno.test("every publication that names an evolving member annotates it", () => {
+  // Names come from the two authorities: the contract registry's `stability`
+  // field and the config schema's registered metadata. No publication may list
+  // one of these members by name, in any form, without the tier beside it, so
+  // a consumer reading any artifact sees which members are not yet promised.
+  const names = new Set<string>();
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    if (contract.stability === undefined) continue;
+    names.add(contract.id);
+    names.add(contract.verb);
+    for (const command of contract.commands) names.add(command);
+    if (contract.mcpTool !== undefined) names.add(contract.mcpTool);
+  }
+  for (const [section, schema] of Object.entries(configSchema.shape)) {
+    if (
+      z.globalRegistry.get(schema)?.[PUBLIC_SCHEMA_STABILITY_KEY] ===
+        STABILITY_TIER_EVOLVING
+    ) {
+      names.add(section);
+    }
+  }
+  assert(names.size > 0, "the guard needs at least one evolving member");
+  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+    const artifact = buildCurrentPublicSchema(publication);
+    assertEquals(
+      unannotatedMentions(artifact, names),
+      [],
+      `${publication.artifactPath} names an evolving member without its tier`,
+    );
+  }
+
+  // The detector sees every form a listing takes: a record's name, a command's
+  // joined path, a property key, and a bare string leaf.
+  const probe = new Set(["voyage_sonar", "worktree sound", "sonar"]);
+  assertEquals(
+    unannotatedMentions({
+      tools: [{ name: "voyage_sonar", [MANIFEST_STABILITY_FIELD]: "evolving" }],
+      commands: [{ path: ["worktree", "sound"], stability: "evolving" }],
+      properties: { sonar: { [PUBLIC_SCHEMA_STABILITY_KEY]: "evolving" } },
+      "x-discern-contracts": [{ verb: "sonar", stability: "evolving" }],
+    }, probe),
+    [],
+  );
+  assertEquals(
+    unannotatedMentions({
+      tools: [{ name: "voyage_sonar" }],
+      commands: [{ path: ["worktree", "sound"] }],
+      properties: { sonar: {} },
+      members: { sonar: true },
+      verbs: ["sonar"],
+    }, probe),
+    [
+      "$.tools[0].name = voyage_sonar",
+      '$.commands[0].path = ["worktree","sound"]',
+      "$.properties.sonar (key)",
+      "$.members.sonar (key)",
+      "$.verbs[0] = sonar",
+    ],
   );
 });
 
