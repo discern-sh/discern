@@ -593,6 +593,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         phrase: "not_set_up",
         pattern: String.raw`\bnot_set_up\b`,
       },
+      {
+        // The retired out-of-range setup-step error slug (now unknown_step).
+        phrase: "no_such_step",
+        pattern: String.raw`\bno_such_step\b`,
+      },
     ],
   },
   {

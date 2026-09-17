@@ -2412,7 +2412,7 @@ export async function runSetupStep(
       emitResult({
         ok: false,
         verb: "setup step",
-        error: "no_such_step",
+        error: "unknown_step",
         message,
         data: { next_action: "discern setup begin" },
       });

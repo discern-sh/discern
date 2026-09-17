@@ -60,6 +60,7 @@ aliases:
   - "estate"
   - "not_initialized"
   - "not_set_up"
+  - "no_such_step"
   - "guidance"
   - "not_found"
   - "discern script"

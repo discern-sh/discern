@@ -3361,7 +3361,6 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `no_map: evidence`
   - `no_project: evidence`
   - `no_repository: evidence`
-  - `no_such_step: evidence`
   - `no_trunk: evidence`
   - `not_main_checkout: evidence`
   - `not_on_trunk: evidence`
@@ -3393,6 +3392,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `unknown_command: tailored`
   - `unknown_key: evidence`
   - `unknown_standard: evidence`
+  - `unknown_step: evidence`
   - `unknown_target: tailored`
   - `write_access: evidence`
 - Guards: `tests/result_schemas_test.ts`
@@ -4160,7 +4160,6 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `no_map`
   - `no_project`
   - `no_repository`
-  - `no_such_step`
   - `no_trunk`
   - `not_main_checkout`
   - `not_on_setup_branch`
@@ -4192,6 +4191,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `unknown_command`
   - `unknown_key`
   - `unknown_standard`
+  - `unknown_step`
   - `unknown_target`
   - `write_access`
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
