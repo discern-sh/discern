@@ -18,7 +18,11 @@ import {
   MCP_TOOLS_MANIFEST_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
 } from "../src/shared/public_schemas.ts";
-import { DISCERN_ENVIRONMENT_VARIABLE_NAMES } from "../src/shared/environment_variables.ts";
+import {
+  DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+  type DiscernEnvironmentVariableDefinition,
+  publicEnvironmentVariableDefinitions,
+} from "../src/shared/environment_variables.ts";
 import { BUNDLED_SKILL_NAMES } from "../src/lib/skills.ts";
 import {
   GIT_ADMIN_STATE,
@@ -144,12 +148,20 @@ function providerConventions(): Record<string, unknown> {
 }
 
 /** Frozen names and values spanning every v1 convention registry. */
-export function buildConventionsManifest(): ContractManifest {
+export function buildConventionsManifest(
+  environmentVariableDefinitions: Readonly<
+    Record<string, DiscernEnvironmentVariableDefinition>
+  > = DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+): ContractManifest {
   return {
     $id: CONVENTIONS_MANIFEST_ID,
     format: 1,
     [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]: CONVENTIONS_COMPATIBILITY_POLICY,
-    environment_variables: membership(DISCERN_ENVIRONMENT_VARIABLE_NAMES),
+    environment_variables: membership(
+      publicEnvironmentVariableDefinitions(environmentVariableDefinitions).map(
+        (definition) => definition.name,
+      ),
+    ),
     bundled_skills: membership(BUNDLED_SKILL_NAMES),
     git_admin_state: {
       namespace: GIT_ADMIN_STATE_NAMESPACE,

@@ -8,6 +8,7 @@ import {
   ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
   renderManualEnvironmentVariableReferenceDoc,
 } from "../scripts/environment_variable_reference.ts";
+import { buildConventionsManifest } from "../scripts/contract_manifests.ts";
 import { renderGeneratedManualDocument } from "../scripts/manual_codegen.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
@@ -177,6 +178,48 @@ Deno.test("future public definitions auto-render while future internal definitio
     "experimental-features",
   );
   assertEquals(experiments.futurePublic, futurePublicName);
+});
+
+Deno.test("the conventions manifest publishes only public environment definitions", () => {
+  const futurePublicName: `DISCERN_${string}` =
+    `DISCERN_${"FUTURE_MANIFEST_PUBLIC"}`;
+  const futureInternalName: `DISCERN_${string}` =
+    `DISCERN_${"FUTURE_MANIFEST_INTERNAL"}`;
+  const futurePublic = {
+    name: futurePublicName,
+    group: "experimental-features",
+    documentation: {
+      public: true,
+      description: "A synthetic public manifest control.",
+    },
+  } as const satisfies DiscernEnvironmentVariableDefinition;
+  const futureInternal = {
+    name: futureInternalName,
+    group: "test-controls",
+    documentation: {
+      public: false,
+      reason: "A synthetic internal manifest control.",
+    },
+  } as const satisfies DiscernEnvironmentVariableDefinition;
+  const definitions = {
+    ...DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+    futurePublic,
+    futureInternal,
+  };
+  const manifest = buildConventionsManifest(definitions);
+  const published = manifest.environment_variables;
+  assert(
+    typeof published === "object" && published !== null &&
+      !Array.isArray(published),
+  );
+  assertEquals(
+    Object.keys(published),
+    Object.values(definitions)
+      .filter((definition) => definition.documentation.public)
+      .map((definition) => definition.name),
+  );
+  assertEquals(Object.hasOwn(published, futurePublicName), true);
+  assertEquals(Object.hasOwn(published, futureInternalName), false);
 });
 
 Deno.test("every experimental environment variable is publicly documented", () => {
