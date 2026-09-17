@@ -3987,7 +3987,7 @@ Deno.test("discern mcp: discern_status metadata is search-shaped for orientation
     const status = (list.result.tools as ListedTool[])
       .find((t) => t.name === "discern_status");
     assert(status !== undefined, "discern_status should be listed");
-    assertEquals(status.title, "Orient with discern_status");
+    assertEquals(status.title, "Orient in the project");
     assert(
       status.description.startsWith(
         "Start here: call discern_status",

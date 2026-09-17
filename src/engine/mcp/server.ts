@@ -459,7 +459,7 @@ const PATH_PARAM = {
 export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_status",
-    title: "Orient with discern_status",
+    title: "Orient in the project",
     outputSchema: StatusOutputSchema,
     annotations: READ_ONLY,
     description:
@@ -868,13 +868,13 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       resume: z.string().optional().describe(
         "Short continuation handle returned by a previous not-met wait. Pass " +
-          "it by itself instead of green, landed, or trunk_moved so the " +
+          "it by itself instead of `green`, `landed`, or `trunk_moved` so the " +
           "original branch transition or trunk baseline survives between calls.",
       ),
       timeout: z.number().optional().describe(
         'Seconds before answering "not yet". Omit for the longest reliable ' +
           "bound this MCP client supports; a larger request is sliced " +
-          "losslessly and 0 checks once.",
+          "without loss and 0 checks once.",
       ),
       ...PATH_PARAM,
     },
@@ -980,12 +980,12 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       all: z.boolean().optional().describe(
         "Report every finding instead of each detector's strongest few. " +
-          "The result can be very large on a long history; prefer the " +
+          "The result can be large on a long history; prefer the " +
           "default bound unless the elided findings are the question.",
       ),
       logbook_file: z.string().optional().describe(
         "A sealed logbook archive basename from `discern patterns archives`. " +
-          "Paths, active month files, and nonarchive names are rejected. " +
+          "Paths, active month files, and non-archive names are rejected. " +
           "Omit to read the active logbook.",
       ),
       ...PATH_PARAM,
@@ -1016,7 +1016,7 @@ export const TOOLS: McpTool[] = orderTools([
         `Restrict to one area: ${CATEGORY_NAMES.join(", ")}.`,
       ),
       min_score: z.number().optional().describe(
-        "Mark the result failed (isError) when the overall score is below this floor.",
+        "Mark the result failed (`isError`) when the overall score is below this floor.",
       ),
       ...PATH_PARAM,
     },
