@@ -15,7 +15,15 @@ import {
   assertThrows,
 } from "@std/assert";
 import { fromFileUrl } from "@std/path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { AnchorHeading } from "discern-design-system/react";
 import { DISCERN_FAVICON_PATH, DISCERN_MARK } from "../site/brand.ts";
+import {
+  decorateDocumentHtml,
+  HEADING_ROW_CLASS,
+  headingAnchorLabel,
+} from "../site/document_html.tsx";
 import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
 import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
@@ -456,6 +464,39 @@ Deno.test("contents numbering follows authored procedures and otherwise derives 
   );
 });
 
+Deno.test("Markdown headings carry the package Anchor heading anatomy byte for byte", () => {
+  // The string decorator cannot render the package component around
+  // arbitrary heading markup, so it restates the anatomy; this pins that
+  // restatement to the component's own output.
+  const label = "Alpha surface";
+  const component = (level: 2 | 3 | 4): string =>
+    renderToStaticMarkup(createElement(AnchorHeading, {
+      id: "alpha-surface",
+      level,
+      className: HEADING_ROW_CLASS,
+      anchorLabel: headingAnchorLabel(label),
+      children: label,
+    }));
+  for (const level of [2, 3, 4] as const) {
+    assertEquals(
+      decorateDocumentHtml(
+        `<h${level} id="alpha-surface">${label}</h${level}>`,
+      ),
+      component(level),
+    );
+  }
+  // A heading that arrives with its own class keeps it beside the package's.
+  assertEquals(
+    decorateDocumentHtml(
+      `<h2 class="discern-procedure__title" id="alpha-surface">${label}</h2>`,
+    ),
+    component(2).replace(
+      'class="discern-heading"',
+      'class="discern-heading discern-procedure__title"',
+    ),
+  );
+});
+
 Deno.test("document structure arrives before enhancement scripts can paint", async () => {
   const site = await loadDocsSite();
   const routes = [
@@ -488,11 +529,13 @@ Deno.test("document structure arrives before enhancement scripts can paint", asy
     ) {
       anchoredHeadings++;
       assert(
-        heading.parentElement?.classList.contains("docs-heading-row"),
+        heading.parentElement?.classList.contains("discern-anchor-heading"),
         route,
       );
       assert(
-        heading.nextElementSibling?.classList.contains("docs-anchor"),
+        heading.nextElementSibling?.classList.contains(
+          "discern-anchor-heading__anchor",
+        ),
         route,
       );
     }

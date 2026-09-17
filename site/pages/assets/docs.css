@@ -855,18 +855,6 @@ html:not(.docs-js) .docs-search-btn {
   }
 }
 
-.docs-heading-row {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-}
-
-.docs-heading-row > :is(h2, h3, h4) {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
 @media (max-width: 40em) {
   .docs-search-btn-word,
   .docs-search-btn kbd {
@@ -898,7 +886,7 @@ html:not(.docs-js) .docs-search-btn {
   .docs-search-backdrop,
   .docs-complete-browse,
   .docs-copy,
-  .docs-anchor,
+  .docs-heading-row > a,
   .docs-skip {
     display: none !important;
   }

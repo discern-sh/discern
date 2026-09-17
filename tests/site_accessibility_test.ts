@@ -156,13 +156,13 @@ Deno.test("permalink controls stay outside every heading accessible name", () =>
     return {
       tag: heading?.tagName.toLowerCase(),
       text: heading?.textContent,
-      permalinkInsideHeading: heading?.querySelector(".docs-anchor") !== null,
+      permalinkInsideHeading:
+        heading?.querySelector(".discern-anchor-heading__anchor") !== null,
       permalinkNextToHeading: wrapper?.querySelector(
-        ":scope > .docs-anchor",
+        ":scope > .discern-anchor-heading__anchor",
       ) !== null,
-      label: wrapper?.querySelector(":scope > .docs-anchor")?.getAttribute(
-        "aria-label",
-      ),
+      label: wrapper?.querySelector(":scope > .discern-anchor-heading__anchor")
+        ?.getAttribute("aria-label"),
     };
   });
   dom.window.close();

@@ -14,14 +14,15 @@ import {
   renderDocumentPage,
 } from "../layouts/DocumentLayout.tsx";
 import { DocumentColophon } from "../components/DocumentColophon.tsx";
+import { DocumentHeading } from "../components/DocumentHeading.tsx";
 import { HtmlFragment } from "../components/HtmlFragment.tsx";
 import { LeafList } from "../components/LeafList.tsx";
 
 /** The scarce journeys the authored root promotes; the site never copies the set. */
 function FrontDoors({ site }: { readonly site: DocsSite }): ReactElement {
   return (
-    <section className="docs-front-doors" aria-label="Start here">
-      <h2>Start here</h2>
+    <section className="docs-front-doors" aria-labelledby="start-here">
+      <DocumentHeading id="start-here" text="Start here" />
       <LeafList className="docs-chapter-leaves" pages={site.frontDoors} />
     </section>
   );
@@ -29,15 +30,16 @@ function FrontDoors({ site }: { readonly site: DocsSite }): ReactElement {
 
 /** One published section with every leaf beneath its landing. */
 function Chapter({ section }: { readonly section: DocsSection }): ReactElement {
+  const id = `chapter-${section.slug}`;
   return (
-    <section className="docs-chapter">
+    <section className="docs-chapter" aria-labelledby={id}>
       <span className="docs-chapter-index" aria-hidden="true">
         {sectionIndexOf(section.dir)}
       </span>
       <div className="docs-chapter-body">
-        <h2>
+        <DocumentHeading id={id} text={section.title}>
           <a href={section.index.route}>{section.title}</a>
-        </h2>
+        </DocumentHeading>
         <p className="docs-chapter-desc">{section.description}</p>
         <LeafList
           className="docs-chapter-leaves"
