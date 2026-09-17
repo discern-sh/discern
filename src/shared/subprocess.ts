@@ -442,12 +442,17 @@ interface OutputBudget {
   exceeded: boolean;
 }
 
-/** Read one child stream while retaining no more than the shared byte ceiling. */
+/**
+ * Read one child stream while retaining no more than the shared byte ceiling.
+ * With a `sink`, arriving bytes are handed over instead of retained and never
+ * count against the budget; the caller owns their memory.
+ */
 async function readBoundedStream(
   stream: ReadableStream<Uint8Array>,
   budget: OutputBudget,
   terminate: () => void,
   signal: AbortSignal,
+  sink?: (chunk: Uint8Array) => void,
 ): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   let retained = 0;
@@ -469,6 +474,10 @@ async function readBoundedStream(
       const { done, value } = await reader.read();
       if (done) break;
       if (budget.exceeded) continue;
+      if (sink !== undefined) {
+        sink(value);
+        continue;
+      }
       const accepted = Math.min(value.length, budget.remaining);
       if (accepted > 0) {
         chunks.push(value.slice(0, accepted));
@@ -525,6 +534,8 @@ async function boundedChildOutput(
     readonly quiesceDescendants?: boolean | undefined;
     readonly signal?: AbortSignal | undefined;
     readonly scheduler: Scheduler;
+    /** Receive stdout as it arrives instead of retaining it. */
+    readonly stdoutSink?: ((chunk: Uint8Array) => void) | undefined;
   },
 ): Promise<{
   output: CapturedCommandOutput;
@@ -570,6 +581,7 @@ async function boundedChildOutput(
     budget,
     terminate,
     captureAbort.signal,
+    opts.stdoutSink,
   );
   const stderrPromise = readBoundedStream(
     child.stderr,
@@ -668,6 +680,13 @@ export async function runGit(
     /** Optional caller-owned combined stdout/stderr ceiling. */
     maxOutputBytes?: number;
     /**
+     * Receive stdout bytes as they arrive instead of retaining them. Sunk
+     * bytes never count against `maxOutputBytes`, and the returned `stdout`
+     * and `stdoutBytes` are empty. The sink must not throw; a consumer that
+     * can no longer accept bytes aborts `signal` instead.
+     */
+    stdoutSink?: (chunk: Uint8Array) => void;
+    /**
      * Run Git in an isolated process group and stop hook/background descendants
      * before returning. Lifecycle callers set this when later teardown relies
      * on every command-owned writer having settled.
@@ -754,6 +773,7 @@ export async function runGit(
         quiesceDescendants: true,
         signal: opts.signal,
         scheduler,
+        stdoutSink: opts.stdoutSink,
       });
       output = bounded.output;
       timedOut = bounded.timedOut;
@@ -763,16 +783,21 @@ export async function runGit(
       }
     } else if (
       opts.stdin === undefined && opts.timeoutMs === undefined &&
-      opts.maxOutputBytes === undefined && opts.signal === undefined
+      opts.maxOutputBytes === undefined && opts.signal === undefined &&
+      opts.stdoutSink === undefined
     ) {
       output = await command.output();
-    } else if (opts.maxOutputBytes !== undefined || opts.signal !== undefined) {
+    } else if (
+      opts.maxOutputBytes !== undefined || opts.signal !== undefined ||
+      opts.stdoutSink !== undefined
+    ) {
       const bounded = await boundedChildOutput(command.spawn(), {
         ...(opts.stdin !== undefined ? { stdin: opts.stdin } : {}),
         ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
         maxOutputBytes: opts.maxOutputBytes ?? Number.MAX_SAFE_INTEGER,
         signal: opts.signal,
         scheduler,
+        stdoutSink: opts.stdoutSink,
       });
       output = bounded.output;
       timedOut = bounded.timedOut;
