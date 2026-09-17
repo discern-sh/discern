@@ -17,7 +17,6 @@ import { assertEquals } from "@std/assert";
 import { join, relative } from "@std/path";
 import { configSectionNames } from "../src/shared/config_codegen.ts";
 import { settableConfigValueKind } from "../src/shared/config_schema.ts";
-import { retiredLaunchSynonyms } from "../scripts/glossary_registry.ts";
 import {
   isRepoMapPath,
   REPO_AUTHORED_PATHS,
@@ -394,6 +393,38 @@ const RETIRED_COMMAND_TOKENS = [
   "`worktree:*`",
 ];
 
+interface ForbiddenLaunchVocabulary {
+  kind: "command" | "config-key";
+  spelling: string;
+}
+
+/** Private-era launch spellings retained only so the structural guard can
+ * prevent them returning to executable or published positions. */
+const PRELAUNCH_FORBIDDEN_LAUNCH_VOCABULARY = [
+  { kind: "command", spelling: "graduate" },
+  { kind: "command", spelling: "setup land" },
+  { kind: "command", spelling: "config set-capability" },
+  { kind: "command", spelling: "config set-check" },
+  { kind: "command", spelling: "finish" },
+  { kind: "command", spelling: "scopes" },
+  { kind: "command", spelling: "ratchets" },
+  { kind: "command", spelling: "config set-ratchet" },
+  { kind: "command", spelling: "integrate" },
+  { kind: "config-key", spelling: "capabilities" },
+  { kind: "config-key", spelling: "checks" },
+  { kind: "config-key", spelling: "coupling.in_gate" },
+  { kind: "config-key", spelling: "gate.stream" },
+  { kind: "config-key", spelling: "guidance" },
+  { kind: "config-key", spelling: "project.logbook" },
+  { kind: "config-key", spelling: "docs" },
+  { kind: "config-key", spelling: "recipes" },
+  { kind: "config-key", spelling: "repository.proof_notes" },
+  { kind: "config-key", spelling: "ratchets" },
+  { kind: "config-key", spelling: "worktree.port" },
+  { kind: "config-key", spelling: "worktree.ignored_file_drift" },
+  { kind: "config-key", spelling: "worktree.resources.*.gc" },
+] as const satisfies readonly ForbiddenLaunchVocabulary[];
+
 /** Operational and product-text trees where command/config vocabulary is executable. */
 const COMMAND_SURFACE_TREES = [
   "src",
@@ -577,19 +608,14 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * Private planning is the only non-ADR surface allowed to spell a retired
- * launch name in a callable or config position.
+ * Private planning and this test-owned denylist are the only non-ADR surfaces
+ * allowed to spell private-era launch vocabulary.
  */
 function isLaunchVocabularyRecord(rel: string): boolean {
   return isRepoMapPath(rel, "_adr") ||
     isRepoMapPath(rel, "_private") ||
     rel.endsWith("/3a-vocabulary-and-rename-sweep.md") ||
-    new Set([
-      "project/map/00-orientation/glossary.md",
-      "scripts/glossary_registry.ts",
-      "src/shared/vocabulary.ts",
-      "tests/dev_vocab_guard_test.ts",
-    ]).has(rel);
+    rel === "tests/dev_vocab_guard_test.ts";
 }
 
 /** Compatibility records allowed to retain the retired Project Recipe contract. */
@@ -651,13 +677,11 @@ interface ForbiddenPosition {
  */
 function retiredLaunchPositions(): ForbiddenPosition[] {
   const positions: ForbiddenPosition[] = [];
-  const launch = retiredLaunchSynonyms();
   for (
-    const { synonym } of launch.filter((entry) =>
-      entry.synonym.launch.kind === "command"
+    const { spelling: retired } of PRELAUNCH_FORBIDDEN_LAUNCH_VOCABULARY.filter(
+      (entry) => entry.kind === "command",
     )
   ) {
-    const retired = synonym.launch.spelling;
     const words = retired.split(" ");
     const cli = words.map(escapeRegExp).join("\\s+");
     const mcp = words.map(escapeRegExp).join("_");
@@ -705,11 +729,10 @@ function retiredLaunchPositions(): ForbiddenPosition[] {
   }
 
   for (
-    const { synonym } of launch.filter((entry) =>
-      entry.synonym.launch.kind === "config-key"
+    const { spelling: retired } of PRELAUNCH_FORBIDDEN_LAUNCH_VOCABULARY.filter(
+      (entry) => entry.kind === "config-key",
     )
   ) {
-    const retired = synonym.launch.spelling;
     if (retired.includes(".")) {
       const segments = retired.split(".");
       const segmentPattern = (segment: string): string =>
@@ -775,11 +798,10 @@ Deno.test("retired launch vocabulary stays out of callable and config positions"
   const offenders: string[] = [];
   const liveConfigSections = new Set(configSectionNames());
   for (
-    const { synonym } of retiredLaunchSynonyms().filter((entry) =>
-      entry.synonym.launch.kind === "config-key"
+    const { spelling: retired } of PRELAUNCH_FORBIDDEN_LAUNCH_VOCABULARY.filter(
+      (entry) => entry.kind === "config-key",
     )
   ) {
-    const retired = synonym.launch.spelling;
     const probe = retired.replaceAll("*", "fixture");
     const isLive = retired.includes(".")
       ? settableConfigValueKind(probe) !== undefined

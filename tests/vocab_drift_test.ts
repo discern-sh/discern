@@ -11,10 +11,10 @@
  * class-not-instance move applied to language itself.
  *
  * Exemptions are data too: a synonym's `allowed` paths name where the phrase
- * stays legal and why. Structurally exempt, for every phrase: the generated
- * glossary page (the declaration surface — retired phrases appear there as
- * search aliases) and the map's dated records (`_adr/`, `_private/`), which
- * keep the vocabulary they were written with.
+ * stays legal and why. The map's dated records (`_adr/`, `_private/`) remain
+ * structurally exempt because they keep the vocabulary they were written with.
+ * Generated glossaries stay inside the scan: guard data must never become a
+ * published search alias.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -120,23 +120,9 @@ async function siteFiles(files: readonly string[]): Promise<{
   return { literals, prose };
 }
 
-/** The generated glossary page — the declaration surface, where a retired
- * phrase legitimately appears (as a search alias pointing at the canon). */
-const GLOSSARY_PAGE = join(
-  REPO_AUTHORED_PATHS.mapRel,
-  "00-orientation",
-  "glossary.md",
-);
-const MANUAL_GLOSSARY_PAGE = join(
-  REPO_AUTHORED_PATHS.manualRel,
-  "30-reference",
-  "glossary.md",
-);
-
-/** Exclude the glossary and historical or private map records from current-vocabulary enforcement. */
+/** Exclude only historical or private map records from current-vocabulary enforcement. */
 function structurallyExempt(rel: string): boolean {
-  return rel === GLOSSARY_PAGE || rel === MANUAL_GLOSSARY_PAGE ||
-    isRepoMapPath(rel, "_adr") ||
+  return isRepoMapPath(rel, "_adr") ||
     isRepoMapPath(rel, "_private");
 }
 

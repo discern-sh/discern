@@ -3289,30 +3289,24 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "distribution-vocabulary",
     title: "Distribution vocabulary",
     what:
-      "Retired launch spellings guarded by the Glossary, dead config positions, command suggestions, and grammatical command variants.",
+      "Dead config positions, command suggestions, and grammatical command variants.",
     source: {
       kind: "module",
-      module: "scripts/glossary_registry.ts",
-      exportName: "retiredLaunchSynonyms",
+      module: "src/shared/vocabulary.ts",
+      exportName: "DEAD_CONFIG_POSITIONS",
     },
     guards: ["tests/dev_vocab_guard_test.ts", "tests/config_schema_test.ts"],
     artifacts: [],
     enrolledIn: {
       glossary: {
         absent:
-          "retired launch members are synonyms on their successor terms, while dead positions and input normalizations are implementation policy",
+          "dead positions and input normalizations are implementation policy",
       },
       featureCanon: { nodeId: "forgiving-cli" },
     },
     members: async () => {
       const vocabulary = await import("../src/shared/vocabulary.ts");
-      const { retiredLaunchSynonyms } = await import(
-        "./glossary_registry.ts"
-      );
       return [
-        ...retiredLaunchSynonyms().map(({ synonym }) =>
-          `${synonym.launch.kind}:${synonym.launch.spelling}`
-        ),
         ...vocabulary.DEAD_CONFIG_POSITIONS.map((position) =>
           position.key === undefined
             ? `${position.path}.*`

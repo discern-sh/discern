@@ -42,8 +42,9 @@ export interface RetiredException {
 /**
  * A synonym the canon retired in favour of the entry's term. The
  * vocabulary-drift guard (tests/vocab_drift_test.ts) bans every retired phrase
- * from the live prose surfaces, and the renderer emits each as a search alias
- * so a search for a retired phrase lands on the canonical term.
+ * from the live prose surfaces. Retired wording is internal guard data, not a
+ * search alias: public compatibility names belong on an explicit migration
+ * surface if a future release needs them.
  */
 export interface RetiredSynonym {
   /** The retired wording, in display form ("integration branch"). */
@@ -53,12 +54,6 @@ export interface RetiredSynonym {
    * the phrase — for inflection families a single phrase can't express.
    */
   pattern?: string;
-  /** A retired callable or config spelling whose structural positions the
-   * distribution-vocabulary guard derives from this glossary row. */
-  launch?: {
-    kind: "command" | "config-key";
-    spelling: string;
-  };
   /** Paths where the phrase remains legal, each with its reason. */
   allowed?: readonly RetiredException[];
 }
@@ -222,45 +217,6 @@ function codeList(names: readonly string[], conjunction: string): string {
   return `${coded.slice(0, -1).join(", ")}, ${conjunction} ${coded.at(-1)}`;
 }
 
-/** A pre-release command spelling retained only as guarded vocabulary. */
-function retiredCommand(spelling: string): RetiredSynonym {
-  const command = regexLiteral(spelling);
-  const mcp = spelling.split(" ").map(regexLiteral).join("_");
-  return {
-    phrase: `discern ${spelling}`,
-    pattern:
-      `\\b(?:discern|deno\\s+task\\s+dev)\\s+${command}(?=[\\s\x60'\".,):]|$)|\\bdiscern_${mcp}\\b`,
-    launch: { kind: "command", spelling },
-  };
-}
-
-/** A pre-release config spelling retained only as guarded vocabulary. */
-function retiredConfigKey(
-  spelling: string,
-): RetiredSynonym {
-  const display = spelling.replaceAll("*", "<name>");
-  const phrase = spelling.includes(".")
-    ? `${display} config key`
-    : `${display} config section`;
-  const dotted = spelling.split(".").map((segment) =>
-    segment === "*" ? "[A-Za-z0-9_-]+" : regexLiteral(segment)
-  ).join(String.raw`\.`);
-  return {
-    phrase,
-    pattern: spelling.includes(".")
-      ? `${regexLiteral(phrase)}|\\b${dotted}\\b`
-      : `${regexLiteral(phrase)}|\\[\\s*${
-        regexLiteral(spelling)
-      }(?=\\s*(?:\\.|\\]))`,
-    launch: { kind: "config-key", spelling },
-    allowed: [{
-      path: "project/map/_internal/registry-atlas.md",
-      reason:
-        "the generated distribution-vocabulary inventory lists the guarded spelling",
-    }],
-  };
-}
-
 /**
  * Every discern term, defined once. Order here is authoring order; the
  * renderer alphabetizes. Definitions are the canonical prose — the map page is
@@ -276,8 +232,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     definition:
       "Land validated, authorized work on the [trunk](#trunk), the project's shared branch. From an effort's worktree, `discern accept` records the effort's [submission](#submission), the exact proven commit, and lands it when conversation consent or a recorded grant authorizes it: it fast-forwards the trunk, records the Proof note, converges the main checkout, and removes the worktree, its resources, and its branch when the branch holds nothing beyond the landed submission. When the trunk moved after the Proof, the landing composes and checks the combined code in an [integration worktree](#integration-worktree) and lands that exact proven commit; a second accept waits its turn and resumes on its own. Without authority it refuses, and the submission waits for the owner. See [worktrees](../30-worktrees/) and [landing authority](../30-worktrees/landing-authority.md).",
     retired: [
-      retiredCommand("graduate"),
-      retiredCommand("setup land"),
       {
         phrase: "queue reconciliation",
         // The queue engine's noun for recording an outside integration into
@@ -335,12 +289,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       } known names ${
         codeList(Object.keys(KNOWN_JOBS), "and")
       } derive their [stage](#stage), while a custom name declares one. The run also schedules fired [scope](#scope) gates and [standard](#standard) measurements as labeled jobs. Covered in [the quality gate](../20-quality-gate/).`,
-    retired: [
-      retiredCommand("config set-capability"),
-      retiredCommand("config set-check"),
-      retiredConfigKey("capabilities"),
-      retiredConfigKey("checks"),
-    ],
   },
   {
     term: "Checkpoint",
@@ -438,7 +386,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     definition:
       "Files that have often changed together in the project's history. `discern coupling` uses that history to suggest related files the current change may have missed. The finding is [advisory](#advisory): past co-change is a reason to investigate, not proof that another file must change. See [coupling](../20-quality-gate/coupling.md).",
     retired: [
-      retiredConfigKey("coupling.in_gate"),
       {
         phrase: "co-change advisory",
         pattern: String.raw`\bco-change\s+advisor(?:y|ies)\b`,
@@ -583,8 +530,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     definition:
       "The configured checks a change must satisfy for ordinary completion. `discern done` runs this workflow: preconditions, declared [jobs](#gate-job), applicable [scope](#scope) gates, required [standards](#standard), and required checkpoint declarations. Failures identify the check and the next action. Passing establishes the stated checks for the validated change, not permission to land it. See [the quality gate](../20-quality-gate/).",
     retired: [
-      retiredCommand("finish"),
-      retiredConfigKey("gate.stream"),
       {
         phrase: "done --confirmed",
         pattern: String.raw`\bdone\s+--confirmed\b`,
@@ -635,7 +580,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       `The project's authored instructions for coding agents. Their paths are named by \`[instructions].sources\` (default \`${
         sourcePathDefault("instructions")
       }\`). discern prepends its built-in instructions when compiling the agent files; your project instructions follow them. Covered in [agent instructions](../40-agent-instructions/).`,
-    retired: [retiredConfigKey("guidance")],
   },
   {
     term: "Installer",
@@ -684,7 +628,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: { phrase: "the activity record", match: String.raw`\blogbooks?\b` },
     definition:
       "The local record of the project's use of discern. With recording enabled and a readable `discern.toml`, each CLI verb run and project-resolved Model Context Protocol (MCP) invocation adds metadata such as timing and outcome. It does not record code or command output. Worktrees share the record under `.git`; discern has no network path that sends it elsewhere. `[project].record_logbook = false` stops recording. See [the logbook](../70-reference/the-logbook.md).",
-    retired: [retiredConfigKey("project.logbook")],
   },
   {
     term: "Map",
@@ -695,7 +638,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         sourcePathDefault("map")
       }\`). You can read it to understand the project and correct what agents have recorded. The gate checks configured documentation requirements; authors remain responsible for its meaning. \`publish: false\` in a page's frontmatter withholds it from every published surface ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Pointing \`[map].dir\` at existing docs is explicit consent to manage them ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)).`,
     retired: [
-      retiredConfigKey("docs"),
       {
         // The retired unresolved-target error slug (now unknown_target,
         // joining the unknown_* family: docs, patterns, progress, await).
@@ -784,7 +726,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         sourcePathDefault("scripts")
       }\`), run as \`discern scripts <name>\` with \`DISCERN_*\` exported. Scripts occupy their own namespace, so built-in verb names stay legal ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).`,
     retired: [
-      retiredConfigKey("recipes"),
       {
         // The singular invocation. Typed input folds to `scripts` silently
         // (an accepted grammatical variant, not a retired command), but every
@@ -826,9 +767,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     },
     definition:
       "A durable copy of landed [Proof](#proof), attached to the commit in Git. The JSON record lives under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) binds the full commit and preserves the payload bytes for future signatures; current notes use an unsigned extension with an empty signatures array. Recording is local by default, fetching is opt-in, and publishing requires an explicit Git push. See [Proof notes](../20-quality-gate/proof-notes.md).",
-    retired: [
-      retiredConfigKey("repository.proof_notes"),
-    ],
   },
   {
     term: "Schema version",
@@ -850,7 +788,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     definition:
       "A named set of project paths used to select work or policy. A `[scopes.<name>]` entry declares path patterns and can provide a `gate` command for changes in that area. Unclassified paths still count as code changes, so missing classification does not skip them. `discern map --export <name>` can also use a scope as an ordered reading list. See [the quality gate](../20-quality-gate/).",
     retired: [
-      retiredCommand("scopes"),
       {
         // The seeded documentation scope's retired name (now [scopes.map]).
         phrase: "scopes.docs",
@@ -891,11 +828,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     },
     definition:
       "A held limit for a repeatable project measurement. A `[standards]` entry sets a floor that may rise or a ceiling that may fall. The gate checks the limit and protected measurement definition against the preceding committed policy; an ordinary branch cannot weaken or delete them. Completion requires every standard, using applicable evidence or a new measurement. `discern standards --pin` captures a gain; `discern prepare` requests no measurements. A weaker limit needs the separate owner-approved proposal process. See [standards](../20-quality-gate/standards.md).",
-    retired: [
-      retiredCommand("ratchets"),
-      retiredCommand("config set-ratchet"),
-      retiredConfigKey("ratchets"),
-    ],
   },
   {
     term: "Trunk",
@@ -978,7 +910,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     matches: ["discern update"],
     definition:
       "Bring newer work into the current task's [worktree](#worktree). `discern update` merges the latest [trunk](#trunk) into the task branch and refreshes generated files. With `--from <ref>`, it can bring in another explicit source, including unlanded work. The result names overlapping files for the agent to re-read, because a successful merge does not prove the combined behavior is right. See [worktrees](../30-worktrees/).",
-    retired: [retiredCommand("integrate")],
   },
   {
     term: "Worktree",
@@ -990,8 +921,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     definition:
       "A separate working copy and branch for one effort. `discern start` creates it so task edits stay apart from the main checkout and other efforts. Review and resumed sessions continue the same effort; a worktree changes only through the operation run in it, and no operation installs another revision into it. A landing removes the worktree, its resources, and its branch when the branch holds nothing beyond the landed [submission](#submission). Each worktree has a derived port and declared [resources](#worktree-resource); `discern enter` opens a child shell in a selected checkout. See [worktrees](../30-worktrees/).",
     retired: [
-      retiredConfigKey("worktree.port"),
-      retiredConfigKey("worktree.ignored_file_drift"),
       {
         phrase: "borrowed checkout",
         // The borrowed-validation substrate: installing another revision into
@@ -1043,9 +972,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     },
     definition:
       "A supporting service or other resource prepared separately for one worktree. Examples include a test database, emulator, or container. `[worktree.resources.<name>]` declares its `create` and `destroy` commands. Worktree setup ensures the declared resource exists, and lifecycle cleanup removes it when appropriate. `discern worktree prune` can reclaim positively identified orphaned resources. See [worktree resources](../30-worktrees/the-resources.md).",
-    retired: [
-      retiredConfigKey("worktree.resources.*.gc"),
-    ],
   },
   {
     term: "Project-owned file",
@@ -1100,24 +1026,6 @@ export function retiredSynonyms(): Array<
 > {
   return GLOSSARY.flatMap((entry) =>
     (entry.retired ?? []).map((synonym) => ({ term: entry.term, synonym }))
-  );
-}
-
-/** Retired callable and config spellings whose structural positions are
- * guarded in addition to the glossary's written-surface scan. */
-export function retiredLaunchSynonyms(): Array<
-  {
-    term: string;
-    synonym: RetiredSynonym & { launch: NonNullable<RetiredSynonym["launch"]> };
-  }
-> {
-  return retiredSynonyms().filter(
-    (entry): entry is {
-      term: string;
-      synonym: RetiredSynonym & {
-        launch: NonNullable<RetiredSynonym["launch"]>;
-      };
-    } => entry.synonym.launch !== undefined,
   );
 }
 
@@ -1177,17 +1085,12 @@ function renderGlossaryDocument(
   glossary: readonly GlossaryEntry[] = GLOSSARY,
 ): string {
   const entries = sortedGlossary(glossary);
-  // Retired synonyms are aliases too: a search for a retired phrase should
-  // land on the canonical term.
   const aliases = [
     "terms",
     "definitions",
     "vocabulary",
     "dictionary",
     ...entries.map((e) => e.term.toLowerCase()),
-    ...entries.flatMap((e) =>
-      (e.retired ?? []).map((r) => r.phrase.toLowerCase())
-    ),
   ];
   const sections = entries.map((e) => {
     const entry = slugify(e.term);

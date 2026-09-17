@@ -4,6 +4,7 @@ import {
   glossarySummary,
   renderGlossaryDoc,
   renderManualGlossaryDoc,
+  retiredSynonyms,
   sortedGlossary,
 } from "../scripts/glossary_registry.ts";
 import { renderManualGlossaryArtifact } from "../scripts/glossary_codegen.ts";
@@ -131,6 +132,41 @@ Deno.test("a future glossary term auto-enrols in the manual heading and search a
   assertStringIncludes(document, "### Future contract");
   const frontmatter = document.split("\n---\n")[0] ?? "";
   assertStringIncludes(frontmatter, "  - future contract");
+});
+
+Deno.test("retired guard vocabulary never becomes a glossary search alias", () => {
+  const futureRetiredPhrase = "discarded future launcher";
+  const glossary = [
+    ...GLOSSARY,
+    {
+      term: "Future contract",
+      runningCase: "lowercase" as const,
+      plain: { keep: "a synthetic reference term" },
+      definition: "A synthetic term proving future glossary enrollment.",
+      retired: [{ phrase: futureRetiredPhrase }],
+    },
+  ];
+  const retiredPhrases = [
+    ...retiredSynonyms().map(({ synonym }) => synonym.phrase.toLowerCase()),
+    futureRetiredPhrase,
+  ];
+
+  for (
+    const document of [
+      renderGlossaryDoc(glossary),
+      renderManualGlossaryDoc(glossary),
+    ]
+  ) {
+    const frontmatter = document.split("\n---\n")[0] ?? "";
+    assertStringIncludes(frontmatter, "  - future contract");
+    assertEquals(
+      retiredPhrases.filter((phrase) =>
+        frontmatter.includes(`  - ${phrase}\n`)
+      ),
+      [],
+      "retired guard data is internal history, not a public search alias",
+    );
+  }
 });
 
 Deno.test("the gate job entry closes over exactly the live known-job vocabulary", () => {

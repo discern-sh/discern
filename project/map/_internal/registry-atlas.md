@@ -117,7 +117,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
 | [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 398     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
-| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `scripts/glossary_registry.ts#retiredLaunchSynonyms`                              | 32      | —                | node `forgiving-cli`        |
+| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#DEAD_CONFIG_POSITIONS`                                  | 10      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 12      | —                | —                           |
 | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                              | `scripts/brand/vale.ts#voiceEnforcementCoverage`                                  | 23      | —                | —                           |
@@ -4957,32 +4957,10 @@ Every project-tree path discern writes or maintains, with its operational owners
 
 ## `distribution-vocabulary` — Distribution vocabulary
 
-Retired launch spellings guarded by the Glossary, dead config positions, command suggestions, and grammatical command variants.
+Dead config positions, command suggestions, and grammatical command variants.
 
-- Source: `scripts/glossary_registry.ts` — `retiredLaunchSynonyms`
-- Members: 32
-  - `command:graduate`
-  - `command:setup land`
-  - `command:config set-capability`
-  - `command:config set-check`
-  - `config-key:capabilities`
-  - `config-key:checks`
-  - `config-key:coupling.in_gate`
-  - `command:finish`
-  - `config-key:gate.stream`
-  - `config-key:guidance`
-  - `config-key:project.logbook`
-  - `config-key:docs`
-  - `config-key:recipes`
-  - `config-key:repository.proof_notes`
-  - `command:scopes`
-  - `command:ratchets`
-  - `command:config set-ratchet`
-  - `config-key:ratchets`
-  - `command:integrate`
-  - `config-key:worktree.port`
-  - `config-key:worktree.ignored_file_drift`
-  - `config-key:worktree.resources.*.gc`
+- Source: `src/shared/vocabulary.ts` — `DEAD_CONFIG_POSITIONS`
+- Members: 10
   - `completion`
   - `execution`
   - `init`
@@ -4994,7 +4972,7 @@ Retired launch spellings guarded by the Glossary, dead config positions, command
   - `improve`
   - `script`
 - Guards: `tests/dev_vocab_guard_test.ts`, `tests/config_schema_test.ts`
-- Glossary: not enrolled — retired launch members are synonyms on their successor terms, while dead positions and input normalizations are implementation policy
+- Glossary: not enrolled — dead positions and input normalizations are implementation policy
 - Feature canon: described by the `forgiving-cli` node
 
 ## `voice-banned-moves` — Voice banned moves
