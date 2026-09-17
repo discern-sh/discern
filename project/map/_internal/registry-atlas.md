@@ -3098,7 +3098,7 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-failure-map-integrity`
   - `gate-failure-merge`
   - `gate-failure-standards`
-  - `gate-failure-write-access`
+  - `gate-failure-write-denied`
   - `gate-prove-it-works`
   - `gate-relay-proof`
   - `gate-land-under-verified-authority`
@@ -3348,10 +3348,10 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `detached_head: evidence`
   - `diagrams_misaligned: evidence`
   - `dirty_worktree: evidence`
-  - `edit_error: evidence`
+  - `edit_failed: evidence`
   - `gate_failed: evidence`
   - `gitignore_template_unavailable: evidence`
-  - `identity_error: evidence`
+  - `identity_failed: evidence`
   - `incomplete: tailored`
   - `internal_error: evidence`
   - `invalid_arguments: evidence`
@@ -3363,14 +3363,11 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `invalid_value: evidence`
   - `no_docs: evidence`
   - `no_map: evidence`
+  - `no_project: evidence`
   - `no_repository: evidence`
-  - `no_such_step: evidence`
-  - `no_target: evidence`
-  - `not_found: tailored`
-  - `not_initialized: evidence`
+  - `no_trunk: evidence`
   - `not_main_checkout: evidence`
   - `not_on_trunk: evidence`
-  - `not_set_up: evidence`
   - `not_on_setup_branch: evidence`
   - `partial_acceptance: tailored`
   - `partial_materialization: tailored`
@@ -3380,7 +3377,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `proposal_stale: evidence`
   - `precondition_failed: evidence`
   - `provisioned_resources: evidence`
-  - `read_error: evidence`
+  - `read_failed: evidence`
   - `report_only_proof: tailored`
   - `renamed_command: evidence`
   - `renamed_config_key: evidence`
@@ -3388,6 +3385,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `script_not_executable: evidence`
   - `script_not_a_command: evidence`
   - `setup_plan_failed: evidence`
+  - `setup_unfinished: evidence`
   - `skills_eject_failed: evidence`
   - `tables_malformed: evidence`
   - `templates_not_found: evidence`
@@ -3398,7 +3396,9 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `unknown_command: tailored`
   - `unknown_key: evidence`
   - `unknown_standard: evidence`
-  - `write_access: evidence`
+  - `unknown_step: evidence`
+  - `unknown_target: tailored`
+  - `write_denied: evidence`
 - Guards: `tests/result_schemas_test.ts`
 - Glossary: not enrolled — the result-contract reference explains the two recovery modes without exposing this internal policy table
 - Feature canon: described by the `hints` node
@@ -4147,10 +4147,10 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `detached_head`
   - `diagrams_misaligned`
   - `dirty_worktree`
-  - `edit_error`
+  - `edit_failed`
   - `gate_failed`
   - `gitignore_template_unavailable`
-  - `identity_error`
+  - `identity_failed`
   - `incomplete`
   - `internal_error`
   - `invalid_arguments`
@@ -4162,15 +4162,12 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `invalid_value`
   - `no_docs`
   - `no_map`
+  - `no_project`
   - `no_repository`
-  - `no_such_step`
-  - `no_target`
-  - `not_found`
-  - `not_initialized`
+  - `no_trunk`
   - `not_main_checkout`
   - `not_on_setup_branch`
   - `not_on_trunk`
-  - `not_set_up`
   - `partial_acceptance`
   - `partial_materialization`
   - `partial_refresh`
@@ -4179,7 +4176,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `proposal_failed`
   - `proposal_stale`
   - `provisioned_resources`
-  - `read_error`
+  - `read_failed`
   - `renamed_command`
   - `renamed_config_key`
   - `report_only_proof`
@@ -4187,6 +4184,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `script_not_a_command`
   - `script_not_executable`
   - `setup_plan_failed`
+  - `setup_unfinished`
   - `skills_eject_failed`
   - `tables_malformed`
   - `templates_not_found`
@@ -4197,7 +4195,9 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `unknown_command`
   - `unknown_key`
   - `unknown_standard`
-  - `write_access`
+  - `unknown_step`
+  - `unknown_target`
+  - `write_denied`
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — the result-contract reference documents this machine failure vocabulary; command diagnostics supply reader-facing explanations
