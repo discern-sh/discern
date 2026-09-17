@@ -6513,7 +6513,7 @@
         },
         {
           "spellings": [
-            "--preparation"
+            "--preparation-receipt"
           ],
           "description": "Emergency only: the checkpoint-preparation receipt for this exact repair and trunk.",
           "type_definition": "<receipt:string>",

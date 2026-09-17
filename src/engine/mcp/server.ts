@@ -1135,7 +1135,7 @@ export const TOOLS: McpTool[] = orderTools([
       "Recorded grants never cover a checkpoint variance or standard proposal. Use dry_run to preview the selected mode. " +
       "After landing, report the effects and unresolved cleanup, ending with data.proof_line verbatim. " +
       "The full review page remains available through `discern status --verbose`. " +
-      "Use action: emergency with reason for an explicit exception. prepare with met records served judgments; preparation carries its receipt. " +
+      "Use action: emergency with reason for an explicit exception. prepare with met records served judgments; preparation_receipt carries its receipt. " +
       "Review the failed, unrun and stale obligations, then pass the owner's exact confirmation token with confirmed. No grant covers this exception and no passing Proof is issued. recover reconciles an interrupted emergency landing. No mode pushes.",
     inputSchema: {
       target: z.string().optional().describe(
@@ -1151,7 +1151,7 @@ export const TOOLS: McpTool[] = orderTools([
       prepare: z.boolean().optional().describe(
         "Emergency only: run checkpoint triggers, serve or record agent judgments, and retain exact review evidence. Runs no validation jobs or integration.",
       ),
-      preparation: z.string().optional().describe(
+      preparation_receipt: z.string().optional().describe(
         "Emergency preparation receipt for this exact repair and trunk; it conveys no owner approval.",
       ),
       met: z.array(z.string()).optional().describe(
@@ -1223,6 +1223,7 @@ export const TOOLS: McpTool[] = orderTools([
         {
           queueOnly: args.action === QUEUE_ACCEPT_ACTION,
           ...args,
+          preparationReceipt: args.preparation_receipt,
           dryRun: args.dry_run === true,
         },
       );

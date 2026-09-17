@@ -965,7 +965,7 @@ export function attachEngineCommands(
       "Emergency only: run checkpoint triggers and retain exact review evidence without validation or integration.",
     )
     .option(
-      "--preparation <receipt:string>",
+      "--preparation-receipt <receipt:string>",
       "Emergency only: the checkpoint-preparation receipt for this exact repair and trunk.",
     )
     .option(

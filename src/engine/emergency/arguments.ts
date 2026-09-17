@@ -26,7 +26,7 @@ export function emergencyArguments(
           | "confirmed"
           | "dryRun"
           | "prepare"
-          | "preparation"
+          | "preparationReceipt"
           | "met"
       ]?: EmergencyOptions[K] | undefined;
     },
@@ -51,7 +51,7 @@ export function emergencyArguments(
     action === undefined &&
     (fields.reason !== undefined || fields.confirmation !== undefined ||
       fields.recover !== undefined || fields.prepare !== undefined ||
-      fields.preparation !== undefined)
+      fields.preparationReceipt !== undefined)
   ) {
     // `met` stays out of this refusal: an ordinary landing accepts it as the
     // integration-judgment continuation, while emergency preparation keeps
@@ -79,9 +79,9 @@ export function emergencyArguments(
       ? {
         emergency: {
           ...(fields.prepare === undefined ? {} : { prepare: fields.prepare }),
-          ...(fields.preparation === undefined
+          ...(fields.preparationReceipt === undefined
             ? {}
-            : { preparation: fields.preparation }),
+            : { preparationReceipt: fields.preparationReceipt }),
           ...(fields.met === undefined ? {} : { met: fields.met }),
           ...(fields.reason === undefined ? {} : { reason: fields.reason }),
           ...(fields.confirmation === undefined
@@ -164,7 +164,7 @@ export function acceptRequestFields(
 /** Preparation, owner confirmation, and transition recovery are separate invocations. */
 export function emergencyOptionError(options: {
   readonly prepare?: boolean | undefined;
-  readonly preparation?: string | undefined;
+  readonly preparationReceipt?: string | undefined;
   readonly met?: readonly string[] | undefined;
   readonly confirmed?: boolean | undefined;
   readonly confirmation?: string | undefined;
@@ -172,7 +172,7 @@ export function emergencyOptionError(options: {
 }): string | undefined {
   if (
     options.prepare &&
-    (options.preparation !== undefined || options.confirmed ||
+    (options.preparationReceipt !== undefined || options.confirmed ||
       options.confirmation !== undefined || options.recover !== undefined)
   ) {
     return "Emergency preparation cannot be combined with a receipt, confirmation, or transition recovery. Prepare first, then review a separate integration plan.";
@@ -180,7 +180,9 @@ export function emergencyOptionError(options: {
   if (!options.prepare && options.met !== undefined) {
     return "Checkpoint declarations require accept emergency --prepare. They cannot accompany integration or recovery.";
   }
-  if (options.preparation !== undefined && options.recover !== undefined) {
+  if (
+    options.preparationReceipt !== undefined && options.recover !== undefined
+  ) {
     return "A preparation receipt belongs to a new plan; interrupted transitions use only their recorded recovery authority.";
   }
   return undefined;

@@ -108,13 +108,16 @@ export async function prepareEmergency(
       [],
       "emergency-review",
     );
-    const preparation = emergencyPreparationHandle(artifact);
+    const preparationReceipt = emergencyPreparationHandle(artifact);
     return {
       ok: true,
       verb: "accept",
-      data: { ...data, emergency: { outcome: "prepared", preparation } },
+      data: {
+        ...data,
+        emergency: { outcome: "prepared", preparation: preparationReceipt },
+      },
       message:
-        `Checkpoint preparation is complete. No validation jobs, passing Proof, or integration were produced. Run accept emergency --reason <text> --preparation ${preparation} for the exact owner-review plan. This receipt grants no landing authority.`,
+        `Checkpoint preparation is complete. No validation jobs, passing Proof, or integration were produced. Run accept emergency --reason <text> --preparation-receipt ${preparationReceipt} for the exact owner-review plan. This receipt grants no landing authority.`,
     };
   }, options.signal);
 }

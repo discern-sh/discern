@@ -250,10 +250,10 @@ export async function observeEmergencySubject(
 export async function planEmergency(
   ctx: LifecycleContext,
   reason: string,
-  preparation?: string,
+  preparationReceipt?: string,
 ): Promise<EmergencyPlan> {
   const plan = await observeEmergencySubject(ctx, reason);
-  if (preparation !== undefined) {
+  if (preparationReceipt !== undefined) {
     return {
       ...plan,
       review: await readEmergencyPreparation(
@@ -261,7 +261,7 @@ export async function planEmergency(
         ctx.config,
         plan.candidate_id,
         plan.candidate,
-        preparation,
+        preparationReceipt,
       ),
     };
   }

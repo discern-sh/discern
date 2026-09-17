@@ -66,7 +66,7 @@ import { emergencyValidationStatus } from "./obligations.ts";
 
 export interface EmergencyOptions {
   readonly prepare?: boolean;
-  readonly preparation?: string;
+  readonly preparationReceipt?: string;
   readonly met?: readonly string[];
   readonly reason?: string;
   readonly confirmation?: string;
@@ -178,7 +178,7 @@ async function prepareAndIntegrate(
   const plan = await planEmergency(
     ctx,
     options.reason ?? "",
-    options.preparation,
+    options.preparationReceipt,
   );
   const now = SYSTEM_CLOCK.wallNow();
   const expires = now + EMERGENCY_CONFIRMATION_MS;
@@ -217,9 +217,9 @@ async function prepareAndIntegrate(
           `${entry.state}: ${entry.requirement.kind} ${entry.requirement.id}`
         ).join("\n")
       }\n\n${boundary}\n\nReview this plan with the owner. After fresh explicit approval, repeat accept emergency with the same --reason, ${
-        options.preparation === undefined
+        options.preparationReceipt === undefined
           ? ""
-          : `--preparation ${options.preparation}, `
+          : `--preparation-receipt ${options.preparationReceipt}, `
       }--confirmed, and --confirmation ${confirmation}. The confirmation expires in 15 minutes; changed subjects require another review.`,
     };
   }
@@ -277,7 +277,11 @@ async function prepareAndIntegrate(
   }
   return await withAcceptanceTransactionLock(effort.path, async () => {
     // The approved subject must still be exactly what the owner reviewed.
-    const current = await planEmergency(ctx, plan.reason, options.preparation);
+    const current = await planEmergency(
+      ctx,
+      plan.reason,
+      options.preparationReceipt,
+    );
     if (!await emergencyConfirmationCurrent(current, approvedToken)) {
       const settled = await settleException(plan.root, record, {
         outcome: {

@@ -13,7 +13,7 @@ The repair must be committed in its recorded worktree and contain actual trunk. 
 
 When checkpoint triggers or declarations are pending, run `discern accept emergency --prepare --reason "Restore service"`. This runs only the canonical checkpoint preflight and serves its questions. Repeat with `--met <id>` for each satisfied served question. An unmet question or unreadable trigger evidence still blocks emergency integration. `--dry-run` previews preparation without running triggers or recording conclusions.
 
-The [preparation action](../../../src/engine/emergency/prepare.ts) retains an immutable review receipt after rechecking clean source and actual trunk. Pass the returned `--preparation <receipt>` to both the owner-review preview and its later confirmed call. The [receipt reader](../../../src/engine/emergency/review.ts) checks its bytes, exact source and predecessor, and current declarations before accepting settled trigger evidence. Changes require renewed preparation. The exception record retains this receipt separately from machine evidence and passing Proof.
+The [preparation action](../../../src/engine/emergency/prepare.ts) retains an immutable review receipt after rechecking clean source and actual trunk. Pass the returned `--preparation-receipt <receipt>` to both the owner-review preview and its later confirmed call. The [receipt reader](../../../src/engine/emergency/review.ts) checks its bytes, exact source and predecessor, and current declarations before accepting settled trigger evidence. Changes require renewed preparation. The exception record retains this receipt separately from machine evidence and passing Proof.
 
 ## Exact owner decision
 

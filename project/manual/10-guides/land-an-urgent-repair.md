@@ -36,7 +36,7 @@ Tell your agent:
 
 The agent runs `discern accept emergency` with a reason and no confirmation. That call changes nothing. It shows the repair, the shared branch it would land on, the reason, and every check that failed, never ran, or has evidence too old to count. If the repair is behind the shared branch, the agent updates it first and asks for a fresh plan.
 
-If the project has review questions (checkpoints) that match the repair, the agent answers them first through a separate preparation step. An unanswered or unmet question still blocks the emergency route; urgency does not remove judgment the project asked for.
+If the project has review questions (checkpoints) that match the repair, the agent answers them first through a separate preparation step and carries its receipt with `--preparation-receipt`. An unanswered or unmet question still blocks the emergency route; urgency does not remove judgment the project asked for.
 
 ## 2. Decide
 

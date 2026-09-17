@@ -3,7 +3,7 @@
  * canonical checkpoint triggers, serves questions, records `--met`
  * conclusions, and returns a receipt binding that judgment evidence to the
  * exact repair and trunk. The receipt conveys no landing authority; the
- * owner-review plan consumes it with `--preparation` and refuses a receipt
+ * owner-review plan consumes it with `--preparation-receipt` and refuses a receipt
  * from another candidate or from since-changed declarations.
  */
 
@@ -187,7 +187,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     assertEquals(emergencyData(prepared.stdout).outcome, "prepared");
     assertEquals(
       decodeCliResult(prepared.stdout, "accept").message,
-      `Checkpoint preparation is complete. No validation jobs, passing Proof, or integration were produced. Run accept emergency --reason <text> --preparation ${receipt} for the exact owner-review plan. This receipt grants no landing authority.`,
+      `Checkpoint preparation is complete. No validation jobs, passing Proof, or integration were produced. Run accept emergency --reason <text> --preparation-receipt ${receipt} for the exact owner-review plan. This receipt grants no landing authority.`,
     );
 
     // Only a receipt from --prepare is honored.
@@ -195,7 +195,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       wt,
       "--reason",
       reason,
-      "--preparation",
+      "--preparation-receipt",
       "not-a-receipt",
     );
     assertEquals(garbage.code, 1, garbage.output);
@@ -210,7 +210,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       wt,
       "--reason",
       reason,
-      "--preparation",
+      "--preparation-receipt",
       receipt,
     );
     assertEquals(preview.code, 1, preview.output);
@@ -218,7 +218,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     assertEquals(previewEnvelope.error, "awaiting_consent");
     assertStringIncludes(
       previewEnvelope.message ?? "",
-      `--preparation ${receipt}, --confirmed, and --confirmation`,
+      `--preparation-receipt ${receipt}, --confirmed, and --confirmation`,
     );
 
     // A conclusion revised after preparation invalidates the receipt: the
@@ -236,7 +236,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       wt,
       "--reason",
       reason,
-      "--preparation",
+      "--preparation-receipt",
       receipt,
     );
     assertEquals(changed.code, 1, changed.output);
@@ -253,7 +253,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       wt,
       "--reason",
       reason,
-      "--preparation",
+      "--preparation-receipt",
       receipt,
     );
     assertEquals(stale.code, 1, stale.output);
@@ -279,7 +279,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       wt,
       "--reason",
       reason,
-      "--preparation",
+      "--preparation-receipt",
       receipt3,
     );
     assertEquals(plan.code, 1, plan.output);
@@ -289,7 +289,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       wt,
       "--reason",
       reason,
-      "--preparation",
+      "--preparation-receipt",
       receipt3,
       "--confirmed",
       "--confirmation",
