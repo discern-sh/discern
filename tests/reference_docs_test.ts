@@ -182,7 +182,7 @@ Deno.test("every MCP tool and strict input key is present in the manual", () => 
   }
 });
 
-Deno.test("closed result vocabularies are total in the manual", () => {
+Deno.test("the result vocabularies the manual lists are total", () => {
   for (
     const [label, members] of Object.entries({
       step_kinds: STEP_KINDS,

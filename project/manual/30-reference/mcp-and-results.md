@@ -346,16 +346,18 @@ Patterns results always carry `data.investigations`. Each entry cites source ids
 
 Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It may also include normalized `output`, `truncated`, `output_path`, `file`, `line`, `col`, `rule`, and `fix_available`. Use `reproduce_cmd` for the smallest direct rerun; use `output_path` when the inline capture was truncated.
 
-#### Closed result vocabularies
+#### Result vocabularies
 
-- Step `kind`: `job`, `scope-gate`, `merge-check`, `standards-limits-check`, `tracked-artifacts-check`, `instructions-check`, `skills-check`, `tracked-refresh-check`, `resource-create`, `resource-destroy`, `git`, `task-metadata`, `setup-step`, `repository-ensure`, `checkout-clean-check`, `setup-ensure`, `env`, `refresh`, `tidy`, `standard`.
-- Step `disposition`: `run`, `skip`, `gate`.
-- Step `outcome`: `ok`, `failed`, `skipped`, `cancelled`.
-- Diagnostic `severity`: `error`, `warning`.
-- `failed_stage`: `fix`, `build`, `check`, `test`, `check/test`, `scope_gates`, `tree_drift`, `generated_drift`, `refresh_drift`, `tracked_artifacts`, `instructions`, `skills`, `skill_frontmatter`, `adr_numbers`, `adr_index`, `map_integrity`, `merge`, `standards`, `write_denied`.
-- Advisory `kind`: `acceptance-cleanup-incomplete`, `checkpoint-evidence-dropped`, `checkout-clean-observation-unavailable`, `doctor-warning`, `execution-cap-unavailable`, `generated-attribute-pattern-untranslated`, `governing-config-key-ignored`, `ignored-file-observation-unavailable`, `landing-authority-unverified`, `optional-resource-unavailable`, `proof-recording-unavailable`, `setup-unproven-completion`, `setup-machinery-commit-failed`, `setup-marker-commit-failed`, `standards-limits-unverified`, `uninstall-strip-incomplete`.
+The published schema marks every fixed-set result value with `x-discern-vocabulary`. An open vocabulary publishes as a string, with its known members at the schema root under the same key, and grows in ordinary releases: treat a value you do not recognize as opaque. A closed vocabulary publishes as an enum and changes only with that artifact's own major. The closed vocabularies are step outcome, diagnostic severity, validation mode, checkpoint mode, landing-authority kind, standard proposal direction, completion evidence purpose, requirement kind, and exception state; every other result vocabulary is open.
 
-The registered `error` slugs are: `active_worktrees`, `ambiguous`, `apply_failed`, `awaiting_consent`, `awaiting_declaration`, `awaiting_standard_approval`, `awaiting_variance`, `below_min_score`, `brief_unparseable`, `checkout_failed`, `checkpoint_evidence_unavailable`, `config_template_unavailable`, `confirmation_required`, `conflict`, `desk_already_active`, `detached_head`, `diagrams_misaligned`, `dirty_worktree`, `edit_failed`, `gate_failed`, `gitignore_template_unavailable`, `identity_failed`, `incomplete`, `internal_error`, `invalid_arguments`, `invalid_config`, `invalid_config_file`, `invalid_migrated_config`, `invalid_settings_file`, `invalid_toml`, `invalid_value`, `no_docs`, `no_map`, `no_project`, `no_repository`, `no_trunk`, `not_main_checkout`, `not_on_setup_branch`, `not_on_trunk`, `partial_acceptance`, `partial_materialization`, `partial_refresh`, `pin_failed`, `precondition_failed`, `proposal_failed`, `proposal_stale`, `provisioned_resources`, `read_failed`, `renamed_command`, `renamed_config_key`, `report_only_proof`, `schema_version_too_new`, `script_not_a_command`, `script_not_executable`, `setup_plan_failed`, `setup_unfinished`, `skills_eject_failed`, `tables_malformed`, `templates_not_found`, `tidy_parse_failed`, `tidy_write_failed`, `unchanged_tree_rerun`, `unknown_category`, `unknown_command`, `unknown_key`, `unknown_standard`, `unknown_step`, `unknown_target`, and `write_denied`.
+- Step `kind` (open): `job`, `scope-gate`, `merge-check`, `standards-limits-check`, `tracked-artifacts-check`, `instructions-check`, `skills-check`, `tracked-refresh-check`, `resource-create`, `resource-destroy`, `git`, `task-metadata`, `setup-step`, `repository-ensure`, `checkout-clean-check`, `setup-ensure`, `env`, `refresh`, `tidy`, `standard`.
+- Step `disposition` (open): `run`, `skip`, `gate`.
+- Step `outcome` (closed): `ok`, `failed`, `skipped`, `cancelled`.
+- Diagnostic `severity` (closed): `error`, `warning`.
+- `failed_stage` (open): `fix`, `build`, `check`, `test`, `check/test`, `scope_gates`, `tree_drift`, `generated_drift`, `refresh_drift`, `tracked_artifacts`, `instructions`, `skills`, `skill_frontmatter`, `adr_numbers`, `adr_index`, `map_integrity`, `merge`, `standards`, `write_denied`.
+- Advisory `kind` (open): `acceptance-cleanup-incomplete`, `checkpoint-evidence-dropped`, `checkout-clean-observation-unavailable`, `doctor-warning`, `execution-cap-unavailable`, `generated-attribute-pattern-untranslated`, `governing-config-key-ignored`, `ignored-file-observation-unavailable`, `landing-authority-unverified`, `optional-resource-unavailable`, `proof-recording-unavailable`, `setup-unproven-completion`, `setup-machinery-commit-failed`, `setup-marker-commit-failed`, `standards-limits-unverified`, `uninstall-strip-incomplete`.
+
+The registered `error` slugs, published under `x-discern-error-slugs`, are: `active_worktrees`, `ambiguous`, `apply_failed`, `awaiting_consent`, `awaiting_declaration`, `awaiting_standard_approval`, `awaiting_variance`, `below_min_score`, `brief_unparseable`, `checkout_failed`, `checkpoint_evidence_unavailable`, `config_template_unavailable`, `confirmation_required`, `conflict`, `desk_already_active`, `detached_head`, `diagrams_misaligned`, `dirty_worktree`, `edit_failed`, `gate_failed`, `gitignore_template_unavailable`, `identity_failed`, `incomplete`, `internal_error`, `invalid_arguments`, `invalid_config`, `invalid_config_file`, `invalid_migrated_config`, `invalid_settings_file`, `invalid_toml`, `invalid_value`, `no_docs`, `no_map`, `no_project`, `no_repository`, `no_trunk`, `not_main_checkout`, `not_on_setup_branch`, `not_on_trunk`, `partial_acceptance`, `partial_materialization`, `partial_refresh`, `pin_failed`, `precondition_failed`, `proposal_failed`, `proposal_stale`, `provisioned_resources`, `read_failed`, `renamed_command`, `renamed_config_key`, `report_only_proof`, `schema_version_too_new`, `script_not_a_command`, `script_not_executable`, `setup_plan_failed`, `setup_unfinished`, `skills_eject_failed`, `tables_malformed`, `templates_not_found`, `tidy_parse_failed`, `tidy_write_failed`, `unchanged_tree_rerun`, `unknown_category`, `unknown_command`, `unknown_key`, `unknown_standard`, `unknown_step`, `unknown_target`, and `write_denied`.
 
 ### Model Context Protocol resources
 
@@ -367,7 +369,7 @@ The registered `error` slugs are: `active_worktrees`, `ambiguous`, `apply_failed
 | `discern://docs` and `discern://docs/{+target}` | The manual index or one manual page.           |
 | `discern://map` and `discern://map/{+target}`   | The project-map index or one project-map page. |
 
-`{+target}` accepts a slug, `section/slug`, or a path. Resource reads are computed when requested; clients that do not auto-attach resources can call the corresponding tool.
+`{+target}` accepts a slug, `section/slug`, or a path. Resource reads are computed when requested; clients that do not auto-attach resources can call the corresponding tool. The MCP tools manifest lists every resource and template by name, kind, and URI, and none of those change within the major.
 
 ### CLI exit codes
 
@@ -413,16 +415,8 @@ Quiet result modes map exit `0` to evaluated `ok: true` and controlled nonzero t
 
 #### Compatibility by schema version
 
-A package release can retain the same public schema `$id`. Breaking changes require a new schema major, with the earlier major still published. Within a major, use the additions permitted by each contract in the table above; consumers should tolerate optional result fields and newly introduced error slugs.
+The [compatibility page](compatibility.md) explains what each published contract promises across releases: the schema majors, the evolving tier, the open and closed vocabularies, and the deprecation rule. Two result-shape facts belong here.
 
-CLI help, MCP display titles and descriptions, and schema documentation can change while existing behavior remains compatible. Command names, input types, defaults, and tool safety annotations keep their guarantees. An input property named `description` is still an input, not documentation.
-
-Private storage formats have independent version numbers and upgrade requirements. Their current versions are not frozen by the public conventions manifest. Published Proof-note payloads retain their public schema identity and compatibility rules.
-
-Runtime validation remains strict. Unknown or malformed configuration keys fail even though later releases may introduce new optional keys. The published configuration schema is an authoring snapshot: refresh a cached copy before validating configuration from a newer release. The bounded setup recipe also rejects an unsupported declared major.
-
-The v1 result contract separates success, failure, previews, and applied effects. For example, `data.instruction_refresh.status: "partial"` means a required refresh failed even when earlier setup or upgrade effects remain. A successful `setup accept` with nothing to land carries `data.completion = { status: "no_op", reason }`; `reason` distinguishes `no_git_repository` from `already_on_target`.
+`data.instruction_refresh.status: "partial"` means a required refresh failed even when earlier setup or upgrade effects remain. A successful `setup accept` with nothing to land carries `data.completion = { status: "no_op", reason }`; `reason` distinguishes `no_git_repository` from `already_on_target`.
 
 Schemas use JSON Schema Draft 2020-12. The release source contains `types/discern-json.d.ts`, and the result schema publishes `x-discern-contracts` metadata for each verb's completion requirements and permitted advisories. Use these artifacts from the release you integrate with.
-
-For the rules used to publish and compare schema versions, see [Runtime data boundaries](https://github.com/jackwh/discern/blob/main/project/map/80-development/runtime-data-boundaries.md). The compatibility checks cover required fields, defaults, types, reference paths, and contract unions; those publication details do not change how callers interpret a result.

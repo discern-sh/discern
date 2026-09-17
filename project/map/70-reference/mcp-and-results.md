@@ -172,7 +172,7 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 | `discern://docs` and `discern://docs/{+target}` | The manual index or one manual page.           |
 | `discern://map` and `discern://map/{+target}`   | The project-map index or one project-map page. |
 
-`{+target}` accepts a slug, `section/slug`, or a path. The index resource returns the same complete structured identity set as its tool, and a page resource returns the same reader-visible Markdown as an exact tool read. Resource reads are computed when requested; clients that do not auto-attach resources can call the corresponding tool.
+`{+target}` accepts a slug, `section/slug`, or a path. The index resource returns the same complete structured identity set as its tool, and a page resource returns the same reader-visible Markdown as an exact tool read. Resource reads are computed when requested; clients that do not auto-attach resources can call the corresponding tool. The MCP tools manifest publishes every resource and template by name, kind, and URI from the server's one registration table ([Compatibility policy](compatibility-policy.md#positional-arguments-order-and-resources)).
 
 ## CLI exit codes
 
@@ -196,16 +196,8 @@ The generated manifest publications freeze the request-side MCP catalog, the ful
 
 ### Compatibility by schema version
 
-Package releases do not change public schema `$id`s; breaks require a new major. Runtime result schemas stay strict. Their published schema remains open to optional fields and unknown `error` slugs.
-
-The append-only compatibility promise begins at the first release tag. Before that tag, a publication may still be corrected. Afterward, every registered path and identity remains covered on the trunk. Every generated artifact and trunk baseline must compile as JSON Schema Draft 2020-12. The artifact records its compatibility policy, and same-major comparisons use the policy from the trunk artifact. A breaking major adds a publication, artifact, and route while retaining the earlier major.
+The promise each publication makes, the evolving tier, the enum rule, and the comparators that enforce them live on the [Compatibility policy](compatibility-policy.md) page; the manual carries the reader-facing [compatibility page](https://discern.sh/docs/reference/compatibility). This page keeps only the result-shape facts those pages do not carry.
 
 The v1 result publication uses the pre-release correction rule for its discriminated envelope and completion contracts. Copies made before those corrections must refresh the schema and generated declarations. Setup and upgrade consumers replace ambiguous compilation Booleans and lists with `data.instruction_refresh`; a partial required refresh is a failed command even though its payload preserves completed effects. A successful `setup accept` that has nothing to land carries `data.completion = { status: "no_op", reason }` rather than omitting its landing outcome; `reason` distinguishes `no_git_repository` from `already_on_target`. Contradictory fixtures and lying success states do not remain valid through a compatibility alternative ([ADR 0334](../_adr/0334-result-envelopes-encode-valid-structural-states.md), [ADR 0349](../_adr/0349-top-level-success-follows-completion-policies.md)).
-
-The comparison permits the table's additions, reordered contract unions, and the first MCP exposure of an existing CLI contract. In config schemas, a new named property must accept every value admitted for that name by the trunk object's `additionalProperties` schema. Its named schema may add members to the catchall's `type` set; `oneOf` stays under structural comparison. Tuple schemas compare `prefixItems` by position.
-
-A result-role aggregate may widen only when its definition contains `oneOf` and annotation keywords, and the trunk exposes 1 acyclic same-instance route to it from the top-level branches. A recognized aggregate cannot add named properties. The route must be a pure top-level `$ref` to the aggregate. Constrained references and applicators such as `allOf` or `dependentSchemas` count as routes but cannot grant widening authority. Repeated references and wrapper branches count separately. An ambiguous aggregate and a nested union stay closed.
-
-The same rule permits a role's first aggregate when the trunk has no registry references for that role, every current role reference introduces a definition, 1 new aggregate contains only `oneOf` and annotation keywords with the full current reference set, and 1 pure top-level entrypoint is its sole route. The comparison rejects policy drift, arbitrary metadata that tries to authorize a union change, removals, and changes to existing types, required result fields, or validation ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
 
 The published config schemas are closed authoring snapshots. Refresh a cached copy before validating newer optional keys. At runtime, the live `discern.toml` remains strict; the setup config document instead ignores unknown same-major fields while validating every field that release knows, then refuses an unsupported declared major. See [Runtime data boundaries](../80-development/runtime-data-boundaries.md).
