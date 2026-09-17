@@ -78,7 +78,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.worktree.env_files, [".env", ".env.local"]);
   assertEquals(c.worktree.track_ignored_drift, true);
   assertEquals(c.worktree.export_port, false);
-  assertEquals(c.coupling.in_gate, true);
+  assertEquals(c.coupling.report_in_gate, true);
 });
 
 Deno.test("an [mcp] table is not part of project config", () => {

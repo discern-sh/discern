@@ -930,7 +930,7 @@ const gateSection = z.strictObject({
 }).prefault({}).describe(CONFIG_PROSE.gate.what);
 
 const couplingSection = z.strictObject({
-  in_gate: z.boolean().default(true).describe(
+  report_in_gate: z.boolean().default(true).describe(
     "Surface coupling findings as trailing hints in `discern done` and `discern prepare`, while the change is hot. false keeps coupling available through `discern coupling` alone.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.coupling.what);

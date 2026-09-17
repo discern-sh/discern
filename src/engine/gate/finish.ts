@@ -1024,14 +1024,14 @@ async function runCandidateGate(
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
   // during setup, so a green gate here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
-  // The coupling advisory (ADR 0084), behind [coupling].in_gate — at the
+  // The coupling advisory (ADR 0084), behind [coupling].report_in_gate — at the
   // TAIL, with strand detection, because it READS THE DIFF (dependency-bearing), never a
   // fail-fast precondition. Only on a GREEN, bootstrapped run: a half-set-up install
   // behaves as if coupling were off (its in-session setup must stay uncluttered), and a
   // failed gate is not the moment for an advisory. Best-effort and never blocking — it
   // touches only `hints`, so it can't move `ok` / the exit code / `failed_stage`.
   const couplingHints =
-    failedStage === null && cfg.meta.bootstrapped && cfg.coupling.in_gate
+    failedStage === null && cfg.meta.bootstrapped && cfg.coupling.report_in_gate
       ? await couplingGateHints(root)
       : [];
   // Checkpoint deliveries ride the envelope's one advisory channel: evidence-drop

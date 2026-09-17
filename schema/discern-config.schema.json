@@ -1441,7 +1441,7 @@
       "default": {},
       "type": "object",
       "properties": {
-        "in_gate": {
+        "report_in_gate": {
           "default": true,
           "description": "Surface coupling findings as trailing hints in `discern done` and `discern prepare`, while the change is hot. false keeps coupling available through `discern coupling` alone.",
           "type": "boolean"

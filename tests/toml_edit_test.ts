@@ -781,7 +781,7 @@ Deno.test("insertKeyBlock places a documented key in canonical order", () => {
     "fail_fast = true",
     "",
     "[coupling]",
-    "in_gate = false",
+    "report_in_gate = false",
     "",
   ].join("\n");
   const editor = new TomlEditor(input);
@@ -813,7 +813,7 @@ Deno.test("insertKeyBlock places a documented key in canonical order", () => {
       "fail_fast = true",
       "",
       "[coupling]",
-      "in_gate = false",
+      "report_in_gate = false",
       "",
     ].join("\n"),
   );

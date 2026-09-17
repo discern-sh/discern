@@ -123,7 +123,7 @@ aliases:
   - "gate.fail_fast"
   - "gate.timeout"
   - "gate.concurrent_test_runs"
-  - "coupling.in_gate"
+  - "coupling.report_in_gate"
   - "scripts"
   - "scripts.dir"
   - "meta"
@@ -545,9 +545,9 @@ How `discern done` runs its parallel stages. Fail-fast, a per-command time budge
 
 Co-change detection from git history. Files that habitually change together point at a sibling the current change may be missing. Coupling is read-only advice that calibrates itself to the repository, with no thresholds to tune; `discern coupling` reads it on demand.
 
-| Key       | Type    | Default | Description                                                                                                                                                                    |
-| --------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `in_gate` | boolean | `true`  | Surface coupling findings as trailing hints in `discern done` and `discern prepare`, while the change is hot. false keeps coupling available through `discern coupling` alone. |
+| Key              | Type    | Default | Description                                                                                                                                                                    |
+| ---------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `report_in_gate` | boolean | `true`  | Surface coupling findings as trailing hints in `discern done` and `discern prepare`, while the change is hot. false keeps coupling available through `discern coupling` alone. |
 
 ## `[scripts]`
 

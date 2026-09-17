@@ -1530,7 +1530,7 @@
   # loop `discern prepare` (as hints, at the tail — it never affects pass/fail), so
   # the nudge meets a change while it is hot. On by default; set false to keep
   # coupling on demand.
-  in_gate = true
+  report_in_gate = true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [scripts]

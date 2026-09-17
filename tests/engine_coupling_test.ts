@@ -19,7 +19,7 @@
  *  - evidence mode (two files) lists EXACTLY the commits where both changed, with the
  *    "of N" denominators, excludes a solo commit, and reports "no shared history" as zero;
  *  - the partner list is capped (top-k), so the advisory never floods;
- *  - finish AND the fast inner loop prepare surface it only behind `[coupling].in_gate`,
+ *  - finish AND the fast inner loop prepare surface it only behind `[coupling].report_in_gate`,
  *    never changing pass/fail, and it is suppressed pre-setup.
  */
 
@@ -53,8 +53,9 @@ import { TEST_CLI_MODEL } from "./cli_model.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 
 /** A bare set-up project (no capabilities; instructions/skills off so the gate is a clean
- * green no-op) — coupling needs zero config, so the only thing a test varies is `in_gate`. */
-async function setup(dir: string, inGate = true): Promise<void> {
+ * green no-op) — coupling needs zero config, so the only thing a test varies is
+ * `report_in_gate`. */
+async function setup(dir: string, reportInGate = true): Promise<void> {
   await scaffoldEngine(dir);
   await gitInit(dir);
   await writeConfig(
@@ -64,7 +65,7 @@ async function setup(dir: string, inGate = true): Promise<void> {
       'slug = "engine-test"',
       "",
       "[coupling]",
-      `in_gate = ${inGate}`,
+      `report_in_gate = ${reportInGate}`,
       "",
     ].join("\n"),
   );
@@ -179,7 +180,7 @@ function generatedFixtureConfig(): string {
     'slug = "engine-test"',
     "",
     "[coupling]",
-    "in_gate = true",
+    "report_in_gate = true",
     ...GENERATED_FIXTURE_GROUPS.flatMap((group) => [
       "",
       `[generated.${group.name}]`,
@@ -916,7 +917,7 @@ Deno.test("the human CLI renders the FULL list (not the truncated gate hints) an
   });
 });
 
-Deno.test("done appends the coupling advisory only when [coupling].in_gate is on, and never changes pass/fail", async () => {
+Deno.test("done appends the coupling advisory only when [coupling].report_in_gate is on, and never changes pass/fail", async () => {
   await withTempDir(async (dir) => {
     await setup(dir, false);
     for (let i = 0; i < 4; i++) {
@@ -943,7 +944,7 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
         'slug = "engine-test"',
         "",
         "[coupling]",
-        "in_gate = true",
+        "report_in_gate = true",
         "",
       ].join("\n"),
     );
@@ -980,7 +981,7 @@ Deno.test("done suppresses the coupling advisory until the install is bootstrapp
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await gitInit(dir);
-    // in_gate on, but not set up → coupling behaves as if disabled (its in-session
+    // report_in_gate on, but not set up → coupling behaves as if disabled (its in-session
     // setup stays uncluttered). The config text mentions `bootstrapped` so writeConfig
     // leaves it false.
     await writeConfig(
@@ -993,7 +994,7 @@ Deno.test("done suppresses the coupling advisory until the install is bootstrapp
         'slug = "engine-test"',
         "",
         "[coupling]",
-        "in_gate = true",
+        "report_in_gate = true",
         "",
       ].join("\n"),
     );
@@ -1107,9 +1108,9 @@ Deno.test("coupling A B works black-box on the CLI (evidence mode, --json and hu
   });
 });
 
-Deno.test("prepare appends the coupling advisory only when [coupling].in_gate is on, and never changes pass/fail", async () => {
+Deno.test("prepare appends the coupling advisory only when [coupling].report_in_gate is on, and never changes pass/fail", async () => {
   await withTempDir(async (dir) => {
-    await setup(dir, false); // in_gate off
+    await setup(dir, false); // report_in_gate off
     for (let i = 0; i < 4; i++) {
       await commit(dir, { "a.ts": `${i}`, "b.ts": `${i}` }, `ab${i}`);
     }
@@ -1129,7 +1130,7 @@ Deno.test("prepare appends the coupling advisory only when [coupling].in_gate is
         'slug = "engine-test"',
         "",
         "[coupling]",
-        "in_gate = true",
+        "report_in_gate = true",
         "",
       ].join("\n"),
     );
@@ -1161,7 +1162,7 @@ Deno.test("prepare suppresses the coupling advisory until the install is bootstr
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await gitInit(dir);
-    // in_gate on, but not set up → coupling behaves as if disabled (the in-session
+    // report_in_gate on, but not set up → coupling behaves as if disabled (the in-session
     // setup loop stays uncluttered), exactly as finish does.
     await writeConfig(
       dir,
@@ -1173,7 +1174,7 @@ Deno.test("prepare suppresses the coupling advisory until the install is bootstr
         'slug = "engine-test"',
         "",
         "[coupling]",
-        "in_gate = true",
+        "report_in_gate = true",
         "",
       ].join("\n"),
     );

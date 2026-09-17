@@ -1595,13 +1595,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "coupling",
         title: "Coupling",
         what:
-          "`discern coupling` mines the repo's own commit history for files that change together: what your change set is missing, one file's habitual partners, or the shared history of two files. Zero-config and self-calibrating; `[coupling].in_gate` surfaces it as gate-tail hints.",
+          "`discern coupling` mines the repo's own commit history for files that change together: what your change set is missing, one file's habitual partners, or the shared history of two files. Zero-config and self-calibrating; `[coupling].report_in_gate` surfaces it as gate-tail hints.",
         why:
           "Frequently co-changed files are named while the change is still open.",
         plain: {
           title: "Files that usually change together",
           what:
-            "`discern coupling` reads the project's own saved history for files that habitually change together: what the current change is missing, one file's usual partners, or the shared history of two files. It needs no setup and adjusts itself to the project, and `[coupling].in_gate` surfaces its findings as advice notes at the end of the final check.",
+            "`discern coupling` reads the project's own saved history for files that habitually change together: what the current change is missing, one file's usual partners, or the shared history of two files. It needs no setup and adjusts itself to the project, and `[coupling].report_in_gate` surfaces its findings as advice notes at the end of the final check.",
           why:
             "Files that frequently change together are named while the change is still open.",
         },

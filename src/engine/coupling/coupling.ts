@@ -11,7 +11,7 @@
  * essential (lock it with a forcing-function — ADR 0051) or incidental (ignore). It
  * never blocks. Three modes, one verb (modelled on `scopes`):
  *  - **diff-aware** (no path) — the current change set's partners that are MISSING from
- *    it (the primary surface, and what the gate appends when `[coupling].in_gate`);
+ *    it (the primary surface, and what the gate appends when `[coupling].report_in_gate`);
  *  - **query** (`coupling <path>`) — one file's top co-change partners (its blast radius);
  *  - **evidence** (`coupling <a> <b>`) — the shared co-change history of TWO files: the
  *    commits in which both changed, the raw material to judge a coupling essential or not.
@@ -1032,7 +1032,7 @@ export async function runCoupling(
  * The diff-aware coupling as gate hints, or `[]`. The gate appends these at
  * its TAIL (with strand detection — it reads the diff, so it is dependency-bearing,
  * never a fail-fast precondition; ADR 0084). Gated by the caller on
- * `[coupling].in_gate` and a bootstrapped install. Best-effort: any failure yields
+ * `[coupling].report_in_gate` and a bootstrapped install. Best-effort: any failure yields
  * `[]`, so the advisory can NEVER affect the gate's `ok` / exit / `failed_stage`.
  * Uses a stricter presentation filter than direct `discern coupling`: explicit queries
  * are exploratory, while automatic gate hints should be rarer and higher-confidence.
