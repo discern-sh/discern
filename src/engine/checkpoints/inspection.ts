@@ -86,6 +86,8 @@ export interface CheckpointInspection {
   storeReadable: boolean;
   /** Typed fail-open evidence; human accounts derive from these records. */
   drops: CheckpointDrop[];
+  /** Current-schema-unknown keys ignored in the governing config. */
+  ignoredConfigKeys: readonly string[];
   /** Collected once for history-sensitive subjects and `when` input. */
   history?: EffortDiff["history"];
 }
@@ -408,6 +410,7 @@ export async function inspectCheckpointObligations(
     openQuestions,
     storeReadable,
     drops,
+    ignoredConfigKeys: policy.ignoredConfigKeys,
     ...(collectedHistory === undefined ? {} : { history: collectedHistory }),
   };
 }

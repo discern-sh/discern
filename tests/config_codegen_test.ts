@@ -408,7 +408,7 @@ Deno.test("named config tables use only the canonical <name> placeholder", () =>
 
 Deno.test("Proof-note modes publish their exact local-recording semantics", () => {
   const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
-  const proofNotes = schemaNodeAt(live, "repository.proof_notes");
+  const proofNotes = schemaNodeAt(live, "repository.proof_notes_mode");
   assertEquals(proofNotes.enum, ["local", "fetch"]);
   const description = String(proofNotes.description ?? "");
   for (const fact of ["Both modes record", '"fetch"', "Publishing", "no off"]) {

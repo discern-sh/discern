@@ -23,7 +23,6 @@ import {
   interactiveHintTexts,
   mergeHintTexts,
 } from "../src/shared/hints.ts";
-import { RETIRED_COMMAND_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
@@ -154,10 +153,11 @@ Deno.test("every registry entry renders non-empty text from its example params",
 });
 
 Deno.test("failure recovery never fabricates a command from the result verb", () => {
+  const syntheticRetiredCommands = { "zz-retired": "done" } as const;
   const verbs = [
     "discern",
     "zz-future-unusual-verb",
-    ...Object.keys(RETIRED_COMMAND_REDIRECTS),
+    ...Object.keys(syntheticRetiredCommands),
   ];
   const baseline = failureRecoveryHint("doctor").text;
   for (const verb of verbs) {

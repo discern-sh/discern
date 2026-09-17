@@ -27,6 +27,7 @@ import {
   defaultDocumentationScopes,
   defaultInstructionScopes,
 } from "../src/lib/config.ts";
+import { normalizeMapDir } from "../src/shared/map_path.ts";
 
 Deno.test("registry defaults follow the namespace policy and classify gate-neutral sources", () => {
   for (const name of SOURCE_PATH_NAMES) {
@@ -35,8 +36,12 @@ Deno.test("registry defaults follow the namespace policy and classify gate-neutr
       entry.defaultPath.startsWith(NAMESPACE_DIR),
       `${name}: default "${entry.defaultPath}" must live under ${NAMESPACE_DIR}`,
     );
+    assert(
+      !entry.defaultPath.endsWith("/"),
+      `${name}: default "${entry.defaultPath}" must omit its trailing slash`,
+    );
     if (name === "map") {
-      assertEquals(entry.defaultPath, "discern/map/");
+      assertEquals(entry.defaultPath, "discern/map");
     }
     assertEquals(
       entry.gateNeutral,
@@ -78,9 +83,11 @@ Deno.test("the schema's path defaults equal the registry", () => {
 Deno.test("the resolvers read through the registry defaults", () => {
   const c = parseConfigOrThrow("");
   const root = "/tmp/registry-probe";
+  const normalizedMapDefault = normalizeMapDir(SOURCE_PATHS.map.defaultPath);
+  assertEquals(resolveMapDir(root, c).rel, normalizedMapDefault);
   assertEquals(
     resolveMapDir(root, c).abs,
-    join(root, SOURCE_PATHS.map.defaultPath),
+    join(root, normalizedMapDefault),
   );
   assertEquals(
     resolveSkillsDir(root, c).abs,

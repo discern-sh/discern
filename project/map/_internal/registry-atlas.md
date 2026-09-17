@@ -105,7 +105,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`security-disclosure`](#security-disclosure--security-disclosure)                                                    | `site/security.ts#SECURITY_DISCLOSURE`                                            | 9       | —                | —                           |
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 69      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
-| [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
+| [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 16      | —                | node `published-contracts`  |
 | [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 50      | —                | node `bundled-docs`         |
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
@@ -117,7 +117,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
 | [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 397     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
-| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 25      | —                | node `forgiving-cli`        |
+| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `scripts/glossary_registry.ts#retiredLaunchSynonyms`                              | 32      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 12      | —                | —                           |
 | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                              | `scripts/brand/vale.ts#voiceEnforcementCoverage`                                  | 23      | —                | —                           |
@@ -3431,7 +3431,7 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 
 ## `logbook-powered` — Logbook-powered capabilities
 
-The advisory capabilities that switch off with `[project].logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.
+The advisory capabilities that switch off with `[project].record_logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.
 
 - Source: `src/shared/logbook_powered.ts` — `LOGBOOK_POWERED`
 - Members: 9
@@ -4219,13 +4219,14 @@ The executed-step outcomes shared by runtime validation, result rendering, and p
 The machine-stable vocabulary for explicitly optional degradation that may coexist with a successful completion verdict.
 
 - Source: `src/shared/result.ts` — `RESULT_ADVISORY_KINDS`
-- Members: 15
+- Members: 16
   - `acceptance-cleanup-incomplete`
   - `checkpoint-evidence-dropped`
   - `checkout-clean-observation-unavailable`
   - `doctor-warning`
   - `execution-cap-unavailable`
   - `generated-attribute-pattern-untranslated`
+  - `governing-config-key-ignored`
   - `ignored-file-observation-unavailable`
   - `landing-authority-unverified`
   - `optional-resource-unavailable`
@@ -4919,7 +4920,7 @@ Every project-tree path discern writes or maintains, with its operational owners
 - Source: `src/lib/artifact_ownership.ts` — `projectArtifactPaths`
 - Members: 27
   - `discern/instructions.md`
-  - `discern/map/`
+  - `discern/map`
   - `discern/skills`
   - `discern/scripts`
   - `discern/TODO.md`
@@ -4952,25 +4953,32 @@ Every project-tree path discern writes or maintains, with its operational owners
 
 ## `distribution-vocabulary` — Distribution vocabulary
 
-Retired commands, retired config keys, dead config positions, and synonym redirects that make the CLI return a redirect or refusal.
+Retired launch spellings guarded by the Glossary, dead config positions, command suggestions, and grammatical command variants.
 
-- Source: `src/shared/vocabulary.ts` — `RETIRED_COMMAND_REDIRECTS`
-- Members: 25
-  - `finish`
-  - `graduate`
-  - `setup land`
-  - `integrate`
-  - `scopes`
-  - `ratchets`
-  - `config set-ratchet`
-  - `config set-capability`
-  - `config set-check`
-  - `guidance`
-  - `ratchets`
-  - `docs`
-  - `recipes`
-  - `capabilities`
-  - `checks`
+- Source: `scripts/glossary_registry.ts` — `retiredLaunchSynonyms`
+- Members: 32
+  - `command:graduate`
+  - `command:setup land`
+  - `command:config set-capability`
+  - `command:config set-check`
+  - `config-key:capabilities`
+  - `config-key:checks`
+  - `config-key:coupling.in_gate`
+  - `command:finish`
+  - `config-key:gate.stream`
+  - `config-key:guidance`
+  - `config-key:project.logbook`
+  - `config-key:docs`
+  - `config-key:recipes`
+  - `config-key:repository.proof_notes`
+  - `command:scopes`
+  - `command:ratchets`
+  - `command:config set-ratchet`
+  - `config-key:ratchets`
+  - `command:integrate`
+  - `config-key:worktree.port`
+  - `config-key:worktree.ignored_file_drift`
+  - `config-key:worktree.resources.*.gc`
   - `completion`
   - `execution`
   - `init`
@@ -4982,7 +4990,7 @@ Retired commands, retired config keys, dead config positions, and synonym redire
   - `improve`
   - `script`
 - Guards: `tests/dev_vocab_guard_test.ts`, `tests/config_schema_test.ts`
-- Glossary: not enrolled — the Glossary defines live vocabulary, and this registry records redirects and refusals for retired words
+- Glossary: not enrolled — retired launch members are synonyms on their successor terms, while dead positions and input normalizations are implementation policy
 - Feature canon: described by the `forgiving-cli` node
 
 ## `voice-banned-moves` — Voice banned moves

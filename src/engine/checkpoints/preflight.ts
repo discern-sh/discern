@@ -114,6 +114,8 @@ export interface CheckpointPreflight {
   policyCommit?: string;
   /** Typed durable evidence behind every fail-open account. */
   drops: CheckpointDrop[];
+  /** Current-schema-unknown keys ignored in the governing config. */
+  ignoredConfigKeys: readonly string[];
   /** Fired `stop` checkpoints with NO current conclusion — the refusal set. */
   outstanding: ServedCheckpoint[];
   /** Fired `stop` checkpoints whose current conclusion is declared met. */
@@ -200,6 +202,7 @@ export async function runCheckpointReport(
       ? {}
       : { policyCommit: inspection.policyCommit }),
     drops,
+    ignoredConfigKeys: inspection.ignoredConfigKeys,
     outstanding: [],
     declaredMet: [],
     declaredUnmet: [],
@@ -361,6 +364,7 @@ export async function runCheckpointPreflight(
       ? {}
       : { policyCommit: inspection.policyCommit }),
     drops,
+    ignoredConfigKeys: inspection.ignoredConfigKeys,
     outstanding: [],
     declaredMet: [],
     declaredUnmet: [],

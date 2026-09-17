@@ -175,7 +175,7 @@ Deno.test("the template documents every top-level config section", async () => {
 Deno.test("extracts a documented key block and section key order", async () => {
   const template = await realTemplate();
   assertEquals(sectionKeyNamesFromTemplate(template, "gate"), [
-    "stream",
+    "stream_output",
     "fail_fast",
     "timeout",
     "concurrent_test_runs",
@@ -364,7 +364,7 @@ Deno.test("scanManagedBanners ignores a fixed-section banner", () => {
     RULE,
     "",
     "[gate]",
-    "stream = false",
+    "stream_output = false",
   ].join("\n");
   assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), []);
 });

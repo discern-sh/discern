@@ -220,7 +220,7 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
     documentation: {
       public: true,
       description:
-        "Deterministic development port written to a configured worktree env file when `[worktree].port = true`.",
+        "Deterministic development port written to a configured worktree env file when `[worktree].export_port = true`.",
     },
   },
   worktree: {

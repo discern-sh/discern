@@ -195,6 +195,7 @@ import {
   managedMaterialBoundary,
   trunkManagedVersionBoundary,
 } from "../managed_version.ts";
+import { governingConfigKeyIgnoredAdvisory } from "../governing_config_advisory.ts";
 
 /** Candidate coordination wraps the gate's existing plan, judgment and validation seams. */
 async function runGate(
@@ -312,7 +313,7 @@ async function unrunGateResult(
     result,
     failedStage: "check/test",
     cfg,
-    policy: resolveGateRunPolicy(cfg.gate.stream, surface),
+    policy: resolveGateRunPolicy(cfg.gate.stream_output, surface),
     out: makeOut(false, { quiet: surface.kind === "quiet-result" }),
     changed: [],
     gotchasTail: undefined,
@@ -375,7 +376,7 @@ async function runCandidateGate(
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
   const cfg = await loadConfig(root);
-  const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
+  const policy = resolveGateRunPolicy(cfg.gate.stream_output, surface);
   let liveGroups: readonly JobGroup[] | undefined;
   if (gateOutputIsLive(policy)) {
     // Admission remains pure so the merge check below is still the first
@@ -465,6 +466,7 @@ async function runCandidateGate(
     StandardLimitProposalData
   > = new Map();
   let tier1Diagnostics: Diagnostic[] = [];
+  let standardsIgnoredConfigKeys: readonly string[] = [];
   let limitsWarning: FiredHint | undefined;
   if (failedStage === null) {
     const proposalInspection = await inspectActiveStandardLimitProposals(
@@ -481,6 +483,7 @@ async function runCandidateGate(
       cfg,
     );
     standardLimitProposals = verification.proposals;
+    standardsIgnoredConfigKeys = verification.ignoredConfigKeys;
     for (const stale of proposalInspection.stale) {
       if (verification.blockedStandards.has(stale.proposal.standard)) {
         verification.diagnostics.unshift(
@@ -694,7 +697,7 @@ async function runCandidateGate(
   );
   progress?.replaceGroups(plan.groups);
   let validation: ValidationStart | undefined;
-  if (cfg.project.logbook) {
+  if (cfg.project.record_logbook) {
     validation = await validationBoundaryNotReached(
       root,
       cfg,
@@ -732,7 +735,9 @@ async function runCandidateGate(
         await generatedBoundary.observer.before(...args);
         await treeBoundary.observer.before(...args);
         const stage = configured.stages.get(args[0].selector);
-        if (cfg.project.logbook && (stage === "check" || stage === "test")) {
+        if (
+          cfg.project.record_logbook && (stage === "check" || stage === "test")
+        ) {
           validationCapture ??= captureValidationStart(
             root,
             cfg,
@@ -876,6 +881,16 @@ async function runCandidateGate(
   if (result.data !== undefined && checkpointData !== undefined) {
     result.data.checkpoints = checkpointData;
   }
+  const governingConfigAdvisory = governingConfigKeyIgnoredAdvisory([
+    ...standardsIgnoredConfigKeys,
+    ...(checkpointPreflight?.ignoredConfigKeys ?? []),
+  ]);
+  if (governingConfigAdvisory !== undefined) {
+    result.advisories = [
+      ...(result.advisories ?? []),
+      governingConfigAdvisory,
+    ];
+  }
   // 6a. The standards' envelope fields (ADR 0133): the per-standard outcomes and
   //     the Tier-1 verification, plus the measured value patched into each
   //     measured step's note — the proof renders FROM these, never a second
@@ -1009,14 +1024,14 @@ async function runCandidateGate(
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
   // during setup, so a green gate here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
-  // The coupling advisory (ADR 0084), behind [coupling].in_gate — at the
+  // The coupling advisory (ADR 0084), behind [coupling].report_in_gate — at the
   // TAIL, with strand detection, because it READS THE DIFF (dependency-bearing), never a
   // fail-fast precondition. Only on a GREEN, bootstrapped run: a half-set-up install
   // behaves as if coupling were off (its in-session setup must stay uncluttered), and a
   // failed gate is not the moment for an advisory. Best-effort and never blocking — it
   // touches only `hints`, so it can't move `ok` / the exit code / `failed_stage`.
   const couplingHints =
-    failedStage === null && cfg.meta.bootstrapped && cfg.coupling.in_gate
+    failedStage === null && cfg.meta.bootstrapped && cfg.coupling.report_in_gate
       ? await couplingGateHints(root)
       : [];
   // Checkpoint deliveries ride the envelope's one advisory channel: evidence-drop
@@ -1523,12 +1538,18 @@ function awaitingDeclarationRefusal(
     scopes_changed: [],
     ...(checkpoints === undefined ? {} : { checkpoints }),
   };
+  const governingConfigAdvisory = governingConfigKeyIgnoredAdvisory(
+    preflight.ignoredConfigKeys,
+  );
   return {
     ok: false,
     verb: "done",
     error: AWAITING_DECLARATION_SLUG,
     message,
     data,
+    ...(governingConfigAdvisory === undefined
+      ? {}
+      : { advisories: [governingConfigAdvisory] }),
     hints: hintTexts([
       fire(HINTS["checkpoint-declare"], { ids }),
       ...(ciRecovery ? [fire(HINTS["checkpoint-ci-recovery"])] : []),

@@ -15,11 +15,9 @@
 
 import { assertEquals } from "@std/assert";
 import { join, relative } from "@std/path";
-import {
-  RETIRED_COMMAND_REDIRECTS,
-  RETIRED_CONFIG_KEY_REDIRECTS,
-} from "../src/shared/vocabulary.ts";
 import { configSectionNames } from "../src/shared/config_codegen.ts";
+import { settableConfigValueKind } from "../src/shared/config_schema.ts";
+import { retiredLaunchSynonyms } from "../scripts/glossary_registry.ts";
 import {
   isRepoMapPath,
   REPO_AUTHORED_PATHS,
@@ -586,9 +584,12 @@ function isLaunchVocabularyRecord(rel: string): boolean {
   return isRepoMapPath(rel, "_adr") ||
     isRepoMapPath(rel, "_private") ||
     rel.endsWith("/3a-vocabulary-and-rename-sweep.md") ||
-    new Set(["src/shared/vocabulary.ts", "tests/dev_vocab_guard_test.ts"]).has(
-      rel,
-    );
+    new Set([
+      "project/map/00-orientation/glossary.md",
+      "scripts/glossary_registry.ts",
+      "src/shared/vocabulary.ts",
+      "tests/dev_vocab_guard_test.ts",
+    ]).has(rel);
 }
 
 /** Compatibility records allowed to retain the retired Project Recipe contract. */
@@ -650,7 +651,13 @@ interface ForbiddenPosition {
  */
 function retiredLaunchPositions(): ForbiddenPosition[] {
   const positions: ForbiddenPosition[] = [];
-  for (const retired of Object.keys(RETIRED_COMMAND_REDIRECTS)) {
+  const launch = retiredLaunchSynonyms();
+  for (
+    const { synonym } of launch.filter((entry) =>
+      entry.synonym.launch.kind === "command"
+    )
+  ) {
+    const retired = synonym.launch.spelling;
     const words = retired.split(" ");
     const cli = words.map(escapeRegExp).join("\\s+");
     const mcp = words.map(escapeRegExp).join("_");
@@ -697,7 +704,46 @@ function retiredLaunchPositions(): ForbiddenPosition[] {
     }
   }
 
-  for (const retired of Object.keys(RETIRED_CONFIG_KEY_REDIRECTS)) {
+  for (
+    const { synonym } of launch.filter((entry) =>
+      entry.synonym.launch.kind === "config-key"
+    )
+  ) {
+    const retired = synonym.launch.spelling;
+    if (retired.includes(".")) {
+      const segments = retired.split(".");
+      const segmentPattern = (segment: string): string =>
+        segment === "*" ? "[A-Za-z0-9_-]+" : escapeRegExp(segment);
+      const dotted = segments.map(segmentPattern).join("\\s*\\.\\s*");
+      const parent = segments.slice(0, -1).map(segmentPattern).join(
+        "\\s*\\.\\s*",
+      );
+      const leaf = segmentPattern(segments.at(-1) ?? retired);
+      positions.push(
+        {
+          retired,
+          kind: "dotted config key",
+          pattern: new RegExp(
+            `(?:\\bconfig(?:\\?\\.|\\.)|["'\\x60])${dotted}\\b`,
+            "u",
+          ),
+        },
+        {
+          retired,
+          kind: "bracketed config key",
+          pattern: new RegExp(
+            `\\[\\s*${parent}\\s*\\]\\s*\\.\\s*${leaf}\\b`,
+            "u",
+          ),
+        },
+        {
+          retired,
+          kind: "config interpolation",
+          pattern: new RegExp(`\\$\\{${dotted}(?:\\.|\\})`, "u"),
+        },
+      );
+      continue;
+    }
     const key = escapeRegExp(retired);
     const spelling = `(?:${key}|\"${key}\"|'${key}')`;
     const dottedTail = retired === "docs" ? "dir" : "[A-Za-z0-9_-]+";
@@ -728,12 +774,19 @@ function retiredLaunchPositions(): ForbiddenPosition[] {
 Deno.test("retired launch vocabulary stays out of callable and config positions", async () => {
   const offenders: string[] = [];
   const liveConfigSections = new Set(configSectionNames());
-  for (const retired of Object.keys(RETIRED_CONFIG_KEY_REDIRECTS)) {
-    if (liveConfigSections.has(retired)) {
+  for (
+    const { synonym } of retiredLaunchSynonyms().filter((entry) =>
+      entry.synonym.launch.kind === "config-key"
+    )
+  ) {
+    const retired = synonym.launch.spelling;
+    const probe = retired.replaceAll("*", "fixture");
+    const isLive = retired.includes(".")
+      ? settableConfigValueKind(probe) !== undefined
+      : liveConfigSections.has(retired);
+    if (isLive) {
       offenders.push(
-        `config schema: retired ${
-          JSON.stringify(retired)
-        } remains a root section`,
+        `config schema: retired ${JSON.stringify(retired)} remains a live key`,
       );
     }
   }

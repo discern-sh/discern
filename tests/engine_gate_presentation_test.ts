@@ -330,7 +330,7 @@ Deno.test("Gate run context keeps live presentation on full buffered capture", (
     "sources = []",
     "",
     "[gate]",
-    "stream = true",
+    "stream_output = true",
   ].join("\n"));
   const livePolicy = resolveGateRunPolicy(true, {
     kind: "human",

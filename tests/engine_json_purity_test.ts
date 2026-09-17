@@ -108,7 +108,7 @@ const NOISY_CONFIGS = [
   { name: "buffered", toml: NOISY_CONFIG },
   {
     name: "streamed",
-    toml: `${NOISY_CONFIG}\n[gate]\nstream = true\n`,
+    toml: `${NOISY_CONFIG}\n[gate]\nstream_output = true\n`,
   },
 ];
 
@@ -439,7 +439,7 @@ function valueAtPath(
   return cursor;
 }
 
-/** The registry verbs whose output path consults `[gate].stream` — the only
+/** The registry verbs whose output path consults `[gate].stream_output` — the only
  * ones the streamed config variant can affect, so the only ones re-swept
  * under it (the rest would just repeat their buffered run verbatim). */
 const STREAM_SENSITIVE: ReadonlySet<string> = new Set([

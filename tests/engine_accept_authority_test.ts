@@ -1638,12 +1638,12 @@ Deno.test("accept gives unknown trunk grants zero authority and reports them", a
 Deno.test("ordinary consent cannot bypass unreadable protected trunk policy", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    // Valid TOML carrying a section the current schema no longer recognizes:
-    // the committed record predates the engine reading it, and the branch
-    // being landed is itself the migration that repairs it.
+    // Valid TOML with an invalid value at a recognized authority key. Unknown
+    // keys are deliberately ignored by governing reads; a known policy value
+    // of the wrong type must still leave authority unverifiable.
     await writeConfig(
       dir,
-      `${authorityConfig()}\n[retired_levers]\nenabled = true\n`,
+      `${authorityConfig()}\n[acceptance]\npre_authorized = "map"\n`,
     );
     await gitInit(dir);
     const worktree = await addWorktree(dir, "schema-migration");
@@ -1662,7 +1662,7 @@ Deno.test("ordinary consent cannot bypass unreadable protected trunk policy", as
       refusal.message,
       "does not match the current config schema",
     );
-    assertStringIncludes(refusal.message, "retired_levers");
+    assertStringIncludes(refusal.message, "acceptance.pre_authorized");
 
     const branch = await gitOut(worktree, "branch", "--show-current");
     await grantEffort(worktree, branch, "2026-07-29T08:00:00.000Z");
@@ -1676,7 +1676,7 @@ Deno.test("ordinary consent cannot bypass unreadable protected trunk policy", as
     assert(await targetExists(worktree));
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
-      "retired_levers",
+      'pre_authorized = "map"',
     );
 
     // The owner's current-conversation decision still lands the migration that
@@ -1691,14 +1691,14 @@ Deno.test("ordinary consent cannot bypass unreadable protected trunk policy", as
     assertResultDataKey(envelope, "authority_warnings");
     assert(
       (envelope.data.authority_warnings ?? []).some((warning) =>
-        warning.includes("does not match the current config schema")
+        warning.includes("acceptance.pre_authorized")
       ),
     );
     assertEquals(envelope.data.consent, { source: "conversation" });
     assertEquals(await targetExists(worktree), false);
     assert(
       !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
-        "retired_levers",
+        'pre_authorized = "map"',
       ),
       "the landed migration repairs the committed policy record",
     );

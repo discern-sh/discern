@@ -2209,7 +2209,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "logbook-powered",
     title: "Logbook-powered capabilities",
     what:
-      "The advisory capabilities that switch off with `[project].logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.",
+      "The advisory capabilities that switch off with `[project].record_logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.",
     source: {
       kind: "module",
       module: "src/shared/logbook_powered.ts",
@@ -3289,26 +3289,30 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "distribution-vocabulary",
     title: "Distribution vocabulary",
     what:
-      "Retired commands, retired config keys, dead config positions, and synonym redirects that make the CLI return a redirect or refusal.",
+      "Retired launch spellings guarded by the Glossary, dead config positions, command suggestions, and grammatical command variants.",
     source: {
       kind: "module",
-      module: "src/shared/vocabulary.ts",
-      exportName: "RETIRED_COMMAND_REDIRECTS",
+      module: "scripts/glossary_registry.ts",
+      exportName: "retiredLaunchSynonyms",
     },
     guards: ["tests/dev_vocab_guard_test.ts", "tests/config_schema_test.ts"],
     artifacts: [],
     enrolledIn: {
       glossary: {
         absent:
-          "the Glossary defines live vocabulary, and this registry records redirects and refusals for retired words",
+          "retired launch members are synonyms on their successor terms, while dead positions and input normalizations are implementation policy",
       },
       featureCanon: { nodeId: "forgiving-cli" },
     },
     members: async () => {
       const vocabulary = await import("../src/shared/vocabulary.ts");
+      const { retiredLaunchSynonyms } = await import(
+        "./glossary_registry.ts"
+      );
       return [
-        ...Object.keys(vocabulary.RETIRED_COMMAND_REDIRECTS),
-        ...Object.keys(vocabulary.RETIRED_CONFIG_KEY_REDIRECTS),
+        ...retiredLaunchSynonyms().map(({ synonym }) =>
+          `${synonym.launch.kind}:${synonym.launch.spelling}`
+        ),
         ...vocabulary.DEAD_CONFIG_POSITIONS.map((position) =>
           position.key === undefined
             ? `${position.path}.*`

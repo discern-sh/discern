@@ -302,11 +302,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "gate-streaming",
             title: "Live frame and static transcript",
             what:
-              "A live-capable terminal always combines stable Gate progress with a bounded job-output tail. On static surfaces, `[gate].stream` switches between grouped per-job output (the default) and line-prefixed streaming.",
+              "A live-capable terminal always combines stable Gate progress with a bounded job-output tail. On static surfaces, `[gate].stream_output` switches between grouped per-job output (the default) and line-prefixed streaming.",
             plain: {
               title: "Live progress with a bounded output tail",
               what:
-                "A live terminal shows what is running and what it is saying together. For CI, pipes, plain output, or terminals without cursor control, `[gate].stream` chooses whether output appears immediately with labels or stays grouped by job.",
+                "A live terminal shows what is running and what it is saying together. For CI, pipes, plain output, or terminals without cursor control, `[gate].stream_output` chooses whether output appears immediately with labels or stays grouped by job.",
             },
           },
           {
@@ -495,7 +495,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "proof-notes",
             title: "Durable proof notes",
             what:
-              'After a landing, `discern accept` writes the structured Proof to the landed trunk commit as a Git note in a versioned envelope ready for later signing, adding no commit to trunk history. `[repository].proof_notes = "fetch"` carries notes through ordinary fetches; publishing them stays an explicit push.',
+              'After a landing, `discern accept` writes the structured Proof to the landed trunk commit as a Git note in a versioned envelope ready for later signing, adding no commit to trunk history. `[repository].proof_notes_mode = "fetch"` carries notes through ordinary fetches; publishing them stays an explicit push.',
             why:
               "The review evidence outlives the worktree's removal and travels with the exact commit it vouches for.",
             plain: {
@@ -885,13 +885,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "worktree-resources",
         title: "Per-worktree resources",
         what:
-          "`[worktree.resources.<name>]` declares an external thing a worktree needs in isolation — a database, an emulator, a container — as a `create` and a `destroy` command with optional `ensure`, `required`, `retries`, and `gc`. Resources are created top-to-bottom, destroyed bottom-to-top, and expanded with `@…@` identity tokens.",
+          "`[worktree.resources.<name>]` declares an external thing a worktree needs in isolation — a database, an emulator, a container — as a `create` and a `destroy` command with optional `ensure`, `required`, `retries`, and `prunable`. Resources are created top-to-bottom, destroyed bottom-to-top, and expanded with `@…@` identity tokens.",
         why:
           "Isolation extends past the checkout to everything the checkout touches.",
         plain: {
           title: "Separate supporting services for each copy",
           what:
-            "`[worktree.resources.<name>]` declares an outside thing a working copy needs for itself — an information store, a stand-in device, an isolated packaged app — as a `create` instruction and a `destroy` instruction, with the optional choices `ensure`, `required`, `retries`, and `gc`. discern creates services top to bottom, removes them bottom to top, and fills placeholders written `@…@` with the copy's real identity.",
+            "`[worktree.resources.<name>]` declares an outside thing a working copy needs for itself — an information store, a stand-in device, an isolated packaged app — as a `create` instruction and a `destroy` instruction, with the optional choices `ensure`, `required`, `retries`, and `prunable`. discern creates services top to bottom, removes them bottom to top, and fills placeholders written `@…@` with the copy's real identity.",
           why:
             "Separation covers not just the project's files but everything those files use.",
         },
@@ -1595,13 +1595,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "coupling",
         title: "Coupling",
         what:
-          "`discern coupling` mines the repo's own commit history for files that change together: what your change set is missing, one file's habitual partners, or the shared history of two files. Zero-config and self-calibrating; `[coupling].in_gate` surfaces it as gate-tail hints.",
+          "`discern coupling` mines the repo's own commit history for files that change together: what your change set is missing, one file's habitual partners, or the shared history of two files. Zero-config and self-calibrating; `[coupling].report_in_gate` surfaces it as gate-tail hints.",
         why:
           "Frequently co-changed files are named while the change is still open.",
         plain: {
           title: "Files that usually change together",
           what:
-            "`discern coupling` reads the project's own saved history for files that habitually change together: what the current change is missing, one file's usual partners, or the shared history of two files. It needs no setup and adjusts itself to the project, and `[coupling].in_gate` surfaces its findings as advice notes at the end of the final check.",
+            "`discern coupling` reads the project's own saved history for files that habitually change together: what the current change is missing, one file's usual partners, or the shared history of two files. It needs no setup and adjusts itself to the project, and `[coupling].report_in_gate` surfaces its findings as advice notes at the end of the final check.",
           why:
             "Files that frequently change together are named while the change is still open.",
         },
@@ -1627,13 +1627,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "logbook",
         title: "The logbook",
         what:
-          "With recording on and a readable `discern.toml`, CLI verbs and MCP invocations resolved to that project record metadata under `.git`, shared by the repository's worktrees. Invocation and completion observations carry durable identities, timings, outcomes, names, and fired hint IDs. They contain no code or command output. The logbook never leaves the machine (a gate test keeps its code free of network paths), rotates by age, and `[project].logbook = false` stops all writes.",
+          "With recording on and a readable `discern.toml`, CLI verbs and MCP invocations resolved to that project record metadata under `.git`, shared by the repository's worktrees. Invocation and completion observations carry durable identities, timings, outcomes, names, and fired hint IDs. They contain no code or command output. The logbook never leaves the machine (a gate test keeps its code free of network paths), rotates by age, and `[project].record_logbook = false` stops all writes.",
         why:
           "The practice becomes measurable evidence without anything leaving the building.",
         plain: {
           title: "The activity record",
           what:
-            "With recording on and readable settings, each instruction run — typed, or made through the coding-agent connection — records basic facts in the version history's housekeeping area (the `.git` folder), shared by the project's working copies. These facts identify each operation and carry timings, outcomes, names, and which advice notes appeared — never code, and never printed output. The record never leaves the machine (a test in the final check keeps its code free of any internet route), old lines age out, and `[project].logbook = false` stops all writes.",
+            "With recording on and readable settings, each instruction run — typed, or made through the coding-agent connection — records basic facts in the version history's housekeeping area (the `.git` folder), shared by the project's working copies. These facts identify each operation and carry timings, outcomes, names, and which advice notes appeared — never code, and never printed output. The record never leaves the machine (a test in the final check keeps its code free of any internet route), old lines age out, and `[project].record_logbook = false` stops all writes.",
           why:
             "The way of working becomes measurable evidence, without anything leaving the building.",
         },

@@ -59,7 +59,7 @@
   #   - the in-flight check on the contained-worktree offer
   #   - observed checkpoint economics (`discern checkpoints`)
   #   - Logbook storage checks in `discern doctor`
-  logbook = true
+  record_logbook = true
 
   # Which agent integrations to enable: claude_code, codex, gemini, cursor,
   # copilot. Omit the key for the default pair (claude_code, codex); an
@@ -95,7 +95,7 @@
   # `local` adds no transport; `fetch` manages a fetch-only mapping per remote.
   # Publish only when the owner chooses:
   #   `git push <remote> refs/notes/discern`.
-  proof_notes = "local"
+  proof_notes_mode = "local"
 
   # Idempotent commands that make any checkout usable for its tracked tree,
   # such as installing dependencies from a lockfile. They run in order on every
@@ -332,15 +332,15 @@
   # Managed values share one scoped marker.
   env_files = [".env", ".env.local"]
 
-  # Record each worktree's deterministic dev-server port in its env files, for
-  # tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports
-  # it either way.
-  port = false
+  # When true, setup writes DISCERN_WORKTREE_PORT to configured env files,
+  # hooks warn when a sibling uses the derived port, and status shows it. The
+  # port exists either way, and `discern identity --port` always reports it.
+  export_port = false
 
   # Track ignored files at worktree setup and report the top-level ignored
   # paths that changed before the worktree is removed. Turn it off when ignored
   # outputs churn too much to be useful.
-  ignored_file_drift = true
+  track_ignored_drift = true
 
   # ───────────────────────────────────────────────────────────────────────────
   # [worktree.resources.<name>]
@@ -361,7 +361,7 @@
   #   @worktree@      this worktree's base handle (slug-id)
   #   @resource@      this resource's handle (slug-id-name)
   #
-  # Params:  create, destroy, ensure, required, retries, gc
+  # Params:  create, destroy, ensure, required, retries, prunable
   # Help:    `discern config explain worktree.resources`
   # ───────────────────────────────────────────────────────────────────────────
 
@@ -487,7 +487,7 @@
   # false groups each job's complete output in a static transcript; true
   # streams prefixed lines. Live terminals always show the gate frame's bounded
   # tail; CI, pipes, and --plain are static.
-  stream = false
+  stream_output = false
 
   # Cancel the in-flight sibling commands the moment one fails; an agent-driven
   # gate wants a fast abort. false runs every job and shows all failures in one
@@ -521,7 +521,7 @@
   # Surface coupling findings as trailing hints in `discern done` and `discern
   # prepare`, while the change is hot. false keeps coupling available through
   # `discern coupling` alone.
-  in_gate = true
+  report_in_gate = true
 
 
 # ─────────────────────────────────────────────────────────────────────────────

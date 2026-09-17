@@ -632,7 +632,7 @@ Deno.test("a capped gate exports the marker after its slots fail open", async ()
       [
         "[project]",
         'slug = "engine-test"',
-        "logbook = false",
+        "record_logbook = false",
         "",
         "[repository]",
         'trunk = "main"',

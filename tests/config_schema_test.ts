@@ -31,6 +31,7 @@ import {
   DEAD_CONFIG_POSITIONS,
   deadConfigPosition,
   RETIRED_CONFIG_KEY_REDIRECTS,
+  retiredConfigKeySuccessor,
 } from "../src/shared/vocabulary.ts";
 import {
   KNOWN_JOBS,
@@ -40,6 +41,8 @@ import {
 import { KNOWN_AGENTS } from "../src/lib/config.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
+import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 
 // ── defaults ───────────────────────────────────────────────────────────────────
 
@@ -74,9 +77,9 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.worktree.root, "");
   assertEquals(c.worktree.inherit_env, []);
   assertEquals(c.worktree.env_files, [".env", ".env.local"]);
-  assertEquals(c.worktree.ignored_file_drift, true);
-  assertEquals(c.worktree.port, false);
-  assertEquals(c.coupling.in_gate, true);
+  assertEquals(c.worktree.track_ignored_drift, true);
+  assertEquals(c.worktree.export_port, false);
+  assertEquals(c.coupling.report_in_gate, true);
 });
 
 Deno.test("an [mcp] table is not part of project config", () => {
@@ -195,13 +198,13 @@ Deno.test("launch numeric bounds reject fractions and out-of-range values", () =
 Deno.test("Proof-note mode is exactly local or fetch, and both load", () => {
   for (const mode of ["local", "fetch"]) {
     assertEquals(
-      parseConfigOrThrow(`[repository]\nproof_notes = "${mode}"\n`)
-        .repository.proof_notes,
+      parseConfigOrThrow(`[repository]\nproof_notes_mode = "${mode}"\n`)
+        .repository.proof_notes_mode,
       mode,
     );
   }
   assertEquals(
-    parseConfig('[repository]\nproof_notes = "off"\n').config,
+    parseConfig('[repository]\nproof_notes_mode = "off"\n').config,
     undefined,
   );
 });
@@ -217,7 +220,7 @@ Deno.test("repository owns the trunk, branch prefix, and shared convergence comm
   assertEquals(config.repository, {
     trunk: "stable",
     branch_prefix: "change/",
-    proof_notes: "local",
+    proof_notes_mode: "local",
     ensure: ["npm install", "make generated"],
   });
 });
@@ -245,14 +248,16 @@ Deno.test("current configs reject settings whose section home moved", () => {
   }
 });
 
-Deno.test("every retired top-level key is redirected to its successor", () => {
-  // Driven off the redirect table itself: a newly retired key enrols by being
-  // added there. Doubles as a collision guard — if a retired name is ever
-  // reintroduced as a live key, its config parses and this fails.
+Deno.test("a synthetic retired top-level key is redirected to its successor", () => {
+  assertEquals(RETIRED_CONFIG_KEY_REDIRECTS, {});
+  const redirects = { legacy_section: "instructions" } as const;
   for (
-    const [retired, successor] of Object.entries(RETIRED_CONFIG_KEY_REDIRECTS)
+    const [retired, successor] of Object.entries(redirects)
   ) {
-    const { config, issues } = parseConfig(`[${retired}.entry]\nvalue = 1\n`);
+    const { config, issues } = parseConfig(
+      `[${retired}.entry]\nvalue = 1\n`,
+      (key) => retiredConfigKeySuccessor(key, redirects),
+    );
     assertEquals(config, undefined, `[${retired}] should be rejected`);
     assertEquals(issues.length, 1, JSON.stringify(issues));
     assertEquals(issues[0]?.path, retired);
@@ -308,6 +313,77 @@ Deno.test("a governing document carrying every registered dead section still gov
   assertEquals(governed.standards["sample"]?.limit, 5);
 });
 
+Deno.test("governing reads strip and report every unrecognized key while live reads stay strict", () => {
+  const document = [
+    "future_root = true",
+    "",
+    "[worktree]",
+    "future_toggle = true",
+    "",
+    "[worktree.resources.db]",
+    'create = "true"',
+    'future_attribute = "value"',
+    "",
+    "[scopes.docs]",
+    'paths = ["docs/**"]',
+    'future_attribute = "value"',
+    "",
+  ].join("\n");
+
+  assertEquals(parseConfig(document).config, undefined, "live parse refuses");
+  const governed = parseGoverningConfig(document);
+  assert(governed.config !== undefined, JSON.stringify(governed.issues));
+  assertEquals([...governed.ignoredKeyPaths].sort(), [
+    "future_root",
+    "scopes.docs.future_attribute",
+    "worktree.future_toggle",
+    "worktree.resources.db.future_attribute",
+  ]);
+  assertEquals(governed.config.scopes.docs?.paths, ["docs/**"]);
+  assertEquals(governed.config.worktree.resources.db?.create, "true");
+});
+
+Deno.test("a governing path-key redirect preserves checkpoint selectors and generated ownership", () => {
+  const document = (mapKey: string): string =>
+    [
+      "[map]",
+      `${mapKey} = "project/map"`,
+      "",
+      "[instructions]",
+      'sources = ["${map.dir}instructions/*.md"]',
+      "",
+      "[scopes.docs]",
+      'paths = ["${map.dir}docs/**"]',
+      "",
+      "[generated.reference]",
+      'paths = ["${map.dir}generated/**"]',
+      'run = "true"',
+      "",
+      "[checkpoints.instruction-economy]",
+      "",
+      "[checkpoints.docs-review]",
+      'scope = "docs"',
+      'question = "Review the governed map."',
+      "",
+    ].join("\n");
+  const current = parseGoverningConfig(document("dir"));
+  const redirected = parseGoverningConfig(
+    document("old_dir"),
+    (path) => path === "map.old_dir" ? "map.dir" : undefined,
+  );
+  assert(current.config !== undefined, JSON.stringify(current.issues));
+  assert(redirected.config !== undefined, JSON.stringify(redirected.issues));
+  assertEquals(redirected.ignoredKeyPaths, []);
+  assertEquals(
+    resolveCheckpoints(redirected.config),
+    resolveCheckpoints(current.config),
+  );
+  assertEquals(
+    resolveGeneratedGroups(redirected.config),
+    resolveGeneratedGroups(current.config),
+  );
+});
+
 Deno.test("dead-position matching: keyed rows win over a same-path wildcard, in table order", () => {
   // Synthetic control for the matcher the schema translator uses, proving the
   // semantics a future row will inherit without touching the shipped table.
@@ -329,10 +405,10 @@ Deno.test("dead-position matching: keyed rows win over a same-path wildcard, in 
   assertEquals(deadConfigPosition("elsewhere", ["old"], table), undefined);
 });
 
-Deno.test("gate.fail_fast defaults ON; gate.stream defaults OFF", () => {
+Deno.test("gate.fail_fast defaults ON; gate.stream_output defaults OFF", () => {
   const c = parseConfigOrThrow("");
   assertEquals(c.gate.fail_fast, true);
-  assertEquals(c.gate.stream, false);
+  assertEquals(c.gate.stream_output, false);
   assertEquals(c.gate.concurrent_test_runs, 1);
   const off = parseConfigOrThrow("[gate]\nfail_fast = false\n");
   assertEquals(off.gate.fail_fast, false);
@@ -343,7 +419,7 @@ Deno.test("gate.fail_fast defaults ON; gate.stream defaults OFF", () => {
   );
 });
 
-Deno.test("worktree resource defaults: required/gc default true, retries 0, commands empty", () => {
+Deno.test("worktree resource defaults: required/prunable default true, retries 0, commands empty", () => {
   const c = parseConfigOrThrow(
     `[worktree.resources.db]\ncreate = "make-db"\n`,
   );
@@ -353,7 +429,7 @@ Deno.test("worktree resource defaults: required/gc default true, retries 0, comm
   assertEquals(db.destroy, "");
   assertEquals(db.ensure, "");
   assertEquals(db.required, true);
-  assertEquals(db.gc, true);
+  assertEquals(db.prunable, true);
   assertEquals(db.retries, 0);
 });
 
@@ -710,7 +786,9 @@ Deno.test("settableConfigValueKind reads the schema's type at a path", () => {
     kind: "string-array",
   });
   assertEquals(settableConfigValueKind("gate.timeout"), { kind: "number" });
-  assertEquals(settableConfigValueKind("gate.stream"), { kind: "boolean" });
+  assertEquals(settableConfigValueKind("gate.stream_output"), {
+    kind: "boolean",
+  });
   assertEquals(settableConfigValueKind("project.agents"), {
     kind: "string-array",
   });

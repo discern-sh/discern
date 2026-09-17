@@ -457,7 +457,7 @@ export async function planRefresh(
     try {
       const proofNotes = await planProofNotesFetch(
         root,
-        config.repository.proof_notes,
+        config.repository.proof_notes_mode,
       );
       addProofNotesEffects(effects, proofNotes);
       errors.push(...proofNotes.errors.map((message) => ({

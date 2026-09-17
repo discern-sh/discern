@@ -377,7 +377,7 @@ export async function improvementResult(
     }
     : { ok: true, ...fields };
   const config = await loadConfig(root);
-  if (!config.project.logbook) {
+  if (!config.project.record_logbook) {
     addAdvisoryHints(result, [fire(HINTS["improvement-logbook-off"])]);
   }
   return result;
@@ -823,7 +823,7 @@ export async function runImprovement(
     renderRecommendations(out, report.recommendations);
   }
   renderHistory(out, historicalFindings);
-  if (!config.project.logbook) {
+  if (!config.project.record_logbook) {
     const { presenter, width } = presentationFacts(out);
     out.raw(`${
       presenter.present(renderResultSummaryCli, {

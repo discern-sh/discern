@@ -22,7 +22,7 @@ Deno.test("E12 public standards shares dependencies and pin reuses receipts with
       `[project]
 slug = 'sample'
 agents = []
-logbook = false
+record_logbook = false
 [jobs]
 build = {run = "printf b >> executions", inputs = ['source']}
 test = {run = "printf t >> executions; printf 'DISCERN_METRIC coverage 93\\n'", needs = ['jobs.build'], inputs = ['source']}

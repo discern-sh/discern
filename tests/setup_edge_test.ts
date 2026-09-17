@@ -20,7 +20,7 @@ import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 
 const ANSWERS = JSON.stringify({
-  version: "2",
+  version: "1",
   name: "Edge App",
   slug: "edge-app",
   jobs: { test: "vitest run" },

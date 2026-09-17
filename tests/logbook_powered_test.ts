@@ -8,7 +8,7 @@ import { renderManualConfigReferenceDoc } from "../src/shared/config_codegen.ts"
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-// These hold every wording surface that explains `[project].logbook = false` to
+// These hold every wording surface that explains `[project].record_logbook = false` to
 // the registry in `logbook_powered.ts` (ADR 0160): the hand-authored surfaces —
 // the config template's `[project]` comment block, this repo's own
 // `discern.toml`, and the logbook reference page — must carry every member's

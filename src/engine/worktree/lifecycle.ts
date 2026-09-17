@@ -459,7 +459,7 @@ async function recordPort(
   ctx: LifecycleContext,
   identity: WorktreeIdentity,
 ): Promise<void> {
-  if (!ctx.config.worktree.port) {
+  if (!ctx.config.worktree.export_port) {
     return;
   }
   const port = String(identity.port);
@@ -508,7 +508,7 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
       });
     }
   }
-  if (ctx.config.worktree.port) {
+  if (ctx.config.worktree.export_port) {
     steps.push({
       kind: "env",
       label: BUILT_IN_STEP_LABELS.recordPort,
@@ -1091,7 +1091,7 @@ export async function worktreeSetup(
 
   await recordIgnoredFileBaseline(
     ctx.cwd,
-    ctx.config.worktree.ignored_file_drift,
+    ctx.config.worktree.track_ignored_drift,
   );
 
   // mark this worktree configured
@@ -2158,7 +2158,7 @@ async function runUpdateGeneratedGroups(
   }
   ctx.log.info("Regenerating declared artifacts...");
   try {
-    const policy = resolveGateRunPolicy(ctx.config.gate.stream, {
+    const policy = resolveGateRunPolicy(ctx.config.gate.stream_output, {
       kind: "quiet-result",
     });
     const context = gateRunContext(ctx.root, ctx.config, policy);
@@ -2826,15 +2826,15 @@ export async function updateResult(
  * The deterministic dev-server ports currently claimed by the trunk and LIVE
  * worktrees — each derived from checkout identity, so no registry or env file
  * is needed. Used at mint time to re-roll an id whose port would collide with
- * either the trunk or a live sibling. Empty when `[worktree].port` is off. Fails
- * open per linked-worktree row.
+ * either the trunk or a live sibling. Empty when `[worktree].export_port` is
+ * off. Fails open per linked-worktree row.
  */
 export async function livePortsInUse(
   ctx: LifecycleContext,
   settings: IdentitySettings,
 ): Promise<Set<number>> {
   const ports = new Set<number>();
-  if (!ctx.config.worktree.port) {
+  if (!ctx.config.worktree.export_port) {
     return ports;
   }
   const fleet = await listWorktreeFleet(
@@ -4114,13 +4114,14 @@ async function pruneContainedScan(
   const trunk = integrationBranch(ctx.config.repository.trunk);
   const nowMs = SYSTEM_CLOCK.wallNow();
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
-  const activity = ctx.config.project.logbook && commonGitDir !== undefined
-    ? await readFleetLogbookActivity(
-      commonGitDir,
-      configEpoch(ctx.config).fingerprint,
-      nowMs,
-    )
-    : undefined;
+  const activity =
+    ctx.config.project.record_logbook && commonGitDir !== undefined
+      ? await readFleetLogbookActivity(
+        commonGitDir,
+        configEpoch(ctx.config).fingerprint,
+        nowMs,
+      )
+      : undefined;
   const currentPath = await Deno.realPath(ctx.root);
   const scanned = await scanContainedWorktrees(ctx.root, {
     mainBranch: trunk,
@@ -4474,7 +4475,7 @@ interface ContainedReclaimResult {
  * confirmed — is skipped, never force-reclaimed. A failed resource teardown
  * stops that candidate's reclaim outright: the checkout keeps owning its
  * resources, because the prune GC has already run this invocation and a
- * guarded (`gc = false`) resource would otherwise be stranded forever.
+ * guarded (`prunable = false`) resource would otherwise be stranded forever.
  */
 async function reclaimContainedWorktrees(
   ctx: LifecycleContext,

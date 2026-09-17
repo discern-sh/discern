@@ -23,7 +23,8 @@ import {
 } from "../src/engine/completion/store.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
-const PROJECT = '[project]\nslug = "doc"\nagents = []\nlogbook = false\n';
+const PROJECT =
+  '[project]\nslug = "doc"\nagents = []\nrecord_logbook = false\n';
 
 /** Scaffold one configured install and run doctor's checks in-process. */
 async function checksFor(dir: string, toml: string): Promise<Check[]> {

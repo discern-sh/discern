@@ -15,7 +15,7 @@ import { retainResultDiagnostics } from "./diagnostic_output.ts";
  * 0030), with a failure's output captured into its diagnostic rather than streamed.
  *
  * On a GREEN, bootstrapped run it appends the diff-aware coupling (ADR 0084)
- * at the tail — behind the same `[coupling].in_gate` flag `done` honours — so the
+ * at the tail — behind the same `[coupling].report_in_gate` flag `done` honours — so the
  * nudge meets the change while it is hot in the inner loop. Best-effort and advisory:
  * it touches only `hints`, never prepare's pass/fail, and is skipped on a failed run.
  */
@@ -77,6 +77,7 @@ import {
   assertManagedMaterialWritable,
   managedMaterialBoundary,
 } from "../../shared/managed_version.ts";
+import { governingConfigKeyIgnoredAdvisory } from "../governing_config_advisory.ts";
 
 interface PrepareRefreshRun {
   readonly ok: boolean;
@@ -181,7 +182,7 @@ async function runPrepareGate(
 > {
   const cfg = await loadConfig(root);
   assertManagedMaterialWritable(cfg);
-  const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
+  const policy = resolveGateRunPolicy(cfg.gate.stream_output, surface);
   const plan = buildPreparePlan(cfg);
   const groups = [...plan.beforeRefresh, ...plan.afterRefresh];
   const { runOpts, out, runOut, flushDeferredOutput, slots } = gateRunContext(
@@ -272,20 +273,22 @@ async function runPrepareGate(
   ];
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   // The coupling (ADR 0084) rides the fast inner loop too, behind the SAME
-  // [coupling].in_gate preference, so the nudge meets the change while it is hot — not
+  // [coupling].report_in_gate preference, so the nudge meets the change while it is hot — not
   // only at finish. Mirrors finish's discipline exactly: only on a GREEN, bootstrapped
   // run, best-effort, and touching ONLY `hints`, so it can never move
   // prepare's `ok` / exit code / failed stage, nor slow a failed loop (it is skipped then).
   const couplingHints =
-    failedStage === null && cfg.meta.bootstrapped && cfg.coupling.in_gate
+    failedStage === null && cfg.meta.bootstrapped && cfg.coupling.report_in_gate
       ? await couplingGateHints(root)
       : [];
   // The checkpoint obligation inspection (shared with `status`,
   // `checkpoints`, and both `done` paths): serve each required question while
   // the change is still in the inner loop. Read-only and advisory — it touches
   // only `hints`, and a checkpoint-free effort adds nothing.
-  const checkpointHints = checkpointInspectionHints(
-    await inspectCheckpointObligations(root, cfg),
+  const checkpointInspection = await inspectCheckpointObligations(root, cfg);
+  const checkpointHints = checkpointInspectionHints(checkpointInspection);
+  const governingConfigAdvisory = governingConfigKeyIgnoredAdvisory(
+    checkpointInspection.ignoredConfigKeys,
   );
   const gotchasTail = failedStage === null
     ? undefined
@@ -310,6 +313,9 @@ async function runPrepareGate(
     data: { producer_executions: producerExecutions, measurement: "none" },
     steps,
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+    ...(governingConfigAdvisory === undefined
+      ? {}
+      : { advisories: [governingConfigAdvisory] }),
     ...(() => {
       const hints = mergeHintTexts(refresh.hints, hintTexts(firedHints));
       return hints.length > 0 ? { hints } : {};

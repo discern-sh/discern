@@ -848,7 +848,7 @@ export async function runSetupAccept(
   // normal acceptance rule and is fail-open after this boundary.
   const proofFetch = await reconcileProofNotesFetch(
     root,
-    landingConfig.repository.proof_notes,
+    landingConfig.repository.proof_notes_mode,
   );
   const proofWrite = await writeProofNote(
     root,

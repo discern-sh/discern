@@ -1136,7 +1136,7 @@ Deno.test("map --export <configured scope> follows the scope's declared order", 
   await withTempDir(async (dir) => {
     await makeScopedDocsProject(
       dir,
-      '[skills]\ndir = "docs/00-intro"\n[scopes.canon]\npaths = ["${skills.dir}/beta.md", "docs/README.md", "docs/00-intro/alpha.md"]\nneutral = true\n',
+      '[skills]\ndir = "docs/00-intro"\n[scopes.canon]\npaths = ["${skills.dir}beta.md", "docs/README.md", "docs/00-intro/alpha.md"]\nneutral = true\n',
     );
 
     const { code, stdout, stderr } = await runCli(

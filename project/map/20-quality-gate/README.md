@@ -29,11 +29,11 @@ Use `discern done` on the intended final commit. A green run on a clean branch a
 
 ## Live terminal presentation
 
-On a cursor-controlled terminal, `done`, `prepare`, `test`, and human composite gate runs share the package activity frame: lifecycle facts stay pinned; complete and partial subprocess lines feed a bounded tail. `[gate].stream` never gates this frame.
+On a cursor-controlled terminal, `done`, `prepare`, `test`, and human composite gate runs share the package activity frame: lifecycle facts stay pinned; complete and partial subprocess lines feed a bounded tail. `[gate].stream_output` never gates this frame.
 
 The package fits full, then compact, then append-only output. Resizes retain the same producer feed; interrupts restore the cursor. Success leaves stable facts without replaying the tail. Failure follows them with diagnostics and the full-output-artifact route.
 
-CI, pipes, `--plain`, and terminals without cursor control remain static: `stream = false` groups complete per-job output; `true` streams prefixed lines. JSON, Markdown, and MCP omit human job output.
+CI, pipes, `--plain`, and terminals without cursor control remain static: `stream_output = false` groups complete per-job output; `true` streams prefixed lines. JSON, Markdown, and MCP omit human job output.
 
 [`execute.ts`](../../../src/engine/gate/execute.ts) resolves presentation separately from capture. [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) feeds the package; [`command.ts`](../../../src/engine/jobs/command.ts) retains raw evidence. For result contracts, see [MCP tools & results](../70-reference/mcp-and-results.md).
 

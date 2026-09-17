@@ -24,7 +24,6 @@ import {
   LIVE_PATH_REFERENCE_SPELLINGS,
   SCALAR_CONFIG_PATH_REFERENCES,
   SOURCE_PATH_REFERENCES,
-  type SourcePathReference,
   sourcePathReference,
 } from "../src/shared/source_path_references.ts";
 import { resolveSourcePaths } from "../src/shared/source_path_resolution.ts";
@@ -39,18 +38,10 @@ function sentinelFor(name: SourcePathName): string {
   return dot === -1 ? stem : `${stem}${entry.defaultPath.slice(dot)}`;
 }
 
-/** The canonical scope-prefix spelling for one live reference. */
-function scopePattern(member: SourcePathReference): string {
-  const entry = SOURCE_PATHS[member.name];
-  return entry.pathKind === "directory" && !entry.defaultPath.endsWith("/")
-    ? `${member.reference}/`
-    : member.reference;
-}
-
 const REFERENCE_SEQUENCE = SOURCE_PATH_REFERENCES.map((member) =>
   member.reference
 ).join("|");
-const SCOPE_PATTERNS = SOURCE_PATH_REFERENCES.map(scopePattern);
+const SCOPE_PATTERNS = SOURCE_PATH_REFERENCES.map(({ reference }) => reference);
 
 const CONFIG = parseConfigOrThrow([
   ...SOURCE_PATH_REFERENCES.map(({ key, name }) =>
@@ -94,11 +85,19 @@ function resolvedPath(name: SourcePathName): string {
   return path;
 }
 
+/** The expansion contract for one live reference. */
+function resolvedReferencePath(name: SourcePathName): string {
+  const path = resolvedPath(name);
+  return SOURCE_PATHS[name].pathKind === "directory"
+    ? `${path.replace(/\/+$/, "")}/`
+    : path;
+}
+
 const EXPECTED_SEQUENCE = SOURCE_PATH_REFERENCES.map(({ name }) =>
-  resolvedPath(name)
+  resolvedReferencePath(name)
 ).join("|");
-const EXPECTED_SCOPE_PATTERNS = SOURCE_PATH_REFERENCES.map((member) =>
-  scopePattern(member).replace(member.reference, resolvedPath(member.name))
+const EXPECTED_SCOPE_PATTERNS = SOURCE_PATH_REFERENCES.map(({ name }) =>
+  resolvedReferencePath(name)
 );
 
 Deno.test("every configured SOURCE_PATHS member owns one live reference", () => {
@@ -147,11 +146,15 @@ Deno.test("every enrolled scope-glob dialect surface expands every live referenc
 
   for (const member of SOURCE_PATH_REFERENCES) {
     const entry = SOURCE_PATHS[member.name];
-    const path = resolvedPath(member.name);
+    const path = resolvedReferencePath(member.name);
     const probe = entry.pathKind === "directory"
       ? `${path.replace(/\/+$/, "")}/probe.md`
       : path;
-    assertEquals(scopesForPaths([probe], CONFIG), ["references"]);
+    assertEquals(
+      scopesForPaths([probe], CONFIG),
+      ["references"],
+      member.name,
+    );
   }
 
   const generated = resolveGeneratedGroups(CONFIG)[0];
@@ -170,6 +173,28 @@ Deno.test("every enrolled scope-glob dialect surface expands every live referenc
     measure: "files",
     globs: EXPECTED_SCOPE_PATTERNS,
   });
+});
+
+Deno.test("directory references normalize configured paths with or without a trailing slash", () => {
+  const config = parseConfigOrThrow([
+    "[map]",
+    'dir = "docs/map/"',
+    "",
+    "[skills]",
+    'dir = "tools/skills"',
+    "",
+  ].join("\n"));
+  assertEquals(
+    expandSourcePathReferences(
+      "${map.dir}README.md|${skills.dir}demo/SKILL.md",
+      config,
+    ),
+    "docs/map/README.md|tools/skills/demo/SKILL.md",
+  );
+  assertEquals(
+    expandSourcePathReferences("${map.dir}|${skills.dir}", config),
+    "docs/map/|tools/skills/",
+  );
 });
 
 // ── scalar config-path references ───────────────────────────────────────────

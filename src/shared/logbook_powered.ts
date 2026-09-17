@@ -1,6 +1,6 @@
 /**
  * The logbook-powered capabilities — the SINGLE source of truth for what an
- * owner gives up by setting `[project].logbook = false`, beside the other
+ * owner gives up by setting `[project].record_logbook = false`, beside the other
  * closed-set registries (`verbs.ts`, `capabilities.ts`).
  *
  * The wording surfaces speak from this list rather than hand-copying it: the
@@ -31,7 +31,7 @@ export interface LogbookPoweredCapability {
   readonly readers: readonly string[];
 }
 
-/** Every capability that turns off (or freezes) with `[project].logbook = false`. */
+/** Every capability that turns off (or freezes) with `[project].record_logbook = false`. */
 export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
   {
     key: "patterns-report",

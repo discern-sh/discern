@@ -488,6 +488,8 @@ export interface TrunkLimitsVerification {
   blocking: boolean;
   blockedStandards: ReadonlySet<string>;
   proposals: ReadonlyMap<string, StandardLimitProposalData>;
+  /** Current-schema-unknown keys ignored in the committed producer config. */
+  ignoredConfigKeys: readonly string[];
 }
 
 /** The next step a loosening diagnostic tells an agent to take. */
@@ -531,6 +533,7 @@ export async function verifyTrunkLimits(
       blocking: true,
       blockedStandards: new Set(),
       proposals: new Map(),
+      ignoredConfigKeys: [],
     };
   }
   if (trunk.kind === "parse_failed") {
@@ -551,6 +554,7 @@ export async function verifyTrunkLimits(
       blocking: true,
       blockedStandards: new Set(),
       proposals: new Map(),
+      ignoredConfigKeys: [],
     };
   }
   if (trunk.kind === "absent") {
@@ -560,6 +564,7 @@ export async function verifyTrunkLimits(
       blocking: false,
       blockedStandards: new Set(),
       proposals: new Map(),
+      ignoredConfigKeys: [],
     };
   }
 
@@ -568,7 +573,8 @@ export async function verifyTrunkLimits(
   const acceptedProposals = new Map<string, StandardLimitProposalData>();
   const branchNames = new Set(standards.map((standard) => standard.name));
   const branch = branchConfig ?? await loadConfig(root);
-  const parsedTrunk = parseGoverningConfig(trunk.text).config;
+  const governingTrunk = parseGoverningConfig(trunk.text);
+  const parsedTrunk = governingTrunk.config;
   const effective = parsedTrunk === undefined ? undefined : {
     trunk: await protectedStandardProducers(parsedTrunk),
     branch: await protectedStandardProducers(branch),
@@ -693,6 +699,7 @@ export async function verifyTrunkLimits(
       blocking: true,
       blockedStandards,
       proposals: acceptedProposals,
+      ignoredConfigKeys: governingTrunk.ignoredKeyPaths,
     };
   }
   if (acceptedProposals.size > 0) {
@@ -710,6 +717,7 @@ export async function verifyTrunkLimits(
       blocking: false,
       blockedStandards,
       proposals: acceptedProposals,
+      ignoredConfigKeys: governingTrunk.ignoredKeyPaths,
     };
   }
   return {
@@ -718,5 +726,6 @@ export async function verifyTrunkLimits(
     blocking: false,
     blockedStandards,
     proposals: acceptedProposals,
+    ignoredConfigKeys: governingTrunk.ignoredKeyPaths,
   };
 }

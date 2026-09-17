@@ -132,7 +132,7 @@ async function variedCheckpointEvidence(
   root: string,
   config: DiscernConfig,
 ): Promise<CheckpointVarianceSummary[]> {
-  if (!config.project.logbook) {
+  if (!config.project.record_logbook) {
     return [];
   }
   try {
@@ -546,7 +546,7 @@ const MAP: Category = {
     subjective("map.adrs", {
       title: "Significant decision reasons remain available",
       against: (ctx): ReviewEvidence => ({
-        source: `${ctx.mapDir}_adr/`,
+        source: `${normalizeMapDir(ctx.mapDir)}_adr/`,
         excerpt:
           `${ctx.adrCount} records present; review whether important rationale is missing`,
       }),
@@ -566,7 +566,9 @@ const MAP: Category = {
       against: (ctx): ReviewEvidence | undefined =>
         ctx.mapTree
           ? {
-            source: `${ctx.mapDir}README.md and subtree README files`,
+            source: `${
+              normalizeMapDir(ctx.mapDir)
+            }README.md and subtree README files`,
             excerpt: "follow the links as a first-time reader",
           }
           : undefined,

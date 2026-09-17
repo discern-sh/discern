@@ -1300,7 +1300,7 @@ const DOCTOR_EXECUTION_MODEL_FAITHFULNESS_CASE = defineFaithfulnessCase(
         "limit = 80",
         "",
         "[worktree]",
-        "port = true",
+        "export_port = true",
         "",
         "[worktree.resources.db]",
         'create = "createdb @db@"',

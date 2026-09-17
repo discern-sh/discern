@@ -17,7 +17,10 @@ import {
   toCommandList,
 } from "../shared/config_schema.ts";
 import { isKnownJob, KNOWN_JOBS, STAGES } from "../lib/config.ts";
-import { retiredConfigKeySuccessor } from "../shared/vocabulary.ts";
+import {
+  RETIRED_CONFIG_KEY_REDIRECTS,
+  retiredConfigKeySuccessor,
+} from "../shared/vocabulary.ts";
 import {
   fire,
   type FiredHint,
@@ -842,6 +845,8 @@ export async function runConfigSet(
   key: string,
   value: string,
   opts: ConfigOptions & { number?: boolean; bool?: boolean; string?: boolean },
+  retiredRedirects: Readonly<Record<string, string>> =
+    RETIRED_CONFIG_KEY_REDIRECTS,
 ): Promise<number> {
   if (key.split(".").length < 2) {
     return fail(opts, `key must be section.key (got "${key}").`);
@@ -855,7 +860,7 @@ export async function runConfigSet(
     const [section, ...tail] = key.split(".");
     const successor = section === undefined
       ? undefined
-      : retiredConfigKeySuccessor(section);
+      : retiredConfigKeySuccessor(section, retiredRedirects);
     if (section !== undefined && successor !== undefined) {
       const replacement = [successor, ...tail].join(".");
       return fail(

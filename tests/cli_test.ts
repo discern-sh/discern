@@ -16,6 +16,7 @@ import { DISCERN_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import { normalizeMapDir } from "../src/shared/map_path.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { z } from "@zod/zod";
 import {
@@ -81,7 +82,11 @@ Deno.test("setup begin --json scaffolds and reports JSON", async () => {
     // It also lays the doc skeletons; `skeletons` lists them, and it prints the
     // agent instructions inline.
     assertExists(result.data.skeletons);
-    assert(result.data.skeletons.includes(SOURCE_PATHS.map.defaultPath));
+    assert(
+      result.data.skeletons.includes(
+        normalizeMapDir(SOURCE_PATHS.map.defaultPath),
+      ),
+    );
     assertExists(result.data.instructions);
     assert(typeof result.data.instructions === "string");
     // The files really landed.

@@ -175,12 +175,18 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
     advisories: [
       "checkpoint-evidence-dropped",
       "execution-cap-unavailable",
+      "governing-config-key-ignored",
       "landing-authority-unverified",
       "proof-recording-unavailable",
       "standards-limits-unverified",
     ],
   }),
-  prepare: effectPolicy({ advisories: ["execution-cap-unavailable"] }),
+  prepare: effectPolicy({
+    advisories: [
+      "execution-cap-unavailable",
+      "governing-config-key-ignored",
+    ],
+  }),
   test: effectPolicy({ advisories: ["execution-cap-unavailable"] }),
   improvement: observationPolicy(),
   checkpoints: observationPolicy({

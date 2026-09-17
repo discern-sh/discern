@@ -35,6 +35,7 @@ import {
 } from "../src/shared/config_schema.ts";
 import { allInstructionFilePaths, providerFor } from "../src/lib/providers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import { normalizeMapDir } from "../src/shared/map_path.ts";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
@@ -660,7 +661,7 @@ Deno.test("setup done refuses on an uncommitted tracked change; --unproven still
     assertEquals(refused.error, "dirty_worktree");
     assert(
       refused.data.uncommitted.some((l: string) =>
-        l.includes(`${SOURCE_PATHS.map.defaultPath}README.md`)
+        l.includes(`${SOURCE_PATHS.map.defaultPath}/README.md`)
       ),
       `the tracked edit must be listed:\n${done.stdout}`,
     );
@@ -688,7 +689,7 @@ Deno.test("setup done refuses on an uncommitted tracked change; --unproven still
     );
     assertStringIncludes(
       status,
-      `M ${SOURCE_PATHS.map.defaultPath}README.md`,
+      `M ${SOURCE_PATHS.map.defaultPath}/README.md`,
       "the unrelated edit must be left for the agent's own tidy commit",
     );
     assertStringIncludes(
@@ -1699,7 +1700,11 @@ Deno.test("discern setup begin --json emits the DiscernResult envelope", async (
     assert(res.data.skeletons !== undefined);
     assertEquals(res.ok, true);
     assertEquals(res.verb, "setup begin");
-    assert(res.data.skeletons.includes(SOURCE_PATHS.map.defaultPath));
+    assert(
+      res.data.skeletons.includes(
+        normalizeMapDir(SOURCE_PATHS.map.defaultPath),
+      ),
+    );
     assert(
       typeof res.data.instructions === "string" &&
         res.data.instructions.length > 0,

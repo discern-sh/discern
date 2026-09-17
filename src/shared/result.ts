@@ -28,7 +28,7 @@
  * Whether a planned step will act when the plan is applied:
  *  - `run`  — the step will be performed (a job spawn, a git mutation, a destroy).
  *  - `skip` — the step is part of the plan but will NOT act (a configured-but-
- *             unchanged scope gate, a gc-opted-out resource). Listed for honesty.
+ *             unchanged scope gate, a non-prunable resource). Listed for honesty.
  *  - `gate` — a read-only precondition that can BLOCK the plan but mutates nothing
  *             (the merge check). Rendered as "check".
  *
@@ -197,6 +197,7 @@ export const RESULT_ADVISORY_KINDS = [
   "doctor-warning",
   "execution-cap-unavailable",
   "generated-attribute-pattern-untranslated",
+  "governing-config-key-ignored",
   "ignored-file-observation-unavailable",
   "landing-authority-unverified",
   "optional-resource-unavailable",

@@ -393,7 +393,7 @@ export async function statusResult(
   }
   const recentCompleted = await recentCompletedTasks(
     root,
-    cfg.project.logbook,
+    cfg.project.record_logbook,
     data.landed_proof,
   );
   if (recentCompleted.length > 0) {
@@ -494,7 +494,7 @@ export async function statusResult(
       return undefined;
     });
     let logbookActivity: FleetLogbookActivity | undefined;
-    if (cfg.project.logbook) {
+    if (cfg.project.record_logbook) {
       const commonGitDir = await resolveCommonGitDir(root);
       if (commonGitDir !== undefined) {
         logbookActivity = await readFleetLogbookActivity(
@@ -694,7 +694,7 @@ export async function statusResult(
     nowMs,
     gateProof,
     landingAuthority,
-    logbookEnabled: cfg.project.logbook,
+    logbookEnabled: cfg.project.record_logbook,
     checkpointPreview,
     releaseDue,
   });
@@ -873,8 +873,8 @@ async function fleetEntryFor(
     entry.port = Number(recordedPort.trim());
   }
   // Derivation fallback: identity is structured state, not filesystem shape — a
-  // worktree with no env file still has an id (and, with [worktree].port on, a
-  // deterministic port).
+  // worktree with no env file still has an id (and, with
+  // [worktree].export_port on, a deterministic port).
   if (!row.isMain && settings !== undefined) {
     if (entry.id === undefined || entry.port === undefined) {
       const id = await resolveWorktreeId(settings, row.path).catch(() => {
@@ -883,7 +883,7 @@ async function fleetEntryFor(
       });
       if (id !== undefined) {
         entry.id ??= id;
-        if (entry.port === undefined && cfg.worktree.port) {
+        if (entry.port === undefined && cfg.worktree.export_port) {
           entry.port = deriveIdentity(id, settings).port;
         }
       }

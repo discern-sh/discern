@@ -28,7 +28,7 @@ destroy = "dropdb --if-exists @db@"
 ensure = "pg_isready -d @db@"
 required = true
 retries = 0
-gc = true
+prunable = true
 ```
 
 | Key        | Default | Behavior                                                          |
@@ -38,7 +38,7 @@ gc = true
 | `ensure`   | `""`    | Reconciles readiness on session start.                            |
 | `required` | `true`  | Aborts first setup when creation fails.                           |
 | `retries`  | `0`     | Retries failed create and destroy commands, capped at 5.          |
-| `gc`       | `true`  | Lets `worktree prune` reclaim an orphan.                          |
+| `prunable` | `true`  | Lets `worktree prune` reclaim an orphan.                          |
 
 Commands run through `sh -c` after token expansion. discern creates resources from top to bottom and destroys them in reverse order. A dependency declared first remains available until discern removes its dependents.
 
@@ -58,13 +58,13 @@ Every `create`, `ensure`, and `destroy` invocation (including orphan garbage col
 
 discern writes complete ownership, the worktree handle, expanded tokens, and the frozen destroy action before `create`. A crash or failed command therefore leaves visible `intent`; only a successful create records readiness. Re-entry cleans that uncertain state before retrying. If no safe destroy action exists or cleanup fails, setup refuses rather than possibly repeating a non-idempotent create. A non-required first failure stays visible in the setup result and continues; a required failure stops setup.
 
-Teardown is best-effort. A failed `destroy` leaves its ledger entry in place so a later prune can retry. Use `gc = false` for data-loss-sensitive resources that require explicit teardown. When prune selects a live checkout for removal, its plan includes every recorded resource regardless of `gc`; apply destroys them from the checkout in reverse order and keeps the checkout if any destroy fails. Orphan garbage collection applies `gc` only after a checkout has already vanished.
+Teardown is best-effort. A failed `destroy` leaves its ledger entry in place so a later prune can retry. Use `prunable = false` for data-loss-sensitive resources that require explicit teardown. When prune selects a live checkout for removal, its plan includes every recorded resource regardless of `prunable`; apply destroys them from the checkout in reverse order and keeps the checkout if any destroy fails. Orphan garbage collection applies `prunable` only after a checkout has already vanished.
 
 ## Understand the ledger
 
 The ledger stores one JSON file per worktree and resource under `<git-common-dir>/discern/resources/`. Git worktrees share that directory, while separate repositories do not. Each entry records its `intent` or `ready` phase, Git worktree key, canonical path, worktree and resource handles, retry budget, token values, and fully expanded destroy command.
 
-Garbage collection acts only on entries in this project's ledger. It keeps live Git keys and paths, handles owned by live worktrees, entries with `gc = false`, and commands with unresolved tokens. Before each destroy, it checks live state and the ledger entry again. Those checks prevent an older orphan record from destroying a newly recycled handle owned by a concurrent worktree.
+Garbage collection acts only on entries in this project's ledger. It keeps live Git keys and paths, handles owned by live worktrees, entries with `prunable = false`, and commands with unresolved tokens. Before each destroy, it checks live state and the ledger entry again. Those checks prevent an older orphan record from destroying a newly recycled handle owned by a concurrent worktree.
 
 `discern worktree prune --dry-run` shows the candidates without destroying them. The apply path consumes that plan and rechecks every candidate immediately before the irreversible step ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)).
 

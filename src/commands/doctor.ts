@@ -233,13 +233,13 @@ async function logbookCheck(
   config: DiscernConfig,
   commonGitDir: string,
 ): Promise<DraftCheck> {
-  if (!config.project.logbook) {
+  if (!config.project.record_logbook) {
     return {
       name: "logbook",
       ok: true,
       status: "warn",
       detail:
-        "recording is off ([project].logbook = false) — discern keeps no memory of how it is driven",
+        "recording is off ([project].record_logbook = false) — discern keeps no memory of how it is driven",
       fix:
         "consider re-enabling it: gate thrash, flaky tests, and instructions gaps only become visible in this local history, it never leaves the machine, and it cannot be recorded retroactively",
     };

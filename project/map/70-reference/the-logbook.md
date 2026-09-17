@@ -20,11 +20,11 @@ An MCP call whose explicit `path` falls outside every discern project returns `n
 - **List and read sealed history:** `discern patterns archives`, then `discern patterns --logbook-file <filename>`. Add `--stats`, `--all`, or `--json` as needed.
 - **Seal active history:** `discern patterns seal` (preview with `--dry-run`). A confirmed terminal action starts a fresh active Logbook and preserves the sealed event lines for later reports.
 - **Delete active history:** `discern patterns reset` (preview with `--dry-run`). A confirmed terminal action removes only active history; sealed archives survive.
-- **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`. Recording stops. Existing active files remain until you archive or reset them.
+- **Turn it off:** set `record_logbook = false` under `[project]` in `discern.toml`. Recording stops. Existing active files remain until you archive or reset them.
 
 ## What it powers
 
-Setting `[project].logbook = false` stops new evidence for every feature below. `discern patterns` can still read existing history.
+Setting `[project].record_logbook = false` stops new evidence for every feature below. `discern patterns` can still read existing history.
 
 - the practice and completion-cost report (`discern patterns`): behavior, Gate-fit, funnel, and trajectory findings over accumulated runs
 - each worktree's last action and work in flight: the fleet survey's `last_action` and `running` columns

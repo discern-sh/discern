@@ -331,7 +331,7 @@ Deno.test("status and doctor reminders are read-only and advisory with logbook d
       configPath,
       (await Deno.readTextFile(configPath)).replace(
         /^\[project\]$/m,
-        "[project]\nlogbook = false",
+        "[project]\nrecord_logbook = false",
       ),
     );
     await gitInit(root);

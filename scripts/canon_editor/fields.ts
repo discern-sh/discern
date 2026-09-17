@@ -80,6 +80,12 @@ const IDENTITY_LOCK = {
     "identity — renames ripple through citations; a campaign, not a keystroke",
 } as const;
 
+const COMPUTED_RETIRED_SYNONYM_LOCK = {
+  edit: "locked",
+  reason:
+    "a registry helper derives this retired synonym and its launch metadata",
+} as const satisfies FieldSpec;
+
 /** The feature node's fields (both canon registers live on one node). */
 export const FEATURE_NODE_FIELDS = {
   id: IDENTITY_LOCK,
@@ -269,6 +275,10 @@ export const RETIRED_SYNONYM_FIELDS = {
     edit: "locked",
     reason: "a regex source; the guard proves it against its own phrase",
   },
+  launch: {
+    edit: "locked",
+    reason: "structural guard metadata for a retired launch spelling",
+  },
   allowed: { edit: "nested" },
 } as const satisfies Record<keyof RetiredSynonym, FieldSpec>;
 
@@ -373,7 +383,15 @@ export function fieldSpecFor(
   kind: string,
   path: string,
 ): FieldSpec | undefined {
-  const segments = path.split(".").filter((segment) => !/^\d+$/.test(segment));
+  const rawSegments = path.split(".");
+  if (
+    registry === "glossary" && rawSegments[0] === "retired" &&
+    (rawSegments.length === 1 ||
+      (rawSegments.length === 2 && /^\d+$/.test(rawSegments[1] ?? "")))
+  ) {
+    return COMPUTED_RETIRED_SYNONYM_LOCK;
+  }
+  const segments = rawSegments.filter((segment) => !/^\d+$/.test(segment));
   let map = topMap(registry, kind);
   let spec: FieldSpec | undefined;
   for (const [index, segment] of segments.entries()) {

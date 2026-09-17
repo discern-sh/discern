@@ -10,31 +10,20 @@
  * grammatical variant of `scripts` — typed input folds to the canonical verb
  * through the explicit form registry, while every surface discern writes spells
  * `scripts` exclusively. */
-export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
-  finish: "done",
-  graduate: "accept",
-  "setup land": "setup accept",
-  integrate: "update",
-  scopes: "impact",
-  ratchets: "standards",
-  "config set-ratchet": "config set-standard",
-  "config set-capability": "config set-job",
-  "config set-check": "config set-job",
-};
+export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {};
 
 /** Retired top-level config keys and the canonical key each names now. */
-export const RETIRED_CONFIG_KEY_REDIRECTS: Readonly<Record<string, string>> = {
-  guidance: "instructions",
-  ratchets: "standards",
-  docs: "map",
-  recipes: "scripts",
-  capabilities: "jobs",
-  checks: "jobs",
-};
+export const RETIRED_CONFIG_KEY_REDIRECTS: Readonly<Record<string, string>> =
+  {};
 
-/** The successor for a retired top-level config key, if `key` is one. */
-export function retiredConfigKeySuccessor(key: string): string | undefined {
-  return RETIRED_CONFIG_KEY_REDIRECTS[key];
+/** The successor for a retired config key path, if `key` is one. `redirects`
+ * is injectable so the migration and governing-read mechanisms can be proved
+ * before a production retirement exists. */
+export function retiredConfigKeySuccessor(
+  key: string,
+  redirects: Readonly<Record<string, string>> = RETIRED_CONFIG_KEY_REDIRECTS,
+): string | undefined {
+  return redirects[key];
 }
 
 /** One retired config position that is DEAD — it is rejected during parsing,
@@ -128,11 +117,14 @@ export const VERB_FORM_VARIANTS: Readonly<Record<string, string>> = {
   script: "scripts",
 };
 
-/** The successor for a retired command path, if `command` is one. */
+/** The successor for a retired command path, if `command` is one. `redirects`
+ * is injectable so the refusal mechanism can be proved before a production
+ * retirement exists. */
 export function retiredCommandSuccessor(
   command: string,
+  redirects: Readonly<Record<string, string>> = RETIRED_COMMAND_REDIRECTS,
 ): string | undefined {
-  return RETIRED_COMMAND_REDIRECTS[command];
+  return redirects[command];
 }
 
 /** The one-line refusal for a retired command spelling. */

@@ -52,11 +52,7 @@ import {
   PROJECT_RELATIVE_FILE_INPUT_RE,
   projectRelativePathIssue,
 } from "./project_path.ts";
-import {
-  DEAD_CONFIG_POSITIONS,
-  deadConfigPosition,
-  retiredConfigKeySuccessor,
-} from "./vocabulary.ts";
+import { deadConfigPosition, retiredConfigKeySuccessor } from "./vocabulary.ts";
 import { AGENT_NAMES } from "./agent_catalogue.ts";
 import { CONFIG_PROSE } from "./config_prose.ts";
 import {
@@ -72,6 +68,7 @@ import {
 } from "./checkpoint_question_files.ts";
 import { type ConfigIssue, unknownRootSections } from "./config_issues.ts";
 import type { DiscernWrittenMetaKey } from "./config_metadata.ts";
+import { SETUP_CONFIG_SCHEMA_MAJOR } from "./public_schemas.ts";
 
 export { AGENT_NAMES } from "./agent_catalogue.ts";
 export type { ConfigIssue } from "./config_issues.ts";
@@ -719,7 +716,7 @@ const projectSection = z.strictObject({
   todo: projectFilePath.default(SOURCE_PATHS.todo.defaultPath).describe(
     "The deferred-work ledger: the running TODO list agents read and maintain, relative to the project root.",
   ),
-  logbook: z.boolean().default(true).describe(
+  record_logbook: z.boolean().default(true).describe(
     "When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, with no code or output. " +
       "Files stay under .git, outside commits and any network; false stops all writes.",
   ),
@@ -738,7 +735,7 @@ const repositorySection = z.strictObject({
   branch_prefix: z.string().default(DEFAULT_WORKTREE_BRANCH_PREFIX).describe(
     `Branch prefix for worktrees created by discern, e.g. "${DEFAULT_WORKTREE_BRANCH_PREFIX}my-feature".`,
   ),
-  proof_notes: z.enum(["local", "fetch"]).default("local").describe(
+  proof_notes_mode: z.enum(["local", "fetch"]).default("local").describe(
     'Both modes record landed Proof notes locally. "fetch" also manages fetch-only transport. Publishing remains an explicit owner action; there is no off mode.',
   ),
   ensure: z.array(z.string()).default([]).describe(
@@ -852,7 +849,7 @@ const resourceValue = z.strictObject({
   retries: z.number().int().min(0).max(5).default(0).describe(
     "Retry create/destroy this many times.",
   ),
-  gc: z.boolean().default(true).describe(
+  prunable: z.boolean().default(true).describe(
     "false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.",
   ),
 });
@@ -886,10 +883,10 @@ const worktreeSection = z.strictObject({
   }).meta({ uniqueItems: true }).default([".env", ".env.local"]).describe(
     "Env files read and written in order: the last definition wins; new values use the first existing file. Inheritance alone may create the first file. Managed values share one scoped marker.",
   ),
-  port: z.boolean().default(false).describe(
-    "Record each worktree's deterministic dev-server port in its env files, for tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports it either way.",
+  export_port: z.boolean().default(false).describe(
+    "When true, setup writes DISCERN_WORKTREE_PORT to configured env files, hooks warn when a sibling uses the derived port, and status shows it. The port exists either way, and `discern identity --port` always reports it.",
   ),
-  ignored_file_drift: z.boolean().default(true).describe(
+  track_ignored_drift: z.boolean().default(true).describe(
     "Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.",
   ),
   resources: z.record(z.string().regex(NAME_RE), resourceValue).default({})
@@ -918,7 +915,7 @@ const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
   ).describe(CONFIG_PROSE.standards.what);
 
 const gateSection = z.strictObject({
-  stream: z.boolean().default(false).describe(
+  stream_output: z.boolean().default(false).describe(
     "false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the gate frame's bounded tail; CI, pipes, and --plain are static.",
   ),
   fail_fast: z.boolean().default(true).describe(
@@ -933,7 +930,7 @@ const gateSection = z.strictObject({
 }).prefault({}).describe(CONFIG_PROSE.gate.what);
 
 const couplingSection = z.strictObject({
-  in_gate: z.boolean().default(true).describe(
+  report_in_gate: z.boolean().default(true).describe(
     "Surface coupling findings as trailing hints in `discern done` and `discern prepare`, while the change is hot. false keeps coupling available through `discern coupling` alone.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.coupling.what);
@@ -1031,12 +1028,12 @@ export type ResourceConfig = z.infer<typeof resourceValue>;
  * `version` (assumed current) or carry a matching major; a different major is a
  * breaking shape this build refuses rather than misreads.
  */
-export const CONFIG_DOC_VERSION = "2";
+export const CONFIG_DOC_VERSION = String(SETUP_CONFIG_SCHEMA_MAJOR);
 
 /** The document's gate-config tables reuse the *same* building blocks as the live
  * config, so the document shape can never diverge from what the engine reads. The
- * base fields (name/slug/branch_prefix/brief/agents) remain flat version-2
- * install inputs; the bounded setup and worktree sections project their live
+ * base fields (name/slug/branch_prefix/brief/agents) are flat setup inputs;
+ * the bounded setup and worktree sections project their live
  * config shapes without admitting unrelated standing policy.
  *
  * Strictness is shared by the generated editor schema and runtime validation:
@@ -1149,10 +1146,13 @@ function summariseIssues(issues: ConfigIssue[]): string {
 }
 
 /** Turn one Zod issue into a {@link ConfigIssue}, with discern-specific hints
- * for retired config positions: dead positions come from the
- * DEAD_CONFIG_POSITIONS table, renamed keys from RETIRED_CONFIG_KEY_REDIRECTS
- * (both in vocabulary.ts), so retiring a position is a row, not a branch. */
-function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
+ * for retired config positions. Dead positions come from the live registry;
+ * renamed keys use an injectable lookup so the first future row can be proved
+ * without publishing a pre-release sentinel. */
+function toConfigIssues(
+  issue: z.core.$ZodIssue,
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
+): ConfigIssue[] {
   const path = issue.path.map((p) => String(p)).join(".");
   if (issue.code === "unrecognized_keys") {
     const keys = issue.keys.join(", ");
@@ -1162,7 +1162,7 @@ function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
         if (dead !== undefined) {
           return { path: key, message: dead.message(key) };
         }
-        const successor = retiredConfigKeySuccessor(key);
+        const successor = retiredLookup(key);
         return successor === undefined
           ? {
             kind: "unknown_root_section",
@@ -1214,9 +1214,14 @@ function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
 export function configSchemaIssues(
   parsed: unknown,
   schema: z.ZodType = configSchema,
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
 ): ConfigIssue[] {
   const result = schema.safeParse(parsed);
-  return result.success ? [] : result.error.issues.flatMap(toConfigIssues);
+  return result.success
+    ? []
+    : result.error.issues.flatMap((issue) =>
+      toConfigIssues(issue, retiredLookup)
+    );
 }
 
 /** Position-sensitive `[jobs]` rules that JSON Schema cannot express alone. */
@@ -1410,6 +1415,7 @@ function completedInstallMetadataIssues(parsed: unknown): ConfigIssue[] {
  * whose governing question source cannot be represented by the current schema. */
 export function validateConfigValue(
   parsed: unknown,
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
 ): { config: DiscernConfig | undefined; issues: ConfigIssue[] } {
   const jobIssues = jobFormIssues(parsed);
   const formIssues = [
@@ -1430,58 +1436,294 @@ export function validateConfigValue(
   const formOwners = new Set(
     jobIssues.map((issue) => issue.path.split(".").slice(0, 2).join(".")),
   );
-  const schemaIssues = result.error.issues.flatMap(toConfigIssues).filter(
+  const schemaIssues = result.error.issues.flatMap((issue) =>
+    toConfigIssues(issue, retiredLookup)
+  ).filter(
     (issue) => !formOwners.has(issue.path.split(".").slice(0, 2).join(".")),
   );
   return { config: undefined, issues: [...formIssues, ...schemaIssues] };
 }
 
-/** A governing document predating a config retirement still governs: the
- * registered dead root sections are dropped before validation, so committed
- * policy is read from its surviving current-schema content while a project's
- * own live config keeps the loud dead-position refusal. Root positions only:
- * every registered retirement is a root section; a nested retirement extends
- * this walk when one exists. */
-function withoutDeadConfigSections(value: unknown): unknown {
+/** Read-only lookup used while projecting a committed governing config onto
+ * the current schema. Tests inject a synthetic retirement before any public
+ * redirect row exists. */
+export type RetiredConfigKeyLookup = (path: string) => string | undefined;
+
+/** One cloned object-key path in a parsed config document. */
+interface ConfigObjectKey {
+  readonly path: string;
+  readonly depth: number;
+}
+
+/** Clone JSON-compatible parsed TOML without sharing containers with callers. */
+function cloneConfigValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(cloneConfigValue);
   if (!isRecord(value)) return value;
-  const deadRootKeys = DEAD_CONFIG_POSITIONS.flatMap((position) =>
-    position.path === "" && position.key !== undefined ? [position.key] : []
-  );
-  if (deadRootKeys.every((key) => !(key in value))) return value;
   return Object.fromEntries(
-    Object.entries(value).filter(([key]) => !deadRootKeys.includes(key)),
+    Object.entries(value).map(([key, child]) => [key, cloneConfigValue(child)]),
   );
 }
 
-/** Read committed policy across the measurement cutover and the config
- * retirements without enabling deferrals. Only the retired enum and the
- * registered dead sections are removed. Every standard, bound, grant and
- * checkpoint remains subject to the current schema; unknown values stay
- * invalid. */
-export function governingConfigValue(value: unknown): unknown {
-  const governed = withoutDeadConfigSections(value);
-  if (!isRecord(governed) || !isRecord(governed.standards)) return governed;
+/** Enumerate every object key deepest-first so a nested retirement can move
+ * before an enclosing table retirement. Parsed TOML has no object-valued array
+ * today, but indexes are retained in the path if one is introduced later. */
+function configObjectKeys(
+  value: unknown,
+  segments: readonly string[] = [],
+): ConfigObjectKey[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((child, index) =>
+      configObjectKeys(child, [...segments, String(index)])
+    );
+  }
+  if (!isRecord(value)) return [];
+  return Object.entries(value).flatMap(([key, child]) => {
+    const path = [...segments, key];
+    return [
+      { path: path.join("."), depth: path.length },
+      ...configObjectKeys(child, path),
+    ];
+  }).sort((left, right) => right.depth - left.depth);
+}
+
+/** Read one own-key path without treating an inherited property as config. */
+function configValueAtPath(
+  root: unknown,
+  dotted: string,
+): { readonly found: boolean; readonly value?: unknown } {
+  let node: unknown = root;
+  for (const segment of dotted.split(".")) {
+    if (!isRecord(node) || !Object.hasOwn(node, segment)) {
+      return { found: false };
+    }
+    node = node[segment];
+  }
+  return { found: true, value: node };
+}
+
+/** Write one dotted key into a cloned config, creating absent parent tables.
+ * A scalar already occupying a required parent makes the redirect unusable. */
+function setConfigValueAtPath(
+  root: unknown,
+  dotted: string,
+  value: unknown,
+): boolean {
+  if (!isRecord(root)) return false;
+  const segments = dotted.split(".");
+  const leaf = segments.pop();
+  if (leaf === undefined) return false;
+  let parent = root;
+  for (const segment of segments) {
+    const existing = parent[segment];
+    if (existing === undefined) {
+      const created: Record<string, unknown> = {};
+      parent[segment] = created;
+      parent = created;
+    } else if (isRecord(existing)) {
+      parent = existing;
+    } else {
+      return false;
+    }
+  }
+  parent[leaf] = value;
+  return true;
+}
+
+/** Delete one dotted own-key path from a cloned config. */
+function deleteConfigValueAtPath(root: unknown, dotted: string): void {
+  if (!isRecord(root)) return;
+  const segments = dotted.split(".");
+  const leaf = segments.pop();
+  if (leaf === undefined) return;
+  let parent: Record<string, unknown> = root;
+  for (const segment of segments) {
+    const child = parent[segment];
+    if (!isRecord(child)) return;
+    parent = child;
+  }
+  delete parent[leaf];
+}
+
+/** Apply retired-key redirects without mutating the committed bytes. A current
+ * spelling wins when both are present; the retired value is then genuinely
+ * ignored and joins the reported path set. */
+function applyGoverningConfigRedirects(
+  value: unknown,
+  lookup: RetiredConfigKeyLookup,
+): { readonly value: unknown; readonly ignoredKeyPaths: string[] } {
+  const redirected = cloneConfigValue(value);
+  const ignoredKeyPaths: string[] = [];
+  for (const { path } of configObjectKeys(redirected)) {
+    const successor = lookup(path);
+    if (successor === undefined || successor === path) continue;
+    const source = configValueAtPath(redirected, path);
+    if (!source.found) continue;
+    const current = configValueAtPath(redirected, successor);
+    if (
+      current.found ||
+      !setConfigValueAtPath(redirected, successor, source.value)
+    ) {
+      ignoredKeyPaths.push(path);
+    }
+    deleteConfigValueAtPath(redirected, path);
+  }
+  return { value: redirected, ignoredKeyPaths };
+}
+
+/** Resolve a local JSON-Schema reference emitted for a reused config node. */
+function localSchemaReference(
+  schema: Record<string, unknown>,
+  root: Record<string, unknown>,
+): Record<string, unknown> {
+  const reference = schema.$ref;
+  if (typeof reference !== "string" || !reference.startsWith("#/")) {
+    return schema;
+  }
+  let node: unknown = root;
+  for (const encoded of reference.slice(2).split("/")) {
+    const segment = encoded.replaceAll("~1", "/").replaceAll("~0", "~");
+    if (!isRecord(node)) return schema;
+    node = node[segment];
+  }
+  return isRecord(node) ? node : schema;
+}
+
+/** Select the schema branch that can own an object or array container. Scalar
+ * alternatives have no nested keys to strip. */
+function schemaForConfigValue(
+  schema: Record<string, unknown>,
+  value: unknown,
+  root: Record<string, unknown>,
+): Record<string, unknown> {
+  const resolved = objectSchemaView(localSchemaReference(schema, root));
+  const alternatives = Array.isArray(resolved.anyOf)
+    ? resolved.anyOf
+    : Array.isArray(resolved.oneOf)
+    ? resolved.oneOf
+    : [];
+  const expected = Array.isArray(value)
+    ? "array"
+    : isRecord(value)
+    ? "object"
+    : undefined;
+  if (expected === undefined) return resolved;
+  for (const alternative of alternatives) {
+    if (!isRecord(alternative)) continue;
+    const candidate = objectSchemaView(localSchemaReference(alternative, root));
+    if (
+      candidate.type === expected ||
+      (expected === "object" &&
+        (isRecord(candidate.properties) ||
+          isRecord(candidate.additionalProperties)))
+    ) {
+      return candidate;
+    }
+  }
+  return resolved;
+}
+
+/** Project one value through the current schema, retaining every recognized
+ * key and returning every dropped dotted path. Open record names recurse into
+ * their entry schema; fixed strict objects drop unknowns at any depth. */
+function withoutUnknownConfigKeys(
+  value: unknown,
+  schema: Record<string, unknown>,
+  root: Record<string, unknown>,
+  segments: readonly string[] = [],
+): { readonly value: unknown; readonly ignoredKeyPaths: string[] } {
+  const node = schemaForConfigValue(schema, value, root);
+  if (Array.isArray(value)) {
+    const items = isRecord(node.items) ? node.items : undefined;
+    if (items === undefined) return { value, ignoredKeyPaths: [] };
+    const children = value.map((child, index) =>
+      withoutUnknownConfigKeys(child, items, root, [
+        ...segments,
+        String(index),
+      ])
+    );
+    return {
+      value: children.map((child) => child.value),
+      ignoredKeyPaths: children.flatMap((child) => child.ignoredKeyPaths),
+    };
+  }
+  if (!isRecord(value)) return { value, ignoredKeyPaths: [] };
+
+  const properties = isRecord(node.properties) ? node.properties : {};
+  const additional = node.additionalProperties;
+  const keyPattern = recordKeyPattern(node);
+  const kept: Record<string, unknown> = {};
+  const ignoredKeyPaths: string[] = [];
+  for (const [key, child] of Object.entries(value)) {
+    const path = [...segments, key];
+    let childSchema: Record<string, unknown> | undefined;
+    if (Object.hasOwn(properties, key) && isRecord(properties[key])) {
+      childSchema = properties[key];
+    } else if (
+      isRecord(additional) &&
+      (keyPattern === undefined || keyPattern.test(key))
+    ) {
+      childSchema = additional;
+    } else if (additional !== false) {
+      kept[key] = child;
+      continue;
+    }
+    if (childSchema === undefined) {
+      ignoredKeyPaths.push(path.join("."));
+      continue;
+    }
+    const projected = withoutUnknownConfigKeys(child, childSchema, root, path);
+    kept[key] = projected.value;
+    ignoredKeyPaths.push(...projected.ignoredKeyPaths);
+  }
+  return { value: kept, ignoredKeyPaths };
+}
+
+/** Read committed policy across config renames and retirements. Redirects run
+ * before the current schema drops unrecognized keys, so a renamed path keeps
+ * its meaning. Live reads never call this projection and remain strict. */
+function governingConfigProjection(
+  value: unknown,
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
+): { readonly value: unknown; readonly ignoredKeyPaths: string[] } {
+  const redirected = applyGoverningConfigRedirects(value, retiredLookup);
+  const schema = liveSchemaJson();
+  const stripped = withoutUnknownConfigKeys(
+    redirected.value,
+    schema,
+    schema,
+  );
   return {
-    ...governed,
-    standards: Object.fromEntries(
-      Object.entries(governed.standards).map(([name, spec]) => {
-        if (
-          !isRecord(spec) ||
-          (spec.measure !== "gate" && spec.measure !== "on-demand")
-        ) return [name, spec];
-        const { measure: retired, ...current } = spec;
-        void retired;
-        return [name, current];
-      }),
-    ),
+    value: stripped.value,
+    ignoredKeyPaths: [
+      ...new Set([
+        ...redirected.ignoredKeyPaths,
+        ...stripped.ignoredKeyPaths,
+      ]),
+    ].sort(),
   };
 }
 
-/** Pinned policy uses current enforcement even when its document predates cutover. */
+/** The current-schema value a committed governing document contributes. */
+export function governingConfigValue(
+  value: unknown,
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
+): unknown {
+  return governingConfigProjection(value, retiredLookup).value;
+}
+
+/** Pinned policy uses current enforcement even when its document predates the
+ * running schema, and reports every key whose value could not govern. */
 export function parseGoverningConfig(
   text: string,
-): ReturnType<typeof validateConfigValue> {
-  return validateConfigValue(governingConfigValue(parseToml(text)));
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
+): ReturnType<typeof validateConfigValue> & {
+  readonly ignoredKeyPaths: string[];
+} {
+  const projected = governingConfigProjection(parseToml(text), retiredLookup);
+  return {
+    ...validateConfigValue(projected.value),
+    ignoredKeyPaths: projected.ignoredKeyPaths,
+  };
 }
 
 /**
@@ -1493,6 +1735,7 @@ export function parseGoverningConfig(
  */
 export function parseConfig(
   text: string,
+  retiredLookup: RetiredConfigKeyLookup = retiredConfigKeySuccessor,
 ): { config: DiscernConfig | undefined; issues: ConfigIssue[] } {
   let parsed: unknown;
   try {
@@ -1500,7 +1743,7 @@ export function parseConfig(
   } catch (err) {
     throw new ConfigParseError(tomlSyntaxHint(err), { cause: err });
   }
-  return validateConfigValue(parsed);
+  return validateConfigValue(parsed, retiredLookup);
 }
 
 /**
@@ -1801,7 +2044,7 @@ export function configWriteIssues(text: string): ConfigIssue[] {
     ...semanticIssues,
     ...result.error.issues
       .filter((issue) => !isIncompleteRecordEntry(parsed, issue.path))
-      .flatMap(toConfigIssues),
+      .flatMap((issue) => toConfigIssues(issue)),
   ];
 }
 

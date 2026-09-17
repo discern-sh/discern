@@ -5,7 +5,7 @@
  * `engine_worktree_resources_test.ts`; this pins the guards directly so a wrong
  * change to GC fails loudly: GC reclaims a vanished worktree's resource AND
  * NOTHING ELSE (never a live one, never a recycled handle, never a half-expanded
- * command, never a gc-opted-out one).
+ * command, never a resource opted out of pruning).
  */
 
 import {
@@ -124,13 +124,13 @@ create = "a"
   assertEquals(readResourceSpecs(cfg).map((s) => s.name), ["zebra", "alpha"]);
 });
 
-Deno.test("readResourceSpecs: required/gc default true; retries default 0", () => {
+Deno.test("readResourceSpecs: required/prunable default true; retries default 0", () => {
   const cfg = parseConfigOrThrow(`[worktree.resources.a]
 create = "x"
 [worktree.resources.b]
 create = "x"
 required = false
-gc = false
+prunable = false
 retries = 3
 `);
   const specs = readResourceSpecs(cfg);
@@ -138,8 +138,8 @@ retries = 3
   const b = specs[1];
   assertExists(a);
   assertExists(b);
-  assertEquals([a.required, a.gc, a.retries], [true, true, 0]);
-  assertEquals([b.required, b.gc, b.retries], [false, false, 3]);
+  assertEquals([a.required, a.prunable, a.retries], [true, true, 0]);
+  assertEquals([b.required, b.prunable, b.retries], [false, false, 3]);
 });
 
 // ── .env upsert ───────────────────────────────────────────────────────────────
@@ -236,14 +236,17 @@ async function commonAndKey(
 /** A worktree config declaring one resource whose create/destroy touch markers
  * under `markers` (an absolute dir OUTSIDE the worktree, so a destroy still works
  * after the worktree is gone). */
-function resourceConfig(markers: string, opts: { gc?: boolean } = {}): string {
-  const gcLine = opts.gc === false ? "\ngc = false" : "";
+function resourceConfig(
+  markers: string,
+  opts: { prunable?: boolean } = {},
+): string {
+  const prunableLine = opts.prunable === false ? "\nprunable = false" : "";
   return `[project]
 slug = "proj"
 
 [worktree.resources.thing]
 create  = "mkdir -p ${markers} && touch ${markers}/@resource@.live"
-destroy = "rm -f ${markers}/@resource@.live; mkdir -p ${markers} && touch ${markers}/@resource@.gone"${gcLine}
+destroy = "rm -f ${markers}/@resource@.live; mkdir -p ${markers} && touch ${markers}/@resource@.gone"${prunableLine}
 `;
 }
 
@@ -871,14 +874,14 @@ Deno.test("GC --dry-run reports the orphan but acts on nothing", async () => {
   });
 });
 
-Deno.test("GC never reclaims a gc=false resource (teardown-only)", async () => {
+Deno.test("GC never reclaims a non-prunable resource (teardown-only)", async () => {
   await withTempDir(async (dir) => {
     await mainRepo(dir);
     const wt = await addWorktree(dir, "nogc");
     const markers = join(dir, "markers");
     await Deno.writeTextFile(
       join(wt, "discern.toml"),
-      resourceConfig(markers, { gc: false }),
+      resourceConfig(markers, { prunable: false }),
     );
     const { settings, identity } = await identityOf(wt, wt);
     const { common, key } = await commonAndKey(wt);
@@ -898,7 +901,7 @@ Deno.test("GC never reclaims a gc=false resource (teardown-only)", async () => {
     assertEquals(
       (await listEntries(common)).length,
       1,
-      "gc=false entry was reclaimed",
+      "non-prunable entry was reclaimed",
     );
   });
 });
@@ -923,7 +926,7 @@ Deno.test("GC refuses a frozen destroy command that still carries a token", asyn
       destroy_command: "rm -rf @dir@/cache", // unresolved token!
       token_map: {},
       retries: 0,
-      gc: true,
+      prunable: true,
       created_at: "2020-01-01T00:00:00.000Z",
     });
     const result = await gcOrphanResources({
@@ -965,7 +968,7 @@ const VALID_ENTRY = {
   destroy_command: "destroy-thing proj-gone-thing",
   token_map: {},
   retries: 0,
-  gc: true,
+  prunable: true,
   created_at: "2020-01-01T00:00:00.000Z",
 };
 

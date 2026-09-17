@@ -36,7 +36,7 @@ Setup runs in this order:
 | Branch               | Creates or confirms the worktree branch.                                                   |
 | Environment          | Copies declared values from the main checkout.                                             |
 | Resources            | Creates each declared resource and records its handle.                                     |
-| Identity             | Records the deterministic port when `[worktree].port` is on and an env file exists.        |
+| Identity             | Exports the deterministic port when `[worktree].export_port` is on.                        |
 | One-time setup       | Journals and runs incomplete `[worktree.setup].steps`; completed identities stay complete. |
 | Shared convergence   | Runs `[repository].ensure` for checkout-generic dependencies and generated state.          |
 | Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.              |
@@ -72,7 +72,7 @@ On success, discern records `conversation`, `standing-grant` with scopes, or `ef
 
 When the branch holds later commits — an integrated landing compares against the submitted revision, so work added during checking counts — the checkout and branch stay, and the result's first sentence says so and names `discern done` then `discern accept` for them. When cleanup cannot complete for another reason, the landing stands and the first sentence names `discern worktree prune`. A Proof-note failure leaves the landing recorded and the note pending recovery; retrying does not land again. With `--target`, the selected submission lands first and the remaining submissions follow the queue's one canonical ordering under their own recorded grants, stopping at the first refusal or failure; `data.landings` reports every attempted landing with the selected member marked, and a stopped walk makes the call false without implying anything landed was undone.
 
-The Proof note preserves green landing evidence without adding a trunk commit. Its local write is on by default and fail-open. `[repository].proof_notes = "fetch"` adds fetch transport; publication remains explicit. [Proof notes](../20-quality-gate/proof-notes.md) covers the ref, command, and cross-clone recovery.
+The Proof note preserves green landing evidence without adding a trunk commit. Its local write is on by default and fail-open. `[repository].proof_notes_mode = "fetch"` adds fetch transport; publication remains explicit. [Proof notes](../20-quality-gate/proof-notes.md) covers the ref, command, and cross-clone recovery.
 
 Acceptance journals its transition in the worktree's Git administration and recovers without replaying one-shot authority or overwriting changed checkout data. Post-landing convergence cannot roll the trunk back, so later failures report the effects that already happened and cleanup continues. [Interrupted landing recovery](acceptance-recovery.md) covers the evidence, refusal paths, and `partial_acceptance` result ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md), [ADR 0366](../_adr/0366-landing-is-one-exact-repository-transaction.md)).
 

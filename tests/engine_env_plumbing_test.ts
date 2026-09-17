@@ -119,7 +119,7 @@ Deno.test("fleet rows derive id and port when the project has no env file", asyn
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n[worktree]\nport = true\n',
+      '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n[worktree]\nexport_port = true\n',
     );
     await gitInit(dir);
     const wt = await addWorktree(dir, "no-env-here");
@@ -264,7 +264,7 @@ Deno.test("inherit_env: values survive a one-shot `cp .env.example .env` setup s
     await writeConfig(
       dir,
       '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
-        '[worktree]\ninherit_env = ["APP_KEY"]\nport = true\n\n' +
+        '[worktree]\ninherit_env = ["APP_KEY"]\nexport_port = true\n\n' +
         '[worktree.setup]\nsteps = ["cp .env.example .env"]\n',
     );
     // The example ships in git (the worktree checkout needs it for the cp);
@@ -362,7 +362,7 @@ Deno.test("livePortsInUse enumerates the trunk and every sibling's own port", as
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      '[project]\nslug = "engine-test"\n\n[worktree]\nport = true\n',
+      '[project]\nslug = "engine-test"\n\n[worktree]\nexport_port = true\n',
     );
     await gitInit(dir);
     const sibling = await addWorktree(dir, "brisk-otter-a3f9c1");

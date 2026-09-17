@@ -26,6 +26,7 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { normalizeMapDir } from "../src/shared/map_path.ts";
 
 import { refreshScaffold } from "./engine_done_fixture.ts";
 
@@ -64,7 +65,7 @@ Deno.test("engine on non-default paths: refresh compiles instructions and render
     const adr = await Deno.readTextFile(
       join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
     );
-    assertStringIncludes(adr, `${mapDir}_adr/`);
+    assertStringIncludes(adr, `${normalizeMapDir(mapDir)}_adr/`);
     const defaults = SOURCE_PATH_NAMES.map((n) => SOURCE_PATHS[n].defaultPath);
     for await (
       const e of walk(join(dir, ".claude/skills"), {

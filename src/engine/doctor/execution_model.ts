@@ -122,7 +122,7 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "resource-destroy": {
     actor: "project",
     hint:
-      "Your `destroy` command for a per-worktree external resource. Runs at accept/teardown AND at orphan GC (`worktree prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
+      "Your `destroy` command for a per-worktree external resource. Runs at accept/teardown AND at orphan GC (`worktree prune`); author it idempotent and cwd-independent, and set `prunable = false` for a data-loss-sensitive resource you only want torn down explicitly.",
   },
   git: {
     actor: "discern",
@@ -409,7 +409,7 @@ function startVerb(cfg: DiscernConfig): VerbPlan {
       note: cfg.worktree.inherit_env.join(", "),
     }));
   }
-  if (cfg.worktree.port) {
+  if (cfg.worktree.export_port) {
     steps.push(step("env", BUILT_IN_STEP_LABELS.recordPort, {
       note: "deterministic dev-server port → .env",
     }));
@@ -523,7 +523,7 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
     worktreePath: "the worktree directory",
     mainRepo: "the trunk checkout",
     trunk: cfg.repository.trunk,
-    proofNotes: cfg.repository.proof_notes,
+    proofNotes: cfg.repository.proof_notes_mode,
     repositoryEnsureSteps: cfg.repository.ensure,
     smokeSteps,
     hasResources: destroyable.length > 0,
@@ -613,8 +613,8 @@ function pruneVerb(cfg: DiscernConfig): VerbPlan {
     if (r.destroy !== "") {
       steps.push(step("resource-destroy", verbatimStepLabel(name), {
         note: r.destroy,
-        condition: r.gc === false
-          ? "never — gc = false (teardown-only; reclaimed only by an explicit accept/teardown)"
+        condition: r.prunable === false
+          ? "never — prunable = false (teardown-only; reclaimed only by an explicit accept/teardown)"
           : "if orphaned (its worktree vanished without a clean teardown)",
       }));
     }

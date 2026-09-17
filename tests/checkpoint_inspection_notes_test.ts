@@ -36,6 +36,7 @@ function inspection(obligation: CheckpointObligation): CheckpointInspection {
     openQuestions: {},
     storeReadable: true,
     drops: [],
+    ignoredConfigKeys: [],
   };
 }
 

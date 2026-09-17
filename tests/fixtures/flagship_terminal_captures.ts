@@ -39,7 +39,7 @@ const FIXTURE_CONFIG = [
   "[project]",
   'name = "Terminal Capture"',
   'slug = "terminal-capture"',
-  "logbook = false",
+  "record_logbook = false",
   "agents = []",
   "",
   "[repository]",

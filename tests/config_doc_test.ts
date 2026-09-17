@@ -32,6 +32,7 @@ import {
   RECORD_ENTRY_SCHEMAS,
 } from "../src/shared/config_schema.ts";
 import { recordConfigPaths } from "../src/shared/config_codegen.ts";
+import { SETUP_CONFIG_SCHEMA_MAJOR } from "../src/shared/public_schemas.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -58,6 +59,10 @@ Deno.test("assertSupportedVersion accepts an absent, matching, or minor-bumped v
   assertSupportedVersion({ version: Number(CONFIG_DOC_VERSION) });
   // A minor within the same major is fine (only the major is compared).
   assertSupportedVersion({ version: `${CONFIG_DOC_VERSION}.7` });
+});
+
+Deno.test("config document version equals the published setup schema major", () => {
+  assertEquals(CONFIG_DOC_VERSION, String(SETUP_CONFIG_SCHEMA_MAJOR));
 });
 
 Deno.test("assertSupportedVersion refuses an unknown major version", () => {
@@ -406,7 +411,7 @@ const COMPLETE_RECORD_DOC = {
         ensure: "tool database ensure",
         required: false,
         retries: 5,
-        gc: false,
+        prunable: false,
       },
     },
   },
@@ -482,8 +487,7 @@ Deno.test("applyConfigDoc materializes a bare built-in checkpoint table", () => 
   assertEquals(parseConfigOrThrow(ed.toString()).checkpoints["map-focus"], {});
 });
 
-Deno.test("version 2 projects the exact bounded setup and worktree schemas", () => {
-  assertEquals(CONFIG_DOC_VERSION, "2");
+Deno.test("the config document projects the exact bounded setup and worktree schemas", () => {
   assert(
     configDocSchema.shape.setup.unwrap() ===
       CONFIG_DOC_BOUNDED_SECTION_SCHEMAS.setup,
@@ -513,8 +517,8 @@ Deno.test("version 2 projects the exact bounded setup and worktree schemas", () 
       root: "../worktrees",
       inherit_env: ["APP_KEY"],
       env_files: [".env.test"],
-      port: true,
-      ignored_file_drift: false,
+      export_port: true,
+      track_ignored_drift: false,
       resources: {
         cache: {
           create: "tool cache create",
@@ -522,7 +526,7 @@ Deno.test("version 2 projects the exact bounded setup and worktree schemas", () 
           ensure: "tool cache ensure",
           required: false,
           retries: 3,
-          gc: false,
+          prunable: false,
         },
       },
       setup: {

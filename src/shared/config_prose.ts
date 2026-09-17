@@ -101,7 +101,7 @@ export const CONFIG_PROSE = {
     why:
       "The name and slug appear in worktree, branch, and site names and in every compiled instruction file, so agents and humans see one identity everywhere.",
     keys: {
-      logbook: {
+      record_logbook: {
         detail: [
           "Recording on is recommended. History cannot be recorded after the fact,",
           "and while recording is off this project goes without:",
@@ -115,7 +115,7 @@ export const CONFIG_PROSE = {
     why:
       "The trunk is where accepted work lands and where the gate compares from. Branch naming and convergence commands keep the main checkout and every linked worktree usable after their tracked tree changes.",
     keys: {
-      proof_notes: {
+      proof_notes_mode: {
         detail: [
           "`local` adds no transport; `fetch` manages a fetch-only mapping per remote.",
           "Publish only when the owner chooses:",

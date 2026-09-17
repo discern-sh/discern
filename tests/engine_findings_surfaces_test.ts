@@ -139,7 +139,7 @@ function gateConfig(testCommand: "true" | "false", logbook = true): string {
   return [
     "[project]",
     'slug = "surface-test"',
-    `logbook = ${logbook}`,
+    `record_logbook = ${logbook}`,
     "",
     "[meta]",
     "bootstrapped = true",

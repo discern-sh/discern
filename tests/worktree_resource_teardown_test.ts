@@ -32,7 +32,7 @@ Deno.test("worktree resource teardown retains ownership replaced before or durin
         destroy_command: ":",
         token_map: {},
         retries: 0,
-        gc: true,
+        prunable: true,
         created_at: "2026-09-05T00:00:00Z",
       };
       await writeEntry(common, entry);
@@ -103,7 +103,7 @@ Deno.test("resource ownership excludes concurrent cleaners across recycled Git k
       destroy_command: `echo destroyed >> '${root}/effects'; ${barrier.wait}`,
       token_map: {},
       retries: 0,
-      gc: true,
+      prunable: true,
       created_at: "2026-09-13T00:00:00Z",
     };
     await writeEntry(common, entry);

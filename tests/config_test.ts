@@ -89,7 +89,7 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
   ]);
   assertEquals(defaultInstructionScopes(), [
     '"discern/instructions.md"',
-    '"${skills.dir}/"',
+    '"${skills.dir}"',
     '"discern/brief.md"',
     '".claude/skills/"',
     '".agents/skills/"',
@@ -102,11 +102,11 @@ Deno.test("every gate-neutral authored path belongs to exactly one seed scope", 
   for (const name of SOURCE_PATH_NAMES) {
     const entry = SOURCE_PATHS[name];
     if (!entry.gateNeutral) continue;
-    const source = sourcePathReference(name) ?? entry.defaultPath;
-    const path = entry.pathKind === "directory" &&
-        !entry.defaultPath.endsWith("/")
-      ? `${source}/`
-      : source;
+    const reference = sourcePathReference(name);
+    const path = reference ??
+      (entry.pathKind === "directory"
+        ? `${entry.defaultPath.replace(/\/+$/, "")}/`
+        : entry.defaultPath);
     assertEquals(
       Number(docs.includes(path)) + Number(instructions.includes(path)),
       1,

@@ -10,7 +10,7 @@
       "type": "string"
     },
     "version": {
-      "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 2.",
+      "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 1.",
       "anyOf": [
         {
           "type": "string"
@@ -56,7 +56,7 @@
       "type": "object",
       "properties": {
         "dir": {
-          "default": "discern/map/",
+          "default": "discern/map",
           "description": "Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it.",
           "type": "string",
           "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
@@ -1220,12 +1220,12 @@
           },
           "uniqueItems": true
         },
-        "port": {
+        "export_port": {
           "default": false,
-          "description": "Record each worktree's deterministic dev-server port in its env files, for tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports it either way.",
+          "description": "When true, setup writes DISCERN_WORKTREE_PORT to configured env files, hooks warn when a sibling uses the derived port, and status shows it. The port exists either way, and `discern identity --port` always reports it.",
           "type": "boolean"
         },
-        "ignored_file_drift": {
+        "track_ignored_drift": {
           "default": true,
           "description": "Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.",
           "type": "boolean"
@@ -1268,7 +1268,7 @@
                 "minimum": 0,
                 "maximum": 5
               },
-              "gc": {
+              "prunable": {
                 "default": true,
                 "description": "false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.",
                 "type": "boolean"

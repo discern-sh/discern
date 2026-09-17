@@ -1504,7 +1504,7 @@ Deno.test("patterns: Standard variance investigations retain raw findings across
 Deno.test("patterns: current catalogue knowledge reinterprets historical raw MCP identity without rewriting it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await writeConfig(dir, "[project]\nrecord_logbook = false\n");
     await gitInit(dir);
     const path = await seedHistoricalMcpIdentityLogbook(dir);
     const before = await Deno.readTextFile(path);
@@ -1539,7 +1539,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     // Recording off keeps the seeded stream the whole stream — the harness's
     // own patterns runs would otherwise join the counts (the report still
     // reads existing history either way).
-    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await writeConfig(dir, "[project]\nrecord_logbook = false\n");
     await gitInit(dir);
     await seedStatsLogbook(dir);
 
@@ -1797,7 +1797,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
 Deno.test("patterns --stats: an empty logbook renders the empty state, and the wire carries zeros", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await writeConfig(dir, "[project]\nrecord_logbook = false\n");
     await gitInit(dir);
 
     const human = await runAgent(dir, ["patterns", "--stats"], {
@@ -1972,7 +1972,7 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
 Deno.test("patterns: 39, 80, 104, and capped reports keep hostile Logbook facts inert", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await writeConfig(dir, "[project]\nrecord_logbook = false\n");
     await gitInit(dir);
     const branch = "agent/測試-evil\u001b[31m\tb\u0007c\nz\u009b";
     const safeBranch = "agent/測試-evil␛[31m␉b␇c␊z<U+009B>";

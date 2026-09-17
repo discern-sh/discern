@@ -135,7 +135,7 @@ Deno.test("config reconciliation restores a missing fixed key in template order"
   assertStringIncludes(result.text, "# Cancel the in-flight sibling commands");
   assertStringIncludes(result.text, "fail_fast = true");
   assert(
-    result.text.indexOf("stream = false") <
+    result.text.indexOf("stream_output = false") <
         result.text.indexOf("fail_fast = true") &&
       result.text.indexOf("fail_fast = true") <
         result.text.indexOf("[coupling]"),
@@ -145,7 +145,10 @@ Deno.test("config reconciliation restores a missing fixed key in template order"
 
 Deno.test("config reconciliation preserves existing customized values", async () => {
   const template = await renderedTemplate();
-  const drifted = template.replace("stream = false", "stream = true").replace(
+  const drifted = template.replace(
+    "stream_output = false",
+    "stream_output = true",
+  ).replace(
     /\n\s*# Cancel the in-flight sibling commands[\s\S]*?fail_fast = true\n/u,
     "\n",
   );
@@ -153,7 +156,7 @@ Deno.test("config reconciliation preserves existing customized values", async ()
   const result = reconcileConfigTextWithTemplate(drifted, template);
 
   assertEquals(result.operations, [{ kind: "key", path: "gate.fail_fast" }]);
-  assertStringIncludes(result.text, "stream = true");
+  assertStringIncludes(result.text, "stream_output = true");
   assertStringIncludes(result.text, "fail_fast = true");
 });
 
@@ -269,13 +272,13 @@ Deno.test("a missing fixed banner never consumes the managed record banner befor
     gateBanner,
     "",
     "[gate]",
-    "stream = false",
+    "stream_output = false",
   ].join("\n");
   const config = [
     standardsBanner,
     "",
     "[gate]",
-    "stream = false",
+    "stream_output = false",
   ].join("\n");
 
   const result = reconcileConfigTextWithTemplate(config, template);

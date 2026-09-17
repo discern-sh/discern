@@ -32,7 +32,7 @@ These are project sources. Your agents maintain them as the project changes.
 | `discern/brief.md`        | Project-owned | The project description captured during setup.                  | Update it when the project's purpose materially moves.   |
 | `discern/skills/`         | Project-owned | Skills your project creates or overrides.                       | Add or edit each Skill at its source.                    |
 | `discern/scripts/`        | Project-owned | Project-specific executables reached through `discern scripts`. | Edit and test the executable itself.                     |
-| `discern/map/`            | Project-owned | The maintained project Map agents keep current with the code.   | Edit the authored Markdown. `[map].dir` can relocate it. |
+| `discern/map`             | Project-owned | The maintained project Map agents keep current with the code.   | Edit the authored Markdown. `[map].dir` can relocate it. |
 
 <!-- /discern-workflow -->
 

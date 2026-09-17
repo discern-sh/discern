@@ -22,6 +22,9 @@ import {
 } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
+import { withResultObserver } from "../src/shared/result_capture.ts";
+import type { DiscernResult } from "../src/shared/result.ts";
+import { runConfigSet } from "../src/commands/config.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
@@ -717,22 +720,6 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
         );
       },
     ],
-    [
-      "retired job-setting subcommands hard-error with set-job",
-      async (dir) => {
-        for (const retired of ["set-capability", "set-check"]) {
-          const r = await runCli(
-            ["config", retired, "test", "true", "--json"],
-            dir,
-          );
-          assertEquals(r.code, 1, `${retired}: ${r.stdout}${r.stderr}`);
-          const result = decodeCliResult(r.stdout, "discern");
-          assertEquals(result.verb, "discern");
-          assertEquals(result.error, "renamed_command");
-          assertStringIncludes(resultMessage(result), "config set-job");
-        }
-      },
-    ],
   ]);
 });
 
@@ -879,17 +866,30 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
       },
     ],
     [
-      "config set redirects the retired standards key to its successor",
+      "config set redirects a synthetic retired key to its successor",
       async (dir) => {
         const before = await readToml(dir);
-        const retired = "ratchets";
-        assertEquals(RETIRED_CONFIG_KEY_REDIRECTS[retired], "standards");
-        const result = await runCli(
-          ["config", "set", `${retired}.coverage.limit`, "80", "--json"],
-          dir,
+        assertEquals(RETIRED_CONFIG_KEY_REDIRECTS, {});
+        const redirects = { legacy_standards: "standards" } as const;
+        const observed: DiscernResult[] = [];
+        const code = await withResultObserver(
+          (result) => observed.push(result),
+          () =>
+            runConfigSet(
+              "legacy_standards.coverage.limit",
+              "80",
+              {
+                json: true,
+                noColor: true,
+                dryRun: false,
+                cwd: dir,
+              },
+              redirects,
+            ),
         );
-        assertEquals(result.code, 1);
-        const envelope = decodeCliResult(result.stdout, "config");
+        assertEquals(code, 1);
+        const envelope = observed[0];
+        assertExists(envelope);
         assertEquals(envelope.error, "renamed_config_key");
         assertStringIncludes(
           resultMessage(envelope),
@@ -914,11 +914,11 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
       "config set infers types (number / bool / string)",
       async (dir) => {
         await runCli(["config", "set", "standards.coverage.limit", "80"], dir);
-        await runCli(["config", "set", "worktree.port", "false"], dir);
+        await runCli(["config", "set", "worktree.export_port", "false"], dir);
         await runCli(["config", "set", "repository.trunk", "trunk"], dir);
         const toml = await readToml(dir);
         assertStringIncludes(toml, "limit = 80"); // number (inferred)
-        assertStringIncludes(toml, "port = false"); // bool (inferred)
+        assertStringIncludes(toml, "export_port = false"); // bool (inferred)
         assertStringIncludes(toml, 'trunk = "trunk"'); // string (inferred)
       },
     ],
@@ -1057,15 +1057,20 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
         await Deno.writeTextFile(
           path,
           (await Deno.readTextFile(path)).replace(
-            "port = false",
-            "port = false   # deterministic dev-server port",
+            "export_port = false",
+            "export_port = false   # deterministic dev-server port",
           ),
         );
-        const r = await runCli(["config", "set", "worktree.port", "true"], dir);
+        const r = await runCli([
+          "config",
+          "set",
+          "worktree.export_port",
+          "true",
+        ], dir);
         assertEquals(r.code, 0, r.stderr);
         assertStringIncludes(
           await readToml(dir),
-          "port = true # deterministic dev-server port",
+          "export_port = true # deterministic dev-server port",
         );
       },
     ],
@@ -1132,15 +1137,15 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
       async (dir) => {
         // Valid: "true"/"false" pass through tomlBool.
         const ok = await runCli(
-          ["config", "set", "gate.stream", "true", "--bool"],
+          ["config", "set", "gate.stream_output", "true", "--bool"],
           dir,
         );
         assertEquals(ok.code, 0, ok.stderr);
-        assertStringIncludes(await readToml(dir), "stream = true");
+        assertStringIncludes(await readToml(dir), "stream_output = true");
 
         // Invalid: a non-boolean value for a boolean key is refused.
         const bad = await runCli(
-          ["config", "set", "gate.stream", "yes", "--bool", "--json"],
+          ["config", "set", "gate.stream_output", "yes", "--bool", "--json"],
           dir,
         );
         assertEquals(bad.code, 1);

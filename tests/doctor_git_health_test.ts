@@ -40,8 +40,8 @@ async function setupRepository(dir: string): Promise<void> {
   await Deno.writeTextFile(
     configPath,
     (await Deno.readTextFile(configPath)).replace(
-      "logbook = true",
-      "logbook = false",
+      "record_logbook = true",
+      "record_logbook = false",
     ),
   );
   await git(dir, "add", "-A");

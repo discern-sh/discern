@@ -327,7 +327,7 @@ async function writeFakeDiscern(
   );
   const scaffoldMap = options.scaffoldMap === false
     ? ""
-    : `mkdir -p ${SOURCE_PATHS.map.defaultPath}; printf '# Map\\n' > ${SOURCE_PATHS.map.defaultPath}README.md`;
+    : `mkdir -p ${SOURCE_PATHS.map.defaultPath}; printf '# Map\\n' > ${SOURCE_PATHS.map.defaultPath}/README.md`;
   const materializeLegal = options.materializedLegalPath === undefined
     ? ""
     : `mkdir -p ${
@@ -473,7 +473,7 @@ Deno.test("release smoke rejects a binary missing licenses, docs, or templates",
     await assertRejects(
       () => smokeReleaseBinary(noMap, "1.2.3"),
       Error,
-      `did not scaffold ${SOURCE_PATHS.map.defaultPath}README.md`,
+      `did not scaffold ${SOURCE_PATHS.map.defaultPath}/README.md`,
     );
 
     const missingPayloadLicense = await writeFakeDiscern(dir, {

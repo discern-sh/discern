@@ -23,9 +23,8 @@ export interface SourcePathEntry {
    * appears). */
   readonly key: string | null;
   /** The prescriptive default. Authored sources live under `discern/`, away
-   * from host-project paths. Directories carry their canonical shape
-   * (`[map].dir` keeps its trailing slash; the skills/scripts dirs do not),
-   * matching what the schema defaults and the shipped template write. */
+   * from host-project paths. Defaults omit trailing slashes so every path has
+   * one canonical spelling across the schema and shipped template. */
   readonly defaultPath: string;
   /** Whether the write-surface contract admits one file or a directory tree. */
   readonly pathKind: "file" | "directory";
@@ -75,7 +74,7 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
   },
   map: {
     key: "map.dir",
-    defaultPath: "discern/map/",
+    defaultPath: "discern/map",
     pathKind: "directory",
     resolution: "configured",
     ownership: { "project-owned": true },
