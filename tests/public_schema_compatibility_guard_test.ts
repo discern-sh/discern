@@ -9,6 +9,7 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { Ajv2020 } from "ajv-2020";
 import { z } from "@zod/zod";
+import { publicManifestValidityIssues } from "../scripts/contract_manifest_compatibility.ts";
 import {
   buildCurrentPublicSchema,
   initialPublicationIssues,
@@ -236,6 +237,36 @@ const VOYAGE_PUBLICATION: PublicSchemaPublication = {
   label: "voyage results",
   contract: "voyage result envelopes",
 };
+
+Deno.test("conventions validity requires the durable registry and protocol objects", () => {
+  const manifest: JsonObject = {
+    format: 1,
+    git: {},
+    providers: {},
+    exit_statuses: {},
+    script_protocols: {},
+  };
+  assertEquals(
+    publicManifestValidityIssues(
+      manifest,
+      CONVENTIONS_COMPATIBILITY_POLICY,
+      "fixture",
+    ),
+    [],
+  );
+  for (const key of ["exit_statuses", "script_protocols"]) {
+    const missing = clone(manifest);
+    delete missing[key];
+    assertEquals(
+      publicManifestValidityIssues(
+        missing,
+        CONVENTIONS_COMPATIBILITY_POLICY,
+        "fixture",
+      ),
+      [`fixture: $.${key} must be an object`],
+    );
+  }
+});
 
 /**
  * Deliberately hand-typed contract-major tripwire. This is test evidence, not
