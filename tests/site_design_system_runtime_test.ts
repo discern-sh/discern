@@ -6,7 +6,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { fromFileUrl, join } from "@std/path";
+import { fromFileUrl, join, toFileUrl } from "@std/path";
 import {
   packageManifest,
   RUNTIME_MANIFEST_SCHEMA_VERSION,
@@ -36,6 +36,7 @@ import {
   DESIGN_SYSTEM_PACKAGE,
   DESIGN_SYSTEM_SPECIFIER,
   DESIGN_SYSTEM_VERSION,
+  moduleSpecifiers,
   reactRuntimeModules,
 } from "./design_system_dependency.ts";
 
@@ -80,14 +81,6 @@ const DENO_LOCK_SCHEMA = z.object({
   workspace: z.object({ links: z.record(z.string(), z.json()).optional() }),
 }).passthrough();
 
-const DENO_INFO_SCHEMA = z.object({
-  modules: z.array(
-    z.object({
-      specifier: z.string().optional(),
-    }).passthrough(),
-  ).optional(),
-}).passthrough();
-
 const RUNTIME_MANIFEST_SCHEMA = z.object({
   schemaVersion: z.literal(RUNTIME_MANIFEST_SCHEMA_VERSION),
   package: z.string(),
@@ -127,26 +120,6 @@ const RUNTIME_MANIFEST_SCHEMA = z.object({
     ),
   }).passthrough(),
 }).passthrough();
-
-/** Read Deno's resolved module graph for one site entrypoint. */
-async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
-  const output = await new Deno.Command(Deno.execPath(), {
-    args: ["info", "--json", entrypoint],
-    cwd: ROOT,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  if (!output.success) {
-    throw new Error(new TextDecoder().decode(output.stderr));
-  }
-  const info = decodeWith(
-    DENO_INFO_SCHEMA,
-    new TextDecoder().decode(output.stdout),
-  );
-  return (info.modules ?? []).flatMap((module) =>
-    module.specifier === undefined ? [] : [module.specifier]
-  );
-}
 
 /** Run a repository-scoped Git probe with captured output for design-system provenance checks. */
 async function git(args: string[]): Promise<Deno.CommandOutput> {
