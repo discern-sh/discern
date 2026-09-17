@@ -9,6 +9,7 @@
 
 import type { z } from "@zod/zod";
 import type { Command } from "@cliffy/command";
+import type { StabilityTier } from "./public_schemas.ts";
 import {
   RESULT_COMPLETION_POLICY_DEFINITIONS,
   type ResultCompletionPolicy,
@@ -137,7 +138,7 @@ export interface ResultContract {
    * descriptions never show it. Removing the marker graduates the member;
    * adding it to a member that was stable in a release is a break.
    */
-  stability?: "evolving" | undefined;
+  stability?: StabilityTier | undefined;
 }
 
 const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [

@@ -68,7 +68,11 @@ import {
 } from "./checkpoint_question_files.ts";
 import { type ConfigIssue, unknownRootSections } from "./config_issues.ts";
 import type { DiscernWrittenMetaKey } from "./config_metadata.ts";
-import { SETUP_CONFIG_SCHEMA_MAJOR } from "./public_schemas.ts";
+import {
+  PUBLIC_SCHEMA_STABILITY_KEY,
+  SETUP_CONFIG_SCHEMA_MAJOR,
+  STABILITY_TIER_EVOLVING,
+} from "./public_schemas.ts";
 
 export { AGENT_NAMES } from "./agent_catalogue.ts";
 export type { ConfigIssue } from "./config_issues.ts";
@@ -933,7 +937,12 @@ const couplingSection = z.strictObject({
   report_in_gate: z.boolean().default(true).describe(
     "Surface coupling findings as trailing hints in `discern done` and `discern prepare`, while the change is hot. false keeps coupling available through `discern coupling` alone.",
   ),
-}).prefault({}).describe(CONFIG_PROSE.coupling.what);
+}).prefault({}).describe(CONFIG_PROSE.coupling.what).meta({
+  // The section is complete and supported, but its keys may still change in a
+  // minor release. The published schema carries the tier; the comparator
+  // exempts the section; the manual's compatibility page lists it.
+  [PUBLIC_SCHEMA_STABILITY_KEY]: STABILITY_TIER_EVOLVING,
+});
 
 const scriptsSection = z.strictObject({
   dir: projectDirectoryPath.default(SOURCE_PATHS.scripts.defaultPath).describe(

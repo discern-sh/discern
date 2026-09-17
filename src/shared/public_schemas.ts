@@ -89,9 +89,25 @@ export const PROOF_NOTE_DSSE_ENVELOPE =
 export const PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY =
   "x-discern-compatibility-policy";
 
+/**
+ * The one compatibility tier below stable. An evolving member is complete and
+ * supported, but its shape may change, or the member may disappear, in any
+ * release, so the same-major comparators exempt it. Stable members carry no
+ * tier at all.
+ */
+export const STABILITY_TIER_EVOLVING = "evolving";
+export type StabilityTier = typeof STABILITY_TIER_EVOLVING;
+
+/** Schema-node keyword carrying a JSON Schema member's stability tier. */
+export const PUBLIC_SCHEMA_STABILITY_KEY = "x-discern-stability";
+
+/** Record field carrying a manifest member's stability tier. */
+export const MANIFEST_STABILITY_FIELD = "stability";
+
 /** Every discern extension keyword accepted by strict public-schema compilers. */
 export const PUBLIC_SCHEMA_EXTENSION_KEYWORDS = [
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  PUBLIC_SCHEMA_STABILITY_KEY,
   "x-discern-contracts",
   "x-discern-dsse-envelope",
   "x-discern-dsse-protocol",

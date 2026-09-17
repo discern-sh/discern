@@ -43,7 +43,9 @@ import {
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
   PUBLIC_SCHEMA_EXTENSION_KEYWORDS,
   PUBLIC_SCHEMA_PUBLICATIONS,
+  PUBLIC_SCHEMA_STABILITY_KEY,
   SETUP_CONFIG_SCHEMA_ID,
+  STABILITY_TIER_EVOLVING,
 } from "../src/shared/public_schemas.ts";
 import { withTempDir } from "./helpers.ts";
 import { scaffoldEngine } from "./engine_helpers.ts";
@@ -152,6 +154,38 @@ Deno.test("generated configuration schemas compile in strict mode", () => {
   }
   ajv.compile(decodeWith(JsonObjectSchema, renderConfigSchemaJson()));
   ajv.compile(decodeWith(JsonObjectSchema, renderConfigDocSchemaJson()));
+});
+
+Deno.test("section stability in the published config schema comes from the schema's registered metadata", () => {
+  // The Zod schema is the one authority for which sections are evolving: the
+  // generated node carries exactly the tier its section registered, and no
+  // section acquires a tier from anywhere else. A hand-kept key list in the
+  // generator would let the two disagree; parity over every section forbids it.
+  const published = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
+  const properties = published.properties;
+  assert(isJsonObject(properties), "the config schema publishes sections");
+  const evolving: string[] = [];
+  for (const [section, schema] of Object.entries(configSchema.shape)) {
+    const registered = z.globalRegistry.get(schema)?.[
+      PUBLIC_SCHEMA_STABILITY_KEY
+    ];
+    const node = properties[section];
+    assert(isJsonObject(node), `[${section}] is a published section`);
+    assertEquals(
+      node[PUBLIC_SCHEMA_STABILITY_KEY],
+      registered,
+      `[${section}] publishes the tier its schema registered`,
+    );
+    if (registered === STABILITY_TIER_EVOLVING) evolving.push(section);
+  }
+  assert(
+    evolving.length > 0,
+    "at least one section must be evolving for the projection to be exercised",
+  );
+  assert(
+    PUBLIC_SCHEMA_EXTENSION_KEYWORDS.includes(PUBLIC_SCHEMA_STABILITY_KEY),
+    "the stability keyword must be accepted by strict public-schema compilers",
+  );
 });
 
 Deno.test("the generated config schemas fix the two historical staleness bugs", () => {

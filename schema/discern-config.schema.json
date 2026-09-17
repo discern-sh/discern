@@ -1438,6 +1438,7 @@
     },
     "coupling": {
       "description": "Co-change detection from git history.",
+      "x-discern-stability": "evolving",
       "default": {},
       "type": "object",
       "properties": {
