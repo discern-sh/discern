@@ -282,6 +282,27 @@ Deno.test("the production server renders React without importing its browser ent
   );
 });
 
+Deno.test("the corpus model the route inventory evaluates during codegen stays React-free", async () => {
+  // Codegen evaluates `site/docs.tsx` through the route inventory under a
+  // permission set that excludes the `NODE_ENV` read `react-dom` performs on
+  // load. React joins the model in `site/documents.tsx` and under `site/ui/`.
+  // The automatic JSX transform declares `react/jsx-runtime` for every
+  // `.tsx` module; a module without JSX never imports it at run time.
+  const modules = await moduleSpecifiers(join(ROOT, "site/docs.tsx"));
+  assertEquals(
+    reactRuntimeModules(modules).filter((specifier) =>
+      !specifier.endsWith("/jsx-runtime")
+    ),
+    [],
+  );
+  assertEquals(
+    modules.filter((specifier) =>
+      specifier.startsWith(toFileUrl(join(ROOT, "site/ui")).href)
+    ),
+    [],
+  );
+});
+
 Deno.test("each emitted bundle is the dependency closure of the site selection", async () => {
   for (
     const name of Object.keys(DESIGN_SYSTEM_BUNDLES) as DesignSystemBundleName[]
