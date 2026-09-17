@@ -1,5 +1,6 @@
 /** Public emergency review and outstanding-validation projections share the recorded claim. */
 import { z } from "@zod/zod";
+import { openVocabulary } from "./result_vocabulary.ts";
 import { ExceptionClaimSchema } from "../engine/completion/exception_claim.ts";
 import { CandidateSchema } from "../engine/completion/candidate.ts";
 import { CompletionProofPointerSchema } from "./completion_proof.ts";
@@ -9,7 +10,7 @@ export const EmergencyValidationSchema = z.strictObject({
   head: z.string(),
   reason: z.string(),
   exceptions: ExceptionClaimSchema.shape.exceptions,
-  state: z.enum(["outstanding", "resolved"]),
+  state: openVocabulary("x-discern-exception-validation-states"),
   resolved_by: CompletionProofPointerSchema.optional(),
   next_action: z.string(),
 });
@@ -23,10 +24,10 @@ export const EmergencyDataSchema = z.strictObject({
   preparation: z.string().optional(),
   expires_at: z.number().optional(),
   landing_id: z.string().optional(),
-  outcome: z.enum(["preview", "prepared", "landed", "not-landed", "recovery"])
+  outcome: openVocabulary("x-discern-emergency-outcomes")
     .optional(),
   /** Whether the exception note reached the landed commit. */
-  note: z.enum(["pending", "published", "failed"]).optional(),
+  note: openVocabulary("x-discern-emergency-note-statuses").optional(),
   /** What became of the repair's checkout after the landing. */
-  cleanup: z.enum(["removed", "kept", "failed"]).optional(),
+  cleanup: openVocabulary("x-discern-emergency-cleanups").optional(),
 });

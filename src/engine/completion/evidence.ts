@@ -1,5 +1,6 @@
 /** Machine evidence contracts. The producer evaluator owns applicability and assembly. */
 import { z } from "@zod/zod";
+import { decisionVocabulary } from "../../shared/result_vocabulary.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import {
   DigestSchema,
@@ -26,13 +27,17 @@ export const ArtifactPathSchema = z.string().min(1).refine(
 
 export const RequirementSchema = z.strictObject({
   id: NameSchema,
-  kind: z.enum(["job", "scope", "standard"]),
+  kind: decisionVocabulary("x-discern-requirement-kinds"),
   definition: DigestSchema,
 });
 export type Requirement = z.infer<typeof RequirementSchema>;
 
-export const CompletionModeSchema = z.enum(["strict", "report"]);
-export const EvidencePurposeSchema = z.enum(["completion", "diagnostic"]);
+export const CompletionModeSchema = decisionVocabulary(
+  "x-discern-validation-modes",
+);
+export const EvidencePurposeSchema = decisionVocabulary(
+  "x-discern-evidence-purposes",
+);
 
 /** All equality dimensions are explicit; unknown closure uses candidate binding. */
 export const ApplicabilitySchema = z.strictObject({

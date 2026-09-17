@@ -1,3 +1,23 @@
+import {
+  CHECKPOINT_MODES,
+  CHECKPOINT_OBLIGATION_STATES,
+  RELATED_CHECKPOINT_KINDS,
+  TRIGGER_VETOES,
+} from "./checkpoints.ts";
+import {
+  ENTRY_CHECKPOINT_DROP_REASONS,
+  GATE_MODES,
+  POLICY_CHECKPOINT_DROP_REASONS,
+} from "./checkpoint_drops.ts";
+import { CONFIG_ISSUE_KINDS } from "./config_issues.ts";
+import { CONFIG_RECONCILE_OPERATION_KINDS } from "./config_reconcile.ts";
+import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
+import { FIRST_PARTY_LEGAL_DOCUMENT_KINDS } from "./license_registry.ts";
+import { MANUAL_KINDS } from "./manual.ts";
+import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
+import { TRUST_ACTION_KINDS, TRUST_FACT_KINDS } from "./provider_trust.ts";
+import { WORKTREE_FIELDS } from "./worktree_identity_fields.ts";
+
 /**
  * The engine's **result & plan vocabulary** — the single source of truth for what
  * every `discern` verb returns. A verb computes a pure {@link DiscernResult}; its
@@ -454,6 +474,577 @@ export const ERROR_SLUGS = [
 
 /** One known live error slug ({@link ERROR_SLUGS}). */
 export type ErrorSlug = (typeof ERROR_SLUGS)[number];
+
+// ── the published output vocabularies ───────────────────────────────────────
+
+/** One published output vocabulary: its declaration name and current members. */
+export interface ResultVocabulary {
+  /**
+   * PascalCase singular. The declarations export `DiscernKnown<Name>` for an
+   * open vocabulary; the digest lists both kinds by it.
+   */
+  readonly name: string;
+  /** The members the current engine emits, in publication order. */
+  readonly values: readonly [string, ...string[]];
+}
+
+/** Every `x-discern-…` root key names one vocabulary; the key is its identity. */
+type ResultVocabularyRegistry = Readonly<
+  Record<`x-discern-${string}`, ResultVocabulary>
+>;
+
+/** The gate-proof check statuses, shared by the proof and await vocabularies. */
+const PROOF_STATUSES = [
+  "honored",
+  "report_only",
+  "missing",
+  "stale",
+  "dirty",
+  "unavailable",
+  "read_failed",
+] as const;
+
+/**
+ * Output vocabularies the engine only carries or displays. Each publishes in
+ * the public result and proof-note schemas as `type: string`, with its known
+ * members under its key at the schema root, so a new member is compatible by
+ * construction and a consumer treats an unknown one as opaque. Adding a member
+ * means editing one array here (or the registry an entry points at); removing
+ * one is a break the comparator reports. `result_vocabulary.ts` builds each
+ * runtime enum from this registry, so the strict writer schemas and the
+ * published members cannot disagree.
+ */
+export const RESULT_OPEN_VOCABULARIES = {
+  // envelope
+  "x-discern-error-slugs": { name: "ErrorSlug", values: ERROR_SLUGS },
+  "x-discern-advisory-kinds": {
+    name: "AdvisoryKind",
+    values: RESULT_ADVISORY_KINDS,
+  },
+  "x-discern-step-kinds": { name: "StepKind", values: STEP_KINDS },
+  "x-discern-step-dispositions": {
+    name: "StepDisposition",
+    values: STEP_DISPOSITIONS,
+  },
+  "x-discern-failed-stages": { name: "FailedStage", values: FAILED_STAGES },
+  "x-discern-actors": { name: "Actor", values: ACTORS },
+  "x-discern-config-issue-kinds": {
+    name: "ConfigIssueKind",
+    values: CONFIG_ISSUE_KINDS,
+  },
+  // checkpoints and Proof
+  "x-discern-policy-checkpoint-drop-reasons": {
+    name: "PolicyCheckpointDropReason",
+    values: POLICY_CHECKPOINT_DROP_REASONS,
+  },
+  "x-discern-entry-checkpoint-drop-reasons": {
+    name: "EntryCheckpointDropReason",
+    values: ENTRY_CHECKPOINT_DROP_REASONS,
+  },
+  "x-discern-consent-sources": {
+    name: "ConsentSource",
+    values: LANDING_CONSENT_SOURCES,
+  },
+  "x-discern-trigger-vetoes": { name: "TriggerVeto", values: TRIGGER_VETOES },
+  "x-discern-related-checkpoint-kinds": {
+    name: "RelatedCheckpointKind",
+    values: RELATED_CHECKPOINT_KINDS,
+  },
+  "x-discern-checkpoint-obligations": {
+    name: "CheckpointObligation",
+    values: CHECKPOINT_OBLIGATION_STATES,
+  },
+  "x-discern-checkpoint-review-statuses": {
+    name: "CheckpointReviewStatus",
+    values: ["not_needed", "unreviewed"],
+  },
+  "x-discern-open-question-states": {
+    name: "OpenQuestionState",
+    values: [
+      "awaiting_declaration",
+      "declared_met",
+      "declared_unmet",
+      "reopened",
+    ],
+  },
+  "x-discern-declaration-conclusions": {
+    name: "DeclarationConclusion",
+    values: ["met", "unmet"],
+  },
+  "x-discern-proof-statuses": { name: "ProofStatus", values: PROOF_STATUSES },
+  "x-discern-await-proof-statuses": {
+    name: "AwaitProofStatus",
+    values: [...PROOF_STATUSES, "no-worktree"],
+  },
+  "x-discern-gate-proof-recording-statuses": {
+    name: "GateProofRecordingStatus",
+    values: [
+      "recorded",
+      "diagnostic",
+      "pending",
+      "skipped_dirty",
+      "skipped_head_moved",
+      "unavailable",
+      "record_failed",
+      "cleared",
+      "clear_failed",
+    ],
+  },
+  "x-discern-gate-completion-kinds": {
+    name: "GateCompletionKind",
+    values: ["diagnostic", "complete", "pending"],
+  },
+  "x-discern-gate-validation-modes": {
+    name: "GateValidationMode",
+    values: ["proof", "rerun"],
+  },
+  "x-discern-attempt-outcomes": {
+    name: "AttemptOutcome",
+    values: ["passed", "failed", "cancelled"],
+  },
+  // standards
+  "x-discern-standard-measurements": {
+    name: "StandardMeasurement",
+    values: [
+      "measured", // the run command executed inside the gate's parallel group
+      "replayed", // the recorded baseline value stood in; its inputs were untouched
+      "skipped", // the gate aborted (fail-fast, an earlier stage) before it ran
+      "cancelled", // interrupted production has no completed measurement verdict
+      "stale", // produced evidence is inapplicable to the observed subject
+    ],
+  },
+  "x-discern-standard-verdicts": {
+    name: "StandardVerdict",
+    values: ["improved", "held", "regressed"],
+  },
+  "x-discern-standards-limits-statuses": {
+    name: "StandardsLimitsStatus",
+    values: ["verified", "proposed", "loosened", "unverified", "parse_failed"],
+  },
+  "x-discern-proposal-statuses": {
+    name: "ProposalStatus",
+    values: ["recorded", "rebound", "replaced", "unchanged", "recovered"],
+  },
+  "x-discern-producer-evidence-uses": {
+    name: "ProducerEvidenceUse",
+    values: ["executed", "reused"],
+  },
+  "x-discern-producer-closures": {
+    name: "ProducerClosure",
+    values: ["declared", "candidate"],
+  },
+  // landing
+  "x-discern-proof-note-fetch-modes": {
+    name: "ProofNoteFetchMode",
+    values: ["local", "fetch"],
+  },
+  "x-discern-proof-note-fetch-statuses": {
+    name: "ProofNoteFetchStatus",
+    values: ["local", "wired", "unchanged", "no_remote", "failed"],
+  },
+  "x-discern-proof-note-write-statuses": {
+    name: "ProofNoteWriteStatus",
+    values: ["recorded", "already_present", "record_failed", "missing_proof"],
+  },
+  "x-discern-submission-authorities": {
+    name: "SubmissionAuthority",
+    values: ["pre-authorized", "awaiting-owner"],
+  },
+  "x-discern-authority-sources": {
+    name: "AuthoritySource",
+    values: ["effort-grant", "standing-grant"],
+  },
+  "x-discern-submission-readiness": {
+    name: "SubmissionReadiness",
+    values: ["ready", "waiting"],
+  },
+  "x-discern-submission-states": {
+    name: "SubmissionState",
+    values: ["planned", "queued"],
+  },
+  "x-discern-landing-statuses": {
+    name: "LandingStatus",
+    values: ["landed", "refused", "failed"],
+  },
+  "x-discern-integration-decisions": {
+    name: "IntegrationDecision",
+    values: ["declaration", "variance"],
+  },
+  "x-discern-integration-owners": {
+    name: "IntegrationOwner",
+    values: ["live", "interrupted"],
+  },
+  "x-discern-ignored-file-change-statuses": {
+    name: "IgnoredFileChangeStatus",
+    values: [
+      "disabled",
+      "baseline_missing",
+      "newer",
+      "unavailable",
+      "unchanged",
+      "changed",
+    ],
+  },
+  "x-discern-emergency-outcomes": {
+    name: "EmergencyOutcome",
+    values: ["preview", "prepared", "landed", "not-landed", "recovery"],
+  },
+  "x-discern-emergency-note-statuses": {
+    name: "EmergencyNoteStatus",
+    values: ["pending", "published", "failed"],
+  },
+  "x-discern-emergency-cleanups": {
+    name: "EmergencyCleanup",
+    values: ["removed", "kept", "failed"],
+  },
+  "x-discern-exception-validation-states": {
+    name: "ExceptionValidationState",
+    values: ["outstanding", "resolved"],
+  },
+  // await and progress
+  "x-discern-await-conditions": {
+    name: "AwaitCondition",
+    values: ["green", "landed", "trunk-moved"],
+  },
+  "x-discern-await-timeout-bases": {
+    name: "AwaitTimeoutBasis",
+    values: ["explicit", ...AWAIT_CALL_PROFILES, "cache-window"],
+  },
+  "x-discern-progress-phases": {
+    name: "ProgressPhase",
+    values: ["producer", "queue", "pending", "operation"],
+  },
+  "x-discern-executor-states": {
+    name: "ExecutorState",
+    values: ["running", "gone", "unknown"],
+  },
+  "x-discern-operation-outcomes": {
+    name: "OperationOutcome",
+    values: ["completed", "failed", "cancelled"],
+  },
+  "x-discern-work-states": {
+    name: "WorkState",
+    values: ["running", "passed", "failed", "cancelled"],
+  },
+  "x-discern-wait-states": {
+    name: "WaitState",
+    values: [
+      "waiting",
+      "resumed",
+      "unmet",
+      "cancelled",
+      "failed",
+      "unavailable",
+    ],
+  },
+  // status and the fleet
+  "x-discern-locations": { name: "Location", values: ["main", "worktree"] },
+  "x-discern-status-projection-modes": {
+    name: "StatusProjectionMode",
+    values: ["orientation", "full"],
+  },
+  "x-discern-managed-version-states": {
+    name: "ManagedVersionState",
+    values: ["unknown", "equal", "running-newer", "project-managed-by-newer"],
+  },
+  "x-discern-title-sources": {
+    name: "TitleSource",
+    values: ["recorded", "identity-fallback", "unavailable-fallback"],
+  },
+  "x-discern-reappeared-path-kinds": {
+    name: "ReappearedPathKind",
+    values: ["directory", "file", "symlink", "other"],
+  },
+  "x-discern-fleet-filesystem-states": {
+    name: "FleetFilesystemState",
+    values: ["directory", "missing", "other", "unreadable"],
+  },
+  "x-discern-fleet-action-outcomes": {
+    name: "FleetActionOutcome",
+    values: ["ok", "failed", "partial", "refused"],
+  },
+  "x-discern-fleet-setup-states": {
+    name: "FleetSetupState",
+    values: ["ready", "incomplete", "unavailable"],
+  },
+  "x-discern-setup-marker-states": {
+    name: "SetupMarkerState",
+    values: ["present", "missing", "unavailable"],
+  },
+  "x-discern-setup-journal-statuses": {
+    name: "SetupJournalStatus",
+    values: ["missing", "recorded", "unavailable"],
+  },
+  "x-discern-setup-journal-step-states": {
+    name: "SetupJournalStepState",
+    values: ["not_started", "running", "completed"],
+  },
+  "x-discern-setup-repair-kinds": {
+    name: "SetupRepairKind",
+    values: ["retry", "manual"],
+  },
+  "x-discern-identity-fields": {
+    name: "IdentityField",
+    values: WORKTREE_FIELDS,
+  },
+  // setup
+  "x-discern-setup-phases": {
+    name: "SetupPhase",
+    values: ["fresh", "in_progress", "done"],
+  },
+  "x-discern-setup-completion-evidence": {
+    name: "SetupCompletionEvidence",
+    values: ["proven", "unproven"],
+  },
+  "x-discern-known-job-states": {
+    name: "KnownJobState",
+    values: ["enforced", "deferred", "absent"],
+  },
+  "x-discern-assurance-verdicts": {
+    name: "AssuranceVerdict",
+    values: ["full", "partial", "minimal"],
+  },
+  "x-discern-setup-plan-actions": {
+    name: "SetupPlanAction",
+    values: ["create", "skip", "merge", "append", "remove"],
+  },
+  "x-discern-setup-moment-kinds": {
+    name: "SetupMomentKind",
+    values: ["explanation", "progress", "decision", "completion"],
+  },
+  "x-discern-setup-decision-kinds": {
+    name: "SetupDecisionKind",
+    values: [
+      "model-selection",
+      "project-name-confirmation",
+      "project-intent-gap",
+      "gate-protection-change",
+      "authored-source-collision",
+      "owner-policy-conflict",
+      "subsystem-sanity-check",
+      "worktree-resource-policy",
+      "documentation-claim-gap",
+      "external-reference-inspection",
+      "landing-choice",
+    ],
+  },
+  "x-discern-relay-protections": {
+    name: "RelayProtection",
+    values: ["adaptive", "verbatim-list"],
+  },
+  "x-discern-setup-conflict-kinds": {
+    name: "SetupConflictKind",
+    values: [
+      "existing_instructions",
+      "dirty_worktree",
+      "not_a_repo",
+      "missing_git_identity",
+    ],
+  },
+  "x-discern-setup-done-completions": {
+    name: "SetupDoneCompletion",
+    values: ["created", "replayed", "validated", "unproven"],
+  },
+  "x-discern-setup-done-stages": {
+    name: "SetupDoneStage",
+    values: [
+      "marker_commit",
+      "refresh",
+      "doctor",
+      "worktree_probe",
+      "done",
+      "proof",
+    ],
+  },
+  "x-discern-setup-done-refresh-stages": {
+    name: "SetupDoneRefreshStage",
+    values: ["refresh", "final_tree"],
+  },
+  "x-discern-setup-rollbacks": {
+    name: "SetupRollback",
+    values: ["not_needed", "owned_commit_removed", "retained"],
+  },
+  "x-discern-reactivation-check-kinds": {
+    name: "ReactivationCheckKind",
+    values: ["mcp", "cli"],
+  },
+  "x-discern-trust-action-kinds": {
+    name: "TrustActionKind",
+    values: TRUST_ACTION_KINDS,
+  },
+  "x-discern-trust-fact-kinds": {
+    name: "TrustFactKind",
+    values: TRUST_FACT_KINDS,
+  },
+  "x-discern-setup-accept-no-op-reasons": {
+    name: "SetupAcceptNoOpReason",
+    values: ["no_git_repository", "already_on_target"],
+  },
+  // upgrade, configuration, documentation, releases, skills
+  "x-discern-config-reconcile-kinds": {
+    name: "ConfigReconcileKind",
+    values: CONFIG_RECONCILE_OPERATION_KINDS,
+  },
+  "x-discern-gitignore-reconcile-kinds": {
+    name: "GitignoreReconcileKind",
+    values: ["create-block", "replace-block"],
+  },
+  "x-discern-gitattributes-reconcile-kinds": {
+    name: "GitattributesReconcileKind",
+    values: ["create-block", "replace-block", "remove-block"],
+  },
+  "x-discern-config-operations": {
+    name: "ConfigOperation",
+    values: ["array", "subsections", "keys"],
+  },
+  "x-discern-config-explain-kinds": {
+    name: "ConfigExplainKind",
+    values: ["section", "family", "key"],
+  },
+  "x-discern-doctor-check-statuses": {
+    name: "DoctorCheckStatus",
+    values: ["ok", "warn", "fail"],
+  },
+  "x-discern-manual-kinds": { name: "ManualKind", values: MANUAL_KINDS },
+  "x-discern-doc-matches": {
+    name: "DocMatch",
+    values: ["complete", "partial", "metadata"],
+  },
+  "x-discern-legal-document-kinds": {
+    name: "LegalDocumentKind",
+    values: FIRST_PARTY_LEGAL_DOCUMENT_KINDS,
+  },
+  "x-discern-release-repository-states": {
+    name: "ReleaseRepositoryState",
+    values: [
+      "recorded",
+      "missing",
+      "malformed",
+      "unavailable",
+      "newer",
+      "outside-repository",
+    ],
+  },
+  "x-discern-release-state-write-statuses": {
+    name: "ReleaseStateWriteStatus",
+    values: ["saved", "unchanged", "unavailable", "newer", "skipped"],
+  },
+  "x-discern-skill-sources": {
+    name: "SkillSource",
+    values: ["authored", "bundled"],
+  },
+  // improvement and patterns
+  "x-discern-next-action-kinds": {
+    name: "NextActionKind",
+    values: ["fix", "review", "decide"],
+  },
+  "x-discern-checkpoint-recommendations": {
+    name: "CheckpointRecommendation",
+    values: ["checkpoints.review", "checkpoints.graduate"],
+  },
+  "x-discern-rule-statuses": {
+    name: "RuleStatus",
+    values: ["pass", "partial", "fail"],
+  },
+  "x-discern-detector-families": {
+    name: "DetectorFamily",
+    values: ["trajectory", "gate-fit", "behavior", "funnel"],
+  },
+  "x-discern-detector-scopes": {
+    name: "DetectorScope",
+    values: ["branch", "session", "project"],
+  },
+  "x-discern-detector-tiers": {
+    name: "DetectorTier",
+    values: ["inline", "batch"],
+  },
+  "x-discern-detector-statuses": {
+    name: "DetectorStatus",
+    values: ["fired", "quiet", "insufficient-evidence"],
+  },
+  "x-discern-finding-tones": {
+    name: "FindingTone",
+    values: ["good", "neutral", "attention"],
+  },
+  "x-discern-evidence-value-kinds": {
+    name: "EvidenceValueKind",
+    values: ["observed", "estimated"],
+  },
+  "x-discern-validation-verbs": {
+    name: "ValidationVerb",
+    values: ["prepare", "test", "done"],
+  },
+  "x-discern-validation-routes": {
+    name: "ValidationRoute",
+    values: ["test-first", "commit-first", "unattributed"],
+  },
+  "x-discern-coupling-modes": {
+    name: "CouplingMode",
+    values: ["diff", "query", "evidence"],
+  },
+} as const satisfies ResultVocabularyRegistry;
+export type ResultOpenVocabularyKey = keyof typeof RESULT_OPEN_VOCABULARIES;
+
+/**
+ * Output vocabularies engine code branches on when it reads a value back, so
+ * they publish as closed enums: adding or removing a member is a break for
+ * the artifact that carries it. The proof-note reader refuses a note carrying
+ * an unknown member of one of these, where it reads an unknown member of an
+ * open vocabulary as opaque.
+ */
+export const RESULT_DECISION_VOCABULARIES = {
+  "x-discern-validation-modes": { name: "ValidationMode", values: GATE_MODES },
+  "x-discern-step-outcomes": { name: "StepOutcome", values: STEP_OUTCOMES },
+  "x-discern-diagnostic-severities": {
+    name: "DiagnosticSeverity",
+    values: DIAGNOSTIC_SEVERITIES,
+  },
+  "x-discern-proposal-directions": {
+    name: "ProposalDirection",
+    values: ["up", "down"],
+  },
+  "x-discern-evidence-purposes": {
+    name: "EvidencePurpose",
+    values: ["completion", "diagnostic"],
+  },
+  "x-discern-requirement-kinds": {
+    name: "RequirementKind",
+    values: ["job", "scope", "standard"],
+  },
+  "x-discern-checkpoint-modes": {
+    name: "CheckpointMode",
+    values: CHECKPOINT_MODES,
+  },
+  "x-discern-exception-states": {
+    name: "ExceptionState",
+    values: ["failed", "unrun", "stale"],
+  },
+  "x-discern-landing-authority-kinds": {
+    name: "LandingAuthorityKind",
+    values: LANDING_AUTHORITY_KINDS,
+  },
+  "x-discern-release-statuses": {
+    name: "ReleaseStatus",
+    values: [
+      "index",
+      "current",
+      "update-available",
+      "ahead",
+      "no-stable-release",
+    ],
+  },
+  "x-discern-release-publications": {
+    name: "ReleasePublication",
+    values: ["stable", "prerelease", "candidate"],
+  },
+} as const satisfies ResultVocabularyRegistry;
+export type ResultDecisionVocabularyKey =
+  keyof typeof RESULT_DECISION_VOCABULARIES;
+
+/** Every published output vocabulary key, open or closed. */
+export type ResultVocabularyKey =
+  | ResultOpenVocabularyKey
+  | ResultDecisionVocabularyKey;
 
 /**
  * The fields shared by every `discern` result. {@link DiscernResult} combines

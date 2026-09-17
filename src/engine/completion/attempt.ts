@@ -1,5 +1,6 @@
 /** One `done` run's durable claim over its candidate: planned, bound, then finished. */
 import { z } from "@zod/zod";
+import { openVocabulary } from "../../shared/result_vocabulary.ts";
 import { CompletionModeSchema, EvidencePurposeSchema } from "./evidence.ts";
 import {
   AttemptIdentitySchema,
@@ -86,7 +87,7 @@ export const AttemptSchema = z.strictObject({
     z.strictObject({ kind: z.literal("claimed"), claim: ClaimSchema }),
     z.strictObject({
       kind: z.literal("finished"),
-      outcome: z.enum(["passed", "failed", "cancelled"]),
+      outcome: openVocabulary("x-discern-attempt-outcomes"),
       finished_at: InstantSchema,
     }),
   ]),

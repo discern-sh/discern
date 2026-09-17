@@ -1,5 +1,4 @@
 import { EmergencyDataSchema, EmergencyValidationSchema } from "./emergency.ts";
-import { MANAGED_VERSION_STATES } from "./managed_version.ts";
 import { IgnoredFileChangeSummarySchema } from "./ignored_file_changes.ts";
 import {
   CompleteProofEvidenceSchema,
@@ -31,56 +30,26 @@ import {
  */
 
 import { z } from "@zod/zod";
+import { decisionVocabulary, openVocabulary } from "./result_vocabulary.ts";
 import { isSingleRunnableSetupCommand } from "./setup_next_action.ts";
-import { MANUAL_KINDS } from "./manual.ts";
 import {
   ACCEPT_LANDING_STATE_FIELDS,
   ACCEPT_LANDING_STATE_SHAPE,
   type AcceptLandingState,
   AcceptLandingStateSchema,
 } from "./accept_landing_state.ts";
-import {
-  ACTORS,
-  DIAGNOSTIC_SEVERITIES,
-  ERROR_SLUGS,
-  FAILED_STAGES,
-  RESULT_ADVISORY_KINDS,
-  STEP_DISPOSITIONS,
-  STEP_KINDS,
-  STEP_OUTCOMES,
-} from "./result.ts";
-import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
+import { RESULT_OPEN_VOCABULARIES } from "./result.ts";
 import { SetupHumanMomentProjectionSchema } from "./setup_experience.ts";
 import { validateStandardLimitReason } from "./standard_limit_reason.ts";
-import {
-  CHECKPOINT_MODES,
-  CHECKPOINT_OBLIGATION_STATES,
-  RELATED_CHECKPOINT_KINDS,
-  TRIGGER_VETOES,
-} from "./checkpoints.ts";
-import {
-  CHECKPOINT_DROP_ACCOUNT_MAX,
-  ENTRY_CHECKPOINT_DROP_REASONS,
-  GATE_MODES,
-  POLICY_CHECKPOINT_DROP_REASONS,
-} from "./checkpoint_drops.ts";
+import { CHECKPOINT_DROP_ACCOUNT_MAX } from "./checkpoint_drops.ts";
 import { UNKNOWN_GIT_COUNT } from "./git_count.ts";
-import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
-import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "./public_schemas.ts";
-import { FIRST_PARTY_LEGAL_DOCUMENT_KINDS } from "./license_registry.ts";
 import {
   CONTINUATION_HANDLE_LENGTH,
   CONTINUATION_HANDLE_PATTERN,
 } from "./continuation_handle.ts";
-import { CONFIG_ISSUE_KINDS } from "./config_issues.ts";
 import { configExplainDataSchema } from "./config_explain_schema.ts";
-import { CONFIG_RECONCILE_OPERATION_KINDS } from "./config_reconcile.ts";
-import { TRUST_ACTION_KINDS, TRUST_FACT_KINDS } from "./provider_trust.ts";
-import {
-  WORKTREE_FIELDS,
-  type WorktreeIdentityField,
-} from "./worktree_identity_fields.ts";
+import type { WorktreeIdentityField } from "./worktree_identity_fields.ts";
 import { TaskMetadataDataSchema } from "./task_metadata.ts";
 
 export {
@@ -105,18 +74,18 @@ export const GitCountSchema = z.union([
 // running real finish/accept results through them.
 
 /** The disposition vocabulary, derived from {@link STEP_DISPOSITIONS}. */
-const dispositionEnum = z.enum(STEP_DISPOSITIONS);
+const dispositionEnum = openVocabulary("x-discern-step-dispositions");
 
 /** The step-kind vocabulary, derived from {@link STEP_KINDS}. */
-const stepKindEnum = z.enum(STEP_KINDS);
+const stepKindEnum = openVocabulary("x-discern-step-kinds");
 
 /** The executed-step outcome, derived from {@link STEP_OUTCOMES}. */
-const outcomeEnum = z.enum(STEP_OUTCOMES);
+const outcomeEnum = decisionVocabulary("x-discern-step-outcomes");
 
 /** Mirror of {@link import("./result.ts").Diagnostic} — a normalized failure. */
 export const DiagnosticSchema = z.strictObject({
   tool: z.string(),
-  severity: z.enum(DIAGNOSTIC_SEVERITIES),
+  severity: decisionVocabulary("x-discern-diagnostic-severities"),
   message: z.string(),
   reproduce_cmd: z.string(),
   output: z.string().optional(),
@@ -140,7 +109,7 @@ export const PlanStepJsonSchema = z.strictObject({
 
 /** One optional degradation admitted by a verb's completion policy. */
 export const ResultAdvisorySchema = z.strictObject({
-  kind: z.enum(RESULT_ADVISORY_KINDS),
+  kind: openVocabulary("x-discern-advisory-kinds"),
   evidence: z.array(z.string().trim().min(1)).min(1),
   next_action: z.string().trim().min(1),
 });
@@ -195,7 +164,7 @@ const ENVELOPE_BASE_FIELDS = {
   diagnostic_evidence: DiagnosticEvidenceSchema.optional(),
   hints: z.array(z.string()).optional(),
   advisories: z.array(ResultAdvisorySchema).optional(),
-  error: z.enum(ERROR_SLUGS).optional(),
+  error: openVocabulary("x-discern-error-slugs").optional(),
   message: z.string().optional(),
 };
 
@@ -209,7 +178,7 @@ const ENVELOPE_BASE_FIELDS_WITHOUT_VERB = {
   diagnostic_evidence: DiagnosticEvidenceSchema.optional(),
   hints: z.array(z.string()).optional(),
   advisories: z.array(ResultAdvisorySchema).optional(),
-  error: z.enum(ERROR_SLUGS).optional(),
+  error: openVocabulary("x-discern-error-slugs").optional(),
   message: z.string().optional(),
 };
 
@@ -220,7 +189,7 @@ const SuccessStateSchema = z.looseObject({
 
 const FailureStateSchema = z.looseObject({
   ok: z.literal(false),
-  error: z.enum(ERROR_SLUGS).optional(),
+  error: openVocabulary("x-discern-error-slugs").optional(),
 });
 
 /** Success/failure discriminator mirrored from `DiscernResult`. */
@@ -326,7 +295,7 @@ export const DatalessEnvelopeSchema = envelopeObjectSchema(
 );
 
 export const ConfigIssueSchema = z.strictObject({
-  kind: z.enum(CONFIG_ISSUE_KINDS).optional(),
+  kind: openVocabulary("x-discern-config-issue-kinds").optional(),
   path: z.string(),
   message: z.string(),
 });
@@ -441,16 +410,16 @@ const PolicyCheckpointDropSchema = z.strictObject({
   checkpoint: z.null(),
   mode: z.null(),
   policy_commit: z.string().optional(),
-  reason: z.enum(POLICY_CHECKPOINT_DROP_REASONS),
+  reason: openVocabulary("x-discern-policy-checkpoint-drop-reasons"),
   account: z.string().max(CHECKPOINT_DROP_ACCOUNT_MAX),
 });
 
 const EntryCheckpointDropSchema = z.strictObject({
   scope: z.literal("checkpoint"),
   checkpoint: z.string(),
-  mode: z.enum(CHECKPOINT_MODES),
+  mode: decisionVocabulary("x-discern-checkpoint-modes"),
   policy_commit: z.string(),
-  reason: z.enum(ENTRY_CHECKPOINT_DROP_REASONS),
+  reason: openVocabulary("x-discern-entry-checkpoint-drop-reasons"),
   account: z.string().max(CHECKPOINT_DROP_ACCOUNT_MAX),
 });
 
@@ -473,7 +442,7 @@ export const StandardLimitProposalSchema = z.strictObject({
   definition_fingerprint: z.string(),
   trunk: z.string(),
   trunk_commit: z.string(),
-  direction: z.enum(["up", "down"]),
+  direction: decisionVocabulary("x-discern-proposal-directions"),
   trunk_limit: z.number(),
   proposed_limit: z.number(),
   measurement: z.number(),
@@ -509,7 +478,7 @@ const PROOF_SUMMARY_FIELDS = {
   ...DURABLE_PROOF_FACT_FIELDS,
   line: z.string(),
   /** Absent on Proof written before the strict/report distinction. */
-  mode: z.enum(GATE_MODES).optional(),
+  mode: decisionVocabulary("x-discern-validation-modes").optional(),
   checkpoint_drops: z.array(CheckpointDropSchema).optional(),
   standard_proposals: z.array(StandardLimitProposalSchema).optional(),
 };
@@ -518,7 +487,7 @@ const PROOF_SUMMARY_FIELDS = {
  * stay separate from changed-path counts while remaining explicit on every
  * public evidence surface. */
 export const RelatedCheckpointEvidenceSchema = z.strictObject({
-  kind: z.enum(RELATED_CHECKPOINT_KINDS),
+  kind: openVocabulary("x-discern-related-checkpoint-kinds"),
   for_path: z.string(),
   path: z.string(),
 });
@@ -573,7 +542,7 @@ export const CheckpointUnmetConclusionSchema = z.strictObject({
 });
 const ReportedCheckpointReviewEntrySchema = z.strictObject({
   id: z.string(),
-  mode: z.enum(CHECKPOINT_MODES),
+  mode: decisionVocabulary("x-discern-checkpoint-modes"),
   ...CHECKPOINT_QUESTION_PRESENTATION_FIELDS,
   matched: z.array(z.string()),
   related: z.array(RelatedCheckpointEvidenceSchema).optional(),
@@ -581,7 +550,7 @@ const ReportedCheckpointReviewEntrySchema = z.strictObject({
 
 export const CheckpointReviewReportSchema = z.strictObject({
   enforcement: z.literal("reported"),
-  status: z.enum(["not_needed", "unreviewed"]),
+  status: openVocabulary("x-discern-checkpoint-review-statuses"),
   unreviewed: z.array(ReportedCheckpointReviewEntrySchema).optional(),
 });
 
@@ -609,7 +578,7 @@ const PROOF_FIELDS = {
   ...DURABLE_PROOF_FACT_FIELDS,
   ...PROOF_PRESENTATION_FIELDS,
   /** Strict is implied for Proof written before this additive field existed. */
-  mode: z.enum(GATE_MODES).optional(),
+  mode: decisionVocabulary("x-discern-validation-modes").optional(),
   checkpoint_drops: z.array(CheckpointDropSchema).optional(),
   /** Present when checkpoints governed the run and any fired. */
   checkpoints: ProofCheckpointsSchema.optional(),
@@ -665,7 +634,7 @@ export function canonicalProof(proof: Proof): Proof {
 
 /** The recorded consent evidence used by one successful landing. */
 export const LandingConsentDataSchema = z.strictObject({
-  source: z.enum(LANDING_CONSENT_SOURCES),
+  source: openVocabulary("x-discern-consent-sources"),
   /** Present only for a standing grant: the scopes that covered changed paths. */
   scopes: z.array(z.string()).optional(),
 });
@@ -768,7 +737,7 @@ export const DurableProofClaimSchema = z.strictObject(
   {
     completion: CompleteProofEvidenceSchema,
     ...DURABLE_PROOF_FACT_FIELDS,
-    mode: z.enum(GATE_MODES).optional(),
+    mode: decisionVocabulary("x-discern-validation-modes").optional(),
     checkpoint_drops: z.array(CheckpointDropSchema).optional(),
     standard_proposals: z.array(StandardLimitProposalSchema).optional(),
   },
@@ -855,7 +824,7 @@ export const TolerantProofNotePayloadSchema = z.looseObject({
   proof: z.looseObject({
     completion: CompleteProofEvidenceSchema,
     ...DURABLE_PROOF_FACT_FIELDS,
-    mode: z.enum(GATE_MODES).optional(),
+    mode: decisionVocabulary("x-discern-validation-modes").optional(),
     checkpoint_drops: z.array(CheckpointDropSchema).optional(),
     standard_proposals: z.array(StandardLimitProposalSchema).optional(),
   }),
@@ -887,19 +856,15 @@ export const TolerantProofNoteSchema = z.looseObject({
 
 /** How one configured standard's measurement went in a gate run. The SSOT for the
  * measurement-disposition vocabulary — the engine types its outcomes from these. */
-export const STANDARD_MEASUREMENTS = [
-  "measured", // the run command executed inside the gate's parallel group
-  "replayed", // the recorded baseline value stood in — its inputs were untouched
-  "skipped", // the gate aborted (fail-fast, an earlier stage) before it ran
-  "cancelled", // interrupted production has no completed measurement verdict
-  "stale", // produced evidence is inapplicable to the observed subject
-] as const;
+export const STANDARD_MEASUREMENTS =
+  RESULT_OPEN_VOCABULARIES["x-discern-standard-measurements"].values;
 /** One measurement disposition ({@link STANDARD_MEASUREMENTS}). */
 export type StandardMeasurementDisposition =
   (typeof STANDARD_MEASUREMENTS)[number];
 
 /** A measured (or replayed) value's standing against its limit. */
-export const STANDARD_VERDICTS = ["improved", "held", "regressed"] as const;
+export const STANDARD_VERDICTS =
+  RESULT_OPEN_VOCABULARIES["x-discern-standard-verdicts"].values;
 /** One standard verdict ({@link STANDARD_VERDICTS}). */
 export type StandardVerdictLabel = (typeof STANDARD_VERDICTS)[number];
 
@@ -910,13 +875,13 @@ export type StandardVerdictLabel = (typeof STANDARD_VERDICTS)[number];
  * measurement stood in. */
 export const GateStandardSchema = z.strictObject({
   name: z.string(),
-  direction: z.enum(["up", "down"]),
+  direction: decisionVocabulary("x-discern-proposal-directions"),
   limit: z.number(),
   /** Configured headroom used by the Gate's mechanical pin decision. */
   margin: z.number().nonnegative().optional(),
-  measurement: z.enum(STANDARD_MEASUREMENTS),
+  measurement: openVocabulary("x-discern-standard-measurements"),
   value: z.number().optional(),
-  verdict: z.enum(STANDARD_VERDICTS).optional(),
+  verdict: openVocabulary("x-discern-standard-verdicts").optional(),
   duration_s: z.number().optional(),
   replayed_from: z.string().optional(),
   /** Gate-owned mechanical eligibility at this value. Recommendation policy
@@ -964,24 +929,12 @@ export const PinnedLimitSchema = z.strictObject({
 });
 /** How `standards propose` changed (or retained) its one proposal record. */
 export const StandardLimitProposalResultSchema = z.strictObject({
-  status: z.enum([
-    "recorded",
-    "rebound",
-    "replaced",
-    "unchanged",
-    "recovered",
-  ]),
+  status: openVocabulary("x-discern-proposal-statuses"),
   proposal: StandardLimitProposalSchema,
 });
 /** One atomic proposal transaction over a clean measured tree. */
 export const StandardLimitProposalBatchResultSchema = z.strictObject({
-  status: z.enum([
-    "recorded",
-    "rebound",
-    "replaced",
-    "unchanged",
-    "recovered",
-  ]),
+  status: openVocabulary("x-discern-proposal-statuses"),
   proposals: z.array(StandardLimitProposalSchema).min(1),
 });
 /** The `standards` verb's `data`: the per-standard readings (the same shape the
@@ -998,8 +951,8 @@ export const ProducerExecutionsSchema = z.record(
  * travel across commits; `candidate` binds it to the exact commit. */
 export const ProducerEvidenceSchema = z.strictObject({
   producer: z.string(),
-  use: z.enum(["executed", "reused"]),
-  closure: z.enum(["declared", "candidate"]),
+  use: openVocabulary("x-discern-producer-evidence-uses"),
+  closure: openVocabulary("x-discern-producer-closures"),
   reason: z.string(),
   /** The reused evidence record, when `use` is `reused`. */
   evidence_id: z.string().optional(),
@@ -1039,13 +992,7 @@ export type StandardsData = z.infer<typeof StandardsDataSchema>;
  * fetched but does not parse — the gate fails). The field name and status value
  * remain stable result-envelope vocabulary. */
 export const StandardsLimitsSchema = z.strictObject({
-  status: z.enum([
-    "verified",
-    "proposed",
-    "loosened",
-    "unverified",
-    "parse_failed",
-  ]),
+  status: openVocabulary("x-discern-standards-limits-statuses"),
   trunk: z.string(),
   reason: z.string().optional(),
 });
@@ -1060,9 +1007,9 @@ const landingAuthorityUncoveredSchema = z.strictObject({
 
 /** A read-only projection of recorded landing authority at one lifecycle moment. */
 export const LandingAuthorityDataSchema = z.strictObject({
-  kind: z.enum(LANDING_AUTHORITY_KINDS),
+  kind: decisionVocabulary("x-discern-landing-authority-kinds"),
   /** Present when a grant authorizes this exact tree. */
-  source: z.enum(LANDING_CONSENT_SOURCES).optional(),
+  source: openVocabulary("x-discern-consent-sources").optional(),
   /** Standing scopes that cover this exact tree. */
   scopes: z.array(z.string()).optional(),
   /** Known standing grants when the final tree is not yet or not fully covered. */
@@ -1091,7 +1038,7 @@ const LandingAuthoritySummarySchema = LandingAuthorityDataSchema.omit({
  * matched evidence behind its trigger. */
 export const ServedCheckpointDataSchema = z.strictObject({
   id: z.string(),
-  mode: z.enum(CHECKPOINT_MODES),
+  mode: decisionVocabulary("x-discern-checkpoint-modes"),
   ...CHECKPOINT_QUESTION_PRESENTATION_FIELDS,
   /** The changed paths the trigger matched — the subject's evidence. */
   matched: z.array(z.string()),
@@ -1135,7 +1082,7 @@ export const CheckpointTriggerPreviewSchema = z.strictObject({
   matched: z.array(z.string()).optional(),
   related: z.array(RelatedCheckpointEvidenceSchema).optional(),
   /** The first predicate that vetoed, when it does not hold. */
-  vetoed_by: z.enum(TRIGGER_VETOES).optional(),
+  vetoed_by: openVocabulary("x-discern-trigger-vetoes").optional(),
 });
 export type CheckpointTriggerPreviewData = z.infer<
   typeof CheckpointTriggerPreviewSchema
@@ -1144,18 +1091,14 @@ export type CheckpointTriggerPreviewData = z.infer<
 /** The openQuestion states the checkpoints report distinguishes. `reopened` marks
  * a recorded conclusion a later relevant change unbound — it must be declared
  * again before `done` proceeds. */
-export const OPEN_QUESTION_STATES = [
-  "awaiting_declaration",
-  "declared_met",
-  "declared_unmet",
-  "reopened",
-] as const;
+export const OPEN_QUESTION_STATES =
+  RESULT_OPEN_VOCABULARIES["x-discern-open-question-states"].values;
 export type OpenQuestionState = (typeof OPEN_QUESTION_STATES)[number];
 
 /** The declaration recorded on one openQuestion — agent evidence, so every
  * rendering says "declared met" / "declared unmet", never bare "met". */
 export const OpenQuestionDeclarationSchema = z.strictObject({
-  conclusion: z.enum(["met", "unmet"]),
+  conclusion: openVocabulary("x-discern-declaration-conclusions"),
   /** The agent's one-paragraph rationale (unmet only) — opaque evidence,
    * rendered only through escaping boundaries. */
   why: z.string().optional(),
@@ -1167,7 +1110,7 @@ export const OpenQuestionDeclarationSchema = z.strictObject({
 /** One checkpoint's effort-scoped openQuestion: the record that it fired, and any
  * declaration bound to it. */
 export const OpenQuestionDataSchema = z.strictObject({
-  state: z.enum(OPEN_QUESTION_STATES),
+  state: openVocabulary("x-discern-open-question-states"),
   /** The resolved-definition hash the openQuestion is about. */
   definition_hash: z.string(),
   /** The subject fingerprint the openQuestion is about — what a declaration binds
@@ -1189,13 +1132,13 @@ export type OpenQuestionData = z.infer<typeof OpenQuestionDataSchema>;
  * structural preview against the current diff, and this effort's open question. */
 export const CheckpointReportSchema = z.strictObject({
   id: z.string(),
-  mode: z.enum(CHECKPOINT_MODES),
+  mode: decisionVocabulary("x-discern-checkpoint-modes"),
   ...CHECKPOINT_QUESTION_PRESENTATION_FIELDS,
   /** One-line deterministic trigger summary (selector, thresholds, `when`). */
   trigger: z.string(),
   /** The canonical strict-gate decision projected from trigger state,
    * persisted question lifetime, subject currency, and declarations. */
-  obligation: z.enum(CHECKPOINT_OBLIGATION_STATES),
+  obligation: openVocabulary("x-discern-checkpoint-obligations"),
   /** Absent when the effort diff could not be read (nothing can fire). */
   preview: CheckpointTriggerPreviewSchema.optional(),
   /** Absent when this checkpoint has not fired for this effort. */
@@ -1262,17 +1205,17 @@ export const GateDataSchema = z.strictObject({
   producer_executions: ProducerExecutionsSchema.optional(),
   producer_evidence: z.array(ProducerEvidenceSchema).optional(),
   completion: z.strictObject({
-    kind: z.enum(["diagnostic", "complete", "pending"]),
+    kind: openVocabulary("x-discern-gate-completion-kinds"),
     candidate_id: z.string().optional(),
     proof_id: z.string().optional(),
     pending_reasons: z.array(z.string()),
     pending: z.array(CompletionPendingSchema).optional(),
   }).optional(),
-  mode: z.enum(GATE_MODES).optional(),
+  mode: decisionVocabulary("x-discern-validation-modes").optional(),
   /** Whether this invocation executed the Gate. False on exact green Proof
    * reuse and pre-Gate checkpoint serving; optional for older producers. */
   gate_ran: z.boolean().optional(),
-  failed_stage: z.enum(FAILED_STAGES).nullable(),
+  failed_stage: openVocabulary("x-discern-failed-stages").nullable(),
   scopes_changed: z.array(z.string()),
   preview_actions: z.array(PreviewActionDataSchema).optional(),
   standards: z.array(GateStandardSchema).optional(),
@@ -1283,17 +1226,7 @@ export const GateDataSchema = z.strictObject({
   checkpoints: GateCheckpointsDataSchema.optional(),
   proof: ProofSchema.optional(),
   gate_proof: z.strictObject({
-    status: z.enum([
-      "recorded",
-      "diagnostic",
-      "pending",
-      "skipped_dirty",
-      "skipped_head_moved",
-      "unavailable",
-      "record_failed",
-      "cleared",
-      "clear_failed",
-    ]),
+    status: openVocabulary("x-discern-gate-proof-recording-statuses"),
     path: z.string().optional(),
     reason: z.string().optional(),
   }).optional(),
@@ -1313,19 +1246,12 @@ export type GateWireData = z.infer<typeof GateWireDataSchema>;
 /** How a recorded proof stands against the current worktree and HEAD.
  * `proof` and `proof_line` are present only when the marker is honored; the
  * remaining statuses preserve why it is not. Inspection never reruns the gate. */
-export const GATE_PROOF_CHECK_STATUSES = [
-  "honored",
-  "report_only",
-  "missing",
-  "stale",
-  "dirty",
-  "unavailable",
-  "read_failed",
-] as const;
+export const GATE_PROOF_CHECK_STATUSES =
+  RESULT_OPEN_VOCABULARIES["x-discern-proof-statuses"].values;
 export type GateProofCheckStatus = (typeof GATE_PROOF_CHECK_STATUSES)[number];
 
 export const GateProofCheckSchema = z.strictObject({
-  status: z.enum(GATE_PROOF_CHECK_STATUSES),
+  status: openVocabulary("x-discern-proof-statuses"),
   path: z.string().optional(),
   recorded: z.string().optional(),
   head: z.string().optional(),
@@ -1342,7 +1268,7 @@ export type GateProofCheckData = z.infer<typeof GateProofCheckSchema>;
 
 /** A marker inspection without its rendered page or duplicate full Proof. */
 const GateProofWireSchema = z.strictObject({
-  status: z.enum(GATE_PROOF_CHECK_STATUSES),
+  status: openVocabulary("x-discern-proof-statuses"),
   path: z.string().optional(),
   recorded: z.string().optional(),
   head: z.string().optional(),
@@ -1352,11 +1278,11 @@ const GateProofWireSchema = z.strictObject({
 });
 
 const GateValidationSchema = z.strictObject({
-  mode: z.enum(["proof", "rerun"]),
+  mode: openVocabulary("x-discern-gate-validation-modes"),
   proof: GateProofCheckSchema,
 });
 const GateValidationWireSchema = z.strictObject({
-  mode: z.enum(["proof", "rerun"]),
+  mode: openVocabulary("x-discern-gate-validation-modes"),
   proof: GateProofWireSchema,
 });
 
@@ -1402,7 +1328,8 @@ export type ScopesData = z.infer<typeof ScopesDataSchema>;
  * core types its `mode` value as {@link CouplingMode}, so the wire enum and the engine
  * never re-list the modes out of step. Defined here (not the engine) because this
  * `shared/` module must not import `src/engine/**`. */
-export const COUPLING_MODES = ["diff", "query", "evidence"] as const;
+export const COUPLING_MODES =
+  RESULT_OPEN_VOCABULARIES["x-discern-coupling-modes"].values;
 /** One `coupling` mode ({@link COUPLING_MODES}). */
 export type CouplingMode = (typeof COUPLING_MODES)[number];
 
@@ -1449,7 +1376,7 @@ const couplingGeneratedExclusionSchema = z.strictObject({
  * `partners` is always present (empty in `evidence` mode); the mode-specific fields are
  * optional so one object models every shape. */
 export const CouplingDataSchema = z.strictObject({
-  mode: z.enum(COUPLING_MODES),
+  mode: openVocabulary("x-discern-coupling-modes"),
   changed: z.array(z.string()).optional(),
   target: z.string().optional(),
   partners: z.array(couplingPartnerSchema),
@@ -1466,7 +1393,8 @@ export type CouplingData = z.infer<typeof CouplingDataSchema>;
 /** The fleet conditions `await` can hold for — one per call, mutually exclusive.
  * Defined here (not the engine) because the CLI flag surface, the MCP tool, and
  * the data schema all name the same closed set. */
-export const AWAIT_CONDITIONS = ["green", "landed", "trunk-moved"] as const;
+export const AWAIT_CONDITIONS =
+  RESULT_OPEN_VOCABULARIES["x-discern-await-conditions"].values;
 /** One `await` condition ({@link AWAIT_CONDITIONS}). */
 export type AwaitConditionKind = (typeof AWAIT_CONDITIONS)[number];
 
@@ -1475,18 +1403,7 @@ export const ContinuationHandleSchema = z.string()
   .length(CONTINUATION_HANDLE_LENGTH)
   .regex(CONTINUATION_HANDLE_PATTERN);
 
-/** Why one `await` call uses its reported bound: an exact caller request, the
- * long CLI allowance, a known configurable MCP client, a known strict client,
- * the conservative unknown-client fallback, or an environment-supplied
- * experimental cap sitting below the caller profile's bound. */
-export const AWAIT_RETRY_BASES = [
-  "explicit",
-  ...AWAIT_CALL_PROFILES,
-  "cache-window",
-] as const;
-
 /** The current call and its continuation share one bound vocabulary. */
-export const AWAIT_TIMEOUT_BASES = AWAIT_RETRY_BASES;
 
 /** What one `await` evaluation observed — always authoritative state (a git
  * ancestry read, a proof inspection), never logbook history. Per-condition:
@@ -1498,10 +1415,7 @@ export const AWAIT_TIMEOUT_BASES = AWAIT_RETRY_BASES;
  * `behind`/`incoming_overlap`/`overlap_total` preview it (the same hot-zone
  * read `status` reports). */
 const awaitObservedSchema = z.strictObject({
-  proof_status: z.enum([
-    ...GATE_PROOF_CHECK_STATUSES,
-    "no-worktree",
-  ]).optional(),
+  proof_status: openVocabulary("x-discern-await-proof-statuses").optional(),
   worktree: z.string().optional(),
   tip: z.string().optional(),
   landed: z.boolean().optional(),
@@ -1521,18 +1435,18 @@ const awaitObservedSchema = z.strictObject({
  * preserves the original pins across calls; `retry_after_s` +
  * `retry_basis` give the next lossless call's bound. */
 export const AwaitDataSchema = z.strictObject({
-  condition: z.enum(AWAIT_CONDITIONS),
+  condition: openVocabulary("x-discern-await-conditions"),
   branch: z.string().optional(),
   trunk: z.string(),
   met: z.boolean(),
   elapsed_ms: z.number().int(),
   timeout_s: z.number(),
-  timeout_basis: z.enum(AWAIT_TIMEOUT_BASES),
+  timeout_basis: openVocabulary("x-discern-await-timeout-bases"),
   requested_timeout_s: z.number().optional(),
   observed: awaitObservedSchema,
   resume: ContinuationHandleSchema.optional(),
   retry_after_s: z.number().int().optional(),
-  retry_basis: z.enum(AWAIT_RETRY_BASES).optional(),
+  retry_basis: openVocabulary("x-discern-await-timeout-bases").optional(),
 });
 export type AwaitData = z.infer<typeof AwaitDataSchema>;
 
@@ -1566,8 +1480,8 @@ export const TaskRenameDataSchema = z.strictObject({
 export type TaskRenameData = z.infer<typeof TaskRenameDataSchema>;
 
 export const ProofNotesFetchSchema = z.strictObject({
-  mode: z.enum(["local", "fetch"]),
-  status: z.enum(["local", "wired", "unchanged", "no_remote", "failed"]),
+  mode: openVocabulary("x-discern-proof-note-fetch-modes"),
+  status: openVocabulary("x-discern-proof-note-fetch-statuses"),
   remotes: z.array(z.string()),
   added: z.array(z.string()),
   removed: z.array(z.string()),
@@ -1576,12 +1490,7 @@ export const ProofNotesFetchSchema = z.strictObject({
 export type ProofNotesFetchData = z.infer<typeof ProofNotesFetchSchema>;
 
 export const ProofNoteWriteSchema = z.strictObject({
-  status: z.enum([
-    "recorded",
-    "already_present",
-    "record_failed",
-    "missing_proof",
-  ]),
+  status: openVocabulary("x-discern-proof-note-write-statuses"),
   ref: z.string(),
   commit: z.string(),
   merged_refs: z.array(z.string()),
@@ -1612,12 +1521,12 @@ export const SubmissionRowSchema = z.strictObject({
   head: z.string(),
   submitted_at: z.string(),
   /** Pre-authorized rows land once green without a further conversation. */
-  authority: z.enum(["pre-authorized", "awaiting-owner"]),
-  authority_source: z.enum(["effort-grant", "standing-grant"]).optional(),
+  authority: openVocabulary("x-discern-submission-authorities"),
+  authority_source: openVocabulary("x-discern-authority-sources").optional(),
   granted_at: z.string().optional(),
   /** 1-based place in the displayed order. */
   position: z.number().int().positive(),
-  readiness: z.enum(["ready", "waiting"]),
+  readiness: openVocabulary("x-discern-submission-readiness"),
   /** One full sentence: why the submission waits. Absent when ready. */
   reason: z.string().optional(),
   /** The trunk moved after its Proof, so its landing composes and checks the
@@ -1646,7 +1555,7 @@ export const LandingOutcomeSchema = z.strictObject({
   /** Landed: the trunk holds it. Refused: nothing changed for it. Failed:
    * its landing stopped after effects; `landed_commit` and `reason` say
    * exactly which, and nothing implies earlier effects were undone. */
-  status: z.enum(["landed", "refused", "failed"]),
+  status: openVocabulary("x-discern-landing-statuses"),
   /** The exact commit that reached the trunk (equals `head` on the direct
    * path; the proven composed commit on an integrated landing). */
   landed_commit: z.string().optional(),
@@ -1671,7 +1580,7 @@ export type LandingOutcomeData = z.infer<typeof LandingOutcomeSchema>;
 export const IntegrationJudgmentSchema = z.strictObject({
   /** The retained composition's receipt — pass it back as `composition`. */
   composition: z.string(),
-  decision: z.enum(["declaration", "variance"]),
+  decision: openVocabulary("x-discern-integration-decisions"),
   awaiting: z.array(z.string()),
 }).meta({
   id: "DiscernIntegrationJudgment",
@@ -1691,7 +1600,7 @@ export type SubmissionRevision = z.infer<typeof SubmissionRevisionSchema>;
 
 /** Queue admission observes authority without starting or promising a landing. */
 const QueueSubmissionDataSchema = z.strictObject({
-  state: z.enum(["planned", "queued"]),
+  state: openVocabulary("x-discern-submission-states"),
   authority: LandingAuthorityDataSchema,
   replaces: z.string().optional(),
   submission_id: z.string().optional(),
@@ -1822,7 +1731,7 @@ export type UpdateData = z.infer<typeof UpdateDataSchema>;
  * for the location vocabulary — the schema enum below derives from it and `status.ts`
  * types its `location` value + context field as {@link Location}, so the wire enum and
  * the engine never re-list "main"/"worktree" out of step. */
-export const LOCATIONS = ["main", "worktree"] as const;
+export const LOCATIONS = RESULT_OPEN_VOCABULARIES["x-discern-locations"].values;
 /** One status location ({@link LOCATIONS}). */
 export type Location = (typeof LOCATIONS)[number];
 
@@ -1877,7 +1786,7 @@ export type StatusGate = z.infer<typeof statusGateSchema>;
  * `--all`); every other row is a separate line of work. */
 const statusFleetLastActionSchema = z.strictObject({
   verb: z.string(),
-  outcome: z.enum(["ok", "failed", "partial", "refused"]),
+  outcome: openVocabulary("x-discern-fleet-action-outcomes"),
   at: z.string(),
   failed_stage: z.string().optional(),
 });
@@ -1890,7 +1799,7 @@ const statusFleetRunningSchema = z.strictObject({
 });
 
 const statusFleetFilesystemSchema = z.strictObject({
-  state: z.enum(["directory", "missing", "other", "unreadable"]),
+  state: openVocabulary("x-discern-fleet-filesystem-states"),
   reason: z.string().optional(),
 });
 
@@ -1900,22 +1809,22 @@ const statusFleetGitFailureSchema = z.strictObject({
 });
 
 const statusFleetSetupJournalSchema = z.strictObject({
-  status: z.enum(["missing", "recorded", "unavailable"]),
+  status: openVocabulary("x-discern-setup-journal-statuses"),
   path: z.string().optional(),
   steps: z.array(z.strictObject({
     id: z.string(),
     command: z.string(),
-    state: z.enum(["not_started", "running", "completed"]),
+    state: openVocabulary("x-discern-setup-journal-step-states"),
   })),
   reason: z.string().optional(),
 });
 
 const statusFleetSetupSchema = z.strictObject({
-  state: z.enum(["ready", "incomplete", "unavailable"]),
-  marker: z.enum(["present", "missing", "unavailable"]),
+  state: openVocabulary("x-discern-fleet-setup-states"),
+  marker: openVocabulary("x-discern-setup-marker-states"),
   journal: statusFleetSetupJournalSchema.optional(),
   repair: z.strictObject({
-    kind: z.enum(["retry", "manual"]),
+    kind: openVocabulary("x-discern-setup-repair-kinds"),
     command: z.string(),
     reason: z.string(),
   }).optional(),
@@ -1998,7 +1907,7 @@ const statusFleetEntrySchema = z.strictObject({
    * it as deliberately retained for a served checkpoint decision that
    * `discern accept` continues from the author's worktree. */
   integration: z.strictObject({
-    owner: z.enum(["live", "interrupted"]),
+    owner: openVocabulary("x-discern-integration-owners"),
     /** The authoring branch whose submission the landing composes. */
     for_branch: z.string(),
     /** The copy is retained for a served checkpoint decision; it is not
@@ -2072,7 +1981,7 @@ const parkedTaskSchema = z.strictObject({
 const reappearedWorktreePathSchema = z.strictObject({
   path: z.string(),
   removed_at: z.string(),
-  kind: z.enum(["directory", "file", "symlink", "other"]),
+  kind: openVocabulary("x-discern-reappeared-path-kinds"),
   /** Bounded relative names found beneath a recreated directory. */
   contents: z.array(z.string()),
   contents_truncated: z.boolean(),
@@ -2084,7 +1993,7 @@ const reappearedWorktreePathSchema = z.strictObject({
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
 const ManagedVersionComparisonSchema = z.strictObject({
-  state: z.enum(MANAGED_VERSION_STATES),
+  state: openVocabulary("x-discern-managed-version-states"),
   running: z.string(),
   managed: z.string().optional(),
 });
@@ -2094,7 +2003,7 @@ export const StatusDataSchema = z.strictObject({
   managed_currency_unavailable: z.string().optional(),
   release_reminder: z.string().optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
-  location: z.enum(LOCATIONS),
+  location: openVocabulary("x-discern-locations"),
   root: z.string(),
   /** Project identity used by the human heading. Optional for same-major wire
    * compatibility with older status producers. */
@@ -2141,7 +2050,7 @@ export const StatusDataSchema = z.strictObject({
     landing_id: z.string(),
     reason: z.string(),
     exceptions: z.number().int().nonnegative(),
-    validation: z.enum(["outstanding", "resolved"]),
+    validation: openVocabulary("x-discern-exception-validation-states"),
   }).optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
   /** Tracked files the read-only refresh plan would change. This is the
@@ -2151,7 +2060,8 @@ export const StatusDataSchema = z.strictObject({
   tracked_refresh_plan_errors: z.array(z.string()).optional(),
   tracked_ignored_artifacts: z.array(z.string()).optional(),
   /** Evidence attached to the persisted setup completion event. */
-  setup_completion: z.enum(["proven", "unproven"]).optional(),
+  setup_completion: openVocabulary("x-discern-setup-completion-evidence")
+    .optional(),
   setup_unfinished: z.strictObject({
     pending_markers: z.array(z.string()),
     known_jobs: z.array(
@@ -2215,7 +2125,7 @@ export type StatusData = z.infer<typeof StatusDataSchema>;
 
 /** Which structured status projection crossed the result boundary. */
 const StatusProjectionSchema = z.strictObject({
-  mode: z.enum(["orientation", "full"]),
+  mode: openVocabulary("x-discern-status-projection-modes"),
   /** True counts for lists omitted from the bounded orientation projection. */
   omitted: z.record(z.string(), z.number().int().positive()).optional(),
 });
@@ -2262,7 +2172,7 @@ export const StatusResultDataSchema = z.union([
 /** One doctor check ({@link import("../commands/doctor.ts").Check}). */
 export const CheckSchema = z.strictObject({
   name: z.string(),
-  status: z.enum(["ok", "warn", "fail"]),
+  status: openVocabulary("x-discern-doctor-check-statuses"),
   ok: z.boolean(),
   detail: z.string(),
   fix: z.string().optional(),
@@ -2292,7 +2202,7 @@ export type DoctorEnvironment = z.infer<typeof DoctorEnvironmentSchema>;
 export const ExecutionStepSchema = z.strictObject({
   kind: stepKindEnum,
   label: z.string(),
-  actor: z.enum(ACTORS),
+  actor: openVocabulary("x-discern-actors"),
   note: z.string().optional(),
   hint: z.string().optional(),
   condition: z.string().optional(),
@@ -2316,10 +2226,10 @@ export const ProviderTrustDataSchema = z.strictObject({
   required: z.boolean(),
   explanation: z.string(),
   actions: z.array(z.strictObject({
-    kind: z.enum(TRUST_ACTION_KINDS),
+    kind: openVocabulary("x-discern-trust-action-kinds"),
     instruction: z.string(),
     facts: z.array(z.strictObject({
-      kind: z.enum(TRUST_FACT_KINDS),
+      kind: openVocabulary("x-discern-trust-fact-kinds"),
       value: z.string(),
     })),
   })),
@@ -2353,7 +2263,7 @@ const reviewEvidenceSchema = z.strictObject({
 export const ruleResultSchema = z.strictObject({
   id: z.string(),
   title: z.string(),
-  status: z.enum(["pass", "partial", "fail"]),
+  status: openVocabulary("x-discern-rule-statuses"),
   weight: z.number(),
   detail: z.string(),
   fix: z.string().optional(),
@@ -2364,7 +2274,7 @@ export const ruleResultSchema = z.strictObject({
  * it, so the flow is guarded at the gate while the improvement review audits what already exists. */
 const boundaryGuardSchema = z.strictObject({
   checkpoint: z.string(),
-  mode: z.enum(CHECKPOINT_MODES),
+  mode: decisionVocabulary("x-discern-checkpoint-modes"),
 });
 
 /** One open subjective review item for the agent to judge. */
@@ -2392,7 +2302,7 @@ const improvementCategorySchema = z.strictObject({
  * `NEXT_ACTION_KINDS` SSOT (which this shared module can't import) is tied to
  * the `kind` enum by a guard in `improve_catalog_test.ts`. */
 export const nextActionSchema = z.strictObject({
-  kind: z.enum(["fix", "review", "decide"]),
+  kind: openVocabulary("x-discern-next-action-kinds"),
   category: z.string(),
   id: z.string(),
   title: z.string(),
@@ -2408,7 +2318,7 @@ export const nextActionSchema = z.strictObject({
  * engine `CHECKPOINT_RECOMMENDATION_IDS` SSOT is tied to the `id` enum by a
  * guard in `improve_catalog_test.ts`. */
 export const checkpointRecommendationSchema = z.strictObject({
-  id: z.enum(["checkpoints.review", "checkpoints.graduate"]),
+  id: openVocabulary("x-discern-checkpoint-recommendations"),
   subject: z.string(),
   title: z.string(),
   action: z.string(),
@@ -2570,7 +2480,7 @@ const docRecordSchema = z.strictObject({
   order: z.number().optional(),
   aliases: z.array(z.string()).optional(),
   page_id: z.string().optional(),
-  manual_kind: z.enum(MANUAL_KINDS).optional(),
+  manual_kind: openVocabulary("x-discern-manual-kinds").optional(),
 });
 export type DocRecord = z.infer<typeof docRecordSchema>;
 
@@ -2610,8 +2520,8 @@ const docSearchResultSchema = z.strictObject({
   title: z.string(),
   description: z.string(),
   page_id: z.string().optional(),
-  manual_kind: z.enum(MANUAL_KINDS).optional(),
-  match: z.enum(["complete", "partial", "metadata"]),
+  manual_kind: openVocabulary("x-discern-manual-kinds").optional(),
+  match: openVocabulary("x-discern-doc-matches"),
   heading: z.string().optional(),
   snippet: z.string(),
 });
@@ -2724,12 +2634,7 @@ export const SetupStepResultDataSchema = z.union([
  * machine lane; the human-facing reason rides `detail`.
  */
 export const SetupVerifyConflictSchema = z.strictObject({
-  kind: z.enum([
-    "existing_instructions",
-    "dirty_worktree",
-    "not_a_repo",
-    "missing_git_identity",
-  ]),
+  kind: openVocabulary("x-discern-setup-conflict-kinds"),
   detail: z.string(),
 });
 export type SetupVerifyConflict = z.infer<typeof SetupVerifyConflictSchema>;
@@ -2779,7 +2684,7 @@ export const SetupVerifyFindingsSchema = z.strictObject({
  * structured fields. `phase` mirrors `SetupPhase` (shared/setup_state.ts).
  */
 export const SetupVerifyDataSchema = z.strictObject({
-  phase: z.enum(["fresh", "in_progress", "done"]),
+  phase: openVocabulary("x-discern-setup-phases"),
   next_action: SetupNextActionCommandSchema,
   ready: z.boolean().optional(),
   findings: SetupVerifyFindingsSchema.optional(),
@@ -2798,7 +2703,7 @@ export type SetupVerifyData = z.infer<typeof SetupVerifyDataSchema>;
  * `state` vocabulary within a schema major (ADR 0208/0220). */
 export const KnownJobAssuranceSchema = z.strictObject({
   name: z.string(),
-  state: z.enum(KNOWN_JOB_STATES),
+  state: openVocabulary("x-discern-known-job-states"),
   /** An absent job excluded from the applicable denominator. Optional keeps
    * result schema v1 additive for consumers pinned before this marker existed. */
   not_applicable: z.literal(true).optional(),
@@ -2827,7 +2732,7 @@ export const SetupAssuranceSchema = z.strictObject({
    * `total` remains the verdict denominator for older consumers. */
   known_total: z.number().optional(),
   not_applicable: z.number().optional(),
-  verdict: z.enum(ASSURANCE_VERDICTS),
+  verdict: openVocabulary("x-discern-assurance-verdicts"),
   /** Present when completion derived the standards, reuse, and coordination facts. */
   completion: CompletionAssuranceSchema.optional(),
 });
@@ -2843,7 +2748,7 @@ export const ReactivationSchema = z.strictObject({
       agent: z.string(),
       label: z.string(),
       step: z.string(),
-      check_kind: z.enum(["mcp", "cli"]),
+      check_kind: openVocabulary("x-discern-reactivation-check-kinds"),
       check: z.string(),
       recovery: z.string(),
       cli_fallback: z.string(),
@@ -2898,12 +2803,8 @@ export const SetupCompletionInventorySchema = z.strictObject({
   }),
 });
 /** How one successful `setup done` invocation reached the completed state. */
-export const SETUP_DONE_SUCCESS_KINDS = [
-  "created",
-  "replayed",
-  "validated",
-  "unproven",
-] as const;
+export const SETUP_DONE_SUCCESS_KINDS =
+  RESULT_OPEN_VOCABULARIES["x-discern-setup-done-completions"].values;
 export type SetupDoneSuccessKind = typeof SETUP_DONE_SUCCESS_KINDS[number];
 
 /**
@@ -2916,13 +2817,13 @@ const SetupDoneBaseSchema = z.strictObject({
   bootstrapped: z.literal(true),
   /** Whether this invocation created, replayed, validated, or recorded without Proof
    * the marker-bearing completion state. */
-  completion: z.enum(SETUP_DONE_SUCCESS_KINDS),
+  completion: openVocabulary("x-discern-setup-done-completions"),
   /** True only when this invocation crossed a write boundary. */
   effects_performed: z.boolean(),
   /** True only when this invocation executed the main-checkout Gate. */
   gate_ran: z.boolean(),
   /** Evidence attached to the persisted setup completion event. */
-  setup_completion: z.enum(["proven", "unproven"]),
+  setup_completion: openVocabulary("x-discern-setup-completion-evidence"),
   unproven: z.boolean(),
   gate_proven: z.boolean(),
   /** Whether the required worktree-viability probe ran green. False only on
@@ -2993,14 +2894,8 @@ export const SetupDoneDataSchema = SetupDoneBaseSchema.safeExtend({
 export type SetupDoneData = z.infer<typeof SetupDoneDataSchema>;
 
 /** Setup-completion transaction stages named by structured refusal payloads. */
-export const SETUP_DONE_COMPLETION_STAGES = [
-  "marker_commit",
-  "refresh",
-  "doctor",
-  "worktree_probe",
-  "done",
-  "proof",
-] as const;
+export const SETUP_DONE_COMPLETION_STAGES =
+  RESULT_OPEN_VOCABULARIES["x-discern-setup-done-stages"].values;
 export type SetupDoneCompletionStage =
   (typeof SETUP_DONE_COMPLETION_STAGES)[number];
 
@@ -3018,17 +2913,13 @@ const SetupDoneIncompleteDataSchema = z.strictObject({
 const SetupDoneUncommittedDataSchema = z.strictObject({
   next_action: SetupNextActionCommandSchema,
   uncommitted: z.array(z.string()),
-  stage: z.enum(["refresh", "final_tree"]).optional(),
+  stage: openVocabulary("x-discern-setup-done-refresh-stages").optional(),
 });
 
 const SetupDoneGateFailureDataSchema = z.strictObject({
-  stage: z.enum(SETUP_DONE_COMPLETION_STAGES),
+  stage: openVocabulary("x-discern-setup-done-stages"),
   /** What happened to the exact marker commit this invocation owned. */
-  rollback: z.enum([
-    "not_needed",
-    "owned_commit_removed",
-    "retained",
-  ]),
+  rollback: openVocabulary("x-discern-setup-rollbacks"),
   /** A concise description of the state left on disk and in Git. */
   state: z.string().trim().min(1),
   /** The one supported next command or edit boundary. */
@@ -3117,9 +3008,10 @@ export function instructionRefreshData(
 
 /** `setup` — the read-only welcome and its current setup phase. */
 export const SetupWelcomeDataSchema = z.strictObject({
-  phase: z.enum(["fresh", "in_progress", "done"]),
+  phase: openVocabulary("x-discern-setup-phases"),
   complete: z.boolean(),
-  setup_completion: z.enum(["proven", "unproven"]).optional(),
+  setup_completion: openVocabulary("x-discern-setup-completion-evidence")
+    .optional(),
   next_action: SetupNextActionCommandSchema,
   agent_instructions: z.string().optional(),
   human_framing: z.string().optional(),
@@ -3140,7 +3032,7 @@ export const SetupBeginDataSchema = z.strictObject({
   plan: z.array(
     z.strictObject({
       path: z.string(),
-      action: z.enum(["create", "skip", "merge", "append", "remove"]),
+      action: openVocabulary("x-discern-setup-plan-actions"),
       note: z.string().optional(),
     }),
   ).optional(),
@@ -3216,7 +3108,7 @@ export const SetupAcceptNoOpDataSchema = z.strictObject({
   next_action: SetupNextActionCommandSchema,
   completion: z.strictObject({
     status: z.literal("no_op"),
-    reason: z.enum(["no_git_repository", "already_on_target"]),
+    reason: openVocabulary("x-discern-setup-accept-no-op-reasons"),
   }),
   target: z.string(),
 });
@@ -3242,7 +3134,7 @@ const configScalarDataSchema = z.strictObject({
 });
 
 const configArrayDataSchema = z.strictObject({
-  operation: z.enum(["array", "subsections", "keys"]),
+  operation: openVocabulary("x-discern-config-operations"),
   key: z.string(),
   values: z.array(z.string()),
 });
@@ -3276,7 +3168,7 @@ const thirdPartyComponentSchema = z.strictObject({
 
 const firstPartyLegalDocumentSchema = z.strictObject({
   key: z.string(),
-  kind: z.enum(FIRST_PARTY_LEGAL_DOCUMENT_KINDS),
+  kind: openVocabulary("x-discern-legal-document-kinds"),
   identifier: z.string(),
   title: z.string(),
   path: z.string(),
@@ -3288,20 +3180,13 @@ export const ReleasesDataSchema = z.strictObject({
   running_version: z.string(),
   codename: z.string().optional(),
   urls: z.strictObject({ html: z.string(), json: z.string() }),
-  repository_state: z.enum([
-    "recorded",
-    "missing",
-    "malformed",
-    "unavailable",
-    "newer",
-    "outside-repository",
-  ]),
+  repository_state: openVocabulary("x-discern-release-repository-states"),
   launch_eligible: z.boolean(),
   launch_attempted: z.boolean(),
   launch_succeeded: z.boolean(),
   launch_message: z.string().optional(),
   state_write: z.strictObject({
-    status: z.enum(["saved", "unchanged", "unavailable", "newer", "skipped"]),
+    status: openVocabulary("x-discern-release-state-write-statuses"),
     reason: z.string().optional(),
   }),
   network_request: z.literal(false),
@@ -3340,7 +3225,7 @@ export type ScriptsData = z.infer<typeof ScriptsDataSchema>;
 
 const identityFieldDataSchema = z.strictObject({
   kind: z.literal("field"),
-  field: z.enum(WORKTREE_FIELDS),
+  field: openVocabulary("x-discern-identity-fields"),
   value: z.string(),
 });
 
@@ -3370,17 +3255,17 @@ const migrationStepSchema = z.strictObject({
 });
 
 const configReconcileOperationSchema = z.strictObject({
-  kind: z.enum(CONFIG_RECONCILE_OPERATION_KINDS),
+  kind: openVocabulary("x-discern-config-reconcile-kinds"),
   path: z.string(),
 });
 
 const gitignoreReconcileOperationSchema = z.strictObject({
-  kind: z.enum(["create-block", "replace-block"]),
+  kind: openVocabulary("x-discern-gitignore-reconcile-kinds"),
   path: z.string(),
 });
 
 const gitattributesReconcileOperationSchema = z.strictObject({
-  kind: z.enum(["create-block", "replace-block", "remove-block"]),
+  kind: openVocabulary("x-discern-gitattributes-reconcile-kinds"),
   path: z.string(),
 });
 
@@ -3475,7 +3360,7 @@ export type UninstallData = z.infer<typeof UninstallDataSchema>;
 
 const skillListingSchema = z.strictObject({
   name: z.string(),
-  source: z.enum(["authored", "bundled"]),
+  source: openVocabulary("x-discern-skill-sources"),
   // True when this authored skill shadows a bundled built-in.
   overrides_bundled: z.boolean(),
   // True when a bundled built-in of this name exists (shadowed or not).
@@ -3656,18 +3541,14 @@ export const CheckpointsOutputSchema = resultOutputSchema(
 );
 
 /** Engine-observed producer lifecycle; unit counts never determine a verdict. */
-export const PRODUCER_WORK_STATES = [
-  "running",
-  "passed",
-  "failed",
-  "cancelled",
-] as const;
+export const PRODUCER_WORK_STATES =
+  RESULT_OPEN_VOCABULARIES["x-discern-work-states"].values;
 
 /** One producer's own reported work, as a reconnect reading retains it. */
 export const ProgressWorkSchema = z.object({
   producer: z.string(),
   /** Engine-observed state; an absent state is unknown, including older records. */
-  state: z.enum(PRODUCER_WORK_STATES).optional(),
+  state: openVocabulary("x-discern-work-states").optional(),
   units: z.object({
     kind: z.string(),
     completed: z.number().int().nonnegative(),
@@ -3687,20 +3568,14 @@ export const ProgressWorkSchema = z.object({
 export type ProgressWork = z.infer<typeof ProgressWorkSchema>;
 
 /** A wait ends independently of other work in the same operation. */
-export const PROGRESS_WAIT_STATES = [
-  "waiting",
-  "resumed",
-  "unmet",
-  "cancelled",
-  "failed",
-  "unavailable",
-] as const;
+export const PROGRESS_WAIT_STATES =
+  RESULT_OPEN_VOCABULARIES["x-discern-wait-states"].values;
 
 /** Persisted observation, never a lock, queue position, or completion authority. */
 export const ProgressWaitSchema = z.object({
   id: z.string(),
   kind: z.string(),
-  state: z.enum(PROGRESS_WAIT_STATES),
+  state: openVocabulary("x-discern-wait-states"),
   reason: z.string(),
   next: z.string(),
   started_at: z.number(),
@@ -3735,7 +3610,7 @@ export const ProgressFailureSchema = z.object({
 
 /** The latest progress fact, exactly as live observers received it. */
 export const ProgressFactSchema = z.object({
-  phase: z.enum(["producer", "queue", "pending", "operation"]),
+  phase: openVocabulary("x-discern-progress-phases"),
   state: z.string(),
   candidate_id: z.string().nullable(),
   reason: z.string(),
@@ -3766,12 +3641,12 @@ export const ProgressDataSchema = z.object({
     started_at: z.number(),
     finished_at: z.number().optional(),
   }),
-  executor: z.enum(["running", "gone", "unknown"]),
+  executor: openVocabulary("x-discern-executor-states"),
   executor_reason: z.string().optional(),
   observed_at: z.number().optional(),
   last_activity_at: z.number().optional(),
   waits: z.array(ProgressWaitSchema).optional(),
-  outcome: z.enum(["completed", "failed", "cancelled"]).optional(),
+  outcome: openVocabulary("x-discern-operation-outcomes").optional(),
   progress: ProgressFactSchema.optional(),
   producers: z.array(ProgressWorkSchema).optional(),
   failures: z.array(ProgressFailureSchema).optional(),

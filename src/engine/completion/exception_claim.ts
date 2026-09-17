@@ -1,5 +1,6 @@
 /** The emergency claim has no dependency on public Proof schemas. */
 import { z } from "@zod/zod";
+import { decisionVocabulary } from "../../shared/result_vocabulary.ts";
 import {
   DigestSchema,
   InstantSchema,
@@ -22,7 +23,7 @@ export const ExceptionClaimSchema = z.strictObject({
   reason: z.string().min(1),
   exceptions: z.array(z.strictObject({
     requirement: RequirementSchema,
-    state: z.enum(["failed", "unrun", "stale"]),
+    state: decisionVocabulary("x-discern-exception-states"),
     evidence_id: RecordIdSchema.nullable(),
   })).min(1),
 }).refine(

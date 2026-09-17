@@ -1,4 +1,5 @@
 /** Project adoption provenance and SemVer precedence (ADR 0400). */
+import { RESULT_OPEN_VOCABULARIES } from "./result.ts";
 import { compareVersions } from "./semver.ts";
 import { DISCERN_VERSION } from "../lib/version.ts";
 import {
@@ -31,12 +32,8 @@ export function assertManagedMaterialWritable(
   if (message !== undefined) throw new ManagedMaterialError(message);
 }
 
-export const MANAGED_VERSION_STATES = [
-  "unknown",
-  "equal",
-  "running-newer",
-  "project-managed-by-newer",
-] as const;
+export const MANAGED_VERSION_STATES =
+  RESULT_OPEN_VOCABULARIES["x-discern-managed-version-states"].values;
 
 export interface ManagedVersionComparison {
   readonly state: (typeof MANAGED_VERSION_STATES)[number];

@@ -1,5 +1,6 @@
 /** Pure release comparison and its versioned public JSON contract. */
 import { z } from "@zod/zod";
+import { decisionVocabulary } from "../../src/shared/result_vocabulary.ts";
 import { compareVersions, parseVersion } from "../../src/shared/semver.ts";
 import {
   DISCERN_INSTALL_URL,
@@ -25,19 +26,13 @@ export const catalogueRecordSchema = z.strictObject({
   body: z.string(),
   date: z.iso.date().optional(),
   codename: z.string().optional(),
-  publication: z.enum(["stable", "prerelease", "candidate"]),
+  publication: decisionVocabulary("x-discern-release-publications"),
 });
 export type CatalogueRecord = z.infer<typeof catalogueRecordSchema>;
 export const comparisonSchema = z.strictObject({
   schema_version: z.literal(RELEASE_SCHEMA_MAJOR),
   since: z.string().optional(),
-  status: z.enum([
-    "index",
-    "current",
-    "update-available",
-    "ahead",
-    "no-stable-release",
-  ]),
+  status: decisionVocabulary("x-discern-release-statuses"),
   latest_stable: catalogueRecordSchema.optional(),
   applicable: z.array(catalogueRecordSchema),
   history: z.strictObject({

@@ -19,6 +19,7 @@
  * job and make the floor verdict unreachable — an unearned green (ADR 0220).
  */
 
+import { RESULT_OPEN_VOCABULARIES } from "./result.ts";
 import { KNOWN_JOBS } from "./capabilities.ts";
 import type { CompletionAssurance } from "./completion_assurance.ts";
 import { type DiscernConfig, toCommandList } from "./config_schema.ts";
@@ -36,7 +37,8 @@ import { KNOWN_VERBS } from "./verbs.ts";
  *    the self-supplied case rides an additive marker, not a new state.
  *  - `absent` — the job is omitted entirely; the project has no such command.
  */
-export const KNOWN_JOB_STATES = ["enforced", "deferred", "absent"] as const;
+export const KNOWN_JOB_STATES =
+  RESULT_OPEN_VOCABULARIES["x-discern-known-job-states"].values;
 export type KnownJobState = typeof KNOWN_JOB_STATES[number];
 
 /** One known job's assurance: its name, its {@link KnownJobState}, for a
@@ -66,7 +68,8 @@ export interface KnownJobAssurance {
  *  - `minimal` — no applicable job is enforced (setup is complete, but the Gate
  *    guards nothing of the project's own yet, even when housekeeping still runs).
  */
-export const ASSURANCE_VERDICTS = ["full", "partial", "minimal"] as const;
+export const ASSURANCE_VERDICTS =
+  RESULT_OPEN_VOCABULARIES["x-discern-assurance-verdicts"].values;
 export type AssuranceVerdict = typeof ASSURANCE_VERDICTS[number];
 
 /** One shared count label for terminal, Markdown, and MCP presentations. */

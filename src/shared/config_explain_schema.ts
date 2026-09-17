@@ -7,6 +7,7 @@
  */
 
 import { z } from "@zod/zod";
+import { openVocabulary } from "./result_vocabulary.ts";
 
 const configExplainKeySchema = z.strictObject({
   name: z.string(),
@@ -27,7 +28,7 @@ export const configExplainDataSchema = z.strictObject({
   operation: z.literal("explain"),
   /** The resolved dotted path: a section, a named-table family, or a key. */
   path: z.string(),
-  kind: z.enum(["section", "family", "key"]),
+  kind: openVocabulary("x-discern-config-explain-kinds"),
   what: z.string().optional(),
   why: z.string().optional(),
   detail: z.array(z.string()).optional(),

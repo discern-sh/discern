@@ -7,6 +7,7 @@
  */
 
 import { z } from "@zod/zod";
+import { openVocabulary } from "./result_vocabulary.ts";
 import { ON_DISK_FORMATS } from "./on_disk_formats.ts";
 
 /** Current on-disk task metadata record format. */
@@ -20,13 +21,6 @@ export const TASK_TITLE_MAX_CODE_POINTS = 120;
 
 /** Bounded single-line brief length, counted as Unicode code points. */
 export const TASK_BRIEF_MAX_CODE_POINTS = 500;
-
-/** Why a projected title came from stored wording or an identity fallback. */
-export const TASK_TITLE_SOURCES = [
-  "recorded",
-  "identity-fallback",
-  "unavailable-fallback",
-] as const;
 
 /** Control, format, and line-separator characters unsafe for terminal text. */
 const UNSAFE_SINGLE_LINE_TEXT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
@@ -128,7 +122,7 @@ export const TaskMetadataDataSchema = z.strictObject({
   id: z.string(),
   branch: z.string(),
   title: taskTitleSchema,
-  title_source: z.enum(TASK_TITLE_SOURCES),
+  title_source: openVocabulary("x-discern-title-sources"),
   brief: taskBriefSchema.optional(),
   created_from: TaskCreationSourceSchema.optional(),
   unavailable_reason: z.string().optional(),

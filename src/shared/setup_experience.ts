@@ -10,6 +10,8 @@
  */
 
 import { z } from "@zod/zod";
+import { RESULT_OPEN_VOCABULARIES } from "./result.ts";
+import { openVocabulary } from "./result_vocabulary.ts";
 
 export const SETUP_HUMAN_SURFACES = [
   "welcome",
@@ -32,12 +34,8 @@ export const SETUP_HUMAN_SURFACES = [
 ] as const;
 export type SetupHumanSurface = typeof SETUP_HUMAN_SURFACES[number];
 
-export const SETUP_HUMAN_MOMENT_KINDS = [
-  "explanation",
-  "progress",
-  "decision",
-  "completion",
-] as const;
+export const SETUP_HUMAN_MOMENT_KINDS =
+  RESULT_OPEN_VOCABULARIES["x-discern-setup-moment-kinds"].values;
 export type SetupHumanMomentKind = typeof SETUP_HUMAN_MOMENT_KINDS[number];
 
 /** Stable semantic roles carried independently from either English projection. */
@@ -78,19 +76,8 @@ const SETUP_HUMAN_FACT_ROLE_SHAPES = {
 export const SETUP_OWNER_AUDIENCES = ["novice", "experienced"] as const;
 export type SetupOwnerAudience = typeof SETUP_OWNER_AUDIENCES[number];
 
-export const SETUP_DECISION_KINDS = [
-  "model-selection",
-  "project-name-confirmation",
-  "project-intent-gap",
-  "gate-protection-change",
-  "authored-source-collision",
-  "owner-policy-conflict",
-  "subsystem-sanity-check",
-  "worktree-resource-policy",
-  "documentation-claim-gap",
-  "external-reference-inspection",
-  "landing-choice",
-] as const;
+export const SETUP_DECISION_KINDS =
+  RESULT_OPEN_VOCABULARIES["x-discern-setup-decision-kinds"].values;
 export type SetupDecisionKind = typeof SETUP_DECISION_KINDS[number];
 
 export const SETUP_RECOMMENDATION_ACTION = "use-recommendation" as const;
@@ -172,7 +159,7 @@ export type SetupHumanDecisionOption = z.infer<
 >;
 
 export const SetupHumanRelaySchema = z.strictObject({
-  protection: z.enum(["adaptive", "verbatim-list"]),
+  protection: openVocabulary("x-discern-relay-protections"),
   message: nonEmpty,
   experienced: nonEmpty,
 });
@@ -202,7 +189,7 @@ const commonMomentShape = {
 export const SetupHumanDecisionMomentSchema = z.strictObject({
   ...commonMomentShape,
   kind: z.literal("decision"),
-  decision_kind: z.enum(SETUP_DECISION_KINDS),
+  decision_kind: openVocabulary("x-discern-setup-decision-kinds"),
   recommendation: nonEmpty,
   agent_behavior: z.strictObject({
     before_owner_action: z.literal("wait"),
@@ -272,7 +259,7 @@ export type SetupHumanMoment = z.infer<typeof SetupHumanMomentSchema>;
 /** Compact typed routing state carried beside the complete prose contract. */
 export const SetupHumanMomentProjectionSchema = z.strictObject({
   id: nonEmpty,
-  kind: z.enum(SETUP_HUMAN_MOMENT_KINDS),
+  kind: openVocabulary("x-discern-setup-moment-kinds"),
   phase: nonEmpty,
   purpose: nonEmpty,
   applicability: z.union([
@@ -286,7 +273,7 @@ export const SetupHumanMomentProjectionSchema = z.strictObject({
   fact_ids: z.array(nonEmpty).min(1),
   recommendation: nonEmpty.optional(),
   decision: z.strictObject({
-    kind: z.enum(SETUP_DECISION_KINDS),
+    kind: openVocabulary("x-discern-setup-decision-kinds"),
     recommended_option: nonEmpty,
     option_ids: z.array(nonEmpty).min(2),
     agent_waits_when_served: z.literal(true),
@@ -302,7 +289,7 @@ export const SetupHumanMomentProjectionSchema = z.strictObject({
       }),
     ]),
   }).optional(),
-  relay_protection: z.enum(["adaptive", "verbatim-list"]),
+  relay_protection: openVocabulary("x-discern-relay-protections"),
 });
 export type SetupHumanMomentProjection = z.infer<
   typeof SetupHumanMomentProjectionSchema

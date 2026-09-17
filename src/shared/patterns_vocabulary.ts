@@ -13,50 +13,44 @@
  */
 
 import { z } from "@zod/zod";
+import { RESULT_OPEN_VOCABULARIES } from "./result.ts";
+import { openVocabulary } from "./result_vocabulary.ts";
 
 /** The detector families the `patterns` registry groups by: how agents behave,
  * how the gate fits the stack, how the task funnel flows, and how the numbers
  * move over time. SSOT for the family vocabulary — the schema enums below and
  * the engine's detector registry both derive from it. */
-export const DETECTOR_FAMILIES = [
-  "trajectory",
-  "gate-fit",
-  "behavior",
-  "funnel",
-] as const;
+export const DETECTOR_FAMILIES =
+  RESULT_OPEN_VOCABULARIES["x-discern-detector-families"].values;
 /** One detector family ({@link DETECTOR_FAMILIES}). */
 export type DetectorFamily = (typeof DETECTOR_FAMILIES)[number];
 
 /** What a finding is ABOUT — the surface a later wave routes it to: one
  * branch's work, one conversation's runs, or the whole project. */
-export const DETECTOR_SCOPES = ["branch", "session", "project"] as const;
+export const DETECTOR_SCOPES =
+  RESULT_OPEN_VOCABULARIES["x-discern-detector-scopes"].values;
 /** One detector scope ({@link DETECTOR_SCOPES}). */
 export type DetectorScope = (typeof DETECTOR_SCOPES)[number];
 
 /** How costly a detector is to run: `inline` is cheap enough for the proof
  * and `status` to carry (a glance at recent events); `batch` runs only under
  * the `patterns` verb, so `done` never pays for longitudinal analysis. */
-export const DETECTOR_TIERS = ["inline", "batch"] as const;
+export const DETECTOR_TIERS =
+  RESULT_OPEN_VOCABULARIES["x-discern-detector-tiers"].values;
 /** One detector tier ({@link DETECTOR_TIERS}). */
 export type DetectorTier = (typeof DETECTOR_TIERS)[number];
 
 /** How a detector's run turned out: it spoke (`fired`), it saw enough evidence
  * and found nothing (`quiet`), or the logbook is too young for it to speak
  * (`insufficient-evidence` — reported as such, never extrapolated past). */
-export const DETECTOR_STATUSES = [
-  "fired",
-  "quiet",
-  "insufficient-evidence",
-] as const;
+export const DETECTOR_STATUSES =
+  RESULT_OPEN_VOCABULARIES["x-discern-detector-statuses"].values;
 /** One detector status ({@link DETECTOR_STATUSES}). */
 export type DetectorStatus = (typeof DETECTOR_STATUSES)[number];
 
 /** Presentation vocabulary derived from a finding's recorded facts. */
-export const PATTERN_FINDING_TONES = [
-  "good",
-  "neutral",
-  "attention",
-] as const;
+export const PATTERN_FINDING_TONES =
+  RESULT_OPEN_VOCABULARIES["x-discern-finding-tones"].values;
 /** One finding tone ({@link PATTERN_FINDING_TONES}). */
 export type PatternFindingTone = (typeof PATTERN_FINDING_TONES)[number];
 
@@ -82,7 +76,8 @@ export const PATTERN_INVESTIGATION_OBSERVATIONS_MAX = 4;
  * or derived by a declared estimator. A confidence score is deliberately not
  * part of the vocabulary: uncertainty belongs in the denominator and
  * limitations. */
-export const PATTERN_EVIDENCE_VALUE_KINDS = ["observed", "estimated"] as const;
+export const PATTERN_EVIDENCE_VALUE_KINDS =
+  RESULT_OPEN_VOCABULARIES["x-discern-evidence-value-kinds"].values;
 export type PatternEvidenceValueKind =
   (typeof PATTERN_EVIDENCE_VALUE_KINDS)[number];
 
@@ -164,7 +159,7 @@ export const PatternEvidenceBasisSchema = z.strictObject({
     z.string(),
     z.strictObject({
       value: z.number(),
-      kind: z.enum(PATTERN_EVIDENCE_VALUE_KINDS),
+      kind: openVocabulary("x-discern-evidence-value-kinds"),
     }),
   ),
 });
@@ -177,9 +172,9 @@ export type PatternEvidenceBasis = z.infer<typeof PatternEvidenceBasisSchema>;
  * report's ranking key — unitless, never evidence. */
 export const PatternsFindingSchema = z.strictObject({
   detector: z.string(),
-  family: z.enum(DETECTOR_FAMILIES),
-  scope: z.enum(DETECTOR_SCOPES),
-  tone: z.enum(PATTERN_FINDING_TONES),
+  family: openVocabulary("x-discern-detector-families"),
+  scope: openVocabulary("x-discern-detector-scopes"),
+  tone: openVocabulary("x-discern-finding-tones"),
   subject: z.string().optional(),
   summary: z.string().min(1),
   series: z.array(z.number()).max(PATTERNS_SERIES_MAX_POINTS).optional(),
@@ -231,7 +226,7 @@ export const PatternInvestigationObservationSchema = z.strictObject({
     z.string(),
     z.strictObject({
       value: z.number(),
-      kind: z.enum(PATTERN_EVIDENCE_VALUE_KINDS),
+      kind: openVocabulary("x-discern-evidence-value-kinds"),
     }),
   ),
 });
@@ -306,10 +301,10 @@ export type PatternInvestigation = z.infer<typeof PatternInvestigationSchema>;
 const patternsDetectorSchema = z.strictObject({
   id: z.string(),
   title: z.string(),
-  family: z.enum(DETECTOR_FAMILIES),
-  scope: z.enum(DETECTOR_SCOPES),
-  tier: z.enum(DETECTOR_TIERS),
-  status: z.enum(DETECTOR_STATUSES),
+  family: openVocabulary("x-discern-detector-families"),
+  scope: openVocabulary("x-discern-detector-scopes"),
+  tier: openVocabulary("x-discern-detector-tiers"),
+  status: openVocabulary("x-discern-detector-statuses"),
   considered: z.number().int(),
   threshold: z.number().int(),
   findings: z.number().int(),
@@ -365,18 +360,15 @@ const patternsPopulationSchema = z.strictObject({
 export type PatternsPopulation = z.infer<typeof patternsPopulationSchema>;
 
 /** The recorded order in which one change cycle first entered validation. */
-export const VALIDATION_WORKFLOW_ROUTES = [
-  "test-first",
-  "commit-first",
-  "unattributed",
-] as const;
+export const VALIDATION_WORKFLOW_ROUTES =
+  RESULT_OPEN_VOCABULARIES["x-discern-validation-routes"].values;
 export type ValidationWorkflowRoute =
   (typeof VALIDATION_WORKFLOW_ROUTES)[number];
 
 /** Counts shared by every validation-workflow route. Failure fields count
  * recorded validation verdicts; additional calls do not establish wasted work. */
 const validationWorkflowRouteSchema = z.strictObject({
-  route: z.enum(VALIDATION_WORKFLOW_ROUTES),
+  route: openVocabulary("x-discern-validation-routes"),
   cycles: z.number().int().nonnegative(),
   branches: z.number().int().nonnegative(),
   runs: z.number().int().nonnegative(),
@@ -390,7 +382,7 @@ const validationWorkflowRouteSchema = z.strictObject({
 
 /** Per-verb workflow observations, with explicit validation failures only. */
 const validationWorkflowVerbSchema = z.strictObject({
-  verb: z.enum(["prepare", "test", "done"]),
+  verb: openVocabulary("x-discern-validation-verbs"),
   runs: z.number().int().nonnegative(),
   branches: z.number().int().nonnegative(),
   clean: z.number().int().nonnegative(),
