@@ -32,12 +32,12 @@ The package version follows releases. The install schema changes only when an in
 
 The [install corpus](../../../tests/fixtures/installs/README.md) holds one captured `discern setup begin` installation per past schema, starting with the schema-1 release candidate. For the next schema change:
 
-1. Capture the current schema before changing the template: run the capture command from the corpus README on a clean checkout. It writes `tests/fixtures/installs/schema-<N>/` and refuses to overwrite a captured schema.
+1. Capture the current schema before changing the template: run the capture command from the corpus README on a clean checkout. It writes `tests/fixtures/installs/schema-<N>/` as an archive beside a plaintext manifest and refuses to overwrite a captured schema.
 2. Raise `SCHEMA_VERSION` and the template stamp to N+1. The ceiling guard fails while the newest captured schema is more than one behind.
 3. Append one `from: N` entry to `MIGRATIONS`. Keep the transform specific to the on-disk change.
 4. Add focused tests for the transform and its second-run no-op. The chain guard enrolls the new step.
 5. Exercise `upgrade --check`, `--dry-run`, apply, validation failure, and final stamping through the command seam.
-6. Keep the convergence test green: every captured installation, upgraded through the chain, must equal a fresh installation byte for byte, except for the allowances the test registers with a reason.
+6. Keep the convergence test green: every captured installation, upgraded through the chain, must match a fresh installation in everything discern maintains. Generated and Shared artifacts compare byte for byte, `discern.toml` compares its managed projection, and project-owned seeds compare by presence.
 
 Until that bump exists, the framework test proves the empty schema-1 chain and the generic runner. The upgrade test injects a synthetic next schema and migration registry, which keeps the command fold covered without publishing a transition.
 
