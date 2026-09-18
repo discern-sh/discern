@@ -116,18 +116,28 @@ toolchain = ['unrelated-toolchain']
       ),
     );
     await git(path, "add", "discern.toml");
-    await git(path, "commit", "-m", "Require the oversized input explicitly");
-    const failed = await runAgent(path, [
-      "standards",
-      "propose",
-      "magnitude",
-      "--reason",
-      "Preserve the exact measurement failure before proposing a limit.",
-      "--json",
-    ]);
-    const failure = decodeCliResult(failed.stdout, "standards propose");
-    assertEquals(failed.code, 1, failed.output);
-    assertStringIncludes(failure.message ?? "", "byte bound");
-    assert(!(failure.message ?? "").includes("did not yield a numeric metric"));
+    await git(path, "commit", "-m", "Require the toolchain input explicitly");
+    // Size is no ceiling for a declared toolchain; an input the observer
+    // cannot read is what refuses the measurement, and it is refused by name.
+    await Deno.chmod(`${path}/unrelated-toolchain`, 0o000);
+    try {
+      const failed = await runAgent(path, [
+        "standards",
+        "propose",
+        "magnitude",
+        "--reason",
+        "Preserve the exact measurement failure before proposing a limit.",
+        "--json",
+      ]);
+      const failure = decodeCliResult(failed.stdout, "standards propose");
+      assertEquals(failed.code, 1, failed.output);
+      assertStringIncludes(failure.message ?? "", '"unrelated-toolchain"');
+      assertStringIncludes(failure.message ?? "", "cannot be read");
+      assert(
+        !(failure.message ?? "").includes("did not yield a numeric metric"),
+      );
+    } finally {
+      await Deno.chmod(`${path}/unrelated-toolchain`, 0o644);
+    }
   });
 });
