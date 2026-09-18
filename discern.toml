@@ -693,7 +693,7 @@
   ]
   metric = "module_coverage_exceptions"
   direction = "down"
-  limit = 14
+  limit = 10
 
 [standards.prose]
   direction = "down"
@@ -701,7 +701,7 @@
   scale = 1000
   # Corrected from the mismatched whole-map denominator: 4,863 alerts across
   # 312,085 staged words. Private prose and frontmatter stay outside the rate.
-  limit = 15.15
+  limit = 14.05
   run = "deno task prose \"${map.dir}\""
   inputs = [
     "${map.dir}**",
@@ -766,7 +766,7 @@
 # an always-on test and retire this transition Standard.
 [standards.site_component_gaps]
   direction = "down"
-  limit = 65
+  limit = 51
   run = "deno task site:component-coverage"
   needs = ["jobs.build"]
   inputs = [
@@ -813,7 +813,7 @@
 # arithmetic: milliseconds, so it measures in every gate run.
 [standards.plain_reading_grade]
   direction = "down"
-  limit = 13.45
+  limit = 12.09
   margin = 0.2
   run = "deno run scripts/plain_reading_grade.ts"
   inputs = [
@@ -832,7 +832,7 @@
 # blocking budget. At zero, keep the syntax detector as an always-on guard.
 [standards.unsafe_type_assertions]
   direction = "down"
-  limit = 103
+  limit = 101
   run = "deno task cast-census"
   inputs = [
     "*.ts",
@@ -871,7 +871,7 @@
 # not spend the budget. Consolidate a named group, then pin the reduction.
 [standards.duplicated_lines]
   direction = "down"
-  limit = 5216
+  limit = 5205
   run = "deno task duplication-census"
   inputs = [
     "*.ts",
@@ -899,7 +899,7 @@
 # Standard so the legacy tail can only shrink.
 [standards.complexity_hotspots]
   direction = "down"
-  limit = 18
+  limit = 17
   run = "deno task complexity"
   inputs = [
     "*.ts",
@@ -957,7 +957,7 @@
 # so a shared wrapper cannot hide unlimited new discards behind one call.
 [standards.silent_error_boundaries]
   direction = "down"
-  limit = 187
+  limit = 185
   run = "deno task silent-error-boundaries"
   inputs = [
     "*.ts",
@@ -1054,7 +1054,7 @@
 # Condition-oriented waits and fake-clock tests do not spend this budget.
 [standards.test_real_delay_boundaries]
   direction = "down"
-  limit = 26
+  limit = 20
   run = "deno task test-real-delay-boundaries"
   inputs = [
     "tests/**",
@@ -1068,7 +1068,7 @@
 # The module count cannot trade more modules for fewer calls.
 [standards.ambient_read_boundaries]
   direction = "down"
-  limit = 38
+  limit = 33
   run = "deno task ambient-boundaries"
   inputs = [
     "scripts/ambient_state_lint.ts",
@@ -1085,7 +1085,7 @@
 # both ways; this ceiling makes every added operation an owner decision.
 [standards.ambient_read_operations]
   direction = "down"
-  limit = 56
+  limit = 48
   producer = "standards.ambient_read_boundaries"
 
 # Process-environment mutation boundary standard — the explicit registry is
@@ -1154,14 +1154,14 @@
 [standards.skills_count]
   metric = "skills_count"
   direction = "down"
-  limit = 10
+  limit = 9
   run = "echo DISCERN_METRIC skills_count $(ls templates/skills | wc -l)"
   inputs = ["templates/skills/**"]
 
 [standards.skills_words]
   metric = "skills_words"
   direction = "down"
-  limit = 1040
+  limit = 961
   run = "echo DISCERN_METRIC skills_words $(awk 'FNR==1{f=0} /^---$/{f++;next} f==1' templates/skills/*/SKILL.md | wc -w)"
   inputs = ["templates/skills/**"]
 
@@ -1177,7 +1177,7 @@
   timeout = 600
   metric = "binary_size_bytes"
   direction = "down"
-  limit = 147500000
+  limit = 117355016
 
   # The binary's byte count drifts with every commit, so `discern standards --pin`
   # leaves 1 MB of headroom when it re-pins this ceiling — capturing a real size
@@ -1219,7 +1219,7 @@
 [standards.manual_reading_grade]
   metric = "manual_reading_grade"
   direction = "down"
-  limit = 10.7
+  limit = 9.39
   margin = 0.2
   run = "deno run --allow-read scripts/manual_reading_grade.ts"
   inputs = [
