@@ -133,7 +133,7 @@ body {
 }
 
 .docs-nav-foot a {
-  color: var(--discern-color-ink-faint);
+  color: var(--discern-color-ink-muted);
   text-decoration: none;
 }
 
