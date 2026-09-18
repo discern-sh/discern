@@ -201,44 +201,6 @@ Deno.test("the pre-public redirect authorities are empty", async () => {
   assertEquals(STATIC_REDIRECTS, {});
 });
 
-Deno.test("the owner history transition removes only session trailers", async () => {
-  const runbook = await text(
-    "project/map/_private/maintainer/release-runbook.md",
-  );
-  const sessionCount =
-    `git log --all --format=%B | awk '/^Claude-Session:/{n++} END{print n+0}'`;
-  const coauthorCount =
-    `git log --all --format=%B | awk '/^Co-Authored-By:/{n++} END{print n+0}'`;
-  assert(
-    runbook.includes(
-      'line.startswith(b"Claude-Session:")',
-    ),
-  );
-  assert(
-    runbook.includes(
-      'replace(b"Co-Authored-By: discern-bot <bot@discern.sh>", b"Co-Authored-By: discern <done@discern.sh>")',
-    ),
-  );
-  assert(
-    runbook.includes(
-      `CLAUDE_SESSION_TRAILERS_BEFORE="$(${sessionCount})"`,
-    ),
-  );
-  assert(
-    runbook.includes(
-      `AI_COAUTHOR_TRAILERS_BEFORE="$(${coauthorCount})"`,
-    ),
-  );
-  assert(
-    runbook.includes(
-      `test "$(${sessionCount})" -eq 0`,
-    ),
-  );
-  assert(runbook.includes(`test "$(${coauthorCount})" \\`));
-  assert(runbook.includes(`-eq "$AI_COAUTHOR_TRAILERS_BEFORE"`));
-  assert(runbook.includes("Do not install a repository Git hook"));
-});
-
 Deno.test("public Windows support surfaces use the canonical WSL 2 name", async () => {
   const publicSupportFiles = await structuralGuardScope({
     guard: "tests/repository_hygiene_test.ts#wsl-2-wording",

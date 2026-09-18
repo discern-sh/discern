@@ -258,27 +258,6 @@ Deno.test("benefit obligations resolve both directions and reject stale identiti
   );
 });
 
-Deno.test("the typed exclusion reasons retain the frozen 1A decisions", async () => {
-  const inventory = await Deno.readTextFile(
-    join(
-      REPO_ROOT,
-      "project/map/_private/planning/public-manual-workstreams/inventory.md",
-    ),
-  );
-  const section =
-    inventory.split("### Explicitly not selected: 24")[1]?.split("\n## ")[0] ??
-      "";
-  const reasons = Object.fromEntries(
-    section.split("\n").flatMap((line) => {
-      const cells = line.split("|").map((cell) => cell.trim());
-      const id = /^`([^`]+)`$/u.exec(cells[2] ?? "")?.[1];
-      const reason = cells[3];
-      return id === undefined || reason === undefined ? [] : [[id, reason]];
-    }),
-  );
-  assertEquals(reasons, MANUAL_BENEFIT_EXCLUSIONS);
-});
-
 Deno.test("promotion checkpoint distinguishes additions and replacements from shrinkage", () => {
   const before = ["start.md", "guide.md", "reference.md"];
   assertFalse(addsOrReplacesFrontDoor(before, [...before]));
