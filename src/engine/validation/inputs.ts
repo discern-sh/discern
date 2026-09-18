@@ -40,8 +40,10 @@ const BATCH_HEADER_LIMIT = 256;
  * verified against its expected header before its bytes reach the identity
  * accumulator, so a blob of any size is observed without being retained. A
  * protocol mismatch is recorded, never thrown through the stream reader.
+ * Exported for its behavioral tests; production reaches it only through
+ * {@link observeCandidateInputs}.
  */
-class BatchFrameParser {
+export class BatchFrameParser {
   readonly #entries: readonly InputBlob[];
   readonly #files: Record<string, ValidationInputIdentity>;
   #index = 0;
