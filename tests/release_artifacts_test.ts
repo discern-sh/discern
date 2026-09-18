@@ -52,6 +52,7 @@ import {
 import { withTempDir } from "./helpers.ts";
 import { canonicalDocTarget, discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
+import { stripManualSourceComments } from "../scripts/build.ts";
 import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { createWorkflowChecksum } from "./release_workflow_fixture.ts";
@@ -245,6 +246,8 @@ Deno.test("the compiled release smoke gates artifact upload", () => {
 });
 
 interface FakeOptions {
+  /** Emit the authored page instead of the public projection the build embeds. */
+  authoredDocsSource?: boolean;
   docsRoot?: boolean;
   docsRootOnly?: boolean;
   embeddedLeak?: string;
@@ -295,9 +298,12 @@ async function writeFakeDiscern(
     verb: "docs",
     data: { count: docs.length, docs },
   });
-  const rawConfigReference = await Deno.readTextFile(
+  const authoredConfigReference = await Deno.readTextFile(
     join(manualDir, "30-reference/config-reference.md"),
   );
+  const rawConfigReference = options.authoredDocsSource === true
+    ? authoredConfigReference
+    : stripManualSourceComments(authoredConfigReference);
   const documents = await Promise.all(
     FIRST_PARTY_LEGAL_DOCUMENTS
       .filter((document) => document.key !== options.missingLicenseKey)
@@ -363,7 +369,7 @@ case "$1" in
     printf '%s\\n' '# Instructions' > ${SOURCE_PATHS.instructions.defaultPath}
     ${scaffoldMap}
     ${materializeLegal}
-    printf '%s\\n' '${JSON.stringify({ ok: true, verb: "setup" })}'
+    printf '%s\\n' '${JSON.stringify({ ok: true, verb: "setup begin" })}'
     ;;
   *)
     exit 64
@@ -388,6 +394,27 @@ Deno.test("release smoke proves version, licenses, bundled docs, and setup asset
         "1.2.3",
       );
     }
+  }, { prefix: "release-smoke-test-" });
+});
+
+Deno.test("release smoke expects the public projection of a bundled page, not its authored source", async () => {
+  const authored = await Deno.readTextFile(
+    join(
+      resolveRepositoryManualDir(REPO_ROOT).abs,
+      "30-reference/config-reference.md",
+    ),
+  );
+  assert(
+    authored !== stripManualSourceComments(authored),
+    "the fixture page must carry a source-generation comment for this proof to bite",
+  );
+  await withTempDir(async (dir) => {
+    const binary = await writeFakeDiscern(dir, { authoredDocsSource: true });
+    await assertRejects(
+      () => smokeReleaseBinary(binary, "1.2.3"),
+      Error,
+      "differs from the public projection",
+    );
   }, { prefix: "release-smoke-test-" });
 });
 

@@ -10,6 +10,7 @@ import { FIRST_PARTY_LEGAL_DOCUMENTS } from "../src/shared/license_registry.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 import { canonicalDocTarget, discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
+import { stripManualSourceComments } from "./build.ts";
 import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 
 const DECODER = new TextDecoder();
@@ -313,9 +314,9 @@ export async function smokeReleaseBinary(
     const expectedRaw = await Deno.readTextFile(
       join(resolveRepositoryManualDir(REPO_ROOT).abs, `${rawTarget}.md`),
     );
-    if (raw.stdout !== expectedRaw) {
+    if (raw.stdout !== stripManualSourceComments(expectedRaw)) {
       throw new Error(
-        `compiled docs raw output differs from ${rawTarget}.md`,
+        `compiled docs raw output differs from the public projection of ${rawTarget}.md`,
       );
     }
 
@@ -362,7 +363,7 @@ export async function smokeReleaseBinary(
       )).stdout,
       "compiled setup",
     );
-    if (setup.verb !== "setup") {
+    if (setup.verb !== "setup begin") {
       throw new Error(
         `compiled setup returned unexpected verb: ${String(setup.verb)}`,
       );

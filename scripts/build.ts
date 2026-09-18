@@ -193,14 +193,6 @@ export async function stageBundledManual(
   }, { parent });
 }
 
-/** Remove source-generation comments before the manual enters a release binary. */
-export function stripManualSourceComments(source: string): string {
-  return source.replace(
-    /<!--[^]*?-->\r?\n?/g,
-    (comment) => /\b(?:generated|regenerate)\b/iu.test(comment) ? "" : comment,
-  );
-}
-
 /** Prepare the repo-relative include tree consumed by `deno compile`. */
 async function prepareBundledManual(): Promise<string> {
   const stageDir = join(REPO_ROOT, BUNDLED_MANUAL_STAGE_DIR);
@@ -366,4 +358,16 @@ async function main(): Promise<void> {
 
 if (import.meta.main) {
   await main();
+}
+
+/**
+ * The public projection of one manual page: its source with source-generation
+ * comments removed. Release binaries embed this projection, and the release
+ * smoke predicts a bundled page from it.
+ */
+export function stripManualSourceComments(source: string): string {
+  return source.replace(
+    /<!--[^]*?-->\r?\n?/g,
+    (comment) => /\b(?:generated|regenerate)\b/iu.test(comment) ? "" : comment,
+  );
 }
