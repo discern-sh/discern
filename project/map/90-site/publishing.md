@@ -64,12 +64,12 @@ The macOS jobs sign those binaries with Developer ID, run the smoke over the sig
 
 For a public repository, GitHub then records build provenance for the binary and checksum before artifact upload. The prelaunch private repository skips that step. Private and internal attestations require GitHub Enterprise Cloud. Full commit hashes pin every remote action in both workflows. A directory-wide guard enrolls future workflow files and steps in the same rule. See GitHub's [artifact-attestation instructions](https://docs.github.com/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) for independent verification.
 
-The site job checks out the same tag, observes the published release assets, stages the validated publication input, runs the site build, and sends that source snapshot to `deno deploy --prod`. The remote build consumes the same publication input. Re-run the same tag only while it satisfies the [release catalogue ordering contract](releases.md#publication-evidence). An older rerun cannot replace newer published history. Production deployments exclude arbitrary local checkouts.
+The site job checks out the same tag, observes the published release assets, stages the validated publication input, runs the site build, and sends that source snapshot to the deploy tool with `--prod`. The tool runs directly and pinned (`deno run -A jsr:@deno/deploy@<version>`, locked in `deno.lock`) because the `deno deploy` wrapper in the pinned Deno forwards every option twice. The remote build consumes the same publication input. Re-run the same tag only while it satisfies the [release catalogue ordering contract](releases.md#publication-evidence). An older rerun cannot replace newer published history. Production deployments exclude arbitrary local checkouts.
 
 Before the first release, the setup can be exercised against a throwaway app:
 
 ```sh
-deno deploy create --source local --org <org> --app <app>
+deno run -A --no-lock jsr:@deno/deploy@0.0.9904 create --source local --org <org> --app <app>
 ```
 
 ## Verify a deploy

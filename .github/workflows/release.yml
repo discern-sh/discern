@@ -332,8 +332,11 @@ jobs:
 
       # The production app is created as a local-source app (not linked to the
       # repository's default branch), so this is its only production trigger.
-      # deno.json supplies the remote build and runtime configuration.
+      # deno.json supplies the remote build and runtime configuration. The
+      # deploy tool runs directly and pinned: the `deno deploy` wrapper in the
+      # pinned Deno forwards every option twice, so it cannot carry these flags.
       - name: Deploy the tag to production
         run: >-
-          deno deploy --org "${{ vars.DENO_DEPLOY_ORG }}"
+          deno run -A jsr:@deno/deploy@0.0.9904
+          --org "${{ vars.DENO_DEPLOY_ORG }}"
           --app "${{ vars.DENO_DEPLOY_APP }}" --prod

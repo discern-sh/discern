@@ -16,7 +16,20 @@ Deno.test("the production site deploy is a release-tag-only path", async () => {
   assertStringIncludes(workflow, "needs: [plan, release]");
   assertStringIncludes(workflow, "ref: ${{ github.ref }}");
   assertStringIncludes(workflow, "deno task site:build");
-  assertStringIncludes(workflow, "deno deploy --org");
+  const pinned = /deno run -A jsr:@deno\/deploy@(\d+\.\d+\.\d+)\n\s+--org/u
+    .exec(workflow)?.[1];
+  assert(
+    pinned !== undefined,
+    "the deploy tool runs directly with a pinned version",
+  );
+  const lock = await Deno.readTextFile(
+    new URL("../deno.lock", import.meta.url),
+  );
+  assertStringIncludes(
+    lock,
+    `"jsr:@deno/deploy@${pinned}"`,
+    "the pinned deploy tool is locked, so the deploy job resolves it without writing the lockfile",
+  );
   assertStringIncludes(workflow, "--prod");
   assertStringIncludes(
     workflow,
@@ -41,7 +54,7 @@ Deno.test("no second workflow can deploy main or bypass the tag release", async 
     })
   ) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
-    if (/\bdeno deploy\b|\bdeployctl\b/.test(text)) {
+    if (/\bdeno deploy\b|\bdeployctl\b|jsr:@deno\/deploy/.test(text)) {
       deployers.push(rel.slice(prefix.length));
     }
   }
