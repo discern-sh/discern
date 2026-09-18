@@ -30,30 +30,34 @@ The package version follows releases. The install schema changes only when an in
 
 ## Add the next schema
 
-For the first public migration:
+The [install corpus](../../../tests/fixtures/installs/README.md) holds one captured `discern setup begin` installation per past schema, starting with the schema-1 release candidate. For the next schema change:
 
-1. Capture an install produced at schema 1 before changing the template. This starts the public historical fixture corpus.
-2. Raise `SCHEMA_VERSION` and the template stamp to 2.
-3. Append one `from: 1` entry to `MIGRATIONS`. Keep the transform specific to the on-disk change.
+1. Capture the current schema before changing the template: run the capture command from the corpus README on a clean checkout. It writes `tests/fixtures/installs/schema-<N>/` and refuses to overwrite a captured schema.
+2. Raise `SCHEMA_VERSION` and the template stamp to N+1. The ceiling guard fails while the newest captured schema is more than one behind.
+3. Append one `from: N` entry to `MIGRATIONS`. Keep the transform specific to the on-disk change.
 4. Add focused tests for the transform and its second-run no-op. The chain guard enrolls the new step.
 5. Exercise `upgrade --check`, `--dry-run`, apply, validation failure, and final stamping through the command seam.
+6. Keep the convergence test green: every captured installation, upgraded through the chain, must equal a fresh installation byte for byte, except for the allowances the test registers with a reason.
 
 Until that bump exists, the framework test proves the empty schema-1 chain and the generic runner. The upgrade test injects a synthetic next schema and migration registry, which keeps the command fold covered without publishing a transition.
 
 ## Where it lives in code
 
-| Concern                                 | File                                                                      |
-| --------------------------------------- | ------------------------------------------------------------------------- |
-| Current install schema                  | [`version.ts`](../../../src/lib/version.ts)                               |
-| Migration registry, runner, and context | [`migrations.ts`](../../../src/lib/migrations.ts)                         |
-| Recorded-version reader and stamper     | [`schema.ts`](../../../src/lib/schema.ts)                                 |
-| Upgrade validation and execution        | [`upgrade.ts`](../../../src/commands/upgrade.ts)                          |
-| Framework invariants                    | [`migrations_test.ts`](../../../tests/migrations_test.ts)                 |
-| Upgrade fold and synthetic next schema  | [`upgrade_migrations_test.ts`](../../../tests/upgrade_migrations_test.ts) |
+| Concern                                 | File                                                                        |
+| --------------------------------------- | --------------------------------------------------------------------------- |
+| Current install schema                  | [`version.ts`](../../../src/lib/version.ts)                                 |
+| Migration registry, runner, and context | [`migrations.ts`](../../../src/lib/migrations.ts)                           |
+| Recorded-version reader and stamper     | [`schema.ts`](../../../src/lib/schema.ts)                                   |
+| Upgrade validation and execution        | [`upgrade.ts`](../../../src/commands/upgrade.ts)                            |
+| Framework invariants                    | [`migrations_test.ts`](../../../tests/migrations_test.ts)                   |
+| Upgrade fold and synthetic next schema  | [`upgrade_migrations_test.ts`](../../../tests/upgrade_migrations_test.ts)   |
+| Captured installations per past schema  | [`tests/fixtures/installs/`](../../../tests/fixtures/installs/README.md)    |
+| Capture command                         | [`capture_install_fixture.ts`](../../../scripts/capture_install_fixture.ts) |
+| Convergence, frozen bytes, and ceiling  | [`install_corpus_test.ts`](../../../tests/install_corpus_test.ts)           |
 
 ## Current state and gotchas
 
-`MIGRATIONS` is empty while `SCHEMA_VERSION` is 1. A config without `[meta].schema_version` resolves to schema 1. A recorded value above 1 comes from a newer schema, a condition called forward skew. The schema-1 binary refuses that config.
+`MIGRATIONS` is empty while `SCHEMA_VERSION` is 1. The schema-1 fixture was captured from the release candidate, so the first public migration starts from the bytes a fresh installation received. A config without `[meta].schema_version` resolves to schema 1. A recorded value above 1 comes from a newer schema, a condition called forward skew. The schema-1 binary refuses that config.
 
 The prerelease migrations remain visible in the decision records as project history. They are absent from the public compatibility path.
 
