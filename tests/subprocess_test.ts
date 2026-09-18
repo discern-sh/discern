@@ -186,34 +186,36 @@ Deno.test("runGit supplies protocol input on stdin", async () => {
 });
 
 Deno.test("runGit hands stdout to a sink without retaining it or charging the ceiling", async () => {
-  const received: number[] = [];
-  const result = await runGit(["--version"], {
-    cwd: Deno.cwd(),
-    maxOutputBytes: 4,
-    stdoutSink: (chunk) => received.push(...chunk),
-  });
-  assertEquals(result.success, true, result.stderr);
-  assertEquals(result.stdout, "");
-  assertEquals(result.stdoutBytes?.length, 0);
-  assert(
-    new TextDecoder().decode(Uint8Array.from(received)).includes(
-      "git version",
-    ),
-    "the sink received the child's stdout",
-  );
-  const abort = new AbortController();
-  let settled: "resolved" | "rejected" | undefined;
-  try {
-    await runGit(["--version"], {
-      cwd: Deno.cwd(),
-      signal: abort.signal,
-      stdoutSink: () => abort.abort(),
+  await withTempDir(async (root) => {
+    const received: number[] = [];
+    const result = await runGit(["--version"], {
+      cwd: root,
+      maxOutputBytes: 4,
+      stdoutSink: (chunk) => received.push(...chunk),
     });
-    settled = "resolved";
-  } catch {
-    settled = "rejected";
-  }
-  assertEquals(settled, "rejected", "an aborting consumer ends the call");
+    assertEquals(result.success, true, result.stderr);
+    assertEquals(result.stdout, "");
+    assertEquals(result.stdoutBytes?.length, 0);
+    assert(
+      new TextDecoder().decode(Uint8Array.from(received)).includes(
+        "git version",
+      ),
+      "the sink received the child's stdout",
+    );
+    const abort = new AbortController();
+    let settled: "resolved" | "rejected" | undefined;
+    try {
+      await runGit(["--version"], {
+        cwd: root,
+        signal: abort.signal,
+        stdoutSink: () => abort.abort(),
+      });
+      settled = "resolved";
+    } catch {
+      settled = "rejected";
+    }
+    assertEquals(settled, "rejected", "an aborting consumer ends the call");
+  });
 });
 
 Deno.test("runGit refuses every discern-chosen Git transport spelling", async () => {
