@@ -30,6 +30,11 @@ import {
   resolveGateRunPolicy,
 } from "./execute.ts";
 import { standaloneValidation } from "../validation/diagnostics.ts";
+import {
+  validationInputDiagnostic,
+  ValidationInputError,
+} from "../validation/input_identity.ts";
+import type { PublicValidationRun } from "../validation/public_run.ts";
 import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
@@ -177,16 +182,26 @@ async function runTestGateBody(
       [group],
     );
   }
-  const validationRun = await standaloneValidation({
-    root,
-    config: cfg,
-    scopes: [],
-    kind: "test",
-    capacity: { slots, out, runner: runOpts },
-    ...(signal === undefined ? {} : { signal }),
-  });
-  const results = new Map(validationRun.results);
-  const failedStage = validationRun.outcome.blockers.length === 0
+  let validationRun: PublicValidationRun | undefined;
+  let inputFailure: ValidationInputError | undefined;
+  try {
+    validationRun = await standaloneValidation({
+      root,
+      config: cfg,
+      scopes: [],
+      kind: "test",
+      capacity: { slots, out, runner: runOpts },
+      ...(signal === undefined ? {} : { signal }),
+    });
+  } catch (error) {
+    if (!(error instanceof ValidationInputError)) throw error;
+    // The declared closure could not be observed, so no producer ran.
+    inputFailure = error;
+  }
+  const results = new Map(validationRun?.results ?? []);
+  const failedStage: FailedStage | null = inputFailure !== undefined
+    ? "validation_inputs"
+    : (validationRun?.outcome.blockers.length ?? 0) === 0
     ? null
     : "test";
   const { steps, diagnostics, hints } = await serializeJobSteps(
@@ -194,6 +209,9 @@ async function runTestGateBody(
     [group],
     results,
   );
+  if (inputFailure !== undefined) {
+    diagnostics.push(validationInputDiagnostic(inputFailure));
+  }
   const gotchasTail = failedStage === null
     ? undefined
     : await gateFailureGotchasTail(cfg, root, {
@@ -211,9 +229,10 @@ async function runTestGateBody(
     verb: "test",
     steps,
     data: {
-      standards: validationRun.standards,
-      producer_executions: validationRun.producer_executions,
-      ...(validationRun.producer_evidence.length === 0
+      standards: validationRun?.standards ?? [],
+      producer_executions: validationRun?.producer_executions ?? {},
+      ...(validationRun === undefined ||
+          validationRun.producer_evidence.length === 0
         ? {}
         : { producer_evidence: [...validationRun.producer_evidence] }),
       completion: { kind: "diagnostic", proof: "not-issued" },

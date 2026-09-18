@@ -18,6 +18,10 @@ import {
   producerLabel,
   type PublicValidationRun,
 } from "../validation/public_run.ts";
+import {
+  validationInputDiagnostic,
+  ValidationInputError,
+} from "../validation/input_identity.ts";
 import { completionTreeRefusal, runCompleteGate } from "./complete_gate.ts";
 import { reusableGreenProof } from "./review_release.ts";
 import { retainProofPresentation } from "./proof_presentation.ts";
@@ -709,6 +713,7 @@ async function runCandidateGate(
   let validationRun: PublicValidationRun | undefined;
   let treeDriftDiag: Diagnostic | undefined;
   let scopeDriftDiag: Diagnostic | undefined;
+  let validationInputsDiag: Diagnostic | undefined;
   let generatedDiagnostics: Diagnostic[] = [];
   let generatedFailureRemedies: FiredHint[] | undefined;
   if (failedStage === null) {
@@ -762,52 +767,61 @@ async function runCandidateGate(
         runOut.heading(group.heading);
       }
     };
-    validationRun = presentation.completion === undefined
-      ? await standaloneValidation({
-        root,
-        config: cfg,
-        scopes: changed,
-        kind: "standalone",
-        base: policyBase,
-        mode: presentation.checkpoints?.mode ?? "strict",
-        ...(signal === undefined ? {} : { signal }),
-        onProgress,
-        producerBoundary,
-        capacity: { slots, out: runOut, runner: runOpts },
-      })
-      : await executePublicValidation({
-        root,
-        config: cfg,
-        scopes: changed,
-        claimed: presentation.completion.execution,
-        demand: {
-          kind: "done",
-          requirements: configured.obligations.map((entry) =>
-            entry.requirement
-          ),
-          mode: presentation.completion.mode,
-        },
-        bindAttempt: true,
-        ...(presentation.completion.rerun_of === undefined
-          ? {}
-          : { rerun_of: presentation.completion.rerun_of }),
-        onProgress,
-        producerBoundary,
-        capacity: { slots, out: runOut, runner: runOpts },
-      });
-    generatedDiagnostics = generatedBoundary.diagnostics;
-    generatedFailureRemedies = generatedBoundary.hints;
-    for (const [label, result] of validationRun.results) {
-      results.set(label, result);
-    }
-    if (validationRun.outcome.blockers.length > 0) {
-      failedStage = plan.groups.find((group) =>
-        group.jobs.some((job) => {
-          const result = results.get(job.label);
-          return result !== undefined && result.code !== 0 &&
-            result.cancelled !== true;
+    try {
+      validationRun = presentation.completion === undefined
+        ? await standaloneValidation({
+          root,
+          config: cfg,
+          scopes: changed,
+          kind: "standalone",
+          base: policyBase,
+          mode: presentation.checkpoints?.mode ?? "strict",
+          ...(signal === undefined ? {} : { signal }),
+          onProgress,
+          producerBoundary,
+          capacity: { slots, out: runOut, runner: runOpts },
         })
-      )?.stage ?? "check/test";
+        : await executePublicValidation({
+          root,
+          config: cfg,
+          scopes: changed,
+          claimed: presentation.completion.execution,
+          demand: {
+            kind: "done",
+            requirements: configured.obligations.map((entry) =>
+              entry.requirement
+            ),
+            mode: presentation.completion.mode,
+          },
+          bindAttempt: true,
+          ...(presentation.completion.rerun_of === undefined
+            ? {}
+            : { rerun_of: presentation.completion.rerun_of }),
+          onProgress,
+          producerBoundary,
+          capacity: { slots, out: runOut, runner: runOpts },
+        });
+    } catch (error) {
+      if (!(error instanceof ValidationInputError)) throw error;
+      // The declared closure could not be observed, so no producer ran.
+      failedStage = "validation_inputs";
+      validationInputsDiag = validationInputDiagnostic(error);
+    }
+    if (validationRun !== undefined) {
+      generatedDiagnostics = generatedBoundary.diagnostics;
+      generatedFailureRemedies = generatedBoundary.hints;
+      for (const [label, result] of validationRun.results) {
+        results.set(label, result);
+      }
+      if (validationRun.outcome.blockers.length > 0) {
+        failedStage = plan.groups.find((group) =>
+          group.jobs.some((job) => {
+            const result = results.get(job.label);
+            return result !== undefined && result.code !== 0 &&
+              result.cancelled !== true;
+          })
+        )?.stage ?? "check/test";
+      }
     }
     const strands = treeBoundary.strands();
     if (generatedDiagnostics.length > 0) {
@@ -980,6 +994,12 @@ async function runCandidateGate(
   }
   if (treeDriftDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), treeDriftDiag];
+  }
+  if (validationInputsDiag !== undefined) {
+    result.diagnostics = [
+      ...(result.diagnostics ?? []),
+      validationInputsDiag,
+    ];
   }
   // The gotchas tail (ADR 0189) — resolved AFTER every diagnostic is attached,
   // because trap matchers read the failure's full evidence. One resolution

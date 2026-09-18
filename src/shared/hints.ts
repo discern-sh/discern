@@ -2842,6 +2842,18 @@ export const HINTS = {
       "Allow the current invocation to write the path named by the diagnostics, then re-run the discern command. A successful probe confirms only point-in-time write authority; discern does not grant or persist host permission.",
   }),
 
+  /** The declared input closure could not be observed, so no producer ran. */
+  "gate-failure-validation-inputs": defineHint({
+    id: "gate-failure-validation-inputs",
+    category: "next-step",
+    audience: "all",
+    when: "The gate cannot observe a declared validation input.",
+    family: "gate-failure-remedy",
+    example: undefined,
+    template: (): string =>
+      "Resolve the validation input named by the diagnostics: commit or reconcile a nested repository, replace a non-regular file, or restore read access. Then re-run the current discern command.",
+  }),
+
   /** Proof covers the configured checks and leaves artifact verification to
    * the agent. Fired on a green run that emitted Proof before completion is
    * claimed. Carries the discipline of the retired
@@ -4264,6 +4276,7 @@ export const GATE_FAILURE_REMEDIES = {
   merge: HINTS["gate-failure-merge"],
   standards: HINTS["gate-failure-standards"],
   write_denied: HINTS["gate-failure-write-denied"],
+  validation_inputs: HINTS["gate-failure-validation-inputs"],
 } as const satisfies Record<FailedStage, HintDef<undefined>>;
 
 /** Fire the registered remedy for a failed gate stage. Generated-drift callers

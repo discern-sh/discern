@@ -306,6 +306,10 @@ export interface StepResult {
  *    does not parse (the fail-fast never-loosen precondition).
  *  - `write_denied` — a real write probe for Discern-owned state was denied
  *    before the slow gate work began.
+ *  - `validation_inputs` — the declared input closure could not be observed
+ *    before any producer ran: a listed path is a nested repository or another
+ *    non-regular entry, cannot be read, or Git could not enumerate the
+ *    checkout. The diagnostic names the input.
  *
  * Defined in this base vocabulary module (not the engine) because `result_schemas.ts`
  * — a `shared/` module that must NOT import the engine — derives the `failed_stage`
@@ -332,6 +336,7 @@ export const FAILED_STAGES = [
   "merge",
   "standards",
   "write_denied",
+  "validation_inputs",
 ] as const;
 
 /** One failed-stage label ({@link FAILED_STAGES}). */

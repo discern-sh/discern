@@ -171,6 +171,7 @@ export const GATE_FAILED_STAGE_LABEL = {
   merge: "Trunk integration",
   standards: "Standard limits",
   write_denied: "discern write access",
+  validation_inputs: "Validation inputs",
 } as const satisfies Readonly<Record<FailedStage, string>>;
 
 /** Exhaustive diagnostic mapping into the package severity vocabulary. */

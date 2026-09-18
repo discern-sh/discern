@@ -132,7 +132,8 @@ export type DiscernKnownFailedStage =
   | "map_integrity"
   | "merge"
   | "standards"
-  | "write_denied";
+  | "write_denied"
+  | "validation_inputs";
 
 export type DiscernKnownActor = "project" | "discern";
 

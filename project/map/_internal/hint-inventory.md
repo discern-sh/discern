@@ -821,6 +821,17 @@ Rendered example:
 
 > Review and commit the gate-produced tracked changes named by the diagnostics, then re-run the current discern command.
 
+## `gate-failure-validation-inputs`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-failure-remedy`
+- Emitting context: The gate cannot observe a declared validation input.
+
+Rendered example:
+
+> Resolve the validation input named by the diagnostics: commit or reconcile a nested repository, replace a non-regular file, or restore read access. Then re-run the current discern command.
+
 ## `gate-failure-write-denied`
 
 - Category: `next-step`

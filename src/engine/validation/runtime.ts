@@ -179,7 +179,11 @@ export async function observeValidationInputs(
       throw new ValidationInputError(
         `Validation input ${
           JSON.stringify(path)
-        } is not a regular file or link. Replace it with a regular file, ignore it, or move it outside the checkout before validating this source.`,
+        } is not a regular file or link. ${
+          stat.isDirectory
+            ? "A nested repository or submodule cannot be captured: commit or reconcile it, or declare inputs that leave its boundary outside the closure."
+            : "Ignore it or move it outside the checkout before validating this source."
+        }`,
         path,
       );
     }
