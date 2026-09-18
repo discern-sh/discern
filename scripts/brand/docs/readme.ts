@@ -7,7 +7,7 @@
  * authored Markdown. `README.md` compiles from this module.
  */
 
-import { brandDocHrefFromGenerated, type BrandDocument } from "../model.ts";
+import { brandDocReference, type BrandDocument } from "../model.ts";
 import { BRAND_FOUNDATION_READING_STEPS, voiceSkillRel } from "../voice.ts";
 
 /** One task-scoped reading path. */
@@ -245,15 +245,16 @@ function bullets(items: readonly string[]): string {
 
 /** Render one document-map row. A skill row displays its repo-relative
  * path while its link still traverses from this README's directory; an
- * authored row's link crosses into the `_private` overlay tree. */
+ * authored row is named without a link because it lives in the `_private`
+ * overlay tree. */
 function documentRow(doc: BrandDocument): string {
   const overlay = doc.mode.kind === "authored" && doc.mode.privateOverlay;
   const display = doc.mode.kind === "skill"
     ? voiceSkillRel(doc.mode.register)
     : doc.file;
-  return `| [\`${display}\`](${
-    brandDocHrefFromGenerated(doc)
-  }) | ${doc.status} | ${doc.job} | ${overlay ? PRIVATE_OVERLAY_MARKER : ""} |`;
+  return `| ${brandDocReference(display, doc)} | ${doc.status} | ${doc.job} | ${
+    overlay ? PRIVATE_OVERLAY_MARKER : ""
+  } |`;
 }
 
 /** Render one reading path's section. */

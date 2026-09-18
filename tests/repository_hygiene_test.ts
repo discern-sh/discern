@@ -1,7 +1,7 @@
 /** Publication hygiene guards driven by repository file policy. */
 
 import { assert, assertEquals, assertMatch } from "@std/assert";
-import { dirname, join } from "@std/path";
+import { dirname, join, relative, resolve } from "@std/path";
 import { z } from "@zod/zod";
 import {
   CONTRIBUTOR_INTAKE_SURFACES,
@@ -15,6 +15,8 @@ import { decodeWith } from "./decode_cli_result.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { MAP_TIER_PUBLICATION_POSTURES } from "../src/lib/paths.ts";
+import { mapPageKind } from "../src/lib/map_policy.ts";
+import { extractDocLinks } from "../src/lib/docs_integrity.ts";
 import { STATIC_REDIRECTS } from "../site/seo.tsx";
 
 const text = async (rel: string): Promise<string> =>
@@ -223,6 +225,45 @@ Deno.test("public Windows support surfaces use the canonical WSL 2 name", async 
     const source = await text(rel);
     assertEquals(noncanonical.test(source), false, `${rel}: use “WSL 2”`);
   }
+});
+
+Deno.test("current-tier map pages never link into the private overlay", async () => {
+  const currentTierPages = await structuralGuardScope({
+    guard: "tests/repository_hygiene_test.ts#private-overlay-links",
+    universe: "tracked-markdown",
+    narrow: {
+      reason:
+        "only the configured map's current tier publishes, and the private overlay is absent from every published checkout",
+      include: (rel) =>
+        rel.startsWith("project/map/") && rel.endsWith(".md") &&
+        mapPageKind(rel.slice("project/map/".length)) === "current",
+    },
+  });
+  const mapAbs = join(REPO_ROOT, "project/map");
+  const offences: string[] = [];
+  for (const rel of currentTierPages) {
+    const abs = join(REPO_ROOT, rel);
+    for (const { target, line } of extractDocLinks(await text(rel))) {
+      if (/^[a-z][a-z0-9+.-]*:/iu.test(target) || target.startsWith("/")) {
+        continue;
+      }
+      const path = target.split("#")[0] ?? "";
+      if (path === "") continue;
+      const relToMap = relative(mapAbs, resolve(dirname(abs), path));
+      if (relToMap.startsWith("..")) continue;
+      const page = relToMap.toLowerCase().endsWith(".md")
+        ? relToMap
+        : join(relToMap, "README.md");
+      if (mapPageKind(page) === "private") {
+        offences.push(`${rel}:${line} ${target}`);
+      }
+    }
+  }
+  assertEquals(
+    offences,
+    [],
+    "published checkouts never contain the private overlay: name the document without a link, or move it out of the private tier",
+  );
 });
 
 Deno.test("repository art declares its product and development-only boundary", async () => {

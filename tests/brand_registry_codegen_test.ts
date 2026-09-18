@@ -46,7 +46,7 @@ import {
 } from "../scripts/brand_registry.ts";
 import {
   BRAND_OVERLAY_DIR,
-  brandDocHrefFromGenerated,
+  brandDocReference,
   REGISTERS,
 } from "../scripts/brand/model.ts";
 import {
@@ -293,8 +293,8 @@ Deno.test("citation tokens resolve against the live registry, and unknown ids th
   );
   assertEquals(
     resolveBrandCitations("{{doc:audiences}}"),
-    "[`audiences.md`](../../_private/brand/audiences.md)",
-    "an overlay-document citation must cross the tier boundary",
+    "`audiences.md`",
+    "an overlay-document citation names the document without a link",
   );
   assertEquals(
     resolveBrandCitations("{{concept:gate}}"),
@@ -328,20 +328,21 @@ Deno.test("the rendered README document map equals the registry", () => {
   const rendered = renderBrandDoc("readme");
   for (const doc of BRAND_DOCUMENTS) {
     // A skill row displays its repo-relative path over the traversal href;
-    // an authored row's href crosses into the `_private` overlay tree.
+    // an authored row is named without a link because it lives in the
+    // `_private` overlay tree.
     const display = doc.mode.kind === "skill"
       ? voiceSkillRel(doc.mode.register)
       : doc.file;
-    const href = brandDocHrefFromGenerated(doc);
+    const reference = brandDocReference(display, doc);
     if (doc.id === "readme") {
       assert(
-        !rendered.includes(`[\`${display}\`](${href})`),
+        !rendered.includes(`| ${reference} |`),
         "the README must not list itself in the document map",
       );
       continue;
     }
     const row = rendered.split("\n").find((line) =>
-      line.includes(`[\`${display}\`](${href})`)
+      line.includes(`| ${reference} |`)
     );
     assert(row !== undefined, `${doc.id} is missing from the document map`);
     const overlay = doc.mode.kind === "authored" && doc.mode.privateOverlay;

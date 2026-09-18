@@ -701,13 +701,11 @@ const REGISTRY_MECHANICS =
 
 /** The authored reading of the derived coverage matrix. */
 const MATRIX_COMMENTARY =
-  `**Cursor and Copilot reuse canonical instructions and skills.** Their \`reuse-canonical\` cells mean that discern emits no provider-specific instruction file and materializes skills into the shared directory. **Every agent reads committed MCP configuration after its provider trust boundary is satisfied.** Claude's named pre-approval takes effect only after workspace trust; it suppresses one project-server prompt rather than normal tool permissions. Every agent also has a wired \`SessionStart\` hook for \`discern worktree ensure\`. Claude provides a committable \`WorktreeRemove\` hook, and Codex provides \`environment.toml [cleanup]\` for Codex-managed worktrees. Teardown reliability and scope vary, so discern owns creation and removal for its worktrees. The OS-sandbox row is empty because discern currently emits no sandbox configuration. The [worktree-isolation research](../_private/research/worktree-isolation-research.md) surveys provider capabilities outside this page's integration scope.`;
+  `**Cursor and Copilot reuse canonical instructions and skills.** Their \`reuse-canonical\` cells mean that discern emits no provider-specific instruction file and materializes skills into the shared directory. **Every agent reads committed MCP configuration after its provider trust boundary is satisfied.** Claude's named pre-approval takes effect only after workspace trust; it suppresses one project-server prompt rather than normal tool permissions. Every agent also has a wired \`SessionStart\` hook for \`discern worktree ensure\`. Claude provides a committable \`WorktreeRemove\` hook, and Codex provides \`environment.toml [cleanup]\` for Codex-managed worktrees. Teardown reliability and scope vary, so discern owns creation and removal for its worktrees. The OS-sandbox row is empty because discern currently emits no sandbox configuration. The maintainer's private worktree-isolation research surveys provider capabilities outside this page's integration scope.`;
 
 const SEE_ALSO = `## See also
 
-- [Cross-agent behavior reference](cross-agent-behaviour-reference.md) records what each agent supports: hooks, sandboxes, cwd and re-root behavior, MCP root mobility, trust, and configuration surfaces. This page cites it for every vendor-behavior claim.
-- [Worktree isolation research](../_private/research/worktree-isolation-research.md) surveys the OS-sandbox and pre-execution-guard options behind the empty sandbox row.
-- [Agent instruction files research](../_private/research/agent-instruction-files-research.md) records the research behind the Instructions compilation seam.`;
+- [Cross-agent behavior reference](cross-agent-behaviour-reference.md) records what each agent supports: hooks, sandboxes, cwd and re-root behavior, MCP root mobility, trust, and configuration surfaces. This page cites it for every vendor-behavior claim.`;
 
 const SOURCES = `## Sources
 

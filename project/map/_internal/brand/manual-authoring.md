@@ -77,7 +77,7 @@ An agent-driven capability doesn't need its every outcome enumerated in the body
 
 ## Evidence before prose
 
-Complete the [manual evidence worksheet](../../_private/planning/public-manual-workstreams/evidence/README.md) before treating a draft as settled. Work through the sources in this order:
+Complete the maintainer's private manual evidence worksheet before treating a draft as settled. Work through the sources in this order:
 
 1. Verify live commands, config, code, tests, and the relevant technical feature entry. These establish product truth.
 2. Read the paired entry in `project/map/_internal/feature-canon-plain.md` for coverage and translation ideas. Never copy it as final wording.

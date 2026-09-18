@@ -21,7 +21,7 @@ import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
 import {
   brandDocDir,
-  brandDocHrefFromGenerated,
+  brandDocReference,
   type BrandDocument,
   type CitationContext,
   generatedBrandBanner,
@@ -265,7 +265,7 @@ function citationContext(): CitationContext {
   const docs = new Map(
     BRAND_DOCUMENTS.map((doc) => [
       doc.id,
-      `[\`${doc.file}\`](${brandDocHrefFromGenerated(doc)})`,
+      brandDocReference(doc.file, doc),
     ]),
   );
   const bridgeFile = documentById("register-bridge").file;

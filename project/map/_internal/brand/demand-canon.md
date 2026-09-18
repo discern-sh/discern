@@ -2,7 +2,7 @@
 
 # Demand canon
 
-_discern's internal account of the demand its benefits answer. It is the market-side counterpart of the [Human Benefit Canon](../feature-canon-human-benefits.md): where a benefit reasons forward from product facts to human value, a demand entry reasons backward from a struggling moment somebody is hypothesized to be in. Demand claims are empirical, so every entry carries dated evidence in the market classes of the [`claims-and-evidence.md`](claims-and-evidence.md) ledger, and nothing here is stronger than its class. The [`audiences.md`](../../_private/brand/audiences.md) document holds the by-person account of the same ground._
+_discern's internal account of the demand its benefits answer. It is the market-side counterpart of the [Human Benefit Canon](../feature-canon-human-benefits.md): where a benefit reasons forward from product facts to human value, a demand entry reasons backward from a struggling moment somebody is hypothesized to be in. Demand claims are empirical, so every entry carries dated evidence in the market classes of the [`claims-and-evidence.md`](claims-and-evidence.md) ledger, and nothing here is stronger than its class. The `audiences.md` document holds the by-person account of the same ground._
 
 8 territories · 41 entries · 45 of 46 benefits answered · 1 supply-push record · 1 recorded gap · 3 corpora · evidence: corroborated 7 · observational 1 · hypothesis 33.
 

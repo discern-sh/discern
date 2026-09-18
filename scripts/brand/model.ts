@@ -434,14 +434,24 @@ export function brandDocDir(doc: BrandDocument): string {
 
 /**
  * The href a generated page uses to reach `doc`. Generated and skill rows
- * resolve from the generated directory itself; an authored row's href
- * crosses the tier boundary into the overlay tree — dangling on a checkout
- * without the overlay, which the document map's overlay marker explains.
+ * resolve from the generated directory itself. An authored row has no href:
+ * it lives in the private overlay tree, which published checkouts never
+ * contain, so generated pages name it without a link.
  */
-export function brandDocHrefFromGenerated(doc: BrandDocument): string {
-  return doc.mode.kind === "authored"
-    ? `../../${BRAND_OVERLAY_DIR}/${doc.file}`
-    : doc.file;
+function brandDocHrefFromGenerated(
+  doc: BrandDocument,
+): string | undefined {
+  return doc.mode.kind === "authored" ? undefined : doc.file;
+}
+
+/** A generated page's reference to `doc` shown as `display`: a linked code
+ * span, or a bare code span for a document in the private overlay. */
+export function brandDocReference(
+  display: string,
+  doc: BrandDocument,
+): string {
+  const href = brandDocHrefFromGenerated(doc);
+  return href === undefined ? `\`${display}\`` : `[\`${display}\`](${href})`;
 }
 
 /** The banner every generated brand artifact carries, naming its source. */

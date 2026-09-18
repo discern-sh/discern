@@ -221,7 +221,7 @@ Every coverage-matrix cell derives from the provider registry. `wired` names a d
 | In `DEFAULT_AGENTS` (fresh install, no detection) | included                                                                              | included                                       | opt-in                                             | opt-in                                             | opt-in                                                  |
 | OS-sandbox config emitted by discern              | none                                                                                  | none                                           | none                                               | none                                               | none                                                    |
 
-**Cursor and Copilot reuse canonical instructions and skills.** Their `reuse-canonical` cells mean that discern emits no provider-specific instruction file and materializes skills into the shared directory. **Every agent reads committed MCP configuration after its provider trust boundary is satisfied.** Claude's named pre-approval takes effect only after workspace trust; it suppresses one project-server prompt rather than normal tool permissions. Every agent also has a wired `SessionStart` hook for `discern worktree ensure`. Claude provides a committable `WorktreeRemove` hook, and Codex provides `environment.toml [cleanup]` for Codex-managed worktrees. Teardown reliability and scope vary, so discern owns creation and removal for its worktrees. The OS-sandbox row is empty because discern currently emits no sandbox configuration. The [worktree-isolation research](../_private/research/worktree-isolation-research.md) surveys provider capabilities outside this page's integration scope.
+**Cursor and Copilot reuse canonical instructions and skills.** Their `reuse-canonical` cells mean that discern emits no provider-specific instruction file and materializes skills into the shared directory. **Every agent reads committed MCP configuration after its provider trust boundary is satisfied.** Claude's named pre-approval takes effect only after workspace trust; it suppresses one project-server prompt rather than normal tool permissions. Every agent also has a wired `SessionStart` hook for `discern worktree ensure`. Claude provides a committable `WorktreeRemove` hook, and Codex provides `environment.toml [cleanup]` for Codex-managed worktrees. Teardown reliability and scope vary, so discern owns creation and removal for its worktrees. The OS-sandbox row is empty because discern currently emits no sandbox configuration. The maintainer's private worktree-isolation research surveys provider capabilities outside this page's integration scope.
 
 ---
 
@@ -297,8 +297,6 @@ Codex has no instruction-file import directive, so `AGENTS.md` holds the canonic
 ## See also
 
 - [Cross-agent behavior reference](cross-agent-behaviour-reference.md) records what each agent supports: hooks, sandboxes, cwd and re-root behavior, MCP root mobility, trust, and configuration surfaces. This page cites it for every vendor-behavior claim.
-- [Worktree isolation research](../_private/research/worktree-isolation-research.md) surveys the OS-sandbox and pre-execution-guard options behind the empty sandbox row.
-- [Agent instruction files research](../_private/research/agent-instruction-files-research.md) records the research behind the Instructions compilation seam.
 
 ## Sources
 

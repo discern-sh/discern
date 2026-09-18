@@ -9,7 +9,7 @@
 
 discern's visual language is **Editorial Engineering**: tasteful typography, artifact-forward layouts, and a modern, simple, clean, premium appearance.
 
-It is the visual counterpart of the brand voice. The verbal system leads with human meaning and proves it with authentic artifacts. The visual system gives each specimen an editorial stage and presents it with care. The exclusions in [`website-brief.md`](../../_private/brand/website-brief.md) stand: no generic AI imagery, robot mascots, glowing brains, abstract swarms, or simulated dashboards.
+It is the visual counterpart of the brand voice. The verbal system leads with human meaning and proves it with authentic artifacts. The visual system gives each specimen an editorial stage and presents it with care. The exclusions in `website-brief.md` stand: no generic AI imagery, robot mascots, glowing brains, abstract swarms, or simulated dashboards.
 
 ### Monospace is reserved
 
@@ -77,4 +77,4 @@ Components, tokens, the catalog, and theming seams belong to the package itself;
 
 ## Relationship to the verbal brand
 
-The artifact-first visual principle in [`website-brief.md`](../../_private/brand/website-brief.md) (decision D-021) remains the content rule for what appears on a page; this document records how those pages should look and feel. When visual and verbal choices conflict, the precedence order in [`README.md`](README.md) applies.
+The artifact-first visual principle in `website-brief.md` (decision D-021) remains the content rule for what appears on a page; this document records how those pages should look and feel. When visual and verbal choices conflict, the precedence order in [`README.md`](README.md) applies.
