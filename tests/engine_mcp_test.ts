@@ -2086,7 +2086,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     );
 
     const installation = await mcp.callTool(9, "discern_docs", {
-      target: "start-installation-and-setup",
+      target: "00-start/installation-and-setup",
     });
     assertEquals(installation.result.isError, false);
     assertEquals(
