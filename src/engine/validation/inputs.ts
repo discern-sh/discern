@@ -1,6 +1,7 @@
 import {
   selectedValidationBoundary,
   selectedValidationInput,
+  selectedValidationText,
   type ValidationInputSelection,
 } from "./input_selection.ts";
 /** Immutable Git subjects use the same content and executable-mode identity as live validation. */
@@ -46,6 +47,7 @@ const BATCH_HEADER_LIMIT = 256;
 export class BatchFrameParser {
   readonly #entries: readonly InputBlob[];
   readonly #files: Record<string, ValidationInputIdentity>;
+  readonly #selection: ValidationInputSelection | undefined;
   #index = 0;
   #state: "header" | "body" | "trailer" | "done" = "header";
   #header: number[] = [];
@@ -57,9 +59,11 @@ export class BatchFrameParser {
   constructor(
     entries: readonly InputBlob[],
     files: Record<string, ValidationInputIdentity>,
+    selection?: ValidationInputSelection,
   ) {
     this.#entries = entries;
     this.#files = files;
+    this.#selection = selection;
   }
 
   /** Feed arriving bytes; returns false once the batch is untrustworthy. */
@@ -129,7 +133,9 @@ export class BatchFrameParser {
             entry.path,
           );
         }
-        this.#identity = new InputIdentityAccumulator();
+        this.#identity = new InputIdentityAccumulator(
+          selectedValidationText(entry.path, this.#selection),
+        );
         this.#remaining = entry.size;
         this.#state = "body";
         continue;
@@ -173,8 +179,9 @@ async function readInputBatch(
   root: string,
   batch: readonly InputBlob[],
   files: Record<string, ValidationInputIdentity>,
+  selection?: ValidationInputSelection,
 ): Promise<void> {
-  const parser = new BatchFrameParser(batch, files);
+  const parser = new BatchFrameParser(batch, files, selection);
   const abort = new AbortController();
   let result: GitResult | undefined;
   try {
@@ -271,6 +278,7 @@ export async function observeCandidateInputs(
       root,
       entries.slice(start, start + INPUT_BATCH_ENTRIES),
       files,
+      selection,
     );
   }
   return {

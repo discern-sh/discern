@@ -1,6 +1,7 @@
 import {
   selectedValidationBoundary,
   selectedValidationInput,
+  selectedValidationText,
   type ValidationInputSelection,
 } from "./input_selection.ts";
 import { gitPathRecord } from "../../shared/git_paths.ts";
@@ -188,12 +189,14 @@ export async function observeValidationInputs(
       );
     }
     if (!requested) continue;
+    const text = selectedValidationText(path, selection);
     files[path] = stat.isSymlink
       ? await validationInputFile(
         new TextEncoder().encode(await Deno.readLink(safe)),
         "120000",
+        text,
       )
-      : await observeCheckoutInputFile(safe, path, stat);
+      : await observeCheckoutInputFile(safe, path, stat, text);
   }
   return {
     files,

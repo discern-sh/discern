@@ -37,8 +37,8 @@ export interface ValidationInputs {
       {
         readonly digest: string;
         readonly bytes: number;
-        readonly lines: number;
-        readonly words: number;
+        readonly lines?: number;
+        readonly words?: number;
       }
     >
   >;
@@ -348,8 +348,17 @@ export async function prepareValidationSnapshot(source: {
       : [];
     const extent = per?.kind !== "extent"
       ? null
-      : denominator.reduce((sum, [, file]) =>
-        sum + (per.measure === "files" ? 1 : file[per.measure]), 0);
+      : denominator.reduce((sum, [path, file]) => {
+        const value = per.measure === "files" ? 1 : file[per.measure];
+        if (value === undefined) {
+          throw new Error(
+            `Validation input ${
+              JSON.stringify(path)
+            } lacks its requested ${per.measure} extent.`,
+          );
+        }
+        return sum + value;
+      }, 0);
     const complete = input.inputs.complete && nodes.every((n) =>
       n.recipe.inputs !== undefined
     ) &&
@@ -376,14 +385,23 @@ export async function prepareValidationSnapshot(source: {
       ),
       extractor: await sha256Hex(JSON.stringify(normalized.extraction)),
       inputs: await sha256Hex(
-        JSON.stringify(selectedFiles(input.inputs, patterns)),
+        JSON.stringify(
+          selectedFiles(input.inputs, patterns).map((
+            [path, file],
+          ) => [path, file.digest]),
+        ),
       ),
       denominator_inputs: await sha256Hex(
-        JSON.stringify([per ?? null, denominator]),
+        JSON.stringify([
+          per ?? null,
+          denominator.map(([path, file]) => [path, file.digest]),
+        ]),
       ),
       toolchain: await sha256Hex(
         JSON.stringify(
-          toolchain.map((path) => [path, input.inputs.files[path] ?? null]),
+          toolchain.map((
+            path,
+          ) => [path, input.inputs.files[path]?.digest ?? null]),
         ),
       ),
       environment: await sha256Hex(

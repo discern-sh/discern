@@ -2,12 +2,17 @@
 import type { ObligationDeclaration, ResolvedProducer } from "./catalog.ts";
 import { producerClosure } from "./demand.ts";
 import { classifyPattern, pathMatchesPattern } from "../scopes/glob.ts";
+import type { ValidationTextMeasures } from "./input_identity.ts";
 import { planStandardInput } from "../../shared/config_schema.ts";
 
 export interface ValidationInputSelection {
   readonly toolchain: readonly string[];
   /** Null means the producer or extractor has not declared a complete closure. */
   readonly patterns: readonly string[] | null;
+  /** Only extent denominators request text work; every selected file is still hashed. */
+  readonly text?: Readonly<
+    Partial<Record<"lines" | "words", readonly string[]>>
+  >;
 }
 
 /** Dependencies, extractors and extent denominators contribute to the same closure. */
@@ -23,7 +28,18 @@ export function validationInputSelection(
     ])
       .values(),
   ];
+  const text: Partial<Record<"lines" | "words", string[]>> = {};
+  for (const entry of obligations) {
+    const per = entry.standard?.per;
+    if (
+      per?.kind === "extent" &&
+      (per.measure === "lines" || per.measure === "words")
+    ) {
+      (text[per.measure] ??= []).push(...per.globs);
+    }
+  }
   return {
+    text,
     toolchain: [...new Set(nodes.flatMap((node) => node.recipe.toolchain))],
     patterns: nodes.some((node) => node.recipe.inputs === undefined) ||
         obligations.some((entry) =>
@@ -81,4 +97,21 @@ export function selectedValidationBoundary(
           prefix.startsWith(`${boundary}/`) ||
           boundary.startsWith(`${prefix}/`);
       }) === true;
+}
+
+/** Text work follows the requested measure and its own denominator paths. */
+export function selectedValidationText(
+  path: string,
+  selection?: ValidationInputSelection,
+): ValidationTextMeasures {
+  return {
+    lines:
+      selection?.text?.lines?.some((pattern) =>
+        pathMatchesPattern(path, pattern)
+      ) ?? false,
+    words:
+      selection?.text?.words?.some((pattern) =>
+        pathMatchesPattern(path, pattern)
+      ) ?? false,
+  };
 }

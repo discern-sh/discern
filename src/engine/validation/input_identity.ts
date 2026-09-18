@@ -7,6 +7,12 @@ import type { ValidationInputs } from "./catalog.ts";
 
 export type ValidationInputIdentity = ValidationInputs["files"][string];
 
+/** Requested text denominators; absence never means a measured zero. */
+export interface ValidationTextMeasures {
+  readonly lines?: boolean;
+  readonly words?: boolean;
+}
+
 /**
  * An observation that cannot establish a declared input's identity. The
  * message names the input so the reader can act on it; `path` carries the
@@ -49,45 +55,54 @@ const LEADING_WHITESPACE = /^\s/u;
 const TRAILING_WHITESPACE = /\s$/u;
 
 /**
- * Accumulate an input's identity from its bytes in arrival order. The digest,
- * line count and word count equal those of one decode of the complete bytes,
- * while the accumulator retains only the hash state and one decoder.
+ * Accumulate complete content identity and only the requested text extents.
+ * Line counting scans LF bytes; only word counting needs a streaming decoder.
  */
 export class InputIdentityAccumulator {
   readonly #hash: Hash = createHash("sha256");
-  readonly #decoder = new TextDecoder();
+  readonly #decoder: TextDecoder | undefined;
+  readonly #measures: ValidationTextMeasures;
   #bytes = 0;
   #lines = 0;
   #words = 0;
   /** Whether the decoded text so far ends inside a word. */
   #openWord = false;
 
+  constructor(measures: ValidationTextMeasures = {}) {
+    this.#measures = measures;
+    this.#decoder = measures.words ? new TextDecoder() : undefined;
+  }
+
   update(chunk: Uint8Array): void {
     this.#bytes += chunk.length;
     this.#hash.update(chunk);
-    this.#count(this.#decoder.decode(chunk, { stream: true }));
+    if (this.#measures.lines) {
+      let at = chunk.indexOf(10);
+      while (at !== -1) {
+        this.#lines += 1;
+        at = chunk.indexOf(10, at + 1);
+      }
+    }
+    if (this.#decoder !== undefined) {
+      this.#countWords(this.#decoder.decode(chunk, { stream: true }));
+    }
   }
 
   /** Git's portable file mode joins the content digest to form the identity. */
   async finish(mode: string): Promise<ValidationInputIdentity> {
-    this.#count(this.#decoder.decode());
+    if (this.#decoder !== undefined) this.#countWords(this.#decoder.decode());
     return {
       digest: await sha256Hex(
         JSON.stringify([mode, this.#hash.digest("hex")]),
       ),
       bytes: this.#bytes,
-      lines: this.#lines,
-      words: this.#words,
+      ...(this.#measures.lines ? { lines: this.#lines } : {}),
+      ...(this.#measures.words ? { words: this.#words } : {}),
     };
   }
 
-  #count(text: string): void {
+  #countWords(text: string): void {
     if (text === "") return;
-    let at = text.indexOf("\n");
-    while (at !== -1) {
-      this.#lines += 1;
-      at = text.indexOf("\n", at + 1);
-    }
     let words = 0;
     for (const part of text.split(WHITESPACE_RUN)) {
       if (part !== "") words += 1;
@@ -103,8 +118,9 @@ export class InputIdentityAccumulator {
 export async function validationInputFile(
   bytes: Uint8Array,
   mode: string,
+  measures: ValidationTextMeasures = {},
 ): Promise<ValidationInputIdentity> {
-  const identity = new InputIdentityAccumulator();
+  const identity = new InputIdentityAccumulator(measures);
   identity.update(bytes);
   return await identity.finish(mode);
 }
@@ -131,6 +147,7 @@ export async function observeCheckoutInputFile(
   safe: string,
   path: string,
   observed: Deno.FileInfo,
+  measures: ValidationTextMeasures = {},
 ): Promise<ValidationInputIdentity> {
   const mode = ((observed.mode ?? 0) & 0o111) === 0 ? "100644" : "100755";
   let file: Deno.FsFile;
@@ -152,7 +169,7 @@ export async function observeCheckoutInputFile(
       !before.isFile || before.ino !== observed.ino ||
       before.dev !== observed.dev
     ) throw changedWhileObserved(path);
-    const identity = new InputIdentityAccumulator();
+    const identity = new InputIdentityAccumulator(measures);
     const buffer = new Uint8Array(IDENTITY_READ_BYTES);
     let length = 0;
     while (true) {

@@ -67,9 +67,15 @@ Deno.test("streamed input identity equals one complete decode at every chunk bou
   const bytes = adversarialBytes();
   for (const mode of ["100644", "100755"]) {
     const expected = await completeIdentity(bytes, mode);
-    assertEquals(await validationInputFile(bytes, mode), expected);
+    assertEquals(
+      await validationInputFile(bytes, mode, { lines: true, words: true }),
+      expected,
+    );
     for (const step of [1, 2, 3, 4, 5, 7, 11, 13, 17, 64, bytes.length + 1]) {
-      const identity = new InputIdentityAccumulator();
+      const identity = new InputIdentityAccumulator({
+        lines: true,
+        words: true,
+      });
       for (let offset = 0; offset < bytes.length; offset += step) {
         identity.update(bytes.subarray(offset, offset + step));
       }
@@ -77,7 +83,10 @@ Deno.test("streamed input identity equals one complete decode at every chunk bou
     }
   }
   assertEquals(
-    await validationInputFile(new Uint8Array(), "100644"),
+    await validationInputFile(new Uint8Array(), "100644", {
+      lines: true,
+      words: true,
+    }),
     await completeIdentity(new Uint8Array(), "100644"),
   );
 });
@@ -90,8 +99,16 @@ Deno.test("checkout and candidate observers agree above the bounded-capture ceil
     await gitInit(root);
     await writeLargeInput(join(root, "untracked"), size);
     const head = await gitOut(root, "rev-parse", "HEAD");
-    const live = await observeValidationInputs(root);
-    const candidate = await observeCandidateInputs(root, head);
+    const selection = {
+      patterns: null,
+      toolchain: [],
+      text: {
+        lines: ["large", "small", "untracked"],
+        words: ["large", "small", "untracked"],
+      },
+    };
+    const live = await observeValidationInputs(root, [], selection);
+    const candidate = await observeCandidateInputs(root, head, [], selection);
     assertEquals(live.files.large, candidate.files.large);
     assertEquals(live.files.small, candidate.files.small);
     assertEquals(live.files.large, {
