@@ -56,7 +56,7 @@ Deno.test("the homepage projection measures the launch headline once", () => {
   const homepage = pages.find(({ route }) => route === "/");
   assert(homepage !== undefined);
   assertEquals(
-    homepage.prose.split("Software worth putting your name to.").length - 1,
+    homepage.prose.split("Intelligence, in practice.").length - 1,
     1,
     "the homepage headline contributes one authored prose block",
   );

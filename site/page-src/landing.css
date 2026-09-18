@@ -31,6 +31,10 @@
     );
   }
 
+  .homepage-lede {
+    text-wrap: balance;
+  }
+
   .homepage-benefits {
     inline-size: min(calc(100% - 2 * var(--discern-space-6)), 86rem);
     margin-inline: auto;

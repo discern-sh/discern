@@ -75,12 +75,12 @@ function HomePage(): ReactElement {
             <span aria-hidden="true">{DISCERN_MARK}</span> discern v1.0.0
           </Kicker>
         }
-        title="Software worth putting your name to."
+        title="Intelligence, in practice."
         description={
-          <p>
-            discern installs a serious engineering practice into agent-built
-            software projects, helping your product hold up and set itself
-            apart.
+          <p className="homepage-lede">
+            discern installs a disciplined engineering practice into your
+            software project. You bring the vision, your agent writes the code,
+            and your project gets better at being built.
           </p>
         }
         actions={
