@@ -21,7 +21,7 @@ const CEILING_LABEL = AGENTS_PROSE_WORD_CEILING.toLocaleString("en-US");
 export const AGENTS_ROUTES = {
   home: "/",
   machineGuide: "/llms.txt",
-  quickstart: "/docs/start/first-success",
+  quickstart: "/docs/start/installation-and-setup",
   mcp: "/docs/reference/mcp-and-results",
   resultSurfaces: "/docs/reference/mcp-and-results",
   map: "/docs/understand/instructions-skills-and-map",

@@ -19,7 +19,7 @@ This tutorial uses a search page that says “No results” when it finds nothin
 
 ## Before you begin
 
-Finish [setup](first-success.md) and open a fresh coding-agent session that can call discern's tools. Use a project where you can try a small change locally. If it has no search page, choose another small wording improvement you can see in the app or its documentation.
+Finish [setup](installation-and-setup.md) and open a fresh coding-agent session that can call discern's tools. Use a project where you can try a small change locally. If it has no search page, choose another small wording improvement you can see in the app or its documentation.
 
 The time depends on your project's checks. Allow for your agent to make the change and run those checks, with a few minutes of your own time to try the result.
 

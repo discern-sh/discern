@@ -89,7 +89,7 @@ export const MANUAL_BENEFIT_EXCLUSIONS: Readonly<Record<string, string>> = {
   "small-installation-footprint":
     "This is an evaluation/Reference fact, not a critical comprehension obligation.",
   "inspect-live-example":
-    "The public Map exhibit owns dogfooding evidence, which is not independent validation.",
+    "The public Map/trust exhibit owns dogfooding evidence, which is not independent validation.",
   "clean-abandoned-environments":
     "This is advanced lifecycle maintenance and recovery.",
   "switch-providers":

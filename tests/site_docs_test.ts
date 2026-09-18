@@ -601,7 +601,7 @@ Deno.test("document structure arrives before enhancement scripts can paint", asy
 
 Deno.test("the setup tutorial has a literal title without changing its durable route", async () => {
   const site = await loadDocsSite();
-  const page = site.byRoute.get("/docs/start/first-success");
+  const page = site.byRoute.get("/docs/start/installation-and-setup");
   assert(page?.routeKind === "manual");
   assertEquals(page.entry.title, "Install and set up discern");
   assert(page.entry.aliases.includes("First success"));

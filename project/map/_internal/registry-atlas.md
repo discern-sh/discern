@@ -506,8 +506,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/start.md`
   - `/docs/start/evaluate-discern`
   - `/docs/start/evaluate-discern.md`
-  - `/docs/start/first-success`
-  - `/docs/start/first-success.md`
+  - `/docs/start/installation-and-setup`
+  - `/docs/start/installation-and-setup.md`
   - `/docs/start/first-real-change`
   - `/docs/start/first-real-change.md`
   - `/docs/start/after-setup`
@@ -1745,7 +1745,7 @@ Every declared repository identity, canonical install command, or raw-installer 
   - `README.md`
   - `SECURITY.md`
   - `install.sh`
-  - `project/manual/00-start/first-success.md`
+  - `project/manual/00-start/installation-and-setup.md`
   - `project/manual/30-reference/cli-reference.md`
   - `project/manual/30-reference/environment-variables.md`
   - `project/manual/30-reference/files-and-ownership.md`
@@ -4255,7 +4255,7 @@ Every strictly admitted published product-manual page, identified by its stable 
   - `manual-home`
   - `start-index`
   - `start-evaluate-discern`
-  - `start-first-success`
+  - `start-installation-and-setup`
   - `start-first-real-change`
   - `start-after-setup`
   - `guide-index`

@@ -69,7 +69,7 @@ Read the [release notes](https://discern.sh/releases) before choosing an update.
 
 ### 1. Replace and identify the binary
 
-Once you decide to install a newer version, use the supported installer described in [installation and setup](../00-start/first-success.md). It verifies the download checksum before replacing the binary. Open a new shell and check which program will run:
+Once you decide to install a newer version, use the supported installer described in [installation and setup](../00-start/installation-and-setup.md). It verifies the download checksum before replacing the binary. Open a new shell and check which program will run:
 
 ```sh
 command -v discern

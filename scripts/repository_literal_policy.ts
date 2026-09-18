@@ -50,7 +50,7 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
       "POSIX shell cannot import TypeScript; its default and two documented entrypoints are parity-checked",
   },
   {
-    path: "project/manual/00-start/first-success.md",
+    path: "project/manual/00-start/installation-and-setup.md",
     counts: {
       "current-repository": 1,
       "canonical-install-command": 1,
