@@ -68,6 +68,19 @@ async function corruptSchema(
   );
 }
 
+/** A project-owned comment planted directly above the key a synthetic step edits. */
+const PROJECT_NOTE = "  # project note: worktree branches share this prefix";
+
+/** Insert the project comment on the line above `branch_prefix` in the install's config. */
+async function annotateBranchPrefix(dir: string): Promise<void> {
+  const path = join(dir, "discern.toml");
+  const lines = (await Deno.readTextFile(path)).split("\n");
+  const index = lines.findIndex((line) => /^\s*branch_prefix\s*=/.test(line));
+  assert(index >= 0, "the install records repository.branch_prefix");
+  lines.splice(index, 0, PROJECT_NOTE);
+  await Deno.writeTextFile(path, lines.join("\n"));
+}
+
 /** The recorded `[meta].schema_version` of an install's config. */
 async function recordedSchema(dir: string): Promise<number> {
   const m = (await readTarget(dir, "discern.toml")).match(
@@ -331,6 +344,7 @@ Deno.test("upgrade runs a pending migration before the sync, then stamps the sch
   await withTempDir(async (dir) => {
     await setup(dir);
     await setSchema(dir, SCHEMA_VERSION);
+    await annotateBranchPrefix(dir);
 
     const ran: string[] = [];
     // A synthetic 1→2 step targets the next schema through the test seam.
@@ -348,12 +362,13 @@ Deno.test("upgrade runs a pending migration before the sync, then stamps the sch
 
     assertEquals(await upgradeIn(dir, chain), 0);
     assertEquals(ran, ["applied"]); // the step ran exactly once
-    // Its effects landed: the marker file and the config edit.
+    // Its effects landed: the marker file and the config edit, with the
+    // project comment still directly above the edited key after both the
+    // migration's edit and the schema stamp rewrote the config.
     assertEquals(await targetExists(join(dir, "MIGRATED")), true);
-    assert(
-      (await readTarget(dir, "discern.toml")).includes(
-        'branch_prefix = "wt/"',
-      ),
+    assertStringIncludes(
+      await readTarget(dir, "discern.toml"),
+      `${PROJECT_NOTE}\n  branch_prefix = "wt/"`,
     );
     // And the config was stamped to the current schema.
     assertEquals(await recordedSchema(dir), SYNTHETIC_CURRENT_SCHEMA);
