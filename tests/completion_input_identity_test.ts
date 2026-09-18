@@ -41,10 +41,10 @@ function adversarialBytes(): Uint8Array {
   const parts: Uint8Array[] = [
     Uint8Array.of(0xef, 0xbb, 0xbf), // leading BOM, stripped by the decoder
     encoder.encode("word  two\tthree\r\nfour\n\n"),
-    encoder.encode("no break line sep﻿bom"),
+    encoder.encode("no break line sep﻿bom"), // NBSP, LINE SEPARATOR, PARAGRAPH SEPARATOR, BOM
     encoder.encode(" \u{1F600}emoji\u{1F600} mixed\u{1F600}"),
     Uint8Array.of(0xff, 0x80, 0xc3), // invalid lead, lone continuation, truncated pair
-    encoder.encode("afternext　ideographic\n"),
+    encoder.encode("afternext　ideographic\n"), // NEL, IDEOGRAPHIC SPACE
     Uint8Array.of(0, 0, 0x0a, 0),
     encoder.encode("tail"),
     Uint8Array.of(0xe2, 0x82), // truncated 3-byte sequence at EOF
@@ -142,5 +142,36 @@ Deno.test("input observation failures name the input and present as diagnostics"
       enumeration.reproduce_cmd,
       "git ls-files --cached --others --exclude-standard",
     );
+  });
+});
+
+Deno.test("a checkout input that changes while observed is refused by name", async () => {
+  await withTempDir(async (root) => {
+    const moving = join(root, "moving");
+    await Deno.writeTextFile(moving, "steady\n");
+    await gitInit(root);
+    const target = (await Deno.stat(moving)).ino;
+    const read = Deno.FsFile.prototype.read;
+    let grown = false;
+    Deno.FsFile.prototype.read = async function (
+      this: Deno.FsFile,
+      buffer: Uint8Array,
+    ): Promise<number | null> {
+      if (!grown && (await this.stat()).ino === target) {
+        grown = true;
+        await Deno.writeTextFile(moving, "growth\n", { append: true });
+      }
+      return await read.call(this, buffer);
+    };
+    try {
+      const error = await assertRejects(
+        () => observeValidationInputs(root),
+        ValidationInputError,
+        "changed while",
+      );
+      assertEquals(error.path, "moving");
+    } finally {
+      Deno.FsFile.prototype.read = read;
+    }
   });
 });
