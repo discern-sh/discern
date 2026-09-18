@@ -94,11 +94,6 @@ Deno.test("the whole discovered Map admits exactly the canonical safe set", asyn
       page.relToDocs.startsWith("_internal/")
     ),
   );
-  assert(
-    site.publicMap.rejected.some((page) =>
-      page.relToDocs.startsWith("_private/")
-    ),
-  );
 });
 
 Deno.test("protected directories and explicit withholding fail the Map predicate", () => {

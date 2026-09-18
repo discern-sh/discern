@@ -322,9 +322,22 @@ Deno.test("every Map tier declares and obeys one publication posture", async () 
       )
       .map((tier) => /^\d{2}-/u.test(tier) ? "numbered" : tier),
   );
+  // A private-posture tier is removed before publication, so it is present
+  // only in the maintainer's checkout; every other registered tier is tracked.
+  const registered = new Map<string, string>(
+    MAP_TIER_PUBLICATION_POSTURES.map((entry) => [entry.tier, entry.posture]),
+  );
+  for (const tier of liveTiers) {
+    assert(
+      registered.has(tier),
+      `${tier}: Map tier declares no publication posture`,
+    );
+  }
   assertEquals(
-    [...liveTiers].sort(),
-    MAP_TIER_PUBLICATION_POSTURES.map((entry) => entry.tier).sort(),
+    [...registered].filter(([, posture]) => posture !== "private")
+      .map(([tier]) => tier).filter((tier) => !liveTiers.has(tier)),
+    [],
+    "a registered non-private Map tier is missing from the tracked tree",
   );
   const internal = MAP_TIER_PUBLICATION_POSTURES.find((entry) =>
     entry.tier === "_internal"
