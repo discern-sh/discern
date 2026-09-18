@@ -74,7 +74,7 @@ Choose `TAG` and the `ASSET` for your system from the generated target table abo
 ```sh
 TAG=v1.0.0
 ASSET=discern-aarch64-apple-darwin
-gh release download "$TAG" --repo jackwh/discern \
+gh release download "$TAG" --repo discern-sh/discern \
   --pattern "$ASSET" --pattern "$ASSET.sha256"
 ```
 
@@ -91,8 +91,8 @@ sha256sum -c "$ASSET.sha256"
 Verify GitHub's build-provenance attestation for the binary and its sidecar:
 
 ```sh
-gh attestation verify "$ASSET" --repo jackwh/discern
-gh attestation verify "$ASSET.sha256" --repo jackwh/discern
+gh attestation verify "$ASSET" --repo discern-sh/discern
+gh attestation verify "$ASSET.sha256" --repo discern-sh/discern
 ```
 
 For a macOS asset, verify the Developer ID signature and the notarization requirement used by the release workflow:

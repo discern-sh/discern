@@ -218,7 +218,7 @@ It keeps project-owned files, `discern.toml`, unmarked Git configuration, checko
 
 ## Where it lives in code
 
-The [artifact ownership map](https://github.com/jackwh/discern/blob/main/project/map/70-reference/artifact-ownership.md) links the registries and implementation behind this inventory. Use it when contributing to discern or checking how an ownership rule is enforced.
+The [artifact ownership map](https://github.com/discern-sh/discern/blob/main/project/map/70-reference/artifact-ownership.md) links the registries and implementation behind this inventory. Use it when contributing to discern or checking how an ownership rule is enforced.
 
 ## See also
 

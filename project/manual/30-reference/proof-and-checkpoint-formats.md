@@ -343,16 +343,16 @@ These sources define note storage and publication. The published schema above is
 
 ### Where it lives in code
 
-| Concern                    | Source                                                                                         |
-| -------------------------- | ---------------------------------------------------------------------------------------------- |
-| Note, merge, and transport | [`proof_notes.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_notes.ts) |
-| Acceptance boundary        | [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts) |
-| Setup acceptance boundary  | [`setup_accept.ts`](https://github.com/jackwh/discern/blob/main/src/commands/setup_accept.ts)  |
+| Concern                    | Source                                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------------------------- |
+| Note, merge, and transport | [`proof_notes.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/gate/proof_notes.ts) |
+| Acceptance boundary        | [`lifecycle.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/worktree/lifecycle.ts) |
+| Setup acceptance boundary  | [`setup_accept.ts`](https://github.com/discern-sh/discern/blob/main/src/commands/setup_accept.ts)  |
 
 ### Where it lives in code
 
-| Concern                     | Source                                                                                                                |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Envelope, payload, issuer   | [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts)                       |
-| Writer, reader, cross-check | [`proof_notes.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_notes.ts)                        |
-| Published schema            | [`discern-proof-note.schema.json`](https://github.com/jackwh/discern/blob/main/schema/discern-proof-note.schema.json) |
+| Concern                     | Source                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Envelope, payload, issuer   | [`result_schemas.ts`](https://github.com/discern-sh/discern/blob/main/src/shared/result_schemas.ts)                       |
+| Writer, reader, cross-check | [`proof_notes.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/gate/proof_notes.ts)                        |
+| Published schema            | [`discern-proof-note.schema.json`](https://github.com/discern-sh/discern/blob/main/schema/discern-proof-note.schema.json) |

@@ -28,4 +28,4 @@ Nothing is uploaded. discern makes no network calls, so a crash report exists on
 
 ## Reporting one
 
-Attach the report file to a new issue at [github.com/jackwh/discern/issues](https://github.com/jackwh/discern/issues). It includes the version and runtime block, command, full error, and stack. The error can quote paths from your machine, so review the file before attaching it. If a CLI crash could not save the file, copy the error and stack from its stderr frame. An MCP envelope has no stack, so preserve the report file when one was written.
+Attach the report file to a new issue at [github.com/discern-sh/discern/issues](https://github.com/discern-sh/discern/issues). It includes the version and runtime block, command, full error, and stack. The error can quote paths from your machine, so review the file before attaching it. If a CLI crash could not save the file, copy the error and stack from its stderr frame. An MCP envelope has no stack, so preserve the report file when one was written.

@@ -5,21 +5,21 @@
 #   curl -fsSL https://discern.sh/install | sh
 #
 # Raw GitHub fallback:
-#   curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/discern-sh/discern/main/install.sh | sh
 #
 # Detects your OS/arch, fetches the matching binary from the latest GitHub
 # stable release (or $DISCERN_VERSION), verifies its SHA-256 checksum, and installs it
 # to a writable bin dir. POSIX sh; needs curl (or wget) and sha256sum (or shasum).
 #
 # Environment overrides:
-#   DISCERN_REPO     owner/repo to download from (default: jackwh/discern)
+#   DISCERN_REPO     owner/repo to download from (default: discern-sh/discern)
 #   DISCERN_VERSION  release tag to install (default: latest)
 #   DISCERN_BIN_DIR  install directory (default: writable /usr/local/bin on
 #                    macOS, otherwise ~/.local/bin, then /usr/local/bin)
 
 set -eu
 
-REPO="${DISCERN_REPO:-jackwh/discern}"
+REPO="${DISCERN_REPO:-discern-sh/discern}"
 VERSION_INPUT="${DISCERN_VERSION:-latest}"
 
 # --- pretty output (only on a TTY) ---------------------------------------

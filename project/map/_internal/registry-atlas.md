@@ -4116,9 +4116,9 @@ The public reporting channels, policy location, language, and bounded security.t
 - Members: 9
   - `route=/.well-known/security.txt`
   - `contactEmail=security@discern.sh`
-  - `repositoryUrl=https://github.com/jackwh/discern`
-  - `advisoryUrl=https://github.com/jackwh/discern/security/advisories/new`
-  - `policyUrl=https://github.com/jackwh/discern/blob/main/SECURITY.md`
+  - `repositoryUrl=https://github.com/discern-sh/discern`
+  - `advisoryUrl=https://github.com/discern-sh/discern/security/advisories/new`
+  - `policyUrl=https://github.com/discern-sh/discern/blob/main/SECURITY.md`
   - `preferredLanguages=en`
   - `expiresAt=2027-07-31T23:59:59Z`
   - `expiryReviewLeadDays=30`

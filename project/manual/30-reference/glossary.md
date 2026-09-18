@@ -109,11 +109,11 @@ One task carried through implementation and review: the work a [worktree](#workt
 
 ### Engine
 
-The part of discern that runs its workflow commands. Commands such as `done`, `prepare`, `status`, `update`, and `accept` use this TypeScript implementation, compiled into the program. It runs the jobs, scopes, standards, and worktree settings the project declares without prescribing a language or framework. The embedded [tidy](#tidy) formatter operates on discern-owned surfaces. See [engine internals](https://github.com/jackwh/discern/tree/main/project/map/50-engine-internals/).
+The part of discern that runs its workflow commands. Commands such as `done`, `prepare`, `status`, `update`, and `accept` use this TypeScript implementation, compiled into the program. It runs the jobs, scopes, standards, and worktree settings the project declares without prescribing a language or framework. The embedded [tidy](#tidy) formatter operates on discern-owned surfaces. See [engine internals](https://github.com/discern-sh/discern/tree/main/project/map/50-engine-internals/).
 
 ### File ownership
 
-The rules for which parts of a file discern may maintain. The categories are [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file), and they determine what `discern upgrade` may change. See [files and ownership](files-and-ownership.md); the [install surface](https://github.com/jackwh/discern/blob/main/project/map/80-development/install-surface.md) lists the complete inventory.
+The rules for which parts of a file discern may maintain. The categories are [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file), and they determine what `discern upgrade` may change. See [files and ownership](files-and-ownership.md); the [install surface](https://github.com/discern-sh/discern/blob/main/project/map/80-development/install-surface.md) lists the complete inventory.
 
 ### Fleet
 
@@ -181,7 +181,7 @@ Findings about recurring behavior in the project's recorded use of discern. `dis
 
 ### Placement is consent
 
-Choosing a managed source location authorizes discern to maintain that content. The default source locations carry that permission; pointing a configuration key at another location gives it explicitly. This governs discern's managed content, not every command an agent or project job may run. See [design principles](https://github.com/jackwh/discern/blob/main/project/map/00-orientation/design-principles.md) and [files and ownership](files-and-ownership.md).
+Choosing a managed source location authorizes discern to maintain that content. The default source locations carry that permission; pointing a configuration key at another location gives it explicitly. This governs discern's managed content, not every command an agent or project job may run. See [design principles](https://github.com/discern-sh/discern/blob/main/project/map/00-orientation/design-principles.md) and [files and ownership](files-and-ownership.md).
 
 ### Practice
 
@@ -189,7 +189,7 @@ The connected way of working discern installs and the project carries between se
 
 ### Progress handle
 
-The short `R1-XXXX-XXXX-XX` code recorded for a long operation and announced to MCP callers. `discern progress <handle>`, or the `discern_progress` tool, reads that operation back after a lost call: its phase, the counts and failures known so far, and the retained result. Human command output omits the startup announcement; `discern progress` without a handle finds the latest operation. It only reads; the `C1` continuation that `discern await` returns is what resumes a wait. See [progress and reconnect](https://github.com/jackwh/discern/blob/main/project/map/70-reference/progress-and-reconnect.md).
+The short `R1-XXXX-XXXX-XX` code recorded for a long operation and announced to MCP callers. `discern progress <handle>`, or the `discern_progress` tool, reads that operation back after a lost call: its phase, the counts and failures known so far, and the retained result. Human command output omits the startup announcement; `discern progress` without a handle finds the latest operation. It only reads; the `C1` continuation that `discern await` returns is what resumes a wait. See [progress and reconnect](https://github.com/discern-sh/discern/blob/main/project/map/70-reference/progress-and-reconnect.md).
 
 ### Project script
 

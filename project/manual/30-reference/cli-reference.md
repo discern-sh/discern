@@ -821,7 +821,7 @@ If the rich reader cannot start because ANSI control is unavailable or the termi
 
 A direct `discern docs <target>` renders and exits without waiting. Bare `discern docs` off a terminal prints the table of contents and never requests input. `--list`, `--json`, and `--raw` never enter the reader; `--search` prints matches. Export writes or returns one Markdown stream, except `--export select` can request a selection on an interactive terminal.
 
-The implementation and real-terminal contract are public in [`src/commands/docs.ts`](https://github.com/jackwh/discern/blob/main/src/commands/docs.ts) and [`tests/docs_test.ts`](https://github.com/jackwh/discern/blob/main/tests/docs_test.ts).
+The implementation and real-terminal contract are public in [`src/commands/docs.ts`](https://github.com/discern-sh/discern/blob/main/src/commands/docs.ts) and [`tests/docs_test.ts`](https://github.com/discern-sh/discern/blob/main/tests/docs_test.ts).
 
 ## Exit behavior
 

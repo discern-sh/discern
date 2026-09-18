@@ -1482,7 +1482,7 @@ Same-major releases may add names; published existing values are immutable. Priv
 
 | Variable                                  | Group                 | Visibility | Meaning                                                                                                                        |
 | ----------------------------------------- | --------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `DISCERN_REPO`                            | installation          | public     | GitHub release repository the installer downloads from. Defaults to `jackwh/discern`.                                          |
+| `DISCERN_REPO`                            | installation          | public     | GitHub release repository the installer downloads from. Defaults to `discern-sh/discern`.                                      |
 | `DISCERN_VERSION`                         | installation          | public     | Release version the installer downloads, with or without a leading `v`. Defaults to `latest`.                                  |
 | `DISCERN_BIN_DIR`                         | installation          | public     | Install directory. Overrides the installer's automatic destination selection.                                                  |
 | `DISCERN_TRUNK`                           | runtime-overrides     | public     | Overrides `[repository].trunk` for the current process. Project Scripts receive the resolved trunk in the same variable.       |

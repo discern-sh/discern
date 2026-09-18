@@ -112,7 +112,7 @@ Choose `TAG` and the `ASSET` for your system from the generated target table abo
 ```sh
 TAG=vX.Y.Z
 ASSET=discern-aarch64-apple-darwin
-gh release download "$TAG" --repo jackwh/discern \
+gh release download "$TAG" --repo discern-sh/discern \
   --pattern "$ASSET" --pattern "$ASSET.sha256"
 ```
 
@@ -129,8 +129,8 @@ sha256sum -c "$ASSET.sha256"
 Verify GitHub's build-provenance attestation for the binary and its sidecar:
 
 ```sh
-gh attestation verify "$ASSET" --repo jackwh/discern
-gh attestation verify "$ASSET.sha256" --repo jackwh/discern
+gh attestation verify "$ASSET" --repo discern-sh/discern
+gh attestation verify "$ASSET.sha256" --repo discern-sh/discern
 ```
 
 For a macOS asset, verify the Developer ID signature and the notarization requirement used by the release workflow:
@@ -735,4 +735,4 @@ Copilot's local sandbox and pre-tool hooks are separate vendor features. discern
 
 discern uses the operating system's secure random source through WebCrypto for identifiers, nonces, and key material. This is separate from the deterministic worktree identities described above.
 
-For the implementation and its security boundaries, see [secure entropy in the project map](https://github.com/jackwh/discern/blob/main/project/map/00-orientation/secure-entropy.md). The [files reference](files-and-ownership.md#runtime-state-inside-git) identifies local records and key storage.
+For the implementation and its security boundaries, see [secure entropy in the project map](https://github.com/discern-sh/discern/blob/main/project/map/00-orientation/secure-entropy.md). The [files reference](files-and-ownership.md#runtime-state-inside-git) identifies local records and key storage.

@@ -45,7 +45,7 @@ A failed project check or a normal refusal is a different result, usually exit `
 
 Keep the saved crash report if the problem needs investigation. discern retains the newest twenty reports in the repository and does not upload them. If saving fails, the CLI's stderr report remains the evidence available to copy. An MCP result omits the full stack, so its saved report is particularly useful.
 
-For a bug report, use [discern's issue tracker](https://github.com/jackwh/discern/issues) and include the report, what you were doing, and whether the documented recovery worked. Review the file before sharing: an error can quote local paths or other details from the command. For a security issue, follow the [security policy](https://github.com/jackwh/discern/blob/main/SECURITY.md).
+For a bug report, use [discern's issue tracker](https://github.com/discern-sh/discern/issues) and include the report, what you were doing, and whether the documented recovery worked. Review the file before sharing: an error can quote local paths or other details from the command. For a security issue, follow the [security policy](https://github.com/discern-sh/discern/blob/main/SECURITY.md).
 
 You do not need to cause another crash to make a useful report. If the same action keeps crashing, preserve the evidence and investigate or report it before another attempt.
 

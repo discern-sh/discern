@@ -21,7 +21,7 @@ export const DISCERN_INSTALL_ROUTE = "/install";
  * the permanent organization slug. Every compiled repository URL and generated
  * projection derives from it.
  */
-export const DISCERN_REPOSITORY_SLUG = "jackwh/discern";
+export const DISCERN_REPOSITORY_SLUG = "discern-sh/discern";
 
 /** The current GitHub repository root. */
 export const DISCERN_REPOSITORY_URL =

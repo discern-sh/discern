@@ -56,7 +56,7 @@ The installer downloads one self-contained executable. Your project does not nee
 If the main download endpoint is unavailable, the fallback installer is:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/discern-sh/discern/main/install.sh | sh
 ```
 
 ## 2. Ask your agent to set the project up
