@@ -9,6 +9,7 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import { writeLargeInput } from "./large_input.ts";
+import { growOnNextRead } from "./read_growth.ts";
 import { BOUNDED_CAPTURE_BYTES } from "../src/shared/bounded_file.ts";
 import { sha256Hex } from "../src/shared/sha256.ts";
 import { bytesDigest } from "../src/engine/validation/artifacts.ts";
@@ -150,19 +151,7 @@ Deno.test("a checkout input that changes while observed is refused by name", asy
     const moving = join(root, "moving");
     await Deno.writeTextFile(moving, "steady\n");
     await gitInit(root);
-    const target = (await Deno.stat(moving)).ino;
-    const read = Deno.FsFile.prototype.read;
-    let grown = false;
-    Deno.FsFile.prototype.read = async function (
-      this: Deno.FsFile,
-      buffer: Uint8Array,
-    ): Promise<number | null> {
-      if (!grown && (await this.stat()).ino === target) {
-        grown = true;
-        await Deno.writeTextFile(moving, "growth\n", { append: true });
-      }
-      return await read.call(this, buffer);
-    };
+    const restore = await growOnNextRead(moving, "growth\n");
     try {
       const error = await assertRejects(
         () => observeValidationInputs(root),
@@ -171,7 +160,7 @@ Deno.test("a checkout input that changes while observed is refused by name", asy
       );
       assertEquals(error.path, "moving");
     } finally {
-      Deno.FsFile.prototype.read = read;
+      restore();
     }
   });
 });

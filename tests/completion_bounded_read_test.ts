@@ -2,6 +2,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
+import { growOnNextRead } from "./read_growth.ts";
 import {
   readBoundedFile,
   readBoundedText,
@@ -17,18 +18,7 @@ Deno.test("bounded artifact reads reject growth, substitution, unsupported paths
     const link = join(root, "link");
     await Deno.symlink(path, link);
     await assertRejects(() => readBoundedFile(link, 3), Error, "regular file");
-    const read = Deno.FsFile.prototype.read;
-    let changed = false;
-    Deno.FsFile.prototype.read = async function (
-      this: Deno.FsFile,
-      buffer: Uint8Array,
-    ): Promise<number | null> {
-      if (!changed) {
-        changed = true;
-        await Deno.writeTextFile(path, "growth", { append: true });
-      }
-      return await read.call(this, buffer);
-    };
+    const restore = await growOnNextRead(path, "growth");
     try {
       await assertRejects(
         () => readBoundedFile(path, 3),
@@ -36,7 +26,7 @@ Deno.test("bounded artifact reads reject growth, substitution, unsupported paths
         "changed while being read",
       );
     } finally {
-      Deno.FsFile.prototype.read = read;
+      restore();
     }
     await Deno.writeFile(path, Uint8Array.of(255));
     await assertRejects(() => readBoundedText(path, 1), TypeError);
