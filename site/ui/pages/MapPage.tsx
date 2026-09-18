@@ -67,7 +67,7 @@ export function renderMapPage(map: PublicMapSite): string {
   return renderDocument({
     title: `${map.landing.entry.title} · discern.sh Map`,
     description: map.landing.entry.description,
-    styles: ["fonts.css", "discern.css", "map.css"],
+    styles: ["fonts.css", "discern.css", "campaign.css", "map.css"],
     scripts: ["discern.js"],
     children: <MapPage map={map} />,
   });

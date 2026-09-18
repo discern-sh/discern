@@ -1,11 +1,21 @@
 /* Stable public-campaign chrome shared across page compositions. */
 
 @layer discern.components {
-  .landing-brand-name {
-    font-family: var(--discern-font-mono);
+  /* The footer shares the campaign header's measure rather than the page max. */
+  .site-footer {
+    --discern-page-max: 86rem;
   }
 
-  .landing-footer {
-    --discern-page-max: 86rem;
+  /* Lay the footer's four groups side by side at desktop width. The package
+     footer's auto-fit grid stops at three beside its brand column; remove
+     this once the package exposes a column count (see project/TODO.md). */
+  @media (min-width: 66rem) {
+    .site-footer > div {
+      grid-template-columns: minmax(12rem, 0.45fr) minmax(0, 1.55fr);
+    }
+    .site-footer nav {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--discern-space-6);
+    }
   }
 }

@@ -337,7 +337,8 @@ function ReleasesPage(
               </p>
             )}
           <p className="releases-disclosure" data-release-disclosure="">
-            {checkDisclosure(model)} <a href="/trust">About local control</a>
+            {checkDisclosure(model)}{" "}
+            <a href="/docs/understand/local-control">About local control</a>
           </p>
         </div>
         <VersionCard model={model} />
@@ -360,7 +361,7 @@ function ReleasesPage(
 
 const RELEASE_DOCUMENT = {
   appearance: "mono",
-  styles: ["fonts.css", "discern.css", "releases.css"],
+  styles: ["fonts.css", "discern.css", "campaign.css", "releases.css"],
   scripts: ["discern.js"],
   bodyClassName: "releases-page",
 } as const;

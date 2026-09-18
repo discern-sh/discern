@@ -28,7 +28,7 @@ aliases:
 
 Start with something you want to accomplish. Each guide gives you a useful request for your agent, explains what happens next, and helps you recognize the result. You can use your own words; the examples show how to make your intent clear.
 
-If discern is new to the project, begin with [installation and setup](../00-start/first-success.md).
+If discern is new to the project, begin with [installation and setup](../00-start/installation-and-setup.md).
 
 ## Make and review changes
 

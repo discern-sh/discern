@@ -525,7 +525,7 @@ export function renderAgents(): string {
     sourceComment: "Hello. Machine-readable orientation lives at /llms.txt",
     title: AGENTS_TITLE,
     description: AGENTS_DESCRIPTION,
-    styles: ["fonts.css", "discern.css", "agents.css"],
+    styles: ["fonts.css", "discern.css", "campaign.css", "agents.css"],
     scripts: ["discern.js", "agents.js"],
     children: <AgentsPage />,
   });

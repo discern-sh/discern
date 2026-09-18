@@ -106,9 +106,9 @@ export interface CanonicalSetEntry {
 export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "site-marketing-pages",
-    title: "Public marketing pages",
+    title: "Marketing pages",
     what:
-      "Authored public compositions enrolled in build output, serving, prose checks, and the site route inventory.",
+      "Authored compositions enrolled in prose checks; published members also join build output, serving, and the site route inventory.",
     source: {
       kind: "module",
       module: "site/marketing_pages.ts",

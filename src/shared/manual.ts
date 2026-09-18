@@ -141,7 +141,7 @@ export const MANUAL_ALIAS_OWNER_OVERRIDES: Readonly<Record<string, string>> = {
   "discern_match": "reference-proof-and-checkpoint-formats",
   "gate": "explanation-proof",
   "getting started": "start-index",
-  "install": "start-first-success",
+  "install": "start-installation-and-setup",
   "instructions": "guide-write-project-instructions",
   "json result": "reference-results-and-mcp",
   "markdown result": "reference-results-and-mcp",

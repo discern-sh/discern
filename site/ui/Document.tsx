@@ -10,7 +10,7 @@ import {
   designSystemAssetPath,
   type DesignSystemBundleName,
 } from "../design_system.ts";
-import { SITE_APPEARANCE } from "../appearance.ts";
+import { SITE_APPEARANCE, siteAppearanceDeclarations } from "../appearance.ts";
 import { DISCERN_FAVICON_PATH } from "../brand.ts";
 import { THEME_BOOTSTRAP, THEME_ROOT_ATTRIBUTES } from "../theme.ts";
 import { HtmlFragment } from "./components/HtmlFragment.tsx";
@@ -54,11 +54,8 @@ export function Document(
     children,
   }: DocumentProps,
 ): ReactElement {
-  const accentStyle:
-    & CSSProperties
-    & Record<typeof SITE_APPEARANCE.accentHueProperty, number> = {
-      [SITE_APPEARANCE.accentHueProperty]: SITE_APPEARANCE.accentHue,
-    };
+  const appearanceStyle: CSSProperties & Record<`--discern-${string}`, number> =
+    siteAppearanceDeclarations(appearance);
   return (
     <html
       lang="en"
@@ -66,7 +63,7 @@ export function Document(
       {...{
         [ACCENT_ATTRIBUTE]: appearance === "mono" ? ACCENT_NONE_VALUE : "",
       }}
-      style={appearance === "mono" ? undefined : accentStyle}
+      style={appearanceStyle}
       {...THEME_ROOT_ATTRIBUTES}
     >
       <head>

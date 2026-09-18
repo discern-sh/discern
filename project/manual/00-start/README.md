@@ -20,7 +20,7 @@ You can direct setup in ordinary language. Your agent studies the repository, pr
 ## Choose your starting point
 
 - [Evaluate discern](evaluate-discern.md) if you're considering it. Learn what it changes about your work, what setup asks of you, and what stays yours if you remove it.
-- [Install and set up discern](first-success.md) when you're ready to try it. Follow the installation, agent handoff, and review of the setup.
+- [Install and set up discern](installation-and-setup.md) when you're ready to try it. Follow the installation, agent handoff, and review of the setup.
 - [Make and review your first change](first-real-change.md) to try the everyday workflow on a small, visible improvement.
 - [After setup](after-setup.md) when you want to understand the files your agent added and how to change them later.
 

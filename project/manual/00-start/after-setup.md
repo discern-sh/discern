@@ -88,4 +88,4 @@ The local activity record, called the **logbook**, lives in Git's administrative
 
 Before setup lands, its **Proof** records that the configured checks passed for the exact saved version you are reviewing. If setup is still unproven, your agent needs to finish verification first.
 
-Once the files describe your project and you understand the checks and open work, return to [review and land setup](first-success.md#5-review-and-land-setup). If something is wrong, ask the agent to revise it and verify the new version. The full [files and ownership reference](../30-reference/files-and-ownership.md) remains available for any path you want to inspect more closely.
+Once the files describe your project and you understand the checks and open work, return to [review and land setup](installation-and-setup.md#5-review-and-land-setup). If something is wrong, ask the agent to revise it and verify the new version. The full [files and ownership reference](../30-reference/files-and-ownership.md) remains available for any path you want to inspect more closely.

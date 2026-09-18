@@ -23,7 +23,7 @@ Your agent operates discern. This manual helps you direct the work, understand w
 
 <!-- BEGIN MANUAL FRONT DOORS -->
 
-- [Get your project ready for coding agents](00-start/first-success.md)
+- [Get your project ready for coding agents](00-start/installation-and-setup.md)
 - [Turn a larger idea into tasks agents can carry](10-guides/delegate-work.md)
 - [Understand the evidence behind finished work](20-understand/proof.md)
 - [Make future sessions remember a rule or procedure](20-understand/instructions-skills-and-map.md)

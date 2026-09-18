@@ -1,5 +1,5 @@
 ---
-id: start-first-success
+id: start-installation-and-setup
 title: "Install and set up discern"
 description: "Have your agent set up the project, understand what future sessions will inherit, and review the result before it lands."
 order: 30

@@ -128,7 +128,7 @@ Deno.test("the page's advertised word ceiling is the gated standard, and holds",
   );
 
   const page = projectSiteProse().find(({ route }) => route === "/agents");
-  assert(page !== undefined, "the marketing registry must serve /agents");
+  assert(page !== undefined, "the marketing registry must register /agents");
   const words = proseWordCount(page.prose);
   assert(
     words <= AGENTS_PROSE_WORD_CEILING,
@@ -148,7 +148,7 @@ Deno.test("the machine guide projects supported providers from the live registry
   }
 
   const response = await handler(
-    new Request("https://discern.sh/agents", { headers: CURL }),
+    new Request("https://discern.sh/", { headers: CURL }),
   );
   assertEquals(response.status, 200);
   assertStringIncludes(

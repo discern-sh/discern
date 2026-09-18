@@ -16,7 +16,10 @@ import {
   type DesignSystemBundleName,
 } from "./design_system.ts";
 import { SITE_APPEARANCE } from "./appearance.ts";
-import { MARKETING_PAGES } from "./marketing_pages.ts";
+import {
+  MARKETING_PAGES,
+  PUBLISHED_MARKETING_PAGES,
+} from "./marketing_pages.ts";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 import { renderMarketingPage } from "./renderers.ts";
 
@@ -39,7 +42,6 @@ export const COPIED_PAGE_ASSETS = [
   "landing.css",
   "map.css",
   "releases.css",
-  "trust.css",
 ] as const;
 
 /** Old generated pages removed on every build so local previews cannot retain them. */
@@ -48,6 +50,7 @@ export const RETIRED_SITE_OUTPUTS = [
   "pages/content-design-demo.html",
   "pages/v2.html",
   "pages/agents.md",
+  "pages/trust.html",
   "pages/fragments",
 ] as const;
 
@@ -103,14 +106,14 @@ export async function buildSite(): Promise<void> {
   for (const asset of COPIED_PAGE_ASSETS) {
     await writeGeneratedCopy(asset, asset);
   }
-  for (const page of MARKETING_PAGES) {
+  for (const page of PUBLISHED_MARKETING_PAGES) {
     await Deno.writeTextFile(
       new URL(page.page, SITE_ROOT),
       await formatGeneratedText(renderMarketingPage(page.route), "html"),
     );
   }
   console.log(
-    `Built ${MARKETING_PAGES.length} marketing pages and design-system bundles from ${summary.components} components and ${summary.tokens} tokens.`,
+    `Built ${PUBLISHED_MARKETING_PAGES.length} marketing pages and design-system bundles from ${summary.components} components and ${summary.tokens} tokens.`,
   );
 }
 

@@ -2,10 +2,11 @@ import type { ReactElement } from "react";
 /** Homepage shell for the public landing page. */
 
 import {
+  ApproachBackdrop,
   Button,
   Grid,
-  HarmonicBackdrop,
   Heading,
+  HeroBlock,
   Icon,
   Kicker,
   Paragraph,
@@ -66,59 +67,61 @@ export function renderLanding(): string {
 function HomePage(): ReactElement {
   return (
     <MarketingLayout currentPath="/">
-      <section className="homepage-artwork" aria-labelledby="homepage-title">
-        <HarmonicBackdrop presence={1.8} />
-        <div className="homepage-copy">
+      <HeroBlock
+        className="homepage-hero"
+        layout="centered"
+        eyebrow={
           <Kicker className="homepage-eyebrow">
             <span aria-hidden="true">{DISCERN_MARK}</span> discern v1.0.0
           </Kicker>
-          <Heading level={1} id="homepage-title" className="homepage-title">
-            Software worth putting your name to.
-          </Heading>
-          <Paragraph className="homepage-subtitle">
-            discern installs a serious engineering practice into agent-built
-            software projects, helping your product hold up and set itself
-            apart.
-          </Paragraph>
-          <Button
-            href="/docs/start"
-            size="lg"
-            trailingIcon="→"
-            className="homepage-cta"
-          >
+        }
+        title="Intelligence, in practice."
+        description={
+          <p className="homepage-lede">
+            discern installs a disciplined engineering practice into your
+            software project. You bring the vision, your agent writes the code,
+            and your project gets better at being built.
+          </p>
+        }
+        actions={
+          <Button href="/docs/start" size="lg" trailingIcon="→">
             Get started
           </Button>
-        </div>
-        <div className="homepage-benefits">
-          <Grid minimum="12rem" gap={6} className="homepage-benefits-grid">
-            {benefits.map(({ title, description, icon }) => (
-              <div className="homepage-benefit" key={title}>
-                <Icon
-                  size="3rem"
-                  fit="contain"
-                  relief
-                  className="homepage-benefit-icon"
+        }
+        backdrop={<ApproachBackdrop />}
+      />
+      <section
+        className="homepage-benefits"
+        aria-label="What discern gives you"
+      >
+        <Grid minimum="12rem" gap={6} className="homepage-benefits-grid">
+          {benefits.map(({ title, description, icon }) => (
+            <div className="homepage-benefit" key={title}>
+              <Icon
+                size="3rem"
+                fit="contain"
+                relief
+                className="homepage-benefit-icon"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="100%"
+                  height="100%"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="100%"
-                    height="100%"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    {icon}
-                  </svg>
-                </Icon>
-                <Heading level={2}>{title}</Heading>
-                <Paragraph>{description}</Paragraph>
-              </div>
-            ))}
-          </Grid>
-        </div>
+                  {icon}
+                </svg>
+              </Icon>
+              <Heading level={2}>{title}</Heading>
+              <Paragraph>{description}</Paragraph>
+            </div>
+          ))}
+        </Grid>
       </section>
     </MarketingLayout>
   );

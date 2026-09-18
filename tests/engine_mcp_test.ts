@@ -2085,13 +2085,13 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       "tutorial",
     );
 
-    const firstSuccess = await mcp.callTool(9, "discern_docs", {
-      target: "start-first-success",
+    const installation = await mcp.callTool(9, "discern_docs", {
+      target: "00-start/installation-and-setup",
     });
-    assertEquals(firstSuccess.result.isError, false);
+    assertEquals(installation.result.isError, false);
     assertEquals(
-      firstSuccess.result.structuredContent.data.doc.content,
-      await visibleBody("00-start/first-success.md"),
+      installation.result.structuredContent.data.doc.content,
+      await visibleBody("00-start/installation-and-setup.md"),
     );
 
     const taskQuery = "finish and land a change";

@@ -8,6 +8,9 @@ import {
 } from "@std/assert";
 import { fromFileUrl, join, toFileUrl } from "@std/path";
 import {
+  appearanceAxes,
+  appearanceAxisNames,
+  appearanceAxisTokens,
   packageManifest,
   RUNTIME_MANIFEST_SCHEMA_VERSION,
 } from "discern-design-system";
@@ -22,8 +25,11 @@ import {
   designSystemAssetPath,
   type DesignSystemBundleName,
 } from "../site/design_system.ts";
-import { SITE_APPEARANCE } from "../site/appearance.ts";
-import { MARKETING_PAGES } from "../site/marketing_pages.ts";
+import {
+  SITE_APPEARANCE,
+  siteAppearanceDeclarations,
+} from "../site/appearance.ts";
+import { PUBLISHED_MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { renderMarketingPage } from "../site/renderers.ts";
 import { handler } from "../site/serve.ts";
@@ -357,6 +363,46 @@ Deno.test("each emitted bundle is the dependency closure of the site selection",
   }
 });
 
+Deno.test("the site's appearance axes are package axes within bounds, and every root declares them", async () => {
+  const axisByProperty = new Map<string, (typeof appearanceAxisNames)[number]>(
+    appearanceAxisTokens.map((token, index) => {
+      const axis = appearanceAxisNames[index];
+      assert(axis !== undefined, `${token.name} has a named axis`);
+      return [token.name, axis];
+    }),
+  );
+  for (const [property, value] of Object.entries(SITE_APPEARANCE.axes)) {
+    const axis = axisByProperty.get(property);
+    assert(axis !== undefined, `${property} is a package appearance axis`);
+    assert(axis !== "darkness", "darkness belongs to the theme toggle");
+    const bounds = appearanceAxes[axis];
+    assert(
+      value >= bounds.minimum && value <= bounds.maximum,
+      `${property} ${value} sits within ${bounds.minimum}–${bounds.maximum}`,
+    );
+  }
+  for (
+    const [route, projection] of [["/", "mono"], ["/docs", "accent"]] as const
+  ) {
+    const response = await handler(
+      new Request(`https://discern.sh${route}`, { headers: BROWSER }),
+    );
+    const root = /<html[^>]*>/u.exec(await response.text())?.[0] ?? "";
+    for (
+      const [property, value] of Object.entries(
+        siteAppearanceDeclarations(projection),
+      )
+    ) {
+      assertStringIncludes(root, `${property}:${value}`, route);
+    }
+    assertEquals(
+      root.includes(SITE_APPEARANCE.accentHueProperty),
+      projection === "accent",
+      `${route} declares the Accent hue only under the Accent projection`,
+    );
+  }
+});
+
 Deno.test("the docs bundle excludes unrelated compositions and optional grain", async () => {
   const runtime = await bundleManifest("docs");
   const selected = new Set(runtime.selection.resolvedComponents);
@@ -421,7 +467,7 @@ Deno.test("generated output is ignored and reproducible from its selections", as
     assertEquals(ignored.code, 0, `${path} must be ignored`);
   }
 
-  for (const page of MARKETING_PAGES) {
+  for (const page of PUBLISHED_MARKETING_PAGES) {
     assertEquals(
       await Deno.readTextFile(join(ROOT, "site", page.page)),
       await formatGeneratedText(renderMarketingPage(page.route), "html"),
