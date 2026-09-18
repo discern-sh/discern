@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "discern": {
+      "type": "stdio",
+      "command": "discern",
+      "args": [
+        "mcp",
+        "--long-tool-calls"
+      ],
+      "timeout": 3600000
+    }
+  }
+}

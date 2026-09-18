@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "discern worktree ensure",
+        "timeout": 600
+      }
+    ]
+  }
+}

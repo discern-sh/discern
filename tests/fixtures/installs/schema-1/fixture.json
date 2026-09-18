@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "discern_version": "1.0.0",
+  "source": {
+    "commit": "6c8988dd5fa56503b4f216bfc1ca3818cf9d59ae",
+    "trees": {
+      "src": "cdaae51e8e1b91d3e9c929f02032640bdad9b34e",
+      "templates": "52a9ba5c61798109a93697eb9590f9144b20b5ec"
+    }
+  },
+  "reproduce": "deno run --allow-read --allow-write --allow-env --allow-run scripts/capture_install_fixture.ts",
+  "setup_args": [
+    "setup",
+    "begin",
+    "--confirmed",
+    "--name",
+    "Demo",
+    "--slug",
+    "demo",
+    "--agents",
+    "claude_code,codex,gemini,cursor,copilot",
+    "--json"
+  ],
+  "project_directory": "demo",
+  "seed": {
+    "README.md": "# Demo\n"
+  },
+  "files": {
+    ".claude/settings.json": "6158c2a93397f572f3b2649d2f52099e22d433a4c9702cd7da4a0f0632c84377",
+    ".codex/config.toml": "a1ab0fdd1b582e8a666904caabe5499fe9082d66a73fc77c757513ad783c18cd",
+    ".codex/environments/environment.toml": "3b6bc771fbd192dcedea1447d10c31715f11b00d5f822247300d272ae0c5e0ff",
+    ".codex/hooks.json": "5895ecbebaa9007daa0f6ce89b1d31af617884ac56267edb59ea5a96426c4458",
+    ".codex/rules/discern.rules": "3a70804e19b3bc4f7c22d0e21022fbf96baff1e4b2a97bce282f1eecd92691d8",
+    ".cursor/hooks.json": "9bbb023d7a76b7007ee6dc7ff86168d6b663e56481f09386956f3fa86579b53a",
+    ".cursor/mcp.json": "d245c472d7c4228e1953228cbd936f49b535b7d23dbf6293fe122b348670ca88",
+    ".gemini/settings.json": "ca475dcfe1cbc68bee58116adf058209564cf62dd4888a16a5fb5da783cf476f",
+    ".gitattributes": "276b7d562512d87bc838c0dcf8178cf343880c550465891b6f2ca01d98e9f86f",
+    ".github/hooks/discern.json": "b67718ee9e2d241c5fbeddda94782b931cd789334352aac661b7a9f346bf42a2",
+    ".gitignore": "689401e67b89cc3e2d406fc260f6175c57f803f8db0ba5c57820a0cc38ae7375",
+    ".mcp.json": "89fdbfd758e977102a3ab29fd66da82e85ad9cfdf40572bdc60b072cfea7504b",
+    "AGENTS.md": "4667c524598a3e61d6ac2bf949e784bbc343b50e194e2ffabc6098ee11489c0d",
+    "CLAUDE.md": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49",
+    "GEMINI.md": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49",
+    "README.md": "31ca6c61ca3fcc54029a62bd082448b88718b913d24e195794969dd2d123b990",
+    "discern.toml": "8ac10af81f694c0a2f3f856cb91df568628197e34fb8104f05b0cec0509dcff8",
+    "discern/TODO.md": "cbffc738c4a39a73134bc845fc7ab6426feb03f669859a5059e3af71f530d934",
+    "discern/instructions.md": "fa7d84a8190e7e00f29c9c9cb789f53ea20901cac044b075edeec8fdee113f9a",
+    "discern/map/README.md": "a060239015313678554eed6eed48729ff4246cee473d11c90a85722d1e79a1e1",
+    "discern/map/_adr/0000-template.md": "73c81df1e925b3fd7cadd9c376ba1bd50d8c634636b6bfd12e3a2f166f482d62",
+    "discern/map/_adr/0001-adopt-discern.md": "e597ad5f6ab0a74cc229ef536ad78443ce6bd4c8ce5e46c1beaa08d78cc6a19d",
+    "discern/map/_adr/README.md": "0b9b53f75c73a73acd7ac8047a54d13bc3011675146369baf3d4e29eb9d7d85b",
+    "discern/map/development/README.md": "94a4df0e759f4a807ab78762667e64365093c4d7b282f399614329c3d0fd08cd",
+    "discern/map/development/code-conventions.md": "91aeffcf851dfd7148dff760bf4da8c29cd34beba1f7d32cd05d44e8ad16b73c",
+    "discern/map/development/done-gate-gotchas.md": "eaa434ec729b732d45d4e12e60ca3aa3a51648896ab82f9861c3a1ab0c665a28",
+    "discern/map/development/getting-started.md": "1b0057a5afe15ed447da9a3e7fffc032175c1a3dc72f7b541c0a266337b88c03",
+    "discern/map/development/testing.md": "20744e6cceb5a843a822d2e1ce487dc66e773429396374457c0215b3eafcb767",
+    "discern/map/orientation/README.md": "c7388d1994b3dce9cde792b45416aeaa5ad1d8067a21fa707ba9bb9e3e63fa3e",
+    "discern/map/orientation/concepts.md": "e533060b73a9cb6a96fe2337e8f8b80d6973e52215b2bc37a43103d401b8ae31",
+    "discern/map/orientation/design-principles.md": "ed45b2972018adc87ff56deaba6593e1fe433b9f661e80542b0ce7d8c0e388c7",
+    "discern/map/orientation/glossary.md": "5be4f160f0a507ba23d364d1424900eee9c78c3f8e9961f99fc7c510e9428d4c",
+    "discern/map/orientation/system-map.md": "f60fde16a2f369162ccbd6335e501c413ea25b2a1867d7776a7ff6fb17dd73b1"
+  }
+}

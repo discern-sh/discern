@@ -1,0 +1,12 @@
+# --- discern ---
+# Generated automatically by discern via the bundled .gitignore fragment and provider registry | https://discern.sh
+# discern's managed ignore rules: only the skills directories it
+# materializes and machine-local provider state. discern owns this
+# block alone and never touches your other rules. The compiled agent
+# files (AGENTS.md and its mirrors) are tracked, so every agent —
+# cloud included — reads them from a fresh clone. For the full list
+# of discern-managed files, run `discern docs` or see https://discern.sh
+/.claude/skills/
+/.claude/settings.local.json
+/.agents/skills/
+# --- /discern ---

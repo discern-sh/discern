@@ -1,0 +1,9 @@
+# --- discern ---
+# Generated automatically by discern via discern.toml, the source-path registry, and the provider registry | https://discern.sh
+/CLAUDE.md merge=discern-generated diff=markdown
+/AGENTS.md merge=discern-generated diff=markdown
+/GEMINI.md merge=discern-generated diff=markdown
+/discern/instructions.md diff=markdown
+discern/map/**/*.md diff=markdown
+/discern/TODO.md diff=markdown
+# --- /discern ---
