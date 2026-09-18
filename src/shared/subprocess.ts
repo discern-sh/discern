@@ -683,7 +683,7 @@ export async function runGit(
      * Receive stdout bytes as they arrive instead of retaining them. Sunk
      * bytes never count against `maxOutputBytes`, and the returned `stdout`
      * and `stdoutBytes` are empty. The sink must not throw; a consumer that
-     * can no longer accept bytes aborts `signal` instead.
+     * cannot accept further bytes aborts `signal` instead.
      */
     stdoutSink?: (chunk: Uint8Array) => void;
     /**

@@ -60,7 +60,7 @@ class BatchFrameParser {
     this.#files = files;
   }
 
-  /** Feed arriving bytes; returns false once the batch can no longer be trusted. */
+  /** Feed arriving bytes; returns false once the batch is untrustworthy. */
   feed(chunk: Uint8Array): boolean {
     if (this.failure !== undefined) return false;
     try {
