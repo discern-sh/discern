@@ -386,6 +386,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0408 — Project code holds no exclusion boundary](0408-project-code-holds-no-exclusion-boundary.md)
 - [0409 — Public contracts split durable enforcement from session judgment](0409-public-contracts-split-durable-enforcement-from-session-judgment.md)
 - [0410 — The public contract programme closes before the first tag](0410-the-public-contract-programme-closes-before-the-first-tag.md)
+- [0411 — Validation input identity streams complete bytes](0411-validation-input-identity-streams-complete-bytes.md)
 
 <!-- END GENERATED: current ADR records -->
 
