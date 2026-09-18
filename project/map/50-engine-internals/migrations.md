@@ -57,7 +57,7 @@ Until that bump exists, the framework test proves the empty schema-1 chain and t
 
 ## Current state and gotchas
 
-`MIGRATIONS` is empty while `SCHEMA_VERSION` is 1. The schema-1 fixture was captured from the release candidate, so the first public migration starts from the bytes a fresh installation received. A config without `[meta].schema_version` resolves to schema 1. A recorded value above 1 comes from a newer schema, a condition called forward skew. The schema-1 binary refuses that config.
+`MIGRATIONS` is empty while `SCHEMA_VERSION` is 1. The schema-1 fixture was captured from the release candidate, so the first public migration starts from the bytes a fresh installation received. `discern upgrade` refuses a config whose `[meta].schema_version` is missing or invalid and points to `discern setup begin`, which stamps the current value only while setup is incomplete. A recorded value above 1 comes from a newer schema, a condition called forward skew. The schema-1 binary refuses that config.
 
 The prerelease migrations remain visible in the decision records as project history. They are absent from the public compatibility path.
 
