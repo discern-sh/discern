@@ -1,13 +1,16 @@
 /**
  * The committed install corpus (ADR 0014): one captured fresh installation per
- * past install schema under `tests/fixtures/installs/schema-<N>/`. The capture
+ * past install schema under `tests/fixtures/installs/schema-<N>/`, archived so
+ * repository searches find live sources rather than the copy. The capture
  * script and the convergence test share the fresh-install recipe, the
- * Git-carried file boundary, and the manifest contract, so a fixture and the
- * fresh installation it is compared against come from one authority.
+ * Git-carried file boundary, the archive form, and the manifest contract, so a
+ * fixture and the fresh installation it is compared against come from one
+ * authority.
  */
 
 import { dirname, join } from "@std/path";
 import { z } from "@zod/zod";
+import { sha256Hex } from "../src/shared/sha256.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { gitInit, gitOut, runAgent, type RunResult } from "./engine_helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -16,11 +19,11 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 /** Repository-relative root of the corpus. */
 export const INSTALL_CORPUS_REL = "tests/fixtures/installs";
 
-/** The captured installation's directory inside one fixture. */
-export const FIXTURE_PROJECT_DIR = "project";
+/** The plaintext manifest beside each captured installation. */
+export const FIXTURE_MANIFEST = "manifest.json";
 
-/** The manifest beside each captured installation. */
-export const FIXTURE_MANIFEST = "fixture.json";
+/** The archived installation: gzip over a JSON object of relative path to text. */
+export const FIXTURE_SNAPSHOT = "snapshot.json.gz";
 
 /**
  * The project directory name every capture and comparison installs into.
@@ -51,19 +54,23 @@ const InstallFixtureManifestSchema = z.object({
   setup_args: z.array(z.string()),
   project_directory: z.string(),
   seed: z.record(z.string(), z.string()),
+  snapshot_sha256: z.string(),
   files: z.record(z.string(), z.string()),
 });
+
+/** The archive's decoded form: every captured file's text by relative path. */
+const SnapshotSchema = z.record(z.string(), z.string());
 
 export type InstallFixtureManifest = z.infer<
   typeof InstallFixtureManifestSchema
 >;
 
-/** One committed fixture with its resolved paths. */
+/** One committed fixture with its resolved location. */
 export interface InstallFixture {
   /** Repository-relative fixture directory, such as `tests/fixtures/installs/schema-1`. */
   readonly rel: string;
-  /** Absolute path of the captured installation tree. */
-  readonly projectDir: string;
+  /** Absolute fixture directory holding the manifest and archive. */
+  readonly dir: string;
   readonly manifest: InstallFixtureManifest;
 }
 
@@ -102,7 +109,8 @@ export async function freshInstall(
  * The files Git carries for the installation at `root`: tracked files plus
  * untracked files its own ignore rules admit. Materialized skills and
  * machine-local provider state stay outside this boundary because the
- * installation's discern-owned ignore block excludes them.
+ * installation's discern-owned ignore block excludes them; every clone lacks
+ * them and `upgrade` regenerates them.
  */
 export async function gitCarriedFiles(root: string): Promise<string[]> {
   const listed = await gitOut(
@@ -114,6 +122,62 @@ export async function gitCarriedFiles(root: string): Promise<string[]> {
     "--exclude-standard",
   );
   return listed.split("\0").filter((rel) => rel !== "").sort();
+}
+
+/** Lowercase hex SHA-256 of raw bytes, the archive's identity in a manifest. */
+export async function sha256HexBytes(
+  bytes: Uint8Array<ArrayBuffer>,
+): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** Compress a captured installation into the archive form the corpus stores. */
+export async function packSnapshot(
+  files: Readonly<Record<string, string>>,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const json = new TextEncoder().encode(JSON.stringify(files));
+  const compressed = new Blob([json]).stream().pipeThrough(
+    new CompressionStream("gzip"),
+  );
+  return new Uint8Array(await new Response(compressed).arrayBuffer());
+}
+
+/**
+ * Unpack a fixture's archive after verifying the archive and every member
+ * against the manifest, so a captured installation cannot drift silently.
+ */
+export async function readSnapshot(
+  fixture: InstallFixture,
+): Promise<Record<string, string>> {
+  const packed = await Deno.readFile(join(fixture.dir, FIXTURE_SNAPSHOT));
+  if (await sha256HexBytes(packed) !== fixture.manifest.snapshot_sha256) {
+    throw new Error(
+      `${fixture.rel}/${FIXTURE_SNAPSHOT} changed: its hash no longer matches the manifest`,
+    );
+  }
+  const unpacked = new Blob([packed]).stream().pipeThrough(
+    new DecompressionStream("gzip"),
+  );
+  const snapshot = decodeWith(
+    SnapshotSchema,
+    await new Response(unpacked).text(),
+  );
+  const expected = Object.keys(fixture.manifest.files).sort().join("\n");
+  const actual = Object.keys(snapshot).sort().join("\n");
+  if (actual !== expected) {
+    throw new Error(
+      `${fixture.rel}/${FIXTURE_SNAPSHOT} holds a different file set than its manifest`,
+    );
+  }
+  for (const [rel, text] of Object.entries(snapshot)) {
+    if (await sha256Hex(text) !== fixture.manifest.files[rel]) {
+      throw new Error(`${fixture.rel}: frozen input changed: ${rel}`);
+    }
+  }
+  return snapshot;
 }
 
 /** One file's convergence-relevant state. */
@@ -172,7 +236,7 @@ export async function installFixtures(): Promise<InstallFixture[]> {
     },
     narrow: {
       reason:
-        "A fixture enrolls through the manifest beside its captured installation.",
+        "A fixture enrolls through the manifest beside its archived installation.",
       include: (rel) => FIXTURE_MANIFEST_PATH.test(rel),
     },
   });
@@ -189,11 +253,7 @@ export async function installFixtures(): Promise<InstallFixture[]> {
         `${rel} records schema ${manifest.schema} inside directory ${dir}`,
       );
     }
-    fixtures.push({
-      rel: dir,
-      projectDir: join(REPO_ROOT, dir, FIXTURE_PROJECT_DIR),
-      manifest,
-    });
+    fixtures.push({ rel: dir, dir: join(REPO_ROOT, dir), manifest });
   }
   return fixtures.sort((a, b) => a.manifest.schema - b.manifest.schema);
 }

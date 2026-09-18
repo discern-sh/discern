@@ -25,6 +25,7 @@
   "seed": {
     "README.md": "# Demo\n"
   },
+  "snapshot_sha256": "828f0a43ea5cced79dfc431cab52d99c801dd8a0f520c5e824023cdd088a38c1",
   "files": {
     ".claude/settings.json": "6158c2a93397f572f3b2649d2f52099e22d433a4c9702cd7da4a0f0632c84377",
     ".codex/config.toml": "a1ab0fdd1b582e8a666904caabe5499fe9082d66a73fc77c757513ad783c18cd",
