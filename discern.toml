@@ -315,7 +315,6 @@
 [scopes.big-picture]
   paths = [
     "${map.dir}_internal/brand/positioning.md",
-    "${map.dir}_private/brand/audiences.md",
     "${map.dir}_internal/brand/demand-canon.md",
     "${map.dir}00-orientation/concepts.md",
     "${map.dir}00-orientation/glossary.md",
@@ -354,7 +353,6 @@
 [scopes.commercial-picture]
   paths = [
     "${map.dir}_internal/brand/positioning.md",
-    "${map.dir}_private/brand/audiences.md",
     "${map.dir}_internal/brand/demand-canon.md",
     "${map.dir}00-orientation/concepts.md",
     "${map.dir}_internal/feature-canon-human-benefits.md",
