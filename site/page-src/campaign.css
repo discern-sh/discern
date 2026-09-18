@@ -1,11 +1,8 @@
 /* Stable public-campaign chrome shared across page compositions. */
 
 @layer discern.components {
-  .landing-brand-name {
-    font-family: var(--discern-font-mono);
-  }
-
-  .landing-footer {
+  /* The footer shares the campaign header's measure rather than the page max. */
+  .site-footer {
     --discern-page-max: 86rem;
   }
 
