@@ -54,6 +54,12 @@ export const TOOL_TEMP_DIR_KINDS = {
     recursiveCleanup: true,
     preserveOnFailure: false,
   },
+  "install-fixture-capture": {
+    purpose: "scratch repository set up once to capture an install fixture",
+    prefix: "discern-install-fixture-",
+    recursiveCleanup: true,
+    preserveOnFailure: false,
+  },
   "map-prose-stage": {
     purpose: "frontmatter-blanked Map prose staged for Vale",
     prefix: "discern-prose-",
