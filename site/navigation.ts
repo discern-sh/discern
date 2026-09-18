@@ -26,7 +26,7 @@ export const SITE_FOOTER_GROUPS = [
       { label: "The Practice", href: "/docs/understand/practice-and-roles" },
       { label: "Proof", href: "/docs/understand/proof" },
       { label: "Checkpoints", href: "/docs/understand/checkpoints" },
-      { label: "Reference and Glossary", href: "/docs/reference" },
+      { label: "Reference and glossary", href: "/docs/reference" },
     ],
   },
   {
