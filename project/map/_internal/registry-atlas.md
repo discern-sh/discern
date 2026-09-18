@@ -12,9 +12,9 @@ One row per set, in registry order. The detail sections use the same order and c
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
-| [`site-marketing-pages`](#site-marketing-pages--public-marketing-pages)                                               | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 3       | —                | —                           |
+| [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                      | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 2       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 928     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 926     | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 1       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -324,9 +324,9 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/secure_entropy_test.ts`                     | [`secure-entropy-primitive-boundaries`](#secure-entropy-primitive-boundaries--secure-entropy-primitive-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/security_disclosure_test.ts`                | [`security-disclosure`](#security-disclosure--security-disclosure)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/silent_catch_lint_test.ts`                  | [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `tests/site_design_system_runtime_test.ts`         | [`site-marketing-pages`](#site-marketing-pages--public-marketing-pages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `tests/site_prose_test.ts`                         | [`site-marketing-pages`](#site-marketing-pages--public-marketing-pages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `tests/site_routes_test.ts`                        | [`site-marketing-pages`](#site-marketing-pages--public-marketing-pages), [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints), [`public-site-routes`](#public-site-routes--public-site-routes)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `tests/site_design_system_runtime_test.ts`         | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/site_prose_test.ts`                         | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/site_routes_test.ts`                        | [`site-marketing-pages`](#site-marketing-pages--marketing-pages), [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints), [`public-site-routes`](#public-site-routes--public-site-routes)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/site_serve_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/site_smoke_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/site_workflow_test.ts`                      | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -435,15 +435,14 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `types/discern-json.d.ts`                                  | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                  | —                                                         |
 | `types/discern-json.d.ts`                                  | generated file   | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                          | —                                                         |
 
-## `site-marketing-pages` — Public marketing pages
+## `site-marketing-pages` — Marketing pages
 
-Authored public compositions enrolled in build output, serving, prose checks, and the site route inventory.
+Authored compositions enrolled in prose checks; published members also join build output, serving, and the site route inventory.
 
 - Source: `site/marketing_pages.ts` — `MARKETING_PAGES`
-- Members: 3
+- Members: 2
   - `/`
   - `/agents`
-  - `/trust`
 - Guards: `tests/site_routes_test.ts`, `tests/site_prose_test.ts`, `tests/site_design_system_runtime_test.ts`
 - Glossary: not enrolled — Website composition is contributor infrastructure, not product vocabulary.
 - Feature canon: not enrolled — These pages present the product rather than adding an engine capability.
@@ -481,10 +480,8 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 928
+- Members: 926
   - `/`
-  - `/agents`
-  - `/trust`
   - `/install`
   - `/llms.txt`
   - `/llms-full.txt`
@@ -509,8 +506,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/start.md`
   - `/docs/start/evaluate-discern`
   - `/docs/start/evaluate-discern.md`
-  - `/docs/start/first-success`
-  - `/docs/start/first-success.md`
+  - `/docs/start/installation-and-setup`
+  - `/docs/start/installation-and-setup.md`
   - `/docs/start/first-real-change`
   - `/docs/start/first-real-change.md`
   - `/docs/start/after-setup`
@@ -1750,7 +1747,7 @@ Every declared repository identity, canonical install command, or raw-installer 
   - `README.md`
   - `SECURITY.md`
   - `install.sh`
-  - `project/manual/00-start/first-success.md`
+  - `project/manual/00-start/installation-and-setup.md`
   - `project/manual/30-reference/cli-reference.md`
   - `project/manual/30-reference/environment-variables.md`
   - `project/manual/30-reference/files-and-ownership.md`
@@ -4261,7 +4258,7 @@ Every strictly admitted published product-manual page, identified by its stable 
   - `manual-home`
   - `start-index`
   - `start-evaluate-discern`
-  - `start-first-success`
+  - `start-installation-and-setup`
   - `start-first-real-change`
   - `start-after-setup`
   - `guide-index`
