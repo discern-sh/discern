@@ -9,6 +9,7 @@ import { DISCERN_REPOSITORY_URL } from "../../../src/shared/product_identity.ts"
 export function SiteFooter(): ReactElement {
   return (
     <PackageSiteFooter
+      className="site-footer"
       brand="discern"
       brandMark={DISCERN_MARK}
       brandTypeface="mono"
