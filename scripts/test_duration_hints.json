@@ -387,7 +387,6 @@
     "tests/integration_test.ts": 0.436,
     "tests/investigations_test.ts": 0.008,
     "tests/jobs_runner_test.ts": 7.771,
-    "tests/launch_lockdown_audit_summary_test.ts": 0.049,
     "tests/licenses_command_test.ts": 0.043,
     "tests/lifecycle_trunk_resolution_guard_test.ts": 0.278,
     "tests/lint_suppressions_test.ts": 0.007,

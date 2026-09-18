@@ -487,16 +487,6 @@
   # license metadata, so the group gets two minutes instead of the global ten.
   timeout = 120
 
-# The launch audit is temporary private planning material, not part of the
-# product-wide registry codegen family. Its compact index still derives from
-# the authored audit and regenerates before checks like every other artifact.
-[generated.launch_audit_summary]
-  paths = [
-    "${map.dir}_private/planning/launch-lockdown-workstreams/launch-lockdown-audit-summary.md",
-  ]
-  run = "deno task launch-audit-summary"
-  linguist_generated = true
-
 # ─────────────────────────────────────────────────────────────────────────────
 # [acceptance]
 #
