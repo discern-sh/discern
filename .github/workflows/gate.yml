@@ -1,9 +1,9 @@
 name: gate
 
-# Run the complete measured gate as a standalone CI report on
-# every push to main and every pull request. Ubuntu covers private
-# development; native macOS and WSL 2 join routine CI once the repository is
-# public. The release workflow repeats both gates before every publication.
+# Run the complete measured gate as a standalone CI report on every push to
+# main and every pull request, on Ubuntu, native macOS, and WSL 2. All three
+# lanes are required on every run. The release workflow repeats the macOS and
+# WSL 2 gates before every publication.
 #
 # The engine is TS-native (in the binary), so there is no committed shell engine
 # or shell recipe matrix. The standalone remote installer remains POSIX shell and
@@ -15,8 +15,7 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Ad-hoc runs while the repository is private: dispatch runs the Ubuntu gate
-  # and forces the WSL 2 lane (see its job condition below).
+  # Manual dispatch runs the same three lanes on demand.
   workflow_dispatch:
 
 # The gate only ever reads the repo; grant nothing more (least privilege).
@@ -73,9 +72,7 @@ jobs:
   macos:
     timeout-minutes: 240
     name: macOS gate
-    # Private development already carries local macOS gate proofs. Keep the
-    # hosted lane for public changes; releases repeat it before publication.
-    if: github.event.repository.private == false
+    # Required on every run; releases repeat it before publication.
     runs-on: macos-15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -100,9 +97,7 @@ jobs:
     name: WSL 2 gate
     # Windows support is WSL 2 only (the Linux binary inside WSL 2), so this lane
     # provisions WSL 2 on a hosted Windows runner and runs the gate inside it.
-    # Routine on public CI like macOS; workflow_dispatch keeps it runnable
-    # ad hoc while the repository is private.
-    if: github.event.repository.private == false || github.event_name == 'workflow_dispatch'
+    # Required on every run, like the macOS lane.
     runs-on: windows-2025
     # WSL 2 provisioning can hang when the runner image misbehaves; a bound keeps
     # a stuck lane from burning six hours of 2x Windows minutes.

@@ -1,3 +1,4 @@
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { coverageReporter } from "../scripts/coverage.ts";
 /** Native macOS gates public changes and releases, whose Mac binaries are notarized. */
 
@@ -435,14 +436,62 @@ runs:
   ]);
 });
 
-Deno.test("the ordinary native macOS gate starts when the repository is public", () => {
-  const macos = job(gateSource, "macos", "wsl");
-  assertStringIncludes(
-    macos,
-    "if: github.event.repository.private == false",
-  );
-  assertStringIncludes(macos, "runs-on: macos-15");
-  assertStringIncludes(macos, "uses: ./.github/actions/macos-gate");
+/** The hosted gate lanes every run must execute, each on its exact runner. */
+const REQUIRED_GATE_LANES = [
+  { job: "macos", runner: "macos-15", action: "./.github/actions/macos-gate" },
+  { job: "wsl", runner: "windows-2025", action: "./.github/actions/wsl-gate" },
+] as const;
+
+/** One job's block from gate.yml, bounded by the next job header. */
+function gateJob(name: string): string {
+  const jobs = gateSource.slice(gateSource.indexOf("\njobs:\n"));
+  const headers = [...jobs.matchAll(/^ {2}([a-z]+):\n/gmu)];
+  const index = headers.findIndex((header) => header[1] === name);
+  assert(index >= 0, `gate.yml declares the ${name} job`);
+  const start = headers[index]?.index ?? 0;
+  const end = headers[index + 1]?.index ?? jobs.length;
+  return jobs.slice(start, end);
+}
+
+Deno.test("the native macOS and WSL 2 gate lanes run unconditionally on exact runners", () => {
+  for (const lane of REQUIRED_GATE_LANES) {
+    const block = gateJob(lane.job);
+    assert(
+      !/^\s+if:/mu.test(block),
+      `${lane.job}: the lane carries no condition`,
+    );
+    assertStringIncludes(block, `runs-on: ${lane.runner}`);
+    assertStringIncludes(block, `uses: ${lane.action}`);
+  }
+});
+
+Deno.test("no workflow or composite action conditions anything on repository visibility", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/workflow_platform_test.ts#visibility-expressions",
+    universe: {
+      kind: "specialized",
+      name: "github-workflow-yaml",
+      reason: "GitHub workflow and composite-action syntax lives only in YAML",
+      extensions: [".yml", ".yaml"],
+    },
+    narrow: {
+      reason: "every hosted lane is declared beneath .github",
+      include: (rel) => rel.startsWith(".github/"),
+    },
+  });
+  assert(files.length > 0, "the guard scans the hosted workflows");
+  const refusalInput =
+    /^\s+REPOSITORY_PRIVATE: \$\{\{ github\.event\.repository\.private \}\}$/u;
+  for (const rel of files) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+    for (const line of text.split("\n")) {
+      if (!line.includes("repository.private")) continue;
+      assert(
+        refusalInput.test(line),
+        `${rel}: repository visibility may only feed the release plan's refusal, never a condition: ${line.trim()}`,
+      );
+    }
+  }
 });
 
 Deno.test("the shared native macOS action runs the full clean-tree gate", () => {

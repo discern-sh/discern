@@ -185,10 +185,9 @@ jobs:
         working-directory: dist
         run: shasum -a 256 "${{ matrix.output }}" > "${{ matrix.output }}.sha256"
 
-      # Keep this visibility condition until launch lock-down 8A removes it.
-      # The release plan already refuses every private v* tag.
+      # Provenance is recorded for every tag: the plan job has already refused
+      # any tag on a private repository, so this step carries no condition.
       - name: Attest build provenance
-        if: ${{ github.event.repository.private == false }}
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
           subject-path: |

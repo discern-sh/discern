@@ -199,9 +199,9 @@ Deno.test("release artifacts and provenance subjects keep binary-sidecar parity"
     assertStringIncludes(block, "dist/${{ matrix.output }}");
     assertStringIncludes(block, "dist/${{ matrix.output }}.sha256");
   }
-  assertStringIncludes(
-    releaseSource.slice(attest, upload),
-    "github.event.repository.private == false",
+  assert(
+    !releaseSource.slice(attest, upload).includes("if:"),
+    "the attestation step runs for every tag",
   );
 });
 

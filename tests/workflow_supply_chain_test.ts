@@ -81,9 +81,12 @@ Deno.test("every published binary and checksum receives build provenance", async
   );
   assertStringIncludes(build, "attestations: write");
   assertStringIncludes(build, "id-token: write");
-  assertStringIncludes(
-    build,
-    "if: ${{ github.event.repository.private == false }}",
+  assert(
+    !build.slice(
+      build.indexOf("- name: Attest build provenance"),
+      build.indexOf("- name: Upload build artifacts"),
+    ).includes("if:"),
+    "provenance carries no condition",
   );
   assertStringIncludes(build, "actions/attest-build-provenance@");
   assertStringIncludes(build, "dist/${{ matrix.output }}\n");

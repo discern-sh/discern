@@ -1,5 +1,7 @@
 # ADR 0364: Public release follows a staged repository transition
 
+> **Amendment (2026-09-19).** The repository is public and lock-down 8A removed the provenance, macOS, and WSL 2 visibility conditions: those lanes run on every routine run and every tag, and repository visibility now reaches only the release plan's refusal input.
+
 **Status**: accepted
 
 ## Context
