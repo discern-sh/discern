@@ -833,3 +833,38 @@ Deno.test("CI shellchecks every tracked shell script", async () => {
     assert(linted.includes(script), `${script} is shellchecked in CI`);
   }
 });
+
+/** The hosted windows-2025 runner's memory, and what Windows holds before WSL starts. */
+const WSL_RUNNER_MEMORY_GB = 16;
+const WSL_HOST_RESERVE_GB = 5;
+
+Deno.test("the WSL 2 lane sizes its VM above WSL's default before provisioning boots it", () => {
+  const action = parseYaml(wslGateActionSource) as {
+    runs: { steps: Record<string, unknown>[] };
+  };
+  const steps = action.runs.steps;
+  const sizing = steps.findIndex((step) =>
+    String(step.run).includes(".wslconfig") &&
+    /memory=\d+GB/u.test(String(step.run))
+  );
+  const provisioning = steps.findIndex((step) =>
+    String(step.uses).startsWith("Vampire/setup-wsl@")
+  );
+  assert(sizing >= 0, "the action writes a .wslconfig");
+  assert(
+    provisioning > sizing,
+    "the VM is sized before the provisioning step boots it",
+  );
+  const run = String(steps[sizing]?.run);
+  const memory = Number(/memory=(\d+)GB/u.exec(run)?.[1]);
+  const swap = Number(/swap=(\d+)GB/u.exec(run)?.[1]);
+  assert(
+    memory > WSL_RUNNER_MEMORY_GB / 2,
+    "the VM gets more than WSL's default half of the runner",
+  );
+  assert(
+    memory <= WSL_RUNNER_MEMORY_GB - WSL_HOST_RESERVE_GB,
+    "the VM leaves Windows what it holds before WSL starts",
+  );
+  assert(swap >= memory / 4, "swap is at least WSL's default quarter");
+});

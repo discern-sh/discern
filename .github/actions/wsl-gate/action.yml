@@ -26,6 +26,21 @@ description: Run the repository gate inside WSL 2 Ubuntu and verify a clean tree
 runs:
   using: composite
   steps:
+    # WSL sizes its VM from the host: half the memory, a quarter of that as
+    # swap. The gate runs every check-stage producer at once, and half of this
+    # runner's 16 GB starves that. The VM gets ten of them with a generous swap
+    # file; Windows itself holds about five before WSL starts. The file must
+    # exist before the first wsl.exe call boots the VM, hence its position.
+    - name: Size the WSL 2 virtual machine
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Continue'
+        $config = Join-Path $env:USERPROFILE '.wslconfig'
+        @('[wsl2]', 'memory=10GB', 'swap=6GB') | Set-Content -Path $config -Encoding ascii
+        if (-not (Test-Path $config)) { exit 1 }
+        & wsl.exe --shutdown
+        exit 0
+
     - name: Provision WSL 2 Ubuntu
       uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
       with:
