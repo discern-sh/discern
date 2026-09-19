@@ -46,7 +46,7 @@ runs:
       with:
         distribution: Ubuntu-24.04
         wsl-version: 2
-        additional-packages: ca-certificates curl git unzip procps
+        additional-packages: ca-certificates curl git unzip procps locales
 
     # WSL sizes its VM from the Windows host and an optional .wslconfig, so the
     # host's memory and the file's presence are what the samples are read against.
@@ -104,6 +104,22 @@ runs:
           DENO_INSTALL=/usr/local sh -s -- "v${deno_version#v}"
         runuser -u gate -- env HOME=/home/gate \
           bash -c 'cd /home/gate/discern && deno install --frozen && deno task vale:sync'
+
+    # The suite's terminal captures run under en_US.UTF-8 and its browser
+    # journeys need a Chromium. The Ubuntu and macOS runner images carry both;
+    # the WSL 2 image carries neither. The locale and Chromium's system
+    # libraries are root's to install, from outside the checkout so root never
+    # touches the gate user's node_modules; the browser itself downloads into
+    # the gate user's Playwright cache, where the tests find it without any
+    # path plumbing. The package pin comes from deno.json, its one home.
+    - name: Provision the locale and the browser the suite expects
+      shell: wsl-bash {0}
+      run: |
+        locale-gen en_US.UTF-8
+        playwright="$(deno eval --no-config "console.log(JSON.parse(Deno.readTextFileSync('/home/gate/discern/deno.json')).imports['playwright-core'])")"
+        (cd /root && deno run -A "$playwright" install-deps chromium)
+        runuser -u gate -- env HOME=/home/gate \
+          bash -c "cd /home/gate/discern && deno run -A --frozen '$playwright' install chromium"
 
     # The sampler starts before the gate and stops after it, so the gate's own
     # exit status is carried past the sampler's stop and summary: a failed gate

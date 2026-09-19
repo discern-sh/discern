@@ -751,14 +751,19 @@ Deno.test("instrumented producer and nested hosted gates fit their containing bu
   }
 });
 
+/** The WSL 2 action's steps, in order. */
+function wslGateSteps(): Record<string, unknown>[] {
+  const action = parseYaml(wslGateActionSource) as {
+    runs: { steps: Record<string, unknown>[] };
+  };
+  return action.runs.steps;
+}
+
 /** The directory the WSL 2 lane's steps write and its artifact upload reads. */
 const WSL_VM_SAMPLES = "wsl-vm-samples";
 
 Deno.test("the WSL 2 lane samples its VM beside the gate and keeps the samples on every outcome", () => {
-  const action = parseYaml(wslGateActionSource) as {
-    runs: { steps: Record<string, unknown>[] };
-  };
-  const steps = action.runs.steps;
+  const steps = wslGateSteps();
   const gate = steps.find((step) => isFullGateCommand(step.run));
   assert(gate !== undefined, "the action runs the full gate");
   const run = String(gate.run);
@@ -839,10 +844,7 @@ const WSL_RUNNER_MEMORY_GB = 16;
 const WSL_HOST_RESERVE_GB = 5;
 
 Deno.test("the WSL 2 lane sizes its VM above WSL's default before provisioning boots it", () => {
-  const action = parseYaml(wslGateActionSource) as {
-    runs: { steps: Record<string, unknown>[] };
-  };
-  const steps = action.runs.steps;
+  const steps = wslGateSteps();
   const sizing = steps.findIndex((step) =>
     String(step.run).includes(".wslconfig") &&
     /memory=\d+GB/u.test(String(step.run))
@@ -867,4 +869,28 @@ Deno.test("the WSL 2 lane sizes its VM above WSL's default before provisioning b
     "the VM leaves Windows what it holds before WSL starts",
   );
   assert(swap >= memory / 4, "swap is at least WSL's default quarter");
+});
+
+Deno.test("the WSL 2 lane provisions the locale and the pinned Chromium the suite expects", () => {
+  const steps = wslGateSteps();
+  const provisioning = steps.findIndex((step) =>
+    String(step.run).includes("locale-gen en_US.UTF-8")
+  );
+  const gate = steps.findIndex((step) => isFullGateCommand(step.run));
+  assert(provisioning >= 0, "the action generates the captures' locale");
+  assert(provisioning < gate, "provisioning precedes the gate");
+  const run = String(steps[provisioning]?.run);
+  assertStringIncludes(run, "install-deps chromium");
+  assertStringIncludes(run, "install chromium");
+  // The browser package pin has one home, deno.json; the action reads it.
+  assertStringIncludes(run, "imports['playwright-core']");
+  assert(
+    !/playwright-core@\d/u.test(run),
+    "the action never hard-codes the browser package version",
+  );
+  const packages = String(
+    (steps.find((step) => String(step.uses).startsWith("Vampire/setup-wsl@"))
+      ?.with as Record<string, unknown>)["additional-packages"],
+  );
+  assertStringIncludes(packages, "locales");
 });
