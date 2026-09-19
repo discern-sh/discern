@@ -10,6 +10,8 @@
     ]
   },
   "deploy": {
+    "org": "discern-sh",
+    "app": "discern",
     "build": "deno task site:build",
     "runtime": {
       "type": "dynamic",
