@@ -59,7 +59,7 @@ jobs:
         run: deno task vale:sync
 
       - name: Lint the remote installer
-        run: shellcheck install.sh
+        run: shellcheck install.sh .github/actions/wsl-gate/vm-samples.sh
 
       - name: Run the gate (discern done --ci, via the dev binary)
         env:

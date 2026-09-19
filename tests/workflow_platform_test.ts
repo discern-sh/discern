@@ -792,3 +792,25 @@ Deno.test("the WSL 2 lane samples its VM beside the gate and keeps the samples o
   assert(host !== undefined, "the action records the host's WSL configuration");
   assertStringIncludes(String(host.run), `${WSL_VM_SAMPLES}/host.txt`);
 });
+
+Deno.test("CI shellchecks every tracked shell script", async () => {
+  const scripts = await structuralGuardScope({
+    guard: "tests/workflow_platform_test.ts#shellcheck-coverage",
+    universe: {
+      kind: "specialized",
+      name: "shell-scripts",
+      reason:
+        "shell scripts are neither TypeScript nor Markdown, so no canonical authored universe holds them",
+      extensions: [".sh"],
+    },
+  });
+  assert(scripts.length > 0, "the guard scans the shell scripts");
+  const lint = jsonObjects(parseYaml(gateSource)).find(({ value }) =>
+    typeof value.run === "string" && value.run.startsWith("shellcheck ")
+  );
+  assert(lint !== undefined, "the Ubuntu lane runs shellcheck");
+  const linted = String(lint.value.run).split(/\s+/).slice(1);
+  for (const script of scripts) {
+    assert(linted.includes(script), `${script} is shellchecked in CI`);
+  }
+});
