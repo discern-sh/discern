@@ -1490,8 +1490,11 @@
   # Per-command time budget in seconds for every Gate job, scope gate, and
   # Standard measurement. A command that overruns is stopped and its stage fails
   # with a timeout diagnostic. Set 0 for no global bound; give one legitimately
-  # slow entry its own `timeout` instead of slowing every command.
-  timeout = 600
+  # slow entry its own `timeout` instead of slowing every command. Thirty
+  # minutes: hosted 3-core macOS runners run every producer under contention
+  # with the test partitions and the compile, and commands that take seconds
+  # locally can take many times that there. The test job keeps its own budget.
+  timeout = 1800
 
   # Cap on how many test-stage runs may be in flight AT ONCE across every checkout
   # of this repository — the main checkout and all its linked worktrees. It counts
