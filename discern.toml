@@ -228,7 +228,7 @@
     stage = "check"
     run = "deno run --allow-read --allow-env --allow-run scripts/canary_tests.ts"
     provides = "canary tests (hot, cheap subset heard before the full suite)"
-    timeout = 600
+    timeout = 1800
 
   # Bound to the module rather than to the `project-control` Project Script that
   # wraps it, like `canary` above: the script namespace is project-owned, so a
@@ -1174,7 +1174,9 @@
 # declared input closure permits cross-candidate reuse. Hosted observations and
 # existing dist outputs cannot substitute for this producer's successful build.
 [standards.binary_size]
-  timeout = 600
+  # The compile shares the slowest hosted lane's budget, like every other
+  # per-command entry: three-core macOS and WSL 2 runners need it.
+  timeout = 1800
   metric = "binary_size_bytes"
   direction = "down"
   limit = 117355016
