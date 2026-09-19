@@ -10,10 +10,14 @@
 # spawned, the kernel's lock table, and any out-of-memory kill. The lane keeps
 # the samples as a run artifact and prints a summary into the step log.
 #
-#   vm-samples.sh start <dir> [interval]   record the VM's facts, then sample in the background
-#   vm-samples.sh stop <dir>               stop sampling, take a final sample, print the summary
-#   vm-samples.sh summary <dir>            print the summary for an existing sample set
+#   vm-samples.sh start <dir> [interval] [mirror]   print the VM's facts, then sample in the background
+#   vm-samples.sh stop <dir>                        stop sampling, take a final sample, print the summary
+#   vm-samples.sh summary <dir>                     print the summary for an existing sample set
 #
+# Each sample's SAMPLE line goes to the caller's standard output as it is
+# taken, so the step log carries the timeline even when the host tears the
+# session down, and every file is copied into the mirror directory after each
+# sample for the same reason. Sampling ends with the caller's shell.
 # Everything comes from procps and /proc; nothing installs into the VM.
 
 set -u
@@ -21,9 +25,11 @@ set -u
 mode="${1:-}"
 dir="${2:-}"
 interval="${3:-20}"
+mirror="${4:-}"
+owner="${5:-}"
 
 if [ -z "$mode" ] || [ -z "$dir" ]; then
-  echo "usage: $0 start|stop|summary <dir> [interval-seconds]" >&2
+  echo "usage: $0 start|stop|summary <dir> [interval-seconds] [mirror-dir]" >&2
   exit 64
 fi
 
@@ -249,11 +255,26 @@ summary() {
   echo "::endgroup::"
 }
 
+# Copy every file into the mirror directory, bounded so a stalled mount
+# delays one sample rather than the whole watch.
+mirror_files() {
+  [ -n "$mirror" ] || return 0
+  mkdir -p "$mirror" 2>/dev/null || return 0
+  timeout 20 cp -f "$dir"/*.txt "$mirror"/ 2>/dev/null || true
+}
+
 run() {
+  local block
   echo $$ > "$pid_file"
   trap 'exit 0' TERM INT
   while :; do
-    sample >> "$samples_file"
+    block="$(sample)"
+    printf '%s\n' "$block" >> "$samples_file"
+    printf '%s\n' "$block" | grep '^SAMPLE ' || true
+    mirror_files
+    if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
+      exit 0
+    fi
     sleep "$interval" &
     wait $!
   done
@@ -262,8 +283,13 @@ run() {
 start() {
   mkdir -p "$dir"
   facts
-  setsid nohup "$0" run "$dir" "$interval" > "$log_file" 2>&1 < /dev/null &
-  echo "VM sampler started: every ${interval}s into $dir"
+  echo "::group::WSL 2 VM facts"
+  cat "$facts_file"
+  echo "::endgroup::"
+  mirror_files
+  # Standard output stays inherited: the SAMPLE lines belong in the step log.
+  setsid "$0" run "$dir" "$interval" "$mirror" "$PPID" 2> "$log_file" < /dev/null &
+  echo "VM sampler started: every ${interval}s into $dir${mirror:+, mirrored to $mirror}"
 }
 
 stop() {
@@ -277,8 +303,11 @@ stop() {
       waited=$((waited + 1))
     done
   fi
+  # A sampler the pid file lost would hold this step's output open forever.
+  pkill -f "vm-samples.sh run $dir" 2>/dev/null || true
   sample >> "$samples_file"
   summary
+  mirror_files
 }
 
 case "$mode" in

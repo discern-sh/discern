@@ -17,9 +17,11 @@ description: Run the repository gate inside WSL 2 Ubuntu and verify a clean tree
 # transcript cannot tell a starved machine from a held lock or a hung command:
 # each ends as a producer killed at its budget. A sampler (vm-samples.sh)
 # therefore runs as root beside the gate and records what the VM is doing every
-# twenty seconds. The step log ends with its summary, and the run keeps the
-# complete samples plus the Windows host's WSL configuration as the
-# `wsl-vm-samples` artifact, whatever the gate's outcome.
+# twenty seconds. Each sample's summary line lands in the step log as it is
+# taken and the files are mirrored into the workspace as they grow, so the
+# evidence survives a session the host tears down; the run keeps them plus the
+# Windows host's WSL configuration as the `wsl-vm-samples` artifact, whatever
+# the gate's outcome.
 
 runs:
   using: composite
@@ -101,7 +103,7 @@ runs:
       run: |
         sampler=/home/gate/discern/.github/actions/wsl-gate/vm-samples.sh
         samples=/var/tmp/discern-vm-samples
-        bash "$sampler" start "$samples" 20
+        bash "$sampler" start "$samples" 20 "$PWD/wsl-vm-samples"
         set +e
         runuser -u gate -- env HOME=/home/gate \
           DISCERN_GATE_TEST_REPORTER="${DISCERN_GATE_TEST_REPORTER}" \

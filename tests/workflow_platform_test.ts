@@ -766,7 +766,7 @@ Deno.test("the WSL 2 lane samples its VM beside the gate and keeps the samples o
   // sampler's stop and summary: a failed gate must still fail the step.
   const order = [
     "vm-samples.sh",
-    'start "$samples"',
+    `start "$samples" 20 "$PWD/${WSL_VM_SAMPLES}"`,
     "set +e",
     "deno task dev done",
     "gate_status=$?",
@@ -788,9 +788,13 @@ Deno.test("the WSL 2 lane samples its VM beside the gate and keeps the samples o
   const input = upload.with as Record<string, unknown>;
   assertEquals(input.name, WSL_VM_SAMPLES);
   assertEquals(input.path, WSL_VM_SAMPLES);
-  const host = steps.find((step) => step.shell === "pwsh");
-  assert(host !== undefined, "the action records the host's WSL configuration");
-  assertStringIncludes(String(host.run), `${WSL_VM_SAMPLES}/host.txt`);
+  assert(
+    steps.some((step) =>
+      step.shell === "pwsh" &&
+      String(step.run).includes(`${WSL_VM_SAMPLES}/host.txt`)
+    ),
+    "a host-side step records the WSL configuration beside the samples",
+  );
 });
 
 Deno.test("release publication downloads only the binary artifacts", () => {
