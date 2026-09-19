@@ -1,7 +1,11 @@
 /** The settled v1 command grammar, derived from the live Cliffy/result models. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { DISCERN_VERSION } from "../src/lib/version.ts";
+import {
+  DISCERN_VERSION,
+  humanVersion,
+  parseVersionOutput,
+} from "../src/lib/version.ts";
 import { buildCli } from "../src/main.ts";
 import {
   type CliCommand,
@@ -218,7 +222,8 @@ Deno.test("version, usage, option ownership, and the top-level boundary use cano
     for (const flag of ["-V", "--version"]) {
       const version = await runCli([flag], dir);
       assertEquals(version.code, 0);
-      assertEquals(version.stdout, `discern ${DISCERN_VERSION}\n`);
+      assertEquals(version.stdout, `${humanVersion()}\n`);
+      assertEquals(parseVersionOutput(version.stdout), DISCERN_VERSION);
       assertEquals(version.stderr, "");
     }
 

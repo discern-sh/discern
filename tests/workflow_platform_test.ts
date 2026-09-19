@@ -737,11 +737,15 @@ Deno.test("instrumented producer and nested hosted gates fit their containing bu
           isFullGateCommand(value.run)
         );
         assert(nested.length > 0);
-        for (const child of nested) {
-          const minutes = Number(child.value["timeout-minutes"]);
-          assert(minutes * 60 > producer);
-          assert(Number(value["timeout-minutes"]) > minutes);
-        }
+        // A composite step cannot bound itself (the runner rejects
+        // `timeout-minutes` there), so the calling job's budget is the one
+        // that contains the nested gate.
+        assert(
+          Number(value["timeout-minutes"]) * 60 > producer,
+          `${
+            String(step.uses)
+          }: the calling job's budget contains the nested gate`,
+        );
       }
     }
   }
