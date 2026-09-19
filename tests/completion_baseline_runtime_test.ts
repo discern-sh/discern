@@ -161,7 +161,7 @@ Deno.test("browser adapter executes literal argv and preserves launcher failures
       JSON.stringify(toFileUrl(join(REPO_ROOT, "src/lib/open_browser.ts")).href)
     }; console.log(JSON.stringify(await openInBrowser(${
       JSON.stringify(url)
-    }, { os: 'linux' })));`;
+    }, { os: 'linux', wsl: false })));`;
     const output = await new Deno.Command(Deno.execPath(), {
       args: ["eval", program],
       env: { PATH: root, BROWSER_ARGUMENT: join(root, "argument") },
@@ -177,6 +177,7 @@ Deno.test("browser adapter executes literal argv and preserves launcher failures
   });
   const failure = await openInBrowser("https://example.test", {
     os: "linux",
+    wsl: false,
     run: () => Promise.reject("launcher unavailable"),
   });
   assertEquals(failure.status, "failed");
