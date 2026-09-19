@@ -13,7 +13,6 @@ runs:
       run: deno task vale:sync
 
     - name: Run the gate (discern done --ci, via the dev binary)
-      timeout-minutes: 210
       shell: bash
       env:
         DISCERN_GATE_TEST_REPORTER: junit

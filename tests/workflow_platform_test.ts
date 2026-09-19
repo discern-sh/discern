@@ -605,6 +605,57 @@ Deno.test("the hardened runtime grants only Deno's required JIT entitlement", ()
   );
 });
 
+/**
+ * The step keys GitHub's runner accepts inside a composite action. Workflow
+ * job steps take more (`timeout-minutes`, `continue-on-error` aside), and the
+ * runner rejects a composite action at load time for any other key, so the
+ * lane that uses it fails before its first command.
+ */
+const COMPOSITE_STEP_KEYS = new Set([
+  "id",
+  "if",
+  "name",
+  "run",
+  "shell",
+  "working-directory",
+  "env",
+  "uses",
+  "with",
+  "continue-on-error",
+]);
+
+Deno.test("every composite action step uses only keys the runner accepts", async () => {
+  const actions = await structuralGuardScope({
+    guard: "tests/workflow_platform_test.ts#composite-step-keys",
+    universe: "authored-text",
+    narrow: {
+      reason: "composite actions live only beneath .github/actions",
+      include: (rel) =>
+        rel.startsWith(".github/actions/") && /\/action\.ya?ml$/.test(rel),
+    },
+  });
+  assert(actions.length > 0, "the guard scans the composite actions");
+  for (const rel of actions) {
+    const manifest = parseYaml(
+      await Deno.readTextFile(join(REPO_ROOT, rel)),
+    ) as { runs?: { using?: unknown; steps?: unknown } };
+    assertEquals(manifest.runs?.using, "composite", rel);
+    const steps = manifest.runs?.steps;
+    assert(Array.isArray(steps) && steps.length > 0, `${rel}: declares steps`);
+    steps.forEach((step, index) => {
+      const keys = Object.keys(step as Record<string, unknown>);
+      const rejected = keys.filter((key) => !COMPOSITE_STEP_KEYS.has(key));
+      assertEquals(
+        rejected,
+        [],
+        `${rel}: step ${
+          index + 1
+        } carries keys the runner rejects in a composite action`,
+      );
+    });
+  }
+});
+
 Deno.test("every hosted full gate declares its report scope and fetched policy base", async () => {
   const documents = await githubYaml(
     await structuralGuardScope({

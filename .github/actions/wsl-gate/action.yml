@@ -53,7 +53,6 @@ runs:
           bash -c 'cd /home/gate/discern && deno install --frozen && deno task vale:sync'
 
     - name: Run the gate (discern done --ci, via the dev binary)
-      timeout-minutes: 210
       shell: wsl-bash {0}
       env:
         DISCERN_GATE_TEST_REPORTER: junit
