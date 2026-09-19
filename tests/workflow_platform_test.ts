@@ -793,6 +793,21 @@ Deno.test("the WSL 2 lane samples its VM beside the gate and keeps the samples o
   assertStringIncludes(String(host.run), `${WSL_VM_SAMPLES}/host.txt`);
 });
 
+Deno.test("release publication downloads only the binary artifacts", () => {
+  const download = jsonObjects(parseYaml(releaseSource)).find(({ value }) =>
+    String(value.uses).startsWith("actions/download-artifact@")
+  );
+  assert(download !== undefined, "the release job downloads the binaries");
+  const input = download.value.with as Record<string, unknown>;
+  assertEquals(input.pattern, "discern-*");
+  for (const target of BUILD_TARGETS) {
+    assert(
+      target.output.startsWith("discern-"),
+      `${target.output} matches the release download pattern`,
+    );
+  }
+});
+
 Deno.test("CI shellchecks every tracked shell script", async () => {
   const scripts = await structuralGuardScope({
     guard: "tests/workflow_platform_test.ts#shellcheck-coverage",

@@ -269,12 +269,14 @@ jobs:
           scripts/release_plan.ts "${RELEASE_TAG}" "${GITHUB_OUTPUT}"
           "$RUNNER_TEMP/releases.json" "$RUNNER_TEMP/release-body.md"
 
-      # merge-multiple flattens every artifact straight into dist/ (each
+      # merge-multiple flattens every binary artifact straight into dist/ (each
       # filename is already unique per target, so nothing collides) — no
-      # separate flatten step needed.
+      # separate flatten step needed. The pattern keeps the WSL 2 lane's VM
+      # samples, a diagnostic artifact of the same run, out of the release.
       - name: Download all build artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
+          pattern: discern-*
           path: dist
           merge-multiple: true
 
