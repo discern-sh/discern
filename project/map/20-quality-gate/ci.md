@@ -39,6 +39,12 @@ Every required standard belongs to completion. There is no measurement-deferral 
 
 The hosted Linux, macOS, and WSL lanes report the same obligation set in report mode. Platform and toolchain observations remain part of applicability, so a hosted receipt never stands in for local Proof. Producer budgets cover the command through cleanup; enclosing action and job budgets also cover setup and reporting. Current hosted instrumented calibration remains outstanding.
 
+## Read a hosted WSL 2 timeout
+
+The WSL 2 lane runs the gate inside a virtual machine with its own memory and swap. A producer the gate kills at its budget looks the same whether the machine starved, a lock was held, or the command hung. The [WSL 2 action](../../../.github/actions/wsl-gate/action.yml) therefore runs a [VM sampler](../../../.github/actions/wsl-gate/vm-samples.sh) as root beside the gate. Every twenty seconds it records memory and swap, pressure-stall figures, swap traffic, each process's state and resident size, the gate's job leaders, the kernel lock table, and any out-of-memory kill. The step log ends with a summary. The run keeps the complete samples and the Windows host's WSL configuration as the `wsl-vm-samples` artifact, whatever the gate's outcome.
+
+Read the summary first. Low available memory, exhausted swap, and high memory pressure identify starvation. A Deno process that stays in disk wait, or a lock that one process holds across samples, identifies the other causes. The job table gives each producer's start and last sighting inside the machine, which the gate's transcript cannot supply once a job is killed.
+
 ## Cloud-agent changes
 
 A task validates and commits its own source, then obtains complete strict Proof and separate landing authority. A passing hosted report does not replace either decision.

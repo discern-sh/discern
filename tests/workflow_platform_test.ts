@@ -750,3 +750,45 @@ Deno.test("instrumented producer and nested hosted gates fit their containing bu
     }
   }
 });
+
+/** The directory the WSL 2 lane's steps write and its artifact upload reads. */
+const WSL_VM_SAMPLES = "wsl-vm-samples";
+
+Deno.test("the WSL 2 lane samples its VM beside the gate and keeps the samples on every outcome", () => {
+  const action = parseYaml(wslGateActionSource) as {
+    runs: { steps: Record<string, unknown>[] };
+  };
+  const steps = action.runs.steps;
+  const gate = steps.find((step) => isFullGateCommand(step.run));
+  assert(gate !== undefined, "the action runs the full gate");
+  const run = String(gate.run);
+  // The sampler brackets the gate, and the gate's own status survives the
+  // sampler's stop and summary: a failed gate must still fail the step.
+  const order = [
+    "vm-samples.sh",
+    'start "$samples"',
+    "set +e",
+    "deno task dev done",
+    "gate_status=$?",
+    'stop "$samples"',
+    `${WSL_VM_SAMPLES}/`,
+    'exit "$gate_status"',
+  ];
+  let cursor = -1;
+  for (const marker of order) {
+    const index = run.indexOf(marker, cursor + 1);
+    assert(index > cursor, `the gate step reaches ${marker} in order`);
+    cursor = index;
+  }
+  const upload = steps.find((step) =>
+    String(step.uses).startsWith("actions/upload-artifact@")
+  );
+  assert(upload !== undefined, "the action keeps the samples as an artifact");
+  assertStringIncludes(String(upload.if), "always()");
+  const input = upload.with as Record<string, unknown>;
+  assertEquals(input.name, WSL_VM_SAMPLES);
+  assertEquals(input.path, WSL_VM_SAMPLES);
+  const host = steps.find((step) => step.shell === "pwsh");
+  assert(host !== undefined, "the action records the host's WSL configuration");
+  assertStringIncludes(String(host.run), `${WSL_VM_SAMPLES}/host.txt`);
+});

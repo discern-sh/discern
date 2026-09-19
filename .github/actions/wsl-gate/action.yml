@@ -12,6 +12,14 @@ description: Run the repository gate inside WSL 2 Ubuntu and verify a clean tree
 # The gate itself runs as the unprivileged `gate` user instead: root ignores
 # file-permission bits, which silently defuses the suite's permission-sabotage
 # tests — and a real WSL 2 user is unprivileged anyway.
+#
+# The gate runs inside a virtual machine with its own memory and swap, and its
+# transcript cannot tell a starved machine from a held lock or a hung command:
+# each ends as a producer killed at its budget. A sampler (vm-samples.sh)
+# therefore runs as root beside the gate and records what the VM is doing every
+# twenty seconds. The step log ends with its summary, and the run keeps the
+# complete samples plus the Windows host's WSL configuration as the
+# `wsl-vm-samples` artifact, whatever the gate's outcome.
 
 runs:
   using: composite
@@ -21,7 +29,35 @@ runs:
       with:
         distribution: Ubuntu-24.04
         wsl-version: 2
-        additional-packages: ca-certificates curl git unzip
+        additional-packages: ca-certificates curl git unzip procps
+
+    # WSL sizes its VM from the Windows host and an optional .wslconfig, so the
+    # host's memory and the file's presence are what the samples are read against.
+    - name: Record the Windows host and WSL configuration
+      shell: pwsh
+      env:
+        # wsl.exe prints UTF-16 unless told otherwise; the file is read on Linux.
+        WSL_UTF8: "1"
+      run: |
+        $ErrorActionPreference = 'Continue'
+        New-Item -ItemType Directory -Force -Path wsl-vm-samples | Out-Null
+        $os = Get-CimInstance Win32_OperatingSystem
+        $system = Get-CimInstance Win32_ComputerSystem
+        $config = Join-Path $env:USERPROFILE '.wslconfig'
+        $configText = if (Test-Path $config) { Get-Content -Raw $config } else { 'absent: WSL defaults to half the host memory, with a quarter of that as swap' }
+        $lines = @(
+          "recorded: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+          "host: $($os.Caption) $($os.Version)"
+          "host memory: total_mb=$([math]::Round($os.TotalVisibleMemorySize / 1KB)) free_mb=$([math]::Round($os.FreePhysicalMemory / 1KB))"
+          "host logical processors: $($system.NumberOfLogicalProcessors)"
+          ".wslconfig: $configText"
+          '--- wsl --version'
+          (& wsl.exe --version | Out-String)
+          '--- wsl --status'
+          (& wsl.exe --status | Out-String)
+        )
+        $lines | Tee-Object -FilePath wsl-vm-samples/host.txt
+        exit 0
 
     - name: Create the unprivileged user the gate runs as
       shell: wsl-bash {0}
@@ -52,19 +88,42 @@ runs:
         runuser -u gate -- env HOME=/home/gate \
           bash -c 'cd /home/gate/discern && deno install --frozen && deno task vale:sync'
 
-    - name: Run the gate (discern done --ci, via the dev binary)
+    # The sampler starts before the gate and stops after it, so the gate's own
+    # exit status is carried past the sampler's stop and summary: a failed gate
+    # still fails this step. The samples are copied out of the VM onto the
+    # workspace for the artifact step below.
+    - name: Run the gate (discern done --ci, via the dev binary) beside the VM sampler
       shell: wsl-bash {0}
       env:
         DISCERN_GATE_TEST_REPORTER: junit
         # Windows-side env crosses into WSL 2 only when WSLENV names it.
         WSLENV: DISCERN_GATE_TEST_REPORTER
       run: |
+        sampler=/home/gate/discern/.github/actions/wsl-gate/vm-samples.sh
+        samples=/var/tmp/discern-vm-samples
+        bash "$sampler" start "$samples" 20
+        set +e
         runuser -u gate -- env HOME=/home/gate \
           DISCERN_GATE_TEST_REPORTER="${DISCERN_GATE_TEST_REPORTER}" \
           bash -c 'cd /home/gate/discern && deno task dev done --ci --standalone --policy-base refs/discern/ci-policy-base'
+        gate_status=$?
+        set -e
+        bash "$sampler" stop "$samples"
+        mkdir -p wsl-vm-samples
+        cp -r "$samples"/. wsl-vm-samples/
+        exit "$gate_status"
 
     - name: Assert a clean tree (the fix stage must change nothing in CI)
       shell: wsl-bash {0}
       run: |
         runuser -u gate -- env HOME=/home/gate \
           git -C /home/gate/discern diff --exit-code
+
+    - name: Keep the VM samples as a run artifact
+      if: ${{ always() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      with:
+        name: wsl-vm-samples
+        path: wsl-vm-samples
+        if-no-files-found: warn
+        retention-days: 30
