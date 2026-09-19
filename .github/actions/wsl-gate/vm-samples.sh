@@ -126,14 +126,15 @@ facts() {
   } > "$facts_file" 2>&1
 }
 
-# The gate spawns every job as `sh -c <command>` leading its own process
-# group, so the leaders alone give each producer's start and lifetime.
+# The gate spawns every job in its own process group as the gate user, and
+# the shell execs a simple command rather than lingering, so the group leaders
+# owned by that user are the producers themselves: their start and lifetime.
 job_leaders() {
-  ps -eo pid=,pgid=,etimes=,args= | awk '
-    $1 == $2 && $4 == "sh" && $5 == "-c" {
+  ps -eo pid=,pgid=,user=,etimes=,args= | awk '
+    $1 == $2 && $3 == "gate" {
       cmd = ""
-      for (i = 6; i <= NF; i++) cmd = cmd (i > 6 ? " " : "") $i
-      print "pgid=" $2 " etimes=" $3 " cmd=" substr(cmd, 1, 140)
+      for (i = 5; i <= NF; i++) cmd = cmd (i > 5 ? " " : "") $i
+      print "pgid=" $2 " etimes=" $4 " cmd=" substr(cmd, 1, 140)
     }'
 }
 
