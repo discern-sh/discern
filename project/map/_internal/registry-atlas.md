@@ -28,7 +28,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
 | [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 24      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
-| [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 24      | —                | —                           |
+| [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 25      | —                | —                           |
 | [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules)                         | `src/lib/paths.ts#MAP_TIER_PUBLICATION_POSTURES`                                  | 4       | —                | —                           |
 | [`contributor-intake-surfaces`](#contributor-intake-surfaces--contributor-intake-surfaces)                            | `scripts/repository_files.ts#CONTRIBUTOR_INTAKE_SURFACES`                         | 8       | —                | —                           |
 | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                        | `src/shared/checkpoints.ts#CHECKPOINT_FIELD_ROLES`                                | 21      | —                | node `checkpoints`          |
@@ -1801,7 +1801,7 @@ Every absent generated output shared editor configuration may exclude, plus priv
 Every root community contract and every GitHub configuration file, including recorded omissions, so a new intake or automation surface must declare its role.
 
 - Source: `scripts/repository_files.ts` — `REPOSITORY_COMMUNITY_FILE_POLICIES`
-- Members: 24
+- Members: 25
   - `tracked: CCLA.md`
   - `tracked: CLA.md`
   - `tracked: CODE_OF_CONDUCT.md`
@@ -1817,6 +1817,7 @@ Every root community contract and every GitHub configuration file, including rec
   - `tracked: .github/actions/macos-gate/action.yml`
   - `tracked: .github/actions/policy-base/action.yml`
   - `tracked: .github/actions/wsl-gate/action.yml`
+  - `tracked: .github/actions/wsl-gate/vm-samples.sh`
   - `tracked: .github/cla-assistant/README.md`
   - `tracked: .github/cla-assistant/metadata`
   - `tracked: .github/dependabot.yml`

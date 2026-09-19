@@ -155,6 +155,11 @@ export const REPOSITORY_COMMUNITY_FILE_POLICIES:
       reason: "repository-owned WSL 2 gate action",
     },
     {
+      path: ".github/actions/wsl-gate/vm-samples.sh",
+      state: "tracked",
+      reason: "the VM sampler the WSL 2 gate action runs beside the gate",
+    },
+    {
       path: ".github/cla-assistant/README.md",
       state: "tracked",
       reason: "inactive hosted-agreement boundary",
