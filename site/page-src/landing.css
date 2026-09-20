@@ -71,11 +71,17 @@
     letter-spacing: -0.03em;
   }
 
+  /* A tile's icon leaves an icon's worth of air above the copy; match it below. */
+  .homepage-bento .discern-feature-bento__copy {
+    padding-block-end: var(--discern-space-8);
+  }
+
   /* The large tile pins its icon to the top and its copy to the bottom. */
   .homepage-bento .discern-feature-bento__item--large .discern-feature-bento__copy {
     display: flex;
     flex: 1;
     flex-direction: column;
+    padding-block-end: var(--discern-space-10);
   }
 
   .homepage-bento .discern-feature-bento__item--large .discern-feature-bento__icon {
