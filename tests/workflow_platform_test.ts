@@ -843,6 +843,51 @@ Deno.test("CI shellchecks every tracked shell script", async () => {
 const WSL_RUNNER_MEMORY_GB = 16;
 const WSL_HOST_RESERVE_GB = 5;
 
+/** GitHub-provided variables the gate and its tests key on; the VM lane must forward each by name. */
+const HOSTED_RUNNER_MARKERS = ["CI", "GITHUB_ACTIONS"];
+
+Deno.test("the WSL 2 lane runs the gate under the hosted-runner markers the native lanes inherit", async () => {
+  const gate = wslGateSteps().find((step) => isFullGateCommand(step.run));
+  assert(gate !== undefined, "the action runs the full gate");
+  const env = gate.env as Record<string, unknown>;
+  const shared = String(env.WSLENV).split(":");
+  const run = String(gate.run);
+  const invocation = run.indexOf("deno task dev done");
+  for (const marker of HOSTED_RUNNER_MARKERS) {
+    assert(shared.includes(marker), `WSLENV carries ${marker} into the VM`);
+    const forwarded = run.indexOf(`${marker}="\${${marker}}"`);
+    assert(
+      forwarded >= 0 && forwarded < invocation,
+      `the gate user's environment receives ${marker} before the gate runs`,
+    );
+  }
+  // Every GitHub-provided variable authored code reads must be in that list,
+  // so a new read forces the VM lane to forward it too.
+  const files = await structuralGuardScope({
+    guard: "tests/workflow_platform_test.ts#wsl-lane-forwards-hosted-markers",
+    universe: "authored-ts",
+  });
+  const unforwarded = new Set<string>();
+  for (const rel of files) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    for (const line of source.split("\n")) {
+      // A line that is itself a string literal is a guard's fixture, not a read.
+      if (/^\s*["'`]/u.test(line)) continue;
+      for (
+        const match of line.matchAll(
+          /\benv\.get\(\s*["'](CI|GITHUB_[A-Z_]+)["']\s*\)/gu,
+        )
+      ) {
+        const name = match[1] ?? "";
+        if (!HOSTED_RUNNER_MARKERS.includes(name)) {
+          unforwarded.add(`${rel}: ${name}`);
+        }
+      }
+    }
+  }
+  assertEquals([...unforwarded], []);
+});
+
 Deno.test("the WSL 2 lane sizes its VM above WSL's default before provisioning boots it", () => {
   const steps = wslGateSteps();
   const sizing = steps.findIndex((step) =>

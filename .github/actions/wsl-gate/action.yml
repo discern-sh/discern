@@ -129,8 +129,10 @@ runs:
       shell: wsl-bash {0}
       env:
         DISCERN_GATE_TEST_REPORTER: junit
-        # Windows-side env crosses into WSL 2 only when WSLENV names it.
-        WSLENV: DISCERN_GATE_TEST_REPORTER
+        # Windows-side env crosses into WSL 2 only when WSLENV names it. The
+        # hosted-runner markers travel with it so checks that key on them
+        # behave inside the VM as they do on the native lanes.
+        WSLENV: DISCERN_GATE_TEST_REPORTER:CI:GITHUB_ACTIONS
       run: |
         sampler=/home/gate/discern/.github/actions/wsl-gate/vm-samples.sh
         samples=/var/tmp/discern-vm-samples
@@ -138,6 +140,7 @@ runs:
         set +e
         runuser -u gate -- env HOME=/home/gate \
           DISCERN_GATE_TEST_REPORTER="${DISCERN_GATE_TEST_REPORTER}" \
+          CI="${CI}" GITHUB_ACTIONS="${GITHUB_ACTIONS}" \
           bash -c 'cd /home/gate/discern && deno task dev done --ci --standalone --policy-base refs/discern/ci-policy-base'
         gate_status=$?
         set -e
