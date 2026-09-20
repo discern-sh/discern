@@ -18,6 +18,7 @@ backfill(s|ed|ing)?
 backgrounded
 backoff
 basename
+bento
 binary_size
 blockquotes?
 bool
