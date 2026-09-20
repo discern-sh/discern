@@ -35,7 +35,7 @@ async function flushCopyClick(): Promise<void> {
 Deno.test("the homepage has static landmarks, a manual action, and local assets", async () => {
   const dom = new JSDOM(renderLanding());
   const document = dom.window.document;
-  for (const landmark of ["header", "main", "footer", "h1"]) {
+  for (const landmark of ["body > header", "main", "body > footer", "h1"]) {
     assertEquals(document.querySelectorAll(landmark).length, 1, landmark);
   }
   assert(document.querySelector('main a[href="/docs/start"]'));
