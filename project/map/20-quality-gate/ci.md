@@ -35,7 +35,7 @@ Branch protection can require a CI report. That external check grants no discern
 
 ## Standards in CI
 
-Every required standard belongs to completion. There is no measurement-deferral setting or separate PR-only measurement job. The root binary-size standard builds its representative target locally, so local Proof needs no hosted size result.
+Every required standard belongs to completion. There is no measurement-deferral setting or separate PR-only measurement job. The root binary-size standard builds its representative target locally, so local Proof needs no hosted size result. That build also refuses a binary carrying the build host's paths, the guard the release smoke applies.
 
 The hosted Linux, macOS, and WSL lanes report the same obligation set in report mode. Platform and toolchain observations remain part of applicability, so a hosted receipt never stands in for local Proof. Producer budgets cover the command through cleanup; enclosing action and job budgets also cover setup and reporting. Current hosted instrumented calibration remains outstanding.
 

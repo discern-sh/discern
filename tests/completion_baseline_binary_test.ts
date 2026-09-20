@@ -4,6 +4,7 @@ import { join } from "@std/path";
 import { measureBinarySize } from "../scripts/binary_size.ts";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 import { withTempDir } from "./helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 Deno.test("E16: every representative target measures exactly its freshly built regular output", async () => {
   await withTempDir(async (root) => {
@@ -68,4 +69,23 @@ Deno.test("E16: failed, missing and non-regular builds cannot borrow an earlier 
     })
   );
   assertEquals(builds, 0);
+});
+
+Deno.test("the representative build refuses output that carries a build-host path", async () => {
+  await withTempDir(async (root) => {
+    await Deno.mkdir(join(root, "dist"));
+    const target = BUILD_TARGETS[0];
+    if (target === undefined) throw new Error("no registered build target");
+    await assertRejects(
+      () =>
+        measureBinarySize(target.triple, root, async () => {
+          await Deno.writeTextFile(
+            join(root, "dist", target.output),
+            `fixture ${REPO_ROOT}/src/main.ts`,
+          );
+        }),
+      Error,
+      "contains local checkout path",
+    );
+  });
 });
