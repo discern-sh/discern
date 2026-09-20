@@ -31,8 +31,9 @@
     text-wrap: balance;
   }
 
-  /* The backdrop artwork already rules the opening block; a second line clashes. */
-  .homepage-hero .discern-hero-block__visual {
+  /* The hero's visual slot (the last box inside the hero's inner frame) drops
+     its rule: the backdrop artwork already rules the opening block. */
+  .homepage-hero > div:last-child > div:last-child {
     border-block-start: 0;
   }
 
@@ -65,44 +66,47 @@
   }
 
   /* The chapter's subheading keeps the page's one headline face. */
-  .homepage-chapter .discern-narrative-chapter__body h3 {
+  .homepage-chapter h3 {
     font-family: var(--discern-font-marketing);
     font-weight: var(--discern-font-weight-marketing);
     letter-spacing: -0.03em;
   }
 
-  /* A tile's icon leaves an icon's worth of air above the copy; match it below. */
-  .homepage-bento .discern-feature-bento__copy {
+  /* Each tile is an article whose first box holds glyph, title, and copy. The
+     glyph leaves an icon's worth of air above the copy; match it below. */
+  .homepage-bento article > div:first-child {
     padding-block-end: var(--discern-space-8);
   }
 
-  /* The large tile pins its icon to the top and its copy to the bottom. */
-  .homepage-bento .discern-feature-bento__item--large .discern-feature-bento__copy {
+  /* The first tile is the large one: it pins its glyph to the top and its
+     title and copy to the bottom. */
+  .homepage-bento article:first-child > div:first-child {
     display: flex;
     flex: 1;
     flex-direction: column;
     padding-block-end: var(--discern-space-10);
   }
 
-  .homepage-bento .discern-feature-bento__item--large .discern-feature-bento__icon {
+  .homepage-bento article:first-child > div:first-child > span:first-child {
     margin-block-end: auto;
   }
 
-  .homepage-bento .discern-feature-bento__item--large h3 {
+  .homepage-bento article:first-child h3 {
     margin-block-start: var(--discern-space-8);
   }
 
   @media (max-width: 42rem) {
-    /* Phones centre the agent strip and space it into even columns. */
-    .homepage-hero .homepage-agents .discern-logo-cloud__label {
+    /* Phones centre the agent strip's label and list, and space the marks
+       into even columns. */
+    .homepage-agents > p {
       text-align: center;
     }
 
-    .homepage-hero .homepage-agents .discern-logo-cloud__list {
+    .homepage-agents > ul {
       justify-content: center;
     }
 
-    .homepage-hero .homepage-agents .discern-logo-cloud__list li {
+    .homepage-agents > ul > li {
       flex: 1 1 7.5rem;
     }
 
