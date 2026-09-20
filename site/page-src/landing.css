@@ -20,25 +20,8 @@
     text-transform: none;
   }
 
-  /* Let the opening title grow to the package's extra-large display size on
-     wide screens; the package hero caps it at the large size. Remove this once
-     the package exposes the cap (see project/TODO.md). */
-  .homepage-hero h1 {
-    font-size: clamp(
-      var(--discern-font-size-display-md),
-      calc(1rem + 4cqi),
-      var(--discern-font-size-display-xl)
-    );
-  }
-
   .homepage-lede {
     text-wrap: balance;
-  }
-
-  .homepage-benefits {
-    inline-size: min(calc(100% - 2 * var(--discern-space-6)), 86rem);
-    margin-inline: auto;
-    padding-block: var(--discern-space-10) var(--discern-space-16);
   }
 
   .homepage-benefits-grid {
@@ -56,6 +39,51 @@
     max-inline-size: 38ch;
     margin: 0;
     font-size: var(--discern-font-size-sm);
+  }
+
+  /* The compiled instruction files, shown as the large bento tile's visual. */
+  .homepage-compiled-files {
+    display: grid;
+    gap: var(--discern-space-3);
+    inline-size: 100%;
+    margin: 0;
+    padding: var(--discern-space-6);
+    list-style: none;
+    font-size: var(--discern-font-size-sm);
+  }
+
+  .homepage-compiled-files li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--discern-space-2) var(--discern-space-4);
+    padding-block-end: var(--discern-space-3);
+    border-block-end: 1px solid var(--discern-color-border);
+    color: var(--discern-color-ink-muted);
+  }
+
+  .homepage-compiled-files li:last-child {
+    padding-block-end: 0;
+    border-block-end: 0;
+  }
+
+  .homepage-compiled-files code {
+    color: var(--discern-color-ink);
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+  }
+
+  .homepage-agents {
+    padding-block: var(--discern-space-10) var(--discern-space-12);
+  }
+
+  .homepage-trademark {
+    inline-size: min(100% - 2 * var(--discern-space-6),
+      var(--discern-page-max));
+    margin: var(--discern-space-6) auto 0;
+    color: var(--discern-color-ink-faint);
+    font-size: var(--discern-font-size-xs);
+    text-align: center;
   }
 
   @media (max-width: 42rem) {

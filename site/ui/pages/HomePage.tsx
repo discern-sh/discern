@@ -4,13 +4,23 @@ import type { ReactElement } from "react";
 import {
   ApproachBackdrop,
   Button,
+  FeatureBento,
   Grid,
   Heading,
   HeroBlock,
   Icon,
   Kicker,
+  LogoCloud,
+  NarrativeChapter,
   Paragraph,
 } from "discern-design-system/react";
+import {
+  PROVIDER_TRADEMARK_NOTICE,
+  providerBrandSilhouette,
+  PROVIDERS,
+} from "../../../src/lib/providers.ts";
+import { DISCERN_VERSION } from "../../../src/lib/version.ts";
+import { AGENT_NAMES } from "../../../src/shared/agent_catalogue.ts";
 import {
   DISCERN_MARK,
   LANDING_DESCRIPTION,
@@ -50,6 +60,25 @@ const benefits = [
   },
 ] as const;
 
+/** The integrated coding agents, read from the live provider registry. */
+const agents = AGENT_NAMES.map((name) => {
+  const { label, brand, instructionFile } = PROVIDERS[name];
+  return {
+    label,
+    mark: brand.mark.path,
+    silhouette: providerBrandSilhouette(brand).path,
+    instructionFile: instructionFile.path,
+  };
+});
+
+/** Each compiled instruction file beside the agents that read it. */
+const compiledInstructionFiles = [
+  ...Map.groupBy(agents, (agent) => agent.instructionFile),
+].map(([path, readers]) => ({
+  path,
+  readers: readers.map((agent) => agent.label).join(", "),
+}));
+
 /** Render the homepage with shared navigation and a page-owned canvas. */
 export function renderLanding(): string {
   return renderDocument({
@@ -63,16 +92,65 @@ export function renderLanding(): string {
   });
 }
 
+/** The three-part promise that closes the opening block. */
+function Benefits(): ReactElement {
+  return (
+    <Grid minimum="12rem" gap={6} className="homepage-benefits-grid">
+      {benefits.map(({ title, description, icon }) => (
+        <div className="homepage-benefit" key={title}>
+          <Icon
+            size="3rem"
+            fit="contain"
+            relief
+            className="homepage-benefit-icon"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="100%"
+              height="100%"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              {icon}
+            </svg>
+          </Icon>
+          <Heading level={2}>{title}</Heading>
+          <Paragraph>{description}</Paragraph>
+        </div>
+      ))}
+    </Grid>
+  );
+}
+
+/** The files one authored instruction source compiles into, per agent. */
+function CompiledInstructions(): ReactElement {
+  return (
+    <ul className="homepage-compiled-files">
+      {compiledInstructionFiles.map(({ path, readers }) => (
+        <li key={path}>
+          <code>{path}</code>
+          <span>{readers}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** Homepage content composed through the shared marketing layout. */
 function HomePage(): ReactElement {
   return (
     <MarketingLayout currentPath="/">
       <HeroBlock
         className="homepage-hero"
-        layout="centered"
+        layout="statement"
         eyebrow={
           <Kicker className="homepage-eyebrow">
-            <span aria-hidden="true">{DISCERN_MARK}</span> discern v1.0.0
+            <span aria-hidden="true">{DISCERN_MARK}</span> discern v
+            {DISCERN_VERSION}
           </Kicker>
         }
         title="Intelligence, in practice."
@@ -84,45 +162,154 @@ function HomePage(): ReactElement {
           </p>
         }
         actions={
-          <Button href="/docs/start" size="lg" trailingIcon="→">
-            Get started
-          </Button>
+          <>
+            <Button href="/docs/start" size="lg" trailingIcon="→">
+              Get started
+            </Button>
+            <Button href="#practice" size="lg" variant="ghost">
+              See how it works
+            </Button>
+          </>
         }
+        meta="Any stack. Runs offline. No API key."
         backdrop={<ApproachBackdrop />}
+        visual={<Benefits />}
       />
-      <section
-        className="homepage-benefits"
-        aria-label="What discern gives you"
+      <NarrativeChapter
+        id="practice"
+        className="homepage-chapter"
+        eyebrow="The practice"
+        title="Two kinds of intelligence. One shared project."
+        lead={
+          <p>
+            An engineering practice for agent-built software, installed in your
+            project. You set the direction, your agent carries the work, and the
+            project keeps what matters between you.
+          </p>
+        }
+        aside={
+          <>
+            <span>Built on itself</span>
+            <p>
+              discern has run under its own practice since day one. Every change
+              to discern is built, checked, and proven by discern.
+            </p>
+          </>
+        }
+        asideLabel="How discern is built"
       >
-        <Grid minimum="12rem" gap={6} className="homepage-benefits-grid">
-          {benefits.map(({ title, description, icon }) => (
-            <div className="homepage-benefit" key={title}>
-              <Icon
-                size="3rem"
-                fit="contain"
-                relief
-                className="homepage-benefit-icon"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="100%"
-                  height="100%"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  {icon}
-                </svg>
-              </Icon>
-              <Heading level={2}>{title}</Heading>
-              <Paragraph>{description}</Paragraph>
-            </div>
-          ))}
-        </Grid>
-      </section>
+        <p>
+          You decide what quality means for your project. discern keeps that
+          judgment in the project itself, where every coding agent you use can
+          find it and put it to work.
+        </p>
+        <p>
+          Your agent operates discern day to day. It starts each task in its own
+          workspace, runs the checks your project declares, and brings the work
+          back with evidence that they passed. You review the result and decide
+          what ships.
+        </p>
+        <h3>For people who take their software seriously.</h3>
+        <p>
+          If you have only ever built software through an agent, discern asks
+          nothing of you beyond the decisions that are yours to make. Your agent
+          sets it up and runs it, and the discipline is in place by the time
+          people start depending on your work.
+        </p>
+        <p>
+          If you already direct more implementation than you can personally
+          read, discern lets your judgment reach every change without you
+          reading every line. Run more work in parallel, keep your standards
+          across models and providers, and stay the one who decides.
+        </p>
+      </NarrativeChapter>
+      <FeatureBento
+        className="homepage-bento"
+        eyebrow="What discern gives you"
+        title="The right limits let more work move and finish."
+        description={
+          <p>
+            Every task gets its own workspace, every change is held to the bar
+            your project declares, and the decision to ship stays with you.
+          </p>
+        }
+        items={[
+          {
+            title: "Every agent arrives already briefed.",
+            description: (
+              <p>
+                Write your project's instructions once. discern compiles them
+                for every coding agent you use, so each new session starts from
+                what the project already holds.
+              </p>
+            ),
+            visual: <CompiledInstructions />,
+            size: "large",
+            tone: "accent",
+          },
+          {
+            title: "Give each task its own workspace.",
+            description: (
+              <p>
+                Every piece of work begins in a separate checkout on its own
+                branch. Several agents can move at once without treading on each
+                other, and nothing unfinished reaches your shared branch.
+              </p>
+            ),
+            size: "wide",
+          },
+          {
+            title: "Know what passed.",
+            description: (
+              <p>
+                Finished work comes back with the results of your project's own
+                checks, tied to the exact change that passed them.
+              </p>
+            ),
+          },
+          {
+            title: "Keep every gain.",
+            description: (
+              <p>
+                When a quality measure improves, the project keeps the new
+                level. A later change cannot lower it.
+              </p>
+            ),
+          },
+          {
+            title: "You decide what ships.",
+            description: (
+              <p>
+                Passing checks makes a change ready for a decision. The decision
+                to land it stays with you.
+              </p>
+            ),
+            size: "wide",
+          },
+          {
+            title: "Your agent sets it up.",
+            description: (
+              <p>
+                Tell your coding agent to set up discern. It studies your
+                project, wires up your real checks, asks only for the decisions
+                that are yours, and proves the setup works before it finishes.
+              </p>
+            ),
+            size: "wide",
+          },
+        ]}
+      />
+      <div className="homepage-agents">
+        <LogoCloud
+          label="Works with the coding agents you already use"
+          items={agents.map(({ label, mark, silhouette }) => ({
+            name: label,
+            mark: <img src={mark} alt="" width="24" height="24" />,
+            markMask: `url("${silhouette}")`,
+          }))}
+        />
+        <p className="homepage-trademark">{PROVIDER_TRADEMARK_NOTICE}</p>
+      </div>
     </MarketingLayout>
   );
 }
