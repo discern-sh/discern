@@ -26,13 +26,13 @@ The marked Markdown is the authority for every command and outcome in the projec
 
 ## The homepage composition
 
-[`site/ui/pages/HomePage.tsx`](../../../site/ui/pages/HomePage.tsx) owns the homepage composition, route metadata boundary, and asset selection. It presents a monochrome Harmonic backdrop with the launch introduction, a Get started link to `/docs/start`, and three benefit blocks. The manual holds the detailed product information.
+[`site/ui/pages/HomePage.tsx`](../../../site/ui/pages/HomePage.tsx) owns the homepage composition, route metadata boundary, and asset selection. It composes the package's marketing blocks in order: a statement Hero block over the monochrome Harmonic backdrop, with the launch introduction, a Get started link to `/docs/start`, and the agent Logo cloud in its visual slot; three benefit blocks in a compact Marketing section; a Narrative chapter on the practice; and a Feature bento of what the project gains. The hero eyebrow reads the version from [`src/lib/version.ts`](../../../src/lib/version.ts), and the Logo cloud derives each agent's name, mark, and dark-theme silhouette from the provider registry, so a new provider appears without a copy change. The manual holds the detailed product information.
 
 [`MarketingLayout.tsx`](../../../site/ui/layouts/MarketingLayout.tsx) owns shared landmarks and takes the route being rendered. The [site header](../../../site/ui/components/SiteHeader.tsx) and [site footer](../../../site/ui/components/SiteFooter.tsx) use the package adapters, and the header renders the package Theme toggle directly. Pages supply navigation, actions, footer destinations, and body content. [`CopyPrompt.tsx`](../../../site/ui/components/CopyPrompt.tsx) owns the commissioning text and uses the package Button; `site/page-src/copy-prompt.js` supplies its clipboard enhancement.
 
 [`site/navigation.ts`](../../../site/navigation.ts) owns route matching for the header: a destination equal to the route is the current page, and a destination whose branch contains it is the current section. The package renders both states from `aria-current` and styles them; the site never restates the anchor markup.
 
-[`site/page-src/landing.css`](../../../site/page-src/landing.css) owns the homepage layout and responsive styles. Component behavior and artwork come from the selected design-system runtime; the homepage has no page-specific browser script. [`site/brand.ts`](../../../site/brand.ts) owns the homepage's title and description.
+[`site/page-src/landing.css`](../../../site/page-src/landing.css) owns the homepage layout and responsive styles. Its overrides of package blocks, such as the shared 86rem measure and the large tile's glyph alignment, use structural selectors under the page's own class names rather than package-owned `.discern-*` classes; the ones a package option would replace are recorded in [`project/TODO.md`](../../TODO.md). Component behavior and artwork come from the selected design-system runtime; the homepage has no page-specific browser script. [`site/brand.ts`](../../../site/brand.ts) owns the homepage's title and description.
 
 ## The For Agents composition
 
