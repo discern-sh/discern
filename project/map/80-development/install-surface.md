@@ -81,7 +81,7 @@ discern's product-manual source is fixed repository content at `project/manual/`
 
 [`src/shared/product_identity.ts`](../../../src/shared/product_identity.ts) owns the product URL, current repository slug, derived repository routes, raw-installer URL, and canonical install command. TypeScript and generated documentation import that authority. Standalone shell, workflow YAML, and authored-text projections are enumerated with exact counts in [`scripts/repository_literal_policy.ts`](../../../scripts/repository_literal_policy.ts), so a transfer changes one authority and a bounded set of visible projections rather than starting a repository-wide guess.
 
-[`BUILD_TARGETS`](../../../scripts/build_targets.ts) owns the native release matrix and installer selectors. The workflow, generated platform tables, artifact/sidecar checks, and installer cases derive from it. [`.dvmrc`](../../../.dvmrc) pins the Deno compiler every workflow consumes. Release smoke scans the compiled bytes for checkout, home, workspace, runner-temp, and package-cache paths before execution, so a binary containing build-host paths never reaches upload.
+[`BUILD_TARGETS`](../../../scripts/build_targets.ts) owns the native release matrix and installer selectors. The workflow, generated platform tables, artifact/sidecar checks, and installer cases derive from it. [`.dvmrc`](../../../.dvmrc) pins the Deno compiler every workflow consumes. Release smoke scans the compiled bytes for checkout, workspace, runner-temp, and package-cache paths before execution, so a binary containing build-host paths never reaches upload. The home directory alone is not a marker: hosted runners share one home path with the toolchain that built the embedded runtime.
 
 ## Standalone binary replacement
 

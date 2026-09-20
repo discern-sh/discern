@@ -19,7 +19,6 @@ const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 export interface ReleasePathLeak {
   readonly label:
     | "checkout"
-    | "home"
     | "workspace"
     | "runner temp"
     | "package cache";
@@ -36,7 +35,15 @@ interface CommandOutput {
   stdout: string;
 }
 
-/** Collect every local build path whose bytes would disclose the build host. */
+/**
+ * Collect every local build path whose bytes would disclose the build host.
+ *
+ * The home directory itself is not a marker. Hosted runners share one home
+ * path with the toolchain that built the embedded runtime and plugins, so
+ * their panic locations name it in every compiled binary. Only the directories
+ * the build reads under the home count: the Deno cache in each platform's
+ * layout and the npm cache.
+ */
 export function releasePathLeaks(
   environment: Readonly<Record<string, string | undefined>> = Deno.env
     .toObject(),
@@ -49,7 +56,6 @@ export function releasePathLeaks(
     candidates.push({ label, path: path.replace(/\/$/u, "") });
   };
   add("workspace", environment.GITHUB_WORKSPACE);
-  add("home", environment.HOME);
   add("runner temp", environment.RUNNER_TEMP);
   add("package cache", environment.DENO_DIR);
   add("package cache", environment.XDG_CACHE_HOME);
@@ -57,6 +63,7 @@ export function releasePathLeaks(
   add("package cache", environment.npm_config_cache);
   if (environment.HOME !== undefined) {
     add("package cache", join(environment.HOME, ".cache", "deno"));
+    add("package cache", join(environment.HOME, "Library", "Caches", "deno"));
     add("package cache", join(environment.HOME, ".npm"));
   }
   const seen = new Set<string>();

@@ -43,7 +43,11 @@ function releasePlan(
     ancestors: [],
   });
 }
-import { smokeReleaseBinary } from "../scripts/release_smoke.ts";
+import {
+  assertNoReleasePathLeaks,
+  releasePathLeaks,
+  smokeReleaseBinary,
+} from "../scripts/release_smoke.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import {
   DISCERN_PROJECT_PAYLOAD_LICENSE,
@@ -438,13 +442,13 @@ Deno.test("release smoke rejects an unrelated future binary with the wrong versi
   }, { prefix: "release-smoke-test-" });
 });
 
-Deno.test("release smoke rejects checkout, home, workspace, runner-temp, and package-cache paths", async () => {
+Deno.test("release smoke rejects checkout, workspace, runner-temp, and package-cache paths", async () => {
   await withTempDir(async (dir) => {
     const cases = [
       { label: "checkout", path: REPO_ROOT, environment: {} },
       {
-        label: "home",
-        path: "/sensitive/home",
+        label: "package cache",
+        path: "/sensitive/home/.cache/deno",
         environment: { HOME: "/sensitive/home" },
       },
       {
@@ -478,6 +482,37 @@ Deno.test("release smoke rejects checkout, home, workspace, runner-temp, and pac
       );
     }
   }, { prefix: "release-path-leak-test-" });
+});
+
+Deno.test("the leak guard accepts the toolchain's own build paths under a shared runner home", async () => {
+  // Deno's runtime and the bundled plugins are built on hosted runners, so
+  // their panic locations name the same home every hosted release job has.
+  await withTempDir(async (dir) => {
+    for (const home of ["/home/runner", "/Users/runner"]) {
+      const candidates = releasePathLeaks({ HOME: home }).map((c) => c.path);
+      assertEquals(
+        candidates.filter((path) => path.startsWith(`${home}/`)),
+        [`${home}/.cache/deno`, `${home}/Library/Caches/deno`, `${home}/.npm`],
+      );
+      assert(!candidates.includes(home));
+      const binary = join(dir, "toolchain-strings");
+      await Deno.writeTextFile(
+        binary,
+        `${home}/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.210/src/de/mod.rs\n` +
+          `${home}/work/deno/deno/runtime/js/99_main.js\n`,
+      );
+      await assertNoReleasePathLeaks(binary, releasePathLeaks({ HOME: home }));
+      await assertRejects(
+        () =>
+          assertNoReleasePathLeaks(
+            binary,
+            releasePathLeaks({ HOME: home, RUNNER_TEMP: `${home}/work` }),
+          ),
+        Error,
+        "contains local runner temp path",
+      );
+    }
+  }, { prefix: "release-runner-home-test-" });
 });
 
 Deno.test("release smoke rejects a binary missing licenses, docs, or templates", async () => {
