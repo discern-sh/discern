@@ -196,17 +196,22 @@ function HomePage(): ReactElement {
         }
         meta="Any stack. Runs offline. No API key."
         backdrop={<ApproachBackdrop />}
-        visual={<Benefits />}
+        visual={
+          <LogoCloud
+            className="homepage-agents"
+            label="Works with the coding agents you already use"
+            align="start"
+            items={agents.map(({ label, mark, silhouette }) => ({
+              name: label,
+              mark: <img src={mark} alt="" width="24" height="24" />,
+              markMask: `url("${silhouette}")`,
+            }))}
+          />
+        }
       />
-      <LogoCloud
-        className="homepage-agents"
-        label="Works with the coding agents you already use"
-        items={agents.map(({ label, mark, silhouette }) => ({
-          name: label,
-          mark: <img src={mark} alt="" width="24" height="24" />,
-          markMask: `url("${silhouette}")`,
-        }))}
-      />
+      <section className="homepage-benefits" aria-label="What discern does">
+        <Benefits />
+      </section>
       <NarrativeChapter
         id="practice"
         className="homepage-chapter"

@@ -53,8 +53,16 @@
     font-size: var(--discern-font-size-sm);
   }
 
-  .homepage-agents {
-    padding-block: var(--discern-space-10) var(--discern-space-12);
+  /* The hero's visual slot already frames and pads the Logo cloud. */
+  .homepage-hero .homepage-agents {
+    inline-size: 100%;
+    padding-block: 0;
+  }
+
+  .homepage-benefits {
+    inline-size: min(calc(100% - 2 * var(--discern-space-6)), 86rem);
+    margin-inline: auto;
+    padding-block: var(--discern-space-16) var(--discern-space-4);
   }
 
   /* The chapter's subheading keeps the page's one headline face. */
