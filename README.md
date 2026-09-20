@@ -25,7 +25,7 @@ Simply tell your coding agent:
 
 Your agent does the rest.
 
-- **Setup is a one-time, high-leverage activity**. Use the strongest model you have available — every future agent will inherit the choices they make. discern is easy to reconfigure at any time, but a SOTA model with extended thinking time will get your setup off to the strongest possible start.
+- **Setup is a one-time, high-leverage activity**. Use the strongest model you have available — every future agent will inherit the choices they make. discern is easy to reconfigure at any time, but a frontier model with extended thinking time will get your setup off to the strongest possible start.
 - **Setup is isolated and reversible**. discern keeps all setup work contained to a one-off branch, using small incremental commits so you can see what's being done. discern never pushes remotely, and seeks your consent before finishing the setup process. You can uninstall discern at any time.
 
 ---
