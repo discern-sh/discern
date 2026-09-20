@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 /** Homepage shell for the public landing page. */
 
 import {
@@ -69,22 +69,65 @@ const agents = AGENT_NAMES.map((name) => {
   };
 });
 
-/** A written brief: the instructions every agent starts from. */
-const briefIcon = (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M7 3h7l5 5v13H7z" />
-    <path d="M14 3v5h5" />
-    <path d="M10 13h6M10 17h6" />
-  </svg>
-);
+/** A 24-unit stroke glyph drawn from path children. */
+function Glyph({ children }: { readonly children: ReactNode }): ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="100%"
+      height="100%"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+/** One glyph per bento tile, in tile order. */
+const tileGlyphs = {
+  brief: (
+    <Glyph>
+      <path d="M7 3h7l5 5v13H7z" />
+      <path d="M14 3v5h5" />
+      <path d="M10 13h6M10 17h6" />
+    </Glyph>
+  ),
+  branch: (
+    <Glyph>
+      <path d="M6 3v12" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="6" r="3" />
+      <path d="M18 9a9 9 0 0 1-9 9" />
+    </Glyph>
+  ),
+  check: (
+    <Glyph>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12 3 3 5-6" />
+    </Glyph>
+  ),
+  trend: (
+    <Glyph>
+      <path d="m4 18 6-6 4 4 6-8" />
+      <path d="M14 8h6v6" />
+    </Glyph>
+  ),
+  flag: (
+    <Glyph>
+      <path d="M5 21V4h11l-1.5 4L16 12H5" />
+    </Glyph>
+  ),
+  spark: (
+    <Glyph>
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M6.3 17.7l2.8-2.8M14.9 9.1l2.8-2.8" />
+    </Glyph>
+  ),
+} as const;
 
 /** Render the homepage with shared navigation and a page-owned canvas. */
 export function renderLanding(): string {
@@ -111,19 +154,7 @@ function Benefits(): ReactElement {
             relief
             className="homepage-benefit-icon"
           >
-            <svg
-              viewBox="0 0 24 24"
-              width="100%"
-              height="100%"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              {icon}
-            </svg>
+            <Glyph>{icon}</Glyph>
           </Icon>
           <Heading level={2}>{title}</Heading>
           <Paragraph>{description}</Paragraph>
@@ -245,12 +276,13 @@ function HomePage(): ReactElement {
                 what the project already holds.
               </p>
             ),
-            icon: briefIcon,
+            icon: tileGlyphs.brief,
             size: "large",
             tone: "accent",
           },
           {
             title: "Give each task its own workspace.",
+            icon: tileGlyphs.branch,
             description: (
               <p>
                 Every piece of work begins in a separate checkout on its own
@@ -262,6 +294,7 @@ function HomePage(): ReactElement {
           },
           {
             title: "Know what passed.",
+            icon: tileGlyphs.check,
             description: (
               <p>
                 Finished work comes back with the results of your project's own
@@ -271,6 +304,7 @@ function HomePage(): ReactElement {
           },
           {
             title: "Keep every gain.",
+            icon: tileGlyphs.trend,
             description: (
               <p>
                 When a quality measure improves, the project keeps the new
@@ -280,6 +314,7 @@ function HomePage(): ReactElement {
           },
           {
             title: "You decide what ships.",
+            icon: tileGlyphs.flag,
             description: (
               <p>
                 Passing checks makes a change ready for a decision. The decision
@@ -290,6 +325,7 @@ function HomePage(): ReactElement {
           },
           {
             title: "Your agent sets it up.",
+            icon: tileGlyphs.spark,
             description: (
               <p>
                 Tell your coding agent to set up discern. It studies your
