@@ -87,8 +87,22 @@
   }
 
   @media (max-width: 42rem) {
+    /* Phones centre the agent strip and space it into even columns. */
+    .homepage-hero .homepage-agents .discern-logo-cloud__label {
+      text-align: center;
+    }
+
+    .homepage-hero .homepage-agents .discern-logo-cloud__list {
+      justify-content: center;
+    }
+
+    .homepage-hero .homepage-agents .discern-logo-cloud__list li {
+      flex: 1 1 7.5rem;
+    }
+
     .homepage-benefits-grid {
       grid-template-columns: 1fr;
+      gap: var(--discern-space-10);
     }
 
     .homepage-benefit {
