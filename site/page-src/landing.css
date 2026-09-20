@@ -59,10 +59,9 @@
     padding-block: 0;
   }
 
+  /* The benefits row closes with the same rule the hero closes with. */
   .homepage-benefits {
-    inline-size: min(calc(100% - 2 * var(--discern-space-6)), 86rem);
-    margin-inline: auto;
-    padding-block: var(--discern-space-16) var(--discern-space-4);
+    border-block-end: 1px solid var(--discern-color-border);
   }
 
   /* The chapter's subheading keeps the page's one headline face. */

@@ -11,6 +11,7 @@ import {
   Icon,
   Kicker,
   LogoCloud,
+  MarketingSection,
   NarrativeChapter,
   Paragraph,
 } from "discern-design-system/react";
@@ -201,6 +202,7 @@ function HomePage(): ReactElement {
             className="homepage-agents"
             label="Works with the coding agents you already use"
             align="start"
+            variant="strip"
             items={agents.map(({ label, mark, silhouette }) => ({
               name: label,
               mark: <img src={mark} alt="" width="24" height="24" />,
@@ -209,9 +211,14 @@ function HomePage(): ReactElement {
           />
         }
       />
-      <section className="homepage-benefits" aria-label="What discern does">
+      <MarketingSection
+        className="homepage-benefits"
+        spacing="compact"
+        frame="wide"
+        aria-label="What discern does"
+      >
         <Benefits />
-      </section>
+      </MarketingSection>
       <NarrativeChapter
         id="practice"
         className="homepage-chapter"
