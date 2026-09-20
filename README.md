@@ -1,73 +1,33 @@
 # ◮ discern
 
-**For people who take their software seriously.**\
-An engineering practice for agent-built software.
+discern installs a disciplined **engineering practice** into any software project.
 
-**Two kinds of intelligence. One shared project.** Your coding agent operates the practice day to day; you set direction and decide what becomes shared.
+- **You** decide what "quality" means for your project. discern encodes your taste and judgment into the project's configuration.
+- **Your agent** operates discern day-to-day. discern helps them write better code, work safely in parallel, and continually improve the project's standards.
+- **Your project** becomes a more reliable place for agents to work, with each change deterministically proven. discern gives you the confidence to ship high-quality changes faster than ever.
 
-Coding agents can take a project further than one person could build alone. discern installs a serious engineering practice into the repository: shared project understanding, isolated work for every task, deterministic checks, Standards that lock in every gain, and evidence for the exact change. The agents do more of the work; you stay responsible for what gets launched.
+discern is designed for **people who ship serious software**:
 
-It is for engineers who already direct more implementation than they can personally read, and for builders whose project has begun to matter: users arriving, data worth protecting, a name on the result.
+- For **newer builders** who may only have built software through agents, discern is easy-to-use and requires no previous coding experience. It's mostly hands-off, as your agent configures discern and drives it day-to-day. When people start depending on your work, discern provides the engineering discipline so you can ship with confidence.
+- For **serious engineers** who use agents to implement more than they can personally review, discern helps you stop feeling like the bottleneck, and scale your ambitions even further. discern empowers you to direct more work with less oversight, preserve your expertise across models and providers, and run complex workstreams in parallel.
 
-[discern.sh](https://discern.sh) · [Documentation](https://discern.sh/docs) · [For coding agents](https://discern.sh/llms.txt)
+discern was **created by a former CTO with over 15 years of experience** as an engineer and co-founder:
 
-## Start in two steps
+- Designed for **real-world use** in serious software products, discern runs completely offline, doesn't contain an AI model, and has zero dependencies besides `git`. There's no API key, subscription, or vendor lock-in.
+- discern's **offline, self-contained binary** is signed and notarized, running on macOS, Linux, and Windows via WSL 2. Stack-agnostic, discern adapts to suit projects written in any programming language.
+- **Battle-tested and hardened** _on itself_, since day one discern has 'dogfooded' its own practice. Every change to discern's own codebase has been built, validated, and proven under its own gate.
 
-**1. Install the binary.**
+## Install and set up discern
 
-```sh
-curl -fsSL https://discern.sh/install | sh
-```
+Simply tell your coding agent:
 
-One self-contained binary for macOS and Linux (Windows via WSL 2). Your project needs nothing beyond `git` — no runtime, no account, no API key.
+> "Explain how [discern.sh](https://discern.sh) would improve our project, then set it up for me."
 
-**2. Hand the project to your coding agent.** Open the agent you already use and tell it:
+Your agent does the rest.
 
-> Set this project up with discern.
-
-The agent studies the repository, proposes the checks that will define "done," asks for the decisions only you can make, and writes nothing until you agree. Setup refuses to record itself complete until the project's checks have run green in a throwaway worktree. Give the conversation a capable model and half an hour; every session after that inherits what it establishes.
-
-## What the practice holds
-
-- **Every agent arrives already briefed.** Write your project instructions once; discern compiles them for every configured provider — Claude Code, Codex, Gemini, Cursor, GitHub Copilot, and any other tool that reads `AGENTS.md`. Change agents without starting the project explanation over.
-- **Every task gets its own prepared place.** Each change happens in its own Git worktree, with its own branch, identity, environment values, and any resources the project declares. Parallel agents work in separate checkouts and cannot overwrite one another's working tree.
-- **"Done" means your project's own bar was met.** Declare format, lint, typecheck, and test once in `discern.toml`; the Gate runs them against the final tree and reports what they returned.
-- **A measurable gain becomes the new floor.** Standards hold quality numbers (coverage, bundle size, lint counts) at limits that may only improve. When a measure gets better, discern can pin the gain; a branch cannot weaken the limit.
-- **Evidence belongs to the exact change.** A green Gate on a clean committed tree yields a Proof identifying what passed and which change it covers. Passing makes a change eligible for a decision; it does not decide what ships.
-- **A backlog can become organized parallel work.** The bundled delegate-work skill turns discussed work into complete handoffs, parallel streams, or staged dependencies for fresh agents, while dispatch stays under your control.
-
-## Day to day
-
-Your agent drives the loop as it works — you read the results:
-
-```sh
-discern status      # what is true right now, and what to do next
-discern start       # a fresh isolated worktree for the task
-discern prepare     # the fast inner loop: fix, regenerate, check
-discern test        # the project's tests on their own
-discern done        # the full Gate — the bar for "done"
-discern accept      # land the finished branch, with your consent
-```
-
-Every verb takes `--json` and returns one structured envelope; the MCP tools (`discern_status`, `discern_done`, …) return the same results from the same engine.
-
-## Trust boundaries
-
-- discern contains no AI model and needs no API key; it runs the commands the project declares.
-- The Logbook, discern's local record of its own runs, stays on your machine and contains metadata rather than code or command output.
-- All project-specific settings live in one root `discern.toml`. The instructions, skills, and agent files discern maintains are generated in the open, an architectural test enumerates every path it may write, and `discern uninstall` takes the wiring back out.
-- discern is not a sandbox, and it does not guarantee correct or secure software. It gives you declared checks, evidence for the exact change, and the final say over what lands.
-
-## Any repository, any stack
-
-The engine never learns what "a test" is. It runs the commands your project names and judges nothing except their results. That makes the same engineering practice fit any repository, in any language, under whichever agent is driving.
-
-## Built under its own Gate
-
-discern is developed under its own Gate, worktrees, Standards, Map, and Logbook: the repository you are reading clears the same bar it ships. Its practices came out of a production agent-driven workflow and were generalized until nothing stack-specific remained.
+- **Setup is a one-time, high-leverage activity**. Use the strongest model you have available — every future agent will inherit the choices they make. discern is easy to reconfigure at any time, but a SOTA model with extended thinking time will get your setup off to the strongest possible start.
+- **Setup is isolated and reversible**. discern keeps all setup work contained to a one-off branch, using small incremental commits so you can see what's being done. discern never pushes remotely, and seeks your consent before finishing the setup process. You can uninstall discern at any time.
 
 ---
 
-**For people who take their software seriously.**
-
-[discern.sh](https://discern.sh) · [Documentation](https://discern.sh/docs) · [Decisions](project/map/_adr/) · [License](LICENSE)
+[discern.sh](https://discern.sh) · [Documentation](https://discern.sh/docs) · [For coding agents](https://discern.sh/llms.txt) · [License](LICENSE)
