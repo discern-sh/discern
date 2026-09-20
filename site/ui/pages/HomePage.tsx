@@ -15,7 +15,6 @@ import {
   Paragraph,
 } from "discern-design-system/react";
 import {
-  PROVIDER_TRADEMARK_NOTICE,
   providerBrandSilhouette,
   PROVIDERS,
 } from "../../../src/lib/providers.ts";
@@ -62,22 +61,30 @@ const benefits = [
 
 /** The integrated coding agents, read from the live provider registry. */
 const agents = AGENT_NAMES.map((name) => {
-  const { label, brand, instructionFile } = PROVIDERS[name];
+  const { label, brand } = PROVIDERS[name];
   return {
     label,
     mark: brand.mark.path,
     silhouette: providerBrandSilhouette(brand).path,
-    instructionFile: instructionFile.path,
   };
 });
 
-/** Each compiled instruction file beside the agents that read it. */
-const compiledInstructionFiles = [
-  ...Map.groupBy(agents, (agent) => agent.instructionFile),
-].map(([path, readers]) => ({
-  path,
-  readers: readers.map((agent) => agent.label).join(", "),
-}));
+/** A written brief: the instructions every agent starts from. */
+const briefIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M7 3h7l5 5v13H7z" />
+    <path d="M14 3v5h5" />
+    <path d="M10 13h6M10 17h6" />
+  </svg>
+);
 
 /** Render the homepage with shared navigation and a page-owned canvas. */
 export function renderLanding(): string {
@@ -126,20 +133,6 @@ function Benefits(): ReactElement {
   );
 }
 
-/** The files one authored instruction source compiles into, per agent. */
-function CompiledInstructions(): ReactElement {
-  return (
-    <ul className="homepage-compiled-files">
-      {compiledInstructionFiles.map(({ path, readers }) => (
-        <li key={path}>
-          <code>{path}</code>
-          <span>{readers}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 /** Homepage content composed through the shared marketing layout. */
 function HomePage(): ReactElement {
   return (
@@ -174,6 +167,15 @@ function HomePage(): ReactElement {
         meta="Any stack. Runs offline. No API key."
         backdrop={<ApproachBackdrop />}
         visual={<Benefits />}
+      />
+      <LogoCloud
+        className="homepage-agents"
+        label="Works with the coding agents you already use"
+        items={agents.map(({ label, mark, silhouette }) => ({
+          name: label,
+          mark: <img src={mark} alt="" width="24" height="24" />,
+          markMask: `url("${silhouette}")`,
+        }))}
       />
       <NarrativeChapter
         id="practice"
@@ -243,7 +245,7 @@ function HomePage(): ReactElement {
                 what the project already holds.
               </p>
             ),
-            visual: <CompiledInstructions />,
+            icon: briefIcon,
             size: "large",
             tone: "accent",
           },
@@ -299,17 +301,6 @@ function HomePage(): ReactElement {
           },
         ]}
       />
-      <div className="homepage-agents">
-        <LogoCloud
-          label="Works with the coding agents you already use"
-          items={agents.map(({ label, mark, silhouette }) => ({
-            name: label,
-            mark: <img src={mark} alt="" width="24" height="24" />,
-            markMask: `url("${silhouette}")`,
-          }))}
-        />
-        <p className="homepage-trademark">{PROVIDER_TRADEMARK_NOTICE}</p>
-      </div>
     </MarketingLayout>
   );
 }

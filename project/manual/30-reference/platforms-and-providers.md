@@ -171,6 +171,8 @@ The final column gives each provider's MCP call limit and the longest `discern_a
 
 Session hooks have a separate 600-second limit. Gemini records that value as 600,000 milliseconds; the other providers use seconds. `discern refresh` updates the settings discern owns to the current format for each coding tool and keeps unrelated settings unchanged. The file locations and ownership rules do not change when those formats change.
 
+Third-party product names and trademarks in this reference belong to their respective owners. discern uses them to identify supported integrations, which implies no affiliation or endorsement.
+
 ## Clones without discern
 
 Git keeps the agent instruction files and provider configuration. It does not keep the generated skill folders: Claude Code uses `.claude/skills/`, while Codex, Gemini, Cursor, and GitHub Copilot use `.agents/skills/`. After cloning onto a machine without discern, install the binary, run `discern refresh`, and open a new coding-agent session. The refresh recreates the skill folders and updates discern's provider settings before the new session reads them.
