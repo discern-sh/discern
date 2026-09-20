@@ -28,6 +28,12 @@ Your agent does the rest.
 - **Setup is a one-time, high-leverage activity**. Use the strongest model you have available — every future agent will inherit the choices they make. discern is easy to reconfigure at any time, but a frontier model with extended thinking time will get your setup off to the strongest possible start.
 - **Setup is isolated and reversible**. discern keeps all setup work contained to a one-off branch, using small incremental commits so you can see what's being done. discern never pushes remotely, and seeks your consent before finishing the setup process. You can uninstall discern at any time.
 
+Prefer to put the binary in place yourself, or need a newer one later? One command installs it; then hand the project to your agent as above:
+
+```sh
+curl -fsSL https://discern.sh/install | sh
+```
+
 ---
 
 [discern.sh](https://discern.sh) · [Documentation](https://discern.sh/docs) · [For coding agents](https://discern.sh/llms.txt) · [License](LICENSE)
