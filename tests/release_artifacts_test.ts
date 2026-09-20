@@ -489,12 +489,14 @@ Deno.test("the leak guard accepts the toolchain's own build paths under a shared
   // their panic locations name the same home every hosted release job has.
   await withTempDir(async (dir) => {
     for (const home of ["/home/runner", "/Users/runner"]) {
-      const candidates = releasePathLeaks({ HOME: home }).map((c) => c.path);
+      const candidates = releasePathLeaks({ HOME: home });
       assertEquals(
-        candidates.filter((path) => path.startsWith(`${home}/`)),
+        candidates.filter((c) => c.label === "package cache").map((c) =>
+          c.path
+        ),
         [`${home}/.cache/deno`, `${home}/Library/Caches/deno`, `${home}/.npm`],
       );
-      assert(!candidates.includes(home));
+      assert(candidates.every((c) => c.path !== home));
       const binary = join(dir, "toolchain-strings");
       await Deno.writeTextFile(
         binary,
