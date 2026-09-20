@@ -90,11 +90,10 @@ function Glyph({ children }: { readonly children: ReactNode }): ReactElement {
 
 /** One glyph per bento tile, in tile order. */
 const tileGlyphs = {
-  brief: (
+  prompt: (
     <Glyph>
-      <path d="M7 3h7l5 5v13H7z" />
-      <path d="M14 3v5h5" />
-      <path d="M10 13h6M10 17h6" />
+      <path d="m5 7 5 5-5 5" />
+      <path d="M12 17h7" />
     </Glyph>
   ),
   branch: (
@@ -268,15 +267,30 @@ function HomePage(): ReactElement {
         }
         items={[
           {
-            title: "Every agent arrives already briefed.",
+            title: "Built around the way agents work.",
             description: (
-              <p>
-                Write your project's instructions once. discern compiles them
-                for every coding agent you use, so each new session starts from
-                what the project already holds.
-              </p>
+              <>
+                <p>
+                  Most developer tools assume a person at the keyboard. discern
+                  treats your coding agent as its day-to-day operator, and most
+                  of what it does for the agent happens out of your sight.
+                </p>
+                <p>
+                  Every session opens already briefed by your project's compiled
+                  instructions. One call reports what is true right now and the
+                  next valid step, so the agent never rebuilds the picture from
+                  a long transcript.
+                </p>
+                <p>
+                  Results come back bounded, so the agent spends its context on
+                  your change rather than on the tool. A failed check returns
+                  the evidence and a command to reproduce it, and a refusal
+                  always names a way forward. The agent operates; you still
+                  decide what lands.
+                </p>
+              </>
             ),
-            icon: tileGlyphs.brief,
+            icon: tileGlyphs.prompt,
             size: "large",
             tone: "accent",
           },
