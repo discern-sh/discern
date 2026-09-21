@@ -87,6 +87,12 @@ export async function stageSiteSnapshot(
       configPath,
       JSON.stringify(config, null, 2) + "\n",
     );
+    // The deploy collector honors Git ignore rules even outside a Git checkout.
+    await Deno.writeTextFile(
+      join(destination, ".gitignore"),
+      "\n# Staged publication evidence belongs in this upload.\n!/site/release-publication.json\n",
+      { append: true },
+    );
     await Deno.writeTextFile(
       join(destination, "site/release-publication.json"),
       publicationInput,

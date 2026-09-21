@@ -49,6 +49,7 @@ Deno.test("staging exports committed site sources and replaces complete product 
       JSON.stringify({ version: "1.0.0", imports: { example: "old" } }),
     );
     await write("site/home.txt", "old homepage");
+    await write(".gitignore", "/site/release-publication.json\n");
     await git(["add", "."]);
     await git(["commit", "-qm", "Release fixture"]);
     const product = await git(["rev-parse", "HEAD"]);
@@ -101,6 +102,27 @@ Deno.test("staging exports committed site sources and replaces complete product 
         await Deno.readTextFile(join(target, "site-deployment.json")),
       ),
       { source, product, version: "1.0.0" },
+    );
+    const ignored = await new Deno.Command("git", {
+      args: [
+        "--git-dir=" + join(repo, ".git"),
+        "--work-tree=" + target,
+        "check-ignore",
+        "--no-index",
+        "site/release-publication.json",
+      ],
+      cwd: target,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assertEquals(
+      ignored.code,
+      1,
+      "staged publication evidence must survive Git ignore filtering",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(repo, ".gitignore")),
+      "/site/release-publication.json\n",
     );
     assertEquals(
       await Deno.readTextFile(join(repo, "site/home.txt")),
