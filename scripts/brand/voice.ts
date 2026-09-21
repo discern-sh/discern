@@ -973,7 +973,7 @@ State:
 - canonical nouns;
 - mechanism and boundary;
 - examples that match live commands;
-- example values with personality: \`ada\`, \`apollo-11\`, \`margaret@hamilton.space\` — never \`foo\` or \`user1\`;
+- example values with personality: \`ada\`, \`apollo-11\`, \`margaret@hamilton.example\` — never \`foo\` or \`user1\`;
 - explicit links to deeper reference;
 - no marketing superlatives;
 - the ordinary path before exceptions: include a caveat only when omitting it could change the reader’s decision or action;

@@ -3,7 +3,7 @@
 > **Amendments.**
 >
 > - **Proof naming ([ADR 0245](0245-receipt-renamed-to-proof.md)):** this decision's receipt-family terms are renamed to **proof**, and the fetch-opt-in config key ships as `proof_notes` (formerly `receipt_notes`); transport, fail-open, and merge semantics — and the reasoning below — are unchanged.
-> - **[ADR 0203](0203-discern-co-authors-only-commits-it-composes.md) — notes identity:** the notes author identity is now `discern <done@discern.sh>`. Transport, fail-open, and `DISCERN_NO_ATTRIBUTION` semantics are unchanged.
+> - **[ADR 0203](0203-discern-co-authors-only-commits-it-composes.md) — notes identity:** the notes author identity is now `discern <done@...>`. Transport, fail-open, and `DISCERN_NO_ATTRIBUTION` semantics are unchanged.
 > - **[ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md) — DSSE format:** the note body is no longer the bare canonical JSON of `data.receipt`. It uses the DSSE field and payload boundary, whose typed Base64 payload carries the full-object-id subject and receipt. discern's unsigned extension carries an empty signature array; bare 8-field notes remain readable as unsigned legacy. Transport, fail-open, authorship, and merge semantics are unchanged.
 > - **Completion-model direction (2026-09-05; settled 2026-09-12):** [ADR 0378](_superseded/0378-landing-completion-survives-checkout-retirement.md), since superseded by [ADR 0389](0389-the-workspace-contract.md), kept landing evidence beyond checkout cleanup — the Proof note carries the complete completion payload. [ADR 0379](0379-emergency-landings-record-an-explicit-proof-exception.md) requires a distinct emergency claim and stands, implemented by the `exception` record family.
 
@@ -31,7 +31,7 @@ Refs with a `discern` name are reserved for machinery discern writes. `refs/note
 
 After the trunk fast-forward succeeds, acceptance writes the landed gate receipt to the landed commit under `refs/notes/discern`. The note body is the canonical JSON encoding of `data.receipt`, followed by one newline. It is not a Markdown-only rendering. A second landing adds another note without replacing earlier notes.
 
-The notes commit uses `discern <done@discern.sh>` as author and committer. `DISCERN_NO_ATTRIBUTION` keeps its existing process-wide meaning: when set to a non-empty value, acceptance still writes the Proof note, using Git's configured identity instead. Proof notes are records, so suppressing attribution does not suppress the record. If Git has no usable identity in that mode, the note write reports the failure.
+The notes commit uses `discern <done@...>` as author and committer. `DISCERN_NO_ATTRIBUTION` keeps its existing process-wide meaning: when set to a non-empty value, acceptance still writes the Proof note, using Git's configured identity instead. Proof notes are records, so suppressing attribution does not suppress the record. If Git has no usable identity in that mode, the note write reports the failure.
 
 Receipt-note recording is default-on and has no network effect. It is inspectable with `git log --notes=discern`, removable by deleting the notes ref or individual notes, and never changes trunk history. The write is fail-open because the trunk has already moved. A failed merge or note write leaves acceptance successful and carries its cause in the acceptance result; it never rolls the trunk back.
 
