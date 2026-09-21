@@ -31,11 +31,9 @@ const RESIZE_ACK_ENV = "DISCERN_VIEWPORT_TEST_RESIZE_ACK";
 type GateVerb = "done" | "prepare" | "test";
 type InitialMode = "full" | "compact" | "append";
 
-/** Build a Gate-family fixture with optional resize synchronization. */
-function config(resizeReady: boolean): string {
-  const release = resizeReady
-    ? `IFS= read -r acknowledgement < "$${RESIZE_RELEASE_ENV}"; `
-    : "";
+/** Hold transient output until the PTY observer acknowledges the frame. */
+function config(resizeReady = false): string {
+  const release = `IFS= read -r acknowledgement < "$${RESIZE_RELEASE_ENV}"; `;
   return [
     "[project]",
     'slug = "gate-viewport-tty"',
@@ -72,7 +70,7 @@ function config(resizeReady: boolean): string {
   ].join("\n");
 }
 
-const CONFIG = config(false);
+const CONFIG = config();
 const RESIZE_CONFIG = config(true);
 
 /** Run a callback in a configured main checkout or committed linked worktree. */
@@ -249,9 +247,25 @@ realPtyTest({
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withVerbFixture("test", async (root, args) => {
-      const result = await runAgentPtyWithViewport(root, args, {
-        size: { columns: 80, rows: 4 },
-        env: { NO_COLOR: "1", CI: "false" },
+      const result = await withTempDir(async (markerDir) => {
+        using barrier = await shellBarrier(
+          join(markerDir, "initial-frame.fifo"),
+        );
+        return await runAgentPtyWithViewport(root, args, {
+          size: { columns: 80, rows: 4 },
+          env: {
+            NO_COLOR: "1",
+            CI: "false",
+            [RESIZE_RELEASE_ENV]: barrier.path,
+          },
+          input: [{
+            waitFor: {
+              description: "the initial dashboard has repainted",
+              test: (output) => output.phaseStdout.includes(REPAINT),
+            },
+            steps: [{ effect: barrier.release }],
+          }],
+        });
       });
       assertEquals(result.code, 0, result.output);
       assertEquals(result.terminal.childCode, 0, result.output);
