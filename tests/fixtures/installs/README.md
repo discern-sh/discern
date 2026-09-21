@@ -40,3 +40,12 @@ migration chain and compares the result with a fresh installation by file
 ownership: Generated and Shared artifacts byte for byte, `discern.toml` in its
 managed projection, and project-owned seeds by presence. `SCHEMA_VERSION` may
 not exceed the newest captured schema plus one.
+
+## Released-binary parity
+
+On 2026-09-21, the published `v1.0.0` Apple-silicon binary produced the same
+33 Git-carried files as `schema-1/snapshot.json.gz`, byte for byte, using the
+manifest's setup arguments, seed, and project directory name. The released
+commit is `649bc2ce9be8e46d32c05cc24d7a80da2a5d36fa`. The existing frozen
+fixture therefore represents those released installation bytes; no second
+copy is needed.
