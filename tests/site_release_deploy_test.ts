@@ -58,6 +58,11 @@ Deno.test("release and manual site publication share the verified publisher", as
     "DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}",
   );
   assert(!workflow.includes("vars.DENO_DEPLOY_"));
+  assertStringIncludes(
+    workflow,
+    "${{ runner.temp }}/site-deployment/site-deployment.json",
+  );
+  assertStringIncludes(workflow, "${{ runner.temp }}/releases.json");
 });
 
 const DeployConfigSchema = z.object({
