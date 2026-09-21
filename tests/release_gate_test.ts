@@ -272,7 +272,7 @@ esac
           "-A",
           fromFileUrl(new URL("../scripts/release_gate.ts", import.meta.url)),
           mode,
-          mode === "request" ? "v1.2.3" : "1",
+          mode === "request" ? "v1.2.3" : mode === "verify" ? SOURCE : "1",
           output,
         ],
         cwd: root,
@@ -304,6 +304,25 @@ esac
     assertEquals(reused.output, "ready=true\n");
     assert(reused.calls.includes("run download 1 --name gate-evidence-1"));
     assert(!reused.calls.includes("workflow run"));
+    const deployment = await execute([run()], "verify");
+    assert(deployment.success);
+    assert(deployment.calls.includes("run download 1 --name gate-evidence-1"));
+    assert(!deployment.calls.includes("workflow run"));
+    for (
+      const runs of [[], [run({ status: "in_progress", conclusion: null })], [
+        run({ conclusion: "failure" }),
+      ]]
+    ) {
+      const refused = await execute(runs, "verify");
+      assert(!refused.success);
+      assert(!refused.calls.includes("workflow run"));
+      assert(!refused.calls.includes("run download"));
+    }
+    const wrongCheckout = await execute([run()], "verify", {
+      RELEASE_CHECKOUT_SHA: POLICY,
+    });
+    assert(!wrongCheckout.success);
+    assertEquals(wrongCheckout.calls, "");
     const started = await execute([]);
     assert(started.success);
     assertEquals(started.output, "ready=false\n");

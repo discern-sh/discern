@@ -1,0 +1,81 @@
+name: publish site snapshot
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  actions: read
+  deployments: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment: production
+    # Both entry points share this lock. An ancestry check also refuses stale runs.
+    concurrency:
+      group: site-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version-file: .dvmrc
+          cache: true
+
+      - name: Verify complete gate evidence for the exact website source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: >-
+          deno run --allow-read --allow-write --allow-run=git,gh --allow-env
+          scripts/release_gate.ts verify "$SOURCE_SHA"
+
+      - name: Refuse a rollback of the deployed website source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: >-
+          deno run --allow-read --allow-run=git,gh --allow-env
+          scripts/site_deployment_order.ts "$SOURCE_SHA"
+
+      - name: Observe published releases and assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' > "$RUNNER_TEMP/releases.json"
+
+      - name: Stage the website with the published product snapshot
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: >-
+          deno run --allow-read --allow-write --allow-run=git,tar --allow-env
+          scripts/site_deployment.ts "$SOURCE_SHA" "$RUNNER_TEMP/releases.json"
+          "$RUNNER_TEMP/site-deployment"
+
+      - name: Build and crawl the staged deployment
+        working-directory: ${{ runner.temp }}/site-deployment
+        run: deno task site:smoke
+
+      - name: Retain the source and product identities
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: site-deployment-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/site-deployment/site-deployment.json
+          if-no-files-found: error
+          retention-days: 90
+
+      # The production app remains local-source. Credentials reach only upload.
+      # Invoke the locked tool directly; the pinned Deno wrapper repeats flags.
+      - name: Deploy the verified snapshot
+        working-directory: ${{ runner.temp }}/site-deployment
+        env:
+          DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
+        run: deno run -A jsr:@deno/deploy@0.0.9904 --prod

@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                      | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 2       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 926     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 928     | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 1       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -28,7 +28,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
 | [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 24      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
-| [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 26      | —                | —                           |
+| [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 28      | —                | —                           |
 | [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules)                         | `src/lib/paths.ts#MAP_TIER_PUBLICATION_POSTURES`                                  | 4       | —                | —                           |
 | [`contributor-intake-surfaces`](#contributor-intake-surfaces--contributor-intake-surfaces)                            | `scripts/repository_files.ts#CONTRIBUTOR_INTAKE_SURFACES`                         | 8       | —                | —                           |
 | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                        | `src/shared/checkpoints.ts#CHECKPOINT_FIELD_ROLES`                                | 21      | —                | node `checkpoints`          |
@@ -115,7 +115,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 400     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 401     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#DEAD_CONFIG_POSITIONS`                                  | 10      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -144,7 +144,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`secure-entropy-primitive-boundaries`](#secure-entropy-primitive-boundaries--secure-entropy-primitive-boundaries)    | `src/shared/entropy.ts#SECURE_ENTROPY_PRIMITIVE_BOUNDARIES`                       | 2       | —                | —                           |
 | [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 185     | —                | —                           |
 | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
-| [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 15      | —                | —                           |
+| [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 16      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 4       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 136     | —                | node `canonical-sets`       |
@@ -480,7 +480,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 926
+- Members: 928
   - `/`
   - `/install`
   - `/llms.txt`
@@ -840,8 +840,6 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0143-decisions-on-the-web.md`
   - `/docs/decisions/0144-canonical-site-urls-and-one-hop-redirects`
   - `/docs/decisions/0144-canonical-site-urls-and-one-hop-redirects.md`
-  - `/docs/decisions/0145-production-site-deploys-only-from-release-tags`
-  - `/docs/decisions/0145-production-site-deploys-only-from-release-tags.md`
   - `/docs/decisions/0146-docs-integrity-gate-and-generated-cli-reference`
   - `/docs/decisions/0146-docs-integrity-gate-and-generated-cli-reference.md`
   - `/docs/decisions/0147-ignored-drift-uses-bounded-hybrid-fingerprints`
@@ -1344,6 +1342,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0410-the-public-contract-programme-closes-before-the-first-tag.md`
   - `/docs/decisions/0411-validation-input-identity-streams-complete-bytes`
   - `/docs/decisions/0411-validation-input-identity-streams-complete-bytes.md`
+  - `/docs/decisions/0412-site-deployment-composes-two-verified-snapshots`
+  - `/docs/decisions/0412-site-deployment-composes-two-verified-snapshots.md`
   - `/docs/decisions/0001-project-owned-recipes`
   - `/docs/decisions/0001-project-owned-recipes.md`
   - `/docs/decisions/0002-first-class-side-gates`
@@ -1388,6 +1388,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0107-config-banners-are-managed-regions.md`
   - `/docs/decisions/0118-preset-fills-never-overwrite`
   - `/docs/decisions/0118-preset-fills-never-overwrite.md`
+  - `/docs/decisions/0145-production-site-deploys-only-from-release-tags`
+  - `/docs/decisions/0145-production-site-deploys-only-from-release-tags.md`
   - `/docs/decisions/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed`
   - `/docs/decisions/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md`
   - `/docs/decisions/0227-await-bounds-follow-repository-evidence`
@@ -1801,7 +1803,7 @@ Every absent generated output shared editor configuration may exclude, plus priv
 Every root community contract and every GitHub configuration file, including recorded omissions, so a new intake or automation surface must declare its role.
 
 - Source: `scripts/repository_files.ts` — `REPOSITORY_COMMUNITY_FILE_POLICIES`
-- Members: 26
+- Members: 28
   - `tracked: CCLA.md`
   - `tracked: CLA.md`
   - `tracked: CODE_OF_CONDUCT.md`
@@ -1824,6 +1826,8 @@ Every root community contract and every GitHub configuration file, including rec
   - `tracked: .github/hooks/discern.json`
   - `tracked: .github/workflows/gate.yml`
   - `tracked: .github/workflows/release-resume.yml`
+  - `tracked: .github/workflows/site.yml`
+  - `tracked: .github/workflows/site-publish.yml`
   - `tracked: .github/workflows/release.yml`
   - `intentionally-absent: .github/CODEOWNERS`
   - `intentionally-absent: .github/FUNDING.yml`
@@ -4522,7 +4526,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 400
+- Members: 401
   - `0003`
   - `0005`
   - `0006`
@@ -4640,7 +4644,6 @@ The numbered decision records in the map, including records later superseded.
   - `0142`
   - `0143`
   - `0144`
-  - `0145`
   - `0146`
   - `0147`
   - `0148`
@@ -4892,6 +4895,7 @@ The numbered decision records in the map, including records later superseded.
   - `0409`
   - `0410`
   - `0411`
+  - `0412`
   - `0001`
   - `0002`
   - `0004`
@@ -4914,6 +4918,7 @@ The numbered decision records in the map, including records later superseded.
   - `0091`
   - `0107`
   - `0118`
+  - `0145`
   - `0185`
   - `0227`
   - `0376`
@@ -5746,7 +5751,7 @@ Every registered promise effect transferred beyond its caller's sequence, with i
 Every callback-scoped scratch directory used by a standalone repository tool, with its stable id, secure prefix, purpose, and cleanup policy.
 
 - Source: `scripts/temp_dir.ts` — `TOOL_TEMP_DIR_KINDS`
-- Members: 15
+- Members: 16
   - `agent-surface-stage`
   - `canon-editor-prose`
   - `test-reports`
@@ -5758,6 +5763,7 @@ Every callback-scoped scratch directory used by a standalone repository tool, wi
   - `manual-prose-stage`
   - `release-gate`
   - `release-smoke`
+  - `site-deployment`
   - `site-design-system`
   - `site-prose-stage`
   - `terminal-capture`

@@ -1,4 +1,4 @@
-/** Production publishing stays coupled to the installable release tag. */
+/** Both publication paths preserve one verified production publisher. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
@@ -11,37 +11,53 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 const WORKFLOWS = new URL("../.github/workflows/", import.meta.url);
 const RELEASE = new URL("release.yml", WORKFLOWS);
 
-Deno.test("the production site deploy is a release-tag-only path", async () => {
-  const workflow = await Deno.readTextFile(RELEASE);
-  assertStringIncludes(workflow, 'tags:\n      - "v*"');
-  assert(!workflow.includes("branches:"), "release.yml has no branch trigger");
-  assertStringIncludes(workflow, "deploy-site:");
-  assertStringIncludes(workflow, "needs: [plan, release]");
-  assertStringIncludes(workflow, "ref: ${{ github.ref }}");
-  assertStringIncludes(workflow, "deno task site:build");
-  const pinned = /deno run -A jsr:@deno\/deploy@(\d+\.\d+\.\d+) --prod/u
-    .exec(workflow)?.[1];
-  assert(
-    pinned !== undefined,
-    "the deploy tool runs directly with a pinned version",
+Deno.test("release and manual site publication share the verified publisher", async () => {
+  const release = await Deno.readTextFile(RELEASE);
+  const manual = await Deno.readTextFile(new URL("site.yml", WORKFLOWS));
+  const workflow = await Deno.readTextFile(
+    new URL("site-publish.yml", WORKFLOWS),
   );
+  assertStringIncludes(release, 'tags:\n      - "v*"');
+  assert(!release.includes("branches:"));
+  assertStringIncludes(release, "needs: [plan, release]");
+  for (const caller of [release, manual]) {
+    assertStringIncludes(caller, "uses: ./.github/workflows/site-publish.yml");
+    assertStringIncludes(caller, "actions: read");
+    assertStringIncludes(caller, "deployments: read");
+  }
+  assertStringIncludes(manual, "workflow_dispatch:");
+  assertStringIncludes(manual, "if: github.ref == 'refs/heads/main'");
+  assert(!manual.includes("push:"));
+  assertStringIncludes(workflow, "workflow_call:");
+  assertStringIncludes(workflow, "environment: production");
+  assertStringIncludes(workflow, "group: site-production");
+  assertStringIncludes(workflow, "ref: ${{ github.sha }}");
+  const steps = [
+    'scripts/release_gate.ts verify "$SOURCE_SHA"',
+    'scripts/site_deployment_order.ts "$SOURCE_SHA"',
+    'scripts/site_deployment.ts "$SOURCE_SHA"',
+    "run: deno task site:smoke",
+    "Deploy the verified snapshot",
+  ];
+  let position = -1;
+  for (const step of steps) {
+    const next = workflow.indexOf(step);
+    assert(next > position, `${step} must follow its preconditions`);
+    position = next;
+  }
+  const pinned = /deno run -A jsr:@deno\/deploy@(\d+\.\d+\.\d+) --prod/u.exec(
+    workflow,
+  )?.[1];
+  assert(pinned !== undefined);
   const lock = await Deno.readTextFile(
     new URL("../deno.lock", import.meta.url),
   );
-  assertStringIncludes(
-    lock,
-    `"jsr:@deno/deploy@${pinned}"`,
-    "the pinned deploy tool is locked, so the deploy job resolves it without writing the lockfile",
-  );
-  assertStringIncludes(workflow, "--prod");
+  assertStringIncludes(lock, `"jsr:@deno/deploy@${pinned}"`);
   assertStringIncludes(
     workflow,
     "DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}",
   );
-  assert(
-    !workflow.includes("vars.DENO_DEPLOY_"),
-    "the deploy target lives in deno.json, not in environment variables",
-  );
+  assert(!workflow.includes("vars.DENO_DEPLOY_"));
 });
 
 const DeployConfigSchema = z.object({
@@ -64,7 +80,7 @@ Deno.test("deno.json names the production deploy target the deploy tool reads", 
   assertEquals(deploy.runtime.entrypoint, "site/main.ts");
 });
 
-Deno.test("no second workflow can deploy main or bypass the tag release", async () => {
+Deno.test("no second workflow can bypass the shared production publisher", async () => {
   const deployers: string[] = [];
   const prefix = ".github/workflows/";
   for (
@@ -83,7 +99,7 @@ Deno.test("no second workflow can deploy main or bypass the tag release", async 
       deployers.push(rel.slice(prefix.length));
     }
   }
-  assertEquals(deployers, ["release.yml"]);
+  assertEquals(deployers, ["site-publish.yml"]);
 });
 
 Deno.test("ephemeral publication input stays ignored and untracked", async () => {

@@ -91,6 +91,12 @@ export const TOOL_TEMP_DIR_KINDS = {
     recursiveCleanup: true,
     preserveOnFailure: false,
   },
+  "site-deployment": {
+    purpose: "committed archives used to stage one website deployment",
+    prefix: "discern-site-deployment-",
+    recursiveCleanup: true,
+    preserveOnFailure: false,
+  },
   "site-design-system": {
     purpose: "local design-system preview configuration",
     prefix: "discern-site-design-system-",

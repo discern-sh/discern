@@ -190,6 +190,16 @@ export const REPOSITORY_COMMUNITY_FILE_POLICIES:
       reason: "successful complete gate runs resume unpublished release tags",
     },
     {
+      path: ".github/workflows/site.yml",
+      state: "tracked",
+      reason: "manual website publication entry point",
+    },
+    {
+      path: ".github/workflows/site-publish.yml",
+      state: "tracked",
+      reason: "shared verified production website publisher",
+    },
+    {
       path: ".github/workflows/release.yml",
       state: "tracked",
       reason: "release publication workflow",

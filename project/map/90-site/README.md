@@ -37,7 +37,7 @@ The main implementation boundaries are:
 | [`site/dev.ts`](../../../site/dev.ts)                         | Runs loopback-only previews and source-driven rebuilds.                              |
 | [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts)     | Crawls the real handler across routes, links, metadata, raw editions, and redirects. |
 
-[The docs section](the-docs-section.md) owns the corpus boundaries, navigation, rendering, search, raw, and admission contracts. [Design-system consumption](design-system-consumption.md) owns static composition and package boundaries. [Publishing](publishing.md) owns local and release operation. [Authoring](authoring.md) explains the TSX structure, component boundary, and browser interaction model.
+[The docs section](the-docs-section.md) owns the corpus boundaries, navigation, rendering, search, raw, and admission contracts. [Design-system consumption](design-system-consumption.md) owns static composition and package boundaries. [Publishing](publishing.md) owns local previews and production deployment. [Authoring](authoring.md) explains the TSX structure, component boundary, and browser interaction model.
 
 ## Route authority
 

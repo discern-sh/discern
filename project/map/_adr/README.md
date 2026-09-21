@@ -135,7 +135,6 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0142 — Customer binaries carry only the public documentation projection](0142-customer-binaries-carry-only-public-docs.md)
 - [0143 — Decision records render on the web as project history outside product guidance](0143-decisions-on-the-web.md)
 - [0144 — Site URLs are canonical at the apex and redirects resolve in one hop](0144-canonical-site-urls-and-one-hop-redirects.md)
-- [0145 — The production site deploys only from release tags](0145-production-site-deploys-only-from-release-tags.md)
 - [0146 — The gate validates the map's substance, and the CLI reference is generated](0146-docs-integrity-gate-and-generated-cli-reference.md)
 - [0147 — Ignored-file drift uses bounded hybrid fingerprints](0147-ignored-drift-uses-bounded-hybrid-fingerprints.md)
 - [0148 — Strand detection covers every gate stage](0148-strand-detection-covers-every-gate-stage.md)
@@ -387,6 +386,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0409 — Public contracts split durable enforcement from session judgment](0409-public-contracts-split-durable-enforcement-from-session-judgment.md)
 - [0410 — The public contract programme closes before the first tag](0410-the-public-contract-programme-closes-before-the-first-tag.md)
 - [0411 — Validation input identity streams complete bytes](0411-validation-input-identity-streams-complete-bytes.md)
+- [0412 — Site deployment composes website source with a released product snapshot](0412-site-deployment-composes-two-verified-snapshots.md)
 
 <!-- END GENERATED: current ADR records -->
 
@@ -419,6 +419,7 @@ These records remain under [`_superseded/`](_superseded/) because the path to th
 - [0091 — Rescue generated content before overwrite](_superseded/0091-rescue-generated-content-before-overwrite.md)
 - [0107 — `upgrade` reconciles the record-table doc banners](_superseded/0107-config-banners-are-managed-regions.md)
 - [0118 — Preset config fills never overwrite a present value](_superseded/0118-preset-fills-never-overwrite.md)
+- [0145 — The production site deploys only from release tags](_superseded/0145-production-site-deploys-only-from-release-tags.md)
 - [0185 — done refuses an unchanged-tree rerun without --confirmed](_superseded/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)
 - [0227 — `await` bounds follow repository evidence](_superseded/0227-await-bounds-follow-repository-evidence.md)
 - [0376 — Active commands advance an authorized landing queue](_superseded/0376-active-commands-advance-an-authorized-landing-queue.md)

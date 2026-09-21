@@ -279,49 +279,10 @@ jobs:
           make_latest: ${{ steps.publication-plan.outputs.make_latest }}
 
   deploy-site:
-    name: deploy discern.sh from release tag
+    name: deploy discern.sh after publication
     needs: [plan, release]
-    runs-on: ubuntu-24.04
-    environment: production
     permissions:
       contents: read
-    env:
-      DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
-    steps:
-      # The workflow has only a v* tag trigger, and this explicit ref keeps the
-      # deploy input auditable if checkout ever changes its event defaults.
-      - name: Check out the release tag
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-tags: true
-          fetch-depth: 0
-          ref: ${{ github.ref }}
-
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
-        with:
-          deno-version-file: .dvmrc
-          cache: true
-
-      - name: Observe published releases and assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' > "$RUNNER_TEMP/releases.json"
-
-      - name: Validate published assets and stage the catalogue observation
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: >-
-          deno run --allow-read --allow-write --allow-run=git
-          scripts/release_site.ts "${RELEASE_TAG}" "$RUNNER_TEMP/releases.json"
-
-      - name: Build the exact site revision
-        run: deno task site:build
-
-      # The production app is created as a local-source app (not linked to the
-      # repository's default branch), so this is its only production trigger.
-      # deno.json supplies the organization, application, remote build, and
-      # runtime configuration. The deploy tool runs directly and pinned: the
-      # `deno deploy` wrapper in the pinned Deno forwards every option twice.
-      - name: Deploy the tag to production
-        run: deno run -A jsr:@deno/deploy@0.0.9904 --prod
+      actions: read
+      deployments: read
+    uses: ./.github/workflows/site-publish.yml

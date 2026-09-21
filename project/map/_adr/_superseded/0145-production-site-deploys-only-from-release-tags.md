@@ -1,6 +1,8 @@
 # ADR 0145: The production site deploys only from release tags
 
-**Status**: accepted
+**Status**: superseded by [ADR 0412](../0412-site-deployment-composes-two-verified-snapshots.md)
+
+> **Superseded:** [ADR 0412](../0412-site-deployment-composes-two-verified-snapshots.md) separates website publication from the released product snapshot.
 
 ## Context
 
