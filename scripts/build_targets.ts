@@ -16,8 +16,6 @@ export interface BuildTarget {
     /** Exact `uname -m` values accepted for this artifact. */
     architectures: readonly [string, ...string[]];
   };
-  /** Run the full repository gate on this matrix row before compilation. */
-  gateBeforeBuild?: boolean;
 }
 
 /** Every binary the release workflow builds, executes, and publishes. */
@@ -41,7 +39,6 @@ export const BUILD_TARGETS: readonly BuildTarget[] = [
       operatingSystem: "macOS",
       architectures: ["arm64", "aarch64"],
     },
-    gateBeforeBuild: true,
   },
   {
     triple: "x86_64-unknown-linux-gnu",

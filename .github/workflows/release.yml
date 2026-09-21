@@ -1,14 +1,18 @@
 name: release
 
-# Build the per-platform `discern` binaries and attach them to the GitHub
-# Release whenever a v* tag is pushed. One native macOS row runs the full gate
-# before compilation, and a WSL 2 job repeats it in the environment Windows
-# users run, so publication never relies only on routine CI.
+# Publish a version tag only after the complete gate has proved its exact commit.
+# A missing gate is requested once; the completion workflow resumes publication.
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      gate_run:
+        description: Successful gate run to verify before publication
+        required: false
+        type: string
 
 # Default every job to read-only; the publish job opts into write below
 # (least privilege — only the step that creates the release can write).
@@ -25,7 +29,11 @@ jobs:
   plan:
     name: validate release
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write
     outputs:
+      ready: ${{ steps.gate.outputs.ready }}
       make_latest: ${{ steps.plan.outputs.make_latest }}
       matrix: ${{ steps.plan.outputs.matrix }}
       prerelease: ${{ steps.plan.outputs.prerelease }}
@@ -41,13 +49,26 @@ jobs:
           deno-version-file: .dvmrc
           cache: true
 
+      - name: Require the complete gate for the release commit
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_GATE_RUN: ${{ inputs.gate_run }}
+        run: >-
+          deno run --allow-read --allow-write --allow-run=git,gh --allow-env
+          scripts/release_gate.ts request "$RELEASE_TAG" "$GITHUB_OUTPUT"
+
       - name: Observe published releases and assets
+        if: steps.gate.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' > "$RUNNER_TEMP/releases.json"
 
       - name: Validate tag and derive native build matrix
+        if: steps.gate.outputs.ready == 'true'
         id: plan
         env:
           RELEASE_TAG: ${{ github.ref_name }}
@@ -59,12 +80,14 @@ jobs:
           "$RUNNER_TEMP/releases.json" "$RUNNER_TEMP/release-body.md"
 
       - name: Validate the candidate site catalogue
+        if: steps.gate.outputs.ready == 'true'
         run: deno task site:build
 
   build:
     timeout-minutes: 270
     name: build ${{ matrix.target }}
     needs: plan
+    if: needs.plan.outputs.ready == 'true'
     runs-on: ${{ matrix.os }}
     permissions:
       attestations: write
@@ -84,18 +107,6 @@ jobs:
           deno-version-file: .dvmrc
           # Cache the Deno install and module cache (keyed off deno.lock).
           cache: true
-
-      # The release target registry selects one existing native row for this
-      # gate, avoiding a separate macOS runner while preserving release proof.
-      - name: Fetch the actual gate policy base
-        if: ${{ matrix.gateBeforeBuild }}
-        uses: ./.github/actions/policy-base
-        with:
-          base: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
-
-      - name: Run the full gate on native macOS
-        if: ${{ matrix.gateBeforeBuild }}
-        uses: ./.github/actions/macos-gate
 
       - name: Compile ${{ matrix.target }}
         run: deno task build ${{ matrix.target }}
@@ -211,33 +222,9 @@ jobs:
           rm -f "$RUNNER_TEMP/developer-id-application.p12"
           rm -f "$RUNNER_TEMP/${{ matrix.output }}.zip"
 
-  # Windows ships no native binary — WSL users run the Linux build — so the
-  # WSL 2 gate has no build row to ride the way the macOS gate does. It runs as
-  # its own job, in parallel with the builds, and publication requires it.
-  wsl-gate:
-    name: WSL 2 gate
-    needs: plan
-    runs-on: windows-2025
-    # WSL 2 provisioning can hang when the runner image misbehaves; a bound keeps
-    # a stuck lane from burning six hours of 2x Windows minutes.
-    timeout-minutes: 270
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-tags: true
-          fetch-depth: 0
-
-      - name: Fetch the actual gate policy base
-        uses: ./.github/actions/policy-base
-        with:
-          base: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
-
-      - name: Run the gate inside WSL 2
-        uses: ./.github/actions/wsl-gate
-
   release:
     name: publish release
-    needs: [plan, build, wsl-gate]
+    needs: [plan, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

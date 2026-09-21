@@ -7,10 +7,16 @@ inputs:
     required: false
     default: ""
 
+outputs:
+  sha:
+    description: Resolved immutable comparison commit.
+    value: ${{ steps.policy.outputs.sha }}
+
 runs:
   using: composite
   steps:
     - name: Fetch the immutable comparison policy
+      id: policy
       shell: bash
       env:
         POLICY_BASE: ${{ inputs.base }}
@@ -26,3 +32,4 @@ runs:
         git fetch --no-tags origin "$policy_base"
         policy_commit="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
         git update-ref refs/discern/ci-policy-base "$policy_commit"
+        printf 'sha=%s\n' "$policy_commit" >> "$GITHUB_OUTPUT"

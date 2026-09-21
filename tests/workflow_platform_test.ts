@@ -500,45 +500,6 @@ Deno.test("the shared native macOS action runs the full clean-tree gate", () => 
   assertStringIncludes(macosGateActionSource, "run: git diff --exit-code");
 });
 
-Deno.test("one native release row runs the full gate before compilation", () => {
-  assertEquals(
-    BUILD_TARGETS.filter((target) => target.gateBeforeBuild).map((target) => ({
-      runner: target.runner,
-      target: target.triple,
-    })),
-    [{
-      runner: "macos-15",
-      target: "aarch64-apple-darwin",
-    }],
-  );
-
-  const build = job(releaseSource, "build", "release");
-  const fetch = build.indexOf("- name: Fetch the actual gate policy base");
-  const gate = build.indexOf("- name: Run the full gate on native macOS");
-  const compile = build.indexOf("- name: Compile");
-  assert(fetch >= 0, "the release gate fetches its event policy baseline");
-  assert(gate > fetch, "the release gate follows its policy fetch");
-  assert(compile > gate, "compilation waits for the release gate");
-
-  const releaseGate = build.slice(fetch, compile);
-  assertEquals(
-    [
-      ...releaseGate.matchAll(
-        /if: \$\{\{ matrix\.gateBeforeBuild \}\}/g,
-      ),
-    ].length,
-    2,
-  );
-  assertStringIncludes(
-    releaseGate,
-    "uses: ./.github/actions/macos-gate",
-  );
-  assertStringIncludes(
-    releaseGate,
-    "uses: ./.github/actions/policy-base",
-  );
-});
-
 Deno.test("macOS release binaries are signed before smoke and notarized before checksum", () => {
   const build = job(releaseSource, "build", "release");
   const compile = build.indexOf("- name: Compile");
@@ -690,10 +651,15 @@ Deno.test("every hosted full gate declares its report scope and fetched policy b
       for (const step of value.steps as Record<string, unknown>[]) {
         if (step.uses === "./.github/actions/policy-base") {
           const input = step.with as Record<string, unknown>;
-          assertStringIncludes(
-            String(input.base),
-            "github.event.pull_request.base.sha || github.event.before",
-          );
+          if (path === "$.jobs.policy") {
+            assertStringIncludes(
+              String(input.base),
+              "github.event.pull_request.base.sha || github.event.before || inputs.policy_base",
+            );
+          } else {
+            assertEquals(input.base, "${{ needs.policy.outputs.sha }}");
+            assertEquals(value.needs, "policy");
+          }
           fetched = true;
         }
         if (

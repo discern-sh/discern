@@ -89,8 +89,7 @@ Deno.test("every build target auto-enrols in the native release matrix", () => {
     assert(
       plan.matrix.include.some((row) =>
         row.target === target.triple && row.output === target.output &&
-        row.os === target.runner &&
-        row.gateBeforeBuild === (target.gateBeforeBuild === true)
+        row.os === target.runner
       ),
       `${target.triple} is absent from the release matrix`,
     );
@@ -113,7 +112,6 @@ Deno.test("every build target auto-enrols in the native release matrix", () => {
       targets: [future],
     }).matrix.include,
     [{
-      gateBeforeBuild: false,
       target: future.triple,
       output: future.output,
       os: future.runner,
@@ -158,7 +156,10 @@ Deno.test("every private v* tag is refused with no release-plan override", () =>
       "cannot run while the repository is private",
     );
   }
-  assertEquals(releaseSource.includes("workflow_dispatch"), false);
+  assertStringIncludes(
+    releaseSource,
+    "REPOSITORY_PRIVATE: ${{ github.event.repository.private }}",
+  );
 });
 
 Deno.test("release stability derives prerelease and latest behavior from the package version", () => {

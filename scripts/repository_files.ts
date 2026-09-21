@@ -185,6 +185,11 @@ export const REPOSITORY_COMMUNITY_FILE_POLICIES:
       reason: "hosted quality gate",
     },
     {
+      path: ".github/workflows/release-resume.yml",
+      state: "tracked",
+      reason: "successful complete gate runs resume unpublished release tags",
+    },
+    {
       path: ".github/workflows/release.yml",
       state: "tracked",
       reason: "release publication workflow",

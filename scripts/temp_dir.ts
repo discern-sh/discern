@@ -79,6 +79,12 @@ export const TOOL_TEMP_DIR_KINDS = {
     recursiveCleanup: true,
     preserveOnFailure: false,
   },
+  "release-gate": {
+    purpose: "downloaded CI gate evidence for one release decision",
+    prefix: "discern-release-gate-",
+    recursiveCleanup: true,
+    preserveOnFailure: false,
+  },
   "release-smoke": {
     purpose: "compiled-release smoke-test project",
     prefix: "discern-release-smoke-",

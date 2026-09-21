@@ -2,8 +2,8 @@ name: gate
 
 # Run the complete measured gate as a standalone CI report on every push to
 # main and every pull request, on Ubuntu, native macOS, and WSL 2. All three
-# lanes are required on every run. The release workflow repeats the macOS and
-# WSL 2 gates before every publication.
+# lanes are required on every run. Releases reuse this complete evidence for
+# the exact commit and retain its immutable comparison policy.
 #
 # The engine is TS-native (in the binary), so there is no committed shell engine
 # or shell recipe matrix. The standalone remote installer remains POSIX shell and
@@ -17,6 +17,11 @@ on:
   pull_request:
   # Manual dispatch runs the same three lanes on demand.
   workflow_dispatch:
+    inputs:
+      policy_base:
+        description: Immutable comparison commit for a release gate
+        required: false
+        type: string
 
 # The gate only ever reads the repo; grant nothing more (least privilege).
 permissions:
@@ -29,7 +34,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.policy.outputs.sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+      - id: policy
+        uses: ./.github/actions/policy-base
+        with:
+          base: ${{ github.event.pull_request.base.sha || github.event.before || inputs.policy_base || '' }}
+
   gate:
+    needs: policy
     timeout-minutes: 240
     runs-on: ubuntu-24.04
     steps:
@@ -41,7 +61,7 @@ jobs:
       - name: Fetch the actual gate policy base
         uses: ./.github/actions/policy-base
         with:
-          base: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          base: ${{ needs.policy.outputs.sha }}
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
@@ -70,9 +90,10 @@ jobs:
         run: git diff --exit-code
 
   macos:
+    needs: policy
     timeout-minutes: 240
     name: macOS gate
-    # Required on every run; releases repeat it before publication.
+    # Required on every run, including release verification.
     runs-on: macos-15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -83,7 +104,7 @@ jobs:
       - name: Fetch the actual gate policy base
         uses: ./.github/actions/policy-base
         with:
-          base: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          base: ${{ needs.policy.outputs.sha }}
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
@@ -94,6 +115,7 @@ jobs:
         uses: ./.github/actions/macos-gate
 
   wsl:
+    needs: policy
     name: WSL 2 gate
     # Windows support is WSL 2 only (the Linux binary inside WSL 2), so this lane
     # provisions WSL 2 on a hosted Windows runner and runs the gate inside it.
@@ -111,7 +133,26 @@ jobs:
       - name: Fetch the actual gate policy base
         uses: ./.github/actions/policy-base
         with:
-          base: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          base: ${{ needs.policy.outputs.sha }}
 
       - name: Run the gate inside WSL 2
         uses: ./.github/actions/wsl-gate
+
+  evidence:
+    needs: [policy, gate, macos, wsl]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Record complete gate evidence
+        env:
+          GATE_NEEDS: ${{ toJSON(needs) }}
+          POLICY_COMMIT: ${{ needs.policy.outputs.sha }}
+        run: >-
+          jq -n --arg sha "$GITHUB_SHA" --arg policy "$POLICY_COMMIT"
+          --argjson needs "$GATE_NEEDS"
+          '{sha: $sha, policy: $policy, needs: $needs}' > gate-evidence.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gate-evidence-${{ github.run_attempt }}
+          path: gate-evidence.json
+          if-no-files-found: error
+          retention-days: 90

@@ -14,7 +14,6 @@ import { BUILD_TARGETS, type BuildTarget } from "./build_targets.ts";
 import type { EnvReader } from "../src/shared/env.ts";
 
 export interface ReleaseMatrixRow {
-  gateBeforeBuild: boolean;
   os: string;
   output: string;
   target: string;
@@ -80,7 +79,6 @@ export function releasePlan(
     title: `discern ${releaseLabel(selected)}`,
     matrix: {
       include: targets.map((target) => ({
-        gateBeforeBuild: target.gateBeforeBuild === true,
         target: target.triple,
         output: target.output,
         os: target.runner,

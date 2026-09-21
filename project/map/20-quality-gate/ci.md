@@ -15,7 +15,7 @@ CI and local completion use the same producer planner and evaluator. The invocat
 
 ## Add the workflow
 
-The repository's [gate workflow](../../../.github/workflows/gate.yml) is the executable recipe. Its [policy-base action](../../../.github/actions/policy-base/action.yml) fetches the pull request's actual base commit or the push's prior commit into a dedicated local ref. It preserves the checked-out source. Hosted contributor-agreement checks read that same fetched policy ref; local checks read the configured trunk. Neither path changes the source checkout. Comparing a push only with its new trunk tip would hide changed policy and checkpoint subjects.
+The repository's [gate workflow](../../../.github/workflows/gate.yml) is the executable recipe. Its [policy-base action](../../../.github/actions/policy-base/action.yml) fetches the pull request's actual base commit or the push's prior commit into a dedicated local ref. The policy job resolves that commit once. Each platform lane fetches the same immutable result, preserving the checked-out source. A dispatched release gate supplies the parent of its tagged commit when no earlier gate exists. Hosted contributor-agreement checks read that same fetched policy ref; local checks read the configured trunk. Neither path changes the source checkout. Comparing a push only with its new trunk tip would hide changed policy and checkpoint subjects.
 
 Provision the pinned toolchain and locked dependencies before the gate. Run the source wrapper against the checked-out engine. A report-only invocation names both facts:
 
@@ -38,6 +38,14 @@ Branch protection can require a CI report. That external check grants no discern
 Every required standard belongs to completion. There is no measurement-deferral setting or separate PR-only measurement job. The root binary-size standard builds its representative target locally, so local Proof needs no hosted size result. That build also refuses a binary carrying the build host's paths, the guard the release smoke applies.
 
 The hosted Linux, macOS, and WSL lanes report the same obligation set in report mode. Platform and toolchain observations remain part of applicability, so a hosted receipt never stands in for local Proof. Producer budgets cover the command through cleanup; enclosing action and job budgets also cover setup and reporting. Current hosted instrumented calibration remains outstanding.
+
+## Reuse the gate for a release
+
+The [release coordinator](../../../scripts/release_gate.ts) selects the newest trusted gate run for the tag's exact commit. Eligible runs come from a push to `main` or a manual dispatch in this repository. Pull-request runs cannot authorize publication. A queued or running gate delays publication; a failed or canceled gate blocks it.
+
+The gate publishes an attempt-specific artifact after every declared job succeeds. The artifact records the source commit, immutable policy commit, and job outcomes. Release validation requires every job in the tagged workflow and verifies that the policy is an ancestor of the source. Missing or expired artifacts require a new complete gate run. A rerun cannot reuse an earlier attempt's artifact.
+
+When no eligible run exists, the release workflow dispatches the gate on the tag. The [completion workflow](../../../.github/workflows/release-resume.yml) dispatches publication after success for unpublished version tags on that commit. Publication rechecks the current evidence before building. This callback runs from the default branch and only dispatches the tagged workflow; it grants no landing authority. Both workflows must be on the default branch before using this release path.
 
 ## Read a Windows lane timeout
 
