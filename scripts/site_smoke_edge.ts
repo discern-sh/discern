@@ -27,11 +27,18 @@ export function cloudflareEmailText(
   const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const authoredToken = new RegExp(
     `(?<![\\p{L}\\p{N}._%+@-])${
-      escape(decoded)
+      RegExp.escape(decoded)
     }(?![\\p{L}\\p{N}_%+@-]|\\.[\\p{L}\\p{N}])`,
     "u",
   );
-  const authored = authoredToken.test(source.body.textContent ?? "") ||
+  const text = source.createTreeWalker(source.body, 4); // NodeFilter.SHOW_TEXT
+  let authoredText = false;
+  while (text.nextNode()) {
+    if (authoredToken.test(text.currentNode.textContent ?? "")) {
+      authoredText = true;
+    }
+  }
+  const authored = authoredText ||
     [...source.querySelectorAll('a[href^="mailto:"]')].some((link) =>
       link.getAttribute("href")?.slice(7).split("?")[0] === decoded
     );
