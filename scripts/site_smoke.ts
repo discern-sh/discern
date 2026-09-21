@@ -1,6 +1,10 @@
 /** Production-style crawl of the real site handler or a deployed release. */
 
 import { JSDOM } from "jsdom";
+import {
+  cloudflareEmailText,
+  productionRedirectFailures,
+} from "./site_smoke_edge.ts";
 import { SELF_TITLED_PAGES } from "../site/brand.ts";
 import { loadDocsSite, relatedDecisionCitations } from "../site/docs.tsx";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
@@ -333,7 +337,9 @@ export async function runSiteSmoke(
   });
 
   const checkedInternal = new Map<string, number>();
+  let protectedEmails = 0;
   for (const [route, page] of htmlPages) {
+    let source: JSDOM | undefined;
     for (const anchor of page.dom.window.document.querySelectorAll("a[href]")) {
       const href = anchor.getAttribute("href") ?? "";
       if (
@@ -341,6 +347,24 @@ export async function runSiteSmoke(
         href.startsWith("data:") || href.startsWith("javascript:")
       ) continue;
       const url = new URL(href, `${SITE_ORIGIN}${route}`);
+      if (
+        url.origin === SITE_ORIGIN &&
+        url.pathname === "/cdn-cgi/l/email-protection"
+      ) {
+        source ??= new JSDOM(
+          await (await handler(
+            new Request(`${SITE_ORIGIN}${route}`, { headers: BROWSER_HEADERS }),
+          )).text(),
+        );
+        try {
+          if (
+            cloudflareEmailText(anchor, source.window.document) !== undefined
+          ) protectedEmails++;
+        } catch (cause) {
+          fail(`${route}: ${String(cause)}`);
+        }
+        continue;
+      }
       if (url.origin !== SITE_ORIGIN) {
         if (url.protocol === "http:" || url.protocol === "https:") {
           url.hash = "";
@@ -724,16 +748,14 @@ export async function runSiteSmoke(
         "https://www.discern.sh/docs/",
       ]
     ) {
-      const response = await fetch(source, {
-        headers: BROWSER_HEADERS,
-        redirect: "manual",
-      });
-      secure(response, source);
-      if (response.status !== 308) fail(`${source}: status ${response.status}`);
-      if (response.headers.get("location") !== "https://discern.sh/docs") {
-        fail(`${source}: location ${response.headers.get("location")}`);
-      }
-      await response.body?.cancel();
+      failures.push(
+        ...await productionRedirectFailures(
+          source,
+          `${SITE_ORIGIN}/docs`,
+          (url) => fetch(url, { headers: BROWSER_HEADERS, redirect: "manual" }),
+          securityFailures,
+        ),
+      );
     }
   }
 
@@ -765,6 +787,11 @@ export async function runSiteSmoke(
     );
   }
 
+  if (protectedEmails > 0) {
+    observations.push(
+      `${protectedEmails} Cloudflare email payloads match authored content and have a decoder; script-free fallback availability is not asserted`,
+    );
+  }
   observations.unshift(
     `${routes.length} canonical HTML routes`,
     `${rawPages.length} pristine Markdown editions and negotiated text routes`,

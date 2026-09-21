@@ -74,7 +74,7 @@ deno run -A --no-lock jsr:@deno/deploy@0.0.9904 create --source local --org <org
 
 ## Verify a deploy
 
-Run the process smoke from the exact release-tag checkout that production should match. It compares the deployed sitemap with that checkout's live route model, then crawls every canonical HTML route, pristine Markdown and negotiated text route, internal link and anchor, redirect variant, metadata field, security response, machine projection, 404, and method refusal. `--production-domains` also proves HTTP and `www` fold directly onto the apex HTTPS canonical:
+Run the process smoke from the exact release-tag checkout that production should match. It compares the deployed sitemap with that checkout's live route model, then crawls every canonical HTML route, pristine Markdown and negotiated text route, internal link and anchor, redirect variant, metadata field, security response, machine projection, 404, and method refusal. `--production-domains` also proves HTTP and `www` reach the apex HTTPS canonical. Cloudflare can first upgrade HTTP to the identical HTTPS URL; the application must then return its canonical 308 with the required security headers:
 
 ```sh
 deno run --allow-read --allow-env --allow-net=discern.sh,www.discern.sh scripts/site_smoke.ts https://discern.sh --production-domains
@@ -85,6 +85,8 @@ External destinations depend on the network and on third-party rate limits, so t
 ```sh
 deno run --allow-read --allow-env --allow-net scripts/site_smoke.ts https://discern.sh --production-domains --external-links
 ```
+
+Cloudflare email protection is checked against the corresponding authored page: the payload must decode to its text or mail address and the page must include the edge decoder. These generated links are not application routes. The crawl reports their count without claiming that Cloudflare's script-free fallback works; verify that fallback and the rendered browser text separately. Malformed payloads, missing decoders, and text absent from the source fail the crawl.
 
 The external pass treats ordinary HTTP errors as failures. It reports authentication responses, rate limits, timeouts, and transport errors as inconclusive for manual follow-up because those results do not prove a dead link.
 
