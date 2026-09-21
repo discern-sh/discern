@@ -4,6 +4,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
+import { PUBLICATION_INPUT } from "../site/releases/catalogue.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
@@ -83,4 +84,22 @@ Deno.test("no second workflow can deploy main or bypass the tag release", async 
     }
   }
   assertEquals(deployers, ["release.yml"]);
+});
+
+Deno.test("ephemeral publication input stays ignored and untracked", async () => {
+  const path = decodeURIComponent(PUBLICATION_INPUT.pathname).slice(
+    REPO_ROOT.length + 1,
+  );
+  const ignored = await new Deno.Command("git", {
+    args: ["check-ignore", "--quiet", "--no-index", path],
+    cwd: REPO_ROOT,
+  }).output();
+  assert(ignored.success, `${path} must remain a generated deployment input`);
+  const tracked = await new Deno.Command("git", {
+    args: ["ls-files", "--error-unmatch", path],
+    cwd: REPO_ROOT,
+    stdout: "null",
+    stderr: "null",
+  }).output();
+  assert(!tracked.success, `${path} must not enter version control`);
 });

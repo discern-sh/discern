@@ -60,3 +60,6 @@
 # The private documentation overlay: a separate access-controlled repository
 # cloned locally and linked at the canonical path. Never tracked here again.
 /project/map/_private
+
+# Deployment observes published assets before building the release catalogue.
+/site/release-publication.json
