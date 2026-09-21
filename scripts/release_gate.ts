@@ -3,6 +3,7 @@ import { z } from "@zod/zod";
 import { parse as parseYaml } from "@std/yaml";
 import { join } from "@std/path";
 import type { EnvReader } from "../src/shared/env.ts";
+import { runReleaseCommand } from "./release_command.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 
 const SHA = z.string().regex(/^[a-f0-9]{40}$/u);
@@ -76,19 +77,7 @@ export function verifyGateEvidence(
 
 /** Run Git or GitHub with argument boundaries intact and retain actionable diagnostics. */
 async function command(program: string, args: string[]): Promise<string> {
-  const result = await new Deno.Command(program, {
-    args,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  if (!result.success) {
-    throw new Error(
-      `${program} ${args.join(" ")}: ${
-        new TextDecoder().decode(result.stderr)
-      }`,
-    );
-  }
-  return new TextDecoder().decode(result.stdout).trim();
+  return (await runReleaseCommand(program, args)).stdout.trim();
 }
 
 /** Fetch all attempts returned by the exact workflow and commit query. */

@@ -2,7 +2,7 @@ import { parseVersionOutput } from "../src/lib/version.ts";
 /** Execute the binary-only release seams before an artifact can be uploaded. */
 
 import { ensureDir } from "@std/fs";
-import { colorResolvedEnv } from "../src/shared/color_env.ts";
+import { runReleaseCommand as run } from "./release_command.ts";
 import { fileExists, targetExists } from "../src/shared/fs_presence.ts";
 import { fromFileUrl, isAbsolute, join, resolve } from "@std/path";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
@@ -13,7 +13,6 @@ import { buildManualProjection } from "../src/lib/manual.ts";
 import { stripManualSourceComments } from "./build.ts";
 import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 
-const DECODER = new TextDecoder();
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
 export interface ReleasePathLeak {
@@ -28,11 +27,6 @@ export interface ReleasePathLeak {
 export interface ReleaseSmokeOptions {
   /** Test seam for the hosted environment whose paths must not reach bytes. */
   readonly environment?: Readonly<Record<string, string | undefined>>;
-}
-
-interface CommandOutput {
-  stderr: string;
-  stdout: string;
 }
 
 /**
@@ -108,31 +102,6 @@ export async function assertNoReleasePathLeaks(
 /** Narrow decoded JSON to a non-null, non-array record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** Run a release probe without color, capturing both streams and throwing with full failure evidence. */
-async function run(
-  command: string,
-  args: string[],
-  cwd: string,
-  env: Record<string, string> = {},
-): Promise<CommandOutput> {
-  const result = await new Deno.Command(command, {
-    args,
-    cwd,
-    env: { ...colorResolvedEnv(), ...env },
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  const stdout = DECODER.decode(result.stdout);
-  const stderr = DECODER.decode(result.stderr);
-  if (!result.success) {
-    throw new Error(
-      `${command} ${args.join(" ")} failed with exit ${result.code}\n` +
-        `${stdout}${stderr}`,
-    );
-  }
-  return { stdout, stderr };
 }
 
 /** Parse a binary's JSON stdout and require a green result envelope. */

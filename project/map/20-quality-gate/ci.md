@@ -45,7 +45,7 @@ The [release coordinator](../../../scripts/release_gate.ts) selects the newest t
 
 The gate publishes an attempt-specific artifact after every declared job succeeds. The artifact records the source commit, immutable policy commit, and job outcomes. Release validation requires every job in the tagged workflow and verifies that the policy is an ancestor of the source. Missing or expired artifacts require a new complete gate run. A rerun cannot reuse an earlier attempt's artifact.
 
-When no eligible run exists, the release workflow dispatches the gate on the tag. The [completion workflow](../../../.github/workflows/release-resume.yml) dispatches publication after success for unpublished version tags on that commit. Publication rechecks the current evidence before building. This callback runs from the default branch and only dispatches the tagged workflow; it grants no landing authority. Both workflows must be on the default branch before using this release path.
+When no eligible run exists, the release workflow dispatches the gate on the tag. The [completion workflow](../../../.github/workflows/release-resume.yml) dispatches publication after success for unpublished version tags on that commit. Publication rechecks the current evidence before building. This callback runs from the default branch and only dispatches the tagged workflow; it grants no landing authority. Both workflows must be on the default branch before using this release path. Release coordination and binary smoke checks use the same [captured command boundary](../../../scripts/release_command.ts), preserving explicit arguments and failure output.
 
 ## Read a Windows lane timeout
 

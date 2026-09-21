@@ -5147,7 +5147,7 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `scripts/canon_editor/pipeline.ts#mapProseGate`
   - `scripts/cli_install.ts#capture`
   - `scripts/coverage.ts#denoCommand`
-  - `scripts/release_smoke.ts#run`
+  - `scripts/release_command.ts#runReleaseCommand`
   - `scripts/site_local_design_system.ts#capturedCommand`
   - `scripts/use_compiled_build.ts#buildHostBinary`
   - `scripts/vale_toolchain.ts#runExactVale`

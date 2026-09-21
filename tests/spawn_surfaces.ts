@@ -160,12 +160,12 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
     role: "registered-boundary",
   },
   {
-    path: "scripts/release_smoke.ts",
-    enclosingFunction: "run",
+    path: "scripts/release_command.ts",
+    enclosingFunction: "runReleaseCommand",
     publication: "repository-tooling",
-    operation: "smoke-test a staged release command",
+    operation: "run a captured release verification or coordination command",
     reason:
-      "the release smoke harness runs a caller-selected binary with isolated environment and captured bytes",
+      "release tools share a captured command boundary with explicit arguments and environment overrides",
     may: ["other"],
     role: "registered-boundary",
   },
