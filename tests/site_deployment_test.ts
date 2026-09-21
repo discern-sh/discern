@@ -15,15 +15,15 @@ import { verifySiteDeploymentOrder } from "../scripts/site_deployment_order.ts";
 Deno.test("website product selection requires the newest published stable release", () => {
   assertEquals(
     siteProductVersion([
-      { version: "1.0.0", date: "2026-01-01" },
-      { version: "2.0.0-rc.1", date: "2026-02-01" },
-      { version: "1.1.0", date: "2026-02-01" },
+      { version: "7.8.0", date: "2026-01-01" },
+      { version: "8.0.0-rc.1", date: "2026-02-01" },
+      { version: "7.9.0", date: "2026-02-01" },
     ]),
-    "1.1.0",
+    "7.9.0",
   );
   assertThrows(() => siteProductVersion([]));
   assertThrows(() =>
-    siteProductVersion([{ version: "2.0.0-rc.1", date: "2026-02-01" }])
+    siteProductVersion([{ version: "8.0.0-rc.1", date: "2026-02-01" }])
   );
 });
 
@@ -46,7 +46,7 @@ Deno.test("staging exports committed site sources and replaces complete product 
     for (const path of paths) await write(path, "released\n");
     await write(
       "deno.json",
-      JSON.stringify({ version: "1.0.0", imports: { example: "old" } }),
+      JSON.stringify({ version: "7.8.0", imports: { example: "old" } }),
     );
     await write("site/home.txt", "old homepage");
     await write(".gitignore", "/site/release-publication.json\n");
@@ -59,7 +59,7 @@ Deno.test("staging exports committed site sources and replaces complete product 
     await write("project/map/current.md", "current map");
     await write(
       "deno.json",
-      JSON.stringify({ version: "2.0.0", imports: { example: "new" } }),
+      JSON.stringify({ version: "8.0.0", imports: { example: "new" } }),
     );
     await git(["add", "."]);
     await git(["commit", "-qm", "Website and unreleased product work"]);
@@ -90,7 +90,7 @@ Deno.test("staging exports committed site sources and replaces complete product 
         }),
         await Deno.readTextFile(join(target, "deno.json")),
       ),
-      { version: "1.0.0", imports: { example: "new" } },
+      { version: "7.8.0", imports: { example: "new" } },
     );
     assertEquals(
       decodeWith(
@@ -101,7 +101,7 @@ Deno.test("staging exports committed site sources and replaces complete product 
         }),
         await Deno.readTextFile(join(target, "site-deployment.json")),
       ),
-      { source, product, version: "1.0.0" },
+      { source, product, version: "7.8.0" },
     );
     const ignored = await new Deno.Command("git", {
       args: [

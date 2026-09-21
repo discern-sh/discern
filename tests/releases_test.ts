@@ -794,7 +794,8 @@ const releaseWorkflowSchema = z.object({
           uses: z.string().optional(),
           with: z.record(z.string(), z.unknown()).optional(),
         }).passthrough(),
-      ),
+      ).default([]),
+      uses: z.string().optional(),
     }).passthrough(),
   ),
 });
@@ -842,11 +843,9 @@ Deno.test("release workflow can publish notes only from the authored record plan
       }
     }
   }
-  assertStringIncludes(
-    workflow.jobs["deploy-site"]?.steps.map((step) => step.run ?? "").join(
-      "\n",
-    ) ?? "",
-    "scripts/release_site.ts",
+  assertEquals(
+    workflow.jobs["deploy-site"]?.uses,
+    "./.github/workflows/site-publish.yml",
   );
 });
 
@@ -886,15 +885,23 @@ Deno.test("publication context checks immutable tagged family names and real anc
         `await loadReleaseContext(Deno.args[0], Deno.args[1], "2.4.0");\n`,
     );
     const workflow = await readReleaseWorkflow();
-    const permissionSets = new Set(
-      Object.values(workflow.jobs).flatMap((job) =>
-        job.steps.flatMap((step) => {
-          const prefix = step.run?.match(
-            /^deno run (.*?)scripts\/release_(?:plan|site)\.ts/s,
-          )?.[1];
-          return prefix === undefined ? [] : [prefix.trim()];
-        })
+    const publisher = releaseWorkflowSchema.omit({ concurrency: true }).parse(
+      parseYaml(
+        await Deno.readTextFile(
+          new URL("../.github/workflows/site-publish.yml", import.meta.url),
+        ),
       ),
+    );
+    const permissionSets = new Set(
+      [...Object.values(workflow.jobs), ...Object.values(publisher.jobs)]
+        .flatMap((job) =>
+          job.steps.flatMap((step) => {
+            const prefix = step.run?.match(
+              /^deno run (.*?)scripts\/(?:release_(?:plan|site)|site_deployment)\.ts/s,
+            )?.[1];
+            return prefix === undefined ? [] : [prefix.trim()];
+          })
+        ),
     );
     assert(permissionSets.size > 0);
     for (const permissions of permissionSets) {
