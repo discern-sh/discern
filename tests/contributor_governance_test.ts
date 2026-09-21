@@ -384,11 +384,17 @@ Deno.test("the shared CI action fetches the actual agreement baseline without mo
         "--abbrev-ref",
         "HEAD",
       );
+      const output = join(root, `${state}-output`);
       const fetched = await runShell('bash -eu "$POLICY_SCRIPT"', {
         cwd: checkout,
-        env: { POLICY_SCRIPT: scriptPath, POLICY_BASE: base },
+        env: {
+          POLICY_SCRIPT: scriptPath,
+          POLICY_BASE: base,
+          GITHUB_OUTPUT: output,
+        },
       });
       assertEquals(fetched.code, 0, new TextDecoder().decode(fetched.stderr));
+      assertEquals(await Deno.readTextFile(output), `sha=${base}\n`);
       assertEquals(await gitOut(checkout, "rev-parse", CI_POLICY_BASE), base);
       assertEquals(
         await gitOut(checkout, "show", `${CI_POLICY_BASE}:agreement`),
