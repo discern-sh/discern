@@ -433,6 +433,14 @@ async function finalizeResponse(
     );
     headers.set("x-robots-tag", "noindex, follow");
   }
+  // Long canonical metadata is served directly; browser caching stays independent.
+  const canonicalLink = headers.get("link");
+  if (
+    canonicalLink !== null &&
+    new TextEncoder().encode(canonicalLink).length >= 128
+  ) {
+    headers.set("deno-cdn-cache-control", "no-store");
+  }
   applySecurityHeaders(headers, nonce, secure);
   return new Response(body, {
     status: response.status,

@@ -398,7 +398,11 @@ export async function runSiteSmoke(
       markdown.headers.get("link") !==
         `<${canonicalUrl(page.route)}>; rel="canonical"`
     ) {
-      fail(`${page.route}.md: canonical header`);
+      fail(
+        `${page.route}.md: canonical header ${
+          JSON.stringify(markdown.headers.get("link"))
+        }`,
+      );
     }
     if (markdown.headers.get("x-robots-tag") !== "noindex, follow") {
       fail(`${page.route}.md: x-robots-tag`);

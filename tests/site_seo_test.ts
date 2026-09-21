@@ -259,6 +259,14 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
       `<${canonicalUrl(route)}>; rel="canonical"`,
       route,
     );
+    assertEquals(
+      response.headers.get("deno-cdn-cache-control"),
+      new TextEncoder().encode(`<${canonicalUrl(route)}>; rel="canonical"`)
+          .length >= 128
+        ? "no-store"
+        : null,
+      route,
+    );
     const html = await response.text();
     const title = titleOf(html);
     const description = descriptionOf(html);
@@ -344,6 +352,15 @@ Deno.test("every explicit Markdown edition declares its HTML canonical and noind
       route,
     );
     assertEquals(response.headers.get("x-robots-tag"), "noindex, follow");
+    assertEquals(
+      response.headers.get("deno-cdn-cache-control"),
+      new TextEncoder().encode(`<${canonicalUrl(route)}>; rel="canonical"`)
+          .length >= 128
+        ? "no-store"
+        : null,
+      route,
+    );
+    assertEquals(response.headers.get("cache-control"), "public, max-age=300");
     await response.body?.cancel();
   }
 });

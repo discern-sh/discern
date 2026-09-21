@@ -99,6 +99,12 @@ curl -sI https://www.discern.sh/docs/ | grep -Ei '^(HTTP|location:)'
 
 The commands return, in order, three plaintext editions, a Request for Comments (RFC) 9116 plaintext policy, an HTML page, and one 308 to `https://discern.sh/docs`. [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) holds the process smoke in the gate. The smaller route tests in [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) retain focused diagnostics. When both pass and production fails, check the hosting layer and release alignment.
 
+## Canonical headers and shared caching
+
+Responses with canonical `Link` metadata of at least 128 bytes set `Deno-CDN-Cache-Control: no-store`. Shorter canonical headers retain normal shared caching; browser cache policy remains unchanged. This conservative boundary keeps long URL metadata outside the hosted cache path. Deno's [cache-control precedence](https://docs.deno.com/deploy/reference/caching/#deno-cdn-cache-control) permits this separate policy.
+
+After deployment, request a long-route HTML page and its Markdown edition repeatedly. Require the complete canonical header on every response and confirm that the shared cache bypass applies. Local route tests cover the response contract for every registered page; they cannot establish a hosted cache's behavior. Review the bypass when the hosting service can preserve long canonical headers.
+
 ## Portability
 
 The handler uses web-standard application programming interfaces (APIs) plus `Deno.readFile`. To move off Deno Deploy, run the same handler anywhere that supports a fetch handler. Cloudflare Workers requires static assets in place of file reads. A container can run `deno run -A site/main.ts` behind a reverse proxy; the entrypoint honors `PORT`.
