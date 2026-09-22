@@ -415,18 +415,9 @@ Deno.test("the docs bundle excludes unrelated compositions and optional grain", 
   );
   assert(unrelated.length > 0, "the exclusion set must stay non-empty");
   assert(unrelated.every((component) => !selected.has(component.id)));
-  // A class a selected component owns is expected in the bundle even when an
-  // unrelated composition's stylesheet also targets it, as Prose targets the
-  // Anchor heading row; only classes no selected component owns prove leakage.
-  const selectedClasses = new Set(
-    packageManifest.components
-      .filter((component) => selected.has(component.id))
-      .flatMap((component) => component.ownedClasses),
-  );
   const css = await Deno.readTextFile(join(bundleRoot("docs"), "discern.css"));
   for (const component of unrelated) {
     for (const ownedClass of component.ownedClasses) {
-      if (selectedClasses.has(ownedClass)) continue;
       assert(
         !css.includes(`.${ownedClass}`),
         `docs CSS contains ${ownedClass}`,
