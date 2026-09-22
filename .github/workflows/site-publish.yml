@@ -5,7 +5,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
   deployments: read
 
 jobs:
@@ -27,15 +26,6 @@ jobs:
         with:
           deno-version-file: .dvmrc
           cache: true
-
-      - name: Verify complete gate evidence for the exact website source
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          SOURCE_SHA: ${{ github.sha }}
-        run: >-
-          deno run --allow-read --allow-write --allow-run=git,gh --allow-env
-          scripts/release_gate.ts verify "$SOURCE_SHA"
 
       - name: Refuse a rollback of the deployed website source
         env:

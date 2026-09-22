@@ -58,7 +58,7 @@ One-time setup, using the console at <https://console.deno.com> and the [`deno d
 2. Create a GitHub environment named `production` with one secret, `DENO_DEPLOY_TOKEN`, containing a Deno Deploy organization token. The deploy tool reads the organization and application from `deno.json`, so the environment carries no variables.
 3. Add both `discern.sh` and `www.discern.sh` under the organization's Domains. At the registrar, create the `_acme-challenge` and apex/`www` routing records the console lists. If DNS sits behind Cloudflare, keep the challenge record DNS-only or verification stalls. See the [domains reference](https://docs.deno.com/deploy/reference/domains/).
 
-Production has one [shared publisher](../../../.github/workflows/site-publish.yml), called after a binary release or by the manual [site workflow](../../../.github/workflows/site.yml) ([ADR 0412](../_adr/0412-site-deployment-composes-two-verified-snapshots.md)). Both require complete hosted gate evidence for the exact website source commit. The manual path accepts `main` only and creates no tag or binary release.
+Production has one [shared publisher](../../../.github/workflows/site-publish.yml), called after a binary release or by the manual [site workflow](../../../.github/workflows/site.yml) ([ADR 0412](../_adr/0412-site-deployment-composes-two-verified-snapshots.md)). The manual path accepts `main` only and creates no tag or binary release. It builds and checks the staged site without waiting for the full hosted gate.
 
 For a binary release, a `v*` tag first requires [complete hosted gate evidence](../20-quality-gate/ci.md#reuse-the-gate-for-a-release) for its exact commit. Publication then enters [`scripts/release_plan.ts`](../../../scripts/release_plan.ts), which refuses while GitHub reports the repository as private. Dispatch retries obey the same refusal. A public tag must match `deno.json`; a prerelease SemVer becomes a GitHub prerelease and cannot become `latest`. The plan then derives every build from [`scripts/build_targets.ts`](../../../scripts/build_targets.ts). Each target compiles with the exact Deno version in [`.dvmrc`](../../../.dvmrc) and executes on a pinned native runner. Its binary must report the release version, serve its embedded help, scaffold a fresh repository from its embedded templates, and contain none of the release host's checkout, workspace, runner-temp, or package-cache paths before the workflow creates a checksum.
 
@@ -68,15 +68,15 @@ GitHub then records build provenance for the binary and checksum before artifact
 
 ## Publish a website update
 
-Land the website change, push `main` and its Proof notes, and wait for the complete hosted gate on that exact commit. Then dispatch the site workflow from GitHub Actions or the GitHub CLI:
+Land the website change and push `main` and its Proof notes. Dispatch the site workflow immediately from GitHub Actions or the GitHub CLI:
 
 ```sh
 gh workflow run site.yml --ref main
 ```
 
-Dispatch records the source commit. It does not follow later pushes. Missing, running, failed, cancelled, or expired gate evidence refuses deployment; finish or rerun the gate, then dispatch again. A green gate for an earlier commit cannot authorize a later website change. Reduced site checks and change-aware gates remain separate backlog work.
+Dispatch records the source commit and does not follow later pushes. The workflow builds, checks, and publishes automatically; no second dispatch is needed after CI finishes. Full hosted gate status does not control website deployment. Local completion and binary-release gate requirements still apply to their respective operations.
 
-The shared publisher checks out that immutable source, verifies its complete gate artifact, and observes published releases and assets. The greatest published stable version supplies the product snapshot; publishing a prerelease does not advance the default manual. Source must descend from every published tag and retain its release records.
+The shared publisher checks out that immutable source and observes published releases and assets. The greatest published stable version supplies the product snapshot; publishing a prerelease does not advance the default manual. Source must descend from every published tag and retain its release records.
 
 [`stageSiteSnapshot`](../../../scripts/site_deployment.ts) exports committed website source into a fresh directory. It replaces the complete product trees named by `SITE_PRODUCT_PATHS` with their bytes from the published tag, including the manual, installer, schemas, shared product code, and glossary. The staged package version comes from that tag; website build configuration and dependencies come from the website source. The current map, decisions, marketing pages, and release records remain website sources. Changes to released manual content therefore need a product release. This boundary also means new site code must work with the released helpers: an incompatible composition fails before upload.
 

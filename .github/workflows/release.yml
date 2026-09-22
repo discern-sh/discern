@@ -283,6 +283,5 @@ jobs:
     needs: [plan, release]
     permissions:
       contents: read
-      actions: read
       deployments: read
     uses: ./.github/workflows/site-publish.yml

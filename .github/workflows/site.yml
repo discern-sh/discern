@@ -5,11 +5,10 @@ on:
 
 permissions:
   contents: read
-  actions: read
   deployments: read
 
 jobs:
   publish:
-    # Dispatch main after its complete gate succeeds. No tag or binary release.
+    # Dispatch main on demand; the publisher builds and checks the staged site.
     if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/site-publish.yml

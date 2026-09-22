@@ -1,8 +1,14 @@
 /** Both publication paths preserve one verified production publisher. */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
+import { parse as parseYaml } from "@std/yaml";
 import { decodeWith } from "./decode_cli_result.ts";
 import { PUBLICATION_INPUT } from "../site/releases/catalogue.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -22,7 +28,6 @@ Deno.test("release and manual site publication share the verified publisher", as
   assertStringIncludes(release, "needs: [plan, release]");
   for (const caller of [release, manual]) {
     assertStringIncludes(caller, "uses: ./.github/workflows/site-publish.yml");
-    assertStringIncludes(caller, "actions: read");
     assertStringIncludes(caller, "deployments: read");
   }
   assertStringIncludes(manual, "workflow_dispatch:");
@@ -33,7 +38,6 @@ Deno.test("release and manual site publication share the verified publisher", as
   assertStringIncludes(workflow, "group: site-production");
   assertStringIncludes(workflow, "ref: ${{ github.sha }}");
   const steps = [
-    'scripts/release_gate.ts verify "$SOURCE_SHA"',
     'scripts/site_deployment_order.ts "$SOURCE_SHA"',
     'scripts/site_deployment.ts "$SOURCE_SHA"',
     "run: deno task site:smoke",
@@ -63,6 +67,44 @@ Deno.test("release and manual site publication share the verified publisher", as
     "${{ runner.temp }}/site-deployment/site-deployment.json",
   );
   assertStringIncludes(workflow, "${{ runner.temp }}/releases.json");
+});
+
+/** These workflows own the manual deployment path; release gating belongs upstream. */
+function assertIndependentSitePath(source: string): void {
+  const workflow = z.object({
+    permissions: z.object({ actions: z.never().optional() }).passthrough(),
+    jobs: z.record(
+      z.string(),
+      z.object({
+        needs: z.never().optional(),
+      }).passthrough(),
+    ),
+  }).parse(parseYaml(source));
+  assertEquals(Object.keys(workflow.jobs).length, 1);
+  assert(!source.includes("release_gate.ts"));
+  assert(!source.includes("gate-evidence-"));
+}
+
+Deno.test("manual website publication has no hosted gate prerequisite", async () => {
+  for (const name of ["site.yml", "site-publish.yml"]) {
+    const source = await Deno.readTextFile(new URL(name, WORKFLOWS));
+    assertIndependentSitePath(source);
+    // A new prerequisite job must not turn the manual button into a gate queue.
+    assertThrows(() =>
+      assertIndependentSitePath(
+        source +
+          "\n  readiness:\n    uses: ./.github/workflows/validation.yml\n",
+      )
+    );
+    assertThrows(() =>
+      assertIndependentSitePath(
+        source.replace(
+          /( {2}(?:publish|deploy):\n)/u,
+          "$1    needs: readiness\n",
+        ),
+      )
+    );
+  }
 });
 
 const DeployConfigSchema = z.object({

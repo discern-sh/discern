@@ -120,31 +120,6 @@ async function verifyRun(run: HostedGateRun, sha: string): Promise<void> {
   });
 }
 
-/** Require existing complete evidence for an immutable deployment source. */
-export async function requireCompleteGate(
-  repository: string,
-  source: string,
-): Promise<HostedGateRun> {
-  const sha = SHA.parse(source);
-  if (await command("git", ["rev-parse", "HEAD"]) !== sha) {
-    throw new Error(
-      "The checkout does not match the requested deployment commit.",
-    );
-  }
-  const decision = releaseGateDecision(
-    await gateRuns(repository, sha),
-    sha,
-    repository,
-  );
-  if (decision.kind !== "ready") {
-    throw new Error(
-      `Complete gate evidence is ${decision.kind} for ${sha}. Finish or retry the gate, then dispatch deployment again.`,
-    );
-  }
-  await verifyRun(decision.run, sha);
-  return decision.run;
-}
-
 /** A release always resolves an actual version tag to its peeled commit. */
 async function tagCommit(tag: string): Promise<string> {
   if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(tag)) {
@@ -274,8 +249,7 @@ async function main(env: EnvReader = Deno.env): Promise<void> {
       env.get("RELEASE_GATE_RUN"),
     );
   } else if (mode === "resume") await resumeRelease(repository, subject);
-  else if (mode === "verify") await requireCompleteGate(repository, subject);
-  else throw new Error("Mode must be request, resume, or verify.");
+  else throw new Error("Mode must be request or resume.");
 }
 
 if (import.meta.main) await main();

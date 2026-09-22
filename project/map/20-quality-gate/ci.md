@@ -65,6 +65,6 @@ Use the [public evaluator](../../../src/engine/validation/public_run.ts) for exe
 
 A fixer or generator that changes tracked content leaves the checked-out commit unproved. Run `discern prepare`, commit its output, and validate the resulting commit. Fetch the actual comparison base again when the event changes.
 
-## Reuse the gate for a website update
+## Deploy a website update on demand
 
-The manual [site workflow](../../../.github/workflows/site.yml) reuses the same complete, exact-commit evidence through `scripts/release_gate.ts verify`. It refuses missing or unfinished evidence without dispatching another gate. The shared publisher then builds and crawls the composed website and released-product snapshot; those checks supplement the full gate. See [website publishing](../90-site/publishing.md#publish-a-website-update).
+The manual [site workflow](../../../.github/workflows/site.yml) accepts `main` without requiring hosted gate evidence. The shared publisher builds and crawls the composed website and released-product snapshot, then publishes automatically. A pending or failed full gate does not delay this path. Binary releases still require complete evidence for their exact tagged commit, and local completion requirements remain unchanged. See [website publishing](../90-site/publishing.md#publish-a-website-update).
