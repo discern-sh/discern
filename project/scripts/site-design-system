@@ -7,5 +7,5 @@ cd "$ROOT"
 
 exec deno run --config "$ROOT/deno.json" \
   --allow-read --allow-write --allow-run \
-  --allow-env=GIT_BIN \
+  --allow-env=GIT_BIN,DISCERN_OPERATION_LOCK_DELEGATION \
   "$ROOT/scripts/site_local_design_system.ts" "$@"

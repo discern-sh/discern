@@ -293,3 +293,48 @@ Deno.test("the helper loads without the site's package graph, so it can serve an
     [toFileUrl(join(ROOT, "site/dev_invocation.ts")).href],
   );
 });
+
+Deno.test("the project script's sandbox admits the helper's repository lookup and supervised child", async () => {
+  // The helper runs under the Project Script's own permission flags, not the
+  // test runner's, so an engine read those flags omit only fails when someone
+  // previews. Run the helper's effectful dependencies under exactly those flags.
+  const script = await Deno.readTextFile(
+    join(ROOT, "project/scripts/site-design-system"),
+  );
+  const flags = [...script.matchAll(/--allow-[a-z]+(?:=[^\s\\]+)?/g)].map((
+    [flag],
+  ) => flag);
+  assertEquals(flags.some((flag) => flag.startsWith("--allow-env")), true);
+  await withTempDir(async (dir) => {
+    const probe = join(dir, "probe.ts");
+    await Deno.writeTextFile(
+      probe,
+      [
+        `import { mainRepoPath } from ${
+          JSON.stringify(
+            toFileUrl(join(ROOT, "src/engine/worktree/git.ts")).href,
+          )
+        };`,
+        `import { runOwnedChild } from ${
+          JSON.stringify(
+            toFileUrl(join(ROOT, "src/engine/owned_child.ts")).href,
+          )
+        };`,
+        `await mainRepoPath(${JSON.stringify(ROOT)});`,
+        `const result = await runOwnedChild(Deno.execPath(), { args: ["eval", ""] });`,
+        "Deno.exit(result.status.code);",
+      ].join("\n"),
+    );
+    const output = await new Deno.Command(Deno.execPath(), {
+      args: ["run", "--config", join(ROOT, "deno.json"), ...flags, probe],
+      cwd: ROOT,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assertEquals(
+      output.success,
+      true,
+      new TextDecoder().decode(output.stderr),
+    );
+  });
+});
