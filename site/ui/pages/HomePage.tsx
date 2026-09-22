@@ -136,7 +136,7 @@ export function renderLanding(): string {
     title: LANDING_TITLE,
     description: LANDING_DESCRIPTION,
     appearance: "mono",
-    styles: ["fonts.css", "discern.css", "campaign.css", "landing.css"],
+    styles: ["fonts.css", "discern.css", "landing.css"],
     scripts: ["discern.js"],
     children: <HomePage />,
   });
@@ -169,8 +169,8 @@ function HomePage(): ReactElement {
   return (
     <MarketingLayout currentPath="/">
       <HeroBlock
-        className="homepage-hero"
         layout="statement"
+        frame="wide"
         eyebrow={
           <Kicker className="homepage-eyebrow">
             <span aria-hidden="true">{DISCERN_MARK}</span> discern v
@@ -199,10 +199,10 @@ function HomePage(): ReactElement {
         backdrop={<ApproachBackdrop />}
         visual={
           <LogoCloud
-            className="homepage-agents"
             label="Works with the coding agents you already use"
             align="start"
             variant="strip"
+            frame="fill"
             items={agents.map(({ label, mark, silhouette }) => ({
               name: label,
               mark: <img src={mark} alt="" width="24" height="24" />,
@@ -268,7 +268,7 @@ function HomePage(): ReactElement {
         </p>
       </NarrativeChapter>
       <FeatureBento
-        className="homepage-bento"
+        frame="wide"
         eyebrow="What discern gives you"
         title="The right limits let more work move and finish."
         description={
@@ -305,6 +305,7 @@ function HomePage(): ReactElement {
             icon: tileGlyphs.prompt,
             size: "large",
             tone: "accent",
+            align: "end",
           },
           {
             title: "Give each task its own workspace.",

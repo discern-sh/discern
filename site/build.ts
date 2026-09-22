@@ -37,7 +37,6 @@ export const GENERATED_SITE_OUTPUTS = [
 export const COPIED_PAGE_ASSETS = [
   "agents.css",
   "agents.js",
-  "campaign.css",
   "copy-prompt.js",
   "landing.css",
   "map.css",

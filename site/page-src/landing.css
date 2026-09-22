@@ -14,13 +14,6 @@
     flex: 1;
   }
 
-  /* Every block shares the campaign header's measure rather than the page max. */
-  .homepage-hero,
-  .homepage-agents,
-  .homepage-bento {
-    --discern-page-max: 86rem;
-  }
-
   .homepage-eyebrow {
     color: var(--discern-color-ink);
     letter-spacing: 0;
@@ -29,12 +22,6 @@
 
   .homepage-lede {
     text-wrap: balance;
-  }
-
-  /* The hero's visual slot (the last box inside the hero's inner frame) drops
-     its rule: the backdrop artwork already rules the opening block. */
-  .homepage-hero > div:last-child > div:last-child {
-    border-block-start: 0;
   }
 
   .homepage-benefits-grid {
@@ -54,12 +41,6 @@
     font-size: var(--discern-font-size-sm);
   }
 
-  /* The hero's visual slot already frames and pads the Logo cloud. */
-  .homepage-hero .homepage-agents {
-    inline-size: 100%;
-    padding-block: 0;
-  }
-
   /* The benefits row closes with the same rule the hero closes with. */
   .homepage-benefits {
     border-block-end: 1px solid var(--discern-color-border);
@@ -72,44 +53,7 @@
     letter-spacing: -0.03em;
   }
 
-  /* Each tile is an article whose first box holds glyph, title, and copy. The
-     glyph leaves an icon's worth of air above the copy; match it below. */
-  .homepage-bento article > div:first-child {
-    padding-block-end: var(--discern-space-8);
-  }
-
-  /* The first tile is the large one: it pins its glyph to the top and its
-     title and copy to the bottom. */
-  .homepage-bento article:first-child > div:first-child {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    padding-block-end: var(--discern-space-10);
-  }
-
-  .homepage-bento article:first-child > div:first-child > span:first-child {
-    margin-block-end: auto;
-  }
-
-  .homepage-bento article:first-child h3 {
-    margin-block-start: var(--discern-space-8);
-  }
-
   @media (max-width: 42rem) {
-    /* Phones centre the agent strip's label and list, and space the marks
-       into even columns. */
-    .homepage-agents > p {
-      text-align: center;
-    }
-
-    .homepage-agents > ul {
-      justify-content: center;
-    }
-
-    .homepage-agents > ul > li {
-      flex: 1 1 7.5rem;
-    }
-
     .homepage-benefits-grid {
       grid-template-columns: 1fr;
       gap: var(--discern-space-10);

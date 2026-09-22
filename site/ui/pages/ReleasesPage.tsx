@@ -361,7 +361,7 @@ function ReleasesPage(
 
 const RELEASE_DOCUMENT = {
   appearance: "mono",
-  styles: ["fonts.css", "discern.css", "campaign.css", "releases.css"],
+  styles: ["fonts.css", "discern.css", "releases.css"],
   scripts: ["discern.js"],
   bodyClassName: "releases-page",
 } as const;
