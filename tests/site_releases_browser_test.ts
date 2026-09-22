@@ -139,16 +139,7 @@ Deno.test(
             }).waitFor();
           }
           if (mode.javaScriptEnabled) {
-            // The package's faint ink token sits below AA on its own small
-            // footer text under the site's full ink tint; the contrast rule is
-            // withheld here until the package holds that floor (project/TODO.md).
-            assertEquals(
-              (await axeFindings(page)).filter((finding) =>
-                finding.id !== "color-contrast"
-              ),
-              [],
-              mode.name,
-            );
+            assertEquals(await axeFindings(page), [], mode.name);
           }
           assertEquals(failures, [], mode.name);
         } finally {
