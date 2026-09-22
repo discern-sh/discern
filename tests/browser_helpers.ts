@@ -63,8 +63,19 @@ export interface AxeFinding {
   readonly nodes: readonly axe.UnlabelledFrameSelector[];
 }
 
-/** Audit the page as it is now against the WCAG 2.2 AA tag set. */
+/**
+ * Audit the page against the WCAG 2.2 AA tag set once every finite animation
+ * and transition has finished: contrast sampled mid-transition, such as just
+ * after a theme change, measures colours the reader never settles on.
+ * Infinite decorative animations never finish and are not waited for.
+ */
 export async function axeFindings(page: Page): Promise<AxeFinding[]> {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((animation) =>
+      animation.playState !== "running" ||
+      animation.effect?.getTiming().iterations === Infinity
+    )
+  );
   await page.evaluate(axe.source);
   return await page.evaluate(async () => {
     const runner = (window as unknown as { axe: typeof axe }).axe;
