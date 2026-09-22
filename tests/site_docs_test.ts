@@ -949,10 +949,11 @@ Deno.test("the docs rails are the package layout's columns, not site composition
   const css = await Deno.readTextFile(
     new URL("../site/pages/assets/docs.css", import.meta.url),
   );
-  // The package layout owns the sticky rails, the drawer, and the columns;
-  // the site keeps the shell wider than the package's article measure.
+  // The package layout owns the sticky rails, the drawer, and the columns,
+  // and the package palette owns the search fallback; the site keeps the
+  // shell wider than the package's article measure.
   assertEquals(css.includes("position: sticky"), false);
-  assertEquals(css.includes("position: fixed"), true, "the search fallback");
+  assertEquals(css.includes("position: fixed"), false, "the search fallback");
   assertStringIncludes(
     css,
     ".docs-layout {\n  --discern-docs-layout-max: var(--docs-page-max);",

@@ -17,66 +17,68 @@ export interface DocumentSearchProps {
   readonly endpoint: string;
 }
 
+/** The dialog the header's opener names; the package behaviour opens it. */
+export const SEARCH_PALETTE_ID = "docs-search-palette";
+
 /** The listbox the combobox controls and the script fills. */
 const RESULTS_ID = "docs-search-results";
 
 /**
- * Without `onOpenChange` the package renders the dialog closed and stamps
- * its bindable hooks on the dialog, field, and close control; `docs.js`
- * owns opening, dismissal, the query, and the fallback for readers whose
- * `<dialog>` lacks `showModal()`. The results region carries the page-owned
- * hooks that script fills.
+ * Without `onOpenChange` the package renders the dialog closed with its
+ * hooks, and the emitted `search-palette` behaviour opens and dismisses it,
+ * including the ⌘K and `/` shortcuts and the fallback for a reader without
+ * `showModal()`. `docs.js` answers its open and close events with the query,
+ * the index, and the results that fill the region's page-owned hooks.
  */
 export function DocumentSearch(
   { searchLabel, endpoint }: DocumentSearchProps,
 ): ReactElement {
   const label = `Search ${searchLabel}`;
   return (
-    <>
-      <div className="docs-search-backdrop" data-search-backdrop="" hidden />
-      <SearchPalette
-        className="docs-search"
-        label={label}
-        placeholder={`${label}…`}
-        closeAriaLabel="Close search"
-        icon={
-          <Icon className="docs-search-icon">
-            <SearchIcon />
-          </Icon>
-        }
-        hint={
-          <>
-            <span>
-              <Kbd>↑</Kbd> <Kbd>↓</Kbd> choose
-            </span>
-            <span>
-              <Kbd>↵</Kbd> open
-            </span>
-            <span>
-              <Kbd>Esc</Kbd> close
-            </span>
-          </>
-        }
-        inputProps={{
-          role: "combobox",
-          "aria-autocomplete": "list",
-          "aria-expanded": false,
-          "aria-controls": RESULTS_ID,
-          autoComplete: "off",
-          spellCheck: false,
-        }}
-        data-search-endpoint={endpoint}
-      >
-        <SearchPaletteList id={RESULTS_ID} data-search-results="" />
-        <button
-          className="docs-search-all"
-          type="button"
-          data-search-all=""
-          hidden
-        />
-        <SearchPaletteEmpty data-search-empty="" />
-        <SearchPaletteStatus data-search-status="" />
-      </SearchPalette>
-    </>
+    <SearchPalette
+      id={SEARCH_PALETTE_ID}
+      shortcuts
+      className="docs-search"
+      label={label}
+      placeholder={`${label}…`}
+      closeAriaLabel="Close search"
+      icon={
+        <Icon className="docs-search-icon">
+          <SearchIcon />
+        </Icon>
+      }
+      hint={
+        <>
+          <span>
+            <Kbd>↑</Kbd> <Kbd>↓</Kbd> choose
+          </span>
+          <span>
+            <Kbd>↵</Kbd> open
+          </span>
+          <span>
+            <Kbd>Esc</Kbd> close
+          </span>
+        </>
+      }
+      inputProps={{
+        role: "combobox",
+        "aria-autocomplete": "list",
+        "aria-expanded": false,
+        "aria-controls": RESULTS_ID,
+        autoComplete: "off",
+        spellCheck: false,
+      }}
+      data-search-endpoint={endpoint}
+    >
+      <SearchPaletteList id={RESULTS_ID} data-search-results="" />
+      <button
+        className="docs-search-all"
+        type="button"
+        data-search-all=""
+        hidden
+      />
+      <SearchPaletteEmpty data-search-empty="" />
+      <SearchPaletteStatus data-search-status="" />
+    </SearchPalette>
   );
 }

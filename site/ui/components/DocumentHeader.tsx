@@ -9,6 +9,7 @@ import {
 } from "discern-design-system/react";
 import { DiscernBrand } from "./Brand.tsx";
 import { MenuIcon, MoonIcon, SearchIcon, SunIcon } from "./DocumentIcons.tsx";
+import { SEARCH_PALETTE_ID } from "./DocumentSearch.tsx";
 
 export interface DocumentHeaderProps {
   /** The corpus root the context link returns to, e.g. `/docs`. */
@@ -64,7 +65,9 @@ export function DocumentHeader(
       <button
         className="docs-search-btn"
         type="button"
-        data-search-open=""
+        data-discern-search-palette-open=""
+        aria-controls={SEARCH_PALETTE_ID}
+        aria-haspopup="dialog"
         aria-label={`Search ${searchLabel}`}
       >
         <Icon className="docs-search-icon">

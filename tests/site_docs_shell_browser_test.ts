@@ -24,7 +24,7 @@ const BACKGROUND_SELECTORS = [
   ".docs-skip",
   ".docs-brand",
   ".docs-brand-docs",
-  "[data-search-open]",
+  "[data-discern-search-palette-open]",
   "[data-discern-theme-toggle]",
   "#doc",
 ] as const;
@@ -286,7 +286,7 @@ Deno.test("the served docs shell keeps its drawer, skip link, and no-script cont
               "[data-discern-docs-drawer-toggle]",
             );
             const search = document.querySelector<HTMLElement>(
-              "[data-search-open]",
+              "[data-discern-search-palette-open]",
             );
             if (!nav || !main || !toggle || !search) {
               throw new Error("the no-script fixture is incomplete");

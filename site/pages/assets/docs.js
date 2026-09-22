@@ -1,7 +1,8 @@
-/* discern.sh document routes — modal search, navigation position, contents
+/* discern.sh document routes — search results, navigation position, contents
    scroll spy, and prose enhancements. The package runtime owns the navigation
-   drawer. Plain local modules, no third-party dependencies, no network beyond
-   the active corpus's one-way search-index fetch. */
+   drawer and the search dialog. Plain local modules, no third-party
+   dependencies, no network beyond the active corpus's one-way search-index
+   fetch. */
 import { activeTocIndex } from "./docs-toc.js";
 import { searchPages } from "./search.js";
 import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
@@ -13,47 +14,12 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
   const $ = (selector, scope = doc) => scope.querySelector(selector);
   const $$ = (selector, scope = doc) =>
     Array.from(scope.querySelectorAll(selector));
-  const focusableSelector = [
-    "a[href]",
-    "button:not([disabled])",
-    "input:not([disabled])",
-    "select:not([disabled])",
-    "textarea:not([disabled])",
-    '[tabindex]:not([tabindex="-1"])',
-  ].join(",");
-
-  const canFocus = (value) =>
-    value && typeof value.focus === "function" && value.isConnected;
-  const focusablesIn = (container) =>
-    $$(focusableSelector, container).filter((element) =>
-      !element.closest("[hidden]") && !element.inert
-    );
-  const setInert = (elements, inert) => {
-    for (const element of elements.filter(Boolean)) element.inert = inert;
-  };
-  const restoreFocus = (element) => {
-    if (canFocus(element)) element.focus();
-  };
-  const trapFocus = (event, elements) => {
-    if (event.key !== "Tab" || elements.length === 0) return;
-    const first = elements[0];
-    const last = elements[elements.length - 1];
-    if (!first || !last) return;
-    if (event.shiftKey && doc.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && doc.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
 
   // ── Navigation position ──────────────────────────────────────────────────
 
   // The package layout's navigation column is the scroll container, in flow
   // at a wide allocation and as the drawer at a narrow one.
   const nav = $("#docs-nav");
-  const drawerToggle = $("[data-discern-docs-drawer-toggle]");
 
   const navScrollKey = "discern:manual-nav-scroll";
   const persistNavScroll = () => {
@@ -258,33 +224,24 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
 
   // ── Search palette ───────────────────────────────────────────────────────
 
-  // The package renders the palette statically and stamps these hooks for
-  // the consumer script that owns its lifecycle; the results region carries
-  // the page's own hooks.
+  // The package behaviour opens and dismisses the palette and owns its
+  // focus; this script answers its open and close events with the query,
+  // the one-way index request, and the results region's page-owned hooks.
   const palette = $("[data-discern-search-palette]");
   const input = $("[data-discern-search-palette-input]");
-  const close = $("[data-discern-search-palette-close]");
   const list = $("[data-search-results]");
   const empty = $("[data-search-empty]");
   const status = $("[data-search-status]");
   const showAll = $("[data-search-all]");
-  const searchBackdrop = $("[data-search-backdrop]");
 
-  if (palette && input && close && list && empty && status && showAll) {
+  if (palette && input && list && empty && status && showAll) {
     let pages = null;
     let loadState = "idle";
     let allResults = [];
     let results = [];
     let selected = 0;
     let expanded = false;
-    let fallbackDialog = false;
-    let searchReturnFocus = null;
     const searchEndpoint = palette.dataset.searchEndpoint;
-    const searchBackground = [
-      $(".docs-skip"),
-      $(".docs-top"),
-      $("[data-discern-docs-layout]"),
-    ];
 
     const syncSelection = () => {
       const options = $$("[role=option]", list);
@@ -399,65 +356,14 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
       update();
     };
 
-    const finishSearchClose = () => {
-      doc.body.classList.remove("docs-no-scroll");
-      input.setAttribute("aria-expanded", "false");
-      input.removeAttribute("aria-activedescendant");
-      if (fallbackDialog) {
-        setInert(searchBackground, false);
-        if (searchBackdrop) searchBackdrop.hidden = true;
-        palette.removeAttribute("data-dialog-fallback");
-      }
-      // The native dialog returns focus to where it was; when the drawer gave
-      // way to the palette that place is inert now, so the toggle takes it.
-      restoreFocus(searchReturnFocus);
-      fallbackDialog = false;
-      searchReturnFocus = null;
-    };
-
-    // Native modal dialogs own focus containment, Escape dismissal, and the
-    // top-layer backdrop. The explicit fallback keeps the same contract in
-    // readers that implement <dialog> without showModal().
-    const openSearch = () => {
-      if (palette.open) return;
-      // An open drawer yields to the palette; the toggle is where focus
-      // returns once the palette closes.
-      const drawerOpen = drawerToggle?.getAttribute("aria-expanded") === "true";
-      searchReturnFocus = drawerOpen ? drawerToggle : doc.activeElement;
-      if (drawerOpen) drawerToggle.click();
-      if (typeof palette.showModal === "function") {
-        palette.showModal();
-      } else {
-        fallbackDialog = true;
-        palette.setAttribute("data-dialog-fallback", "");
-        palette.setAttribute("open", "");
-        setInert(searchBackground, true);
-        if (searchBackdrop) searchBackdrop.hidden = false;
-      }
-      doc.body.classList.add("docs-no-scroll");
-      input.setAttribute("aria-expanded", "true");
+    palette.addEventListener("discern:search-palette:open", () => {
       input.value = "";
       expanded = false;
       update();
-      input.focus();
       load();
-    };
-
-    const closeSearch = () => {
-      if (!palette.open) return;
-      if (!fallbackDialog && typeof palette.close === "function") {
-        palette.close();
-      } else {
-        palette.removeAttribute("open");
-        finishSearchClose();
-      }
-    };
-
-    palette.addEventListener("close", finishSearchClose);
-    searchBackdrop?.addEventListener("click", closeSearch);
-
-    palette.addEventListener("mousedown", (event) => {
-      if (event.target === palette) closeSearch();
+    });
+    palette.addEventListener("discern:search-palette:close", () => {
+      input.removeAttribute("aria-activedescendant");
     });
 
     input.addEventListener("input", () => {
@@ -482,38 +388,6 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
       } else if (event.key === "Enter") {
         const result = results[selected];
         if (result) location.href = resultHref(result);
-      }
-    });
-
-    for (const trigger of $$("[data-search-open]")) {
-      trigger.addEventListener("click", () => openSearch());
-    }
-    close.addEventListener("click", () => closeSearch());
-
-    doc.addEventListener("keydown", (event) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        if (palette.open) closeSearch();
-        else openSearch();
-        return;
-      }
-      if (palette.open) {
-        if (fallbackDialog) {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            closeSearch();
-          } else {
-            trapFocus(event, focusablesIn(palette));
-          }
-        }
-        return;
-      }
-      if (
-        event.key === "/" &&
-        !/^(input|textarea|select)$/i.test(doc.activeElement?.tagName ?? "")
-      ) {
-        event.preventDefault();
-        openSearch();
       }
     });
   }

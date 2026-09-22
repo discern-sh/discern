@@ -33,10 +33,6 @@ body {
   outline-offset: 2px;
 }
 
-.docs-no-scroll {
-  overflow: hidden;
-}
-
 /* ── Top bar ───────────────────────────────────────────────────────────── */
 
 /* The shell's three columns run wider than an article, so the bar's inner
@@ -779,25 +775,6 @@ body {
 
 /* ── Search palette ────────────────────────────────────────────────────── */
 
-.docs-search-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: var(--discern-color-overlay);
-  backdrop-filter: blur(2px);
-}
-
-.docs-search-backdrop[hidden] {
-  display: none;
-}
-
-.docs-search[data-dialog-fallback][open] {
-  position: fixed;
-  inset: 0;
-  z-index: 61;
-  block-size: fit-content;
-}
-
 .docs-search-option {
   cursor: pointer;
 }
@@ -842,7 +819,6 @@ html:not(.docs-js) .docs-search-btn {
   .docs-history-label,
   .docs-complete-browse,
   .doc-body pre,
-  .docs-search-backdrop,
   .docs-search-all {
     border-color: CanvasText;
   }
@@ -883,7 +859,6 @@ html:not(.docs-js) .docs-search-btn {
   .docs-toc,
   .docs-pager,
   .docs-search,
-  .docs-search-backdrop,
   .docs-complete-browse,
   .docs-copy,
   .docs-heading-row > a,

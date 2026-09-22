@@ -315,6 +315,8 @@ Deno.test("deep links expose page and heading context without competing claims",
 Deno.test("search keeps its modal focus contract without showModal support", async () => {
   const html = await (await get("/docs")).text();
   const client = await executableDocsClient();
+  const runtime = await (await get(designSystemAssetPath("docs", "discern.js")))
+    .text();
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
     url: "https://discern.sh/docs",
@@ -322,12 +324,21 @@ Deno.test("search keeps its modal focus contract without showModal support", asy
   Object.defineProperty(dom.window, "matchMedia", {
     value: () => ({ matches: false, addEventListener: () => undefined }),
   });
+  // The drawer behaviour observes its layout; layoutless DOM has nothing to report.
+  Object.defineProperty(dom.window, "ResizeObserver", {
+    value: class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  });
   dom.window.document.querySelector(".docs-toc")?.remove();
+  dom.window.eval(runtime);
   dom.window.eval(client);
 
   const document = dom.window.document;
   const opener = document.querySelector<HTMLButtonElement>(
-    "[data-search-open]",
+    "[data-discern-search-palette-open]",
   );
   const palette = document.querySelector<HTMLDialogElement>(
     "[data-discern-search-palette]",
@@ -353,7 +364,7 @@ Deno.test("search keeps its modal focus contract without showModal support", asy
   await Promise.resolve();
   const opened = {
     open: palette.hasAttribute("open"),
-    fallback: palette.hasAttribute("data-dialog-fallback"),
+    fallback: palette.hasAttribute("data-discern-search-palette-fallback"),
     expanded: input.getAttribute("aria-expanded"),
     focusedInput: document.activeElement === input,
     backgroundInert: background.every((element) => element.inert),
@@ -398,6 +409,9 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
   const runtimeCss = await (await get(
     designSystemAssetPath("docs", "discern.css"),
   )).text();
+  const runtimeJs = await (await get(
+    designSystemAssetPath("docs", "discern.js"),
+  )).text();
   const client = await Deno.readTextFile(
     new URL("../site/pages/assets/docs.js", import.meta.url),
   );
@@ -410,7 +424,7 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
   const contracts = [
     [
       "mobile search has a durable name",
-      attribute("[data-search-open]", "aria-label") !== null,
+      attribute("[data-discern-search-palette-open]", "aria-label") !== null,
     ],
     [
       "the drawer toggle names its controlled nav and both of its states",
@@ -450,16 +464,12 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
       ) === "Close search",
     ],
     [
-      "the search fallback's background state uses inert",
-      /\.inert\s*=/.test(client),
+      "the docs runtime carries the package search-palette behaviour",
+      runtimeJs.includes("discern.search-palette"),
     ],
     [
       "search options expose selection",
       /aria-selected/.test(client) && /aria-activedescendant/.test(client),
-    ],
-    [
-      "search focus is trapped and restored without showModal",
-      /trapFocus/.test(client) && /restoreFocus/.test(client),
     ],
     [
       "the theme control names its destination and its opted-in root",
