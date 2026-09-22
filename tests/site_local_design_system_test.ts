@@ -10,6 +10,7 @@ import {
   serverArgs,
   watchTaskCommand,
 } from "../scripts/site_local_design_system.ts";
+import { denoRunInvocation } from "../site/dev_invocation.ts";
 import { moduleSpecifiers } from "./design_system_dependency.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -296,17 +297,20 @@ Deno.test("the helper loads without the site's package graph, so it can serve an
   );
 });
 
-Deno.test("the project script's sandbox admits the helper's repository lookup and supervised child", async () => {
-  // The helper runs under the Project Script's own permission flags, not the
-  // test runner's, so an engine read those flags omit only fails when someone
-  // previews. Run the helper's effectful dependencies under exactly those flags.
+Deno.test("the preview task's sandbox admits the helper's repository lookup and supervised child", async () => {
+  // The helper runs under its task's own permission flags, not the test
+  // runner's, so an engine read those flags omit only fails when someone
+  // previews. Run the helper's effectful dependencies under exactly those
+  // flags, taken from the task the Project Script delegates to.
   const script = await Deno.readTextFile(
     join(ROOT, "project/scripts/site-design-system"),
   );
-  const flags = [...script.matchAll(/--allow-[a-z]+(?:=[^\s\\]+)?/g)].map((
-    [flag],
-  ) => flag);
-  assertEquals(flags.some((flag) => flag.startsWith("--allow-env")), true);
+  const task = /deno task ([\w:-]+)/.exec(script)?.[1] ?? "";
+  assertEquals(task, "site:design-system");
+  const config = JSON.parse(await Deno.readTextFile(join(ROOT, "deno.json")));
+  const invocation = denoRunInvocation(config.tasks[task]);
+  assertEquals(invocation?.entry, "scripts/site_local_design_system.ts");
+  const flags = invocation?.permissionFlags ?? [];
   await withTempDir(async (dir) => {
     const probe = join(dir, "probe.ts");
     await Deno.writeTextFile(
