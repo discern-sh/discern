@@ -11,7 +11,7 @@
     "jsr:@deno/deploy@0.0.9904": "0.0.9904",
     "jsr:@deno/framework-detect@0.3": "0.3.0",
     "jsr:@deno/sandbox@~0.13.2": "0.13.2",
-    "jsr:@discern-sh/design-system@0.35.0": "0.35.0",
+    "jsr:@discern-sh/design-system@0.36.0": "0.36.0",
     "jsr:@std/assert@^1.0.10": "1.0.19",
     "jsr:@std/async@^1.5.0": "1.5.0",
     "jsr:@std/cli@1.0.32": "1.0.32",
@@ -150,8 +150,8 @@
         "npm:zod"
       ]
     },
-    "@discern-sh/design-system@0.35.0": {
-      "integrity": "62852db7fba051ffd612d93931354aa96bfb23e948d2f4ff3ed241c2b310bf43",
+    "@discern-sh/design-system@0.36.0": {
+      "integrity": "0df9777480c19c7525a92b53b85856ff0c6b4de1b708a89289aa97182c165cd1",
       "dependencies": [
         "npm:@types/mdast",
         "npm:@types/react",
@@ -1720,7 +1720,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@cliffy/command@^1.0.0-rc.8",
-      "jsr:@discern-sh/design-system@0.35.0",
+      "jsr:@discern-sh/design-system@0.36.0",
       "jsr:@std/assert@^1.0.10",
       "jsr:@std/encoding@^1.0.7",
       "jsr:@std/fmt@^1.0.10",
