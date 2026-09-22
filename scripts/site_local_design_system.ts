@@ -84,11 +84,15 @@ export async function resolveLocalDesignSystemArgs(
   };
 }
 
-/** Align the temporary alias with a linked checkout without mutating the base. */
+/**
+ * Point the temporary alias at a linked checkout without mutating the base.
+ * The alias names no version: Deno uses a link only when its version satisfies
+ * the import, so an exact version would silently fall back to the registry as
+ * soon as the checkout bumped its own while the preview kept serving.
+ */
 export function localDesignSystemConfig(
   base: Readonly<JsonObject>,
   packageRoot: string,
-  packageVersion: string,
 ): JsonObject {
   const imports = base.imports;
   if (
@@ -100,7 +104,7 @@ export function localDesignSystemConfig(
     ...base,
     imports: {
       ...imports,
-      "discern-design-system": `${PACKAGE_NAME_SPECIFIER}@${packageVersion}`,
+      "discern-design-system": PACKAGE_NAME_SPECIFIER,
     },
     links: [packageRoot],
     lock: false,
@@ -309,10 +313,11 @@ Usage:
 The helper uses the sibling discern-design-system repository beside discern's
 Git main checkout. Pass another checkout as the positional argument to
 override it.
-It writes an untracked temporary Deno config, aligns that copy's package version
-so Deno accepts an ahead or behind checkout, verifies that the public export
-resolves locally, and leaves deno.json and deno.lock unchanged. Without
---build-only it serves and watches both repositories.`);
+It writes an untracked temporary Deno config whose alias names no version, so
+the link holds for an ahead or behind checkout and through a version bump made
+while it serves. It verifies that the public export resolves locally and leaves
+deno.json and deno.lock unchanged. Without --build-only it serves and watches
+both repositories.`);
 }
 
 /** Run the complete temporary-link lifecycle. */
@@ -344,11 +349,7 @@ async function main(): Promise<number> {
       temporaryConfig,
       `${
         JSON.stringify(
-          localDesignSystemConfig(
-            rootConfig,
-            packageRoot,
-            packageConfig.version,
-          ),
+          localDesignSystemConfig(rootConfig, packageRoot),
           null,
           2,
         )

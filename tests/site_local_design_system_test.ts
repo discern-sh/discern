@@ -78,16 +78,12 @@ Deno.test("the local design-system config overlays a link without mutating the c
   const snapshot = structuredClone(base);
 
   assertEquals(
-    localDesignSystemConfig(
-      base,
-      "/tmp/future-component-system",
-      "91.2.3",
-    ),
+    localDesignSystemConfig(base, "/tmp/future-component-system"),
     {
       ...base,
       imports: {
         ...base.imports,
-        "discern-design-system": "jsr:@discern-sh/design-system@91.2.3",
+        "discern-design-system": "jsr:@discern-sh/design-system",
       },
       links: ["/tmp/future-component-system"],
       lock: false,
@@ -97,7 +93,7 @@ Deno.test("the local design-system config overlays a link without mutating the c
   assertEquals(base, snapshot);
 });
 
-Deno.test("the temporary link resolves an unrelated local version without changing the consumer pin", async () => {
+Deno.test("the temporary link resolves an unrelated local version, and a bump while it serves, without changing the consumer pin", async () => {
   await withTempDir(async (temporaryRoot) => {
     const packageRoot = join(temporaryRoot, "future-layout-kit");
     const sourceRoot = join(packageRoot, "source");
@@ -135,39 +131,45 @@ Deno.test("the temporary link resolves an unrelated local version without changi
       );
     }
 
-    const temporaryConfig = localDesignSystemConfig(
-      consumer,
-      packageRoot,
-      "91.2.3",
-    );
+    const temporaryConfig = localDesignSystemConfig(consumer, packageRoot);
     await Deno.writeTextFile(
       configPath,
       `${JSON.stringify(temporaryConfig, null, 2)}\n`,
     );
 
-    const probe = await new Deno.Command(Deno.execPath(), {
-      args: [
-        "eval",
-        "--cached-only",
-        "--config",
-        configPath,
-        'console.log(import.meta.resolve("discern-design-system/runtime"))',
-      ],
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-    const resolution = new TextDecoder().decode(probe.stdout).trim();
+    const resolveRuntime = async (): Promise<string> => {
+      const probe = await new Deno.Command(Deno.execPath(), {
+        args: [
+          "eval",
+          "--cached-only",
+          "--config",
+          configPath,
+          'console.log(import.meta.resolve("discern-design-system/runtime"))',
+        ],
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      assertEquals(
+        probe.success,
+        true,
+        new TextDecoder().decode(probe.stderr),
+      );
+      return new TextDecoder().decode(probe.stdout).trim();
+    };
     assertEquals(
-      probe.success,
+      isLocalPackageResolution(await resolveRuntime(), packageRoot),
       true,
-      new TextDecoder().decode(probe.stderr),
     );
-    assertEquals(isLocalPackageResolution(resolution, packageRoot), true);
+    // The checkout bumps its version while the preview keeps its config.
+    const packageConfig = join(packageRoot, "deno.json");
+    await Deno.writeTextFile(
+      packageConfig,
+      (await Deno.readTextFile(packageConfig)).replace("91.2.3", "92.0.0"),
+    );
     assertEquals(
-      (temporaryConfig.imports as Record<string, string>)[
-        "discern-design-system"
-      ],
-      "jsr:@discern-sh/design-system@91.2.3",
+      isLocalPackageResolution(await resolveRuntime(), packageRoot),
+      true,
+      "a version bump in the checkout fell back to the registry",
     );
     assertEquals(consumer, snapshot);
   }, { prefix: "discern-local-package-guard-" });
