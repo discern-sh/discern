@@ -1,6 +1,7 @@
 /** Local design-system development keeps the published consumer pin untouched. */
 
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
+import { z } from "@zod/zod";
 import { fromFileUrl, join, toFileUrl } from "@std/path";
 import {
   assertLocalDesignSystemPackage,
@@ -11,10 +12,14 @@ import {
   watchTaskCommand,
 } from "../scripts/site_local_design_system.ts";
 import { denoRunInvocation } from "../site/dev_invocation.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 import { moduleSpecifiers } from "./design_system_dependency.ts";
 import { withTempDir } from "./helpers.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
+
+/** The task table the Project Script's delegated task is read from. */
+const DenoTasksSchema = z.object({ tasks: z.record(z.string(), z.string()) });
 
 Deno.test("the linked server derives its sandbox from the watch task", () => {
   const args = serverArgs(
@@ -307,8 +312,11 @@ Deno.test("the preview task's sandbox admits the helper's repository lookup and 
   );
   const task = /deno task ([\w:-]+)/.exec(script)?.[1] ?? "";
   assertEquals(task, "site:design-system");
-  const config = JSON.parse(await Deno.readTextFile(join(ROOT, "deno.json")));
-  const invocation = denoRunInvocation(config.tasks[task]);
+  const config = decodeWith(
+    DenoTasksSchema,
+    await Deno.readTextFile(join(ROOT, "deno.json")),
+  );
+  const invocation = denoRunInvocation(config.tasks[task] ?? "");
   assertEquals(invocation?.entry, "scripts/site_local_design_system.ts");
   const flags = invocation?.permissionFlags ?? [];
   await withTempDir(async (dir) => {

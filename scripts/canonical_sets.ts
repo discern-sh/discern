@@ -4264,6 +4264,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/browser_axe_settling_guard_test.ts":
+    "keeps every real-page accessibility audit on the helper that settles transitions first rather than guarding a closed member set",
   "tests/completion_attempt_lease_guard_test.ts":
     "applies renewable ownership to every production completion-attempt reservation call site rather than guarding a project-defined member set",
   "tests/file_lock_guard_test.ts":

@@ -5954,6 +5954,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 
 `UNAFFILIATED_GUARDS` records conventionally named guard tests with no member set.
 
+- `tests/browser_axe_settling_guard_test.ts` — keeps every real-page accessibility audit on the helper that settles transitions first rather than guarding a closed member set
 - `tests/completion_attempt_lease_guard_test.ts` — applies renewable ownership to every production completion-attempt reservation call site rather than guarding a project-defined member set
 - `tests/file_lock_guard_test.ts` — requires every authored production use of native file-lock primitives to share explicit release ownership rather than guarding a project-defined member set
 - `tests/engine_desk_terminal_guard_test.ts` — holds every authored Desk module to the package application adoption boundary rather than guarding a closed member set
