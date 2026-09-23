@@ -149,6 +149,20 @@ Use tables for comparisons, part-by-part breakdowns, sources of permission, and 
 
 Explain each concept fully in one page, and link to that page elsewhere. The landing guide links to Proof's "From green to live" table instead of repeating it. Reference owns exact flags, fields, defaults, and limits.
 
+### Generated pages and sections
+
+Some reference text is generated from the product's own source, so the page and the product can't disagree. Edit the source, run `deno task codegen`, and commit the source and its output together. Never edit generated text by hand: the gate fails when it drifts from its source.
+
+| Page or section          | Edit this source                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Glossary                 | `GLOSSARY` in `scripts/glossary_registry.ts`, which also renders the map's glossary.                                                            |
+| CLI reference            | The command and option descriptions that `buildCli` in `src/main.ts` assembles. The same text is `discern --help`.                              |
+| Config reference         | Key descriptions in `src/shared/config_schema.ts` and section prose in `src/shared/config_prose.ts`. The same text becomes each project's `discern.toml` and `discern config explain`. |
+| Environment variables    | The definitions in `src/shared/environment_variables.ts`.                                                                                        |
+| `BEGIN GENERATED` blocks | Their registries. Write the prose around them and leave the block itself to codegen.                                                             |
+
+CLI help, config prose, and the `discern.toml` template reach every project that installs discern. Keep that text free of this repository's vocabulary and examples.
+
 ### Link without a context cliff
 
 A link adds depth. It must not hold the premise the current page needs. Before linking away, give the reader the key fact, why it matters, and what to do next. Then link, with text that says what the destination adds.
