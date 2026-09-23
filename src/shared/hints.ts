@@ -3493,7 +3493,7 @@ export const HINTS = {
     },
     template: ({ source, standingScopes, warnings }): string => {
       if (source === "effort-grant") {
-        return "The owner approved this committed source at the desk. discern rechecks the exact source and composition procedure before landing; later source edits need another grant.";
+        return "The owner pre-authorized this task's branch at the desk, so its next green `discern done` can land without a further conversation. Landing uses up the grant, and the owner can revoke it from the desk until then.";
       }
       if (standingScopes.length > 0) {
         return `Standing landing authority is recorded for ${
