@@ -1,7 +1,7 @@
 ---
 id: reference-index
 title: "Reference"
-description: "Look up commands, settings, supported tools, files, and result formats."
+description: "Look up the exact details of discern's commands, settings, supported tools, files, and results."
 order: 0
 publish: true
 kind: reference
@@ -15,36 +15,36 @@ aliases:
 
 # Reference
 
-Use these pages when you need a precise answer about a command, setting, file, or result. They keep the details available while the guides focus on getting work done.
+Use these pages when you need an exact answer about a command, a setting, a file, or a result. They hold the complete details, so the guides can stay focused on getting work done.
 
-If you have a goal but don't yet know the relevant command, start with the [guides](../10-guides/README.md).
+If you know what you want to do but not which command does it, start with the [guides](../10-guides/README.md).
 
-- [Glossary](glossary.md): find a plain definition of an unfamiliar term.
+- [Glossary](glossary.md): find a plain definition of a discern term.
 
 ## Commands and settings
 
-| Look up                                                 | Reference                                         |
-| ------------------------------------------------------- | ------------------------------------------------- |
-| A command, flag, exit code, or terminal reader control. | [CLI reference](cli-reference.md)                 |
-| A setting in `discern.toml`, its type, or its default.  | [Config reference](config-reference.md)           |
-| An environment variable that discern reads or exports.  | [Environment variables](environment-variables.md) |
+| Look up                                                                | Reference                                         |
+| ---------------------------------------------------------------------- | ------------------------------------------------- |
+| A command, an option, an exit code, or a key in the terminal reader.   | [CLI reference](cli-reference.md)                 |
+| A setting in `discern.toml`, the values it takes, or its default.      | [Config reference](config-reference.md)           |
+| An environment variable that discern reads or passes to your commands. | [Environment variables](environment-variables.md) |
 
 ## Installation and project files
 
-| Look up                                                                | Reference                                             |
-| ---------------------------------------------------------------------- | ----------------------------------------------------- |
-| Supported platforms, coding tools, and their connection requirements.  | [Platforms and providers](platforms-and-providers.md) |
-| Which file to edit, which files are generated, and what removal keeps. | [Files and ownership](files-and-ownership.md)         |
-| The license for discern and the material it writes into a project.     | [Licenses](licenses.md)                               |
+| Look up                                                                          | Reference                                             |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Supported systems and coding tools, and what each tool needs to connect.         | [Platforms and providers](platforms-and-providers.md) |
+| Which files you can edit, which files discern generates, and what removal keeps. | [Files and ownership](files-and-ownership.md)         |
+| The license for discern, and for the material it writes into your project.       | [Licenses](licenses.md)                               |
 
-## Results and recorded evidence
+## Results and records
 
-| Look up                                                           | Reference                                                       |
-| ----------------------------------------------------------------- | --------------------------------------------------------------- |
-| A task's identity, environment, resources, or status fields.      | [Worktrees and status](worktrees-and-status.md)                 |
-| Proof records, checkpoint declarations, and their exact formats.  | [Proof and checkpoint formats](proof-and-checkpoint-formats.md) |
-| The local activity record and its storage, fields, and retention. | [Logbook](logbook.md)                                           |
-| MCP tools, structured results, schemas, and integrations.         | [MCP and results](mcp-and-results.md)                           |
-| What a release may change, evolving members, and schema pinning.  | [Compatibility](compatibility.md)                               |
+| Look up                                                                                                               | Reference                                                       |
+| --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| A task's identity, workspace settings, resources, or status fields.                                                   | [Worktrees and status](worktrees-and-status.md)                 |
+| The fields and states in Proof records and checkpoint answers.                                                        | [Proof and checkpoint formats](proof-and-checkpoint-formats.md) |
+| discern's local activity record: where it's kept, what each entry holds, and how to archive or reset it.              | [Logbook](logbook.md)                                           |
+| The Model Context Protocol (MCP) tools discern gives your agent, their structured results, and the published schemas. | [MCP and results](mcp-and-results.md)                           |
+| What a new release may change, which parts are still evolving, and how pinned schemas keep working.                   | [Compatibility](compatibility.md)                               |
 
-The [explanations](../20-understand/README.md) help interpret these details. For a result that failed or refused to proceed, [troubleshooting](../40-troubleshooting/README.md) helps you find the next step.
+The [explanations](../20-understand/README.md) help you make sense of these details. When a result failed or refused to go ahead, [Troubleshooting](../40-troubleshooting/README.md) helps you find the next step.
