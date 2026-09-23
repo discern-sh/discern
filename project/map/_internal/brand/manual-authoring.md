@@ -74,7 +74,7 @@ State each limit where it changes what the reader does, in plain words: "A pass 
 
 - Describe the ordinary path first. Add an exception only where leaving it out would change a decision or an action.
 - Say what discern does. Drop hedges such as "can help", "may be able to", and "is designed to" around behavior that is certain.
-- When behavior depends on setup, name the condition: "If your project defines scopes, the gate runs only the checks for the areas the change touches."
+- When behavior depends on setup, name the condition: "If your project defines scopes, the gate also runs the check of each scope the change touches."
 - Give the reason for a rule when it changes what the reader does, usually in one sentence: "The gate only runs on committed work, so the Proof always describes a version that can land."
 - Don't deny capabilities nobody asked about, and don't invent a mistaken belief to correct.
 

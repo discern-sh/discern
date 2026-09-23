@@ -64,15 +64,16 @@ Proof describes one exact state of the work. If that state changes, the work nee
 - the agent makes or amends a commit;
 - the worktree has staged, uncommitted, or untracked files;
 - the agent changes a checkpoint answer or its reasoning;
-- a proposed change to a standard's limit changes.
+- a proposed change to a standard's limit changes;
+- a later gate run on the same commit fails.
 
 Files rewritten by a formatter or code generator count too, so the agent commits them before running the gate.
 
 Say you ask for a friendlier message when no recipes match. The first Proof still stands as a record, but it checked a version you no longer want to land. The agent commits the new message and runs `discern done` again.
 
-Fresh Proof doesn't always mean running everything again. A check that declares its inputs reuses its earlier result when none of them changed. If nothing at all has changed since the last pass, `discern done` returns the existing Proof without running any checks. Use `discern done --rerun` to force a full run.
+Fresh Proof doesn't always mean running everything again. A check that declares its inputs reuses its earlier result when none of them changed. If nothing at all has changed since the last pass and `main` hasn't moved, `discern done` returns the existing Proof without running any checks. Use `discern done --rerun` to force a full run.
 
-A newer `main` doesn't make Proof stale, because discern checks the combination when the change lands.
+A newer `main` doesn't make Proof stale for landing, because discern checks the combination when the change lands.
 
 ## Checks, judgments, and permission
 
@@ -94,7 +95,7 @@ If the agent answers **unmet**, the Proof keeps its reason. You can ask for a fi
 - a **standing grant** in the project's configuration, covering named areas such as documentation;
 - a grant for one task, which you record from the **desk**: the interactive view that opens when you run `discern` in your main checkout. It still covers the task after review fixes, so you only grant it once.
 
-Whatever the source, discern checks it against the files the change touches. Anything a grant doesn't cover comes back to you.
+discern checks a standing grant against the files the change touches, and anything it doesn't cover comes back to you. Your approval in the conversation, or a grant for one task, covers every file in the change.
 
 ### When a feature needs more room than a standard allows
 
@@ -106,7 +107,7 @@ You decide whether the feature is worth it. Landing needs your approval of that 
 
 A finished change passes several milestones on its way to your users:
 
-| Stage                | What it means                                                                                         |
+| Milestone            | What it means                                                                                         |
 | -------------------- | ----------------------------------------------------------------------------------------------------- |
 | **Green**            | The project's checks passed.                                                                          |
 | **Ready for review** | Current Proof exists, and your agent has explained the change and any decisions you need to make.     |
@@ -119,7 +120,7 @@ A finished change passes several milestones on its way to your users:
 
 ## Proof stays with the code
 
-Worktrees are temporary; Proof isn't. By default, when a change lands, discern attaches its Proof to the landed commit as a Git note. Months later, anyone can look up what was checked for that commit, long after the conversation and the workspace are gone.
+Worktrees are temporary; Proof isn't. When a change lands, discern attaches its Proof to the landed commit as a Git note. Months later, anyone can look up what was checked for that commit, long after the conversation and the workspace are gone.
 
 The note lives in your local repository. discern never uploads it. Sharing notes is an ordinary Git choice. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) has the commands to inspect and share them, and [What stays on your machine](local-control.md) explains what else stays on your machine.
 

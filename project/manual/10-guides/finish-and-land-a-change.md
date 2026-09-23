@@ -58,7 +58,7 @@ You don't need to run any of these commands yourself. They're here so you know w
 discern done
 ```
 
-The gate only runs on committed work. If anything is uncommitted, it stops and names the files, so the Proof always describes a version that can land. If your project defines **scopes**, named areas such as `docs/`, the gate runs only the checks for the areas the change touches. When discern isn't sure what a change affects, it runs everything.
+The gate only runs on committed work. If anything is uncommitted, it stops and names the files, so the Proof always describes a version that can land. If your project defines **scopes**, named areas such as `docs/`, a scope can add its own check, which the gate runs only when the change touches that scope. The project's other checks run on every change.
 
 A full run can take a while. If the agent's session loses track of it, the agent reads the result back with `discern progress` instead of starting again. If a check fails, the agent fixes the cause. [Fix a red gate](fix-a-red-gate.md) explains how.
 
@@ -128,7 +128,7 @@ You don't have to approve every change by hand. You can pre-approve the changes 
 | **A standing grant**  | Your project's configuration pre-approves named areas, such as documentation. A change that stays inside them lands without asking.                                                                                                        |
 | **A one-task grant**  | Run `discern` in your main checkout (your original project folder) to open the **desk**. Select the task and choose **Pre-authorize landing once green**. discern asks `Allow <branch> to land once green without a further conversation?` |
 
-At every landing, discern checks the grant against the files the change touches. If even one file falls outside it, the change comes back to you.
+At every landing, discern checks a standing grant against the files the change touches. If even one file falls outside it, the change comes back to you. Your approval in the conversation, or a one-task grant, covers every file in the change.
 
 A one-task grant follows the task's branch, so it still covers the change after review fixes: the next green run lands as soon as the agent submits it. Landing uses up the grant. Until then you can revoke it from the desk, and it disappears if the worktree is removed.
 
