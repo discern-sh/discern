@@ -971,6 +971,20 @@ const presentSetupAccept: ResultMarkdownPresenter = (result) => {
   };
 };
 
+/** A check reports the recorded schema; an applied upgrade reports where it started. */
+function upgradeSchemaFact(schema: Record<string, unknown>): string {
+  const current = number(schema.current) ?? "unknown";
+  const from = number(schema.from);
+  if (from !== undefined) {
+    return from === current
+      ? `Schema: ${current}, unchanged.`
+      : `Schema: upgraded from ${from} to ${current}.`;
+  }
+  return `Schema: recorded ${
+    number(schema.recorded) ?? "none"
+  }; current ${current}.`;
+}
+
 const presentUpgrade: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const schema = object(data.schema);
@@ -978,11 +992,7 @@ const presentUpgrade: ResultMarkdownPresenter = (result) => {
   return {
     state: defaultState(result),
     evidence: unique([
-      schema === undefined
-        ? undefined
-        : `Schema: recorded ${number(schema.recorded) ?? "none"}; current ${
-          number(schema.current) ?? "unknown"
-        }.`,
+      schema === undefined ? undefined : upgradeSchemaFact(schema),
       `Pending migrations: ${records(data.pending_migrations).length}.`,
       `${
         result.dry_run === true

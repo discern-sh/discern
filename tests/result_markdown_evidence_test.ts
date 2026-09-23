@@ -18,6 +18,7 @@ import {
   TRUST_FACT_KINDS,
 } from "../src/shared/provider_trust.ts";
 import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
+import { UpgradeDataSchema } from "../src/shared/result_schemas.ts";
 
 /** Render through the same registered presenter used by CLI and MCP. */
 function markdown(
@@ -464,4 +465,24 @@ Deno.test("skills list marks excluded and overriding skills instead of dropping 
     output,
     "`orbit-excluded`: bundled, excluded by `[skills].exclude`.",
   );
+});
+
+Deno.test("upgrade names its schema version from every field it can report", () => {
+  const snapshot = UpgradeDataSchema.shape.schema.unwrap().shape;
+  const origins = Object.keys(snapshot).filter((key) => key !== "current");
+  assert(origins.length > 0, "the upgrade schema snapshot has an origin field");
+  for (const origin of origins) {
+    for (const [start, current] of [[1, 1], [1, 2]] as const) {
+      const output = markdown("upgrade", {
+        schema: { [origin]: start, current },
+      });
+      const line = output.split("\n").find((row) => row.includes("Schema:"));
+      assert(line !== undefined, `${origin}: no schema line in\n${output}`);
+      assertStringIncludes(line, String(current));
+      assert(
+        !/\bnone\b|\bunknown\b/.test(line),
+        `${origin}: schema line lost a reported version: ${line}`,
+      );
+    }
+  }
 });
