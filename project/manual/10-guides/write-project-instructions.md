@@ -1,7 +1,7 @@
 ---
 id: guide-write-project-instructions
 title: "Write project instructions"
-description: "Record a working rule once, supply it to your configured coding tools, and confirm a fresh session can use it."
+description: "Tell your agent a rule once, and every later session starts with it, in every coding tool your project uses."
 order: 80
 publish: true
 kind: guide
@@ -20,70 +20,61 @@ aliases:
 
 # Write project instructions
 
-A useful correction should last longer than the conversation where you made it. Project instructions let you record a working rule once and supply it to every configured coding tool, so you can build on the lesson in later sessions.
+Tell your agent a rule once, and every later session starts with it, in every coding tool your project uses. You stop repeating the same correction, and a new agent follows the rule without ever seeing the conversation where you made it.
 
-Use this guide for a rule agents should know whenever they work on the project. For a longer method used only on certain tasks, [a skill](create-and-manage-skills.md) is a better home.
+Use this guide for a rule that every session should know. For a longer method that only some tasks need, [create a skill](create-and-manage-skills.md) instead.
 
-## Starting state
+## Ask your agent to record the rule
 
-The project has completed discern setup. You have a rule you want future work to follow, and your agent will make the instruction change in the current effort's worktree or start one if this is a new task.
+Say you find an error message in your app that leaves people stuck. You fix it, and you want every future change to get this right. Tell your agent:
 
-For example, after reviewing an unhelpful message in your app, you might say:
+> Remember this for every future session, in every coding tool we use: when an action fails, say what happened and give the person a useful next step. Add it to our project instructions.
 
-> Remember this for future sessions, including when I switch coding tools: when an action fails, explain what happened and give the person a useful next step. Add it to our shared project instructions.
+That request is all you need to give. If you're not sure of the wording yet, ask the agent to propose it first.
 
-That request authorizes recording the rule. You can also ask your agent to propose wording first if you are still deciding what the rule should be.
+## What your agent does
 
-## 1. Find the authored source
+You don't need to run any of these commands yourself. They're here so you know what's happening.
 
-Your agent checks `discern.toml` to find the project instruction source. The default is `discern/instructions.md`; `[instructions].sources` can name other files or groups of files.
+**It works in its own worktree.** A worktree is a separate copy of the project on its own branch. The agent keeps using the task's worktree if it already has one.
 
-Ask the agent to update an existing rule if one already covers the subject. Keeping one version avoids giving future sessions slightly different instructions in different places.
+**It edits the source.** Your project's rules live in one source file, `discern/instructions.md` by default. Each coding tool reads its own file, such as `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`. discern builds those files from the source, so an edit made only to one of them is lost at the next refresh. If a rule on the same subject already exists, the agent updates it. A second copy would give later sessions a different answer.
 
-Files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are generated entry points for coding tools. Your agent edits the source and lets discern update those files. A change made only to a generated copy would be overwritten at the next refresh.
+**It refreshes the tool files.** `discern refresh --dry-run` shows what refresh would write, and `discern refresh` writes it. `discern prepare`, the agent's quick check while it works, refreshes too. Refresh also keeps skills and each tool's connection settings current, so the agent tells you about anything in the preview you didn't expect. If refresh can't finish, its result names what failed and how to fix it.
 
-## 2. Write the rule for a fresh reader
+**It commits and runs the gate.** The **gate** is the full set of checks your project requires. It fails if a generated instruction file doesn't match its source, so no tool is left reading an old copy. A pass produces **Proof**, discern's record of which checks passed on exactly which commit.
 
-A good instruction states when it applies and what the agent should do. It should still make sense to a session that has never seen your conversation.
+**It brings the change to you.** Instruction changes wait for your review unless you've pre-approved them. That keeps you in charge of what every future session is told. [Finish and land a change](finish-and-land-a-change.md) covers review and landing.
 
-For the message example, the source might contain:
+## Check the wording
 
-> When a user action fails, explain what happened and offer a useful next step. Keep the wording accurate to the recovery the app supports.
+A good rule says when it applies and what to do. It makes sense to a session that never saw your conversation. For the error-message example, the agent might write:
 
-The second sentence matters: a cheerful suggestion that the app cannot fulfill would make the experience worse.
+> When a user action fails, explain what happened and offer a useful next step. Only suggest a step the app supports.
 
-Read the proposed rule for its effect on future work. Does it apply broadly enough to belong in every session? Does it preserve the distinction you care about? Wording such as “make errors better” leaves the next agent to guess what you meant.
+The second sentence matters. A cheerful suggestion the app can't carry out leaves people worse off than before.
 
-Keep longer explanations in the project guide and link to them when needed. Instructions stay useful when a session can find the important rules quickly. [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) explains the placement choices.
+Read the rule the way the next agent will. Does it belong in every session, or only in some tasks? Does it keep the distinction you care about? "Make errors better" leaves the next agent to guess what you meant.
 
-## 3. Preview and refresh the agent files
+Keep each rule short. Every session reads every instruction, so a long one costs every task. Put the fuller reasons in the project map, the guide your agents keep to how the project works, and link to them from the rule. [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) explains which home fits which kind of lesson.
 
-Your agent previews the change with discern's refresh tool in dry-run mode, or `discern refresh --dry-run`. The preview lists the files discern plans to update.
+## Check that a new session follows it
 
-Refresh covers more than the instruction text: it can also update generated skills, provider integration files, and other managed artifacts. The agent should inspect the plan and explain any change that needs your attention before applying it.
-
-The agent then applies refresh. A successful result can say nothing changed if the files were already current. A partial result means some work remains, even if several files were written. The result names the affected part and the supported recovery, so the agent can repair it and retry.
-
-## 4. Review and verify the change
-
-Ask to see the source rule and the wording a configured coding tool will receive. Some providers use the full generated file and others a pointer to it; they should all lead back to the same authored rule.
-
-Your agent runs the preparation checks, reviews any generated changes, and commits the source together with the tracked outputs. It then runs the full gate on that saved version and returns Proof with its report. [Finish and land a change](finish-and-land-a-change.md) covers the landing step.
-
-The gate checks that generated instruction files agree with their sources. That establishes the files are current; it does not establish that an already-running session has reloaded them.
-
-## 5. Confirm future sessions receive it
-
-After landing, open a fresh session in a configured coding tool and ask:
+Once the change lands, open a new session in any of your coding tools and ask:
 
 > What do our project instructions say about messages shown when an action fails?
 
-The agent should find the recorded rule through its project instructions. You should not need to paste the rule into that session yourself.
+The answer should quote your rule, and you shouldn't need to paste it in. A session reads its instructions when it starts, so a session that was already open still has the old version.
 
-If the source and generated files are current but the session cannot find the rule, ask the agent to check the tool's activation and loading steps. [Connect a coding agent](connect-a-coding-agent.md) explains that recovery. Refreshing files and loading them into a session are separate steps.
+If a new session can't find the rule, ask your agent to check how that tool loads its files. [Connect a coding agent](connect-a-coding-agent.md) covers the recovery.
 
-## Completion
+## When it's done
 
-You have one source for the rule, current generated files, a passing gate for the committed change, and a fresh session that can find the instruction. The lesson is now available to future work, rather than depending on your memory of this conversation.
+- One source holds the rule.
+- The gate passed on the committed change, so every tool's file matches that source.
+- The change has landed with your permission.
+- A new session finds the rule without your help.
 
-[Configuration reference](../30-reference/config-reference.md) holds the source syntax and ordering rules; [Files and ownership](../30-reference/files-and-ownership.md) identifies the generated paths.
+From now on, every session in every configured tool starts with that rule. If you switch coding tools later, the rule comes with the project.
+
+The [configuration reference](../30-reference/config-reference.md#instructions) lists the source settings, and [Files and ownership](../30-reference/files-and-ownership.md) shows which files discern generates.
