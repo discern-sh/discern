@@ -1,7 +1,7 @@
 ---
 id: explanation-instructions-skills-and-map
 title: "Instructions, skills, and the map"
-description: "See how a correction, a useful method, and a project decision become knowledge future coding-agent sessions can use."
+description: "Teach your agents something once, and every later session starts out knowing it, whichever coding agent you use."
 order: 70
 publish: true
 kind: explanation
@@ -16,86 +16,81 @@ aliases:
 
 # Instructions, skills, and the map
 
-You correct an agent's approach on Tuesday, and Thursday's session makes the same choice again. The lesson is still in a conversation, but the new session has no reason to find it.
+When you teach your agent something, discern keeps the lesson in your project, so every later session starts out knowing it. You don't have to explain it again next week, or to a different agent.
 
-discern gives useful project knowledge a lasting home. **Instructions** carry working rules, **skills** carry methods for particular tasks, and the **map** explains the project. Your agents write and maintain these ordinary files alongside the code, so what one task teaches can help the next.
+Your project keeps what it learns in ordinary files beside the code. **Instructions** hold the rules every session needs. **Skills** hold methods for particular jobs. The **map** explains how the project works. Your agents write and maintain these files, so each task leaves the next one better informed.
 
-## Follow a lesson into the next session
+## Follow one lesson into the next session
 
-Imagine an app where people save things they want to read. You try it on a train and find that opening a saved list requires an internet connection. You explain that people should be able to read their lists offline.
+Say you're building an app where people save articles to read later. You try it on a train and find that saved lists won't open without an internet connection. Your agent fixes that and adds checks. Then you ask:
 
-Your agent fixes the behavior and adds appropriate checks. You also ask:
+> Record that saved lists must open without an internet connection, and explain why in the map. Future agents need to know this when they change the app.
 
-> Record that saved lists should remain readable without an internet connection, and explain why in the project guide. Future agents need to understand this when changing the app.
+The next session finds both the rule and the reason. It doesn't need the story of your train ride. The checks catch a change that breaks offline reading. The rule tells every later agent why it matters, before it writes any code.
 
-The next session can now discover both the rule and its reason. It does not need your account of the train journey. The project carries the useful knowledge, while the checks cover the behavior they can verify.
+Without this, the lesson stays in one conversation. A new session has no way to find it, and may make the same mistake again.
 
-Different parts of that knowledge do different jobs. Keeping those jobs clear helps the next agent find the rules and decisions relevant to its task.
+## Instructions: what every session needs
 
-## Instructions: what every session must know
+A rule such as "saved lists must open offline" belongs in the project instructions. By default, their source is `discern/instructions.md`.
 
-A standing rule such as “keep saved lists readable offline” belongs in the shared project instructions. The default source is `discern/instructions.md`.
+Your agent edits that source and runs `discern refresh`. discern combines your rules with its own built-in instructions and writes the file each coding agent reads, such as `AGENTS.md` or `CLAUDE.md`. You write the rules once, and every agent your project uses gets them. If you switch agents, the rules come with you.
 
-Your agent edits that source and runs `discern refresh`. discern combines the project rules with its built-in operating instructions and supplies the result through each configured coding tool's instruction files. Some tools read the full file and others follow a pointer. The source stays the same.
+The **gate**, your project's full set of checks, confirms that those files still match their source. If they don't, the agent runs `discern refresh` again. A session that's already running may still have the old version loaded, so start a new one to be sure it reads the change.
 
-The gate checks that generated files agree with their sources. A mismatch means the agent needs to refresh those copies. A running session may still have loaded an older version, so a fresh session confirms that the updated instructions are being read.
+Every session reads the instructions in full, so keep each rule short. Put the longer reasoning in the map, and link to it from the rule.
 
-Instructions are present throughout a session. Keep the standing rule short and put the fuller explanation in the project guide, where the instruction can link to it. This gives each task the important starting conditions without making every task read all the background.
+## Skills: methods your agent loads when needed
 
-## Skills: procedures that load at need
+Say you've found a good way to review a new screen. Try it with no saved articles, with several, while it loads, and when something fails. In each case, check that people can tell what happened and what to do next.
 
-Suppose you have developed a useful way to review a new screen: try it with no saved items, with several items, while loading, and when something fails. For each state, check whether someone knows what happened and what to do next.
+A **skill** holds a method like that. Its short description tells the agent when the skill applies, and the agent reads the full steps only when it does. So a session carries only that short description until the job needs the rest.
 
-That is a recurring method with judgment involved. A **skill** can carry it for later screen reviews. Its short description tells the agent when it applies; the full procedure is read when needed.
+discern ships skills for jobs such as fixing a bug so it stays fixed, splitting big work into tasks, and recording a lesson. Your project can add its own. A skill you write with the same name as a bundled one replaces it. [Create and manage skills](../10-guides/create-and-manage-skills.md) shows how.
 
-discern bundles skills for tasks such as curing a recurring bug, dividing substantial work, and recording a lesson. Your project can add its own. Refresh supplies the selected set to each configured coding tool, and an authored skill with a bundled skill's name overrides that bundled method. [Create and manage skills](../10-guides/create-and-manage-skills.md) shows useful requests and customization.
+Write a skill so it stands on its own. Say what the method needs, which choices to make, what to hand back, and when to stop and ask. "Review it like last time" sends the next session looking for a conversation it can't see.
 
-### Make an operational procedure self-contained
+## The map: how your project works
 
-A future agent needs to know what the method expects, which choices to make, what to return, and when to stop for missing information. A screen-review skill might ask for the intended audience and a way to open each state, then require the agent to show the resulting messages and identify unresolved questions.
+The **map** is your project's own guide, which your agents write and keep current. For saved lists, it might explain where lists are stored, which parts of the app use them, and why offline reading matters. It links to the code and tests behind each point. It sums up how the code works where that helps, and it doesn't copy out every file or function.
 
-Writing “review it the way we did last time” would send the next session back to the missing conversation. A self-contained method lets you give a shorter task request without losing the useful detail.
+You can read it too. It shows you what your agents understand about the project. Ask:
 
-## The map: what the agents understand
+> Show me the map's account of saved lists. Does it still match how the app works after this change?
 
-The **map** is the maintained project guide. For the saved-lists feature, it can explain where lists are stored, which parts of the app use them, and why offline reading matters. It can explain how the code works when that helps a reader understand a contract or relationship, with links to the supporting code and tests. It avoids repeating an inventory of every file or method.
+That lets you correct a misunderstanding before it turns into code.
 
-You can read it too. Ask:
+The gate checks the map's mechanics, such as links, headings, and command examples. When code changes, a built-in [checkpoint](checkpoints.md), a review question discern puts to your agent, suggests which map pages to review. None of that proves a page is true. Your agent still reads the code and judges each explanation. [Maintain the project map](../10-guides/maintain-project-map.md) shows how to review a page and where new material belongs.
 
-> Show me the map's account of saved lists. Does it still describe how the app works after this change?
+## Keep the reason behind a big decision
 
-That gives you something to correct before a misunderstanding appears in another implementation. Agents are expected to keep the map current as they change the project. [Maintain the project map](../10-guides/maintain-project-map.md) shows how to review an explanation and where new material belongs.
+Some choices need more than a rule. Say you decide people can keep a reading list without making an account, even though that limits syncing between devices. The options you turned down, and the cost you accepted, matter to future work.
 
-The checks cover its mechanics: links, heading references, command examples, and optional page details such as titles and search names. File-linked freshness information can also identify pages whose sources changed. Those checks help locate work to review; a page can pass them and still contain an incorrect explanation. Reading the code and judging the explanation remain part of the agent's work.
+An **Architecture Decision Record**, or **ADR**, keeps that account: what you decided, why, and what follows from it. The map and the instructions can link to it. A later agent can then understand the choice before it proposes undoing it.
 
-## Keep the reason for a significant decision
+The bundled `discern-write-adr` skill helps your agent write one for a choice that's hard to reverse, surprising without context, and a real trade-off. Everyday detail belongs in the map, and tests protect behavior. An ADR records a decision you made. It can't let an agent skip a requirement you've agreed to.
 
-Some choices need more than a standing rule. Suppose you decide people should be able to keep a list without creating an account, accepting limits on sharing it between devices. The alternatives and tradeoff matter to future work.
+## Pick the right home
 
-An **Architecture Decision Record**, or **ADR**, preserves that account: what you decided, why, and what follows from it. The map and relevant instructions can link to the record. A later agent can understand the choice before proposing to reverse it.
+You don't need to know where each thing goes. Ask your agent to "capture this lesson", and the bundled `discern-teach-the-project` skill picks the smallest home that does the job. It checks for an existing one first and updates it instead of adding another.
 
-The bundled `discern-write-adr` skill helps record significant architectural choices that are hard to reverse, surprising without context, and involve a real trade-off. Each condition matters: the record explains a lasting structural commitment and the cost the project accepts. Routine implementation context belongs in the current map, and tests or guards protect required behavior. You approve exceptions to agreed requirements before an ADR records them.
+| What you want to keep                                          | Where it goes                                          |
+| -------------------------------------------------------------- | ------------------------------------------------------ |
+| A rule: saved lists open offline.                              | The project instructions, linked to the fuller reason. |
+| A method: review a new screen in each of its states.           | A skill.                                               |
+| A question to ask when a change happens: is offline use clear? | A [checkpoint](checkpoints.md).                        |
+| A fixed series of steps: load sample articles for a preview.   | A project script the agent can run.                    |
+| How it works: where saved lists live and what uses them.       | The map, linked to the code.                           |
+| A big decision: why accounts are optional.                     | An ADR.                                                |
 
-## Choose the home that does the job
+A gain you can measure, such as a smaller download, belongs in a [standard](standards.md). Ask for that one directly.
 
-You can ask “capture this lesson” without knowing the file structure. The `discern-teach-the-project` skill helps your agent choose the smallest useful home:
-
-| What you want to preserve                                                | Where it belongs                                                       |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| A standing rule: saved lists remain readable offline                     | Project instructions, with a link to fuller context when needed.       |
-| A method: review a screen in its meaningful states                       | A skill the agent can use for that kind of task.                       |
-| Context: how saved lists fit into the app                                | The map, linked to the relevant code.                                  |
-| A significant choice: why accounts are optional                          | An ADR that records the reasoning and tradeoff.                        |
-| A measured improvement: less data to download when opening the app       | A [standard](standards.md) that holds a chosen limit.                  |
-| A judgment: whether a changed screen makes the offline limitations clear | A [checkpoint](checkpoints.md) asked when the relevant change happens. |
-| A fixed, repeatable action: prepare a local preview with sample items    | A project script the agent can run.                                    |
-
-These homes can link to one another without repeating the same explanation. If a rule or method already exists, revise it there. The aim is for the next reader to find one current answer.
+Your agent also offers to capture a lesson at a natural pause, such as after you correct it or make a decision no file records. You decide what the project keeps.
 
 ## Whose writing is which
 
-Your project's existing README and documentation remain project-authored material. discern's map lives at the location configured for it; setup does not adopt an unrelated documentation folder.
+Your project's README and its own docs stay yours. The map lives where your project's configuration puts it, `discern/map/` by default.
 
-This manual explains discern itself and is available offline through `discern docs`. Your project's map explains your project. [discern's own published map](https://discern.sh/map) is an example of the latter: the account its agents maintain while developing discern.
+This manual explains discern itself, and your agent can read it offline with `discern docs`. Your map explains your project. [discern's own map](https://discern.sh/map) is an example: the account its agents keep while they build discern.
 
-What persists is what you and your agents record. Private conversation history does not become shared project knowledge on its own. [Write project instructions](../10-guides/write-project-instructions.md) and [Create and manage skills](../10-guides/create-and-manage-skills.md) show how to turn the next useful lesson into something another session can use.
+What lasts is what you and your agents write down. A conversation doesn't turn into project knowledge on its own. [Write project instructions](../10-guides/write-project-instructions.md) and [Create and manage skills](../10-guides/create-and-manage-skills.md) show how to turn your next lesson into something every session can use.
