@@ -18,6 +18,7 @@ import {
   CHECKPOINT_OBLIGATION_STATES,
 } from "../src/shared/checkpoints.ts";
 import { LOGBOOK_LIFECYCLE_ACTION_NAMES } from "../src/shared/logbook_lifecycle.ts";
+import { LOGBOOK_POWERED } from "../src/shared/logbook_powered.ts";
 import {
   AWAIT_CALL_SECONDS,
   NATIVE_MCP_TIMEOUT_POLICY,
@@ -300,6 +301,16 @@ Deno.test("Logbook event, outcome, surface, and lifecycle sets are complete", ()
       ...LOGBOOK_LIFECYCLE_ACTION_NAMES,
     ]),
     [],
+  );
+});
+
+Deno.test("the manual Logbook page names every logbook-powered capability", () => {
+  assertEquals(
+    LOGBOOK_POWERED.filter((member) =>
+      !logbookReference.includes(member.phrase)
+    ).map((member) => member.key),
+    [],
+    "logbook.md: the What it powers list carries each registry phrase verbatim",
   );
 });
 

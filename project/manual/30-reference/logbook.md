@@ -1,7 +1,7 @@
 ---
 id: reference-logbook
 title: "Logbook"
-description: "Find what discern records locally, how to read its activity statistics, and how to archive or reset that history."
+description: "Look up what discern's local logbook records, what reads it, how to read its reports and stats, and how to archive or reset its history."
 order: 115
 publish: true
 kind: reference
@@ -24,67 +24,69 @@ aliases:
 
 # Logbook
 
-The logbook records local activity so you can inspect recurring failures, check durations, and changes in the way work gets finished. This reference defines its fields, reports, and storage controls.
+The **logbook** is discern's local record of how work goes in your project: which commands ran, how long they took, and how they ended. It never records your code, prompts, command output, or file contents, and it never leaves your machine. This page defines what the logbook records, what reads it, how to read its reports and stats, and how to archive or reset it.
+
+Recording needs to be on to collect new evidence. History you already have stays readable after recording stops. To put the findings to use, read [Learn from your project's history](../20-understand/evidence-and-improvement.md).
 
 | Find                                  | Go to                                                         |
 | ------------------------------------- | ------------------------------------------------------------- |
-| Read a report or stop recording       | [The logbook](#the-logbook)                                   |
+| Read a report, or stop recording      | [What the logbook records](#what-the-logbook-records)         |
 | Understand a statistic or denominator | [Practice stats](#practice-stats)                             |
 | Interpret a raw JSON line             | [What a line contains](#what-a-line-contains)                 |
 | Check what stays on this machine      | [Local storage only](#local-storage-only)                     |
 | Archive or remove active history      | [Logbook lifecycle](#logbook-lifecycle)                       |
 | Read a sealed archive                 | [Find and read sealed history](#find-and-read-sealed-history) |
 
-Recording must be enabled to collect new evidence. Existing active or sealed history remains readable after recording stops. For help using findings, read [Learn from your project's history](../20-understand/evidence-and-improvement.md).
+## What the logbook records
 
-## The logbook
+With recording on and `discern.toml` readable, every CLI command and MCP call that resolves to the project records local metadata. A command that can change something records a start event and a completion event, joined by one invocation id. Every worktree writes to the same plain-text files, in the repository's common Git directory.
 
-With recording enabled and `discern.toml` readable, CLI verbs and MCP calls resolved to that project record local metadata. Effectful verbs add paired start and completion events with one invocation id. All worktrees share plain-text files in the repository's common Git administrative directory. The logbook excludes code, prompts, command output, and file contents.
+An MCP call whose explicit `path` is outside every discern project returns `no_project` and records nothing, because no project logbook or consent setting applies there. `discern_docs` is the exception: it answers from the bundled manual instead, and still records nothing.
 
-An MCP call whose explicit `path` falls outside every discern project returns `no_project` and records nothing. No project logbook or readable consent setting applies to that path.
-
-- **Read active history:** `discern patterns` reports findings. For raw JSON lines, locate the common Git directory with `git rev-parse --path-format=absolute --git-common-dir` and read its `discern/logbook/` month files. In the main checkout, the usual path is `.git/discern/logbook/`; a linked worktree's `.git` is a file pointing elsewhere.
-- **List and read sealed history:** `discern patterns archives`, then `discern patterns --logbook-file <filename>`. Add `--stats`, `--all`, or `--json` as needed.
-- **Seal active history:** `discern patterns seal` archives the current event lines for later reports and starts fresh active history. Preview the scope with `--dry-run`; application requires terminal confirmation.
-- **Delete active history:** `discern patterns reset` permanently removes active history while preserving sealed archives. Preview with `--dry-run`; application requires terminal confirmation.
-- **Turn it off:** set `record_logbook = false` under `[project]` in `discern.toml`. Recording stops. Existing active files remain until you archive or reset them.
+- **Read active history:** `discern patterns` reports findings. For raw JSON lines, find the common Git directory with `git rev-parse --path-format=absolute --git-common-dir`, and read the month files in its `discern/logbook/` directory. In the main checkout that's usually `.git/discern/logbook/`; a linked worktree's `.git` is a file that points elsewhere.
+- **List and read sealed history:** run `discern patterns archives`, then `discern patterns --logbook-file <filename>`. Add `--stats`, `--all`, or `--json` as needed.
+- **Seal active history:** `discern patterns seal` archives the current event lines for later reports, and starts a fresh active history. Preview it with `--dry-run`. Applying it needs your confirmation in a terminal.
+- **Delete active history:** `discern patterns reset` permanently removes active history, and keeps sealed archives. Preview it with `--dry-run`. Applying it needs your confirmation in a terminal.
+- **Turn it off:** set `record_logbook = false` under `[project]` in `discern.toml`. Recording stops, and the existing active files stay until you seal or reset them.
 
 ### What it powers
 
-Setting `[project].record_logbook = false` stops new evidence for every feature below. `discern patterns` can still read existing history.
+Setting `[project].record_logbook = false` stops new evidence for each of these. `discern patterns` can still read the history you have.
 
-- the practice report (`discern patterns`): behavior, gate-fit, funnel, and trajectory findings over accumulated runs
+- the practice and completion-cost report (`discern patterns`): behavior, gate-fit, funnel, and trajectory findings over accumulated runs, including contention between queued test runs, and `tip-adoption` counts, which show whether each shown tip's suggested command ran before the tip appeared again
 - each worktree's last action and work in flight: the fleet survey's `last_action` and `running` columns
-- fleet activity times that include verb runs, so a long test run does not appear dormant
+- fleet activity times that include verb runs, so a long test run doesn't look dormant
 - configuration-change attribution and each standard's limit history: the `config-change` and `pin` events
-- `tip-adoption` counts: whether each shown tip's invited verb ran before that tip appeared again
-- advisory findings during work and merge-conflict recovery
-- wait estimates when concurrent test runs queue, and contention readings
-- the in-flight check on the contained-worktree offer; an installation with recording off uses a one-hour inactivity period
-- recurring `discern update` and `discern accept` merge-conflict detection and mitigation
+- advisory findings during work and merge-conflict recovery: `status` hints, the tail of a `discern done` result, `improvement` history, and help with recurring conflicts in `discern update` and `discern accept`
+- wait estimates when concurrent test runs queue
+- the in-flight check on the contained-worktree offer; with recording off, discern uses a one-hour inactivity period instead
 - observed checkpoint economics (`discern checkpoints`)
 - Logbook storage checks in `discern doctor`
 
-Pattern findings classify `family` as `trajectory`, `gate-fit`, `behavior`, or `funnel`.
+With recording off, the inline findings, the fleet's action columns, and the in-flight check stop reading the logbook. `discern checkpoints` still reads the history you have.
+
+Each pattern finding has a `family`: `trajectory`, `gate-fit`, `behavior`, or `funnel`.
 
 ### Where findings appear
 
-You can read the complete report on demand. Working commands also surface selected findings when they are relevant:
+You can read the full report whenever you like. Working commands also show selected findings when they're relevant:
 
-| Reader                | Findings it carries                                                                                                                                                        |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern done`        | The canonical summary for 1 inline branch finding after a qualifying green Proof, held to a higher threshold; `discern patterns` carries its full evidence.                |
-| `discern status`      | The canonical summary and next step for inline session findings after setup finishes.                                                                                      |
-| `discern improvement` | Complete inline project findings in the advisory `data.history.findings` group.                                                                                            |
-| `discern patterns`    | Every finding: plain summary followed by concrete observed evidence, up to 3 attention pointers, family blocks, standard sparklines, and insufficient-evidence accounting. |
+| Reader                | Findings it carries                                                                                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern done`        | The summary of 1 finding about the branch, after a qualifying green Proof, held to a higher threshold. `discern patterns` has its full evidence.                                                                          |
+| `discern status`      | The summaries and next steps of up to 3 findings about the current branch, once setup has finished.                                                                                                                       |
+| `discern improvement` | Complete project findings, in the advisory `data.history.findings` group.                                                                                                                                                 |
+| `discern patterns`    | Each detector's strongest 3 findings, or every finding with `--all`: a plain summary, then the observed evidence, up to 3 attention pointers, family blocks, standard sparklines, and an account of what lacked evidence. |
 
-The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory. Findings change no command outcome, exit code, failed gate stage, score, Proof identity, or acceptance decision.
+The working commands inspect at most the newest 200 events. `discern patterns` reads every retained event. `discern improvement` also reads every active event, to find checkpoints that often land with a variance. When `discern patterns` shows fewer findings than it found, `findings_total` in its result gives the full count.
 
-A finding's `summary` states the condition in plain language. Its `observed` field supplies the count, denominator, named subject, conditions, and material limitations. Shorter reports retain the same summary; open `discern patterns` when you need the underlying evidence.
+Every route is advisory. Findings change no command outcome, exit code, failed gate stage, score, Proof identity, or acceptance decision.
+
+A finding's `summary` states the condition in plain words. Its `observed` field gives the count, the denominator, the named subject, the conditions, and material limitations. Shorter reports keep the same summary. Open `discern patterns` when you need the evidence behind it.
 
 ## Practice stats
 
-`discern patterns --stats` summarizes recorded activity as counts and durations. Each rate includes its denominator so you can see how much evidence supports it.
+`discern patterns --stats` summarizes recorded activity as counts and durations. Each rate comes with its denominator, so you can see how much evidence supports it.
 
 ```sh
 discern patterns --stats
@@ -92,50 +94,64 @@ discern patterns --stats
 
 ### What the card counts
 
-| Section              | Counts                                                                                                                                                                                                                            |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Accepted             | Changes accepted and the branches they came from; lines added and removed with their ratio; the changes that removed more than they added; the biggest change; the best day; the longest streak.                                  |
-| The gate             | `done` runs and greens, the red runs the gate stopped, the longest and current green streaks, first-try greens per branch, and hours of checks run across `done`, `prepare`, and `test`.                                          |
-| Validation workflows | Clean, dirty, and unknown `prepare`, `test`, and `done` entry states; success, failure, and retry counts by route; test-first changes that later reached a clean committed gate; evidence coverage and current dirty-state shape. |
-| Pace                 | Starts that ended in an accepted change, measured start-to-accept cycles with the median and fastest times and how many finished inside a day, and the acceptance cadence across the span.                                        |
-| Standards            | Limits tightened and how many standards they cover, the average measured trend, and the most improved standard.                                                                                                                   |
-| Checkpoints          | Per-checkpoint economics: efforts fired, servings, declarations with unchanged-subject and unmet splits, variances across landed efforts, abandoned open questions, median time to declare. Most-served rows; remainder counted.  |
-| Agents               | Attributed agent identities with their runs, usage series, and green-`done` shares.                                                                                                                                               |
-| Breadth              | Branches driven, active days out of the span, the day the most branches were active, and the most changes in flight at one instant.                                                                                               |
+| Section              | Counts                                                                                                                                                                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Accepted             | Changes accepted, and the branches they came from; lines added and removed, with their ratio; the changes that removed more than they added; the biggest change; the best day; the longest streak of consecutive UTC days with an accepted change.                           |
+| The gate             | `done` runs and greens; `done` runs that didn't end green, a count that mixes validation, coordination, and recovery outcomes; the longest and current green streaks; first-try greens per branch; and the summed duration of commands run by `done`, `prepare`, and `test`. |
+| Validation workflows | Clean, dirty, and unknown `prepare`, `test`, and `done` entry states; success, failure, and retry counts by route; test-first changes that later reached a clean committed gate; evidence coverage and the current shape of dirty state.                                     |
+| Pace                 | Starts that ended in an accepted change; measured start-to-accept cycles, with the median and fastest times and how many finished inside a day; and the acceptance cadence across the span.                                                                                  |
+| Standards            | Limits tightened, and how many standards they cover; the average measured trend; the most improved standard.                                                                                                                                                                 |
+| Checkpoints          | Each checkpoint's economics: efforts it fired on, servings, declarations with unchanged-subject and unmet splits, variances across landed efforts, abandoned open questions, and the median time to declare. The most-served rows appear, and the rest are counted.          |
+| Agents               | Up to 10 attributed agent identities, with their runs, usage series, and green-`done` shares.                                                                                                                                                                                |
+| Breadth              | Branches driven, active days out of the span, the day the most branches were active, and the most changes in flight at one moment.                                                                                                                                           |
 
-An accepted change is a successful `accept`, and its scale reads from the recorded change counts. Streaks count consecutive `done` runs in stream order. A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](../20-understand/evidence-and-improvement.md#what-the-detectors-watch) matches them. A cycle therefore needs both ends on record: an accept whose start predates the logbook counts as accepted without adding a cycle.
+An accepted change is a successful `accept`, and its size comes from the recorded change counts. The gate's streaks count consecutive `done` runs in stream order. The summed command duration includes waits for a test slot and runs that overlapped, so it's neither elapsed time nor compute time.
 
-For the overlap reading, a branch is in flight from its first analyzed event to its last. A pause inside that window stays in flight. A branch stops counting after its last event, and the trunk is not a change. The standards trend normalizes each standard to its own first reading, direction-adjusted so improvement is always positive. That shared scale lets a coverage floor and a byte-size ceiling average into one line, and lets "most improved" compare like-for-like. The Agents section uses the same cohort boundary as the detectors: the card counts identities below the reporting minimums without listing them, and always states the unattributed share.
+A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](../20-understand/evidence-and-improvement.md#what-the-detectors-watch) matches them. So a cycle needs both ends on record: an accept whose start predates the logbook counts as accepted, but adds no cycle.
+
+For the overlap reading, a branch is in flight from its first analyzed event to its last. A pause inside that window still counts as in flight. A branch stops counting after its last event, and the trunk isn't a change.
+
+The standards trend scales each standard against its own first reading, and flips direction where needed so that improvement is always positive. That shared scale lets a coverage floor and a byte-size ceiling average into one line, and lets "most improved" compare like with like.
+
+The Agents section uses the same cohort boundary as the detectors. It counts identities below the reporting minimums without listing them, and always states the unattributed share. It leaves automation runs out of both.
 
 ### Validation workflow cycles
 
-A validation workflow run is an analyzed `prepare`, `test`, or `done`; recorded `clean` is its entry state. Complete, incomplete, and unattributed evidence share one run denominator. Current `test` and `done` writers always attach validation evidence. Older readable lines without it remain unattributed and cannot support a validation finding. At the standalone-test boundary, complete dirty validation counts tracked-only, untracked-only, mixed, or unclassified state without filenames. Full-Gate evidence follows mutating pre-groups, so a dirty entry remains unclassified instead of mixing moments.
+A validation workflow run is an analyzed `prepare`, `test`, or `done`, and its recorded `clean` value is its entry state. Complete, incomplete, and unattributed evidence share one run denominator. A `done` or standalone `test` that reaches validation attaches validation evidence. A `done` that refuses earlier, for example on a dirty tree or an unanswered checkpoint, records none, and `prepare` never does. A run without evidence, like an older line, stays unattributed, and can't support a validation finding. A failure counts only when its verdict was recorded.
 
-A validation workflow cycle links recorded events on one branch under one config epoch ([ADR 0275](https://discern.sh/docs/decisions/0275-validation-workflows-use-stream-bounded-change-cycles)). A successful `start` for a reused branch, a successful `accept`, or an epoch change closes it. After a clean green gate, a later dirty entry or different recorded HEAD begins another cycle. A run without an epoch stands alone.
+At the standalone test boundary, complete dirty-state evidence counts tracked-only, untracked-only, mixed, or unclassified dirt, without file names. The full gate's evidence is captured after the steps that can change files, so a dirty entry there stays unclassified rather than mixing two moments.
 
-A commit does not automatically end a cycle. Dirty pre-commit validation at one HEAD and the later clean `done` at its new committed HEAD stay in the same cycle. The test-first route begins dirty, the commit-first route begins clean, and an unknown first entry remains unattributed. The narrower pre-commit-to-clean-Gate count requires a dirty run, a later distinct recorded HEAD, and a clean green `done` on that later HEAD. Cycle construction uses the recorded stream only, so archived reports have the same result without consulting the current Git graph.
+A validation workflow cycle links recorded events on one branch under one config epoch ([ADR 0275](https://discern.sh/docs/decisions/0275-validation-workflows-use-stream-bounded-change-cycles)).
 
-Each route reports cycles, branches, runs, successful and failed runs, cycles that reached a clean gate, cycles with a failure, and retries. A retry is every validation run after the first inside the same stream-defined cycle. The counts describe route shape; they do not prescribe an order or treat pre-commit testing as a defect.
+- A successful `start` for a reused branch, a successful `accept`, or an epoch change closes a cycle.
+- After a clean green gate, a later dirty entry or a different recorded HEAD begins another cycle.
+- A run without an epoch stands alone.
 
-Workflow cohort rows appear only when at least two identity cohorts clear the shared `COHORT_MINIMUMS`. Every speaking cohort carries cycle and run denominators, and the section retains below-minimum and unattributed cycle/run remainders. These task-confounded counts do not rank agents or imply capability.
+A commit doesn't end a cycle by itself. Dirty validation before a commit, at one HEAD, and the later clean `done` at the new committed HEAD stay in the same cycle. A cycle that starts dirty follows the test-first route, a cycle that starts clean follows the commit-first route, and an unknown first entry stays unattributed. The narrower count of pre-commit runs that reached a clean gate needs a test-first cycle with a dirty run, a later distinct recorded HEAD, and a clean green `done` on that later HEAD. Cycles come from the recorded stream alone, so a report on an archive gives the same result without reading the current Git history.
 
-Once the span holds 2 days, cadence sparklines sit beside the Accepted, gate, standards, Agents, and Breadth headings. Each listed agent carries its own usage series, and the shares render as filled bars beside their denominators. The same series ride the JSON (`per_day`, `greens_per_day`, `trend`, `branches_per_day`), capped at 24 points. A longer span folds whole days into each point and states the fold in `series_days_per_point`.
+Each route reports cycles, branches, runs, successful and failed runs, cycles that reached a clean gate, cycles with a failure, and retries. A retry is every validation run after the first inside the same cycle. The counts describe how work flowed. They don't prescribe an order, or treat testing before a commit as a defect.
 
-### The rules of the surface
+Workflow rows by cohort appear only when at least 2 identity cohorts clear the shared minimums: each cohort needs at least 5 attributed runs, and at least 10% of all attributed runs. Every cohort that appears carries cycle and run denominators, and the section keeps the below-minimum and unattributed remainders. These counts depend on which tasks each agent got, so they don't rank agents or imply capability.
 
-Stats uses the same analyzed population as the findings: CI runs, `--dry-run` previews, and setup-era events are excluded. Counts describe this project's recorded activity and assign no score, grade, or agent ranking. discern uses no external comparison corpus.
+Once the span covers 2 days, cadence sparklines appear beside the Accepted, gate, standards, Agents, and Breadth headings, and each listed agent gets its own usage series. Agent shares appear as text: the count of green `done` runs out of all `done` runs, with a percentage. The only bar on the card is the green gate runs meter at the top.
 
-`--json` carries the counts as `data.stats`; the standards section is `data.stats.standards`. Over MCP `discern_patterns` takes `stats: true`. Without the flag the payload carries no stats key at all.
+The JSON carries the same series (`per_day`, `greens_per_day`, `trend`, `branches_per_day`), capped at 24 points. A longer span folds whole days into each point, and states the fold in `series_days_per_point`.
 
-Stats is a separate counted projection of the same local evidence. It does not rewrite Pattern summaries or turn cohort counts into a comparison. Use the default `discern patterns` report when a finding's condition, evidence, limitation, and next action are the question.
+### What stats include and leave out
 
-A single accepted change keeps `biggest` and `best day` off the card, since either would restate the change itself, and streaks of one stay quiet. An empty logbook says there are no stats yet and suggests checking back.
+Stats use the same analyzed population as the findings: they leave out CI runs, `--dry-run` previews, and events from before setup finished. Counts describe this project's recorded activity, and assign no score, grade, or agent ranking. discern compares against no outside data.
+
+`--json` carries the counts in `data.stats`, with the standards section in `data.stats.standards`. Over MCP, `discern_patterns` takes `stats: true`. Without the flag, the result has no stats key at all.
+
+Stats are a separate count of the same local evidence. They don't rewrite pattern summaries, or turn cohort counts into a comparison. Use the default `discern patterns` report when a finding's condition, evidence, limitation, and next action are what you need.
+
+With only one accepted change, the card leaves out the biggest change and the best day, since either would repeat that change, and it doesn't show streaks of one. An empty logbook says there are no stats yet, and suggests checking back later.
 
 ## Logbook lifecycle
 
-`seal` preserves active history in an archive. `reset` permanently deletes active history. Both leave existing archives available.
+`seal` keeps active history in an archive. `reset` permanently deletes active history. Both leave existing archives available.
 
-### Preview and authorize
+### Preview and confirm
 
 ```sh
 discern patterns seal --dry-run
@@ -144,15 +160,22 @@ discern patterns seal
 discern patterns reset
 ```
 
-The previews report the event count, date span, source files, bytes, and archive destination or deletion scope. They remain read-only under pipes, CI, `--plain`, `--json`, and `--markdown`.
+A preview reports the event count, the date span, the source files, the bytes, and the archive destination or the deletion scope. Previews stay read-only under pipes, CI, `--plain`, `--json`, and `--markdown`.
 
-Apply is a CLI-only owner action. It requires terminal input and output, operation outside CI and global `--plain`, and an explicit affirmative selection from a confirmation that defaults to **Keep**. Reset offers **Keep** or **Delete**; archive offers **Keep** or **Archive**. Pipes, `--json`, and `--markdown` apply refuse, and no flag or environment bypass exists. Declining preserves active history and existing archives. Other work can continue while you review. If active history changes before you confirm, rerun the command to review its current scope. Both actions refuse while active history contains another fresh unmatched invocation ([ADR 0272](https://discern.sh/docs/decisions/0272-logbook-lifecycle-actions-require-terminal-confirmation)).
+Applying either action is for the owner, from the command line only. It needs terminal input and output, a run outside CI and outside global `--plain`, and an explicit yes to a confirmation that defaults to **Keep**. Reset offers **Keep** or **Delete**, and seal offers **Keep** or **Seal**. Pipes, `--json`, and `--markdown` refuse to apply, and no flag or environment variable gets around this.
 
-### Archive boundary and recovery
+- Declining keeps the active history and the existing archives.
+- Other work can continue while you review. If active history changes before you confirm, run the command again to review its current scope.
+- Both actions refuse while active history holds another recent invocation that hasn't finished ([ADR 0272](https://discern.sh/docs/decisions/0272-logbook-lifecycle-actions-require-terminal-confirmation)).
+- With no event lines to seal, `seal` archives and detaches nothing.
 
-Archive atomically detaches `logbook/`, then copies the month shards' raw JSON Lines into a synced UTC-named file under `logbook-archives/`. A numeric suffix prevents collisions. `epoch.json` remains recorder state and is omitted. The final name is published atomically; only then is the detached source removed. A sealing failure leaves that source under `logbook-recovery/` and reports its path.
+### How sealing works and recovers
 
-A recorder arriving after detachment creates a fresh active directory. It never waits on the lifecycle lock, preserving fail-open recording. Archive and reset themselves record no logbook begin or completion, so one invocation cannot straddle the old and new histories. Reset targets only active `logbook/`; archives and other Git-admin state survive.
+Sealing detaches `logbook/` in one atomic step, then copies the month files' raw JSON Lines into a synced, UTC-named file under `logbook-archives/`. A numeric suffix prevents name collisions. The final name appears in one atomic step, and only then does discern remove the detached source. If sealing fails, the source stays under `logbook-recovery/`, and discern reports its path. A failed reset also leaves a recoverable copy there.
+
+The recorder's state, `epoch.json`, isn't copied into the archive. It leaves with the detached directory and is deleted once the archive is published, so the epoch starts fresh. After a seal or a reset, the first event on each branch records its configuration without a `config-change` line.
+
+A recorder that arrives after the detachment creates a fresh active directory. It never waits on the lifecycle lock, so recording keeps failing open. Seal and reset record no logbook start or completion of their own, so one invocation can't straddle the old and new histories. Reset targets only the active `logbook/`, and archives and other Git-admin state survive it.
 
 ### Find and read sealed history
 
@@ -162,132 +185,136 @@ discern patterns --logbook-file logbook-20260811T143015Z.jsonl
 discern patterns --stats --logbook-file logbook-20260811T143015Z.jsonl
 ```
 
-The selector accepts one listed regular-file basename inside `logbook-archives/`. It rejects paths, traversal, symbolic links, directories, active month files, and names outside the archive format. Historical reports never modify the archive; their own event goes to the active logbook when recording is enabled. `discern_patterns` accepts the same optional selector. Operational readers always use active history.
+The selector takes one listed regular-file name inside `logbook-archives/`. It rejects paths, traversal, symbolic links, directories, active month files, and names outside the archive format. Over MCP, `discern_patterns` takes the same selector as `logbook_file`.
+
+A historical report never changes the archive. Its own event goes to the active logbook when recording is on. Only patterns and stats read a sealed file: fleet activity, `status`, Proof hints, queue estimates, and work-in-flight checks always use the active logbook.
 
 ## Event format and storage
 
-The following fields describe stored JSON lines and how retained history is managed.
-
 ### What a line contains
 
-Each line contains names and numbers. It excludes code, prompts, command output, and file contents.
+Each line holds names and numbers. It never holds code, prompts, command output, or file contents.
 
-The current event schema major is `1`. Readers skip an unknown major and tolerate additive fields. Every event has `schema`, `at`, optional `writer`, and a `kind` from the table below.
+The current event schema major is `1`. Readers skip a line with an unknown major, and accept added fields, because fields are only ever appended. Every event has `schema`, `at`, an optional `writer`, and a `kind`.
 
-Invocation `surface` is `cli` or `mcp`. Completion `outcome` is `ok`, `failed`, `partial`, or `refused`. The lifecycle action names are `seal` and `reset`.
+An invocation's `surface` is `cli` or `mcp`. Its `outcome` is `ok`, `failed`, `partial`, or `refused`. The lifecycle actions are `seal` and `reset`.
 
-| `kind`          | Stored contract                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------------ |
-| `begin`         | Invocation id, verb, surface, driver facts, branch, head, and config epoch captured before an effectful run. |
-| `verb`          | One completed invocation with outcome, duration, and any available result metadata.                          |
-| `config-change` | Branch, changed config-section names, and the new epoch fingerprint. Values are not stored.                  |
-| `pin`           | Branch, standard name, previous limit, new limit, and measured value.                                        |
-| `prune`         | Aggregate digests for raw month shards removed by rotation.                                                  |
-| `completion`    | Producer-execution and landing observations for one run, with durable identities; advisory only.             |
+| `kind`          | What it stores                                                                                                                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `begin`         | Invocation id, verb, surface, driver facts, branch, head, and config epoch, captured before a command that can change something runs.                                                                                    |
+| `verb`          | One finished invocation, with its outcome, duration, and any available result metadata.                                                                                                                                  |
+| `config-change` | Branch, the names of the config sections that changed, and the new epoch fingerprint. Values aren't stored.                                                                                                              |
+| `pin`           | Branch, standard name, previous limit, new limit, and measured value.                                                                                                                                                    |
+| `prune`         | A digest of each month file that rotation removed.                                                                                                                                                                       |
+| `completion`    | One observation from a validation run, with durable identities: Proof recorded, a validation summary, a command started or finished, a producer run or reused, evidence invalidated, or a timed interval. Advisory only. |
 
-| Field           | Example                                                                                                                                            |
+| Field           | What it holds                                                                                                                                      |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `schema`        | `1`                                                                                                                                                |
-| `at`            | ISO 8601 UTC timestamp                                                                                                                             |
-| `kind`          | `"begin"`, `"verb"`, or a rarer event kind                                                                                                         |
-| `invocation`    | the opaque id joining a start and completion                                                                                                       |
-| `writer`        | `"1.2.0"` (which discern wrote it)                                                                                                                 |
-| `verb`          | `"done"`                                                                                                                                           |
-| `surface`       | `"cli"` or `"mcp"`                                                                                                                                 |
-| `driver`        | session, mode, CI, spawning invocation, and possible agent signals                                                                                 |
-| `branch`        | `"agent/fix-upload-retry"`                                                                                                                         |
-| `head`          | short commit hash at invocation                                                                                                                    |
-| `clean`         | was the working tree clean?                                                                                                                        |
-| `tree`          | a checksum of the uncommitted diff                                                                                                                 |
-| `outcome`       | `"ok"`, `"failed"`, `"partial"`, or `"refused"`                                                                                                    |
-| `error`         | the result's machine-stable error slug when the verb refused                                                                                       |
-| `failed_stage`  | the gate stage that went red                                                                                                                       |
-| `crash`         | error class name and one code location                                                                                                             |
+| `at`            | An ISO 8601 UTC timestamp.                                                                                                                         |
+| `kind`          | `"begin"`, `"verb"`, or a rarer event kind.                                                                                                        |
+| `invocation`    | The opaque id that joins a start and its completion.                                                                                               |
+| `writer`        | The discern version that wrote the line, such as `"1.2.0"`.                                                                                        |
+| `verb`          | The command, such as `"done"`.                                                                                                                     |
+| `surface`       | `"cli"` or `"mcp"`.                                                                                                                                |
+| `driver`        | Session, mode, CI, the spawning invocation, and possible agent signals.                                                                            |
+| `branch`        | The branch, such as `"agent/fix-upload-retry"`.                                                                                                    |
+| `head`          | The short commit hash when the command started.                                                                                                    |
+| `clean`         | Whether the working tree was clean.                                                                                                                |
+| `tree`          | A checksum of the uncommitted diff.                                                                                                                |
+| `outcome`       | `"ok"`, `"failed"`, `"partial"`, or `"refused"`.                                                                                                   |
+| `error`         | The result's stable error slug, whenever the result carries one.                                                                                   |
+| `failed_stage`  | The gate stage that went red.                                                                                                                      |
+| `crash`         | An error class name and one code location.                                                                                                         |
 | `lock_boundary` | `"none"`, `"phased"`, `"checkout"`, `"lifecycle"`, `"lifecycle-and-checkout"`, `"common"`, `"common-and-checkout"`, or `"acceptance-and-checkout"` |
-| `dry_run`       | whether the invocation was a read-only preview                                                                                                     |
-| `has_operands`  | whether a mixed command group received its effect-selecting operand                                                                                |
-| `duration_ms`   | end-to-end wall-clock milliseconds                                                                                                                 |
-| `waited_ms`     | test-run slot-wait milliseconds on capped runs                                                                                                     |
-| `gate_ran`      | whether this `done` invocation executed gate work                                                                                                  |
-| `target`        | page served, miss, new branch, or queued command                                                                                                   |
-| `from`          | the ref a `start` forked from                                                                                                                      |
-| `update`        | what an `update` merged in                                                                                                                         |
-| `flags`         | `["force"]` (names without values, including `rerun` when requested)                                                                               |
-| `change`        | files/insertions/deletions/commits vs the trunk                                                                                                    |
-| `scopes`        | the configured scopes touched                                                                                                                      |
-| `steps`         | per-step labels, stages, outcomes, timings                                                                                                         |
-| `validation`    | versioned validation-start and execution evidence                                                                                                  |
-| `merges`        | versioned merge observations                                                                                                                       |
-| `diagnostics`   | tool, rule id, file path at most                                                                                                                   |
-| `hint_ids`      | stable ids of advice delivered with the result                                                                                                     |
-| `tip_ids`       | stable ids of desk tips shown during the run                                                                                                       |
-| `standards`     | each standard's measurement, limit, margin, and gate-owned pin decision                                                                            |
-| `consent`       | consent source and matched scopes on accept                                                                                                        |
-| `landing`       | recovery, trunk, worktree, and branch effects                                                                                                      |
-| `checkpoints`   | checkpoint servings, declarations, variances, abandoned open questions                                                                             |
-| `epoch`         | a fingerprint of your config                                                                                                                       |
+| `dry_run`       | Whether the command was a read-only preview.                                                                                                       |
+| `has_operands`  | Whether a command group that also acts received the operand that selects its effect.                                                               |
+| `duration_ms`   | End-to-end wall-clock milliseconds.                                                                                                                |
+| `waited_ms`     | Milliseconds spent waiting for a test-run slot, on capped runs.                                                                                    |
+| `gate_ran`      | Whether this `done` ran gate work.                                                                                                                 |
+| `target`        | The page served, a miss, the new branch, or the queued command.                                                                                    |
+| `from`          | The ref a `start` branched from.                                                                                                                   |
+| `update`        | What an `update` merged in.                                                                                                                        |
+| `flags`         | Flag names without values, such as `["force"]`, including `rerun` when requested.                                                                  |
+| `change`        | Files, insertions, deletions, and commits compared with the trunk.                                                                                 |
+| `scopes`        | The configured scopes the change touched.                                                                                                          |
+| `steps`         | Each step's label, stage, outcome, and timing.                                                                                                     |
+| `validation`    | Versioned evidence about the start and execution of validation.                                                                                    |
+| `merges`        | Versioned observations of merges.                                                                                                                  |
+| `diagnostics`   | Tool, rule id, and at most a file path.                                                                                                            |
+| `hint_ids`      | Stable ids of the advice delivered with the result.                                                                                                |
+| `tip_ids`       | Stable ids of the desk tips shown during the run.                                                                                                  |
+| `standards`     | Each standard's measurement, limit, margin, and the gate's pin decision.                                                                           |
+| `consent`       | The consent source and matched scopes, on accept.                                                                                                  |
+| `landing`       | Recovery, trunk, worktree, and branch effects.                                                                                                     |
+| `checkpoints`   | Checkpoint servings, declarations, variances, and abandoned open questions.                                                                        |
+| `epoch`         | A fingerprint of your configuration.                                                                                                               |
 
-`partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The logbook omits the message and stack. A saved [crash report file](../40-troubleshooting/crashes-and-local-state.md) holds the full error text. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-understand/evidence-and-improvement.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
+- **`partial`** marks an error after an effect that can't be undone.
+- **`crash`** appears only when discern hits an unexpected error. It holds the error's class name, such as `"TypeError"`, and one trimmed code location. The logbook leaves out the message and stack; a saved [crash report file](../40-troubleshooting/crashes-and-local-state.md) holds the full error text.
+- **`tip_ids`** appears only when the desk showed a tip, and carries the tip's registry id as is. The tip-adoption reader joins that id to the tip's declared commands.
+- **`consent`** feeds the landing-authority detectors described in [practice patterns](../20-understand/evidence-and-improvement.md).
+- **`checkpoints`** carries the open-question and variance lifecycle as metadata: ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times. The unmet rationale never lands here.
 
-Readers skip unknown schema versions, and fields are append-only. `begin` carries run identity. Completion adds outcome and `duration_ms`. Capped runs add `waited_ms`, including `0`; uncapped and older events omit it. Readers derive execution as `duration_ms - (waited_ms ?? 0)` for priors and suite health. End-to-end statistics retain wall time. Other kinds are `config-change`, `pin`, `prune`, and `completion`. A `completion` line records one run's producer and landing observations with their durable identities. These advisory facts distinguish gate work, evidence reuse, waits, and landing; missing observations remain unknown. They supply no authority and no Proof.
+A `begin` event carries the run's identity. Its `verb` event adds the outcome and `duration_ms`. Capped test runs add `waited_ms`, including `0`; uncapped runs and older events leave it out. Readers work out the execution time as `duration_ms - (waited_ms ?? 0)` for priors and suite health, and end-to-end statistics keep the wall time.
 
-For `done`, `gate_ran: false` means no gate work ran. This can reflect current-Proof reuse or a stop before execution, such as an unanswered checkpoint. Read the outcome and error alongside it. `--rerun` records `rerun`. Readers still recognize historical `confirmed` flags as evidence from older local logbooks; they do not expose that spelling as current input.
+`completion` lines record what a validation run did, one observation per line, so a single run writes many. They show gate work, evidence reuse, and waits; an observation that's missing stays unknown. Timed intervals have a category: `capacity-acquisition`, `capacity-wait`, `producer`, `extraction`, `validation`, or `validation-feedback`. These lines are advisory, and supply no authority and no Proof.
+
+For `done`, `gate_ran: false` means no gate work ran. discern either reused current Proof, or stopped before running anything, for example at an unanswered checkpoint. Read the outcome and error alongside it. `--rerun` records `rerun` in `flags`. Readers still recognize a historical `confirmed` flag in older local logbooks, but don't offer that spelling as current input.
 
 #### Validation evidence
 
-`done` and standalone `test` completion events add `validation`. `state` carries version, capture point, completeness, opaque keyed digests, counts/bytes, elapsed time, and failure categories. `execution` carries mode, writer, opaque config/setup/job-definition digests, job metadata, concurrency, and `passed`, `failed`, `skipped`, `cancelled`, or `unavailable` outcomes.
+The `verb` events of `done` and standalone `test` add `validation`.
 
-`done` captures after fix/build; `test` before its group. Blocks record `boundary/not-reached`. Complete state covers HEAD, index/checkout bytes, untracked files, and recursively clean submodules. Sparse/assume-unchanged state stays visible. Dirt, missing initialization, unreadability, unknown state, or a breached budget removes the digest.
+- **`state`** carries its version, capture point, completeness, opaque keyed digests, counts and bytes, elapsed time, and failure categories.
+- **`execution`** carries the mode, the writer, opaque digests of the config, setup, and job definitions, job metadata, concurrency, and outcomes of `passed`, `failed`, `skipped`, `cancelled`, or `unavailable`.
 
-`.git/discern/validation-hmac-key` is the regular `0600` key; unsafe targets make evidence incomplete. One 5-second deadline covers key, Git, files, submodules, cryptography, and execution; expiry records `budget/time-limit` without changing the verdict. Caps are 20,000 paths, 64 MiB, 1,000 jobs, and 1 MiB. Events exclude manifests, contents, commands, config/environment values, plain hashes, ignored files, services, clocks, randomness, runtime state, and concurrent processes. Older events without `validation` remain readable ([ADR 0273](https://discern.sh/docs/decisions/0273-validation-comparisons-require-complete-keyed-semantic-evidence)).
+`done` captures state after its fix and build steps, and `test` captures it before its group runs. A block records `boundary/not-reached`. Complete state covers HEAD, the index and checkout bytes, untracked files, and recursively clean submodules. Sparse and assume-unchanged state stays visible. Dirt, missing initialization, unreadable files, unknown state, or a breached budget removes the digest.
+
+`.git/discern/validation-hmac-key` is a regular file with mode `0600`, and an unsafe target makes the evidence incomplete. One 5-second deadline covers capturing the evidence: the key, Git, the files, submodules, and the cryptography. It doesn't limit the jobs. When it expires, discern records `budget/time-limit`, and the verdict doesn't change. The caps are 20,000 paths, 64 MiB, 1,000 jobs, and 1 MiB.
+
+Events leave out manifests, contents, commands, config and environment values, plain hashes, ignored files, services, clocks, randomness, runtime state, and concurrent processes. Older events without `validation` stay readable. A line whose `validation` evidence is in a newer version is skipped whole ([ADR 0273](https://discern.sh/docs/decisions/0273-validation-comparisons-require-complete-keyed-semantic-evidence)).
 
 #### Possible agent identity signals
 
-`driver.agent_signals` is an optional list of evidence derived when the event is recorded. It supplies no detected-agent verdict. Each item has an `agent`, a `source`, and the marker names that matched. Items can appear together. Their order is not a ranking.
+`driver.agent_signals` is an optional list of evidence that discern derives when it records an event. It isn't a verdict on which agent ran. Each item has an `agent`, a `source`, and the names of the markers that matched. Several items can appear together, and their order isn't a ranking.
 
-The source explains the marker's lifetime:
+The source tells you how long the marker lives:
 
-- `process-environment` records names such as `CODEX_THREAD_ID` or `GEMINI_CLI`. Their values are never stored.
-- `mcp-client` means the MCP client's declared name or title matched a known client name.
-- `host-filesystem` is ambient machine state. The current `/opt/.devin` marker can persist after Devin's installation, so it does not mean Devin drove that invocation.
+- **`process-environment`** records the names of variables such as `CODEX_THREAD_ID` or `GEMINI_CLI`. It doesn't store their values. A non-empty `AI_AGENT` counts when its value matches a known agent, and otherwise adds a signal for the `custom` agent.
+- **`mcp-client`** means the MCP client's declared name or title matched a known client name.
+- **`host-filesystem`** is state that stays on the machine. The current `/opt/.devin` marker can outlast Devin's installation, so it doesn't mean Devin drove that command.
 
-`driver.spawned_by` carries the parent invocation id when the gate's job runner spawned the run: readers classify these as automation and join child to parent.
+`driver.spawned_by` carries the invocation id of the discern run that started this one as automated work: a Git command or hook, a shell for an operator or a project script, a gate job, or another child process discern owns. Readers classify every marked run as automation, and join the child to its parent. An interactive handoff, such as starting an agent, clears the marker.
 
-For an MCP call, `driver.mcp_client` retains the declared `name`, optional `title`, and `version`, capped at 256 characters each. Readers classify it through the current catalog. A newly recognized name attributes old and new events on the next read without changing stored lines. Unknown clients remain visible.
+For an MCP call, `driver.mcp_client` keeps the declared `name`, optional `title`, and `version`, each capped at 256 characters. Readers classify it through the current catalog, so a newly recognized name attributes old and new events on the next read, without changing stored lines. Unknown clients stay visible.
 
-The read-time view preserves non-MCP evidence and merges duplicate agent/source pairs. A current MCP match replaces stored MCP evidence from the same declaration. Without a current match, stored MCP evidence remains. Independent sources that disagree leave the run unattributed.
+The read-time view keeps evidence from outside MCP, and merges duplicate agent and source pairs. A current MCP match replaces stored MCP evidence from the same declaration. Without a current match, the stored MCP evidence stays. When independent sources disagree, the run stays unattributed.
 
-MCP describes the client implementation. An editor, extension, or proxy may sit between discern and the coding agent. These signals can be absent, inherited, or faked. They never change output, instructions, setup, gate behavior, or landing authority.
+MCP describes the client software, and an editor, extension, or proxy can sit between discern and the coding agent. These signals can be absent, inherited, or faked. They never change output, instructions, setup, gate behavior, or landing authority ([ADR 0166](https://discern.sh/docs/decisions/0166-agent-identity-is-advisory-logbook-evidence)).
 
 ### Local storage only
 
-discern writes the logbook under the Git administrative area, outside commits and ignore rules. discern sends no logbook data over the network. A write failure does not change the verb outcome; the verb continues without recording the event.
+discern writes the logbook under Git's administrative area, outside commits and ignore rules, and sends none of it over the network. A failed write doesn't change a command's outcome: the command continues without recording the event.
 
-Doctor treats an enabled empty logbook as healthy, including on first use. Disabled, invalid, and write-denied states stay distinct. Unmatched begin events remain interruption or crash evidence and do not affect the storage-health result. Environmental denial warns and disables recording for the process; it does not block setup ([ADR 0320](https://discern.sh/docs/decisions/0320-setup-plans-own-write-authority-and-activation-recovery)).
+Doctor treats an enabled but empty logbook as healthy, including on first use. It keeps the disabled, invalid, and write-denied states distinct. Unmatched begin events stay as evidence of an interruption or a crash, and don't affect the storage check. If the environment denies writes, doctor warns and recording turns off for that process. Setup isn't blocked ([ADR 0320](https://discern.sh/docs/decisions/0320-setup-plans-own-write-authority-and-activation-recovery)).
 
 ### Rotation and config epochs
 
-Events use month-stamped files (`2026-07.jsonl`), and rotation keeps the newest 24 months. A `prune` line records each removed month with counts by verb and outcome, including a separate partial count. These aggregate counts remain after removal of the raw lines.
+Events go into month files, such as `2026-07.jsonl`. Rotation keeps the newest 24 months, and runs when a new month file is created. For each month it removes, a `prune` line records a digest: the file name, its total lines, counts of `ok`, `failed`, `partial`, and `refused` outcomes, counts by verb, and the number of lines it couldn't parse. The digests stay after the raw lines are gone.
 
-The `epoch` fingerprint hashes behavior-relevant configuration section by section, with a standard's `limit` masked out. A pin leaves the fingerprint unchanged. An edit to a command, scope, input list, or other behavior-relevant setting changes it and adds a `config-change` line naming the section.
+The `epoch` fingerprint hashes the behavior-relevant configuration section by section. It masks each standard's `limit`, and ignores the `[meta]` section, so a pin leaves the fingerprint unchanged. An edit to a command, scope, input list, or other behavior-relevant setting changes it. The branch's next recorded event then adds a `config-change` line that names the changed sections. The first event discern records on a branch sets its fingerprint without a `config-change` line.
 
-### Archive and reset lifecycle
+A tip-adoption episode compares events only when the config epoch, the discern writer release, and the main MCP-client release match. A run on any branch, session, or surface can count, but another setup can't resolve the episode. Missing setup evidence, and the end of the history, leave an episode unresolved ([ADR 0236](https://discern.sh/docs/decisions/0236-tip-adoption-clears-evidence-per-tip-across-setups)).
 
-[Logbook lifecycle](#logbook-lifecycle) describes confirmation, archive recovery, and historical selection. Historical selection is advisory: patterns and Stats may read a sealed file, but fleet activity, `status`, Proof hints, queue estimates, and work-in-flight checks always use the active logbook.
+### Related pages
 
-Tip-adoption episodes compare events only when the config epoch, discern writer release, and dominant MCP-client release match. A run on any branch, session, or surface can count. Another setup cannot resolve the episode. Missing setup evidence and the end of history stay censored ([ADR 0236](https://discern.sh/docs/decisions/0236-tip-adoption-clears-evidence-per-tip-across-setups)).
+- [What stays on your machine](../20-understand/local-control.md): what discern runs, records, and writes, and what never leaves your computer.
+- [Files and ownership](files-and-ownership.md): where the logbook sits among discern's other local records.
 
-### See also
+## Where it lives in code
 
-- [Trust and your data](../20-understand/local-control.md): the full network, telemetry, and execution contract.
-- [Files and ownership](files-and-ownership.md): the enforced footprint the logbook path belongs to.
-- Why identity stays evidence rather than a verdict, and how the shared catalog supports it ([ADR 0166](https://discern.sh/docs/decisions/0166-agent-identity-is-advisory-logbook-evidence)).
-
-## Implementation references
-
-These sources define the stats calculation and its regression coverage.
-
-### Where it lives in code
+If you're extending or contributing to discern, these sources define the stats and their tests.
 
 | Concern                                | Source                                                                                                                                                                                                                                   |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
