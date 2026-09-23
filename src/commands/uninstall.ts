@@ -797,18 +797,29 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
   }
 
   // Confirm before removing anything discern created that git may not recover
-  // (an uncommitted generated file, the runtime records under .git).
-  // Non-interactive callers must say --yes.
+  // (an uncommitted generated file, the runtime records under .git). Removal is
+  // the owner's decision, so structured output never stands in for consent:
+  // without a terminal, and with --json or --markdown, callers must say --yes.
   if (
-    !options.json &&
-    (plan.ops.length > 0 || plan.gitAdminDirs.length > 0 ||
-      removedGitConfig(plan).length > 0)
+    plan.ops.length > 0 || plan.gitAdminDirs.length > 0 ||
+    removedGitConfig(plan).length > 0
   ) {
-    if (!options.yes && !canInteract(false)) {
-      renderPlan(log, plan, false);
-      log.error(
-        "Uninstall needs confirmation. Review the plan above, then re-run with --yes in CI, under --plain, or without terminal input.",
-      );
+    if (!options.yes && (options.json || !canInteract(false))) {
+      if (options.json) {
+        log.result({
+          ok: false,
+          verb: "uninstall",
+          error: "confirmation_required",
+          message:
+            "Uninstall needs the owner's confirmation. Review the plan in data, then re-run with --yes to apply it.",
+          data: planData(plan),
+        });
+      } else {
+        renderPlan(log, plan, false);
+        log.error(
+          "Uninstall needs confirmation. Review the plan above, then re-run with --yes in CI, under --plain, or without terminal input.",
+        );
+      }
       return 1;
     }
     const deleteCount = plan.ops.filter((op) => op.action === "delete").length;

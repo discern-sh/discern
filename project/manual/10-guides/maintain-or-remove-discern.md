@@ -151,7 +151,7 @@ The [Files and ownership](../30-reference/files-and-ownership.md) reference list
 discern uninstall
 ```
 
-In a terminal, uninstall asks you to confirm. `--yes` skips the question, and so do `--json` and `--markdown`. Only use them after you've reviewed the preview.
+In a terminal, uninstall asks you to confirm. Without a terminal, or with `--json` or `--markdown`, it changes nothing until you add `--yes`. Only add `--yes` after you've reviewed the preview.
 
 Then check `git status` and commit the removal the way your repository usually takes changes.
 

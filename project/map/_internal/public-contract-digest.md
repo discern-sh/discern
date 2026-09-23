@@ -147,10 +147,10 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 **`discern uninstall`**
 
-| Argument      | Value   | Default | Description                                             |
-| ------------- | ------- | ------- | ------------------------------------------------------- |
-| `--dry-run`   | boolean |         | Preview what would be removed and kept; change nothing. |
-| `-y`, `--yes` | boolean |         | Skip the confirmation.                                  |
+| Argument      | Value   | Default | Description                                                                        |
+| ------------- | ------- | ------- | ---------------------------------------------------------------------------------- |
+| `--dry-run`   | boolean |         | Preview what would be removed and kept; change nothing.                            |
+| `-y`, `--yes` | boolean |         | Skip the confirmation. Required without a terminal, and with --json or --markdown. |
 
 **`discern doctor`**
 

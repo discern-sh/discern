@@ -1,9 +1,10 @@
 /**
  * Class guard for every CLI surface that can request input. The matrix drives the real
- * artifact with stdin closed, so a new accidental read fails by name. One
- * representative pseudo-terminal retains the operating-system wiring. The
- * human-output structural guard separately makes `src/lib/terminal_interaction.ts` the only
- * legal package interaction choke point.
+ * artifact with stdin closed, so a new accidental read fails by name. Each
+ * confirmation-gated verb also appears with structured output, which never
+ * counts as consent. One representative pseudo-terminal retains the
+ * operating-system wiring. The human-output structural guard separately makes
+ * `src/lib/terminal_interaction.ts` the only legal package interaction choke point.
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
@@ -63,10 +64,28 @@ const INTERACTIVE_CASES: readonly {
     output: "needs confirmation",
   },
   {
+    name: "uninstall structured confirmation",
+    args: ["uninstall", "--json"],
+    code: 1,
+    output: "confirmation_required",
+  },
+  {
+    name: "uninstall Markdown confirmation",
+    args: ["uninstall", "--markdown"],
+    code: 1,
+    output: "needs the owner's confirmation",
+  },
+  {
     name: "worktree prune confirmation",
     args: ["worktree", "prune"],
     code: 1,
     output: "Confirmation required",
+  },
+  {
+    name: "worktree prune structured confirmation",
+    args: ["worktree", "prune", "--json"],
+    code: 1,
+    output: "confirmation_required",
   },
   {
     name: "Logbook reset confirmation",
@@ -77,6 +96,18 @@ const INTERACTIVE_CASES: readonly {
   {
     name: "Logbook seal confirmation",
     args: ["patterns", "seal"],
+    code: 1,
+    output: "requires terminal stdin and stdout",
+  },
+  {
+    name: "Logbook reset structured confirmation",
+    args: ["patterns", "reset", "--json"],
+    code: 1,
+    output: "requires terminal stdin and stdout",
+  },
+  {
+    name: "Logbook seal structured confirmation",
+    args: ["patterns", "seal", "--json"],
     code: 1,
     output: "requires terminal stdin and stdout",
   },
@@ -147,7 +178,7 @@ Deno.test({
         );
 
         const cwdFor = (testCase: typeof INTERACTIVE_CASES[number]): string =>
-          testCase.name === "worktree prune confirmation" ? pruneDir : dir;
+          testCase.name.startsWith("worktree prune") ? pruneDir : dir;
         try {
           for (const testCase of INTERACTIVE_CASES) {
             const result = await runAgent(

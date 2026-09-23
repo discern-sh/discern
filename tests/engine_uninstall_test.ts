@@ -170,7 +170,25 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
       "setup and refresh should have recorded runtime state under .git/discern",
     );
 
-    const result = await runAgent(dir, ["uninstall", "--json"]);
+    // Structured output never stands in for the owner's confirmation: without
+    // --yes, both formats refuse and change nothing.
+    for (const format of ["--json", "--markdown"]) {
+      const refused = await runAgent(dir, ["uninstall", format]);
+      assertEquals(refused.code, 1, `${format}\n${refused.output}`);
+      if (format === "--json") {
+        assertEquals(
+          decodeCliResult(refused.stdout, "uninstall").error,
+          "confirmation_required",
+        );
+      }
+      assert(
+        await pathExists(join(dir, "CLAUDE.md")) &&
+          await pathExists(join(dir, ".git", "discern")),
+        `${format} without --yes must change nothing`,
+      );
+    }
+
+    const result = await runAgent(dir, ["uninstall", "--json", "--yes"]);
     assertEquals(result.code, 0, result.output);
     const envelope = decodeCliResult(result.stdout, "uninstall");
     assertResultDataKey(envelope, "removed_runtime_state");
@@ -242,7 +260,7 @@ Deno.test("uninstall strips registry-owned provider hooks without resolving temp
     await wireFullHarness(dir);
     const bogus = join(dir, "no-such-templates-dir");
 
-    const result = await runAgent(dir, ["uninstall", "--json"], {
+    const result = await runAgent(dir, ["uninstall", "--json", "--yes"], {
       env: { DISCERN_TEMPLATES_DIR: bogus },
     });
     assertEquals(result.code, 0, result.output);
@@ -370,7 +388,7 @@ Deno.test("uninstall removes only owned Git config and retains every ref", async
         "--format=%(refname) %(objectname)",
       );
 
-      const result = await runAgent(dir, ["uninstall", "--json"]);
+      const result = await runAgent(dir, ["uninstall", "--json", "--yes"]);
       assertEquals(result.code, 0, result.output);
       const envelope = decodeCliResult(result.stdout, "uninstall");
       assertResultDataKey(envelope, "retained_refs");
@@ -505,7 +523,7 @@ Deno.test("uninstall refuses while the resource ledger records provisioned resou
 
     // With the ledger reclaimed, the same uninstall proceeds.
     await Deno.remove(entryPath);
-    const applied = await runAgent(dir, ["uninstall", "--json"]);
+    const applied = await runAgent(dir, ["uninstall", "--json", "--yes"]);
     assertEquals(applied.code, 0, applied.output);
     assertEquals(await pathExists(join(dir, ".git", "discern")), false);
   });
@@ -514,7 +532,7 @@ Deno.test("uninstall refuses while the resource ledger records provisioned resou
 Deno.test("uninstall needs confirmation when only runtime state remains", async () => {
   await withTempDir(async (dir) => {
     await wireFullHarness(dir);
-    const first = await runAgent(dir, ["uninstall", "--json"]);
+    const first = await runAgent(dir, ["uninstall", "--json", "--yes"]);
     assertEquals(first.code, 0, first.output);
 
     // A later verb recreates runtime records under .git — the only removable

@@ -588,10 +588,10 @@ Remove discern's wiring from this project (keeps your discern.toml, instructions
 
 Usage: `discern uninstall [options]`
 
-| Option      | Description                                             |
-| ----------- | ------------------------------------------------------- |
-| `--dry-run` | Preview what would be removed and kept; change nothing. |
-| `-y, --yes` | Skip the confirmation.                                  |
+| Option      | Description                                                                        |
+| ----------- | ---------------------------------------------------------------------------------- |
+| `--dry-run` | Preview what would be removed and kept; change nothing.                            |
+| `-y, --yes` | Skip the confirmation. Required without a terminal, and with --json or --markdown. |
 
 ## Inspect & explore
 

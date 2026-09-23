@@ -1043,7 +1043,7 @@
             "-y",
             "--yes"
           ],
-          "description": "Skip the confirmation.",
+          "description": "Skip the confirmation. Required without a terminal, and with --json or --markdown.",
           "type_definition": "",
           "arity": 0,
           "value_types": [],

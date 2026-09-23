@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0137](0137-project-scripts-live-under-the-script-command.md), [ADR 0169](0169-the-launch-glossary-canon.md)):** current spellings are Project Script (formerly project Recipe), Agent file (formerly `Compiled agent file`), and Shared file (formerly `Co-managed seed` / co-managed file); the retired product-category wording reads `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> - **Structured output needs `--yes` (2026-09-23):** `--json` and `--markdown` no longer count as consent. Without `--yes`, they refuse with `confirmation_required` and change nothing, as `worktree prune` does. An agent can reach uninstall through a shell, so the human decision this record requires needs an explicit flag in every non-interactive mode.
 
 **Status**: accepted; implements [design principle 12](../00-orientation/design-principles.md) (exit honesty) and [13](../00-orientation/design-principles.md) (a provable footprint); inverts [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md) (the write-surface contract) and its guard [ADR 0102](0102-paths-registry-and-rendered-artifacts.md); follows [ADR 0027](0027-plan-apply-engine-execution.md) (plan/apply), [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope), and [ADR 0051](0051-canonical-set-parity.md) (forcing functions).
 

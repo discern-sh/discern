@@ -647,7 +647,10 @@ export function buildCli(
       "--dry-run",
       "Preview what would be removed and kept; change nothing.",
     )
-    .option("-y, --yes", "Skip the confirmation.")
+    .option(
+      "-y, --yes",
+      "Skip the confirmation. Required without a terminal, and with --json or --markdown.",
+    )
     .action(recordedExit("uninstall", async (options) => {
       const { json, noColor } = globalFlags(options);
       const { runUninstall } = await loadModule(() =>
