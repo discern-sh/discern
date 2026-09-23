@@ -27,10 +27,10 @@ Use the ref printed by drop. If that output is unavailable, list retained tips n
 git for-each-ref --sort=-refname --format='%(refname) %(objectname:short)' refs/discern/recovery/
 ```
 
-Create a normal branch at the selected ref, then inspect it:
+Create a normal branch at the selected ref without moving the current checkout, then inspect it:
 
 ```sh
-git switch -c recovered-work refs/discern/recovery/20260811T120000000Z-example-1234abcd
+git branch recovered-work refs/discern/recovery/20260811T120000000Z-example-1234abcd
 git log --stat recovered-work
 ```
 
