@@ -20,7 +20,10 @@ import {
   runAgentPty,
   scaffoldEngine,
 } from "./engine_helpers.ts";
-import { LOGBOOK_LIFECYCLE_ACTION_NAMES } from "../src/shared/logbook_lifecycle.ts";
+import {
+  LOGBOOK_LIFECYCLE_ACTION_NAMES,
+  logbookLifecycleLabels,
+} from "../src/shared/logbook_lifecycle.ts";
 import { LOGBOOK_POWERED } from "../src/shared/logbook_powered.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";
 import {
@@ -335,10 +338,15 @@ realPtyTest({
             result.output,
             "Aborted. Nothing changed.",
           );
-          assertTerminalTextIncludes(result.output, "Keep");
-          assertTerminalTextIncludes(
-            result.output,
-            action === "reset" ? "Delete" : "Archive",
+          // Both labels sit on the switch's own line, so a word elsewhere in
+          // the output can't satisfy the check.
+          const { noLabel, yesLabel } = logbookLifecycleLabels(action);
+          assert(
+            result.output.split("\n").some((line) =>
+              line.includes(noLabel) && line.includes(yesLabel) &&
+              line.indexOf(noLabel) < line.indexOf(yesLabel)
+            ),
+            `${action} confirmation switch lacks ${noLabel}/${yesLabel}:\n${result.output}`,
           );
           assertEquals(await Deno.readTextFile(active), before);
           assertEquals(

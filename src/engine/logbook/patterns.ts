@@ -70,6 +70,7 @@ import {
   type LogbookLifecycleAccess,
   logbookLifecycleAccess,
   type LogbookLifecycleActionName,
+  logbookLifecycleLabels,
 } from "../../shared/logbook_lifecycle.ts";
 import { LOGBOOK_POWERED } from "../../shared/logbook_powered.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -2068,7 +2069,7 @@ async function applyReset(
       } across ${plural(reviewedData.removed.length, "file")} (${filenames}), ${
         formatHumanNumber(reviewedData.bytes)
       } bytes? This permanently resets the evidence listed above. Recording starts again with the next eligible command when enabled.`,
-      { noLabel: "Keep", yesLabel: "Delete" },
+      logbookLifecycleLabels("reset"),
       confirm,
     );
     if (!accepted) {
@@ -2194,7 +2195,7 @@ async function applySeal(
       } across ${plural(reviewedData.files.length, "file")} (${filenames}), ${
         formatHumanNumber(reviewedData.source_bytes)
       } bytes, as ${filename} and begin a fresh active logbook? Recording restarts with the next eligible command when enabled.`,
-      { noLabel: "Keep", yesLabel: "Seal" },
+      logbookLifecycleLabels("seal"),
       confirm,
     );
     if (!accepted) {

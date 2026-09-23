@@ -4,10 +4,14 @@
  * so a new action cannot acquire a separate unattended apply path.
  */
 
+import type { ConfirmationLabels } from "./confirmation.ts";
+
 /** One CLI-only action that replaces or removes the active Logbook. */
 export interface LogbookLifecycleAction {
   readonly name: "reset" | "seal";
   readonly description: string;
+  /** The two sides of the action's terminal confirmation. */
+  readonly confirmation: ConfirmationLabels;
 }
 
 /** Every action allowed to detach the active Logbook. */
@@ -16,17 +20,30 @@ export const LOGBOOK_LIFECYCLE_ACTIONS = [
     name: "reset",
     description:
       "Delete the active logbook for good, once you confirm in an interactive terminal.\nSealed archives and discern's other files in `.git` stay. The confirmation defaults to keeping the logbook. In CI, with `--plain`, or with `--json` or `--markdown`, only `--dry-run` works.",
+    confirmation: { noLabel: "Keep", yesLabel: "Delete" },
   },
   {
     name: "seal",
     description:
       "Archive the active logbook under a timestamped name and start a fresh one, once you confirm in an interactive terminal.\nThe confirmation defaults to keeping the logbook as it is. In CI, with `--plain`, or with `--json` or `--markdown`, only `--dry-run` works.",
+    confirmation: { noLabel: "Keep", yesLabel: "Seal" },
   },
 ] as const satisfies readonly LogbookLifecycleAction[];
 
 /** One registered Logbook lifecycle action name. */
 export type LogbookLifecycleActionName =
   (typeof LOGBOOK_LIFECYCLE_ACTIONS)[number]["name"];
+
+/** The confirmation labels one registered lifecycle action asks with. */
+export function logbookLifecycleLabels(
+  name: LogbookLifecycleActionName,
+): ConfirmationLabels {
+  const action = LOGBOOK_LIFECYCLE_ACTIONS.find((entry) => entry.name === name);
+  if (action === undefined) {
+    throw new Error(`unregistered logbook lifecycle action: ${name}`);
+  }
+  return action.confirmation;
+}
 
 /** Registered lifecycle action names in CLI order. */
 export const LOGBOOK_LIFECYCLE_ACTION_NAMES:
