@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { z } from "@zod/zod";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
-import { PROVIDERS } from "../src/lib/providers.ts";
+import { ACTIVATION_CLI_CHECK, PROVIDERS } from "../src/lib/providers.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import {
@@ -233,7 +233,18 @@ Deno.test("provider, platform, and timeout registries have complete manual satel
       false,
       `${provider.name}: timeout policy`,
     );
+    assertStringIncludes(
+      providerReference,
+      `\`${provider.activation.callable}\``,
+      `${provider.name}: activation check`,
+    );
+    assertStringIncludes(
+      providerReference,
+      provider.activation.recovery,
+      `${provider.name}: activation recovery`,
+    );
   }
+  assertStringIncludes(providerReference, `\`${ACTIVATION_CLI_CHECK}\``);
   for (const target of BUILD_TARGETS) {
     assertStringIncludes(providerReference, `\`${target.output}\``);
   }
