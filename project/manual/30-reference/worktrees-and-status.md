@@ -296,3 +296,24 @@ A resource's `create`, `destroy`, and `ensure` commands receive `@worktree@`, `@
 `[worktree.setup].steps`, `[worktree.setup].ensure`, and `[repository].ensure` run exactly as written, with no token replacement. To use a worktree value there, call `discern identity`, for example `discern identity --port`.
 
 Setup writes the inherited values and identity handles before the one-time setup steps run, then writes them again afterward. So a step such as `cp .env.example .env` can't erase the values setup delivered ([ADR 0059](https://discern.sh/docs/decisions/0059-worktree-setup-ensure)).
+
+## Where it lives in code
+
+If you're extending or contributing to discern, these source files define the behavior on this page.
+
+| Concern                               | Source                                                                                                                                         |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status facts and hints                | [`status.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/status/status.ts)                                                     |
+| The terminal report                   | [`tty.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/status/tty.ts)                                                           |
+| Shared terminal facts and safe text   | [`terminal.ts`](https://github.com/discern-sh/discern/blob/main/src/lib/terminal.ts)                                                           |
+| Result and Proof schemas              | [`result_schemas.ts`](https://github.com/discern-sh/discern/blob/main/src/shared/result_schemas.ts)                                            |
+| Hint routing                          | [`hints.ts`](https://github.com/discern-sh/discern/blob/main/src/shared/hints.ts)                                                              |
+| Width, degradation, and state matrix  | [`engine_status_tty_test.ts`](https://github.com/discern-sh/discern/blob/main/tests/engine_status_tty_test.ts)                                 |
+| End-to-end status behavior            | [`engine_status_test.ts`](https://github.com/discern-sh/discern/blob/main/tests/engine_status_test.ts)                                         |
+| Terminal-observation structural guard | [`terminal_boundary_guard_test.ts`](https://github.com/discern-sh/discern/blob/main/tests/terminal_boundary_guard_test.ts)                     |
+| Identity derivation and id resolution | [`src/engine/worktree/identity.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/worktree/identity.ts)                           |
+| What discern may remove               | [`src/engine/worktree/ownership.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/worktree/ownership.ts)                         |
+| Env-file precedence and writes        | [`src/engine/worktree/env_file.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/worktree/env_file.ts)                           |
+| Contained read and write paths        | [`src/shared/project_path.ts`](https://github.com/discern-sh/discern/blob/main/src/shared/project_path.ts)                                     |
+| Resource command tokens               | [`src/engine/worktree/tokens.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/worktree/tokens.ts)                               |
+| Frozen identity fixtures              | [`tests/fixtures/parity/worktree-identity.json`](https://github.com/discern-sh/discern/blob/main/tests/fixtures/parity/worktree-identity.json) |
