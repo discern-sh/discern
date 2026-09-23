@@ -30,6 +30,12 @@ aliases:
   - "switch worktrees"
   - "worktree shell picker"
   - "landing queue"
+  - "The desk"
+  - "interactive worktree manager"
+  - "fleet dashboard"
+  - "worktree picker"
+  - "desk tips"
+  - "tip line"
 ---
 
 # Coordinate parallel tasks
@@ -82,9 +88,46 @@ For a direct view, run this from the main checkout:
 discern status
 ```
 
-From inside a task, `discern status --all` includes the fleet. It reports worktree state and files changed by more than one task; it does not need to infer progress from chat summaries. Bare `discern` opens the [desk](delegate-work.md#inspect-decisions-from-the-desk) in an interactive terminal. `discern enter` opens a child shell in a selected worktree when you want to inspect it yourself.
+From inside a task, `discern status --all` includes the fleet. It reports worktree state and files changed by more than one task; it does not need to infer progress from chat summaries. Bare `discern` opens the [desk](#decide-from-the-desk) in an interactive terminal. `discern enter` opens a child shell in a selected worktree when you want to inspect it yourself.
 
 Treat file overlap as a reason to look closer. Search and the phone layout might both change the reading-list screen. The agent should explain whether the changes fit together, need an agreed order, or are better handled by one task.
+
+## Decide from the desk
+
+The **desk** is the interactive view that opens when you run `discern` in your main checkout. It lists every task, shows which ones need a decision from you, and offers only the actions that fit each task right now. It keeps itself up to date, so you can leave it open and come back when a task needs you. You don't have to open each agent's session to ask how it's going.
+
+```sh
+discern
+```
+
+Tasks stay in order by title, so rows don't jump around as work changes. Each row shows the task's title, what it's doing, and whether it has Proof. An `i` marks a task that changes files another task also changes. **Task details** lists those files, with the task's branch and path.
+
+Select a task to see its main choices:
+
+| Choice                               | What it does                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------------- |
+| **Proof and changes**                | Shows the Proof, the changed files and commits, and the full diff.                      |
+| **Start or resume agent**            | Opens your coding agent in the task's worktree.                                         |
+| **Pre-authorize landing once green** | Lets the task land when its checks pass, without asking you again.                      |
+| **Accept and land now**              | Submits the checked commit and starts landing it.                                       |
+| **Join the landing queue**           | Adds the checked commit to the landing queue, without starting a landing.               |
+| **Drop**                             | Discards a task you've decided to abandon. It asks you to confirm first.                |
+
+**More actions** holds the rest, such as recovery steps, the final checks, and cleanup. The [desk actions reference](../30-reference/worktrees-and-status.md#desk-actions) lists every action and the command behind it.
+
+Before an action changes anything, the desk shows you its plan. When you confirm, discern checks the task again. If the action no longer fits, discern says why and changes nothing. Each time you open the desk, it also shows one short tip about a feature that suits your project's current state.
+
+### Choose how a checked task lands
+
+The desk keeps three facts about each task separate: whether its checks passed, whether it may land, and whether it's in the landing queue. So a task can read `Proof valid · Authorized · Not queued`. It passed, you approved it, and nobody has asked to land it yet.
+
+- **Pre-authorize landing once green** records your permission for this task. discern asks `Allow <branch> to land once green without a further conversation?` The permission follows the task's branch, so it still covers the task after review fixes. Landing uses it up. You can revoke it from the desk, and it ends if the worktree is removed. Giving permission doesn't queue the task by itself.
+- **Accept and land now** submits the checked commit and lands it. If another landing is running, it waits its turn. If `main` has moved on, discern checks the combined code first and lands what passed. Afterwards, discern tries the other queued tasks in order, each under its own permission, and stops at the first one that still needs you.
+- **Join the landing queue** records the checked commit and returns. It runs no checks and starts no landing. If the task has no permission yet, the desk asks whether to grant it. A landing that's already running, or the next one you start, picks it up.
+
+The queue keeps the exact commit that joined it. If the agent commits more work later, the queue still holds the earlier commit. Any new commit makes the old Proof stale, so the new version needs fresh checks and its own place in the queue. No permission from the desk covers an unmet checkpoint or a change to a standard's limit. Those wait for your explicit decision.
+
+To join the queue from the command line, run `discern accept queue` in the task's worktree.
 
 ## Keep independent streams current
 

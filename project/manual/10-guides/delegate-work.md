@@ -7,12 +7,6 @@ publish: true
 kind: guide
 aliases:
   - "guide-delegate-work"
-  - "The desk"
-  - "interactive worktree manager"
-  - "fleet dashboard"
-  - "worktree picker"
-  - "desk tips"
-  - "tip line"
   - "Bundled Skills"
   - "built-in skills"
   - "bundled playbooks"
@@ -106,54 +100,6 @@ Send any corrections back to the same effort. Its agent follows the reported wor
 ## Completion
 
 The handoff is ready when you understand the proposed tasks, each fresh agent has a complete brief, and the review and landing arrangements are clear. The work is complete when those results have been reviewed and the landing result says what reached the shared branch and what remains pending.
-
-## Inspect decisions from the desk
-
-From the main checkout, bare `discern` opens the desk. It lists the fleet—the project's worktrees—in a stable order and keeps task controls available while observations refresh. Use `discern status --verbose` when you need the full evidence behind a row. A clean worktree still belongs to its effort.
-
-The selected task opens its main controls. **Proof and changes** opens the complete Proof, changed files, commits, and actual diff, including a clear explanation when Proof is absent. **Task details** holds identity and observed status; **More actions** contains secondary operations. Activation checks current state and explains any refusal. The table below follows the live desk registry.
-
-Read the manual opens the same offline document browser as `discern docs`. Search for a page, follow its links, and return to the desk with the same task selected. In action reviews, Tab moves between the reading region and choices; Escape returns without activating a choice.
-
-### Queue a proven task
-
-On the selected task, **Accept and land now** submits the reviewed revision and starts the existing landing path. It may wait for another landing or check the combination with newer shared work. It then considers other authorized submissions.
-
-Join the landing queue records that proven revision without running checks or starting a landing. The flow reuses a grant or asks you to pre-authorize the effort explicitly. An active or later acceptance walk may pick it up. Use “Accept and land now” to start a walk when none is running; queueing schedules no background run and promises no delay.
-
-Pre-authorizing an effort alone does not queue a revision. After the agent has stopped, grant permission if needed, then explicitly choose **Join the landing queue**. Revoking permission keeps the submission visible awaiting authority. A later commit or green `done` does not replace the queued commit; review and submit the new revision explicitly. Unmet checkpoints and changed standard limits still require your separate, exact approval.
-
-A later edit makes the current Proof stale because the work no longer matches the checked commit. The agent renews that evidence before the new revision can be submitted.
-
-The command-line equivalent is `discern accept queue` from the proven worktree. Use `discern accept queue --dry-run` to review its revision and authority.
-
-<!-- BEGIN DESK ACTION REGISTRY -->
-
-| Id             | Group  | Contextual label                                                       | Command evidence                     | Confirmation                                                     |
-| -------------- | ------ | ---------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
-| `recovery`     | Work   | Show recovery steps                                                    | `discern status --all`               | None                                                             |
-| `retry_setup`  | Manage | Retry setup                                                            | `discern worktree setup`             | No by default; Retry                                             |
-| `done`         | Work   | Run final checks                                                       | `discern done`                       | No by default; Run                                               |
-| `accept`       | Review | Accept and land now                                                    | `discern accept`                     | No by default; Land                                              |
-| `submit`       | Review | Join the landing queue                                                 | `discern accept queue`               | No by default; Queue                                             |
-| `update`       | Manage | Update branch from &lt;trunk&gt;                                       | `discern update`                     | No by default; Update                                            |
-| `agent`        | Work   | Start or resume agent                                                  | `<configured-agent>`                 | None                                                             |
-| `follow_up`    | Work   | Start a follow-up from this task                                       | `discern start --from <branch>`      | None                                                             |
-| `scripts`      | Work   | Project Scripts                                                        | `discern scripts <name>`             | No by default; Run                                               |
-| `jump`         | Work   | Open a shell                                                           | `<user-shell>`                       | None                                                             |
-| `inspect`      | Review | Proof and changes                                                      | `git diff`                           | None                                                             |
-| `rename`       | Manage | Change task title                                                      | `discern worktree rename <title>`    | No by default; Change                                            |
-| `grant`        | Manage | Pre-authorize landing once green                                       | `discern desk`                       | No by default; Allow                                             |
-| `revoke_grant` | Manage | Revoke pre-authorization                                               | `discern desk`                       | No by default; Revoke                                            |
-| `reclaim`      | Manage | Reclaim checkout, keep branch (work contained in &lt;later-branch&gt;) | `discern worktree prune --contained` | No by default; Reclaim                                           |
-| `park`         | Manage | Park checkout, keep branch                                             | `discern worktree park <path>`       | No by default; Park                                              |
-| `drop`         | Danger | Drop                                                                   | `discern worktree drop <path>`       | No by default; Drop, then type the branch before discarding work |
-
-<!-- END DESK ACTION REGISTRY -->
-
-Grant and revoke are actions you perform inside `discern desk`. Every lifecycle action rechecks current state after confirmation. For a task that cannot continue, **Show recovery steps** explains the observed problem and the next action; **Retry setup** appears when its recorded setup can be replayed.
-
-**Park** keeps a task's branch and wording while removing its clean checkout. **Reclaim** keeps an earlier stage's branch when a later branch contains its work. **Drop** discards an effort you have decided to abandon. [Worktree recovery](../40-troubleshooting/worktrees-and-resources.md) explains these choices in more detail.
 
 ## Bundled skills
 
