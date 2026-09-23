@@ -1,7 +1,7 @@
 ---
 id: guide-improve-the-practice
 title: "Improve how your agents work"
-description: "Use the project's local record to choose a useful improvement, test it, and see whether it helps later work."
+description: "Find the change that would help your agents most, based on what happened in past tasks, then try it and see whether it helped."
 order: 120
 publish: true
 kind: guide
@@ -19,73 +19,76 @@ aliases:
 
 # Improve how your agents work
 
-Sometimes the work is moving, but the process keeps getting in the way. Checks take a long time, the same refusal returns, or agents need repeated reminders. You want to improve the way the project works without starting a broad cleanup on a hunch.
+Find the change to your project's setup that would help your agents most, based on what happened in past tasks. You fix real friction, such as slow checks or a refusal that keeps coming back, instead of guessing. Less of your time goes to unblocking agents, and more of their effort goes into the work you asked for.
 
-discern can inspect the configured practice and its local activity record, then suggest where to investigate. This guide helps you and your agent turn that evidence into one useful change. The reports advise; they do not change your settings or approve work on their own.
+discern keeps a local record of its own use, called the **logbook**, and reads it to suggest where to look. Its reports only advise. They don't change your settings or approve anything.
 
-## Starting state
+## Before you start
 
-Use this guide when the project is set up and you have time to improve its working process. For an immediate failure, start with [Troubleshooting](../40-troubleshooting/README.md).
+Use this guide when the project is set up and you have time to improve how it works. For something failing right now, start with [Troubleshooting](../40-troubleshooting/README.md).
 
-Your agent can review the shared project's state without creating a new worktree. It needs an effort's worktree when it begins making changes. Historical findings depend on the local logbook, so a new project or one with recording turned off may have little evidence yet.
+The logbook lives inside your repository's `.git` folder, on your machine. It records timings, outcomes, and names, with no code or command output. A new project has little history yet, and so does one that has turned recording off.
 
-## 1. Ask where an improvement would help
+Your agent can read these reports from your main checkout. It only needs a worktree, a separate copy of the project for one task, once it starts making changes.
 
-Give your agent a request:
+## Ask where to improve
 
-> Review how this project is working with discern. Find one improvement supported by the available evidence, explain why it is worth doing, and propose how we would tell whether it helped.
+This guide follows one example: finishing small changes has started to take longer. Ask your agent:
 
-Your agent uses discern's improvement tool, or `discern improvement --markdown`, to inspect the current setup. The report combines mechanical checks and review questions across the project's instructions, checks, documentation, and other parts of the practice. Its next action gives the agent a place to start.
+> Review how this project is working with discern. Focus on why finishing small changes has started taking longer. Find one improvement the evidence supports, explain why it's worth doing, and say how we'd tell whether it helped.
 
-Ask for the practical consequence. “The instructions need attention” should become an account of what is missing, which task it affects, and what a change would improve. A score alone is not a reason to add more rules.
+The agent starts with `discern improvement`. It scores the project's setup on a set of health checks, covering instructions, checks, documentation, and more. It lists open questions for you and the agent to judge separately, outside the score. It then names one next action.
 
-If you already have a concern, include it: “Focus on why completing small changes has started taking longer.” The agent can narrow the review to the relevant part of the practice.
+Ask what the finding means in practice. "The instructions need attention" should become what's missing, which tasks it affects, and what fixing it would change. A low score alone isn't a reason to add more rules.
 
-## 2. Look for supporting history
+## Look at what happened
 
-When the question concerns repeated behavior, your agent reads the local pattern report with `discern patterns`. It can show where check time goes, which refusals recur, or how a measured quality value has changed.
+For a problem that repeats, the agent reads the history with `discern patterns`. It shows where the gate's time goes, which refusals keep coming back, and how a standard's measurement has moved. The **gate** is the full set of checks your project requires.
 
-For example, suppose the tests take most of the gate's time. That fact alone does not make them wasteful. They may be doing necessary work. Your agent should look for a supported source of avoidable time, such as repeated runs under unchanged conditions, and inspect the relevant commands before recommending a change.
+Every finding comes with its counts and the runs they came from. When a report says **insufficient evidence**, there aren't enough comparable runs to know the cause. You can leave things as they are, or ask for a small investigation. There's no need to invent an improvement.
 
-The report gives counts, the runs those counts came from, and limits on the comparison. If it says **insufficient evidence**, the cause remains unknown. You can leave the practice as it is or choose a small investigation; there is no need to invent an improvement to complete the review.
+Say the tests take most of the gate's time. That alone doesn't make them wasteful, because they may be doing necessary work. The agent looks for time that could be avoided, such as a check that runs again when nothing it reads has changed. Then it reads the commands involved before recommending anything.
 
-[Learn from your project's history](../20-understand/evidence-and-improvement.md) explains how to read these findings. [The logbook reference](../30-reference/logbook.md) covers recording choices and stored fields.
+`discern patterns --stats` adds totals such as cycle times and standards trends. Where it splits counts by coding tool, it never ranks them. [Learn from your project's history](../20-understand/evidence-and-improvement.md) explains how to read the findings, and the [logbook reference](../30-reference/logbook.md) covers what gets recorded.
 
-## 3. Inspect the related work
+## Follow the finding into the work
 
-The local record can point to a problem, but it does not contain the code or command output that explains it. Your agent follows the finding into the configuration, instructions, source, or available diagnostic output.
+The logbook points to a problem. It doesn't hold the code or output that explains it. So the agent follows the finding into the configuration, instructions, source code, or the check's own output.
 
-If the question concerns files that may need to change together, the agent can also use `discern coupling`. This reads Git history to identify files that often changed together. Use the suggestions to decide which relationships need inspection.
+discern also notices files that usually change together, from your Git history. By default, when `discern prepare` or `discern done` passes, it names any usual partner the change left out, such as the test for an edited file. To look at one file's partners, the agent runs `discern coupling` with that file's path. History shows where to look. The task decides what needs to change.
 
-For example, an implementation file and a test file may often change together. The agent should check whether the current change needs that test updated, and explain a material omission during review. History can help it remember where to look; the actual task determines what needs changing.
+## Choose one improvement
 
-## 4. Choose one improvement
+Ask for a proposal you can judge:
 
-The proposal should name the evidence, the expected benefit, and the way to verify it. A useful request is:
+> Show me the proposed change, the evidence behind it, and what we'll compare afterwards. Explain any tradeoff before changing a standing rule or check.
 
-> Show me the proposed change, the evidence behind it, and what we will compare afterwards. Explain any tradeoff before changing a standing rule or check.
+Pick the home that matches the problem:
 
-Choose the home that matches the problem:
+| What the evidence shows                                  | A change that fits                                                    |
+| -------------------------------------------------------- | --------------------------------------------------------------------- |
+| New sessions miss an important rule                      | Update the [project instructions](write-project-instructions.md).     |
+| A method for a kind of task needs clearer steps          | Improve a [skill](create-and-manage-skills.md).                       |
+| The map describes the wrong behavior                     | Correct the [map page](maintain-project-map.md) from the code.        |
+| A measured gain is worth keeping                         | Set or tighten a [standard](set-and-raise-standards.md).              |
+| A review question is missing or fires in the wrong place | Add or tune a [checkpoint](place-and-answer-checkpoints.md).          |
+| A check is missing, misleading, or wasting time          | Fix the check's command or configuration, and confirm what it checks. |
 
-| What the investigation supports                                    | A possible change                                                     |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| Future sessions lack an important rule                             | Update [project instructions](write-project-instructions.md).         |
-| A recurring method needs clearer steps or decisions                | Improve a [skill](create-and-manage-skills.md).                       |
-| The project guide describes the wrong behavior                     | Correct the relevant map page from the code.                          |
-| A measured quality gain is worth keeping                           | Establish or tighten a [standard](set-and-raise-standards.md).        |
-| A review question is missing or poorly targeted                    | Add or tune a [checkpoint](place-and-answer-checkpoints.md).          |
-| A configured check is missing, misleading, or doing avoidable work | Adjust the owning command or configuration and verify what it checks. |
+You can also decide the evidence is too weak, or the change costs too much. A recommendation never loosens a standard, adds a blocking rule, or lands a change on its own. Those stay your decisions.
 
-You may also decide the evidence is too weak or the improvement too costly. A recommendation does not authorize weakening a standard, adding a new blocking rule, or landing a change.
+## Try it and review it
 
-## 5. Try the change and review the result
+Your agent makes the change in its worktree. Then it checks the behavior that should improve. For a skill, that means a real request. For an instruction, a new session. For a new check, one example that passes and one that fails.
 
-Your agent implements the chosen improvement in its effort's worktree. It checks the behavior that should improve: a real request for a skill, a fresh session for instructions, or a passing and failing example for a new automated check.
+It commits the change, runs the gate, and brings it back with **Proof**, discern's record of which checks passed on exactly which commit. Review whether the change solves the original problem at a fair cost. [Finish and land a change](finish-and-land-a-change.md) covers landing.
 
-It then prepares and commits the change, runs the full gate, and returns the result with Proof. Review whether the improvement addresses the original problem and whether its cost is reasonable. [Finish and land a change](finish-and-land-a-change.md) covers the landing decision.
+After it lands, ask the agent to look at the original concern again. Some improvements show at once, such as a rule that's now in every session. Others need more tasks before the history can show a difference. The logbook keeps old runs, so an old finding may take a while to fade. Some comparisons start fresh after a configuration change.
 
-After landing, the agent checks the original concern again. Some improvements are visible immediately, such as a previously missing instruction. Others need later work to supply enough comparable runs. Old history remains in the logbook, so a successful change does not necessarily make its original finding disappear at once.
+## When it's done
 
-## Completion
+A review is done when it ends in one of these:
 
-A useful review ends with a supported recommendation or a clear explanation of why the evidence does not justify a change. An implemented improvement should have passing checks and an account of what improved, or what later observation is still needed.
+- a recommendation backed by evidence, which you accept or decline;
+- a clear reason why the evidence doesn't justify a change yet.
+
+A change you accept is done when it has passed the gate and landed, and the agent has said what improved or which later tasks will show it. Each improvement you keep makes every later task start from a better setup.

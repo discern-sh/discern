@@ -53,7 +53,7 @@ Activity, Proof validity, landing authority and submission are separate facts. A
 
 ## Choose a task control
 
-Selecting a task opens **Start or resume agent**, **Project Scripts**, **Pre-authorize landing once green** or **Revoke pre-authorization**, **Accept and land now**, **Join the landing queue**, **Drop**, and **Proof and changes**. **Task details** retains branch, path, stable identity and observed evidence. **More actions** contains the remaining registered actions, including recovery, final checks, update, title changes, shell, follow-up and cleanup. The [action registry](../../../src/engine/desk/model.ts) owns their contracts; the [manual](https://discern.sh/docs/guides/delegate-work#inspect-decisions-from-the-desk) lists them.
+Selecting a task opens **Start or resume agent**, **Project Scripts**, **Pre-authorize landing once green** or **Revoke pre-authorization**, **Accept and land now**, **Join the landing queue**, **Drop**, and **Proof and changes**. **Task details** retains branch, path, stable identity and observed evidence. **More actions** contains the remaining registered actions, including recovery, final checks, update, title changes, shell, follow-up and cleanup. The [action registry](../../../src/engine/desk/model.ts) owns their contracts; the [manual](https://discern.sh/docs/reference/worktrees-and-status#desk-actions) lists them.
 
 Unavailable actions carry a short label. Activating one opens its current reason; agent setup instructions stay out of the ordinary controls.
 

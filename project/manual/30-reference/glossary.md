@@ -93,7 +93,7 @@ The agent has judged that a checkpoint question is not satisfied and has recorde
 
 ### Desk
 
-An interactive view of the project's tasks and the actions available for them. Open it from the main checkout with bare `discern` or `discern desk`. It surveys the [fleet](#fleet), starts tasks, opens configured coding-agent CLIs found on `PATH`, and offers valid actions for the selected worktree. See [the desk](../10-guides/delegate-work.md).
+An interactive view of the project's tasks and the actions available for them. Open it from the main checkout with bare `discern` or `discern desk`. It surveys the [fleet](#fleet), starts tasks, opens configured coding-agent CLIs found on `PATH`, and offers valid actions for the selected worktree. See [the desk](../10-guides/coordinate-parallel-tasks.md).
 
 ### discern
 
@@ -249,7 +249,7 @@ discern's formatter for its configured Markdown and TOML surfaces. `discern tidy
 
 ### Tip
 
-A short practical suggestion shown below the [desk](#desk) status. The desk chooses a tip once per session and records its id in the [logbook](#logbook). The yellow `Tip` label distinguishes it from task status; its advice does not change what the selected task may do. Advice delivered to agents remains in command results. See [desk tips](../10-guides/delegate-work.md).
+A short practical suggestion shown below the [desk](#desk) status. The desk chooses a tip once per session and records its id in the [logbook](#logbook). The yellow `Tip` label distinguishes it from task status; its advice does not change what the selected task may do. Advice delivered to agents remains in command results. See [desk tips](../10-guides/coordinate-parallel-tasks.md).
 
 ### Trunk
 

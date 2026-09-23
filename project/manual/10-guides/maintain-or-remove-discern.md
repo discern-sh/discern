@@ -1,7 +1,7 @@
 ---
 id: guide-maintain-or-remove-discern
 title: "Maintain or remove discern"
-description: "Format discern-owned surfaces, upgrade safely, diagnose the installation, or remove discern while preserving project-owned work."
+description: "Diagnose, tidy, and upgrade discern in your project, or remove it and keep everything you wrote."
 order: 150
 publish: true
 kind: guide
@@ -21,33 +21,40 @@ aliases:
 
 # Maintain or remove discern
 
-discern's setup belongs to your project. You can inspect it, keep it current, or remove its wiring while retaining the instructions, skills, and project knowledge you have written.
+Keep discern healthy and current in your project, or take it out, without losing anything you wrote. Your instructions, skills, and map belong to your project. They stay when you upgrade, and they stay if discern goes.
 
-Choose the task you need: [diagnose a problem](#diagnose-the-installation), [format discern's files](#format-discern-owned-surfaces), [check releases](#check-release-information), [upgrade](#upgrade-the-project), or [remove discern](#remove-discern-from-the-repository). Your agent can handle most maintenance; removal includes a terminal operation for you.
+Pick the task you need: [diagnose a problem](#diagnose-the-installation), [format discern's files](#format-discerns-files), [check for a new release](#check-release-information), [upgrade](#upgrade-the-project), or [remove discern](#remove-discern-from-the-repository). Your agent can do most of this. Removing discern is a step you run yourself.
 
 ## Diagnose the installation
 
-When an integration or command stops working, you can ask:
+When a command or a coding tool's connection stops working, ask:
 
-> Check this project's discern installation and explain what's wrong. Repair what you can within the existing setup, then tell me whether anything needs access, a restart, or a decision from me.
+> Check this project's discern installation and explain what's wrong. Fix what you can within the existing setup, then tell me whether anything needs access, a restart, or a decision from me.
 
-Your agent starts with `discern doctor`. Doctor is read-only: it checks configuration, required commands, generated files, integrations, and other parts of the installation, then names the recovery for anything it finds.
+Your agent starts with `discern doctor`. It changes nothing. It checks the configuration, the commands your project needs, generated files, coding-tool connections, and Git settings. For each problem, it names a fix.
 
-A missing command and a broken configuration need different fixes. The agent should explain the observed problem before changing settings, apply the reported remedy, and run doctor again. A passing result establishes the installation checks; a repaired coding-tool connection also needs a successful call from a fresh session.
+A missing command and a broken configuration need different fixes. So the agent explains what it found before changing anything, applies the fix doctor names, and runs doctor again. A clean doctor run covers the installation. A repaired connection also needs a new coding-tool session that can reach discern.
 
-For a bug report, `discern doctor --json` captures a structured result. [Troubleshooting](../40-troubleshooting/README.md) helps match a symptom to a recovery.
+For a bug report, `discern doctor --json` captures the full result. [Troubleshooting](../40-troubleshooting/README.md) matches common symptoms to their fixes.
 
-## Format discern-owned surfaces
+## Format discern's files
 
-If your instructions, map, work ledger, or `discern.toml` have become hard to scan, ask:
+If your instructions, map, or `discern.toml` have become hard to read, ask:
 
 > Format the files discern manages, review the changes, and bring them back through the project's checks.
 
-In the task's worktree, the agent previews `discern tidy --dry-run` and applies `discern tidy`. The planner parses every target before writing. A malformed file stops the run without changing the targets, so the agent can correct it first.
+In the task's worktree, a separate copy of the project for this task, the agent previews and then formats:
 
-Tidy covers the configured instruction sources, map, TODO ledger, and root config. It does not format application source, authored skills, generated agent files, or arbitrary repository files. Your project's own formatter remains responsible for those.
+```sh
+discern tidy --dry-run
+discern tidy
+```
 
-The agent reviews the diff, prepares and commits it, and runs the gate. A second tidy preview should report no changes. For a narrower task, `discern tidy md` or `discern tidy toml` formats only the selected type.
+The preview lists the files that would change. Tidy formats your instruction sources, the map, the work ledger (`discern/TODO.md` by default), and `discern.toml`. It leaves your code, skills, and each coding tool's generated files alone. Your project's own formatter handles those.
+
+Tidy reads every file before it writes any. If one can't be parsed, tidy stops without changing anything, so the agent fixes that file first. To format only one kind of file, use `discern tidy md` or `discern tidy toml`.
+
+The agent reviews the changes, commits them, and runs the gate, the full set of checks your project requires. A second `discern tidy --dry-run` should then list nothing.
 
 ## Check release information
 
@@ -57,94 +64,99 @@ Ask your agent to **check for updates**, choose **Check for updates** from the d
 discern releases
 ```
 
-The release page shows what's changed and whether an upgrade is available. The command opens it in your browser and prints the link so you can open it yourself if needed.
+The **desk** is the interactive view that opens when you run `discern` in your main checkout. The release page shows what's changed and whether an upgrade is available. In a terminal, `discern releases` opens the page in your browser. It always prints the link, so an agent can pass it to you.
 
-You can ask your agent to check and install an update in one request. If you only ask for a check, it will report what it finds and leave installation for you to decide. discern may remind you to check every couple of weeks.
+If you only ask for a check, your agent reports what it finds and leaves the install to you. You can also ask it to check and install in one request. Every 14 days, `discern status`, `discern doctor`, and the desk remind you to check again.
 
 ## Upgrade the project
 
-Updating the installed program and updating a project's setup are separate steps. discern does not check the network for newer releases or replace its own binary.
+To upgrade, you install the new discern program, then your agent updates your project's setup to match. discern never downloads a new version or replaces itself. Read the [release notes](https://discern.sh/releases) before you decide.
 
-Read the [release notes](https://discern.sh/releases) before choosing an update.
+### 1. Install the new version
 
-### 1. Replace and identify the binary
-
-Once you decide to install a newer version, use the supported installer described in [installation and setup](../00-start/installation-and-setup.md). It verifies the download checksum before replacing the binary. Open a new shell and check which program will run:
+Use the installer from [Installation and setup](../00-start/installation-and-setup.md). It checks the download's checksum before replacing the program. Then open a new terminal and confirm which program runs:
 
 ```sh
 command -v discern
 discern --version
 ```
 
-Restart your coding-agent sessions after installation so they use the new version.
+Restart your coding-agent sessions so they use the new version.
 
-If the project reports a schema newer than the installed program, install a version that understands it. The schema describes the configuration format; an older program will refuse to stamp it backward.
+If your project needs a newer discern than you have installed, `discern upgrade` refuses and tells you to run the installer again.
 
-### 2. Preview from a clean upgrade worktree
+### 2. Preview the upgrade
 
-Give your agent a bounded request:
+Give your agent a clear request:
 
-> Update this project's setup for the installed discern version. Preview the changes, preserve our authored instructions and skills, and bring the upgrade back with its check results.
+> Update this project's setup for the installed discern version. Preview the changes, keep our instructions and skills, and bring the upgrade back with its check results.
 
-The agent uses an isolated worktree and reviews any existing edits before upgrading. It runs:
+The agent works in a worktree, and upgrade needs one with no uncommitted changes. It previews first:
 
 ```sh
 discern upgrade --check
 discern upgrade --dry-run
 ```
 
-`--check` reports pending adoption as well as migration and managed-scaffold changes. A migration brings older configuration into the format the running version expects. The dry run shows the previous and proposed `meta.managed_version` values and writes nothing.
+`--check` lists what's pending: configuration changes the new version needs, and updates to the files discern manages. The dry run shows the planned changes and writes nothing.
 
-### 3. Apply, review, and prove
+### 3. Apply, check, and land
 
-Your agent runs `discern upgrade`, inspects the changes, and follows any partial-operation recovery. Your authored instructions, skills, scripts, and map remain project-owned; the plan identifies which managed settings or files need changes.
+Your agent runs `discern upgrade` and reviews the result. Your instructions, skills, scripts, and map stay yours. The upgrade only changes discern's own settings and files. If upgrade can't finish, its result says what's left and how to recover.
 
-It then uses [Finish and land a change](finish-and-land-a-change.md) to prepare the result for review. After landing, restart coding-tool sessions so their discern connection loads the installed version and current setup. The agent checks `discern doctor`, `discern upgrade --check`, and the fresh connection.
+Then the agent runs the gate and brings the upgrade back for review, as in [Finish and land a change](finish-and-land-a-change.md). After it lands, restart your coding-tool sessions. The agent confirms that `discern doctor` passes, `discern upgrade --check` lists nothing, and a new session can reach discern.
 
-The upgrade is complete when the intended version is installed, no migrations remain, and the changed setup has passed its checks and works in a fresh session.
+If your project runs discern in CI, raise the version CI installs in the same change. [Run the gate in CI](run-the-gate-in-ci.md) explains why.
 
 ### Share an upgrade with teammates
 
-When you upgrade a project, commit the changes with your team. The `managed_version` field in `discern.toml` records the newest discern version used to update its managed files; it does not track what teammates have installed.
+Commit the upgrade so your team gets it. `discern.toml` records the newest discern version that updated the project, as `[meta].managed_version`. It doesn't track which version each teammate has installed.
 
-A teammate using an older discern version will see a message explaining how to update. They check releases, install the update, and restart their coding-agent sessions. They preview and apply `discern upgrade` in the project.
+A teammate with an older discern sees a message saying so. Until they upgrade, their discern still reads the project and runs tests, but it won't run the gate or change discern's files. They run `discern releases`, install the new version, and restart their coding-agent sessions.
 
 ## Remove discern from the repository
 
-You can stop using discern without throwing away the project knowledge you built. Ask your agent to help prepare:
+You can stop using discern without losing the project knowledge you built. Ask your agent to help you prepare:
 
-> Help me remove discern from this repository. Identify unfinished work and resources that need attention, then explain the removal preview and what will remain for me to keep.
+> Help me remove discern from this repository. Find unfinished work and resources that need attention, then explain the removal preview and what will stay for me to keep.
 
-Uninstall is a CLI-only owner operation. The steps below happen in the main checkout after active work is resolved.
+You run the removal yourself, in your main checkout, your original project folder. It isn't among the tools discern gives your agent.
 
-### 1. Close active work safely
+### 1. Finish or close open work
 
-Read `discern status`. Land work you want to keep, and review any work you want discarded before explicitly dropping it. Follow the reported cleanup instructions for orphaned resources.
+Run `discern status`. Land the work you want to keep. Review anything you want to throw away before you remove it.
 
-Uninstall refuses while any linked Git worktree remains registered, including a completed checkout you retained, or while the resource ledger records provisioned resources. Those records include the information needed to remove external resources, so deleting the records first would lose the cleanup instructions.
+Uninstall refuses while any task worktree is still registered, even a finished one you kept. It also refuses while discern still tracks resources a worktree set up, such as a test database. Those records hold the commands that remove each resource, so they have to go last. `discern worktree prune` cleans them up.
 
-### 2. Preview what leaves and what stays
+### 2. Preview what goes and what stays
 
 ```sh
 discern uninstall --dry-run
 ```
 
-Review the complete plan. It removes discern's generated files, its entries in shared integration files, managed ignore and attribute blocks, and its Git-admin runtime state. It keeps `discern.toml`, your authored instructions and skills, map content, and recovery refs that may be the only remaining names for your commits.
+Review the plan before you go on. discern removes:
 
-If a shared setting cannot be removed safely, inspect that setting's ownership before changing it. The [files and ownership reference](../30-reference/files-and-ownership.md) explains the full boundary.
+- the files it generated, such as each tool's instruction file and skills folder;
+- its entries in settings files it shares with you;
+- its blocks in `.gitignore` and `.gitattributes`;
+- its own Git settings and the working state it keeps inside `.git`.
 
-### 3. Apply and inspect the repository diff
+It keeps `discern.toml`, your instructions, skills, scripts, map, and work ledger. It also keeps every Git reference, including recovery references that may be the only name left for some of your commits. discern prints the commands to remove them later, once you've checked them.
+
+The [Files and ownership](../30-reference/files-and-ownership.md) reference lists every file and who owns it.
+
+### 3. Remove it and review the result
 
 ```sh
 discern uninstall
 ```
 
-Confirm the prompt after reviewing the plan. `--yes` is available for a non-interactive run you have already authorized.
+In a terminal, uninstall asks you to confirm. `--yes` skips the question, and so do `--json` and `--markdown`. Only use them after you've reviewed the preview.
 
-Inspect `git status` and commit the removal through the repository's ordinary process. Keep recovery refs until you have reviewed the work they preserve.
+Then check `git status` and commit the removal the way your repository usually takes changes.
 
-### 4. Remove the binary separately
+### 4. Remove the program, if you want
 
-Repository uninstall keeps the shared discern program installed. Other projects may still use it. If none do and you want to remove it, use `which discern` to identify the installed program before deleting it.
+Uninstall leaves the discern program installed, because other projects may still use it. If none do, find it with `which discern` and delete that file.
 
-Removal is complete when the planned wiring has gone, your authored content remains, and no active resource is left without its cleanup record. [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers cleanup that prevents uninstall.
+Removal is done when the planned removals have happened, everything you wrote is still there, and no resource was left without its cleanup record. [Worktrees and resources](../40-troubleshooting/worktrees-and-resources.md) helps when something blocks uninstall.

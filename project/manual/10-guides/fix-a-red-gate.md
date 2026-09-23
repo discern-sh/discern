@@ -1,7 +1,7 @@
 ---
 id: guide-fix-a-red-gate
 title: "Fix a red gate"
-description: "Understand a failed check, give your agent a useful recovery request, and recognize when the change is ready again."
+description: "Hand a failed check to your agent, know which decisions are yours, and recognize when the change is ready again."
 order: 30
 publish: true
 kind: guide
@@ -16,94 +16,86 @@ aliases:
 
 # Fix a red gate
 
-A red gate means the change needs attention before discern can record its completion. Give the failure to your agent and ask it to investigate:
+When one of your project's checks fails, your agent gets the failing check, its output, and a command that reproduces that failure on its own. So it can go straight to the cause, and you don't need to read a long test log to help.
 
-> Find out why this check failed, fix the cause, and check for the same problem elsewhere. Keep working in this task's worktree. Bring back the result with fresh Proof, and explain any decision that needs me.
+The **gate** is the set of checks your project requires before a change counts as finished. It's **red** when one of them fails, so discern can't record **Proof** for this version yet. Proof is discern's record of which checks passed on exactly which commit.
 
-Include the result or its saved output if you have it. Your agent can use the diagnostic, the explanation of the failure, to find the affected command and files. You do not need to interpret a long test log before asking for help.
+Hand the failure to your agent:
+
+> Find out why this check failed, fix the cause, and look for the same problem elsewhere. Keep working in this task's worktree. Bring back the result with fresh Proof, and tell me about any decision that needs me.
+
+This guide follows one failure in a recipe app, from the red result to a passing gate.
 
 ## Find out what failed
 
-The gate runs checks chosen for your project. A failure might mean the feature behaves incorrectly, a generated file needs updating, or a required tool is unavailable. These call for different remedies, so your agent starts with the reported evidence.
+Your project chooses the checks, so a failure can mean different things. The feature might be wrong, a generated file might need updating, or a tool the check needs might be missing. Each needs a different fix, so your agent starts from the failure discern reports.
 
-Ask for an explanation such as “Search crashes when the box is empty,” or “The test could not start because its required tool is missing.” The explanation should distinguish what the agent observed from what it still needs to investigate.
+Each failure names the command that failed, shows its output, and gives a shorter command that reproduces it alone. Ask for an explanation in plain words, such as "Search crashes when the box is empty" or "The test couldn't start because a tool it needs is missing." A good explanation separates what the agent saw from what it still has to find out.
 
-If other checks were canceled after the first failure, their results remain unknown. They will need evidence too before completion. The agent should retrieve captured output when a result is abbreviated, rather than repeat an operation merely to see its text again.
+When one check fails, discern can stop other checks early to save time. Their results are unknown, and they run again at the next `discern done`. If a result arrives cut short, the agent reads the saved result with `discern progress` instead of running the checks again.
 
-You do not have to wait for the run to finish to learn what failed. While the checks run, discern reports each failure as soon as it is known, with the test's name, message, and a focused command that reproduces it alone, when the project's test command reports its progress. Most test runners can be made to do that; ask your agent:
+### See failures while the checks run
+
+You don't have to wait for the run to end to learn what failed. If your project's test command reports its progress to discern, each failure shows up as soon as it's known. It comes with the test's name, its message, and a command that reproduces it alone. Most test runners can do this. Ask your agent:
 
 > Have our test command report its progress to discern, so failures show up while the run is still going and each one comes with a command that reproduces it on its own.
 
-The agent adds a few lines of output to the command, in the form the [configuration reference](../30-reference/config-reference.md#jobs) describes, and nothing about what the tests check changes. Any check can report this way, including a build.
+The agent adds a few lines of output to the command, in the format the [configuration reference](../30-reference/config-reference.md#jobs) describes. What the tests check doesn't change. Any check can report this way, including a build.
 
 <!-- discern-workflow:result-summary -->
 
-**Failed:** A check or prerequisite needs attention; current completion Proof is unavailable.
+**Failed:** A check failed, or something a check needs is missing, so there's no current Proof.
 
-**Next action:** Your agent follows the diagnostic's recovery or reproduction command, then returns to the full completion check after resolving the cause.
+**Next action:** Your agent follows the failure's recovery or reproduce command, fixes the cause, then runs the full gate again.
 
 <!-- /discern-workflow -->
 
-## Follow the failure through a fix
+## Follow one failure to a fix
 
-Imagine your agent adds recipe search. The project's test for clearing the search box fails: it expects the full recipe list, but the app shows no recipes.
+Say your agent adds recipe search, and the test for clearing the search box fails. It expects the full recipe list back, but the app shows no recipes.
 
-Your agent reproduces that behavior with the focused test named in the failure. It then investigates why an empty search is treated as “no matches,” corrects the behavior, and checks for other places using the same search logic. A regression test records the expectation so a later edit can catch the same mistake.
+The agent runs the reproduce command from the failure and watches it happen. It finds why an empty search counts as "no matches," fixes it, and checks other places that use the same search code. It keeps a test for this case, so a later edit that brings the bug back makes the test fail. discern's `discern-cure-a-bug` skill, a ready-made playbook, walks your agent through this: find the real cause, fix every place it appears, and leave a check that fails if it returns. Each fix then makes the project a little harder to break.
 
-You can review this without reading the implementation: enter a search, clear it, and see whether the list returns. Ask the agent to show that the test failed before the correction and passed afterward. The full gate then checks the change against the rest of the project's requirements.
+You can check the fix without reading code. Type a search, clear it, and see whether the list comes back. Ask the agent to show that the test failed before the fix and passes after it. The full gate then checks the change against everything else your project requires.
 
-## When to stop for a person
+## When the decision is yours
 
-Most repair work can continue within the task you already requested. A decision belongs with you when fixing the failure changes what the project is meant to do or which requirements it will hold.
+Most fixes stay within the task you asked for. A decision is yours when fixing the failure would change what the project is meant to do, or what it requires.
 
-| What the agent found                                                  | What you need to consider                                                                                                                                   |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The test expects behavior you now want to change.                     | Confirm the intended behavior, so the agent can update the feature and the test together.                                                                   |
-| The change exceeds a standard, such as the app's download-size limit. | Ask what caused the increase, what can be reduced, and what you gain by keeping it. [Standards](../20-understand/standards.md) explains the limit decision. |
-| A checkpoint question is declared unmet.                              | Read the reason, then request a correction or explicitly approve that exception. [Checkpoints](../20-understand/checkpoints.md) explains the choice.        |
-| A required environment, credential, or service is unavailable.        | Ask what remains unverified and what access or environment would allow the check to run.                                                                    |
-| The proposed repair would remove or weaken a required check.          | Ask why the existing check no longer serves the project and what would replace its coverage.                                                                |
+| What the agent found                                                    | What you decide                                                                                                                              |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| A test expects behavior you now want to change.                         | What the behavior should be. The agent then updates the feature and the test together.                                                       |
+| The change goes over a standard, such as the app's download-size limit. | Whether the feature is worth a higher limit, once the agent has tried to reduce it. [Standards](../20-understand/standards.md) explains how. |
+| The agent answered a checkpoint question "unmet."                       | Whether to ask for a fix, or to approve that gap. Only you can approve it. [Checkpoints](../20-understand/checkpoints.md) explains how.      |
+| A tool, credential, or service the check needs isn't available.         | How to provide it. Ask what stays unchecked until then.                                                                                      |
+| The proposed fix would remove or weaken a required check.               | Whether the check still serves the project, and what would replace it.                                                                       |
 
-The agent should investigate reasonable fixes before bringing a tradeoff back. A useful decision request includes the observed problem, the options, and a recommendation you can assess.
+A **checkpoint** is a review question your project asks about certain kinds of change. Your agent answers it, and an "unmet" answer means the change falls short of what the question asks. Your agent tries reasonable fixes before it brings you a decision. When it does, it gives you the problem, the options, and what it recommends.
 
-## Return to a checked result
+## Get back to a passing gate
 
-While editing, your agent uses the smallest relevant check so each attempt gives prompt feedback. It then prepares the complete change:
+While fixing, the agent runs the smallest relevant check, so each attempt gets quick feedback. If your project limits how many test runs can happen at once, it runs those focused tests through `discern queue -- <test-command>` to share the limit. Then it prepares every file in the change:
 
 <!-- discern-workflow:command -->
 
-**Run in:** this task's worktree, where the agent made the fix.
+**Run in:** the task's worktree, where the agent made the fix.
 
 ```sh
 discern prepare
 ```
 
-**Expected result:** The configured preparation steps pass, with any rewritten files available for the agent to review and commit.
+**Expected result:** The quick checks pass, and any files the fixers rewrote are ready for the agent to review and commit.
 
-**If this fails:** Follow the new diagnostic before attempting completion.
+**If this fails:** The agent follows the new failure before it runs the full gate.
 
 <!-- /discern-workflow -->
 
-After reviewing and committing the final files, the agent runs `discern done`. It collects the required evidence, including checks that were canceled or unavailable earlier. A focused test passing establishes the repair it covers; current Proof shows that the complete change met the configured gate.
+Then the agent commits the final version and runs `discern done`. That runs every required check again, including any that were stopped or unavailable before. A passing focused test shows the fix works for that one case. New Proof shows the change passed every check your project requires.
 
-If the same failed inputs are being retried, discern may request an explicit `discern done --rerun`. For example, a missing service may have been restored without a source edit. The agent should follow that instruction after establishing why another attempt is useful. Changing an unrelated file does not necessarily change the inputs of the failed check.
+If nothing has changed since a failed run, `discern done` doesn't repeat it. Say a missing service is back, but no code changed. The agent can then retry with `discern done --rerun`, once it knows why another attempt will help.
 
-## Technical routes for a reported failure
+## You're done when
 
-These details help if you are following the repair in a terminal. The diagnostic's own next action remains the starting point.
+The agent's handoff explains the cause, the fix, what it tried, and any decision left for you. It ends with fresh Proof for the fixed version. A pass isn't permission to land. [Finish and land a change](finish-and-land-a-change.md) covers review and landing from here.
 
-| Reported condition                                | Route forward                                                                                                                                    |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Uncommitted files or a branch that needs updating | Inspect the task's state, review the intended files, and follow the commit or `discern update` instruction.                                      |
-| A project check failed                            | Use its `reproduce_cmd` and captured output to investigate.                                                                                      |
-| `generated_drift`                                 | Edit the owning source and run the named generator.                                                                                              |
-| `tree_drift` or unexpected output                 | Inspect and preserve the reported files before deciding whether they belong in the change or the producing command needs correction.             |
-| Timeout or a missing executable                   | Use the reported environment remedy or `discern doctor`; extend a timeout only after establishing that the command is valid and needs more time. |
-
-Projects can limit concurrent test runs. When `[gate].concurrent_test_runs` is positive, the agent runs direct tests through `discern queue -- <focused-test-command>` so parallel tasks share that capacity.
-
-## Completion
-
-Look for a handoff that explains the cause, the correction, what was tried, and any remaining decision. It should include fresh Proof for the completed change. You can then continue with [Finish and land a change](finish-and-land-a-change.md).
-
-For a specific evidence or output problem, see [Gate and Proof troubleshooting](../40-troubleshooting/gate-and-proof.md). The [result reference](../30-reference/mcp-and-results.md) explains diagnostic fields.
+If you're following along in a terminal, [Gate and Proof troubleshooting](../40-troubleshooting/gate-and-proof.md) matches each kind of failure to its fix. The [result reference](../30-reference/mcp-and-results.md#diagnostics) explains each field in a failure.

@@ -85,6 +85,34 @@ discern status --no-color
 
 During setup, this read-only result reports the recorded phase, dedicated branch, and bounded continuation. It performs no write probe; the later effectful command checks its own targets ([Setup command boundaries](../40-troubleshooting/setup-and-integrations.md)).
 
+### Desk actions
+
+The desk, which bare `discern` opens in the main checkout, offers these actions for a selected task. Each row names the command behind the action and the confirmation it asks for; granting and revoking pre-authorization have no command outside `discern desk`.
+
+<!-- BEGIN DESK ACTION REGISTRY -->
+
+| Id             | Group  | Contextual label                                                       | Command evidence                     | Confirmation                                                     |
+| -------------- | ------ | ---------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
+| `recovery`     | Work   | Show recovery steps                                                    | `discern status --all`               | None                                                             |
+| `retry_setup`  | Manage | Retry setup                                                            | `discern worktree setup`             | No by default; Retry                                             |
+| `done`         | Work   | Run final checks                                                       | `discern done`                       | No by default; Run                                               |
+| `accept`       | Review | Accept and land now                                                    | `discern accept`                     | No by default; Land                                              |
+| `submit`       | Review | Join the landing queue                                                 | `discern accept queue`               | No by default; Queue                                             |
+| `update`       | Manage | Update branch from &lt;trunk&gt;                                       | `discern update`                     | No by default; Update                                            |
+| `agent`        | Work   | Start or resume agent                                                  | `<configured-agent>`                 | None                                                             |
+| `follow_up`    | Work   | Start a follow-up from this task                                       | `discern start --from <branch>`      | None                                                             |
+| `scripts`      | Work   | Project Scripts                                                        | `discern scripts <name>`             | No by default; Run                                               |
+| `jump`         | Work   | Open a shell                                                           | `<user-shell>`                       | None                                                             |
+| `inspect`      | Review | Proof and changes                                                      | `git diff`                           | None                                                             |
+| `rename`       | Manage | Change task title                                                      | `discern worktree rename <title>`    | No by default; Change                                            |
+| `grant`        | Manage | Pre-authorize landing once green                                       | `discern desk`                       | No by default; Allow                                             |
+| `revoke_grant` | Manage | Revoke pre-authorization                                               | `discern desk`                       | No by default; Revoke                                            |
+| `reclaim`      | Manage | Reclaim checkout, keep branch (work contained in &lt;later-branch&gt;) | `discern worktree prune --contained` | No by default; Reclaim                                           |
+| `park`         | Manage | Park checkout, keep branch                                             | `discern worktree park <path>`       | No by default; Park                                              |
+| `drop`         | Danger | Drop                                                                   | `discern worktree drop <path>`       | No by default; Drop, then type the branch before discarding work |
+
+<!-- END DESK ACTION REGISTRY -->
+
 ### Structured result
 
 CLI JSON, MCP `structuredContent`, and the status resource use the same structured fields. The default is a bounded view for orientation; request full collections when a decision depends on entries outside that sample.

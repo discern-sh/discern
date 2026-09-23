@@ -1,7 +1,7 @@
 ---
 id: guide-set-and-raise-standards
 title: "Set and raise standards"
-description: "Choose a useful measure, retain an improvement, and make informed decisions when a limit is reached."
+description: "Lock in a measured gain so later changes can't give it back, and decide for yourself when a feature is worth a looser limit."
 order: 100
 publish: true
 kind: guide
@@ -14,129 +14,138 @@ aliases:
 
 # Set and raise standards
 
-Use a standard when an improvement matters enough that future changes should preserve a measured limit. Your agent handles the measurement and configuration. You decide what is worth holding and whether a later tradeoff justifies changing it.
+Lock in a measured gain, such as a smaller download, and no later change can give it back without your say. Your agent sets up the measurement, and discern checks it on every change. You decide what's worth holding, and only you can approve a looser limit.
 
-For example, you can track the amount someone downloads to open your app. Keeping that size in view helps prevent a useful saving from disappearing as agents add features.
+A **standard** is a quality limit your project holds. A **ceiling** is a maximum, such as download size. A **floor** is a minimum, such as test coverage. [Standards](../20-understand/standards.md) explains how limits tighten over time.
 
-## Starting state
+## Ask for a standard
 
-The project should already be set up with discern. Bring the quality you care about; you do not need to know its measuring tool or the files involved.
+This guide follows one example: how much someone downloads to open your app. You've made it smaller, and you want it to stay that way as agents add features. You don't need to know how to measure it. Ask your agent:
 
-> Use discern-set-the-standard to propose a limit for the app's initial download size. Explain exactly what it would measure, the current value, and how it would handle normal growth. I want to review the proposal before it becomes project policy.
+> Use discern-set-the-standard to propose a limit for the app's initial download size. Explain what it would measure, today's value, and how it would handle normal growth. I want to review the proposal before it becomes project policy.
 
-The skill guides your agent through choosing, wiring, and checking the measure. If the concern cannot be judged by a repeatable number, the agent may recommend a [checkpoint](place-and-answer-checkpoints.md) or another kind of check instead.
+The agent follows the bundled `discern-set-the-standard` skill. If your concern can't be measured as a repeatable number, it may suggest a [checkpoint](place-and-answer-checkpoints.md) instead.
 
-## Add a standard
+## Choose a number worth holding
 
-### 1. Choose a defensible number
+Ask the agent to explain its proposal in these terms:
 
-Ask the agent to explain the proposal in terms you can assess:
+- **Meaning:** what does a rise or fall tell you about the app?
+- **Repeatability:** does the same code always give the same number?
+- **Cost:** is it quick enough to measure on every change?
+- **Growth:** will a useful new feature push the number up even when nothing got worse?
 
-- **Meaning:** What would an increase or decrease tell us about the app?
-- **Repeatability:** Will the same project state give the same result?
-- **Cost:** Can the project afford to measure it during completion?
-- **Growth:** Will useful new features change the number even when nothing has got worse?
+For download size, agree which files count and in what unit. For something that grows with the project, a rate often works better than a raw count, such as warnings per 1,000 lines. For an old pattern you want gone, a plain count works, and the skill can take it down to zero.
 
-For download size, define which files and units count. For a growing quantity, consider a rate or deliberate headroom. For something the project intends to remove, such as remaining uses of an obsolete implementation, a raw count can be appropriate.
+Start with a limit the project meets today. A limit you hope to reach would block ordinary work until you get there.
 
-Start with a limit the project currently meets. A hoped-for improvement belongs in a task plan; setting that future value as today's limit would block ordinary work before the improvement exists.
+## What your agent sets up
 
-### 2. Add the measurement and current limit
-
-After you agree the proposal, your agent writes the measuring command and adds the standard to `discern.toml`. It records what the number means so future agents can understand the reason for it.
-
-An illustrative project that currently measures 1,200 kB might use:
+Once you agree, the agent writes a small script that measures the number and adds the standard to `discern.toml`, your project's discern configuration. If the download measures 1,200 kilobytes (kB) today, it might add:
 
 ```toml
+# Initial download in kB. Lower is better for people on slow connections.
 [standards.download_size]
 direction = "down"
 limit = 1200
 margin = 100
 run = "tools/measure-download-size"
+inputs = ["src/**", "assets/**"]
 ```
 
-Here, `down` makes the limit a maximum. `up` would make it a minimum. The 100 kB margin leaves headroom when a later improvement is pinned; the current limit is still 1,200 kB.
+| Setting     | What it does                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| `direction` | `down` makes the limit a ceiling. `up` would make it a floor.                               |
+| `limit`     | The number every change must meet: 1,200 kB for now.                                        |
+| `margin`    | The headroom discern leaves when you later lock in a gain. It doesn't loosen today's limit. |
+| `run`       | The measuring script, which lives in your project.                                          |
+| `inputs`    | The files the measurement reads. discern reuses the last result when none of them changed.  |
 
-`tools/measure-download-size` is a project-specific script the agent would provide, not a command shipped by discern. It builds or reads the agreed files and emits the measurement:
+The script prints its result as one line:
 
 ```text
 DISCERN_METRIC download_size 1200
 ```
 
-The producer must complete successfully and supply a valid measurement. A missing number, a failed command, or a value outside the limit needs attention.
+If the script fails or prints no number, the gate fails. The **gate** is the full set of checks your project requires before a change counts as finished.
 
-If the project already produces this measurement during another check, the agent points the standard at that check with `producer = "jobs.<name>"` instead of running a second command; the test run that already reports coverage, for example, can supply a coverage standard without running twice. A standard can also declare the files its measurement reads, so an unchanged measurement is reused rather than repeated; a standard that declares nothing is measured again for every version. The [configuration reference](../30-reference/config-reference.md#standardsname) holds those fields.
+Declare `inputs` from the start, and list every file the measurement reads. A missing file could let discern reuse an out-of-date number. discern also needs `inputs` to propose a new limit later, and a task branch can't add them afterwards. If another check already measures the number, the agent can point the standard at that check with `producer` instead of `run`, so it's measured once. The [configuration reference](../30-reference/config-reference.md#standardsname) lists every setting.
 
-### 3. Exercise both outcomes
+## Try it, then land it
 
-Ask the agent to demonstrate that the standard accepts the current app and catches a representative breach. A test in a disposable fixture can show the failure without leaving the project in that state.
-
-The agent measures a named standard with `discern_standards`, or:
+The agent commits the new standard, then measures it:
 
 ```sh
 discern standards download_size
 ```
 
-You should receive the measured value, held limit, and evidence that the failing case is detected. The agent then runs `discern_prepare`, commits the intended change, and runs `discern_done`. Review and land the policy through [Finish and land a change](finish-and-land-a-change.md).
+You should see the measured value and the limit it holds. Ask the agent to show a breach too, in a throwaway copy, so you know the check catches one. Then it runs the gate and brings the change back for you to land, as in [Finish and land a change](finish-and-land-a-change.md).
 
-## Respond when a standard fires
+Once it lands, every later change has to meet the limit.
 
-### 1. Understand the increase
+## Lock in an improvement
 
-A breach deserves investigation before a policy decision. Ask:
+When a change makes the number better, ask to keep the gain:
 
-> Explain the measured change and what caused it. Look for reasonable fixes within this task. If the increase is part of the feature we want, show me that tradeoff rather than cutting unrelated useful work.
+> Pin the download-size improvement, keeping our configured margin. Show me the measured value and the new ceiling, then finish the change through the gate.
 
-For example, after a previous improvement lowered the ceiling to 1,000 kB, a new feature might measure 1,040 kB. The agent should explain the extra 40 kB and what it buys. Repair a broken measuring command before reconsidering the size limit.
-
-The agent keeps the held limit while it investigates. Removing the standard, shrinking what gets measured, or raising the limit by hand would change the rule instead of resolving the result.
-
-### 2. Decide whether the tradeoff is worthwhile
-
-If a reasonable implementation can fit the existing limit, have the agent make that change. If the extra size is justified, ask for a formal proposal. You can also defer the feature or choose a smaller version.
-
-Your decision should be about the outcome. For example: is the new search useful enough to justify the additional download, and is there a simpler alternative with the same benefit?
-
-Permission to land the feature does not also approve weakening its standard. That separate decision keeps the measurement's cost visible.
-
-### 3. Finalize an approved proposal
-
-Once you agree a proposal is warranted, the agent finishes the implementation and commits its final tree. It then runs:
-
-```sh
-discern standards propose download_size --reason "The agreed search feature increases the initial download"
-```
-
-The command measures the named standard, creates the proposal's configuration commit, and records its value and reason. The agent follows the result's next action and produces current [Proof](../20-understand/proof.md).
-
-Review the exact old limit, proposed limit, measurement, and reason together. If you approve that proposal, the agent uses its returned token at acceptance:
-
-```sh
-discern accept --confirmed --approve-standard <token>
-```
-
-The token must match the current proposal. Further edits may require renewed measurement and proposal evidence; the agent follows the reported recovery rather than carrying forward an old approval for a different value.
-
-## Pin an earned improvement
-
-When a change improves an existing measure, ask to retain the gain:
-
-> Pin the download-size improvement, keeping our configured margin. Show me the measured value and the new ceiling, then finish the resulting change through the gate.
-
-On a clean committed tree, the agent runs:
+Once everything in the task is committed, the agent runs:
 
 ```sh
 discern standards --pin download_size
 ```
 
-If the old ceiling is 1,200 kB, the new measurement is 900 kB, and the margin is 100 kB, pinning sets the ceiling to 1,000 kB. It commits that limit change separately. Pinning cannot loosen a limit, and an improvement smaller than the margin may leave nothing to pin.
+If the ceiling is 1,200 kB and the app now measures 900 kB, pinning sets the ceiling to 1,000 kB: the measurement plus the 100 kB margin. discern commits that change on its own. Pinning only ever tightens a limit. If the gain is smaller than the margin, there's nothing to pin. Pinning won't run while any standard is failing.
 
-discern reuses compatible measurement evidence when available. Pinning itself does not establish completion for the new commit: follow the result and renew the full gate evidence before landing.
+The pin is a new commit, so the agent runs `discern done` again. That gives it fresh **Proof**, discern's record of which checks passed on exactly which commit. Once the pin lands, every later task has to meet the tighter limit, including tasks by agents that never saw the improvement.
 
-For a count you intend to reduce to zero, ask the agent to plan a permanent check for the first new instance. Keep the standard until any replacement policy has been explicitly reviewed; deleting a held standard on an ordinary branch fails the gate.
+For an old pattern you're counting down to zero, keep the standard until the count reaches zero. Then ask the agent to replace it with a permanent check that blocks any new use.
 
-## Completion
+## Respond when a standard fires
 
-A useful standard has an understandable purpose, a working detector, and a limit the project can meet. Once its policy lands, later work must satisfy it. When an improvement is pinned or a limit proposal is approved, the final completion evidence should describe that exact change.
+After that pin, the ceiling is 1,000 kB. Then a new search feature brings the download to 1,040 kB. The gate fails and names the standard, the measured value, the limit, and a command that reproduces the measurement.
 
-[Standards](../20-understand/standards.md) explains retained gains with a worked example. [Fix a red gate](fix-a-red-gate.md) helps when the measurement cannot run, and the [configuration reference](../30-reference/config-reference.md#standardsname) lists every setting.
+### Find the cause
+
+The agent's first job is to bring the number back under the limit within the task. discern never moves a limit by itself. Ask:
+
+> Explain what caused the increase. Look for reasonable fixes within this task. If the increase is part of the feature we want, show me the tradeoff instead of cutting unrelated useful work.
+
+If the measuring script is broken, the agent fixes the script first. It leaves the limit alone while it investigates. Editing the limit by hand, deleting the standard, or changing what gets measured all fail the gate on a task branch.
+
+### Decide whether it's worth it
+
+If the feature can fit under the limit, have the agent make it fit. Otherwise, you choose:
+
+- ship a smaller version of the feature;
+- put the feature off;
+- approve a new limit for this change.
+
+Weigh the outcome: is search useful enough to justify the extra 40 kB for everyone who opens the app?
+
+### Approve a new limit
+
+Once you agree to a new limit, the agent finishes the feature and commits it. Then it runs:
+
+```sh
+discern standards propose download_size --reason "The agreed search feature increases the initial download"
+```
+
+This measures the standard and sets the limit to the measured value, 1,040 kB, in a commit of its own. There's no margin, so the next increase will trip it again. The agent runs `discern done`, and the Proof shows the old limit, the new one, the measurement, and the reason.
+
+When the agent asks to land the change, `discern accept` stops and gives it an approval token for this exact proposal. If you approve, the agent lands with:
+
+```sh
+discern accept --confirmed --approve-standard <token>
+```
+
+The token covers one standard, one value, and one reason. If any of them changes, you're asked again. Permission to land the feature doesn't approve the new limit, and no grant you set up in advance does either.
+
+## When it's done
+
+- The standard measures something you agreed matters.
+- Its script works, and the agent showed it catching a breach.
+- The limit is one the project meets today.
+- The change landed, so every later task has to meet it.
+
+A pinned gain or an approved new limit is done when its own commit has fresh Proof and has landed. [Fix a red gate](fix-a-red-gate.md) helps when a measurement can't run.

@@ -1,7 +1,7 @@
 ---
 id: guide-connect-a-coding-agent
 title: "Connect a coding agent"
-description: "Connect one supported coding agent using the shared setup path and the provider-specific facts it needs."
+description: "Add a coding tool to your project, and it starts with the same instructions, skills, and checks as the tools you already use."
 order: 130
 publish: true
 kind: guide
@@ -14,63 +14,71 @@ aliases:
 
 # Connect a coding agent
 
-You can try another coding tool without teaching the project all over again. discern gives each configured tool the project's instructions and skills, plus a connection to its checks and workflow. The tools may work differently, but the practice you have built stays in the project.
+Add another coding tool to your project, and it starts with the same instructions, skills, and checks as the tools you already use. You don't have to teach the project again. Everything your agents have learned stays in the project, whichever tool does the next task.
 
-This guide adds a supported coding agent to a project that has already completed discern setup. Install the coding tool first, then ask your current agent:
+discern supports Claude Code, Codex, Gemini, Cursor, and GitHub Copilot. [Platforms and providers](../30-reference/platforms-and-providers.md) lists what each one needs.
 
-> Add Cursor alongside the coding tools this project already uses. Keep our existing instructions and skills, show me any trust steps I need to complete, and help me check that a new Cursor session can use discern.
+## Ask for the new tool
 
-Replace Cursor with your chosen tool. [Platforms and providers](../30-reference/platforms-and-providers.md) lists the supported tools and their requirements.
+Install the coding tool first. Then ask the agent you already use:
 
-## 1. Select the provider once
+> Add Cursor alongside the coding tools this project already uses. Keep our existing instructions and skills, tell me about any trust steps I need to complete, and help me check that a new Cursor session can use discern.
 
-Your agent makes the configuration change in an isolated worktree, the workspace for this task. It checks the existing provider list before adding the new tool, so the edit keeps the tools you still use.
+This guide follows that example. Swap in the tool you want.
 
-For example, a project using Codex and Cursor has:
+## What your agent does
+
+You don't need to run any of these commands yourself. They're here so you know what's happening.
+
+**It works in its own worktree.** A worktree is a separate copy of the project on its own branch, so the change stays off your shared branch until you land it.
+
+**It updates the list of tools.** `discern.toml`, your project's discern configuration, lists every tool the project uses. The agent reads the current list and adds Cursor, so the tools you still use stay on it. A project using Codex and Cursor has:
 
 ```toml
 [project]
 agents = ["codex", "cursor"]
 ```
 
-This is the complete desired list. Omitting `agents` uses the default pair, Claude Code and Codex; an explicit empty list selects no provider. The [config reference](../30-reference/config-reference.md#project) gives the supported values.
+The list is complete: tools missing from it aren't set up. Without the `agents` line, discern sets up Claude Code and Codex. The [configuration reference](../30-reference/config-reference.md#project) gives every value, such as `claude_code` for Claude Code.
 
-## 2. Preview and apply the shared wiring
+**It refreshes the tool files.** `discern refresh --dry-run` shows what refresh would write, and `discern refresh` writes it. For each tool on the list, refresh sets up its instructions, its skills, its hooks, and its Model Context Protocol (MCP) registration. MCP is the connection that lets an agent call discern's tools directly. Some of these files also contain settings that belong to your project. Refresh changes only discern's entries and keeps the rest.
 
-Your agent previews the changes with `discern refresh --dry-run`. It then runs `discern refresh` and reviews the result. Refresh creates or updates the selected tools' instructions, skills, hooks, and MCP registration. MCP is the connection that lets an agent call discern's tools directly.
+**It checks the setup and brings it back.** The agent runs `discern doctor`, which checks the installation and names a fix for anything wrong. Then it commits and runs the gate, the full set of checks your project requires, and brings the change to you. [Finish and land a change](finish-and-land-a-change.md) covers review and landing.
 
-Some integration files also contain settings belonging to your project, so `refresh` changes discern's entries while preserving yours.
+## Turn on the connection
 
-The agent runs `discern doctor` to check the installation, then prepares, commits, and checks the change through the [usual completion process](finish-and-land-a-change.md). The new tool must open a checkout containing those integration changes. A configuration still on a worktree branch is not yet present in the shared project.
+Once the change lands, open a new Cursor session in your main checkout, your original project folder. The new tool only finds discern in a checkout that contains the change.
 
-## 3. Complete the provider-specific activation
+Your coding tool may ask you to trust the folder or approve discern's tools. These steps belong to the tool, so discern can't approve them for you. The [table of supported tools](../30-reference/platforms-and-providers.md#provider-matrix) lists what each one asks, and `discern doctor` reports it too.
 
-Open a fresh session of the new tool in that checkout. Complete the trust or approval steps identified in the setup or refresh handoff. These belong to the coding tool: discern cannot grant that permission for you.
-
-Ask the new agent:
+Then ask the new agent:
 
 > Read this project's instructions and call discern's status tool. Tell me which project and worktree you're in, whether discern is connected, and what its next action says.
 
-The tool may need a new conversation, a window reload, or an application restart before it loads the connection. The [provider reference](../30-reference/platforms-and-providers.md) gives the specific action and callable name for each tool.
+The status tool is `discern_status`. Claude Code and Codex show it as `mcp__discern__discern_status`. Some tools need a new conversation, a window reload, or a restart before they load the connection.
 
-A successful refresh means the files are current. A successful status call from the new session shows that the tool loaded its connection. Your next task needs the running connection as well as current files.
+A refresh makes the files current. A successful status call shows the new session has loaded them. You need both before the next task.
 
-## 4. Recover a missing action locally
+## If the new tool can't find discern
 
-If the new agent cannot find discern, ask it to work through the connection problem:
+Ask it to work through the problem:
 
-> Check that this session opened the intended checkout and loaded its discern integration. Use the local command-line fallback while diagnosing the connection, and tell me if a trust step or restart needs me.
+> Check that this session opened the right checkout and loaded its discern connection. Use the discern command line while you diagnose it, and tell me if a trust step or a restart needs me.
 
-The agent checks the checkout path, the tool's trust state, the refresh preview, and `discern doctor`. It can use `discern status --json` while repairing the MCP connection. If the program itself cannot be found, a fresh shell and `which discern` help establish whether the tool can see the installed command.
+The agent checks the folder it opened, the tool's trust settings, and `discern doctor`. It can use `discern status --json` while the connection is down. If the `discern` command itself isn't found, a new terminal and `which discern` show whether the tool can see it. [Setup and integrations](../40-troubleshooting/setup-and-integrations.md) covers more causes.
 
-[Setup and integrations troubleshooting](../40-troubleshooting/setup-and-integrations.md) covers the recovery in detail. The successful status call remains the check that the connection is working.
+The problem is fixed when a new session calls the status tool successfully.
 
-## 5. Remove a provider from the project
+## Stop using a tool
 
-Tell your agent which tools to keep. It updates the complete `[project].agents` list, previews refresh, and applies the integration removals. It reviews and commits the config and tracked output together, then runs the gate.
+Tell your agent which tools to keep. It updates the list, refreshes, and runs the gate as before.
 
-Refresh removes discern-owned entries for the deselected provider while preserving shared content owned by the project or another provider. It does not uninstall the coding tool from your machine.
+Refresh sets up the tools on the list and leaves the old tool's files where they are. Ask your agent to remove the ones no remaining tool uses, such as that tool's instruction file and discern's entries in its settings. It keeps anything your project added. [Platforms and providers](../30-reference/platforms-and-providers.md) lists each tool's files. Removing a tool from the project doesn't uninstall it from your computer.
 
-## Completion
+## When it's done
 
-You can start using the new tool when the connection changes have passed the project's checks and a fresh trusted session calls discern successfully. Your [project instructions](write-project-instructions.md) remain the shared place to change what future sessions should know.
+- The tool list names every tool your project uses.
+- The change passed the gate and landed.
+- A new, trusted session of the new tool calls discern's status tool successfully.
+
+The new tool now reads the same instructions and skills as the others. To change what every tool's sessions know, edit your [project instructions](write-project-instructions.md) once.
