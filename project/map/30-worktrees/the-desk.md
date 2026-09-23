@@ -91,7 +91,7 @@ The main checkout remains a project boundary. Its detail can inspect `git status
 
 ## Choose how proven work lands
 
-Proof, permission, and submission are independent. A green effort can be **Proven · Authorized · Not queued**, including when its agent has stopped. **Pre-authorize landing once green** records permission for the effort. Its feedback names any queued revision and offers the landing choices immediately when current Proof exists. Granting alone neither queues a revision nor starts a background run. Revocation leaves the submission awaiting authority.
+Proof, permission, and submission are independent. A green effort can be **Proof valid · Authorized · Not queued**, including when its agent has stopped. **Pre-authorize landing once green** records permission for the effort. Its feedback names any queued revision and offers the landing choices immediately when current Proof exists. Granting alone neither queues a revision nor starts a background run. Revocation leaves the submission awaiting authority.
 
 **Accept and land now** reviews the proven revision, submits it, and starts acceptance. Another landing may hold the turn. A moved trunk requires the existing integration checks; a refusal stops the walk. After the selected task lands, acceptance considers the other submissions under their own grants.
 
