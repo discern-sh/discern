@@ -189,11 +189,16 @@ export function fencedCommandFindings(
   for (const { line, command } of extractFencedCommands(text)) {
     const reason = validateFencedCommand(command, cli, extraVerbs);
     if (reason !== undefined) {
+      // A command path that won't resolve is often quoted output, such as a
+      // message that begins with the product name, rather than a stale command.
+      const quoting = reason.includes("has no flag")
+        ? ""
+        : " If this line quotes discern's output, move the quote into the prose: every fenced line that starts with `discern` is checked as a command.";
       findings.push({
         file: rel,
         line,
         rule: "stale-command",
-        detail: `\`${command}\` — ${reason}`,
+        detail: `\`${command}\` — ${reason}.${quoting}`,
       });
     }
   }

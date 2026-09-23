@@ -1,5 +1,11 @@
 /** Shared scanners for backticked `discern …` command spans, used by the
- * hint command guard and the surface-rendering guard. */
+ * hint, tip, and surface-rendering guards, and the live validator they check
+ * each extracted command with. */
+
+import { validateFencedCommand } from "../src/lib/docs_integrity.ts";
+import { discoverProjectScripts } from "../src/engine/project_scripts.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 /** Extract Markdown code spans whose content is a `discern` command. */
 export function quotedDiscernCommands(text: string): string[] {
@@ -39,4 +45,18 @@ export function sourceDiscernCommands(source: string): string[] {
     }
   }
   return commands;
+}
+
+/**
+ * Validate `discern …` commands against the live CLI model, admitting this
+ * repository's project scripts as first-class verbs. Returns the failure
+ * reason, or undefined for a live command.
+ */
+export async function liveCommandValidator(): Promise<
+  (command: string) => string | undefined
+> {
+  const model = TEST_CLI_MODEL();
+  const scripts = await discoverProjectScripts(REPO_AUTHORED_PATHS.scripts);
+  const extraVerbs = new Set(scripts.map((script) => script.name));
+  return (command) => validateFencedCommand(command, model, extraVerbs);
 }

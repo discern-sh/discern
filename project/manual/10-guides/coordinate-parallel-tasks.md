@@ -182,10 +182,11 @@ No single Proof or permission covers both repositories. You can still direct the
 
 ## Clean up finished worktrees
 
-When a task lands, discern removes its worktree, its resources, and its branch, as long as the branch holds nothing beyond what landed. If the worktree stays, the landing result and `discern status` say why in one sentence, and name the command that finishes the job:
+When a task lands, discern removes its worktree, its resources, and its branch, as long as the branch holds nothing beyond what landed. If anything stays, the first sentence of the landing result says why, and names the command that finishes the job:
 
 - **The branch has newer commits.** The agent runs `discern done`, then `discern accept`, for them.
-- **Cleanup couldn't finish**, perhaps because another program was using the folder. Once it stops, run `discern worktree prune` from your main checkout.
+- **The worktree has uncommitted changes.** The agent commits what should stay, then runs `discern done`, then `discern accept`.
+- **Cleanup couldn't finish**, perhaps because another program was using the folder, or a resource couldn't be removed. Once the cause is fixed, run `discern worktree prune` from your main checkout.
 
 The change has landed either way.
 

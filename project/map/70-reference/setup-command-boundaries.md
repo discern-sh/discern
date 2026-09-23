@@ -40,6 +40,6 @@ After interruption, `discern setup` or `discern status` resumes without replayin
 
 After `setup accept`, each provider gets one fresh-session instruction. Inspect registered tools, then invoke its exact local callable, including a namespaced form such as Codex's `mcp__discern__discern_status`. A missing action routes to local recovery or `discern doctor`, with `discern status --json` as fallback.
 
-Acceptance is idempotent where no landing applies. A project without a Git repository and a checkout already on the trunk both return `ok: true` with typed `data.completion.status = "no_op"`; `data.completion.reason` distinguishes the two states. An absent landing payload is not a no-op signal.
+Acceptance is idempotent where no landing applies. A checkout already on the trunk returns `ok: true` with typed `data.completion.status = "no_op"` and `data.completion.reason = "already_on_target"`. An absent landing payload is not a no-op signal. Outside a Git repository, acceptance refuses with `no_repository` and `next_action: "git init"`, as `setup begin` and `setup done` do.
 
 For a truncated result, repeat `setup done` on the unchanged clean marker: it returns the same Proof, inventory, and landing facts with `data.completion = "replayed"` and no effects or gate. Missing or stale Proof validates that commit; dirty state retains existing evidence and refuses ([ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).

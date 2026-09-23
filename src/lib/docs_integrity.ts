@@ -243,23 +243,27 @@ function acceptedFlags(node: CliCommand, isRoot: boolean): Set<string> {
 
 /**
  * Validate one fenced `discern …` example against the live command model:
- * the verb path must exist (aliases count), and every `--flag` token must be a
- * flag that command declares. Returns the failure reason, or undefined when
- * the example is valid.
+ * the verb path must exist (aliases count), a command that declares no
+ * positionals takes no bare word after its path, and every `--flag` token must
+ * be a flag that command declares. Returns the failure reason, or undefined
+ * when the example is valid.
  *
  * Documentation conventions are honoured, not flagged: `<placeholders>` are
  * skipped (a placeholder in verb position skips the whole line), `[optional]`
  * brackets and `a|b` alternations are unwrapped before flags are checked, `--`
- * ends flag scanning, and a shell operator (`&&`, `|`, `#`, …) ends the
- * invocation. `extraVerbs` admits project-script names, which dispatch as
- * first-class verbs.
+ * ends flag scanning, and a shell operator (`&&`, `|`, `#`, …) or a run of two
+ * or more spaces before a description column ends the invocation.
+ * `extraVerbs` admits project-script names, which dispatch as first-class
+ * verbs.
  */
 export function validateFencedCommand(
   command: string,
   root: CliCommand,
   extraVerbs: ReadonlySet<string> = new Set(),
 ): string | undefined {
-  const tokens = tokenize(command);
+  // A run of two or more spaces starts an aligned description column
+  // (`discern skills list   the effective set`), which ends the invocation.
+  const tokens = tokenize(command.split(/ {2,}|\t/, 1)[0] ?? "");
   if (tokens[0] !== "discern") return undefined;
 
   // Walk the subcommand path.
@@ -288,13 +292,20 @@ export function validateFencedCommand(
       return `unknown command "discern ${token}"`;
     }
     // A command-shaped word aimed at a pure command GROUP (subcommands, no
-    // positionals) can only be a stale subcommand. Anything else — a value
-    // for a declared positional, a glob, prose flow — ends the walk.
+    // positionals) can only be a stale subcommand.
     if (
       /^[a-z][a-z0-9_-]*$/.test(token) && node.children.length > 0 &&
       node.args.length === 0
     ) {
       return `"discern ${node.path.join(" ")}" has no subcommand "${token}"`;
+    }
+    // A command that declares no positionals rejects any value here, so the
+    // word is a stale subcommand or stray text. An `[--optional]` bracket is
+    // flag notation and falls through to the flag check.
+    if (node.args.length === 0 && !token.startsWith("[")) {
+      return `"discern ${
+        node.path.join(" ")
+      }" takes no arguments, but got "${token}"`;
     }
     break; // a positional argument value — flags may still follow
   }

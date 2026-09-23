@@ -79,7 +79,7 @@ Recovery detail preserves independent observations instead of reducing a task to
 
 `Retry setup` appears only when the setup journal makes automatic replay safe. Completed setup-step identities stay skipped. A running one-shot step, a missing journal beside configured one-shot steps, or unreadable setup evidence keeps Retry disabled and shows the exact owner-confirmed setup recovery or doctor command.
 
-The main checkout remains a project boundary. Its detail can inspect `git status --short --branch` and `git diff --stat HEAD`, open a shell, or open the configured editor at main. It explains which landing and cleanup operations depend on readable clean main state. It never offers agent work there.
+The main checkout remains a project boundary. Its detail can inspect `git status --short --branch` and `git diff --stat HEAD`, open a shell, or open the configured editor at main. Its screen, **Main checkout** in the desk menu, says to inspect shared state there and start task work in its own worktree. It never offers agent work there.
 
 ## Run final checks and review Proof
 
