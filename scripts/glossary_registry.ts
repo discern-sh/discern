@@ -321,14 +321,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     runningCase: "lowercase",
     plain: { phrase: "the agent's recorded yes" },
     definition:
-      "Your agent's recorded answer that this change satisfies a checkpoint question. This [declaration](#declaration) covers the question and the matched files as they stood when your agent answered, and a change to either reopens it. The answer is your agent's judgment. discern records it but doesn't check whether it's right. A met answer needs no decision from you before the change lands.",
+      "Your agent's recorded answer that a change satisfies a checkpoint question. This [declaration](#declaration) covers the question and the matched files as they stood when your agent answered, and a change to either reopens it. The answer is your agent's judgment. discern records it but doesn't check whether it's right. A met answer needs no decision from you before the change lands.",
   },
   {
     term: "Declared unmet",
     runningCase: "lowercase",
     plain: { phrase: "the agent's recorded no, with the reason" },
     definition:
-      "Your agent's recorded answer that this change doesn't satisfy a checkpoint question, with its reason. The [gate](#gate) still runs. [Proof](#proof) carries the reason for you to review, and the change can't land until you approve a [variance](#variance). The reason stays in the Proof and, after landing, in the [Proof note](#proof-note), so it must hold no secrets. discern keeps the reason out of the [logbook](#logbook). If your agent fixes the problem, it can replace the answer with met.",
+      "Your agent's recorded answer that a change doesn't satisfy a checkpoint question, with its reason. The [gate](#gate) still runs. [Proof](#proof) carries the reason for you to review, and the change can't land until you approve a [variance](#variance). The reason stays in the Proof and, after landing, in the [Proof note](#proof-note), so it must hold no secrets. discern keeps the reason out of the [logbook](#logbook). If your agent fixes the problem, it can replace the answer with met.",
   },
   {
     term: "Variance",
