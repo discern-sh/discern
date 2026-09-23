@@ -11,6 +11,7 @@ aliases:
   - "files"
   - "ownership"
   - "footprint"
+  - "install surface"
   - "gitattributes"
   - "gitignore"
   - "uninstall"

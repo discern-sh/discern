@@ -122,7 +122,7 @@ One task, carried from its first edit through review until it lands. A [worktree
 
 ### Engine
 
-The part of discern that runs the everyday workflow inside a project. Its commands include `discern done`, `discern prepare`, `discern status`, `discern update`, and `discern accept`. The [installer](#installer) commands set a project up, and the engine's commands work inside it. Both parts are TypeScript, compiled into one program. The engine runs the jobs, scopes, standards, and worktree settings your project declares, so it works with any language or framework. It includes discern's formatter, [tidy](#tidy). See [engine internals](../50-engine-internals/).
+The part of discern that runs the everyday workflow inside a project. Its commands include `discern done`, `discern prepare`, `discern status`, `discern update`, and `discern accept`. The [installer](#installer) commands set a project up, and the engine's commands work inside it. Both parts are TypeScript, compiled into one program. The engine runs the jobs, scopes, standards, and worktree settings your project declares, so it works with any language or framework. It includes discern's formatter, [tidy](#tidy).
 
 ### File ownership
 

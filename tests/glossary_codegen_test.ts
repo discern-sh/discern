@@ -8,7 +8,7 @@ import {
   sortedGlossary,
 } from "../scripts/glossary_registry.ts";
 import { renderManualGlossaryArtifact } from "../scripts/glossary_codegen.ts";
-import { repositoryTreeUrl } from "../src/shared/brand.ts";
+import { DISCERN_REPOSITORY_URL } from "../src/shared/brand.ts";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
@@ -39,8 +39,8 @@ Deno.test("the public manual's glossary matches the term registry", async () => 
   const manual = await buildManualProjection(tree.entries);
   const path = `${REPO_AUTHORED_PATHS.manual}/30-reference/glossary.md`;
   const rendered = renderManualGlossaryArtifact(manual);
-  // Product follow-up links must work in the offline human manual, while
-  // contributor-only implementation reading links to the repository.
+  // Follow-up links work in the offline human manual, down to the section
+  // that holds a concept, and none leaves it for the repository.
   for (
     const destination of [
       "../20-understand/proof.md",
@@ -49,13 +49,15 @@ Deno.test("the public manual's glossary matches the term registry", async () => 
       "../10-guides/write-project-instructions.md",
       "../10-guides/create-and-manage-skills.md",
       "files-and-ownership.md",
+      "files-and-ownership.md#registered-project-paths",
+      "mcp-and-results.md#progress-handles-and-reconnect",
     ]
   ) {
     assertStringIncludes(rendered, `](${destination})`);
   }
-  assertStringIncludes(
-    rendered,
-    repositoryTreeUrl("project/map/50-engine-internals/"),
+  assert(
+    !rendered.includes(DISCERN_REPOSITORY_URL),
+    "the manual glossary links no repository page",
   );
   assertEquals(
     await Deno.readTextFile(path),

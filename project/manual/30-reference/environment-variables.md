@@ -78,9 +78,9 @@ discern sets these for a project script each time it runs one, from `discern scr
 
 discern sets these for a checkpoint's `when` command while it runs.
 
-| Variable                   | What it does                                                                                                                                                                                                                                                                                                                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DISCERN_CHECKPOINT_INPUT` | Absolute path of a JSON file that describes the change for the checkpoint's `when` command. It holds facts about the changed files, but not their contents, in the versioned format the [checkpoint `when` protocol](https://github.com/discern-sh/discern/blob/main/project/map/70-reference/checkpoint-when-protocol.md) describes. The file exists only while the command runs. |
+| Variable                   | What it does                                                                                                                                                                                                                                                                                                                           |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCERN_CHECKPOINT_INPUT` | Absolute path of a JSON file that describes the change for the checkpoint's `when` command. It holds facts about the changed files, but not their contents, in the versioned format the [checkpoint `when` protocol](proof-and-checkpoint-formats.md#checkpoint-when-protocol) describes. The file exists only while the command runs. |
 
 ## Worktree environment
 

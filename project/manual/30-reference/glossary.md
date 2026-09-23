@@ -109,11 +109,11 @@ One task, carried from its first edit through review until it lands. A [worktree
 
 ### Engine
 
-The part of discern that runs the everyday workflow inside a project. Its commands include `discern done`, `discern prepare`, `discern status`, `discern update`, and `discern accept`. The [installer](#installer) commands set a project up, and the engine's commands work inside it. Both parts are TypeScript, compiled into one program. The engine runs the jobs, scopes, standards, and worktree settings your project declares, so it works with any language or framework. It includes discern's formatter, [tidy](#tidy). See [engine internals](https://github.com/discern-sh/discern/tree/main/project/map/50-engine-internals/).
+The part of discern that runs the everyday workflow inside a project. Its commands include `discern done`, `discern prepare`, `discern status`, `discern update`, and `discern accept`. The [installer](#installer) commands set a project up, and the engine's commands work inside it. Both parts are TypeScript, compiled into one program. The engine runs the jobs, scopes, standards, and worktree settings your project declares, so it works with any language or framework. It includes discern's formatter, [tidy](#tidy).
 
 ### File ownership
 
-The rules that decide which files, and which parts of files, discern may change in your project. Each file discern writes is [project-owned](#project-owned-file), [shared](#shared-file), or [generated](#generated-file). The category decides what setup, `discern refresh`, `discern upgrade`, and uninstalling may do to that file. A file a coding agent creates for itself, such as its local settings, sits outside these categories. discern never writes it, and only keeps it out of Git. See [files and ownership](files-and-ownership.md). The [install surface](https://github.com/discern-sh/discern/blob/main/project/map/80-development/install-surface.md) lists every file.
+The rules that decide which files, and which parts of files, discern may change in your project. Each file discern writes is [project-owned](#project-owned-file), [shared](#shared-file), or [generated](#generated-file). The category decides what setup, `discern refresh`, `discern upgrade`, and uninstalling may do to that file. A file a coding agent creates for itself, such as its local settings, sits outside these categories. discern never writes it, and only keeps it out of Git. See [files and ownership](files-and-ownership.md). The [install surface](files-and-ownership.md#registered-project-paths) lists every file.
 
 ### Fleet
 
@@ -181,7 +181,7 @@ discern's report on what keeps happening in your project's work, read from its l
 
 ### Placement is consent
 
-The rule that putting content where discern manages it gives discern and your agents permission to maintain it. The default locations carry that permission, and your agents treat anything stale there as a problem to fix. Pointing a configuration key at another location grants it explicitly, because you chose the path. The rule covers only the content discern manages. Your agent's other work and your project's jobs run under their own permissions. See [design principles](https://github.com/discern-sh/discern/blob/main/project/map/00-orientation/design-principles.md) and [files and ownership](files-and-ownership.md).
+The rule that putting content where discern manages it gives discern and your agents permission to maintain it. The default locations carry that permission, and your agents treat anything stale there as a problem to fix. Pointing a configuration key at another location grants it explicitly, because you chose the path. The rule covers only the content discern manages. Your agent's other work and your project's jobs run under their own permissions. See [design principles](../20-understand/how-discern-works.md) and [files and ownership](files-and-ownership.md).
 
 ### Practice
 
@@ -189,7 +189,7 @@ The way of working discern sets up in your project, which carries over from one 
 
 ### Progress handle
 
-A short code, such as `R1-XXXX-XXXX-XX`, that lets your agent read back a long-running command after losing track of it. discern records one for each long operation, such as `discern done` or `discern accept`. `discern progress <handle>`, or the `discern_progress` tool, shows that operation's phase, the counts and failures known so far, and its result once it finishes. An MCP client that asks for progress updates gets the handle first. Terminal output, `--json`, and `--markdown` don't show it. Without a handle, `discern progress` reads the latest operation in the current checkout. Reading progress starts, repeats, and cancels nothing. To resume a wait, your agent uses the `C1` continuation that `discern await` returns. See [progress and reconnect](https://github.com/discern-sh/discern/blob/main/project/map/70-reference/progress-and-reconnect.md).
+A short code, such as `R1-XXXX-XXXX-XX`, that lets your agent read back a long-running command after losing track of it. discern records one for each long operation, such as `discern done` or `discern accept`. `discern progress <handle>`, or the `discern_progress` tool, shows that operation's phase, the counts and failures known so far, and its result once it finishes. An MCP client that asks for progress updates gets the handle first. Terminal output, `--json`, and `--markdown` don't show it. Without a handle, `discern progress` reads the latest operation in the current checkout. Reading progress starts, repeats, and cancels nothing. To resume a wait, your agent uses the `C1` continuation that `discern await` returns. See [progress and reconnect](mcp-and-results.md#progress-handles-and-reconnect).
 
 ### Project script
 

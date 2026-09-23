@@ -214,7 +214,7 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
     documentation: {
       public: true,
       description:
-        "Absolute path of a JSON file that describes the change for the checkpoint's `when` command. It holds facts about the changed files, but not their contents, in the versioned format the [checkpoint `when` protocol](checkpoint-when-protocol.md) describes. The file exists only while the command runs.",
+        "Absolute path of a JSON file that describes the change for the checkpoint's `when` command. It holds facts about the changed files, but not their contents, in the versioned format the [checkpoint `when` protocol](proof-and-checkpoint-formats.md#checkpoint-when-protocol) describes. The file exists only while the command runs.",
     },
   },
 

@@ -65,15 +65,8 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
   },
   {
     path: "project/manual/30-reference/environment-variables.md",
-    counts: { "current-repository": 2 },
-    reason:
-      "codegen projects the installer repository default and checkpoint protocol source",
-  },
-  {
-    path: "project/manual/30-reference/glossary.md",
-    counts: { "current-repository": 4 },
-    reason:
-      "codegen projects contributor reading links through the repository URL authority",
+    counts: { "current-repository": 1 },
+    reason: "codegen projects the installer repository default",
   },
   {
     path: "project/manual/30-reference/licenses.md",

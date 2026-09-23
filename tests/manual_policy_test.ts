@@ -25,8 +25,12 @@ import {
 } from "../scripts/manual_prose_lib.ts";
 import { addsOrReplacesFrontDoor } from "../scripts/manual_front_door_checkpoint.ts";
 import { countManualFrontDoors } from "../scripts/manual_front_doors.ts";
-import { MANUAL_CONCEPT_LINK_TARGETS } from "../scripts/manual_codegen.ts";
+import {
+  MANUAL_CONCEPT_LINK_TARGETS,
+  manualReadingTarget,
+} from "../scripts/manual_codegen.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
+import { headingAnchors } from "../src/lib/docs_integrity.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { fencedCommandFindings } from "../src/lib/map_integrity.ts";
 import { SEARCH_KIND_WEIGHT } from "../src/lib/docs_search.js";
@@ -147,7 +151,8 @@ Deno.test("manual kind policy is closed and every member owns one checkpoint", a
 /**
  * Link-table destinations that disagree with the manual's own search: the
  * destination must be the page the manual's search sends one of the Map
- * page's names to, or at least mention the Map page's title.
+ * page's names to, or at least mention the Map page's title. A named section
+ * must be a heading on that page.
  */
 async function conceptLinkIssues(
   targets: Readonly<Record<string, string>>,
@@ -169,7 +174,8 @@ async function conceptLinkIssues(
     }
   }
   const issues: string[] = [];
-  for (const [mapRel, targetId] of Object.entries(targets)) {
+  for (const [mapRel, value] of Object.entries(targets)) {
+    const { pageId: targetId, section } = manualReadingTarget(value);
     const source = mapPages.get(mapRel);
     const target = manual.byId.get(targetId);
     if (source === undefined || target === undefined) {
@@ -180,6 +186,12 @@ async function conceptLinkIssues(
       );
       continue;
     }
+    const { body } = parseFrontmatter(
+      await Deno.readTextFile(target.entry.absPath),
+    );
+    if (section !== undefined && !headingAnchors(body).has(section)) {
+      issues.push(`${mapRel} → ${value}: ${targetId} has no such heading`);
+    }
     const names = [source.title, ...source.aliases].map(
       normalizeManualSearchName,
     );
@@ -188,9 +200,6 @@ async function conceptLinkIssues(
       /^the /u,
       "",
     ).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-    const { body } = parseFrontmatter(
-      await Deno.readTextFile(target.entry.absPath),
-    );
     if (
       new RegExp(`(?<![\\p{L}\\p{N}])${concept}(?![\\p{L}\\p{N}])`, "iu")
         .test(body)
@@ -213,12 +222,15 @@ Deno.test("generated Map links land on the manual's home for their concept", asy
     await conceptLinkIssues(MANUAL_CONCEPT_LINK_TARGETS, manual),
     [],
   );
-  // The guard bites: a destination that neither owns nor mentions the concept.
+  // The guard bites: a destination that neither owns nor mentions the
+  // concept, and a section the destination doesn't have.
   assertEquals(
     (await conceptLinkIssues({
       "20-quality-gate/coupling.md": "explanation-evidence-and-improvement",
+      "20-quality-gate/patterns.md":
+        "explanation-evidence-and-improvement#no-such-section",
     }, manual)).length,
-    1,
+    2,
   );
 });
 

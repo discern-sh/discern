@@ -24,10 +24,13 @@ function mapRoute(rel: string): string | undefined {
 /** Human reading destinations for concepts shared with the contributor Map.
  * These are editorial choices, keyed by stable manual identity; definitions
  * stay shared while the manual's links keep readers in its offline corpus.
- * Each destination is the manual's search home for one of the Map page's
- * names, or at least mentions its title (tests/manual_policy_test.ts). */
+ * A value names a manual page id, optionally followed by `#` and the heading
+ * anchor of the section that holds the concept. Each destination is the
+ * manual's search home for one of the Map page's names, or at least mentions
+ * its title (tests/manual_policy_test.ts). */
 export const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
   "00-orientation/concepts.md": "explanation-practice-and-roles",
+  "00-orientation/design-principles.md": "explanation-practice-and-roles",
   "00-orientation/the-practice.md": "explanation-practice-and-roles",
   "10-getting-started/README.md": "start-index",
   "10-getting-started/upgrade-discern.md": "guide-maintain-or-remove-discern",
@@ -49,26 +52,55 @@ export const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
   "45-skills/README.md": "guide-create-and-manage-skills",
   "70-reference/artifact-ownership.md": "reference-files-and-ownership",
   "70-reference/checkpoint-state.md": "reference-proof-and-checkpoint-formats",
+  "70-reference/progress-and-reconnect.md":
+    "reference-results-and-mcp#progress-handles-and-reconnect",
   "70-reference/the-logbook.md": "reference-logbook",
+  "80-development/install-surface.md":
+    "reference-files-and-ownership#registered-project-paths",
 };
+
+/** One link-table value: a manual page and, optionally, a section on it. */
+export interface ManualReadingTarget {
+  readonly pageId: string;
+  /** The section's heading anchor, without `#`. */
+  readonly section?: string;
+}
+
+/** Split a {@link MANUAL_CONCEPT_LINK_TARGETS} value into page and section. */
+export function manualReadingTarget(value: string): ManualReadingTarget {
+  const hash = value.indexOf("#");
+  return hash < 0
+    ? { pageId: value }
+    : { pageId: value.slice(0, hash), section: value.slice(hash + 1) };
+}
+
+/** A resolved manual destination and the fragment the table adds to it. */
+interface ManualLinkTarget {
+  readonly page: ManualPage;
+  readonly fragment: string;
+}
 
 /** Prefer human concept destinations, then destination-owned legacy routes. */
 function manualTargetForMapPath(
   rel: string,
   manual: ManualProjection,
-): ManualPage | undefined {
-  const targetId = MANUAL_CONCEPT_LINK_TARGETS[rel];
-  if (targetId !== undefined) {
-    const target = manual.byId.get(targetId);
-    if (target === undefined) {
-      throw new Error(`${rel}: missing manual reading destination ${targetId}`);
+): ManualLinkTarget | undefined {
+  const value = MANUAL_CONCEPT_LINK_TARGETS[rel];
+  if (value !== undefined) {
+    const { pageId, section } = manualReadingTarget(value);
+    const page = manual.byId.get(pageId);
+    if (page === undefined) {
+      throw new Error(`${rel}: missing manual reading destination ${pageId}`);
     }
-    return target;
+    return { page, fragment: section === undefined ? "" : `#${section}` };
   }
   const route = mapRoute(rel);
   if (route === undefined) return undefined;
-  return manual.byRoute.get(route) ??
-    manual.pages.find((page) => page.entry.redirectFrom.includes(route));
+  const page = manual.byRoute.get(route) ??
+    manual.pages.find((candidate) =>
+      candidate.entry.redirectFrom.includes(route)
+    );
+  return page === undefined ? undefined : { page, fragment: "" };
 }
 
 /** Rewrite one generated Map-relative link for its manual materialization. */
@@ -99,8 +131,11 @@ function manualDestination(
       const target = manualTargetForMapPath(candidate, manual);
       if (target === undefined) continue;
       return `${
-        posix.relative(posix.dirname(outputManualRel), target.entry.relToDocs)
-      }${fragment}`;
+        posix.relative(
+          posix.dirname(outputManualRel),
+          target.page.entry.relToDocs,
+        )
+      }${fragment !== "" ? fragment : target.fragment}`;
     }
     if (mapRel.startsWith("_adr/")) {
       const slug = posix.basename(mapRel).replace(/\.md$/iu, "");
