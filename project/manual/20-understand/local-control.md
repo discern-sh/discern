@@ -54,7 +54,7 @@ The logbook lives inside your repository's `.git` folder, outside the files Git 
 
 To stop recording, set `[project].record_logbook = false` in `discern.toml`. Sealing or deleting past history is a terminal command that asks you to confirm first. [The logbook reference](../30-reference/logbook.md) lists every recorded field and which features need the record.
 
-When a change lands, discern attaches its [Proof](proof.md) to the landed commit as a Git note, in your local repository by default. You can set up fetching other people's notes through Git. Sharing your own is a separate Git step you choose, and discern never uploads them for you. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) has the commands.
+When a change lands, discern attaches its [Proof](proof.md) to the landed commit as a Git note in your local repository. You can set up fetching other people's notes through Git. Sharing your own is a separate Git step you choose, and discern never uploads them for you. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) has the commands.
 
 discern keeps its update reminder on your machine too, and the reminder sends nothing.
 

@@ -90,7 +90,7 @@ To look around a worktree yourself, `discern enter` opens a shell in it, at the 
 
 ## Decide from the desk
 
-The **desk** is the interactive view that opens when you run `discern` in your main checkout. It lists every task, shows which ones need a decision from you, and offers only the actions that fit each task right now. It keeps itself up to date, so you can leave it open and come back when a task needs you. You don't have to open each agent's session to ask how it's going.
+The **desk** is the interactive view that opens when you run `discern` in your main checkout. It lists every task, shows which ones need a decision from you, and lists each task's actions, marking the ones that can't run right now as unavailable. Pick one of those and the desk tells you why. It keeps itself up to date, so you can leave it open and come back when a task needs you. You don't have to open each agent's session to ask how it's going.
 
 ```sh
 discern
