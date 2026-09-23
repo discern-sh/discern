@@ -1480,25 +1480,25 @@ Same-major releases may add names; published existing values are immutable. Priv
 
 ### Environment variables
 
-| Variable                                  | Group                 | Visibility | Meaning                                                                                                                        |
-| ----------------------------------------- | --------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `DISCERN_REPO`                            | installation          | public     | GitHub release repository the installer downloads from. Defaults to `discern-sh/discern`.                                      |
-| `DISCERN_VERSION`                         | installation          | public     | Release version the installer downloads, with or without a leading `v`. Defaults to `latest`.                                  |
-| `DISCERN_BIN_DIR`                         | installation          | public     | Install directory. Overrides the installer's automatic destination selection.                                                  |
-| `DISCERN_TRUNK`                           | runtime-overrides     | public     | Overrides `[repository].trunk` for the current process. Project Scripts receive the resolved trunk in the same variable.       |
-| `DISCERN_NO_ATTRIBUTION`                  | runtime-overrides     | public     | Uses source-only generated-file markers and omits the discern co-author trailer from commits discern composes when set to a…   |
-| `DISCERN_PROJECT_SLUG`                    | worktree-identity     | public     | Overrides `[project].slug` when discern derives worktree identities.                                                           |
-| `DISCERN_WORKTREE_BRANCH_PREFIX`          | worktree-identity     | public     | Overrides `[repository].branch_prefix` when discern derives worktree branch names.                                             |
-| `DISCERN_WORKTREE_ID`                     | worktree-identity     | public     | Sets an explicit worktree id in the process or a configured env file. Accepts letters, numbers, dots, dashes, and underscores. |
-| `DISCERN_ROOT`                            | project-scripts       | public     | Absolute project root exported to a Project Script.                                                                            |
-| `DISCERN_TOML`                            | project-scripts       | public     | Absolute path to the active `discern.toml` exported to a Project Script.                                                       |
-| `DISCERN_SCRIPTS_DIR`                     | project-scripts       | public     | Absolute configured Project Scripts directory exported to a Project Script.                                                    |
-| `DISCERN_CHECKPOINT_INPUT`                | checkpoint-commands   | public     | Absolute path to the versioned JSON facts without raw file content for the current checkpoint `when` command. See the…         |
-| `DISCERN_WORKTREE_PORT`                   | worktree-environment  | public     | Deterministic development port written to a configured worktree env file when `[worktree].export_port = true`.                 |
-| `DISCERN_WORKTREE`                        | worktree-environment  | public     | Generic worktree handle supplied to resource commands and written to configured env files when resources are declared.         |
-| `DISCERN_RESOURCE_<NAME>`                 | worktree-environment  | public     | Stable handle for one declared resource. `<NAME>` is the resource name uppercased with non-alphanumeric runs replaced by…      |
-| `DISCERN_EXPERIMENTAL_MCP_PRELOAD`        | experimental-features | public     | Requests eager discern MCP loading in supported provider integrations when set to `1`.                                         |
-| `DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS` | experimental-features | public     | Sets a positive whole-number cap for one experimental automatic await call.                                                    |
+| Variable                                  | Group                 | Visibility | Meaning                                                                                                                           |
+| ----------------------------------------- | --------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCERN_REPO`                            | installation          | public     | The GitHub repository, as `owner/repo`, whose releases the install script downloads. Default: `discern-sh/discern`.               |
+| `DISCERN_VERSION`                         | installation          | public     | The release the install script downloads, with or without a leading `v`. Default: `latest`.                                       |
+| `DISCERN_BIN_DIR`                         | installation          | public     | The folder the install script puts discern in, created if it doesn't exist. Without it, the script uses a writable…               |
+| `DISCERN_TRUNK`                           | runtime-overrides     | public     | Use a different trunk than `[repository].trunk` while it's set; an empty value is ignored. discern also sets it for each project… |
+| `DISCERN_NO_ATTRIBUTION`                  | runtime-overrides     | public     | Set it to any non-empty value to leave discern's name off what it writes. Generated-file markers drop discern's name and web…     |
+| `DISCERN_PROJECT_SLUG`                    | worktree-identity     | public     | Use this slug instead of `[project].slug` in a worktree's site, database, and resource names. discern converts it to lowercase…   |
+| `DISCERN_WORKTREE_BRANCH_PREFIX`          | worktree-identity     | public     | Use this prefix instead of `[repository].branch_prefix` for worktree branch names. An empty value means no prefix.                |
+| `DISCERN_WORKTREE_ID`                     | worktree-identity     | public     | Give a worktree a chosen id, which its port, site, database, and resource names follow. Set it in the environment, where it…      |
+| `DISCERN_ROOT`                            | project-scripts       | public     | Absolute path of the project root.                                                                                                |
+| `DISCERN_TOML`                            | project-scripts       | public     | Absolute path of the `discern.toml` in use.                                                                                       |
+| `DISCERN_SCRIPTS_DIR`                     | project-scripts       | public     | Absolute path of the project scripts folder, `[scripts].dir`.                                                                     |
+| `DISCERN_CHECKPOINT_INPUT`                | checkpoint-commands   | public     | Absolute path of a JSON file that describes the change for the checkpoint's `when` command. It holds facts about the changed…     |
+| `DISCERN_WORKTREE_PORT`                   | worktree-environment  | public     | The worktree's stable development port. discern writes it into the worktree's env file when `[worktree].export_port = true`;…     |
+| `DISCERN_WORKTREE`                        | worktree-environment  | public     | The worktree's resource handle, a stable name made from the project slug and worktree id. discern gives it to every resource…     |
+| `DISCERN_RESOURCE_<NAME>`                 | worktree-environment  | public     | The stable name of one declared resource. Each resource command gets its own resource's variable, and discern writes them into…   |
+| `DISCERN_EXPERIMENTAL_MCP_PRELOAD`        | experimental-features | public     | Set it to `1` to have coding agents that support it load discern's MCP tools at startup instead of on first use. discern applies… |
+| `DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS` | experimental-features | public     | Limit each await to this many whole seconds; it can only shorten the usual limit. It applies to every agent `discern_await` call… |
 
 ### Providers
 
