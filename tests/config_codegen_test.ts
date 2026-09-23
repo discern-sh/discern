@@ -569,7 +569,7 @@ Deno.test("the docs reference documents every section, with its describe() prose
   );
   assertStringIncludes(
     doc,
-    "Upgrade leaves existing named scopes unchanged",
+    "`discern upgrade` leaves existing named scopes as they are.",
   );
   assertStringIncludes(
     doc,

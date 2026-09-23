@@ -1455,9 +1455,10 @@
   mode = "advise"
   question = "Is the changed public contract compatible under its declared policy, with any migration or versioning explicit and user documentation and generated artifacts following it?"
 
-# Six advisory checkpoints read the shape of the change — never blocking,
-# delivered with the gate's advisories when their pattern appears. The two
-# breadth thresholds stay tuned above the shipped defaults for this repo.
+# Six advisory checkpoints look at what a change touches and how large it
+# is — never blocking, delivered with the gate's advisories when their
+# trigger matches. The two breadth thresholds stay tuned above the shipped
+# defaults for this repo.
 # A replay of the last 60 landed efforts (proof-note landing boundaries on
 # the fast-forward trunk), classified with each landing's governing
 # [generated] model, put the shipped 15/25 on 78%/57% of AUTHORED breadth —

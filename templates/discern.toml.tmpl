@@ -498,8 +498,9 @@
 [checkpoints.gotchas-playbook]    # failure memory: symptom, cause, recovery
 # gotchas-playbook stays quiet until [project].gotchas_doc names a doc.
 
-# Shipped advisory checkpoints read the shape of the change and never block;
-# each question arrives with the gate's advisories when its pattern appears.
+# Shipped advisory checkpoints look at what a change touches and how large it
+# is, and never block; each question arrives with the gate's advisories when
+# its trigger matches.
 [checkpoints.deletion-heavy-change]   # a big cut: proven dead, recoverable?
 [checkpoints.parallel-implementation] # a name-similar sibling file appeared
 [checkpoints.new-binary-asset]        # a new binary needs clear provenance
