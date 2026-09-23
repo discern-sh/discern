@@ -548,8 +548,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/guides/maintain-or-remove-discern.md`
   - `/docs/understand`
   - `/docs/understand.md`
-  - `/docs/understand/practice-and-roles`
-  - `/docs/understand/practice-and-roles.md`
+  - `/docs/understand/how-discern-works`
+  - `/docs/understand/how-discern-works.md`
   - `/docs/understand/proof`
   - `/docs/understand/proof.md`
   - `/docs/understand/worktrees-and-trunk`

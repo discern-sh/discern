@@ -146,7 +146,10 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
     redirectFrom: page.entry.redirectFrom,
   })));
   assertEquals(redirects.issues, []);
-  assertEquals(redirects.redirects.size, 0);
+  assertEquals(
+    redirects.redirects.size,
+    manual.pages.flatMap((page) => page.entry.redirectFrom).length,
+  );
   const liveRoutes = new Set(expectedRoutes);
   for (const [source, target] of redirects.redirects) {
     assert(!liveRoutes.has(source), `${source} must not also be a live route`);

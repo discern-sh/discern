@@ -18,6 +18,8 @@ aliases:
   - "design"
   - "why"
   - "practice"
+redirect_from:
+  - "/docs/understand/practice-and-roles"
 ---
 
 # How discern works

@@ -23,7 +23,10 @@ export const SITE_FOOTER_GROUPS = [
   {
     title: "Explore",
     links: [
-      { label: "The Practice", href: "/docs/understand/practice-and-roles" },
+      {
+        label: "How discern works",
+        href: "/docs/understand/how-discern-works",
+      },
       { label: "Proof", href: "/docs/understand/proof" },
       { label: "Checkpoints", href: "/docs/understand/checkpoints" },
       { label: "Reference and glossary", href: "/docs/reference" },

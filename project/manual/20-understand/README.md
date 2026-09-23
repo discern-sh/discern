@@ -16,7 +16,7 @@ aliases:
 
 As you hand more work to agents, it helps to know what their checks establish, what the project remembers, and which decisions need you. These pages explain those ideas through situations you can recognize, so the next result your agent brings back is easier to judge.
 
-- [How discern works](practice-and-roles.md) gives an overview of how you, your agent, and the project share the work.
+- [How discern works](how-discern-works.md) gives an overview of how you, your agent, and the project share the work.
 
 For a particular question, choose a page below.
 
