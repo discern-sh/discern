@@ -414,7 +414,13 @@ Deno.test("requested query rows and setup blockers retain every returned entry",
     },
     {
       verb: "skills list",
-      data: { skills: ids.map((id) => ({ name: id, source: "project" })) },
+      data: {
+        skills: ids.map((id, index) => ({
+          name: id,
+          source: "project",
+          excluded: index % 2 === 0,
+        })),
+      },
     },
   ];
   for (const entry of cases) {
@@ -425,4 +431,37 @@ Deno.test("requested query rows and setup blockers retain every returned entry",
       for (const id of ids) assertStringIncludes(output, `investigate-${id}`);
     }
   }
+});
+
+Deno.test("skills list marks excluded and overriding skills instead of dropping them", () => {
+  const output = markdown("skills list", {
+    skills: [
+      {
+        name: "orbit-override",
+        source: "authored",
+        overrides_bundled: true,
+        has_bundled: true,
+        excluded: false,
+      },
+      {
+        name: "orbit-excluded",
+        source: "bundled",
+        overrides_bundled: false,
+        has_bundled: true,
+        excluded: true,
+      },
+    ],
+  });
+  assertStringIncludes(
+    output,
+    "Found 1 effective skill and 1 excluded by `[skills].exclude`.",
+  );
+  assertStringIncludes(
+    output,
+    "`orbit-override`: authored, overrides the bundled skill.",
+  );
+  assertStringIncludes(
+    output,
+    "`orbit-excluded`: bundled, excluded by `[skills].exclude`.",
+  );
 });

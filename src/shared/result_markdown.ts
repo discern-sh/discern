@@ -41,6 +41,7 @@ import {
   submissionRowLine,
 } from "./result_markdown_queue.ts";
 import { notApplicableCountLabel } from "./setup_assurance.ts";
+import { skillsListLines } from "./skills_list_presentation.ts";
 import {
   CompletionAssuranceSchema,
   describeCompletionAssurance,
@@ -2092,21 +2093,10 @@ const presentScripts: ResultMarkdownPresenter = (result) => {
 };
 
 const presentSkillsList: ResultMarkdownPresenter = (result) => {
-  const data = dataOf(result);
-  const skills = records(data.skills);
-  const active = skills.filter((skill) => skill.excluded !== true);
+  const listing = skillsListLines(records(dataOf(result).skills));
   return {
-    state: defaultState(
-      result,
-      `Found ${plural(active.length, "effective skill")}.`,
-    ),
-    evidence: unique([
-      ...active.map((skill) => {
-        const name = text(skill.name) ?? "unknown";
-        const source = text(skill.source) ?? "unknown";
-        return `${code(name)}: ${source}.`;
-      }),
-    ]),
+    state: defaultState(result, listing.summary),
+    evidence: unique([...listing.lines]),
   };
 };
 
