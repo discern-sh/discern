@@ -39,7 +39,7 @@ Recording needs to be on to collect new evidence. History you already have stays
 
 ## What the logbook records
 
-With recording on and `discern.toml` readable, every CLI command and MCP call that resolves to the project records local metadata. A command that can change something records a start event and a completion event, joined by one invocation id. Every worktree writes to the same plain-text files, in the repository's common Git directory.
+With recording on and `discern.toml` readable, every CLI command and MCP call that resolves to the project records local metadata. A command that can change something records a start event and a completion event, joined by one invocation id. Every worktree, the separate copy of the project where one task happens, writes to the same plain-text files, in the repository's common Git directory.
 
 An MCP call whose explicit `path` is outside every discern project returns `no_project` and records nothing, because no project logbook or consent setting applies there. `discern_docs` is the exception: it answers from the bundled manual instead, and still records nothing.
 

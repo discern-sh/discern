@@ -36,7 +36,7 @@ aliases:
 
 # Proof and checkpoint formats
 
-Look up the exact formats behind Proof and checkpoints: the Proof note discern attaches to each landed commit, the Proof marker in a worktree, the states a checkpoint question moves through, and the protocol a checkpoint's `when` command follows. You need these to inspect stored evidence yourself, or to build a tool on it.
+Look up the exact formats behind Proof and checkpoints: the Proof note discern attaches to each landed commit, the Proof marker in each worktree (the separate copy of the project where one task happens), the states a checkpoint question moves through, and the protocol a checkpoint's `when` command follows. You need these to inspect stored evidence yourself, or to build a tool on it.
 
 To decide what a Proof means for a change you're reviewing, start with [Proof](../20-understand/proof.md).
 
@@ -326,7 +326,7 @@ When a landing composes your change with a newer trunk and the combined code ser
 
 ### Variance at acceptance
 
-A current declared-unmet conclusion makes `discern accept` refuse until you authorize each named variance, in the current conversation: `discern accept --confirmed --variance <id>`, which can be repeated. The set of ids must equal the declared-unmet set. Recorded standing and effort grants cover no variance. Each authorization binds to the exact declaration, meaning the checkpoint id, definition hash, subject fingerprint, and rationale, and to the landed commit.
+A **variance** is your permission to land a change despite an unmet checkpoint. A current declared-unmet conclusion makes `discern accept` refuse until you authorize each named variance, in the current conversation: `discern accept --confirmed --variance <id>`, which can be repeated. The set of ids must equal the declared-unmet set. Recorded standing and effort grants cover no variance. Each authorization binds to the exact declaration, meaning the checkpoint id, definition hash, subject fingerprint, and rationale, and to the landed commit.
 
 ### Read surfaces
 

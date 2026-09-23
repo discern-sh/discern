@@ -53,7 +53,7 @@ Ownership here means who may edit or overwrite a file. It doesn't assign copyrig
 
 Each Git repository has one discern installation, with one `discern.toml` at the repository root. In a monorepo, that file can assign different checks to different paths. A folder that is itself a separate Git repository can have its own installation.
 
-A `discern.toml` in an ordinary nested folder isn't a second installation, but commands you run beneath that folder use it as their project root. There, `discern doctor` fails its repository-shape check, and `discern start` and `discern accept` refuse, because a worktree always checks out the repository from its root.
+A `discern.toml` in an ordinary nested folder isn't a second installation, but commands you run beneath that folder use it as their project root. There, `discern doctor` fails its repository-shape check, and `discern start` and `discern accept` refuse. A worktree, the separate copy of the project where one task happens, always checks out the repository from its root.
 
 ## License for discern-authored portions
 

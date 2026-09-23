@@ -20,7 +20,7 @@ aliases:
 
 # Worktrees and status
 
-This page answers two kinds of lookup: what `discern status` reports about each task, and which identity and environment values each worktree gets. A **worktree** is a separate copy of the project, on its own branch, where one task happens.
+This page answers two kinds of lookup: what `discern status` reports about each task, and which identity and environment values each worktree gets. A **worktree** is a separate copy of the project, on its own branch, where one task happens. Finished work lands on the **trunk**, your project's shared branch.
 
 Status is how you and your agent see where every task stands and what it needs next. It needs a discern project, and the worktree fields need a Git repository with at least one commit. For the ideas behind worktrees, read [Worktrees and trunk](../20-understand/worktrees-and-trunk.md).
 
@@ -83,7 +83,7 @@ What the report shows depends on where you run it:
 
 The derived `code` and `previewable` markers behind the Checks section appear only in structured results.
 
-The **Landing queue** lists every submitted change, in a registered worktree, whose commit hasn't landed. Tasks a grant pre-authorizes come first, in grant order, then tasks waiting for you, in submission order. Each line shows the task's branch, and the current worktree's own task is marked. When a task can't land yet, its line adds one sentence saying why:
+The **Landing queue** lists every submitted change, in a registered worktree, whose commit hasn't landed. Tasks that a **grant**, permission you recorded in advance, lets land once green come first, in grant order. Tasks waiting for you follow, in submission order. Each line shows the task's branch, and the current worktree's own task is marked. When a task can't land yet, its line adds one sentence saying why:
 
 - a running landing is checking its combined code now, with the `discern progress` handle when there is one;
 - its retained composition raised a checkpoint question, or carries an unmet checkpoint that needs your decision, and the line says to run `discern accept` from its worktree;
