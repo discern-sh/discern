@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-worktrees-and-resources
 title: "Worktrees and resources"
-description: "Recover an interrupted task, resolve cleanup problems, and check its local services and environment settings."
+description: "Find out why a task won't land or won't clean up, or why its app uses the wrong settings, and fix it without losing work."
 order: 40
 publish: true
 kind: troubleshooting
@@ -30,162 +30,151 @@ aliases:
 
 # Worktrees and resources
 
-Start with `discern status` and the lifecycle command's result. Ask your agent:
+Each task works in its own **worktree**, a separate copy of the project on its own branch. When a task won't land, its worktree won't go away, or its app uses the wrong database, this page helps you fix it without losing work. It keeps two questions apart: did the change land, and did cleanup finish?
 
-> Identify the affected task and what discern observed. Preserve its work, follow the named recovery, and tell me whether the change has landed separately from whether cleanup finished.
+The examples follow a recipe search task. Start from the task's own worktree and the result you saw. Ask your agent:
 
-Keep the task's existing worktree where available. A clean or idle-looking row may belong to another effort. The cases below help you choose the right repair without reconstructing the task from scratch.
+> Check the recipe search task and tell me what discern found. Keep its work, follow the recovery the result names, and tell me separately whether the change landed and whether cleanup finished.
 
-## A lifecycle command refuses
+Your agent keeps using the task's existing worktree. A worktree that looks clean or idle may belong to another task, so your agent never takes one over.
 
-Read the named condition before retrying:
+## `discern accept` refuses
 
-| Condition                                                   | Next action                                                                                                                         |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| The worktree has uncommitted changes                        | Review and commit intended work. Preserve unfamiliar files and resolve their ownership before removing them.                        |
-| The shared branch moved after the task's Proof              | Have the agent run `discern update`, re-read the overlapping files it names, then run `discern done` and `discern accept` again.    |
-| The main checkout has local changes or is on another branch | Resolve those changes with their owner and return main to the trunk before retrying the operation that needs it.                    |
-| Generated output needs repair                               | Run the named generator or refresh action, review its changes, and complete validation on the intended result.                      |
-| Landing authority is missing                                | Review the proposed change and the requested consent. Passing Proof alone does not authorize landing; the submission waits for you. |
+`discern accept` lands a change on `main`, your project's shared branch. It needs current **Proof**, discern's record that your project's checks passed on that exact commit, and your permission. When it refuses, nothing has landed, and your worktree and its commits are untouched. The result names the reason:
 
-Acceptance reports on the task it was run for. [Landing result fields](../30-reference/mcp-and-results.md#the-discernresult-envelope) give the structured contract.
+| What the result says                                                      | What it means, and what to do                                                                                                                                                                                              |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `The revision is submitted and waits in the landing queue for the owner.` | Nothing gives the change permission to land yet. Passing checks aren't permission. Approve it, pre-authorize it from the **desk** (the view that opens when you run `discern` in your main checkout), or leave it waiting. |
+| `has no honored Proof at HEAD, so there is nothing proven to land`        | The latest commit has no current Proof. Your agent runs `discern done`, then `discern accept`.                                                                                                                             |
+| `Main checkout at <path> has uncommitted tracked changes`                 | discern lands by moving `main` in your main checkout, so it must be clean. Commit or stash those changes, with whoever made them, then retry.                                                                              |
+| `The main checkout at <path> is on '<branch>', not '<trunk>'`             | Switch your main checkout back to `main` with the command the result gives, then retry. An unfinished `git merge`, `git rebase`, or `git cherry-pick` there also blocks landing.                                           |
+| `This branch's tracked refresh convergence is not proved.`                | discern's generated files on the branch are out of date. Your agent runs `discern refresh`, commits the files it names, runs `discern done`, then retries.                                                                 |
 
-## Acceptance was interrupted partway
+Once the cause is fixed and the change has permission, a retry lands it. Its result starts `Landed`.
 
-Read status and the acceptance result before attempting another landing. Ask whether the change landed, whether its Proof note was recorded locally, and whether its worktree was removed.
+A newer `main` doesn't cause a refusal. discern combines the change with it, checks the result, and lands what passed. If the two conflict or the combined checks fail, see [`main` moved before the change landed](gate-and-proof.md#main-moved-before-the-change-landed).
 
-discern records the landing before moving the shared branch, so a retry either finishes the remaining steps or rolls the attempt back. It never lands the same change twice and never spends your permission again. If landing did not happen, resolve the named blocker and follow the returned acceptance action.
+## A landing stopped partway
 
-[Recover an interrupted acceptance](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance) walks through the full procedure.
+A landing has several steps. It moves `main`, attaches the Proof to the landed commit as a Git note, updates your main checkout, and removes the worktree. If it stops partway, read the result and `discern status` before trying again. They tell you whether the change reached `main`, whether its Proof note was attached, and whether the worktree was removed.
+
+discern writes down what it's about to do before it moves `main`, and moves it in a single step. So a retry either finishes the remaining steps or undoes the attempt. It never lands the change twice, and never asks for your permission again. The code `partial_acceptance` means discern stopped after a step it can't undo, such as moving `main`. The result lists what already happened.
+
+[Recover an interrupted acceptance](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance) walks through the rest.
+
+## A landed task's worktree stayed behind
+
+The change is on `main`, and its worktree is still there. The first sentence of the landing result says why:
+
+| What the result says                                              | What finishes cleanup                                                                                                                          |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `the branch holds later commits, so its checkout and branch stay` | Those commits came after the version that landed, so they haven't landed yet. Your agent runs `discern done`, then `discern accept`, for them. |
+| `the checkout has uncommitted changes, so it and its branch stay` | Keep the changes you want by committing them. Your agent then runs `discern done`, then `discern accept`.                                      |
+| `could not be removed: run discern worktree prune`                | A program is still using the folder, such as a preview server. Stop it, then run `discern worktree prune` from your main checkout.             |
+
+If the result says `resource teardown failed`, the worktree and branch are gone, but a resource such as a test database remains. Fix the command that removes it, then run `discern worktree prune` from your main checkout.
+
+None of these undoes the landing, and none needs you to approve the change again.
 
 ## Removal failed, or a removed path came back
 
-**Removal reports a remaining path or registration.** Read which check failed. Close the editor, watcher, or shell still writing to that path, or perform the specific Git registration repair named in the result. Then repeat the reported lifecycle action.
+**Removal reports that a path or Git's record of it remains.** Something is still writing there, such as an editor, a file watcher, or an open shell. Close it, or apply the Git repair the result names. Then repeat the command the result names. Removal has worked when both the folder and Git's record of it are gone.
 
-Success means both the filesystem path and Git's registration are absent. If the same writer recreates the files, address that writer before trying again. Deleting a parent directory or clearing Git metadata bypasses the checks that distinguish this checkout from other work.
+Don't delete the parent folder or Git's records by hand. That skips the checks that tell this worktree apart from other work.
 
-**A removed directory reappeared.** An editor can save into a checkout after it was removed. When discern has recorded that removal, status can identify the reappeared path. Close its writer and inspect the cleanup plan:
-
-```sh
-discern worktree prune --dry-run
-```
-
-Review the exact paths before authorizing the prune. It uses discern's own removal records and rechecks Git registration and filesystem state. A similar-looking neighboring directory is outside that authority. Unreadable paths, paths containing Git metadata, or paths that change during inspection are kept.
-
-Success is the recorded path absent and its status finding cleared. If it appears again, the writer still needs attention.
-
-## A finished stage's checkout is taking space
-
-Preview the available cleanup:
+**A removed folder came back.** An editor can save into a worktree after discern removes it. If that happens during removal, the result says `Git no longer registers '<path>', but the retired path exists again.` If it happens later, status says `1 removed worktree path is present again.` Either way, close the program writing there, and preview the cleanup:
 
 ```sh
 discern worktree prune --dry-run
 ```
 
-A **contained** worktree has a clean, idle checkout whose committed work is already included in another live branch. The plan names that containing branch. If you no longer need the earlier checkout or its local files, preview its explicit reclaim option:
+Check the paths it lists before you go ahead. Prune only removes paths discern recorded removing, and it checks each one again first. It keeps a path it can't read, one that contains Git data, one that changes while it looks, or one with more than 1,000 entries. It's done when the path is gone and status no longer reports it. If the folder comes back again, the program writing to it is still running.
+
+## Worktrees are taking up space
+
+Land finished work first. A landing removes the task's worktree, its resources, and its branch when the branch holds nothing beyond what landed. For the rest, preview the cleanup from your main checkout:
+
+```sh
+discern worktree prune --dry-run
+```
+
+Sometimes a later task's branch already holds all the work of an earlier task. The earlier worktree is then **contained**, and the plan names the branch that holds its work. If you don't need the earlier worktree, preview reclaiming it:
 
 ```sh
 discern worktree prune --contained --dry-run
 ```
 
-Reclaim removes the checkout, its resources, and its worktree-local Proof after confirmation. Its branch ref remains available for `discern start --from <branch>`. A later `discern await --green` watch on the removed checkout refuses and points to the containing branch.
+Reclaiming removes the worktree, its resources, and its Proof, and keeps its branch. You can start from that branch again with `discern start --from <branch>`. An agent waiting for the earlier task to pass its checks gets a refusal that names the later branch.
 
-For finished work ready to land, use acceptance first. A landing removes the worktree, its resources, and its branch when the branch holds nothing beyond the landed submission.
+You may also see worktrees whose branch starts with `integration/`. discern makes these temporary copies to check combined code when a change lands. Leave them alone. Prune removes one once the landing that made it has stopped.
 
-## A healthy task should pause without its checkout
+## Pause a task without its worktree
 
-Use Park when the unlanded branch should remain resumable but its checkout and resources are no longer needed:
-
-```sh
-discern worktree park <target> --dry-run
-discern worktree park <target>
-```
-
-Review the preview before confirming. It names the kept branch and commit, retained task wording, destroyed resources, removed checkout, and consumed worktree-local Proof, submission, and landing grant. Park refuses a dirty, unreadable, setup-incomplete, trunk, detached, or branch-mismatched checkout. It has no force option: a branch cannot preserve uncommitted files.
-
-After success, open the desk's commands menu and choose **Resume** for the branch, or resume directly:
+To pause a task for a while, you can **park** it. Parking removes the worktree and its resources, and keeps the branch, its commits, and the task's title and brief. Preview it first:
 
 ```sh
-discern start --from <parked-branch>
+discern worktree park <task> --dry-run
+discern worktree park <task>
 ```
 
-The saved title and brief become defaults when the branch still points at the parked commit. Use Reclaim for a contained stage and Drop for an effort you intend to discard.
+The preview names the branch and commit it keeps, and the folder and resources it removes. It also names the Proof, and any permission you gave the task to land once green. Both go with the worktree. Park refuses a worktree with uncommitted changes, one that isn't on its own task branch, one whose setup didn't finish, and one it can't read. It has no force option, because a branch can't hold uncommitted files.
+
+To resume, choose **Resume** with the branch name from the desk's menu, or ask your agent to run `discern start --from <parked-branch>`. The saved title and brief come back if the branch hasn't moved. The resumed task needs new Proof and new permission to land.
 
 ## Cleanup kept something you expected it to remove
 
-Read the reason it was kept. Automatic cleanup needs recorded ownership, matching identity, and the relevant current-state checks. A merged branch or a familiar name alone cannot establish that discern owns its checkout.
+discern removes a worktree by itself only when it has a record that it created that worktree, and the current checks pass. A merged branch or a familiar name isn't enough. So cleanup keeps anything it can't account for, and the result says why.
 
-For a deliberately chosen foreign checkout, `discern worktree drop <worktree>` accepts its exact id, path, local branch, or full local ref. Review that destructive action explicitly. When discern cannot prove ownership of the branch, it keeps the branch ref.
-
-For a landed task, a worktree that stayed because its branch holds unlanded commits and a worktree whose cleanup needs recovery are different outcomes. The first is a protection; the second names unfinished cleanup to resolve. Use the returned reason rather than assuming every remaining directory is a failed removal.
-
-## A landed task's worktree stayed behind
-
-The change is on the shared branch, and its worktree is still there. The landing result and `discern status` say why in one sentence. The reasons, and what finishes cleanup:
-
-| Why it stayed                                  | What finishes cleanup                                                                                                                                              |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| The branch gained commits after the submission | Those commits never landed. Preserve them; the agent runs `discern done` and then `discern accept` for them from that worktree.                                    |
-| Removal could not complete                     | Stop the preview or other program still writing in the directory, resolve any resource the result names, then run `discern worktree prune` from the main checkout. |
-
-Neither undoes the landing, and neither needs the change approved again. If the result says cleanup needs recovery rather than that the worktree stayed, follow the named recovery instead.
+To remove a worktree you've chosen, run `discern worktree drop <worktree>` from your main checkout. It takes the worktree's id, path, branch, or full branch reference. Preview it first with `--dry-run`. Drop won't throw away uncommitted changes, or commits that aren't on `main`, unless you add `--force`. If discern can't show that it owns the branch, it keeps the branch and says `is outside discern ownership`.
 
 ## A branch or worktree was dropped by mistake
 
-Find the recovery ref printed by `discern worktree drop`. The [dropped-branch recovery procedure](../10-guides/recover-an-interrupted-task.md#recover-a-dropped-branch) shows how to list the retained refs and restore committed work.
+Before `discern worktree drop` deletes a branch, it saves the branch's last commit and prints the name of the saved reference. Your repository keeps the newest 32 of these. [Recover a dropped branch](../10-guides/recover-an-interrupted-task.md#recover-a-dropped-branch) shows how to list them and bring the work back.
 
-Those refs preserve committed tips, with a bounded retention count. They cannot recover uncommitted, untracked, or ignored files discarded by a forced drop. For a ref lost outside discern's lifecycle, investigate Git's reflog before further cleanup.
+Only committed work comes back. A forced drop deletes uncommitted, untracked, and ignored files for good. For a branch lost some other way, `git reflog` may help.
 
-## A resource, port, or environment value is wrong
+## An app uses the wrong port, database, or setting
 
-Run these from the affected worktree, using the resource name from its configuration:
+Each worktree gets its own port, and its own copy of any **resource** your project declares, such as a test database. If a task's app uses the wrong one, run these in the affected worktree, using the resource name from your configuration:
 
 ```sh
 discern identity
 discern identity --resource <name>
 ```
 
-Have the agent compare those values with what the application actually reads. For example, a preview showing another task's saved recipes may be connected to that task's database. Finding the mismatch is more useful than creating another resource immediately.
+Ask your agent to compare those values with what the app reads. Say the preview shows another task's saved recipes. It's probably connected to that task's database. Finding the mismatch helps more than creating another resource.
 
-| Symptom                                              | Next action                                                                                                                                                                                                                            |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Resource creation failed or its outcome is uncertain | Read the failing output and recorded recovery. A retry first uses the destroy action recorded before creation to reconcile uncertain state. If that is unavailable or fails, resolve the named resource before another create attempt. |
-| An inherited environment value is missing            | Check that its key is in `[worktree].inherit_env` and is defined in main's configured env files. Only named values are copied, not entire files.                                                                                       |
-| The wrong env value wins                             | Check the ordered `[worktree].env_files` list. The last file defining a key supplies its value. See the [env rules](../30-reference/worktrees-and-status.md#inherit-selected-env-values).                                              |
-| A resource remains after its worktree vanished       | Preview `discern worktree prune --dry-run` and inspect the recorded resource. Garbage collection acts on eligible recorded resources; a resource configured out of it needs the project's own teardown.                                |
+| What you see                                           | What to do                                                                                                                                                               |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A resource failed to start, or it's unclear if it did. | Read the failing output. A retry first cleans up with the remove command recorded before creation. If there's none, the agent resolves it before creating again.         |
+| A value copied from the main checkout is missing.      | Check that its key is in `[worktree].inherit_env` and set in the main checkout's env files. Only named keys are copied, and a value already set in the worktree is kept. |
+| The wrong value wins.                                  | Check the order of `[worktree].env_files`. The last file that sets a key wins. The default order is `.env`, then `.env.local`.                                           |
+| A resource remains after its worktree is gone.         | Preview `discern worktree prune --dry-run`. Prune removes recorded resources it can. One your configuration leaves out needs removing by hand.                           |
 
-Changing a value in main does not update an existing worktree automatically. Make the intended correction in the affected worktree, following the project's configuration, and verify the application now uses its own identity and resource.
+Changing a value in the main checkout doesn't update existing worktrees. Fix it in the affected worktree, then check that the app uses its own values. The [environment settings reference](../30-reference/worktrees-and-status.md#inherit-selected-env-values) has the exact rules.
 
-Keep the resource ledger during recovery. It stores the recorded teardown action; uninstall refuses while recorded resources remain.
+Keep discern's list of resources during recovery. It holds the command that removes each one, and `discern uninstall` refuses with `provisioned_resources` while any remain.
 
-## Ignored files changed under a worktree
+## Ignored files changed in a worktree
 
-Read the named files before removing the checkout. Ignored files may hold local settings or data that no commit preserves. Copy out anything you want to keep.
+Files Git ignores, such as `.env` or local test data, aren't in any commit. Before a worktree goes, copy out anything you want to keep.
 
-When enabled, discern compares ignored files with the baseline recorded during worktree setup. That comparison is advisory; it does not preserve the file contents for you.
+By default, `discern accept` and its preview list the ignored paths that changed since the worktree was set up. The list is a warning. It doesn't save the files. The `[worktree].track_ignored_drift` setting turns it off, and the [configuration reference](../30-reference/config-reference.md#worktree) covers it.
 
-For the optional comparison setting, see `[worktree].track_ignored_drift` in the [configuration reference](../30-reference/config-reference.md). Disabling the report does not turn local-only files into recoverable Git history.
+## A task on the desk looks wrong
 
-## A fleet row looks wrong
+On the desk, select a task that shows broken or unfinished setup, a missing folder, or Git state discern can't read. Then choose **Show recovery steps**. It shows what discern could see, what it couldn't read, and the next command to run.
 
-`discern status` from the main checkout surveys every worktree. Open the row in `discern desk` and choose **Show recovery steps** when it reports broken setup, incomplete setup, a missing checkout, or unreadable Git state. The recovery view separates what discern observed from what remains unavailable:
+**Retry setup** appears when no setup step is in doubt. If a step is recorded as still running, see [A worktree setup step may have finished](setup-and-integrations.md#a-worktree-setup-step-may-have-finished).
 
-- the exact Git or setup failure and command;
-- Git registration, branch reachability, and filesystem presence;
-- checkout, branch, task, and resource identities;
-- setup-ready marker and step-journal evidence;
-- the last lifecycle result and one next command.
+If your main checkout has local changes that block landing, choose **Main checkout** from the desk's menu. From there you can see its status and changes, or open a shell or editor in it.
 
-`Retry setup` is available when no setup step remains ambiguous. A journal with a running one-shot step serves the specific owner-confirmed recovery command. A missing journal beside configured one-shot steps serves `discern worktree setup begin --dry-run` for inspection. An unreadable Git registration serves its failed Git command or `discern doctor`. The task remains intact while those checks are unresolved.
+After an action the desk refused, it checks every task again. A notice such as `Task landed` or `Task checkout closed; branch available to resume` says what changed.
 
-If main has local changes or unreadable Git state, choose **Inspect main checkout**. Its detail can show status and diff or open a shell or editor at main. It also names the landing and cleanup operations that remain blocked. Main stays outside the task list, and agent work remains in linked worktrees.
-
-After a refused repair or cleanup, the desk surveys again. `Task changed; refreshed` means the selected row changed or disappeared. A parked task opens its resumable branch. A task found in local landing evidence reports `Task landed; refreshed` and remains available under **Recent completed tasks**.
-
-Never adopt another effort's worktree because it looks idle or clean. Do not repair a confusing row by deleting a path or Git registration by hand. Follow its diagnosis first. Park, Reclaim, Drop, and prune each apply their own ownership and final-state checks.
+Don't repair a confusing task by deleting folders or Git records by hand. Follow its recovery steps. Park, reclaim, drop, and prune each check who owns what before they remove anything.
 
 ## When to stop
 
-Pause destructive cleanup when you cannot account for the work or path it would remove, or when the reported owner confirmation has not been given. Resolve an active writer, ambiguous setup effect, or uncertain external resource before retrying its teardown.
+Pause any cleanup that would remove work or a path you can't account for. Stop, too, when the result asks for your confirmation and you haven't given it. Sort out a program still writing to the folder, a setup step that may have run, or a resource you're unsure about before you try again.
 
-If the supported recovery still fails, keep `discern status --json` and the lifecycle result for investigation. Preserve the named state; deleting Git records by hand can remove the evidence the recovery needs.
+If the recovery still fails, keep the output of `discern status --json` and the result. Leave discern's records in place, because the recovery needs them.

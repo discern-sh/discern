@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-gate-and-proof
 title: "Gate and Proof"
-description: "Find why checks stopped or Proof is missing, repair the cause, and know when a decision is needed."
+description: "Find out why the gate stopped or gave no Proof, fix the cause, and know which decisions are yours."
 order: 30
 publish: true
 kind: troubleshooting
@@ -21,115 +21,146 @@ aliases:
 
 # Gate and Proof
 
-Start with the first failure in the result. You can ask your agent:
+When the gate stops, its result says what happened and what to do next. This page helps you tell a failed check from a refusal, a wait, or Proof that no longer applies, so your agent fixes the real cause. It also names the few decisions that are yours.
 
-> Explain what stopped the gate in terms of my change. Fix the cause, verify that correction, and tell me what remains unverified or needs my decision.
+The **gate** is the set of checks your project requires before a change counts as finished. When they pass on a committed version, discern records **Proof**: its record of which checks passed on exactly which commit. The examples follow a recipe search task. Hand the result to your agent:
 
-A red gate gives you a chance to resolve a problem before the change lands. You do not need to interpret every log line yourself. The agent should turn the diagnostic into a specific repair and explain its effect on the requested work.
+> Explain what stopped the gate in terms of the recipe search change. Fix the cause, check the fix, and tell me what's still unchecked or needs my decision.
 
-## Read the failure before acting
+## A check failed
 
-Open the diagnostic's captured output. Its `reproduce_cmd` names the command for investigating that failure alone; `output_path`, when supplied, leads to the full log. Retrieve that saved output if the displayed result was cut short.
+A red result names each failing check, shows its output, and gives the command that reproduces it. If the output was long, the result shortens it and names the file with the full text as `output_path`.
 
-For example, a failed search test should lead to an explanation such as “Searching by an ingredient misses recipes whose title doesn't contain it,” followed by a repair and a focused test. The error could also come from a missing dependency or an incorrect check. Ask the agent to investigate the diagnostic before choosing a repair.
+Say the search test fails. A good explanation from your agent sounds like "Searching by an ingredient misses recipes whose title doesn't contain it." The failure might also come from a missing tool or a broken check, so the agent reproduces it before choosing a fix. [Fix a red gate](../10-guides/fix-a-red-gate.md) walks through the full procedure.
 
-[Fix a red gate](../10-guides/fix-a-red-gate.md) gives the full working procedure. The cases below cover results that need a different next step.
+Some failures need a different first step:
+
+- **A check timed out.** The message says it `timed out after <N>s and was killed`, and names the time limit it hit. A test runner left in watch mode often causes this, because it waits for file changes. Find out why the check doesn't finish before raising its limit.
+- **A check passed but printed errors.** discern points it out: `Review lint's output at <path>. It passed but printed 12 error-like lines`. Read the output to see whether the check hid a real failure.
+- **The same version already failed.** If nothing changed since a red run, `discern done` won't repeat it. It says `the gate already judged this exact candidate red` and asks for a fix first. The agent uses `discern done --rerun` only when something outside the code changed, such as a test service coming back.
+
+Once the fix is committed, the agent runs `discern done` again. That runs every required check, including any that stopped early. It's fixed when the result ends with a Proof line for the new commit.
 
 ## The gate refuses before running anything
 
-Read the next action and whether the result says the gate ran. Common cases are:
+Some results stop before any check runs. They name the condition to fix:
 
-| What the result names                    | Next step                                                                                                                          |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Uncommitted or untracked files           | The full check needs a committed tree. Have the agent run `discern prepare`, review and commit the intended files, then ask again. |
-| A checkpoint needs judgment              | Have the agent answer the served question against the actual change. See [checkpoint answers](#a-checkpoint-needs-an-answer).      |
-| The branch is behind the shared branch   | Have the agent run `discern update`, re-read the overlapping files it names, then run `discern done` again.                        |
-| A state path cannot be written           | Resolve access to the exact path named, then retry.                                                                                |
-| The same validation input already failed | Fix the cause first. Use `--rerun` when the result requires a deliberate new attempt on unchanged input.                           |
+| What the result says                                                                    | What your agent does                                                                                                  |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `Completion requires a clean, committed tree — uncommitted:` and the files              | Runs `discern prepare`, reviews the files, commits what belongs to the change, then runs `discern done`.              |
+| `This branch is behind main. Run discern update, then discern done.`                    | Runs `discern update`, rereads the files both changes touched, then runs `discern done`.                              |
+| `This change fired one checkpoint that requires your judgment before any gate job runs` | Answers the question. See [A checkpoint needs an answer](#a-checkpoint-needs-an-answer).                              |
+| `Completion attempt <id> is still running for this worktree.`                           | Reads that run back with `discern progress` instead of starting another.                                              |
+| `write_denied` and a path                                                               | Needs write access to that path. If its own permissions block it, it asks you, then retries.                          |
+| The project's instructions or skills are out of date                                    | Runs `discern refresh`, reviews and commits the changes, then retries. To change their wording, it edits the sources. |
 
-An already passing result is different: discern can reuse applicable evidence without running its jobs again. A result that says no gate ran is therefore not, by itself, a refusal. Read its completion state and any missing requirements.
+One result that runs no checks isn't a refusal: `Current green Proof covers this exact tree; no gate job ran.` Nothing changed since the last pass, so the existing Proof still applies.
 
-## The gate is waiting, not failing
+## The gate is waiting for test capacity
 
-The project bounds how many test runs can share the machine with `[gate].concurrent_test_runs`. A run that reaches that limit waits for a slot while its other checks continue. The result names the task holding the slot and how long its tests usually take.
+Your project can limit how many test runs happen at once, with the `[gate].concurrent_test_runs` setting. When the limit is reached, a run waits its turn while its other checks carry on:
 
-Nothing needs repairing. Let the run wait, or ask the agent which task holds the slot and whether it is close to finishing. Raise the limit only after checking that the machine can carry another run; [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md#share-limited-capacity) explains the setting.
+```text
+Waiting to start tests: the project's shared test capacity is in use.
+```
+
+Nothing needs fixing. The tests start by themselves when a slot frees up.
+
+discern can't tell which task holds the slot. When the run finishes, its result lists the other commands that were running when the wait began, and how long the first one's kind of command usually takes. It then says `These observations do not establish queue order or an estimated start time.` So the list is only a clue to what was using the slot.
+
+Raise the limit only if your machine can handle another run. [Share limited capacity](../10-guides/coordinate-parallel-tasks.md#share-limited-capacity) explains the setting.
 
 ## The result was cut short
 
-A long result can arrive with its diagnostics abbreviated. `discern progress <handle>`, with the handle the run announced when it started, returns the retained result with every failure and its reproduce command; each check's complete transcript is in the file the result names. Running the gate again to see the missing text costs another run and adds nothing new.
+A long result can list only the first few failures, then say how many more it left out. Every long run announces a **progress handle** when it starts, such as `R1-H596-N6BT-K5`. Your agent reads the full result back with it:
 
-If the session that started the run is gone, the run may still be going. Ask the agent to read status before doing anything else. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see) covers that case.
+```sh
+discern progress R1-H596-N6BT-K5
+```
 
-## A job failed
+discern keeps these results for up to 7 days. Each check's complete output stays in the file its `output_path` names, for 24 hours. Running the gate again only to see the missing text costs a full run, and tells you nothing new.
 
-Have the agent reproduce the named failure, inspect its cause, and make the smallest appropriate repair. For fix and check stages, `discern prepare` may be the useful inner loop. For a test failure, the diagnostic's narrower command usually gives a faster answer.
+If the session that started the run is gone, the run may still be going. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see) covers that case.
 
-Check which evidence state applies:
+## Files changed while the gate ran
 
-- **A successful job printed error-like output.** Read the captured log and check whether the job swallowed a failure. The exit status alone does not settle that question.
-- **Tests are queued.** If the project caps concurrent test runs, a busy queue waits for a slot. Direct test commands should use `discern queue -- <command>` under the same configured cap.
+Proof has to describe one exact commit. So if a check changes files while the gate runs, discern stops rather than record Proof for a version that doesn't exist:
 
-Return to ordinary `discern done` once the correction is ready on a clean, committed tree. That verifies the required checks, including any affected by the repair.
+| What the result names                                     | What your agent does                                                                                                    |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `tree_drift`: a step `left N tracked file(s) uncommitted` | Reviews the change. A formatter's fixes get committed. A check that should only read files gets corrected.              |
+| `generated_drift`: a generated file is out of date        | Runs the command that regenerates it, reviews the output, and commits it.                                               |
+| New files appeared among the project's own files          | Keeps them to look at. It points temporary output at a folder Git ignores, and commits only what belongs to the change. |
 
-## The gate finished with a different tree than it started
+Running `discern prepare` before the final commit applies the formatters first, so `discern done` has nothing left to rewrite.
 
-Inspect the named paths and diff before committing or removing anything. A passing check must apply to the version that receives Proof; unexpected changes can prevent that.
+If a generator gives different output every time it runs on the same input, fix the generator. Committing its output again won't settle it.
 
-| Reported change                                         | Recovery                                                                                                                                 |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| A stage rewrote a tracked file (`tree_drift`)           | Review the diff. Commit intended output, or correct a command that should only verify files. Then run completion again.                  |
-| Unexpected output appeared among source files           | Preserve it for inspection. Put temporary output in a narrowly ignored or declared output location; commit only intended source changes. |
-| A declared generator is stale (`generated_drift`)       | Run the regeneration command named for `[generated.<name>]`, review its output, and commit the intended result.                          |
-| discern-maintained instructions or integrations drifted | Run `discern refresh`, then review and commit the tracked changes. Edit authored sources to change their content.                        |
+## The checks passed, but there's no Proof
 
-If generation immediately produces different bytes again from the same input, investigate the generator before making another commit. Repeatedly accepting those differences will not give you a stable result.
+A green result without Proof says why, such as `The checks passed, but this run is not recorded as complete.` The reason decides what finishes the task:
 
-Temporary files can affect another concurrent check even if a later cleanup removes them. Preserve anything the result cannot account for before deciding what it belongs to.
-
-Success is a clean final commit with complete Proof.
-
-## Green, but no Proof
-
-Read the completion state and missing requirements. Passing jobs can be useful progress while completion is still pending.
-
-| Why Proof is missing                                         | What completes the task                                                                                                   |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Uncommitted changes or a commit that moved during validation | Review and commit the final intended state, then run ordinary completion.                                                 |
-| A checkpoint question is still open                          | Have the agent judge it and record the conclusion; completion continues in the same run.                                  |
-| The run used `--standalone`                                  | Run ordinary `discern done` when ready. Standalone diagnostics do not issue landing Proof.                                |
-| The run used `--ci`                                          | Treat it as a CI report. CI does not produce landing Proof. See [Run the gate in CI](../10-guides/run-the-gate-in-ci.md). |
+| Why there's no Proof                 | What finishes it                                                                                                                               |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| A new commit arrived during the run. | Commit the final version, then run `discern done` again.                                                                                       |
+| The run used `--standalone`.         | That option is for investigating and never records Proof. Run `discern done` without it.                                                       |
+| The run used `--ci`.                 | It reports results in continuous integration, and its Proof can't land a change. See [Run the gate in CI](../10-guides/run-the-gate-in-ci.md). |
+| discern couldn't write the Proof.    | Fix the reason it names, then run `discern done` again.                                                                                        |
 
 ## Proof was current and went stale
 
-Ask the agent what changed since validation. A new commit or a changed checkpoint judgment requires fresh evidence for the version that will land.
+Proof covers one exact version. It goes stale when the agent makes a new commit, leaves files uncommitted, or changes a checkpoint answer or a proposed limit. Say you ask for a friendlier message when no recipe matches. The old Proof checked the old message, so the agent commits the new one and runs `discern done` again. Checks that declare their inputs reuse earlier results when those inputs didn't change.
 
-For source edits, commit the intended final change and run `discern done`. A shared branch that moved after the Proof does not make the Proof stale, but it does stop the landing: acceptance refuses and names the route, `discern update`, `discern done`, then `discern accept`, so the evidence covers the combination that lands.
+A newer `main` doesn't make Proof stale. discern checks the combination when the change lands, as the next section describes. [Why Proof becomes stale](../20-understand/proof.md#why-proof-becomes-stale) explains the rule.
 
-Success is current Proof for the exact commit that will land, with no required evidence missing. [Why Proof becomes stale](../20-understand/proof.md#why-proof-becomes-stale) explains the boundary.
+## `main` moved before the change landed
+
+Another task may land on `main` while yours waits for review. That doesn't send your change back to the start. When yours lands, discern combines it with the new `main` in a temporary copy, runs the checks on the combined code, and lands exactly what passed.
+
+If that doesn't work, nothing lands. The task's worktree (its own copy of the project), its branch, and `main` stay as they were. The result says why:
+
+| What the result says                                                           | What happens next                                                                                                                   |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `Landing <branch>'s submission <commit> conflicts with main in:` and the files | Your agent runs `discern update`, resolves the conflict, commits, runs `discern done`, then `discern accept`.                       |
+| `The combined check for <branch>'s submission <commit> with main failed`       | The same route. The result includes the command that reproduces the failure.                                                        |
+| The combined code fired a checkpoint question                                  | Your agent answers it with `discern accept --met` or `--unmet`, and the same landing continues. An unmet answer then waits for you. |
+| `main moved again while this landing recomposed`                               | `main` moved twice during the combined check. Your agent runs `discern accept` again to combine with the newest `main`.             |
+
+When the landing works, the result starts `Landed`, and says the change was `composed with main`.
 
 ## A standard failed
 
-First distinguish a worse measurement from a measurement that could not run.
+A **standard** is a quality limit your project holds, such as the app's download size. First tell a worse measurement apart from one that couldn't run:
 
-- **The value exceeded its limit.** Have the agent explain what grew or fell and try remedies within the requested work. If a justified change still needs a different limit, it should present the measured tradeoff for your decision and use the standard-limit proposal procedure. Editing a limit merely to pass does not supply that approval.
-- **The governing limits could not be read.** Follow the diagnostic. A shallow CI clone may be missing the configured local trunk ref; the result supplies the fetch command needed to compare the policies.
-- **The measurement command failed.** Repair its named command or prerequisite before drawing conclusions about the value.
-
-[Set and raise standards](../10-guides/set-and-raise-standards.md) covers measurement, repair, and the approval procedure for a proposed limit.
+- **The value went past its limit.** Your agent explains what grew and tries to fix it within the task. If the change still needs more room, it brings you the measurement and a proposed new limit. You decide. Editing the limit to pass isn't a way round that. A **grant**, permission to land that you set up in advance, doesn't cover it either. [Set and raise standards](../10-guides/set-and-raise-standards.md#respond-when-a-standard-fires) covers the steps.
+- **`Standards limits are UNVERIFIED`.** discern couldn't read the limits on `main` to compare against. In CI this usually means a shallow clone, and the result gives the fetch command, such as `git fetch origin main:main`.
+- **The measurement command failed.** Fix the command before drawing any conclusion about the value.
 
 ## A checkpoint needs an answer
 
-Have the agent read the question and inspect the change it names. For example, a change to saved recipes might ask whether existing saved data remains readable. An answer should explain the evidence relevant to that question.
+A **checkpoint** is a question your project asks about certain kinds of change. Say a change to saved recipes asks whether recipes people saved before still open. Your agent reads the question, checks the actual change, and records its answer:
 
-- **Awaiting declaration.** The agent records `discern done --met <id>` if the change satisfies the served question, or `discern done --unmet <id> --why "<rationale>"` if it does not.
-- **Declared unmet.** The checks may still pass. Landing requires the owner to approve that exact exception in the current conversation; a recorded landing grant does not cover it. The agent can instead change the work, judge it again, and complete validation.
-- **A recorded answer reopened.** The change no longer matches the answer's subject. Judge the served question again using the current version.
+```sh
+discern done --met <id>
+discern done --unmet <id> --why "<reason>"
+```
 
-[Checkpoint states and declarations](../30-reference/proof-and-checkpoint-formats.md#checkpoint-state-and-declarations) provides the exact states. [Checkpoints](../20-understand/checkpoints.md) explains how the questions help a project retain decisions that tests cannot make.
+The gate then runs in the same call. The answer appears in the Proof, so you can read the agent's reasoning and challenge it.
+
+If the agent answers **unmet**, the checks still run. Landing then needs your approval of that specific gap, called a **variance**. No grant covers a variance, and a general "go ahead" doesn't either. Instead of approving it, you can ask the agent to change the work so the answer becomes met.
+
+A recorded answer **reopens** when a later edit touches what it covered, or when the question itself changes. The agent answers again for the current version. [Checkpoint state and declarations](../30-reference/proof-and-checkpoint-formats.md#checkpoint-state-and-declarations) lists every state.
 
 ## When to stop
 
-Bring a decision to the owner when it changes the agreed outcome, approves an unmet checkpoint, changes a protected standard limit, or authorizes landing without existing authority. Routine investigation and repair can continue within the authorized task.
+Your agent can keep investigating and fixing within the task you asked for. It brings you the decision when the fix would:
 
-If the named remedy does not resolve the problem, keep the original result and the failed recovery's output. Investigate the new evidence or report the unresolved condition. Before any repeat of the full gate, the agent should be able to say what changed since the last run or what new evidence the run would obtain; a repeat that can answer neither is not a substitute for understanding a recurring failure.
+- change what you asked for;
+- land despite an unmet checkpoint;
+- raise a standard's limit;
+- remove or weaken a check;
+- land without permission you've given.
+
+A green gate isn't permission to land. [Finish and land a change](../10-guides/finish-and-land-a-change.md) covers that step.
+
+If the fix a result names doesn't work, keep the original result and the new output. Before your agent runs the full gate again, it should be able to say what changed since the last run, or what the new run will show. If it can't say either, it investigates rather than repeating the run.
