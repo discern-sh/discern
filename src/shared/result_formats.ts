@@ -7,11 +7,11 @@
 export const CLI_RESULT_FORMATS = {
   json: {
     flag: "--json",
-    description: "Emit one JSON result on stdout.",
+    description: "Print the result as one JSON document on stdout.",
   },
   markdown: {
     flag: "--markdown",
-    description: "Emit one Markdown result on stdout.",
+    description: "Print the result as one Markdown document on stdout.",
   },
 } as const;
 
@@ -25,5 +25,5 @@ export type ResultOutputFormat = keyof typeof CLI_RESULT_FORMATS;
  */
 export const CLI_RESULT_RENDER = {
   flag: "--render",
-  description: "Render the Markdown result as terminal output.",
+  description: "Print the Markdown result formatted for the terminal.",
 } as const;

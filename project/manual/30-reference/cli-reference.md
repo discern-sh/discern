@@ -102,28 +102,28 @@ For options shared by commands, see [Global options](#global-options). For keybo
 
 These options apply to commands unless an entry says otherwise. When discern runs another command, options after that boundary belong to the command it runs. For example, options after `discern queue --` are passed to the queued command.
 
-| Option            | Description                                                                                                                                                                  |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`          | Emit one JSON result on stdout.                                                                                                                                              |
-| `--markdown`      | Emit one Markdown result on stdout.                                                                                                                                          |
-| `--render`        | Render the Markdown result as terminal output.                                                                                                                               |
-| `--no-color`      | Disable color (also honors NO_COLOR and non-TTY output).                                                                                                                     |
-| `--plain`         | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.                                                                      |
-| `--theme <theme>` | Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing. |
+| Option            | Description                                                                                                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`          | Print the result as one JSON document on stdout.                                                                                                                                                                          |
+| `--markdown`      | Print the result as one Markdown document on stdout.                                                                                                                                                                      |
+| `--render`        | Print the Markdown result formatted for the terminal.                                                                                                                                                                     |
+| `--no-color`      | Turn off color. discern also leaves color off when `NO_COLOR` is set to any non-empty value, when `TERM` is `dumb`, or when output isn't a terminal.                                                                      |
+| `--plain`         | Turn off prompts, paging, the full-screen reader, and live progress, and print static output. discern also skips prompts in CI, with `--json`, `--markdown`, or `--render`, and when input or output isn't a terminal.    |
+| `--theme <theme>` | Choose colors for a `light` or `dark` terminal, or `auto`. Default: `auto`, which asks an interactive terminal for its background color and assumes dark when it can't tell. `--no-color` and `NO_COLOR` skip that check. |
 
 ## Your desk
 
-Interactive task supervision and worktree entry.
+You use these in an interactive terminal.
 
 ### `discern desk`
 
-Open the live desk: see tasks, review Proof and changes, open an agent, run Project Scripts, or review acceptance and worktree controls. Bare `discern` opens the desk. The desk is interactive only; use status --markdown or status --json to list every worktree.
+Open the desk, your interactive view of every task in this project. From the desk you can start tasks and agents, run project scripts, review changes and Proof, land work or pre-approve it, and clean up worktrees. Run it from the main checkout; bare `discern` opens it too. It needs an interactive terminal. To list worktrees from a script, use `discern status --all --json`.
 
 Usage: `discern desk [options]`
 
 ### `discern enter`
 
-Choose a worktree and open a child shell at the matching project-relative directory. This command is interactive only; use status --all --json to inspect the fleet.
+Open a shell in another worktree, in the same folder you're in now. Pick the main checkout or a worktree from the list, and exit the shell to return. If that folder doesn't exist there, the shell opens in the nearest one that does. It changes nothing and needs an interactive terminal. To list worktrees from a script, use `discern status --all --json`.
 
 Usage: `discern enter [options]`
 
@@ -133,652 +133,652 @@ Your coding agent runs these as it works.
 
 ### `discern status`
 
-Show what's true right now and what to do next (read-only; does not run the gate, the project's full quality check).
+Show where this checkout stands and what to do next. It runs no checks, tests, or measurements, and changes nothing in your project. From the main checkout, it also lists the task worktrees.
 
 Usage: `discern status [options]`
 
-| Option          | Description                                                                                                                                                                                               |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--all`         | Include every worktree even when called from one (local view plus all worktrees).                                                                                                                         |
-| `--local`       | Show only this checkout, even in the main checkout.                                                                                                                                                       |
-| `-v, --verbose` | Expand fleet attention, per-worktree evidence, configured checks, landing history, and full Proof pages. With JSON, return complete structured status; the default is the bounded orientation projection. |
+| Option          | Description                                                                                                                                                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--all`         | Also list every worktree when you run it from a task worktree. You can't combine it with `--local`.                                                                                                                              |
+| `--local`       | Show only this checkout, even in the main checkout.                                                                                                                                                                              |
+| `-v, --verbose` | Show everything: each worktree in full, its evidence, the configured checks, landing history, and full Proof pages. With `--json`, return the complete status instead of the shorter summary; full Proof pages stay out of JSON. |
 
 ### `discern prepare`
 
-Fast inner loop: fixers, [generated] regenerations, complete refresh, then read-only checks (no other build jobs, no tests).
+Run the quick checks while you work: fix and regenerate files, then run the read-only checks, without tests. In order, it runs the fix jobs, such as the formatter, the `[generated]` commands, and `discern refresh`, then the check jobs, such as lint and type-check. It works on uncommitted changes, may change files, and never commits. It skips build and test jobs, scope gates, and standards, and records no Proof. Run it before your final commit, so `discern done` has nothing left to rewrite.
 
 Usage: `discern prepare [options]`
 
 ### `discern done`
 
-Require a clean, committed tree. Run finishing steps that may change files, then verify the gate — the project's full quality check: format, lint, type-check, and tests.
+Run the gate on a clean, committed tree and record Proof when it passes. The gate is your project's full quality check: the jobs it configures, such as format, lint, type-check, and tests. Uncommitted or untracked files stop it before anything runs. Its fixers may change files, and a change to a committed file fails the run without committing anything, so run `discern prepare` and commit first. discern asks any checkpoint questions before the checks run. If current Proof already covers this commit, `done` returns it without running the checks again.
 
 Usage: `discern done [options]`
 
-| Option                | Description                                                                                                                                                                                                                                                     |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`           | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                                                                    |
-| `--policy-base <ref>` | Use the fetched immutable policy base for a standalone CI report. Strict completion checks against the trunk's current tip.                                                                                                                                     |
-| `--standalone`        | Run complete diagnostic feedback, including on a dirty tree. Results are transient and issue no Proof.                                                                                                                                                          |
-| `--rerun`             | Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.                                                                                                                    |
-| `--ci`                | Run the machine gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.                                                                                                                             |
-| `--met <id>`          | Declare a served checkpoint's question met (repeatable). Valid only for a checkpoint with an active open question here; the declaration is recorded as your judgment, and the gate runs in the same invocation once every awaiting checkpoint has a conclusion. |
-| `--unmet <id>`        | Declare a served checkpoint's question unmet (one per invocation; requires --why). The gate still runs; landing then needs the owner to authorize a variance for it.                                                                                            |
-| `--why <rationale>`   | The required rationale for --unmet: one paragraph, 1-500 characters, no newlines or control characters. Recorded opaquely as Proof evidence for the owner's landing decision.                                                                                   |
+| Option                | Description                                                                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`           | Show which checks, jobs, and scope gates would run, without running them. It still needs a committed tree.                                                                                                          |
+| `--policy-base <ref>` | For a CI report, with `--ci` and `--standalone`: judge the change against the settings in this fetched commit instead of the trunk's current tip.                                                                   |
+| `--standalone`        | Run every check for feedback, even with uncommitted changes. discern records no Proof and no results it can reuse.                                                                                                  |
+| `--rerun`             | Run the checks again even when current passing Proof covers this commit, or retry a failure on unchanged code. discern records the rerun, and the newest result wins.                                               |
+| `--ci`                | For continuous integration: run the checks and list any checkpoint questions, without waiting for or recording answers. Its Proof can't be used to land.                                                            |
+| `--met <id>`          | Answer a checkpoint question as met, as your recorded judgment (repeatable). It applies only to a question this worktree is waiting on. Once every waiting question has an answer, the checks run in the same call. |
+| `--unmet <id>`        | Answer one checkpoint question as unmet, with `--why`. The checks still run, but landing then needs the owner to approve a variance.                                                                                |
+| `--why <rationale>`   | Why the question isn't met, for `--unmet`: one paragraph of 1–500 characters, without line breaks or control characters. The Proof keeps it, as written, for the owner's landing decision.                          |
 
 ### `discern test`
 
-Run the project's configured tests on their own, outside the full gate.
+Run your project's tests on their own, without the rest of the gate. It runs every test-stage job, such as `test` and `smoke`, and waits for a free test-run slot first. It works on uncommitted changes and records no Proof. You don't need it before `discern done`, which runs the tests itself.
 
 Usage: `discern test [options]`
 
 ### `discern progress`
 
-Read a long operation back after a lost call: its phase, the counts and failures known so far, and the retained result. Pass the progress handle the operation announced; with no handle, read this checkout's most recently started operation. Reading changes nothing.
+Check on a long operation, such as `discern done`, after losing track of it. It shows the operation's current phase, the counts and failures so far, and its result once it finishes. Pass the progress handle that an MCP call announced or `discern status` shows; without one, it reads this checkout's latest operation. It changes nothing and never reruns the operation.
 
 Usage: `discern progress [handle] [options]`
 
 ### `discern queue`
 
-Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead. This command has no `--json`, `--markdown`, or `--render` mode; tokens after `--` belong to the child.
+Run a command, such as a test suite, once a test-run slot is free, so parallel tasks don't overload this machine. `[gate].concurrent_test_runs` sets how many slots every checkout shares. Outside a project, or when that setting is 0, the command runs straight away. discern runs it directly, not through a shell, and passes its output and exit status through unchanged. Everything after `--` belongs to the command, and there's no `--json`, `--markdown`, or `--render` form. To wait for another task instead, use `discern await`.
 
 Usage: `discern queue -- <command> [args...]`
 
 ### `discern tidy`
 
-Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML, or whose table rows would drop cells when formatted (escape pipes inside code spans as `\|`), is refused and left unchanged.
+Format the files discern manages: the map, the TODO list, your instruction files, and `discern.toml`. Pass `md` or `toml` to format one kind; leave it out for both. It also checks that box-drawing diagrams in code blocks stay aligned: a misaligned diagram fails the run without stopping the formatting, and a fence marked `freeform` is skipped. If any file can't be parsed, such as Markdown with invalid YAML frontmatter, or formatting would drop cells from a table row, discern changes no files at all. Escape a pipe inside a code span as `\|` to keep its cell.
 
 Usage: `discern tidy [type] [options]`
 
-| Option      | Description                                      |
-| ----------- | ------------------------------------------------ |
-| `--dry-run` | List the files that would change; touch nothing. |
+| Option      | Description                                              |
+| ----------- | -------------------------------------------------------- |
+| `--dry-run` | List the files that would change, without changing them. |
 
 ## Worktree lifecycle
 
-Isolated workspaces your agent drives.
+Your agent starts, updates, and lands each task with these.
 
 ### `discern start`
 
-From the main checkout, create a worktree with a separate checkout and branch for one effort. Base it on the trunk, the shared landing branch, then print its path.
+Create a worktree for a new task: a separate checkout on its own branch, started from the trunk, your project's shared branch. Run it from the main checkout. discern sets the worktree up, including its resources and setup commands, then prints its path. Uncommitted work in the main checkout stays where it is.
 
 Usage: `discern start [options]`
 
-| Option            | Description                                                                                                                              |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`       | Show the start plan; touch nothing.                                                                                                      |
-| `--name <name>`   | Set the task title and seed its worktree id. discern preserves this text as the title and normalizes the id. Omit for a random codename. |
-| `--title <title>` | Set the display title separately from --name. With no --name, the title also seeds the worktree id.                                      |
-| `--brief <brief>` | Store an optional one-line brief for task detail and agent handoff.                                                                      |
-| `--from <source>` | Branch the new worktree from a ref or an unambiguous worktree id or path. Omit it to start from the trunk.                               |
+| Option            | Description                                                                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`       | Show what `start` would create, without creating anything. The real run picks a new id.                                                              |
+| `--name <name>`   | Name the task. discern keeps your text as the title and derives the worktree id from it. Without `--name` or `--title`, the id is a random codename. |
+| `--title <title>` | Set a display title that differs from `--name`. Without `--name`, discern derives the id from the title.                                             |
+| `--brief <brief>` | Save a one-line description of the task, shown in task details and when an agent starts on it.                                                       |
+| `--from <source>` | Start from something other than the trunk: a branch, tag, commit, or another worktree's id or path. To resume a parked task, pass its branch.        |
 
 ### `discern update`
 
-Update this branch: merge the trunk's latest into this branch and re-run generated groups and refresh Agent artifacts. The trunk is the shared landing branch. Use `discern upgrade` for discern itself; use `discern refresh` for agent files alone.
+Merge the latest trunk, your project's shared branch, into this branch, and refresh what depends on it. For a newer discern, use `discern upgrade`; for agent files alone, use `discern refresh`. Run it in a task worktree with no uncommitted changes to tracked files. discern settles conflicts in generated files by regenerating them; any other conflict stops the merge and leaves your files as they were. Then it reruns the generators, refreshes agent files, and runs the `ensure` commands, even when there was nothing to merge. It lists the files both sides changed, so you can re-read them.
 
 Usage: `discern update [options]`
 
-| Option            | Description                                                                                                                                                                 |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`       | Show the update plan; touch nothing.                                                                                                                                        |
-| `--from <source>` | Pull a ref or an unambiguous worktree id or path into this worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call. |
+| Option            | Description                                                                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`       | Show what the update would bring in and change, without changing anything.                                                                     |
+| `--from <source>` | Merge something other than the trunk: a branch, tag, commit, or another worktree's id or path. Use it to build on work that hasn't landed yet. |
 
 ### `discern await`
 
-Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate Proof), a branch's work has landed on the trunk, or the trunk has moved. Timing out is not an error; the result carries a short continuation handle that preserves the original condition across calls. To wrap a command behind the concurrent test-run cap, use `discern queue -- <command> [args...]`.
+Wait for another task: until its work passes the gate, until it lands, or until the trunk moves. By default it waits up to 3300 seconds and returns as soon as the condition holds. If time runs out first, it exits with status 124 and returns a short handle; pass it to `--resume` to keep waiting for the same thing. It doesn't change any work, and it blocks only the command that called it. To wait for a free test-run slot before running a command, use `discern queue` instead.
 
 Usage: `discern await [options]`
 
-| Option                | Description                                                                                                                                                |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--green <worktree>`  | Select a sibling by worktree id, path, local branch, or full local ref; wait until its checkout holds an honored gate Proof (a landing also satisfies it). |
-| `--landed <worktree>` | Select a sibling by worktree id, path, local branch, or full local ref; wait until its work reaches the trunk.                                             |
-| `--trunk-moved`       | Wait until the trunk ref moves from its position at call start.                                                                                            |
-| `--resume <handle>`   | Continue a previous not-met wait without resetting its pinned state; pass no condition flag with it.                                                       |
-| `--timeout <seconds>` | Seconds before answering "not yet". Omit to wait once for up to 3300s; the condition returns early, and 0 checks once.                                     |
+| Option                | Description                                                                                                                                           |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--green <worktree>`  | Wait until that task's worktree has a current, passing Proof. Name it by worktree id, path, local branch, or full local ref. Its landing also counts. |
+| `--landed <worktree>` | Wait until that task's work reaches the trunk. Name it by worktree id, path, local branch, or full local ref.                                         |
+| `--trunk-moved`       | Wait until the trunk moves from where it was when the wait began.                                                                                     |
+| `--resume <handle>`   | Keep waiting for an earlier wait's condition, using the handle it returned. Don't add a condition option.                                             |
+| `--timeout <seconds>` | How many seconds to wait before answering "not yet". Default: up to 3300. It returns early once the condition holds; 0 checks once without waiting.   |
 
 ### `discern accept`
 
-Submit this worktree's proven commit and land it on the trunk, the shared landing branch. Landing needs the owner's consent in this conversation or a recorded grant; without one, the submission waits in the landing queue. If the trunk moved after the Proof, the landing composes and checks the combined code in a disposable integration worktree and lands that exact proven commit; a second accept waits its turn. Landing removes the worktree and its branch when the branch holds nothing beyond the landed commit. Use accept emergency --reason <text> to review an explicit exception against actual trunk. Emergency integration requires fresh exact owner confirmation and issues no passing Proof.
+Land this worktree's proven commit on the trunk, your project's shared branch. A proven commit is one that `discern done` passed. It lands only with the owner's approval in this conversation or a recorded grant; otherwise discern records it in the landing queue for the owner. If the trunk moved since the Proof, discern checks the combined code in a temporary integration worktree and lands exactly what passed. A second `accept` waits its turn. After landing, discern removes the worktree, its resources, and its branch, unless the branch has newer commits or the checkout has uncommitted changes. `discern accept queue` adds the commit to the landing queue without landing it. `discern accept emergency --reason <text>` starts an emergency landing of a repair whose checks haven't passed: it needs the owner's fresh, explicit approval and issues no passing Proof.
 
 Usage: `discern accept [action] [options]`
 
-| Option                            | Description                                                                                                                                                                                                                                                                                                                                    |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`                       | Show the selected acceptance plan; touch nothing.                                                                                                                                                                                                                                                                                              |
-| `--target <effort>`               | Select the effort by id, path, or branch, from any checkout. With accept queue, record its current proven revision; otherwise start landing under applicable authority.                                                                                                                                                                        |
-| `--prepare`                       | Emergency only: run checkpoint triggers and retain exact review evidence without validation or integration.                                                                                                                                                                                                                                    |
-| `--preparation-receipt <receipt>` | Emergency only: the checkpoint-preparation receipt for this exact repair and trunk.                                                                                                                                                                                                                                                            |
-| `--met <id>`                      | Record a satisfied served checkpoint question (repeatable): the continuation of a landing whose combined result awaits your judgment, or emergency preparation with accept emergency --prepare.                                                                                                                                                |
-| `--unmet <id>`                    | Declare one served integration checkpoint question not satisfied (requires --why). The retained composition is still proved; the owner then decides the declared-unmet landing.                                                                                                                                                                |
-| `--why <rationale>`               | The required one-paragraph rationale for --unmet.                                                                                                                                                                                                                                                                                              |
-| `--composition-receipt <receipt>` | The served composition receipt an answer or resumed variance decision binds to; the judgment refusal serves it. A replaced composition refuses the receipt and re-serves its own question.                                                                                                                                                     |
-| `--reason <text>`                 | Emergency only: explain why integration must precede validation.                                                                                                                                                                                                                                                                               |
-| `--approval-token <token>`        | Emergency only: the current preview token approved by the owner, with --confirmed.                                                                                                                                                                                                                                                             |
-| `--recover <id>`                  | Emergency only: reconcile one recorded exception transition and cleanup without new landing authority.                                                                                                                                                                                                                                         |
-| `--confirmed`                     | Attest that your owner accepted this landing in the current conversation. Recorded standing and effort grants are checked directly. Consent bound to an interrupted transaction may authorize recovery of that transaction only. Without applicable evidence, acceptance refuses read-only; a dry-run needs none.                              |
-| `--variance <id>`                 | Record that your owner authorized landing this declared-unmet checkpoint without changing it (repeatable; requires --confirmed). The ids must equal the current declared-unmet set, id for id, and recorded grants never authorize a variance.                                                                                                 |
-| `--approve-standard <token>`      | Record that the owner approved the exact standard/value/reason tuple carried by the current Proof (repeatable; requires --confirmed). Use the proposal-bound token served by the read-only refusal; the token set must equal the current proposal set. Standing, effort, and generic landing grants never authorize a standard limit proposal. |
+| Option                            | Description                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--dry-run`                       | Show the landing plan without landing or recording anything. From the main checkout without `--target`, list the landing queue.                                                                                                                                                                                                |
+| `--target <effort>`               | Choose the task by id, path, or branch, from any checkout. From the main checkout, it's required. After that task lands, discern lands the rest of the queue in order, each under its own recorded grant. With `accept queue`, add the task's proven commit to the queue instead.                                              |
+| `--prepare`                       | Emergency only: answer checkpoint questions before an emergency landing. discern runs the checkpoint triggers and keeps the evidence for review, but runs no checks and lands nothing. Needs `--reason`.                                                                                                                       |
+| `--preparation-receipt <receipt>` | Emergency only: the receipt `--prepare` returned for this repair and trunk.                                                                                                                                                                                                                                                    |
+| `--met <id>`                      | Answer a checkpoint question as met (repeatable): a question about the combined code, with `--composition-receipt`, or an emergency question, with `accept emergency --prepare`.                                                                                                                                               |
+| `--unmet <id>`                    | Answer one checkpoint question about the combined code as unmet, with `--why` and `--composition-receipt`. discern still checks the combined code; landing then needs the owner's variance.                                                                                                                                    |
+| `--why <rationale>`               | Why the question isn't met, for `--unmet`, in one paragraph.                                                                                                                                                                                                                                                                   |
+| `--composition-receipt <receipt>` | The receipt that came with a question about the combined code. Pass it with `--met`, `--unmet`, or `--variance` so your answer applies to that exact combination. If discern has replaced the combination, it refuses the old receipt and asks its own question again.                                                         |
+| `--reason <text>`                 | Emergency only: why the repair must land before its checks pass. The owner reviews it, and the approval token is tied to it.                                                                                                                                                                                                   |
+| `--approval-token <token>`        | Emergency only: the preview token the owner approved, with `--confirmed`. It's valid only briefly, and only while the repair, trunk, and reason stay the same.                                                                                                                                                                 |
+| `--recover <id>`                  | Emergency only: finish an interrupted emergency landing, named by its landing id. discern records whether the trunk moved and cleans up; it lands nothing new and needs no new approval.                                                                                                                                       |
+| `--confirmed`                     | Record that the owner approved this landing in the current conversation. It covers only the selected landing. discern checks standing and task grants on its own. Approval given for an interrupted landing covers only finishing that landing. Without approval or a grant, discern lands nothing; `--dry-run` needs neither. |
+| `--variance <id>`                 | Record that the owner approved landing despite this unmet checkpoint answer, without changing it (repeatable; needs `--confirmed`). The ids must match the current unmet answers exactly. No recorded grant can approve a variance.                                                                                            |
+| `--approve-standard <token>`      | Record that the owner approved a proposed standard limit (repeatable; needs `--confirmed`). Use the token from the refusal: it binds one standard, value, and reason, and the tokens must match the current proposals exactly. No grant can approve a limit change.                                                            |
 
 ### `discern worktree <subcommand>`
 
-Manage worktrees — separate checkouts and branches for individual changes.
+Manage worktrees: separate checkouts, each on its own branch, for one task.
 
 Usage: `discern worktree <subcommand>`
 
 #### `discern worktree setup`
 
-Set up or re-sync the current worktree.
+Set up this worktree, or bring its setup up to date. `discern start` runs it for you. The first run creates the worktree's resources, env values, and port, and runs its one-time setup steps. Later runs check the resources and rerun the `ensure` commands. Run it inside the worktree. If a setup step was interrupted, it stops and shows how to recover.
 
 Usage: `discern worktree setup [options]`
 
-| Option                      | Description                                                                                                                            |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`                 | Show the setup plan; touch nothing.                                                                                                    |
-| `--mark-step-complete <id>` | After observing an interrupted setup command's external state, mark its running journal entry complete without replaying it.           |
-| `--retry-step <id>`         | After observing an interrupted setup command's external state, reset its running journal entry and run it again.                       |
-| `--confirmed`               | Attest that the owner observed the interrupted command's external state and chose this recovery. Required with either recovery option. |
+| Option                      | Description                                                                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`                 | Show the setup plan without changing anything.                                                                                                       |
+| `--mark-step-complete <id>` | Recover an interrupted setup step that you've checked finished: mark it done without running it again. Needs `--confirmed`.                          |
+| `--retry-step <id>`         | Recover an interrupted setup step by running it again. Needs `--confirmed`.                                                                          |
+| `--confirmed`               | Record that the owner checked what the interrupted step left behind and chose this recovery. Required with `--mark-step-complete` or `--retry-step`. |
 
 #### `discern worktree ensure`
 
-Idempotent session-start worktree setup.
+Make sure this worktree is set up; it's safe to run any number of times. Coding agents' session-start hooks run it. In a worktree that isn't set up yet, it runs the full setup. In one that is, it checks the resources and reruns the `ensure` commands, and a failure never blocks the session. In the main checkout it changes nothing and reminds the agent to start a worktree before editing.
 
 Usage: `discern worktree ensure [options]`
 
 #### `discern worktree rename`
 
-Change this worktree's display title. Its id, branch, path, brief, and creation source stay unchanged.
+Change this worktree's title. Its id, branch, path, brief, and starting point stay the same.
 
 Usage: `discern worktree rename <title> [options]`
 
-| Option      | Description                                |
-| ----------- | ------------------------------------------ |
-| `--dry-run` | Show the title-change plan; touch nothing. |
+| Option      | Description                        |
+| ----------- | ---------------------------------- |
+| `--dry-run` | Show the change without making it. |
 
 #### `discern worktree teardown`
 
-Discard this worktree's resources (destroy without accepting).
+Remove this worktree's resources, such as its database, and keep everything else. The checkout, branch, and Proof stay. Run it inside the worktree. To remove the worktree as well, use `discern worktree drop` from the main checkout.
 
 Usage: `discern worktree teardown [options]`
 
-| Option      | Description                            |
-| ----------- | -------------------------------------- |
-| `--dry-run` | Show the teardown plan; touch nothing. |
+| Option      | Description                                            |
+| ----------- | ------------------------------------------------------ |
+| `--dry-run` | Show what would be removed, without removing anything. |
 
 #### `discern worktree park`
 
-Remove a clean task checkout and its resources while retaining its branch and task wording for resume. Select it by worktree id, path, local branch, or full local ref.
+Set a task aside: remove its checkout and resources, and keep its branch, title, and brief so you can resume it. Run it from the main checkout. The worktree must have no uncommitted or untracked changes. Parking also removes the task's Proof, grant, and landing-queue entry. Resume with `discern start --from <branch>`. Name the worktree by id, path, local branch, or full local ref.
 
 Usage: `discern worktree park <worktree> [options]`
 
-| Option      | Description                        |
-| ----------- | ---------------------------------- |
-| `--dry-run` | Show the Park plan; touch nothing. |
+| Option      | Description                                                |
+| ----------- | ---------------------------------------------------------- |
+| `--dry-run` | Show what parking would remove, without changing anything. |
 
 #### `discern worktree drop`
 
-Discard a worktree from the main checkout: tear down its resources, remove it, and delete its branch. Protects uncommitted work and commits not on the trunk, the shared landing branch, unless --force is set. Select it by worktree id, path, local branch, or full local ref.
+Delete a worktree, its resources, and its branch. Run it from the main checkout. discern refuses when the worktree has uncommitted changes or commits that aren't on the trunk, unless you pass `--force`, and it never drops a locked worktree. It first saves the branch's last commit to a recovery ref and prints it. It deletes the branch only if discern created it. Name the worktree by id, path, local branch, or full local ref.
 
 Usage: `discern worktree drop <worktree> [options]`
 
-| Option      | Description                                                                           |
-| ----------- | ------------------------------------------------------------------------------------- |
-| `--force`   | Discard even when the worktree holds uncommitted changes or commits not on the trunk. |
-| `--dry-run` | Show the drop plan; touch nothing.                                                    |
+| Option      | Description                                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `--force`   | Drop the worktree even when it has uncommitted changes or commits that aren't on the trunk. Uncommitted work is lost for good. |
+| `--dry-run` | Show what would be removed, without removing anything.                                                                         |
 
 #### `discern worktree prune`
 
-Reclaim positively-owned merged worktrees, stale state, reappeared paths, and orphaned resources.
+Clean up what finished work leaves behind: landed worktrees and their branches, stale records, folders that reappeared, and orphaned resources. discern removes only what it can show it created, such as a clean worktree whose branch is fully merged. Commits that haven't landed stay on their branches. Run it from the main checkout; it asks before changing anything unless you pass `--yes`.
 
 Usage: `discern worktree prune [options]`
 
-| Option        | Description                                                                                                                               |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `-y, --yes`   | Non-interactive: skip confirmation.                                                                                                       |
-| `--contained` | Also reclaim contained worktrees — checkouts whose committed work is fully contained in another live branch. Branch refs are always kept. |
-| `--dry-run`   | Report what would be removed/reclaimed without acting.                                                                                    |
+| Option        | Description                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| `-y, --yes`   | Skip the confirmation. Required without an interactive terminal.                                     |
+| `--contained` | Also remove clean, idle worktrees whose commits are all on another live branch. Their branches stay. |
+| `--dry-run`   | List what would be removed, without removing anything or asking.                                     |
 
 ### `discern identity`
 
-Print stable values that keep each checkout's branch, development host, port, database, and external resources separate.
+Print a stable value discern derives for a checkout's branch, development host, port, database, and external resources. Choose one value per call; the default is the id. Name another checkout by id, path, local branch, or full local ref; the default is the checkout you're in.
 
 Usage: `discern identity [worktree] [options]`
 
-| Option              | Description                                                               |
-| ------------------- | ------------------------------------------------------------------------- |
-| `--id`              | Print the safe base name for this checkout (default).                     |
-| `--site`            | Print its development server's host name.                                 |
-| `--branch`          | Print its branch name.                                                    |
-| `--port`            | Print its stable development-server port.                                 |
-| `--db`              | Print its database-safe name.                                             |
-| `--seed`            | Print its stable test-order seed.                                         |
-| `--worktree`        | Print its base resource handle — a stable project-prefixed external name. |
-| `--resource <name>` | Print the stable external name for one declared resource.                 |
-| `--resources`       | Print every declared resource as name=stable-external-name lines.         |
+| Option              | Description                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------- |
+| `--id`              | Print the checkout's id (the default).                                                                |
+| `--site`            | Print its development-server host name, safe to use in a web address.                                 |
+| `--branch`          | Print its branch name.                                                                                |
+| `--port`            | Print its stable development-server port. discern doesn't reserve the port.                           |
+| `--db`              | Print a name for it that's safe to use as a database name.                                            |
+| `--seed`            | Print its stable seed for ordering tests.                                                             |
+| `--worktree`        | Print its resource handle: a stable name, starting with the project slug, for its external resources. |
+| `--resource <name>` | Print the stable external name of one declared resource.                                              |
+| `--resources`       | Print every declared resource as `name=handle` lines.                                                 |
 
 ## Project Scripts
 
-Project-owned automation, listed or run by name.
+Your project's own scripts, listed or run by name.
 
 ### `discern scripts`
 
-List executable Project Scripts, or run one literal name at the project root with the four supported DISCERN_* variables and every following argument forwarded unchanged.
+List your project's scripts, or run one by name. discern looks the name up as written, with no partial matches. It runs the script from the project root with `DISCERN_ROOT`, `DISCERN_TOML`, `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK` set, passes every following argument through unchanged, and returns its exit status.
 
 Usage: `discern scripts [name] [args...] [options]`
 
 ## Setup & maintenance
 
-You or your agent tend the installation.
+You or your agent set up, check, and look after discern.
 
 ### `discern setup <subcommand>`
 
-Read the setup welcome and learn the canonical first step. Run `discern setup begin` only after the owner is ready to scaffold.
+Start here to set up discern: see what setup involves and which step comes next. It changes nothing, and it works even outside a Git repository. Run `discern setup begin` only once the owner is ready for discern to add its files.
 
 Usage: `discern setup <subcommand>`
 
 #### `discern setup verify`
 
-Preview what setup will do and the consent checklist to confirm with your human (read-only).
+Preview what setup will change, and the checklist to agree with the owner first. It changes nothing. It reports what it finds, such as existing agent instructions and the coding agents installed here, and where worktrees will go. Then it prints the consent checklist your agent goes through with the owner before anything is written.
 
 Usage: `discern setup verify [options]`
 
 #### `discern setup begin`
 
-Scaffold discern, record provenance, and print the setup brief (the first mutating step).
+Set discern up in this project: add its files and settings, and print the setup brief for your agent. This is the first setup step that changes files. A fresh setup starts on the trunk with no uncommitted changes to tracked files. It works on a new `discern-setup` branch, commits discern's own wiring, and records which discern version and model ran it. Without `--confirmed` or `--config`, it writes nothing and shows the consent checklist again. Partway through setup, it prints the brief again; once setup is complete, it does nothing unless you pass `--reseed`.
 
 Usage: `discern setup begin [options]`
 
-| Option                     | Description                                                                                                                                                 |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--name <name>`            | Project name (free text).                                                                                                                                   |
-| `--slug <slug>`            | Project slug (^[a-z0-9][a-z0-9-]*$).                                                                                                                        |
-| `--branch-prefix <prefix>` | Branch prefix for worktrees.                                                                                                                                |
-| `--brief <brief>`          | Free-text project description, or @path to read it from a file.                                                                                             |
-| `--agents <agents>`        | Comma-separated agent files to emit: claude_code, codex, gemini, cursor, copilot.                                                                           |
-| `--map <path>`             | Project-relative directory for the project map — discern's agent-maintained documentation tree.                                                             |
-| `--config <file>`          | JSON answers file (or - for stdin) to scaffold declaratively.                                                                                               |
-| `--model <model>`          | Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.                                                     |
-| `--dry-run`                | Print the plan and write nothing.                                                                                                                           |
-| `--reseed`                 | Run setup again and refresh discern's files and settings.                                                                                                   |
-| `--allow-dirty`            | Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.                                       |
-| `--confirmed`              | Attest you have held the setup consent conversation with your human — required for a fresh, non-declarative begin; its absence re-serves that conversation. |
+| Option                     | Description                                                                                                                                                                                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--name <name>`            | The project's display name, in any words. Default: the current folder's name.                                                                                                                                                                                     |
+| `--slug <slug>`            | A short id for the project, used in each worktree's site, database, and resource names: lowercase letters, digits, and dashes, starting with a letter or digit (`^[a-z0-9][a-z0-9-]*$`). Default: derived from the name.                                          |
+| `--branch-prefix <prefix>` | The prefix for task branch names. Default: `agent/`.                                                                                                                                                                                                              |
+| `--brief <brief>`          | What the project is, in your own words, or `@path` to read it from a file. discern saves it as the project brief.                                                                                                                                                 |
+| `--agents <agents>`        | Which coding agents to set up, separated by commas: claude_code, codex, gemini, cursor, copilot. Default: the agents installed on this machine, or claude_code and codex when none are found. An empty value sets up none.                                        |
+| `--map <path>`             | Where to keep the project map, the documentation your agents maintain, relative to the project root. Default: `discern/map`.                                                                                                                                      |
+| `--config <file>`          | Read the setup answers from a JSON file, or `-` for stdin, instead of from the conversation. The file can also fill `discern.toml` sections such as jobs and scopes; options you pass win over it.                                                                |
+| `--model <model>`          | The provider and model running setup, as you'd name them, or `unreported`. discern records it for support and can't verify it.                                                                                                                                    |
+| `--dry-run`                | Show the plan without writing anything.                                                                                                                                                                                                                           |
+| `--reseed`                 | Run setup again on a project that has it: add any missing starter files, without overwriting existing ones, and refresh discern's settings and generated files.                                                                                                   |
+| `--allow-dirty`            | For CI and advanced use: set up on the current branch as it is, even with uncommitted changes. discern skips the `discern-setup` branch and its own commit and needs no `--confirmed`; you commit and merge yourself, since `discern setup accept` won't land it. |
+| `--confirmed`              | Record that the owner agreed to setup in this conversation. A fresh setup needs it unless you use `--config`; without it, discern writes nothing and shows the consent checklist again.                                                                           |
 
 #### `discern setup step`
 
-Re-serve one numbered step of the setup brief (read-only; for a mid-setup re-focus).
+Show one numbered step of the setup brief again, to refocus partway through setup. It changes nothing.
 
 Usage: `discern setup step <n> [options]`
 
 #### `discern setup done`
 
-Prove the committed setup, return canonical Proof and completion inventory, and record [meta].bootstrapped.
+Finish setup: run the gate on the committed setup, record its Proof and a summary of what was set up, and mark setup complete (`[meta].bootstrapped`). Everything must be committed, with every setup placeholder filled in. discern commits the completion, checks it in a temporary worktree, and runs the full gate; if that fails, it removes its own commit. Then `discern setup accept` lands the setup.
 
 Usage: `discern setup done [options]`
 
-| Option       | Description                                                       |
-| ------------ | ----------------------------------------------------------------- |
-| `--unproven` | Record completion without Proof; setup acceptance will refuse it. |
+| Option       | Description                                                                                                                                          |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--unproven` | Mark setup complete without the checks or Proof. `discern setup accept` then refuses to land it; running `discern setup done` again later proves it. |
 
 #### `discern setup accept`
 
-Land the proved setup branch on the trunk, then return provider activation checks.
+Land the proven setup branch on the trunk, then list the checks that confirm each coding agent can reach discern. Run it from the `discern-setup` branch. If the trunk has moved, discern merges it in and runs the gate again first. It records a Proof note, switches you to the trunk, and deletes the setup branch. It doesn't push.
 
 Usage: `discern setup accept [options]`
 
-| Option      | Description                        |
-| ----------- | ---------------------------------- |
-| `--dry-run` | Print the plan and change nothing. |
+| Option      | Description                                                            |
+| ----------- | ---------------------------------------------------------------------- |
+| `--dry-run` | Show the plan without changing anything. It still needs a valid Proof. |
 
 ### `discern upgrade`
 
-Bring this project forward to the installed discern: run pending config migrations, reconcile discern-owned config, .gitignore and .gitattributes blocks, and refresh bundled skills and instructions. Never replaces the binary. Use `discern update` to bring trunk into a task branch; use `discern refresh` to regenerate project artifacts only.
+Bring this project up to date with the discern you have installed. To bring the trunk into a task branch, use `discern update`; to regenerate agent files only, use `discern refresh`. It runs any pending config migrations and restores discern's sections, keys, and comment banners in `discern.toml` without touching your values. It updates discern's blocks in `.gitignore` and `.gitattributes`, and refreshes agent files, skills, and integrations. Run it from the project root. It never installs a newer discern, uses no network, and doesn't commit.
 
 Usage: `discern upgrade [options]`
 
-| Option          | Description                                                                                                                                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--dry-run`     | Preview the pending migrations and skills refresh; write nothing.                                                                                                                                                        |
-| `--check`       | Report pending managed-version adoption, config migrations, fixed config scaffold or managed-banner drift, and discern-owned .gitignore or .gitattributes block drift; exit non-zero for any; write nothing; no network. |
-| `--allow-dirty` | Upgrade even with uncommitted changes (skips the clean-tree check).                                                                                                                                                      |
+| Option          | Description                                                                                                                                                                                                                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`     | Show the pending migrations and changes without writing anything.                                                                                                                                                                                                                              |
+| `--check`       | Check whether this project needs an upgrade, without writing anything or using the network. It exits non-zero when migrations are pending, when the project hasn't adopted this discern version, or when discern's parts of `discern.toml`, `.gitignore`, or `.gitattributes` are out of date. |
+| `--allow-dirty` | Upgrade even when tracked files have uncommitted changes.                                                                                                                                                                                                                                      |
 
 ### `discern doctor`
 
-Check the install and Git safety settings, then print each verb's execution model.
+Check that discern is installed correctly and that Git is set up safely for it. It checks the config, jobs, generated groups, agent integrations, skills, worktree resources, and logbook, and Git settings such as commit identity and history retention. Then it lists the steps each workflow command runs. It changes nothing, and exits 1 only when a check fails.
 
 Usage: `discern doctor [options]`
 
-| Option          | Description                                                             |
-| --------------- | ----------------------------------------------------------------------- |
-| `-v, --verbose` | Show the hint explaining each execution-model step (hidden by default). |
+| Option          | Description                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------- |
+| `-v, --verbose` | Explain each step the workflow commands run. With `--json`, include those steps in the result. |
 
 ### `discern config <subcommand>`
 
-Edit jobs, scopes, and standards with set-*; edit generated groups, checkpoints, and resources with set <dotted.key>; read or explain discern.toml.
+Read, explain, and edit `discern.toml`, keeping its comments. `set-job`, `set-scope`, and `set-standard` edit those tables; `set <section.key>` edits other keys, such as generated groups, checkpoints, and resources. discern checks each edit against the schema, writes nothing if the result would be invalid, and never commits. Run edits from the project root.
 
 Usage: `discern config <subcommand>`
 
 #### `discern config set-job`
 
-Set a gate job. Known names (format, build, lint, typecheck, test, smoke) derive their stage and accept a positional scalar or repeatable ordered --run. Custom names require --stage and --run. Known-job applicability uses --not-applicable or --applicable.
+Add or change a gate job: one of the commands the gate runs. A known name (format, build, lint, typecheck, test, smoke) has a fixed stage: give its command as the argument, or with `--run`, repeated for commands that run in order. A custom name needs `--stage` and `--run`. For a known job this project doesn't have, use `--not-applicable`.
 
 Usage: `discern config set-job <name> [command] [options]`
 
-| Option                  | Description                                                           |
-| ----------------------- | --------------------------------------------------------------------- |
-| `--stage <stage>`       | Custom jobs only: when it runs (fix\|build\|check\|test).             |
-| `--run <command>`       | Literal command; repeat to preserve order.                            |
-| `--provides <label>`    | Custom jobs only: free-text label.                                    |
-| `--timeout <seconds>`   | Command budget in seconds; 0 removes the bound.                       |
-| `--not-applicable`      | Known jobs: exclude an absent lifecycle from setup assurance.         |
-| `--applicable`          | Known jobs: restore lifecycle applicability.                          |
-| `--inputs <value>`      | Complete input glob; repeat for every input.                          |
-| `--needs <value>`       | Required producer selector; repeat for every dependency.              |
-| `--artifacts <value>`   | Output artifact path to capture; repeat for every artifact.           |
-| `--environment <value>` | Environment variable name to bind to evidence; repeat for every name. |
-| `--toolchain <value>`   | Toolchain identity file; repeat for every file.                       |
-| `--dry-run`             | Print the edit and write nothing.                                     |
+| Option                  | Description                                                                                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--stage <stage>`       | Custom jobs only: the stage it runs in, `fix`, `build`, `check`, or `test`.                                                                    |
+| `--run <command>`       | A command to run, as written. Repeat it for more commands; they run in order, each only if the previous one succeeded.                         |
+| `--provides <label>`    | Custom jobs only: a short label saying what the job provides.                                                                                  |
+| `--timeout <seconds>`   | Time limit for the job, in seconds; 0 means no limit. Default: `[gate].timeout`.                                                               |
+| `--not-applicable`      | Known jobs: record that this project has no such step, so setup doesn't count it as missing. The gate's jobs don't change.                     |
+| `--applicable`          | Known jobs: undo `--not-applicable`, so setup counts the job again.                                                                            |
+| `--inputs <value>`      | A file pattern the job reads. Repeat it until every input is listed; discern can then reuse an earlier result while those files are unchanged. |
+| `--needs <value>`       | Another job, scope gate, or standard that must succeed first, such as `jobs.build`. Repeat it for each one.                                    |
+| `--artifacts <value>`   | A file the job produces, which discern keeps for later steps to read. Repeat it for each one.                                                  |
+| `--environment <value>` | An environment variable that affects the result; a changed value stops discern reusing an earlier result. Repeat it for each one.              |
+| `--toolchain <value>`   | A file that pins tool versions, such as a lockfile; a change to it stops discern reusing an earlier result. Repeat it for each one.            |
+| `--dry-run`             | Show the edit without writing it.                                                                                                              |
 
 #### `discern config set-scope`
 
-Set a scope — a named region of the repository a change can touch.
+Add or change a scope: a named region of the repository, defined by path patterns. The patterns you give replace the scope's `paths`, and options you leave out keep their current values.
 
 Usage: `discern config set-scope <name> <globs...> [options]`
 
-| Option                  | Description                                                           |
-| ----------------------- | --------------------------------------------------------------------- |
-| `--neutral`             | Changes here need no gate.                                            |
-| `--preview <cmd>`       | A read-only command an agent can run to preview changes here.         |
-| `--gate <cmd>`          | A command to run when this scope changed.                             |
-| `--timeout <seconds>`   | Per-scope gate-command budget in seconds; 0 removes the bound.        |
-| `--inputs <value>`      | Complete input glob; repeat for every input.                          |
-| `--needs <value>`       | Required producer selector; repeat for every dependency.              |
-| `--artifacts <value>`   | Output artifact path to capture; repeat for every artifact.           |
-| `--environment <value>` | Environment variable name to bind to evidence; repeat for every name. |
-| `--toolchain <value>`   | Toolchain identity file; repeat for every file.                       |
-| `--dry-run`             | Print the edit and write nothing.                                     |
+| Option                  | Description                                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--neutral`             | Mark changes here as not code, as for documentation: they trigger no scope gate, and this scope's own gate never runs.                                  |
+| `--preview <cmd>`       | A read-only command your agent can run to preview changes here. discern suggests it but never runs it.                                                  |
+| `--gate <cmd>`          | A command `discern done` runs when a change touches this scope.                                                                                         |
+| `--timeout <seconds>`   | Time limit for the scope's gate command, in seconds; 0 means no limit.                                                                                  |
+| `--inputs <value>`      | A file pattern the scope's gate reads. Repeat it until every input is listed; discern can then reuse an earlier result while those files are unchanged. |
+| `--needs <value>`       | A job, scope gate, or standard that must succeed before the scope's gate, such as `jobs.build`. Repeat it for each one.                                 |
+| `--artifacts <value>`   | A file the scope's gate produces, which discern keeps for later steps to read. Repeat it for each one.                                                  |
+| `--environment <value>` | An environment variable that affects the result; a changed value stops discern reusing an earlier result. Repeat it for each one.                       |
+| `--toolchain <value>`   | A file that pins tool versions, such as a lockfile; a change to it stops discern reusing an earlier result. Repeat it for each one.                     |
+| `--dry-run`             | Show the edit without writing it.                                                                                                                       |
 
 #### `discern config set-standard`
 
-Set a quality standard — standards are numbers that can never get worse.
+Add or change a standard: a limit on a measured number, such as test coverage, that the gate holds. Give exactly one of `--run` or `--producer`.
 
 Usage: `discern config set-standard <name> [options]`
 
-| Option                     | Description                                                                                              |
-| -------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `--limit <n>`              | The floor (up) or ceiling (down).                                                                        |
-| `--metric <name>`          | Metric name the run emits (default: <name>).                                                             |
-| `--direction <dir>`        | Either "up" or "down".                                                                                   |
-| `--run <cmd>`              | The command that emits the metric line.                                                                  |
-| `--producer <selector>`    | Existing producer to consume; mutually exclusive with --run.                                             |
-| `--extract <cmd>`          | Read metrics from captured producer output or an artifact on stdin.                                      |
-| `--artifact <path>`        | Declared producer artifact supplied to --extract.                                                        |
-| `--per <metric-or-extent>` | Denominator metric, or one built-in extent as files=<glob>, lines=<glob>, words=<glob>, or bytes=<glob>. |
-| `--scale <n>`              | Multiply a rate into human units.                                                                        |
-| `--margin <n>`             | Headroom left when pinning the limit.                                                                    |
-| `--timeout <seconds>`      | Measurement-command budget in seconds; 0 removes the bound.                                              |
-| `--inputs <value>`         | Complete input glob; repeat for every input.                                                             |
-| `--needs <value>`          | Required producer selector; repeat for every dependency.                                                 |
-| `--artifacts <value>`      | Output artifact path to capture; repeat for every artifact.                                              |
-| `--environment <value>`    | Environment variable name to bind to evidence; repeat for every name.                                    |
-| `--toolchain <value>`      | Toolchain identity file; repeat for every file.                                                          |
-| `--dry-run`                | Print the edit and write nothing.                                                                        |
+| Option                     | Description                                                                                                                                                 |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--limit <n>`              | The limit: a floor when `--direction` is `up`, a ceiling when it's `down`.                                                                                  |
+| `--metric <name>`          | The metric name the measurement prints. Default: the standard's name.                                                                                       |
+| `--direction <dir>`        | `up` when higher is better, `down` when lower is better.                                                                                                    |
+| `--run <cmd>`              | The command that measures the metric and prints its `DISCERN_METRIC <metric> <number>` line.                                                                |
+| `--producer <selector>`    | Measure from an existing job, scope gate, or standard, such as `jobs.test`, instead of `--run`.                                                             |
+| `--extract <cmd>`          | A command that reads the metric from the producer's output, or from `--artifact`, on stdin.                                                                 |
+| `--artifact <path>`        | A file the producer lists in its artifacts, passed to `--extract` on stdin.                                                                                 |
+| `--per <metric-or-extent>` | Hold a rate: divide by another metric, or by a count discern takes itself: `files=<glob>`, `lines=<glob>`, `words=<glob>`, or `bytes=<glob>`.               |
+| `--scale <n>`              | Multiply a `--per` rate into readable units: 1000 gives a rate per 1,000. Default: 1.                                                                       |
+| `--margin <n>`             | Headroom `discern standards --pin` keeps when it tightens the limit. Default: 0.                                                                            |
+| `--timeout <seconds>`      | Time limit for the measuring command, in seconds; 0 means no limit.                                                                                         |
+| `--inputs <value>`         | A file pattern the measurement reads. Repeat it until every input is listed; discern can then reuse an earlier measurement while those files are unchanged. |
+| `--needs <value>`          | A job, scope gate, or standard that must succeed before the measurement, such as `jobs.build`. Repeat it for each one.                                      |
+| `--artifacts <value>`      | A file the measuring command produces, which discern keeps for `--extract` to read. Repeat it for each one.                                                 |
+| `--environment <value>`    | An environment variable that affects the result; a changed value stops discern reusing an earlier measurement. Repeat it for each one.                      |
+| `--toolchain <value>`      | A file that pins tool versions, such as a lockfile; a change to it stops discern reusing an earlier measurement. Repeat it for each one.                    |
+| `--dry-run`                | Show the edit without writing it.                                                                                                                           |
 
 #### `discern config set`
 
-Set a config key (section.key). The value's TOML type follows the schema; an array-of-strings key wraps a single value.
+Set one key in `discern.toml`, named as `section.key`, including keys in named tables. discern takes the value's type from the schema, and turns a single value into a one-item list for a key that takes a list of strings. It refuses sections, unknown keys, and retired names, and writes nothing if the result would be invalid.
 
 Usage: `discern config set <key> <value> [options]`
 
-| Option      | Description                                           |
-| ----------- | ----------------------------------------------------- |
-| `--number`  | Treat the value as a number (union-typed keys only).  |
-| `--bool`    | Treat the value as a boolean (union-typed keys only). |
-| `--string`  | Treat the value as a string (union-typed keys only).  |
-| `--dry-run` | Print the edit and write nothing.                     |
+| Option      | Description                                                                  |
+| ----------- | ---------------------------------------------------------------------------- |
+| `--number`  | Treat the value as a number, for a key that accepts more than one type.      |
+| `--bool`    | Treat the value as true or false, for a key that accepts more than one type. |
+| `--string`  | Treat the value as text, for a key that accepts more than one type.          |
+| `--dry-run` | Show the edit without writing it.                                            |
 
 #### `discern config get`
 
-Print a scalar config value.
+Print one value as it's written in `discern.toml`, such as `repository.trunk`. It fails for a key the file doesn't set; use `discern config has` to check first.
 
 Usage: `discern config get <key> [options]`
 
 #### `discern config array`
 
-Print an array config value, one item per line.
+Print a list value from `discern.toml`, one item per line.
 
 Usage: `discern config array <key> [options]`
 
 #### `discern config has`
 
-Test whether a key or section exists. Bare: print nothing and exit 0/1. JSON: report `data.present` and exit 0.
+Check whether `discern.toml` sets a key or section. On its own, it prints nothing and exits 0 if it does, 1 if not. With `--json`, it reports the answer in `data.present` and exits 0.
 
 Usage: `discern config has <key> [options]`
 
 #### `discern config subsections`
 
-Print the immediate child table names under a section.
+Print the names of the tables directly under a section, such as each named table under `standards`.
 
 Usage: `discern config subsections <key> [options]`
 
 #### `discern config keys`
 
-Print the flat key names declared in a section.
+Print the names of the keys a section sets, without its nested tables.
 
 Usage: `discern config keys <key> [options]`
 
 #### `discern config explain`
 
-Explain a config section, named-table family, or key: what it governs, why it matters, its keys and defaults, the current value, and worked examples. Works outside a project too.
+Explain a section, a family of named tables, or one key of `discern.toml`: what it controls, why it matters, its keys and defaults, your current value, and examples. It works outside a project too.
 
 Usage: `discern config explain <path> [options]`
 
 ### `discern refresh`
 
-Refresh the agent files, skills, provider integrations, and the maintained ADR index. Use `discern update` for this branch; use `discern upgrade` for discern itself.
+Regenerate your agent files, skills, agent integrations, and ADR index from their sources. To bring the trunk into this branch, use `discern update`; to update the project for a newer discern, use `discern upgrade`. It also updates discern's block in `.gitattributes` and discern's settings in the repository's Git config. It writes files but never commits. It never removes an agent's files, even when you drop that agent from `[project].agents`.
 
 Usage: `discern refresh [options]`
 
-| Option      | Description                                                                |
-| ----------- | -------------------------------------------------------------------------- |
-| `--dry-run` | List every refresh target and create/update/remove effect; change nothing. |
+| Option      | Description                                                                   |
+| ----------- | ----------------------------------------------------------------------------- |
+| `--dry-run` | List each file it would create, update, or remove, without changing anything. |
 
 ### `discern uninstall`
 
-Remove discern's wiring from this project (keeps your discern.toml, instructions, and map).
+Remove discern's wiring from this project, and keep the files you wrote. It removes the generated agent files, installed skills, agent integrations, and discern's blocks and settings. Your `discern.toml`, instruction source, map, own skills, project scripts, and TODO list stay. It asks before removing anything. It refuses while task worktrees or their resources exist. It keeps local Git refs such as Proof notes, doesn't remove the discern program, and doesn't commit.
 
 Usage: `discern uninstall [options]`
 
-| Option      | Description                                                                        |
-| ----------- | ---------------------------------------------------------------------------------- |
-| `--dry-run` | Preview what would be removed and kept; change nothing.                            |
-| `-y, --yes` | Skip the confirmation. Required without a terminal, and with --json or --markdown. |
+| Option      | Description                                                                                                                                                                       |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run` | Show what would be removed and kept, without changing anything.                                                                                                                   |
+| `-y, --yes` | Skip the confirmation. Without an interactive terminal, in CI, or with `--plain`, `--json`, `--markdown`, or `--render`, uninstall needs it whenever there's something to remove. |
 
 ## Inspect & explore
 
-Read-only views for you or your agent.
+Reports, reviews, and documentation for you or your agent.
 
 ### `discern improvement`
 
-Find the highest-value next improvement, with the health audit and open reviews for agent and owner to evaluate together.
+Find the most valuable improvement to make next in how this project uses discern. It scores what discern can check automatically, lists the review questions it can't, for your agent and you to weigh together, and suggests one next step. It changes nothing.
 
 Usage: `discern improvement [options]`
 
-| Option              | Description                                                                                       |
-| ------------------- | ------------------------------------------------------------------------------------------------- |
-| `--category <name>` | Review a single area (gate, setup, instructions, map, worktrees, standards, checkpoints, skills). |
-| `--min-score <n>`   | Exit non-zero when the overall score is below this floor (a CI/agent gate).                       |
+| Option              | Description                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `--category <name>` | Review one area only: gate, setup, instructions, map, worktrees, standards, checkpoints, skills.                     |
+| `--min-score <n>`   | Exit non-zero when the score is below this number, for use as a CI check. With `--category`, it's that area's score. |
 
 ### `discern standards`
 
-Measure the named quality standards, or every configured standard when no names are given: numbers that can never get worse. `discern done` already verifies and measures them on every run. Authoring one? Hold a rate (`per`) for a number that rises as the project grows, and give a drifting total a `margin` — a ceiling pinned at today's value fails the next legitimate change.
+Measure your project's standards: limits on measured numbers, such as test coverage or bundle size. A change can tighten a limit, but loosening one needs the owner's approval. Name standards to measure only those; otherwise discern measures them all. It first checks that no limit is looser than the trunk's, and saves each measurement so a later `--pin` or `discern done` can reuse it for the same commit. You don't need it before finishing: `discern done` checks every standard. For a number that grows with the project, hold a rate with `per`. Give a total that drifts a `margin`, or a limit pinned at today's value fails the next ordinary change.
 
 Usage: `discern standards [names...] [options]`
 
-| Option      | Description                                                                                                                                                                                                                                                                                                            |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run` | Show the standards that would be measured; touch nothing.                                                                                                                                                                                                                                                              |
-| `--force`   | Run standards on a dirty worktree; intended only while authoring standards.                                                                                                                                                                                                                                            |
-| `--pin`     | Capture measured improvements for the named standards, or every one with slack. Same-commit values are reused; named measurement narrows only when gate Proof already validates the clean tree. Commit the limit change alone; that commit needs a fresh `discern done` before it can land. Requires a clean worktree. |
+| Option      | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run` | List the standards that would be measured, without measuring them.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `--force`   | Measure even with uncommitted changes. Use it only while writing a standard; `--pin` ignores it.                                                                                                                                                                                                                                                                                                                                                                          |
+| `--pin`     | Lock in improvements: tighten each named standard's limit, or every limit with room to tighten, to its measured value, keeping its margin as headroom. It needs a clean worktree and reuses measurements already taken for this commit. With names, it measures only those standards when current Proof covers the commit; otherwise it measures them all. discern commits the new limits by themselves, and that commit needs a fresh `discern done` before it can land. |
 
 #### `discern standards propose`
 
-Finalize a proposed limit for a standard breached by this change. On a clean final HEAD, measure the named standard, then create its config-only proposal commit or renew an unchanged descendant binding. Acceptance still requires explicit approval for the value and reason.
+Propose a looser limit for a standard this change breaks, for the owner to approve. Run it on the branch's final, clean commit. discern measures the standard and commits a proposal that changes only its limit, set to the measured value. Rerun after later commits, with the same reason, to carry an unchanged proposal forward without a new commit. Landing still needs the owner's explicit approval of the value and reason.
 
 Usage: `discern standards propose <name> [options]`
 
-| Option              | Description                                                                                                      |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `--reason <reason>` | The exact non-empty owner-facing reason for the standard limit proposal (1-500 visible, secret-free characters). |
-| `--dry-run`         | Show the proposal plan; touch nothing.                                                                           |
+| Option              | Description                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--reason <reason>` | Why the limit should change, for the owner to read: 1–500 characters on one line, with no secrets and no claim that anyone has approved it. |
+| `--dry-run`         | Show the proposal without making it.                                                                                                        |
 
 ### `discern checkpoints`
 
-Report the governing checkpoint policy, each open question's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.
+Show the checkpoints that apply to this task, whether each question has an answer, and which ones the current change would trigger. It also shows how often each checkpoint has fired, been answered unmet, and needed a variance. It runs no `when` commands and changes no checkpoint state.
 
 Usage: `discern checkpoints [options]`
 
 ### `discern skills <subcommand>`
 
-Manage skills: list the effective set, or eject a built-in to customize it.
+Manage skills, the reusable playbooks your agents follow: list them, or copy a built-in one so you can edit it.
 
 Usage: `discern skills <subcommand>`
 
 #### `discern skills list`
 
-List the effective skills (built-ins + yours; which override which).
+List the skills your agents get: discern's built-in skills and yours, which of yours replace a built-in, and which are excluded.
 
 Usage: `discern skills list [options]`
 
 #### `discern skills eject`
 
-Copy a bundled built-in into [skills].dir so you can customize it.
+Copy a built-in skill into your skills folder, `[skills].dir`, so you can edit it; your copy then replaces the built-in. If `discern.toml` doesn't set `[skills].dir` yet, discern adds it. It refuses a name that isn't a built-in skill, or one you've already copied, and it doesn't commit.
 
 Usage: `discern skills eject <name> [options]`
 
-| Option      | Description                                                            |
-| ----------- | ---------------------------------------------------------------------- |
-| `--dry-run` | Preview every ejection and materialization target without changing it. |
+| Option      | Description                                                                         |
+| ----------- | ----------------------------------------------------------------------------------- |
+| `--dry-run` | Show what would be copied and where agents would get it, without changing anything. |
 
 ### `discern impact`
 
-Show which configured scopes the branch and working tree wake in the quality gate. Scopes are named regions of the repository with their own gate jobs. With --has, JSON reports data.membership and exits successfully for either Boolean value.
+Show which scopes this branch's changes touch, and so which scope gates `discern done` will run. Scopes are named regions of the repository, set in `discern.toml`. It counts the branch's commits since it left the trunk, plus uncommitted and untracked files. Neutral scopes never appear. It also lists `code` when any file outside the neutral scopes changed, and `previewable` when a scope with a preview command changed.
 
 Usage: `discern impact [options]`
 
-| Option          | Description                                                                                  |
-| --------------- | -------------------------------------------------------------------------------------------- |
-| `--has <scope>` | Test one scope. Bare: print nothing and exit 0/1. JSON: report `data.membership` and exit 0. |
+| Option          | Description                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--has <scope>` | Check one scope, or `code` or `previewable`. On its own, it prints nothing and exits 0 if the change touches it, 1 if not. With `--json`, it reports the answer in `data.membership` and exits 0. |
 
 ### `discern coupling`
 
-Report files that historically change together as a read-only advisory. With no args, report likely siblings missing from the change. With file, report its top partners. Add with to report commits where both changed.
+Find files that usually change together in your Git history, so a change doesn't miss one. With no arguments, it lists files that often change with the ones you changed but are missing from your change. With one file, it lists that file's usual partners. With two files, it lists recent commits that changed both. It's advice only and always exits 0.
 
 Usage: `discern coupling [file] [with] [options]`
 
 ### `discern patterns`
 
-Report the patterns in this project's discern use, read from the local logbook: validation, evidence reuse, waits, landing latency, gate fit and standard trends. Counts include observation limits. A read-only advisory.
+Show patterns in how this project uses discern, from its local logbook. Findings cover standard trends, how well the gate fits the work, habits such as repeated failures, and the path from start to landing. Each finding shows its counts and what the logbook couldn't see, and says when there isn't enough evidence. It's advice only.
 
 Usage: `discern patterns [options]`
 
-| Option                      | Description                                                                                                                                                                                                    |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--stats`                   | Report practice stats instead: changes accepted, green streaks, cycle times, standards trends, and agent cohorts, counted from the same local evidence. With --json, the counts join the result as data.stats. |
-| `--all`                     | Report every finding from every detector.                                                                                                                                                                      |
-| `--logbook-file <filename>` | Read one sealed archive basename listed by `discern patterns archives` instead of the active logbook.                                                                                                          |
+| Option                      | Description                                                                                                                                                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--stats`                   | Show usage statistics instead: changes landed, passing streaks, cycle times, standard trends, and results grouped by coding agent, from the same logbook. With `--json`, they're added to the result as `data.stats`. |
+| `--all`                     | Show every finding. Without it, each kind of check shows its first few.                                                                                                                                               |
+| `--logbook-file <filename>` | Read a sealed archive instead of the active logbook. Give a file name that `discern patterns archives` lists.                                                                                                         |
 
 #### `discern patterns archives`
 
-List sealed logbook archives with their event counts, date spans, and byte sizes.
+List the logbook's sealed archives, with each one's event count, date range, and size.
 
 Usage: `discern patterns archives [options]`
 
 #### `discern patterns reset`
 
-Permanently remove the active logbook after terminal confirmation. Sealed archives and other Git-admin state remain. A dry-run previews one result; apply is refused with --json or --markdown.
+Delete the active logbook for good, once you confirm in an interactive terminal. Sealed archives and discern's other files in `.git` stay. The confirmation defaults to keeping the logbook. In CI, with `--plain`, or with `--json` or `--markdown`, only `--dry-run` works.
 
 Usage: `discern patterns reset [options]`
 
-| Option      | Description                                                                 |
-| ----------- | --------------------------------------------------------------------------- |
-| `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
+| Option      | Description                                                               |
+| ----------- | ------------------------------------------------------------------------- |
+| `--dry-run` | Show the full plan without asking for confirmation or changing any files. |
 
 #### `discern patterns seal`
 
-Seal the active event history into a timestamped archive and begin a fresh active logbook after terminal confirmation. A dry-run previews one result; apply is refused with --json or --markdown.
+Archive the active logbook under a timestamped name and start a fresh one, once you confirm in an interactive terminal. The confirmation defaults to keeping the logbook as it is. In CI, with `--plain`, or with `--json` or `--markdown`, only `--dry-run` works.
 
 Usage: `discern patterns seal [options]`
 
-| Option      | Description                                                                 |
-| ----------- | --------------------------------------------------------------------------- |
-| `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
+| Option      | Description                                                               |
+| ----------- | ------------------------------------------------------------------------- |
+| `--dry-run` | Show the full plan without asking for confirmation or changing any files. |
 
 ### `discern map`
 
-Browse the configured project map that coding agents maintain, or read a named map page.
+Browse your project's map, the documentation your agents keep about how the project works, or read one page by name.
 
 Usage: `discern map [target] [options]`
 
-| Option             | Description                                                                 |
-| ------------------ | --------------------------------------------------------------------------- |
-| `--raw`            | Print a doc's pristine Markdown source instead of rendering it.             |
-| `--list`           | Print a plain table of contents and exit without interaction.               |
-| `--search <query>` | Search the map with task language or exact text; use a target to narrow it. |
-| `--pager`          | Open rendered documents in an external pager (uses $PAGER or less -R).      |
-| `--dir <path>`     | Map directory to browse (default: the project's [map].dir).                 |
-| `--width <cols>`   | Wrap width for rendered output.                                             |
-| `--export <scope>` | Concatenate Markdown: public, all, select, or a configured scope name.      |
-| `--output <path>`  | Write an export to a file instead of stdout.                                |
+| Option             | Description                                                                                                                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--raw`            | Print a page's Markdown source instead of rendering it.                                                                                                                                                        |
+| `--list`           | Print a plain table of contents instead of opening the reader.                                                                                                                                                 |
+| `--search <query>` | Search the map by describing a task or quoting exact text. Add a target to search one page or section.                                                                                                         |
+| `--pager`          | Show each rendered page in your pager: `$PAGER`, or `less -R` when it's unset.                                                                                                                                 |
+| `--dir <path>`     | Browse this folder instead of the project's map folder (`[map].dir`).                                                                                                                                          |
+| `--width <cols>`   | Wrap rendered output at this many columns.                                                                                                                                                                     |
+| `--export <scope>` | Join pages into one Markdown document: `public` for published pages, `all` for every page, `select` to choose sections in a terminal (with `--output`), or a configured scope's name for the pages it matches. |
+| `--output <path>`  | Write the export to this file instead of stdout. The file can't be inside the map folder.                                                                                                                      |
 
 ### `discern docs`
 
-Browse the complete bundled product manual, or read a named manual page.
+Browse discern's manual, which comes with discern, or read one page by name.
 
 Usage: `discern docs [target] [options]`
 
-| Option             | Description                                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `--raw`            | Print a doc's pristine Markdown source instead of rendering it.                                              |
-| `--list`           | Print a plain table of contents and exit without interaction.                                                |
-| `--search <query>` | Search the manual with task language or exact text; use a target to narrow it.                               |
-| `--adr`            | Browse this project's decision records, or show their published location when local records are unavailable. |
-| `--pager`          | Open rendered documents in an external pager (uses $PAGER or less -R).                                       |
-| `--width <cols>`   | Wrap width for rendered output.                                                                              |
-| `--export <scope>` | Concatenate Markdown to stdout: public.                                                                      |
-| `--output <path>`  | Write an export to a file instead of stdout.                                                                 |
+| Option             | Description                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `--raw`            | Print a page's Markdown source instead of rendering it.                                                                               |
+| `--list`           | Print a plain table of contents instead of opening the reader.                                                                        |
+| `--search <query>` | Search the manual by describing a task or quoting exact text. Add a target to search one page or section.                             |
+| `--adr`            | Browse discern's own architecture decision records. An installed discern doesn't include them, so it shows where to read them online. |
+| `--pager`          | Show each rendered page in your pager: `$PAGER`, or `less -R` when it's unset.                                                        |
+| `--width <cols>`   | Wrap rendered output at this many columns.                                                                                            |
+| `--export <scope>` | Join the manual's pages into one Markdown document. `public` is the only scope.                                                       |
+| `--output <path>`  | Write the export to this file instead of stdout.                                                                                      |
 
 ### `discern help`
 
-Show command-line help.
+Show help for discern, or for one command, such as `discern help worktree prune`.
 
 Usage: `discern help [command...] [options]`
 
 ### `discern licenses`
 
-Print discern's licenses and bundled third-party software notices.
+Print discern's licenses and notices, and the notices for the third-party software built into it.
 
 Usage: `discern licenses [options]`
 
 ### `discern releases`
 
-Open discern's release information in the browser, see what's changed, and whether an upgrade is available.
+Open discern's release notes in your browser, to see what's new and whether a newer discern is out. discern itself makes no network request: the page compares your version with the latest. The browser opens only from an interactive terminal. Inside a project, discern records when you last looked, for its reminder to check for releases.
 
 Usage: `discern releases [options]`
 
-| Option      | Description                                                                  |
-| ----------- | ---------------------------------------------------------------------------- |
-| `--dry-run` | Show the release handoff without opening a browser or recording a timestamp. |
+| Option      | Description                                                                      |
+| ----------- | -------------------------------------------------------------------------------- |
+| `--dry-run` | Show the address it would open, without opening a browser or recording anything. |
 
 ### `discern mcp`
 
-The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents should connect automatically.
+Run discern's MCP (Model Context Protocol) server, which gives coding agents discern's main commands as tools. You don't need to run it yourself: setup and `discern refresh` configure each agent to start it. It talks over standard input and output.
 
 Usage: `discern mcp [options]`
 
-| Option                | Description                                                                |
-| --------------------- | -------------------------------------------------------------------------- |
-| `--long-tool-calls`   | Use the long-call transport profile; await calls may run for 3300 seconds. |
-| `--strict-tool-calls` | Use the strict transport profile; await calls may run for 45 seconds.      |
+| Option                | Description                                                                                                                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--long-tool-calls`   | For agents that allow long tool calls: let each await call wait up to 3300 seconds.                                                                                                    |
+| `--strict-tool-calls` | For agents that end long tool calls early: keep each await call to 45 seconds, and suggest the command line for long work. Without either option, await calls also stop at 45 seconds. |
 
 ## Help, version, and parser-owned flags
 

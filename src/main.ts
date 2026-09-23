@@ -21,7 +21,13 @@ import {
 } from "./shared/emit.ts";
 import { resultPresenterForVerb } from "./shared/result_contracts.ts";
 import { observeVerbTarget } from "./shared/result_capture.ts";
-import { AGENT_NAMES, loadConfig } from "./shared/config_schema.ts";
+import {
+  AGENT_NAMES,
+  DEFAULT_AGENTS,
+  loadConfig,
+} from "./shared/config_schema.ts";
+import { DEFAULT_WORKTREE_BRANCH_PREFIX } from "./shared/git_conventions.ts";
+import { SOURCE_PATHS } from "./shared/paths_registry.ts";
 import { configFailureResult } from "./shared/config_failure.ts";
 import { interactiveHintTexts } from "./shared/hints.ts";
 import { findRoot } from "./shared/env.ts";
@@ -400,7 +406,12 @@ function handleCliValidationError(error: Error, command: Command): void {
  * attached unconditionally — the subsystems are all core (ADR 0101). Verbs the
  * operator help omits come from the hidden-verb registry
  * (`shared/hidden_verbs.ts`), applied at the end of the build; `bootstrapped`
- * selects which of its entries are in effect. */
+ * selects which of its entries are in effect.
+ *
+ * A command description's first line is its summary: `discern --help` lists
+ * that line alone, while the command's own `--help` and the generated CLI
+ * reference show the whole description. Keep the summary short and put detail
+ * after a line break. */
 export function buildCli(
   bootstrapped: boolean,
   mainBranch?: string,
@@ -411,14 +422,15 @@ export function buildCli(
     .version(DISCERN_VERSION)
     .versionOption(
       "-V, --version",
-      "Print the discern version.",
+      "Print the installed discern version.",
       () => writeStdout(`${humanVersion()}\n`),
     )
     .usage("<command> [options]")
     .description(
-      "Operate your project's quality gate (its full quality check) and Git " +
-        "worktrees (a separate checkout and branch for each effort); `discern setup` " +
-        "explains the first step and `discern setup begin` scaffolds the stack-neutral system.",
+      "Give each task its own worktree, a separate checkout and branch, and " +
+        "check its work with your project's gate, its full quality check, " +
+        "before it lands. New here? `discern setup` explains the first step, " +
+        "and `discern setup begin` starts setting discern up in this project.",
     )
     .example(
       "Orient yourself",
@@ -426,11 +438,11 @@ export function buildCli(
     )
     .example(
       "Agent in the main checkout?",
-      "discern start  →  (re-root at the returned worktree path...)  →  discern status  →  (write code...)  →  discern done  →  report ready for review",
+      "discern start  →  (move into the worktree path it prints...)  →  discern status  →  (write and commit code...)  →  discern done  →  report ready for review",
     )
     .example(
       "Agent in a worktree?",
-      "(write code...)  →  discern done  →  report ready for review",
+      "(write and commit code...)  →  discern done  →  report ready for review",
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.json,
@@ -446,15 +458,15 @@ export function buildCli(
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.noColor,
-      "Disable color (also honors NO_COLOR and non-TTY output).",
+      "Turn off color. discern also leaves color off when `NO_COLOR` is set to any non-empty value, when `TERM` is `dumb`, or when output isn't a terminal.",
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.plain,
-      "Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.",
+      "Turn off prompts, paging, the full-screen reader, and live progress, and print static output. discern also skips prompts in CI, with `--json`, `--markdown`, or `--render`, and when input or output isn't a terminal.",
     )
     .globalOption(
       `${ROOT_GLOBAL_FLAGS.theme} <theme:string>`,
-      "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+      "Choose colors for a `light` or `dark` terminal, or `auto`. Default: `auto`, which asks an interactive terminal for its background color and assumes dark when it can't tell. `--no-color` and `NO_COLOR` skip that check.",
       {
         value: terminalThemeValue,
       },
@@ -477,45 +489,66 @@ export function buildCli(
   // mutating step and every option that can shape it.
   const setupBegin = new Command()
     .description(
-      "Scaffold discern, record provenance, and print the setup brief (the first mutating step).",
+      "Set discern up in this project: add its files and settings, and print the setup brief for your agent. This is the first setup step that changes files.\n" +
+        "A fresh setup starts on the trunk with no uncommitted changes to " +
+        "tracked files. It works on a new `discern-setup` branch, commits " +
+        "discern's own wiring, and records which discern version and model " +
+        "ran it. Without `--confirmed` or `--config`, it writes nothing and " +
+        "shows the consent checklist again. Partway through setup, it prints " +
+        "the brief again; once setup is complete, it does nothing unless you " +
+        "pass `--reseed`.",
     )
-    .option("--name <name:string>", "Project name (free text).")
-    .option("--slug <slug:string>", "Project slug (^[a-z0-9][a-z0-9-]*$).")
-    .option("--branch-prefix <prefix:string>", "Branch prefix for worktrees.", {
-      default: undefined,
-    })
+    .option(
+      "--name <name:string>",
+      "The project's display name, in any words. Default: the current folder's name.",
+    )
+    .option(
+      "--slug <slug:string>",
+      "A short id for the project, used in each worktree's site, database, and resource names: lowercase letters, digits, and dashes, starting with a letter or digit (`^[a-z0-9][a-z0-9-]*$`). Default: derived from the name.",
+    )
+    .option(
+      "--branch-prefix <prefix:string>",
+      `The prefix for task branch names. Default: \`${DEFAULT_WORKTREE_BRANCH_PREFIX}\`.`,
+      {
+        default: undefined,
+      },
+    )
     .option(
       "--brief <brief:string>",
-      "Free-text project description, or @path to read it from a file.",
+      "What the project is, in your own words, or `@path` to read it from a file. discern saves it as the project brief.",
     )
     .option(
       "--agents <agents:string>",
-      `Comma-separated agent files to emit: ${AGENT_NAMES.join(", ")}.`,
+      `Which coding agents to set up, separated by commas: ${
+        AGENT_NAMES.join(", ")
+      }. Default: the agents installed on this machine, or ${
+        DEFAULT_AGENTS.join(" and ")
+      } when none are found. An empty value sets up none.`,
     )
     .option(
       "--map <path:string>",
-      "Project-relative directory for the project map — discern's agent-maintained documentation tree.",
+      `Where to keep the project map, the documentation your agents maintain, relative to the project root. Default: \`${SOURCE_PATHS.map.defaultPath}\`.`,
     )
     .option(
       "--config <file:string>",
-      "JSON answers file (or - for stdin) to scaffold declaratively.",
+      "Read the setup answers from a JSON file, or `-` for stdin, instead of from the conversation. The file can also fill `discern.toml` sections such as jobs and scopes; options you pass win over it.",
     )
     .option(
       "--model <model:string>",
-      "Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.",
+      "The provider and model running setup, as you'd name them, or `unreported`. discern records it for support and can't verify it.",
     )
-    .option("--dry-run", "Print the plan and write nothing.")
+    .option("--dry-run", "Show the plan without writing anything.")
     .option(
       "--reseed",
-      "Run setup again and refresh discern's files and settings.",
+      "Run setup again on a project that has it: add any missing starter files, without overwriting existing ones, and refresh discern's settings and generated files.",
     )
     .option(
       "--allow-dirty",
-      "Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.",
+      "For CI and advanced use: set up on the current branch as it is, even with uncommitted changes. discern skips the `discern-setup` branch and its own commit and needs no `--confirmed`; you commit and merge yourself, since `discern setup accept` won't land it.",
     )
     .option(
       "--confirmed",
-      "Attest you have held the setup consent conversation with your human — required for a fresh, non-declarative begin; its absence re-serves that conversation.",
+      "Record that the owner agreed to setup in this conversation. A fresh setup needs it unless you use `--config`; without it, discern writes nothing and shows the consent checklist again.",
     )
     .action(recordedExit("setup begin", async (options) => {
       const { json, noColor } = globalFlags(options);
@@ -529,7 +562,11 @@ export function buildCli(
 
   const setupVerify = new Command()
     .description(
-      "Preview what setup will do and the consent checklist to confirm with your human (read-only).",
+      "Preview what setup will change, and the checklist to agree with the owner first. It changes nothing.\n" +
+        "It reports what it finds, such as existing agent instructions and " +
+        "the coding agents installed here, and where worktrees will go. Then " +
+        "it prints the consent checklist your agent goes through with the " +
+        "owner before anything is written.",
     )
     .action(recordedExit("setup verify", async (options) => {
       const { json, noColor } = globalFlags(options);
@@ -541,7 +578,7 @@ export function buildCli(
 
   const setupStep = new Command()
     .description(
-      "Re-serve one numbered step of the setup brief (read-only; for a mid-setup re-focus).",
+      "Show one numbered step of the setup brief again, to refocus partway through setup. It changes nothing.",
     )
     .arguments("<n:number>")
     .action(recordedExit("setup step", async (options, n: number) => {
@@ -554,11 +591,15 @@ export function buildCli(
 
   const setupDone = new Command()
     .description(
-      "Prove the committed setup, return canonical Proof and completion inventory, and record [meta].bootstrapped.",
+      "Finish setup: run the gate on the committed setup, record its Proof and a summary of what was set up, and mark setup complete (`[meta].bootstrapped`).\n" +
+        "Everything must be committed, with every setup placeholder filled " +
+        "in. discern commits the completion, checks it in a temporary " +
+        "worktree, and runs the full gate; if that fails, it removes its own " +
+        "commit. Then `discern setup accept` lands the setup.",
     )
     .option(
       "--unproven",
-      "Record completion without Proof; setup acceptance will refuse it.",
+      "Mark setup complete without the checks or Proof. `discern setup accept` then refuses to land it; running `discern setup done` again later proves it.",
     )
     .action(recordedExit("setup done", async (options) => {
       const { runSetupDone } = await loadModule(() =>
@@ -573,9 +614,16 @@ export function buildCli(
 
   const setupAccept = new Command()
     .description(
-      `Land the proved setup branch on the trunk${trunkName}, then return provider activation checks.`,
+      `Land the proven setup branch on the trunk${trunkName}, then list the checks that confirm each coding agent can reach discern.\n` +
+        "Run it from the `discern-setup` branch. If the trunk has moved, " +
+        "discern merges it in and runs the gate again first. It records a " +
+        "Proof note, switches you to the trunk, and deletes the setup branch. " +
+        "It doesn't push.",
     )
-    .option("--dry-run", "Print the plan and change nothing.")
+    .option(
+      "--dry-run",
+      "Show the plan without changing anything. It still needs a valid Proof.",
+    )
     .action(recordedExit("setup accept", async (options) => {
       const { json, noColor } = globalFlags(options);
       const { runSetupAccept } = await loadModule(() =>
@@ -591,7 +639,10 @@ export function buildCli(
 
   const setup = new Command()
     .description(
-      "Read the setup welcome and learn the canonical first step. Run `discern setup begin` only after the owner is ready to scaffold.",
+      "Start here to set up discern: see what setup involves and which step comes next.\n" +
+        "It changes nothing, and it works even outside a Git repository. Run " +
+        "`discern setup begin` only once the owner is ready for discern to " +
+        "add its files.",
     )
     .action(recordedExit("setup", async (options) => {
       const { json, noColor } = globalFlags(options);
@@ -610,20 +661,27 @@ export function buildCli(
   root
     .command("upgrade")
     .description(
-      "Bring this project forward to the installed discern: run pending config migrations, reconcile discern-owned config, .gitignore and .gitattributes blocks, and refresh bundled skills and instructions. Never replaces the binary. " +
-        "Use `discern update` to bring trunk into a task branch; use `discern refresh` to regenerate project artifacts only.",
+      "Bring this project up to date with the discern you have installed. " +
+        "To bring the trunk into a task branch, use `discern update`; to " +
+        "regenerate agent files only, use `discern refresh`.\n" +
+        "It runs any pending config migrations and restores discern's " +
+        "sections, keys, and comment banners in `discern.toml` without " +
+        "touching your values. It updates discern's blocks in `.gitignore` " +
+        "and `.gitattributes`, and refreshes agent files, skills, and " +
+        "integrations. Run it from the project root. It never installs a " +
+        "newer discern, uses no network, and doesn't commit.",
     )
     .option(
       "--dry-run",
-      "Preview the pending migrations and skills refresh; write nothing.",
+      "Show the pending migrations and changes without writing anything.",
     )
     .option(
       "--check",
-      "Report pending managed-version adoption, config migrations, fixed config scaffold or managed-banner drift, and discern-owned .gitignore or .gitattributes block drift; exit non-zero for any; write nothing; no network.",
+      "Check whether this project needs an upgrade, without writing anything or using the network. It exits non-zero when migrations are pending, when the project hasn't adopted this discern version, or when discern's parts of `discern.toml`, `.gitignore`, or `.gitattributes` are out of date.",
     )
     .option(
       "--allow-dirty",
-      "Upgrade even with uncommitted changes (skips the clean-tree check).",
+      "Upgrade even when tracked files have uncommitted changes.",
     )
     .action(recordedExit("upgrade", async (options) => {
       const { runUpgrade } = await loadModule(() =>
@@ -641,15 +699,22 @@ export function buildCli(
   root
     .command("uninstall")
     .description(
-      "Remove discern's wiring from this project (keeps your discern.toml, instructions, and map).",
+      "Remove discern's wiring from this project, and keep the files you wrote.\n" +
+        "It removes the generated agent files, installed skills, agent " +
+        "integrations, and discern's blocks and settings. Your " +
+        "`discern.toml`, instruction source, map, own skills, project " +
+        "scripts, and TODO list stay. It asks before removing anything. It " +
+        "refuses while task worktrees " +
+        "or their resources exist. It keeps local Git refs such as Proof " +
+        "notes, doesn't remove the discern program, and doesn't commit.",
     )
     .option(
       "--dry-run",
-      "Preview what would be removed and kept; change nothing.",
+      "Show what would be removed and kept, without changing anything.",
     )
     .option(
       "-y, --yes",
-      "Skip the confirmation. Required without a terminal, and with --json or --markdown.",
+      "Skip the confirmation. Without an interactive terminal, in CI, or with `--plain`, `--json`, `--markdown`, or `--render`, uninstall needs it whenever there's something to remove.",
     )
     .action(recordedExit("uninstall", async (options) => {
       const { json, noColor } = globalFlags(options);
@@ -667,11 +732,16 @@ export function buildCli(
   root
     .command("doctor")
     .description(
-      "Check the install and Git safety settings, then print each verb's execution model.",
+      "Check that discern is installed correctly and that Git is set up safely for it.\n" +
+        "It checks the config, jobs, generated groups, agent integrations, " +
+        "skills, worktree resources, and logbook, and Git settings such as " +
+        "commit identity and history retention. Then it lists the steps each " +
+        "workflow command runs. It changes nothing, and exits 1 only when a " +
+        "check fails.",
     )
     .option(
       "-v, --verbose",
-      "Show the hint explaining each execution-model step (hidden by default).",
+      "Explain each step the workflow commands run. With `--json`, include those steps in the result.",
     )
     .action(recordedExit("doctor", async (options) => {
       const { runDoctor } = await loadModule(() =>
@@ -687,11 +757,15 @@ export function buildCli(
   root
     .command("releases")
     .description(
-      "Open discern's release information in the browser, see what's changed, and whether an upgrade is available.",
+      "Open discern's release notes in your browser, to see what's new and whether a newer discern is out.\n" +
+        "discern itself makes no network request: the page compares your " +
+        "version with the latest. The browser opens only from an interactive " +
+        "terminal. Inside a project, discern records when you last looked, " +
+        "for its reminder to check for releases.",
     )
     .option(
       "--dry-run",
-      "Show the release handoff without opening a browser or recording a timestamp.",
+      "Show the address it would open, without opening a browser or recording anything.",
     )
     .action(recordedExit("releases", async (options) => {
       const { runReleases } = await loadModule(() =>
@@ -707,7 +781,7 @@ export function buildCli(
   root
     .command("licenses")
     .description(
-      "Print discern's licenses and bundled third-party software notices.",
+      "Print discern's licenses and notices, and the notices for the third-party software built into it.",
     )
     .action(recordedExit("licenses", async (options) => {
       const { runLicenses } = await loadModule(() =>
@@ -738,36 +812,39 @@ export function buildCli(
   root
     .command("map [target:string]")
     .description(
-      "Browse the configured project map that coding agents maintain, or read a named map page.",
+      "Browse your project's map, the documentation your agents keep about how the project works, or read one page by name.",
     )
     .option(
       "--raw",
-      "Print a doc's pristine Markdown source instead of rendering it.",
+      "Print a page's Markdown source instead of rendering it.",
     )
     .option(
       "--list",
-      "Print a plain table of contents and exit without interaction.",
+      "Print a plain table of contents instead of opening the reader.",
     )
     .option(
       "--search <query:string>",
-      "Search the map with task language or exact text; use a target to narrow it.",
+      "Search the map by describing a task or quoting exact text. Add a target to search one page or section.",
     )
     .option(
       "--pager",
-      "Open rendered documents in an external pager (uses $PAGER or less -R).",
+      "Show each rendered page in your pager: `$PAGER`, or `less -R` when it's unset.",
     )
     .option(
       "--dir <path:string>",
-      "Map directory to browse (default: the project's [map].dir).",
+      "Browse this folder instead of the project's map folder (`[map].dir`).",
     )
-    .option("--width <cols:number>", "Wrap width for rendered output.")
+    .option(
+      "--width <cols:number>",
+      "Wrap rendered output at this many columns.",
+    )
     .option(
       "--export <scope:string>",
-      "Concatenate Markdown: public, all, select, or a configured scope name.",
+      "Join pages into one Markdown document: `public` for published pages, `all` for every page, `select` to choose sections in a terminal (with `--output`), or a configured scope's name for the pages it matches.",
     )
     .option(
       "--output <path:string>",
-      "Write an export to a file instead of stdout.",
+      "Write the export to this file instead of stdout. The file can't be inside the map folder.",
     )
     .action(
       recordedExit("map", async (options, target?: string) => {
@@ -801,36 +878,39 @@ export function buildCli(
   root
     .command("docs [target:string]")
     .description(
-      "Browse the complete bundled product manual, or read a named manual page.",
+      "Browse discern's manual, which comes with discern, or read one page by name.",
     )
     .option(
       "--raw",
-      "Print a doc's pristine Markdown source instead of rendering it.",
+      "Print a page's Markdown source instead of rendering it.",
     )
     .option(
       "--list",
-      "Print a plain table of contents and exit without interaction.",
+      "Print a plain table of contents instead of opening the reader.",
     )
     .option(
       "--search <query:string>",
-      "Search the manual with task language or exact text; use a target to narrow it.",
+      "Search the manual by describing a task or quoting exact text. Add a target to search one page or section.",
     )
     .option(
       "--adr",
-      "Browse this project's decision records, or show their published location when local records are unavailable.",
+      "Browse discern's own architecture decision records. An installed discern doesn't include them, so it shows where to read them online.",
     )
     .option(
       "--pager",
-      "Open rendered documents in an external pager (uses $PAGER or less -R).",
+      "Show each rendered page in your pager: `$PAGER`, or `less -R` when it's unset.",
     )
-    .option("--width <cols:number>", "Wrap width for rendered output.")
+    .option(
+      "--width <cols:number>",
+      "Wrap rendered output at this many columns.",
+    )
     .option(
       "--export <scope:string>",
-      "Concatenate Markdown to stdout: public.",
+      "Join the manual's pages into one Markdown document. `public` is the only scope.",
     )
     .option(
       "--output <path:string>",
-      "Write an export to a file instead of stdout.",
+      "Write the export to this file instead of stdout.",
     )
     .action(recordedExit("docs", async (options, target?: string) => {
       if (target !== undefined && target !== "") {
@@ -857,7 +937,9 @@ export function buildCli(
   // intercepted in `main` so every JSON-flag placement returns that same node.
   root
     .command("help [...command:string]")
-    .description("Show command-line help.")
+    .description(
+      "Show help for discern, or for one command, such as `discern help worktree prune`.",
+    )
     .action(recordedExit("help", async function (
       _options,
       ...command: string[]
@@ -891,57 +973,64 @@ export function buildCli(
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
   const setJob = new Command()
     .description(
-      `Set a gate job. Known names (${knownJobList()}) derive their stage and accept a positional scalar or repeatable ordered --run. Custom names require --stage and --run. Known-job applicability uses --not-applicable or --applicable.`,
+      "Add or change a gate job: one of the commands the gate runs.\n" +
+        `A known name (${knownJobList()}) has a fixed stage: give its command ` +
+        "as the argument, or with `--run`, repeated for commands that run in " +
+        "order. A custom name needs `--stage` and `--run`. For a known job " +
+        "this project doesn't have, use `--not-applicable`.",
     )
     .arguments("<name:string> [command:string]")
     .option(
       "--stage <stage:string>",
-      "Custom jobs only: when it runs (fix|build|check|test).",
+      "Custom jobs only: the stage it runs in, `fix`, `build`, `check`, or `test`.",
     )
     .option(
       "--run <command:string>",
-      "Literal command; repeat to preserve order.",
+      "A command to run, as written. Repeat it for more commands; they run in order, each only if the previous one succeeded.",
       { collect: true },
     )
-    .option("--provides <label:string>", "Custom jobs only: free-text label.")
+    .option(
+      "--provides <label:string>",
+      "Custom jobs only: a short label saying what the job provides.",
+    )
     .option(
       "--timeout <seconds:string>",
-      "Command budget in seconds; 0 removes the bound.",
+      "Time limit for the job, in seconds; 0 means no limit. Default: `[gate].timeout`.",
     )
     .option(
       "--not-applicable",
-      "Known jobs: exclude an absent lifecycle from setup assurance.",
+      "Known jobs: record that this project has no such step, so setup doesn't count it as missing. The gate's jobs don't change.",
     )
     .option(
       "--applicable",
-      "Known jobs: restore lifecycle applicability.",
+      "Known jobs: undo `--not-applicable`, so setup counts the job again.",
     )
     .option(
       "--inputs <value:string>",
-      "Complete input glob; repeat for every input.",
+      "A file pattern the job reads. Repeat it until every input is listed; discern can then reuse an earlier result while those files are unchanged.",
       { collect: true },
     )
     .option(
       "--needs <value:string>",
-      "Required producer selector; repeat for every dependency.",
+      "Another job, scope gate, or standard that must succeed first, such as `jobs.build`. Repeat it for each one.",
       { collect: true },
     )
     .option(
       "--artifacts <value:string>",
-      "Output artifact path to capture; repeat for every artifact.",
+      "A file the job produces, which discern keeps for later steps to read. Repeat it for each one.",
       { collect: true },
     )
     .option(
       "--environment <value:string>",
-      "Environment variable name to bind to evidence; repeat for every name.",
+      "An environment variable that affects the result; a changed value stops discern reusing an earlier result. Repeat it for each one.",
       { collect: true },
     )
     .option(
       "--toolchain <value:string>",
-      "Toolchain identity file; repeat for every file.",
+      "A file that pins tool versions, such as a lockfile; a change to it stops discern reusing an earlier result. Repeat it for each one.",
       { collect: true },
     )
-    .option("--dry-run", "Print the edit and write nothing.")
+    .option("--dry-run", "Show the edit without writing it.")
     .action(
       recordedExit(
         "config set-job",
@@ -975,45 +1064,53 @@ export function buildCli(
 
   const setScope = new Command()
     .description(
-      "Set a scope — a named region of the repository a change can touch.",
+      "Add or change a scope: a named region of the repository, defined by path patterns.\n" +
+        "The patterns you give replace the scope's `paths`, and options you " +
+        "leave out keep their current values.",
     )
     .arguments("<name:string> <globs...:string>")
-    .option("--neutral", "Changes here need no gate.")
+    .option(
+      "--neutral",
+      "Mark changes here as not code, as for documentation: they trigger no scope gate, and this scope's own gate never runs.",
+    )
     .option(
       "--preview <cmd:string>",
-      "A read-only command an agent can run to preview changes here.",
+      "A read-only command your agent can run to preview changes here. discern suggests it but never runs it.",
     )
-    .option("--gate <cmd:string>", "A command to run when this scope changed.")
+    .option(
+      "--gate <cmd:string>",
+      "A command `discern done` runs when a change touches this scope.",
+    )
     .option(
       "--timeout <seconds:string>",
-      "Per-scope gate-command budget in seconds; 0 removes the bound.",
+      "Time limit for the scope's gate command, in seconds; 0 means no limit.",
     )
     .option(
       "--inputs <value:string>",
-      "Complete input glob; repeat for every input.",
+      "A file pattern the scope's gate reads. Repeat it until every input is listed; discern can then reuse an earlier result while those files are unchanged.",
       { collect: true },
     )
     .option(
       "--needs <value:string>",
-      "Required producer selector; repeat for every dependency.",
+      "A job, scope gate, or standard that must succeed before the scope's gate, such as `jobs.build`. Repeat it for each one.",
       { collect: true },
     )
     .option(
       "--artifacts <value:string>",
-      "Output artifact path to capture; repeat for every artifact.",
+      "A file the scope's gate produces, which discern keeps for later steps to read. Repeat it for each one.",
       { collect: true },
     )
     .option(
       "--environment <value:string>",
-      "Environment variable name to bind to evidence; repeat for every name.",
+      "An environment variable that affects the result; a changed value stops discern reusing an earlier result. Repeat it for each one.",
       { collect: true },
     )
     .option(
       "--toolchain <value:string>",
-      "Toolchain identity file; repeat for every file.",
+      "A file that pins tool versions, such as a lockfile; a change to it stops discern reusing an earlier result. Repeat it for each one.",
       { collect: true },
     )
-    .option("--dry-run", "Print the edit and write nothing.")
+    .option("--dry-run", "Show the edit without writing it.")
     .action(recordedExit(
       "config set-scope",
       async (options, name: string, ...globs: string[]) => {
@@ -1038,71 +1135,86 @@ export function buildCli(
 
   const setStandard = new Command()
     .description(
-      "Set a quality standard — standards are numbers that can never get worse.",
+      "Add or change a standard: a limit on a measured number, such as test coverage, that the gate holds.\n" +
+        "Give exactly one of `--run` or `--producer`.",
     )
     .arguments("<name:string>")
-    .option("--limit <n:string>", "The floor (up) or ceiling (down).", {
-      required: true,
-    })
+    .option(
+      "--limit <n:string>",
+      "The limit: a floor when `--direction` is `up`, a ceiling when it's `down`.",
+      {
+        required: true,
+      },
+    )
     .option(
       "--metric <name:string>",
-      "Metric name the run emits (default: <name>).",
+      "The metric name the measurement prints. Default: the standard's name.",
     )
-    .option("--direction <dir:string>", 'Either "up" or "down".', {
-      required: true,
-    })
+    .option(
+      "--direction <dir:string>",
+      "`up` when higher is better, `down` when lower is better.",
+      {
+        required: true,
+      },
+    )
     .option(
       "--run <cmd:string>",
-      "The command that emits the metric line.",
+      "The command that measures the metric and prints its `DISCERN_METRIC <metric> <number>` line.",
     )
     .option(
       "--producer <selector:string>",
-      "Existing producer to consume; mutually exclusive with --run.",
+      "Measure from an existing job, scope gate, or standard, such as `jobs.test`, instead of `--run`.",
     )
     .option(
       "--extract <cmd:string>",
-      "Read metrics from captured producer output or an artifact on stdin.",
+      "A command that reads the metric from the producer's output, or from `--artifact`, on stdin.",
     )
     .option(
       "--artifact <path:string>",
-      "Declared producer artifact supplied to --extract.",
+      "A file the producer lists in its artifacts, passed to `--extract` on stdin.",
     )
     .option(
       "--per <metric-or-extent:string>",
-      "Denominator metric, or one built-in extent as files=<glob>, lines=<glob>, words=<glob>, or bytes=<glob>.",
+      "Hold a rate: divide by another metric, or by a count discern takes itself: `files=<glob>`, `lines=<glob>`, `words=<glob>`, or `bytes=<glob>`.",
     )
-    .option("--scale <n:string>", "Multiply a rate into human units.")
-    .option("--margin <n:string>", "Headroom left when pinning the limit.")
+    .option(
+      "--scale <n:string>",
+      "Multiply a `--per` rate into readable units: 1000 gives a rate per 1,000. Default: 1.",
+    )
+    .option(
+      "--margin <n:string>",
+      "Headroom `discern standards --pin` keeps when it tightens the limit. Default: 0.",
+    )
     .option(
       "--timeout <seconds:string>",
-      "Measurement-command budget in seconds; 0 removes the bound.",
+      "Time limit for the measuring command, in seconds; 0 means no limit.",
     )
     .option(
       "--inputs <value:string>",
-      "Complete input glob; repeat for every input.",
+      "A file pattern the measurement reads. Repeat it until every input is listed; discern can then reuse an earlier measurement while those files are unchanged.",
       { collect: true },
     )
     .option(
       "--needs <value:string>",
-      "Required producer selector; repeat for every dependency.",
+      "A job, scope gate, or standard that must succeed before the measurement, such as `jobs.build`. Repeat it for each one.",
       { collect: true },
     )
     .option(
       "--artifacts <value:string>",
-      "Output artifact path to capture; repeat for every artifact.",
+      "A file the measuring command produces, which discern keeps for `--extract` to read. Repeat it for each one.",
       { collect: true },
     )
     .option(
       "--environment <value:string>",
-      "Environment variable name to bind to evidence; repeat for every name.",
+      "An environment variable that affects the result; a changed value stops discern reusing an earlier measurement. Repeat it for each one.",
       { collect: true },
     )
     .option(
       "--toolchain <value:string>",
-      "Toolchain identity file; repeat for every file.",
+      "A file that pins tool versions, such as a lockfile; a change to it stops discern reusing an earlier measurement. Repeat it for each one.",
       { collect: true },
     )
-    .option("--dry-run", "Print the edit and write nothing.")
+    .option("--dry-run", "Show the edit without writing it.")
     .action(
       recordedExit(
         "config set-standard",
@@ -1138,13 +1250,26 @@ export function buildCli(
 
   const setScalar = new Command()
     .description(
-      "Set a config key (section.key). The value's TOML type follows the schema; an array-of-strings key wraps a single value.",
+      "Set one key in `discern.toml`, named as `section.key`, including keys in named tables.\n" +
+        "discern takes the value's type from the schema, and turns a single " +
+        "value into a one-item list for a key that takes a list of strings. " +
+        "It refuses sections, unknown keys, and retired names, and writes " +
+        "nothing if the result would be invalid.",
     )
     .arguments("<key:string> <value:string>")
-    .option("--number", "Treat the value as a number (union-typed keys only).")
-    .option("--bool", "Treat the value as a boolean (union-typed keys only).")
-    .option("--string", "Treat the value as a string (union-typed keys only).")
-    .option("--dry-run", "Print the edit and write nothing.")
+    .option(
+      "--number",
+      "Treat the value as a number, for a key that accepts more than one type.",
+    )
+    .option(
+      "--bool",
+      "Treat the value as true or false, for a key that accepts more than one type.",
+    )
+    .option(
+      "--string",
+      "Treat the value as text, for a key that accepts more than one type.",
+    )
+    .option("--dry-run", "Show the edit without writing it.")
     .action(recordedExit(
       "config set",
       async (options, key: string, value: string) => {
@@ -1164,7 +1289,9 @@ export function buildCli(
   // Read-side config surface — what a project script uses to read scalar,
   // array, and membership values out of discern.toml.
   const configGet = new Command()
-    .description("Print a scalar config value.")
+    .description(
+      "Print one value as it's written in `discern.toml`, such as `repository.trunk`. It fails for a key the file doesn't set; use `discern config has` to check first.",
+    )
     .arguments("<key:string>")
     .action(
       recordedExit(
@@ -1174,7 +1301,9 @@ export function buildCli(
       ),
     );
   const configArray = new Command()
-    .description("Print an array config value, one item per line.")
+    .description(
+      "Print a list value from `discern.toml`, one item per line.",
+    )
     .arguments("<key:string>")
     .action(
       recordedExit(
@@ -1185,7 +1314,7 @@ export function buildCli(
     );
   const configHas = new Command()
     .description(
-      "Test whether a key or section exists. Bare: print nothing and exit 0/1. JSON: report `data.present` and exit 0.",
+      "Check whether `discern.toml` sets a key or section. On its own, it prints nothing and exits 0 if it does, 1 if not. With `--json`, it reports the answer in `data.present` and exits 0.",
     )
     .arguments("<key:string>")
     .action(
@@ -1196,7 +1325,9 @@ export function buildCli(
       ),
     );
   const configSubsections = new Command()
-    .description("Print the immediate child table names under a section.")
+    .description(
+      "Print the names of the tables directly under a section, such as each named table under `standards`.",
+    )
     .arguments("<key:string>")
     .action(
       recordedExit(
@@ -1208,7 +1339,9 @@ export function buildCli(
       ),
     );
   const configKeys = new Command()
-    .description("Print the flat key names declared in a section.")
+    .description(
+      "Print the names of the keys a section sets, without its nested tables.",
+    )
     .arguments("<key:string>")
     .action(
       recordedExit(
@@ -1219,7 +1352,7 @@ export function buildCli(
     );
   const configExplain = new Command()
     .description(
-      "Explain a config section, named-table family, or key: what it governs, why it matters, its keys and defaults, the current value, and worked examples. Works outside a project too.",
+      "Explain a section, a family of named tables, or one key of `discern.toml`: what it controls, why it matters, its keys and defaults, your current value, and examples. It works outside a project too.",
     )
     .arguments("<path:string>")
     .action(
@@ -1232,7 +1365,12 @@ export function buildCli(
 
   const config = new Command()
     .description(
-      "Edit jobs, scopes, and standards with set-*; edit generated groups, checkpoints, and resources with set <dotted.key>; read or explain discern.toml.",
+      "Read, explain, and edit `discern.toml`, keeping its comments.\n" +
+        "`set-job`, `set-scope`, and `set-standard` edit those tables; `set " +
+        "<section.key>` edits other keys, such as generated groups, " +
+        "checkpoints, and resources. discern checks each edit against the " +
+        "schema, writes nothing if the result would be invalid, and never " +
+        "commits. Run edits from the project root.",
     )
     .action(recordedExit("config", function (
       this: Command,

@@ -44,7 +44,7 @@ const GEMINI_SETTINGS_SCHEMA = z.object({
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 /** The setup command's help description — present in `--help` only when shown. */
-const HELP_DESC = "Read the setup welcome";
+const HELP_DESC = "Start here to set up discern";
 
 Deno.test("setup begin from a subdirectory in a fresh git repo scaffolds at the repo root", async () => {
   await withTempDir(async (dir) => {

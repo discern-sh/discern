@@ -304,7 +304,7 @@ Deno.test("--theme is a documented value-taking global with an auto default", ()
   assertEquals(option.typeDefinition, "<theme:string>");
   assertStringIncludes(option.description, "Default: `auto`");
   assertStringIncludes(option.description, "`--no-color` and `NO_COLOR`");
-  assertStringIncludes(option.description, "skip sensing");
+  assertStringIncludes(option.description, "skip that check");
 });
 
 Deno.test("background sensing is limited to auto-themed human terminal modes", () => {
