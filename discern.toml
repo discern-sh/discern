@@ -19,8 +19,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [project]
 #
-# What:    The project's name and identity, its coding agents, and a few
-#          project-wide files and settings.
+# What:    The project's name, its coding agents, and a few project-wide
+#          settings.
 # Why:     The name heads every compiled instruction file, and the slug names
 #          each worktree's site, database, and resources, so people and agents
 #          see one identity everywhere.
@@ -631,13 +631,12 @@
 # What:    Limits on measured numbers, such as test coverage or bundle size,
 #          that the gate holds.
 # Why:     Every `discern done` needs a current measurement for each standard.
-#          A branch can tighten a limit or change its `margin` or `timeout`,
-#          but it can't loosen, redefine, or delete a standard the trunk has. A
-#          command that feeds several standards runs once, and discern reuses a
-#          measurement only while its inputs, commands, toolchain, and
-#          environment all match. Hold a raw count for a number that should
-#          stay fixed, a rate through `per` for one that grows with the
-#          project, and give a total that drifts a `margin`.
+#          A branch can tighten a limit but can't loosen, redefine, or delete a
+#          standard the trunk has. discern reuses a measurement only while its
+#          inputs, commands, toolchain, and environment match. Hold a raw count
+#          for a number that should stay fixed, a rate through `per` for one
+#          that grows with the project, and give a total that drifts a
+#          `margin`.
 #
 # The measuring command prints each reading as: DISCERN_METRIC <name> <number>
 # Set run to measure with a command, or producer to reuse a job's output.
