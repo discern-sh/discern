@@ -105,7 +105,7 @@ The version of discern you're running, shown by `discern --version`. `discern re
 
 ### Effort
 
-One task carried through implementation and review: the work a [worktree](#worktree), its branch, and its [submission](#submission) all belong to. Results name an effort by its branch. An effort keeps one worktree across feedback and resumed sessions; the landing queue lists efforts by their submissions, and `discern accept` lands the selected effort's submitted commit on the [trunk](#trunk).
+One task, carried from its first edit through review until it lands. A [worktree](#worktree), its branch, and its [submission](#submission) all belong to one effort. discern's results give each effort's id and branch, and its messages name the branch. An effort keeps the same worktree through review fixes and later sessions. The landing queue lists efforts by their submissions, and `discern accept` lands the selected effort's submission on the [trunk](#trunk). An effort can land more than once. If its branch has newer commits when a landing finishes, the worktree stays, and a later submission lands them.
 
 ### Engine
 
@@ -117,11 +117,11 @@ The rules that decide which files, and which parts of files, discern may change 
 
 ### Fleet
 
-The project's collection of task [worktrees](#worktree). The [desk](#desk) and `discern status` show it from the main checkout; `discern status --all` includes it from a task worktree. A listed worktree still belongs to its effort even when it is idle or clean. See [worktrees](../20-understand/worktrees-and-trunk.md).
+All the task [worktrees](#worktree) in your project. The [desk](#desk) and `discern status` show the fleet from your main checkout, and `discern status --all` shows it from inside a task's worktree. The list also includes the main checkout and any integration worktree discern is using for a landing, each labeled. Each task worktree still belongs to its own effort when it's idle or has no changes. See [worktrees](../20-understand/worktrees-and-trunk.md).
 
 ### Gate
 
-The configured checks a change must satisfy for ordinary completion. `discern done` runs this workflow: preconditions, declared [jobs](#gate-job), applicable [scope](#scope) gates, required [standards](#standard), and required checkpoint declarations. Failures identify the check and the next action. Passing establishes the stated checks for the validated change, not permission to land it. See [the quality gate](../20-understand/proof.md).
+The full set of checks your project requires before a change counts as finished. `discern done` runs it on the task's committed work. It refuses to start while the worktree has uncommitted changes. It also stops if the branch is behind the trunk, or if a stop checkpoint is waiting for an answer. Then it runs discern's own checks, such as whether the agent files still match their source, and every one of your project's [jobs](#gate-job). It also runs the `gate` command of each [scope](#scope) the change touches, and measures every [standard](#standard). When something fails, the result names the check and gives a command that reproduces it. A pass means those checks passed on that commit, and nothing more. It doesn't give the change permission to land. See [the quality gate](../20-understand/proof.md).
 
 ### Gate job
 
@@ -129,11 +129,11 @@ One named step the [gate](#gate) runs, such as your tests or your linter. Your p
 
 ### Generated artifact
 
-A committed file that a declared command rebuilds from the project's sources. Declare its paths and deterministic generator under `[generated.<name>]` in `discern.toml`. The [gate](#gate) checks for drift. `discern update` resolves conflicts confined to declared generated paths by regenerating, and [coupling](#coupling) excludes those paths from its evidence. discern's own [generated files](#generated-file) form a built-in group and need no separate declaration. See [the quality gate](../20-understand/proof.md).
+A committed file that your project rebuilds from its own sources with a command. You declare its `paths` and its `run` command under `[generated.<name>]` in `discern.toml`. The command must produce the same bytes from the same sources. `discern prepare` runs it, so the files are current before the commit. `discern done` runs it too, and fails if that changes any committed file. When `discern update` hits a merge conflict only in declared generated paths, it resolves the conflict by running the command again. [Coupling](#coupling) leaves these paths out of its history. discern handles its own [generated files](#generated-file) the same way, so you don't declare them. See [the quality gate](../20-understand/proof.md).
 
 ### Generated file
 
-An agent instruction file or materialized skill that discern builds from an authored source. Edit the source and regenerate; direct edits to the generated copy can be replaced. The [gate](#gate) checks these outputs against their sources. See [agent files](#agent-file) and [skills](#skill).
+A file discern builds for your coding agents: an agent file or a skill folder. discern builds them from your own sources, such as your instruction source and skills, and from the instructions and skills it ships with. `discern refresh`, `discern upgrade`, and `discern prepare` rebuild them, so a direct edit gets replaced. The [gate](#gate) fails if a generated file no longer matches its source. To change one, edit its source instead. By default, Git tracks agent files and ignores the skill folders. See [agent files](#agent-file) and [skills](#skill).
 
 ### Improvement review
 
@@ -141,11 +141,11 @@ A review of the project as it exists now, using questions the agent judges. `dis
 
 ### Installer
 
-The commands that set up and maintain discern in a project. They include `setup`, `upgrade`, [doctor](https://discern.sh/docs/reference/cli-reference#discern-doctor), and `config`. Some inspect and some change files; each runs and exits. The application does not need discern to run. See [getting started](../00-start/README.md).
+The script that downloads the discern program, checks it, and installs it on your machine. Run it again to update the program. The same word also covers the commands that set discern up in a project and look after it. They include `discern setup`, `discern upgrade`, `discern config`, and [doctor](https://discern.sh/docs/reference/cli-reference#discern-doctor), which checks an installation without changing it. Each one runs and exits, and the software you build never needs discern to run. See [getting started](../00-start/README.md).
 
 ### Instruction source
 
-The project's authored instructions for coding agents. Their paths are named by `[instructions].sources` (default `discern/instructions.md`). discern prepends its built-in instructions when compiling the agent files; your project instructions follow them. Covered in [agent instructions](../10-guides/write-project-instructions.md).
+The file where your project writes its own instructions for coding agents. `[instructions].sources` lists it, and the default is `discern/instructions.md`. The list can name several files or glob patterns, and discern skips any file that's missing. When discern builds the [agent files](#agent-file), it puts its built-in instructions first and yours after them, and yours win where the two conflict. See [agent instructions](../10-guides/write-project-instructions.md).
 
 ### Integration worktree
 
@@ -153,15 +153,15 @@ A temporary copy of the project where discern checks a change combined with newe
 
 ### Landing authority
 
-Permission for a particular change to join the [trunk](#trunk). It can come from the current conversation, a standing scope grant on the trunk, or an effort grant recorded from the [desk](#desk), which covers the effort's branch so any later green `done` on it is covered once its agent submits it. Acceptance checks the permission against the changed paths of the submitted commit. A passing [Proof](#proof) is evidence, not permission. See [landing authority](../20-understand/proof.md).
+Permission for a change to land on the [trunk](#trunk), your project's shared branch. You can give it in the current conversation, and your agent records your yes with `discern accept --confirmed`. A standing grant gives it in advance: the trunk's `[acceptance].pre_authorized` names scopes, such as documentation, whose changes may land without asking. A standing grant covers a change only when every file the change touches falls inside a granted scope. A grant for one task, which you record from the [desk](#desk), covers every file in that task. It still covers the task after review fixes, once its agent submits the new version, and landing uses it up. Until then you can revoke it from the desk, and it disappears with the worktree. No grant covers a [variance](#variance), a change to a [standard](#standard)'s limit, or an emergency landing. A passing [Proof](#proof) shows which checks passed, and never gives permission to land. See [landing authority](../20-understand/proof.md).
 
 ### Logbook
 
-The local record of the project's use of discern. With recording enabled and a readable `discern.toml`, each CLI verb run and project-resolved Model Context Protocol (MCP) invocation adds metadata such as timing and outcome. It does not record code or command output. Worktrees share the record under `.git`; discern has no network path that sends it elsewhere. `[project].record_logbook = false` stops recording. See [the logbook](logbook.md).
+discern's local record of what each command did and how long it took. Recording is on by default. While it's on, and discern can read `discern.toml`, each discern command adds an entry. So does each tool call through the Model Context Protocol (MCP). An entry holds details such as timing and outcome, and names such as the branch and file paths. It never holds your code or command output. All worktrees share one logbook inside `.git`, and discern has no way to send it anywhere else. Set `[project].record_logbook = false` to stop recording. See [the logbook](logbook.md).
 
 ### Map
 
-The project's account of how its software works and why. Agents maintain this documentation at `[map].dir` (default `discern/map`). You can read it to understand the project and correct what agents have recorded. The gate checks configured documentation requirements; authors remain responsible for its meaning. `publish: false` in a page's frontmatter withholds it from every published surface ([ADR 0140](https://discern.sh/docs/decisions/0140-validated-frontmatter-and-the-publish-predicate)). Pointing `[map].dir` at existing docs is explicit consent to manage them ([ADR 0100](https://discern.sh/docs/decisions/0100-project-map-is-the-agents-map), [ADR 0195](https://discern.sh/docs/decisions/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths)).
+Your project's own guide to how its software works and why, which your agents write and keep current. It lives in `[map].dir`, which defaults to `discern/map`, and `discern map` browses, reads, and searches it. Read it to understand the project, and correct anything the agents got wrong. The gate checks the map's mechanics, such as its links, headings, and command examples. What the pages say is up to the people and agents who write them. A page with `publish: false` in its frontmatter stays out of every published copy ([ADR 0140](https://discern.sh/docs/decisions/0140-validated-frontmatter-and-the-publish-predicate)). `discern map` and your agents can still read it. Pointing `[map].dir` at docs you already have gives discern permission to manage them ([ADR 0100](https://discern.sh/docs/decisions/0100-project-map-is-the-agents-map), [ADR 0195](https://discern.sh/docs/decisions/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths)).
 
 ### Migration
 
