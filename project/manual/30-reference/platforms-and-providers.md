@@ -162,7 +162,7 @@ Each task works in its own worktree, and discern derives values from its identit
 
 - `discern identity` reads the worktree's identity, such as its development port and resource names. [Worktrees and status](worktrees-and-status.md#read-the-derived-identity) lists every selector and its exact value.
 - Your project chooses which environment values each worktree inherits, and which files receive them. [Worktrees and status](worktrees-and-status.md#inherit-selected-env-values) gives the file precedence and resource behavior, and [Environment variables](environment-variables.md) lists the values discern exports.
-- Resource and setup commands can use tokens such as `@port@` and `@dir@`. The [worktree reference](worktrees-and-status.md#use-tokens-during-setup) lists every token and how discern replaces it.
+- A resource's commands can use tokens such as `@port@` and `@dir@`. The [worktree reference](worktrees-and-status.md#use-tokens-during-setup) lists every token, and how setup steps read the same values.
 
 ## Provider matrix
 
