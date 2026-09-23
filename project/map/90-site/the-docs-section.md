@@ -32,7 +32,9 @@ Manual prose addresses the human directing the project. The shared `manual-publi
 
 The manual root contains the central front-door authority. `DocsSite.frontDoors` adapts those marked links to the browser landing; the site never copies the promotion set. The compact root rail shows section landings. The browser projection keeps the authored introduction and durable reader orientation, removes the authored maintenance lists and section table, then renders the promoted journeys and complete published tree directly from the model. Raw Markdown remains unchanged. Leaf pages use the complete rooted manual navigation.
 
-The manual claims no pre-public address as historical. After publication, a moved destination can own an explicit redirect; validation resolves each historical address directly to its live successor and rejects chains and generic root fallbacks.
+A moved page keeps its old address working. It lists the old page route in `redirect_from`, and the site derives the matching `.md` redirect; declaring the `.md` route as well is rejected as a conflict. Validation resolves each old address directly to its live successor and rejects chains and generic root fallbacks.
+
+To move a page, keep its `id`, which registries and agents use to address it. Rename the file and add the old route to `redirect_from`. Then update every link to the old path, in the manual, in [`site/navigation.ts`](../../../site/navigation.ts), and in the map, and run `deno task codegen` to refresh generated links such as the glossary's. If the generated glossary still links to the old path, correct that link by hand first: the manual's link validation runs before codegen can regenerate it. `project/manual/20-understand/how-discern-works.md` is an example.
 
 ## Reader-visible search
 

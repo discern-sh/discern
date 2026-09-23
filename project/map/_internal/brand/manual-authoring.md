@@ -178,7 +178,7 @@ Link to published manual pages. Don't send a manual reader to a map page because
 
 - Keep `id`, `kind`, `order`, `publish`, and `aliases` stable. When you retitle a page, add the old title as an alias.
 - Write `description` as one plain sentence about what the reader gets. Search results and link previews show it.
-- Keep a page's file name, and so its web address, unless the owner approves a change. When the address changes, list the old page route in `redirect_from`. The site adds the raw `.md` redirect itself.
+- Keep a page's file name, and so its web address, unless the owner approves a change. When the address changes, list the old page route in `redirect_from` and update every link to it. [The docs section](../../90-site/the-docs-section.md) explains the steps.
 
 ## Before and after
 
