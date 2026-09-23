@@ -475,9 +475,7 @@ const standardValue = z.strictObject({
     0,
     "margin is headroom and cannot be negative — a negative margin would tighten a pinned limit PAST the measured value, so that measurement would fail it.",
   ).default(0).describe(
-    "Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. " +
-      "Give a margin to a number that moves with unrelated changes, such as a size or a coverage percentage, " +
-      "so ordinary movement doesn't fail a pinned limit.",
+    "Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. Give a margin to a number that moves with unrelated changes, such as a size or a coverage percentage, so ordinary movement doesn't fail a pinned limit. A branch can change it, or the standard's `timeout`, without the owner's approval, since neither changes what the standard measures.",
   ),
   timeout: jobTimeout,
 }).superRefine((value, ctx) => {

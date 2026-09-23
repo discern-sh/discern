@@ -1007,7 +1007,7 @@
           },
           "margin": {
             "default": 0,
-            "description": "Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. Give a margin to a number that moves with unrelated changes, such as a size or a coverage percentage, so ordinary movement doesn't fail a pinned limit.",
+            "description": "Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. Give a margin to a number that moves with unrelated changes, such as a size or a coverage percentage, so ordinary movement doesn't fail a pinned limit. A branch can change it, or the standard's `timeout`, without the owner's approval, since neither changes what the standard measures.",
             "type": "number",
             "minimum": 0
           },
