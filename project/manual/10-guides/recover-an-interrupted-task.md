@@ -84,7 +84,7 @@ Before discern moves `main`, it writes down what it's about to do. Then it moves
 
 ### Read what survived
 
-The result names the checkout that still exists, even if the original worktree is gone, and the agent carries on there. Ask for a summary in terms you recognize, such as:
+The result's `data.root` field names the surviving checkout, even if the original worktree is gone, and the agent carries on there. Ask for a summary in terms you recognize, such as:
 
 > The search change landed. Its Proof note still needs recording, and the worktree stayed because a preview server was writing in it.
 
@@ -92,7 +92,7 @@ That tells you what's already on `main` and what still needs care. The [completi
 
 ### Preview and follow the recovery
 
-Every discern command that changes your project can show its plan first with `--dry-run`, without changing anything. From the checkout that survived, the agent previews the landing:
+Every discern command that changes your project can show its plan first with `--dry-run`, without changing anything. From the surviving checkout, the agent previews the landing:
 
 ```sh
 discern accept --dry-run
