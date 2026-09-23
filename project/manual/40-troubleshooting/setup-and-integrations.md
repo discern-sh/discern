@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-setup-and-integrations
 title: "Setup and integrations"
-description: "Resume an interrupted setup, fix installation problems, or activate discern in your coding agent."
+description: "Finish installing discern, carry on with a setup that stopped partway, and get your coding agent connected."
 order: 20
 publish: true
 kind: troubleshooting
@@ -25,105 +25,161 @@ aliases:
 
 # Setup and integrations
 
-If installation or setup stopped, keep the files it created. Ask your agent:
+If installing or setting up discern stops partway, you don't start again. Setup keeps what it has finished, and each result says what's left. This page helps you find where it stopped, carry on, and get your coding agent talking to discern.
 
-> Find where setup stopped and follow the next action in its result. Tell me what already completed, what still needs doing, and whether you need a decision from me.
+The examples follow a recipe app that's being set up for the first time. Ask your agent:
 
-For a first installation, start with the symptom below. For setup already underway, run `discern setup` to read its saved phase. You usually have part of a working setup to continue.
+> Find where setup stopped and follow the next step its result names. Tell me what's finished, what's left, and whether you need a decision from me.
 
 ## `discern: command not found`
 
-Open a new shell and run `which discern`. If it prints nothing, add the install directory the installer reported to that shell's `PATH`, then try again.
+Your shell can't find the discern program. When the installer finishes, it prints where it put discern, such as `installed discern to /Users/you/.local/bin/discern`. If that folder isn't on your `PATH`, the installer says so:
 
-If discern works in your terminal but your agent cannot find it, ask the agent to check its own `PATH`. Agents may use a non-interactive shell with different startup files. Make the install directory available there, or give the agent the binary's absolute path.
+```text
+! /Users/you/.local/bin is not on PATH. Add this line to your shell profile, then open a new shell:
+```
 
-You are ready to continue when `discern --version` works in the shell that will run the task.
+Add the line it prints, open a new terminal, and check:
+
+```sh
+command -v discern
+discern --version
+```
+
+If `command -v` shows a different path, an older copy comes first. The installer warns about that too: `PATH resolves discern to <old copy> before <new copy>`. Put the new folder first in your shell profile, or remove the old copy.
+
+If discern works in your terminal but your agent can't find it, the agent's shell may not read your shell profile. Ask the agent to check its own `PATH`. Then add the folder there, or give the agent the full path to discern.
+
+You're ready when `discern --version` works in the shell your agent uses.
+
+## The installer stops
+
+The installer checks your system and the download before it installs anything. If it stops, it says why:
+
+| What the installer prints                       | What to do                                                                                                                                                                             |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unsupported OS` or `unsupported architecture`  | discern runs on macOS and Linux, on Intel, AMD, and ARM processors. On Windows, use WSL 2.                                                                                             |
+| `no writable install dir`                       | Set `DISCERN_BIN_DIR` to a folder on your `PATH` that you can write to, then run the installer again.                                                                                  |
+| `download failed` or `checksum download failed` | Check your connection and try again. If the main address is down, use the fallback installer in [Install and set up discern](../00-start/installation-and-setup.md#1-install-discern). |
+| `checksum verification failed`                  | Don't use the download. Try again later, and report it if it keeps failing.                                                                                                            |
+
+Each of these stops before your existing copy of discern changes. The message says so: `was not changed`.
 
 ## Setup won't start
 
-Use the reported condition to choose the next step:
+Setup starts with `discern setup verify`, which checks the project and changes nothing. Your agent then asks for your go-ahead before it writes anything. If a check fails, the result names the problem:
 
-| What you see                    | What to do                                                                                                                                    |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| No project found                | Move into the existing project. For a new installation here, read `discern setup`, then begin with `discern setup begin`.                     |
-| Unsupported platform            | Use a supported macOS or Linux environment. On Windows, use WSL 2. See the [support matrix](../30-reference/platforms-and-providers.md).      |
-| `schema_version_too_new`        | [Upgrade the binary](../10-guides/maintain-or-remove-discern.md), then retry. This project's configuration was written by a newer discern.    |
-| `write_denied` or a denied path | Check the exact path named in the result. Give the invocation access to that path through your environment's permission controls, then retry. |
+| What you see                                            | What it means                                                                                      | What to do                                                                                 |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `no_project`: `discern could not find a project`        | You ran a command outside a project that uses discern.                                             | Move into your project folder. If it doesn't use discern yet, ask your agent to set it up. |
+| `setup_unfinished`: `this project isn't set up yet`     | Setup has started but not finished. Some commands, such as `discern accept`, refuse until it does. | Ask your agent to resume setup.                                                            |
+| `no_repository`                                         | Setup needs a Git repository for its branch and commits.                                           | Your agent asks you before it runs `git init`. Then it runs `discern setup verify` again.  |
+| `missing_git_identity`: `No git identity is configured` | Git needs a name and email to make setup's commits.                                                | Set them with `git config user.name` and `git config user.email`, then check again.        |
+| `write_denied`: `discern cannot write … at <path>`      | Something stopped discern writing a file setup needs. Nothing was written.                         | Give discern write access to that path, then retry.                                        |
 
-A denied write leaves the setup phase available to resume. discern checks the paths its plan needs; it cannot change your system's permissions or promise that access will remain available later.
+## Your discern is older than the project
+
+A teammate may have set up or upgraded the project with a newer discern than yours. Your copy then stops before it changes anything:
+
+| What you see                                                                          | What it means                                                                                                              | What to do                                                                          |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `schema_version_too_new`: `this project needs a newer discern — re-run the installer` | The project's configuration schema is newer than this binary.                                                              | Run the installer again to get the new version, then retry.                         |
+| `This project was last upgraded with discern <version>; this binary is <older>`       | A newer discern last updated discern's files. Yours won't overwrite them, but it can still read the project and run tests. | Run `discern releases`, install the update, and restart your coding-agent sessions. |
+
+[Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#upgrade-the-project) covers upgrading.
+
+## `discern.toml` can't be read
+
+discern reads its settings from `discern.toml`. If it can't, the command stops with exit code `1` and one of these codes:
+
+- **`invalid_toml`:** the file isn't valid TOML, such as a missing quote. When it can, the message names the line: `syntax error near line`.
+- **`invalid_config`:** the file reads, but a setting is wrong or unknown. The result lists each problem and where it is.
+
+Ask your agent to fix each problem the result names, then run `discern doctor` to check the file before retrying. The [configuration reference](../30-reference/config-reference.md) lists every setting.
+
+If the result names a section your discern doesn't recognize, check for a typo first. If `discern.toml` or discern itself changed since your agent's session started, restart the session. The running copy may be out of date.
 
 ## Setup was interrupted
 
-Run `discern setup` or `discern status`. Read the saved phase, branch, and next action before issuing another setup command. Completed scaffold writes remain recorded, so resuming `setup begin` can reprint the brief and continue the work.
+Setup keeps its progress, so a new session carries on from where the last one stopped. Ask your agent to resume setup. It runs `discern setup`, which works out where setup is: not started, in progress, or done. It also names the next command. Resuming with `discern setup begin` shows the setup instructions again and skips the steps already finished.
 
-**The completion result was lost.** First read status or the stored result. If `setup done` already completed and the proved commit remains unchanged and clean, repeating `discern setup done` has a specific replay path: it returns the saved Proof and completion facts with no gate run or repeated effects. A changed or unproven setup needs the recovery reported for its current state.
+**The result of `discern setup done` got lost.** Your agent runs it again. If the setup commit hasn't changed since it passed, discern returns the saved Proof without running the checks again:
 
-**A worktree setup step is marked `running`.** This is a different interruption: a project command may have changed something outside Git before its result was recorded. Have your agent inspect the named effect, such as whether a local database was created. When a person has confirmed that it completed, record that observation:
+```text
+This exact clean commit already has current Proof; no write, worktree probe, or gate job ran.
+```
+
+If anything changed, the checks run again. If there are uncommitted changes, discern stops and asks for a commit first.
+
+## A worktree setup step may have finished
+
+When discern creates a worktree, it runs your project's setup steps, such as loading sample recipes into a test database. If a step stopped partway, discern can't always tell whether it finished. The result names the step, says it's `recorded as running`, and says discern `cannot prove whether its arbitrary shell command completed`.
+
+Running the step again could repeat its effect, such as loading the same recipes twice. So discern waits for a person to decide. Your agent checks the effect, such as whether the test database has the recipes, and tells you what it found. Then it runs one of these, with the step id from the result:
 
 ```sh
 discern worktree setup --mark-step-complete <id> --confirmed
-```
-
-When a person has confirmed that another run is appropriate, use:
-
-```sh
 discern worktree setup --retry-step <id> --confirmed
 ```
 
-Use the step id in the result. The first action records completion; the second authorizes a retry. Neither should be chosen from the journal alone: `running` does not tell you whether the external effect happened. If you cannot establish that, preserve the state and involve whoever owns the resource.
+The first records that the step finished. The second runs it again. `--confirmed` records a person's decision, so the agent adds it only after you've answered. If nobody can tell whether the step finished, leave it, and ask whoever looks after that database or service.
 
 ## Setup can't prove or land
 
-Read the first diagnostic from `discern setup done`. Ask your agent to fix that specific problem, verify the correction, and retry setup completion. Common blockers include unfinished instructions, uncommitted files, a failed project check, or worktree setup that cannot recreate what the project needs.
+`discern setup done` checks the setup and runs the full **gate**, the checks your project requires. It also tries the project in a fresh **worktree**, a separate copy of the project like the ones future tasks use. If it fails, the first problem in the result is the place to start. It might be unfinished instructions, uncommitted files, or a failed check. Your agent fixes it and runs `discern setup done` again.
 
-If the check works in the original checkout but fails in the worktree used to prove setup, inspect what the copy is missing. Shared dependencies belong in `[repository].ensure`, repeatable worktree preparation in `[worktree.setup]`, and external resources in `[worktree.resources]`. The result names the failing command; use it to locate the missing prerequisite.
+If a check passes in your main checkout but fails in the fresh copy, the copy is missing something. The result names the failing command. Your agent adds what's missing to the right setting:
 
-Success is a proven setup with its returned Proof. On a setup branch, the next step is the owner's landing decision through `discern setup accept`. A repeated acceptance recognizes an already completed landing. An installation with no Git repository cannot become proven until Git is initialized and the setup files are committed.
+| What the copy needs                                            | Where it goes          |
+| -------------------------------------------------------------- | ---------------------- |
+| Something every checkout needs, such as installed dependencies | `[repository].ensure`  |
+| Preparation for each new worktree                              | `[worktree.setup]`     |
+| A separate service for each worktree, such as a test database  | `[worktree.resources]` |
 
-The [gate and Proof page](gate-and-proof.md) explains failed checks and changed files in more detail.
+When setup passes, discern records **Proof**, its record of which checks passed on exactly which commit. Your agent brings setup back for your review. Landing it is your decision: when you say so, the agent runs `discern setup accept`. If setup was reported **unproven**, acceptance refuses until `discern setup done` passes. Running `discern setup accept` again after setup has landed changes nothing, and says so.
 
 ## `discern doctor` reports a failed check
 
-Apply the correction printed for the failed check, then run `discern doctor` again. A passing recheck confirms that particular installation problem is resolved. Warnings are advice; failed checks identify conditions that can prevent work, such as a missing job command or an unusable Git identity.
+`discern doctor` checks your installation and changes nothing. It gives each problem a fix. A failed check can stop work, such as a check command that isn't installed, or a Git setup that can't record who made a commit. A warning is advice. Doctor ends with `N check(s) failed — see the fixes above.` or `All checks passed`.
 
-For a generated-file merge finding, use the remedy for the named configuration or attribute:
+Apply the fix doctor prints for the failed check, then run doctor again. It's fixed when that check passes.
 
-- A missing or stale discern-managed entry may need `discern refresh`.
-- An overriding Git attribute needs correction at the file and rule the finding names.
-- A merge-driver configuration error needs the printed Git configuration fix. The driver belongs in the clone's common local configuration, shared by its linked worktrees.
+Some findings are about how Git merges the files discern generates. Use the exact fix the finding prints, because it names the setting, or the file and rule, to change. For an attribute fix, the finding also gives a `git check-attr` command to confirm it. When discern's own entry in `.gitattributes` is missing or out of date, doctor warns, and `discern refresh` puts it back.
 
-Verify an attribute correction with the finding's `git check-attr` command, then rerun doctor. Avoid applying a generic Git configuration recipe to every finding: the owning setting determines the repair.
-
-If the fix belongs to another system, such as filesystem ownership, resolve it there. Keep `discern doctor --json` output when you need to explain the unresolved finding to someone else.
+If a fix belongs to another system, such as file permissions, make it there. To share a finding you can't resolve, keep the output of `discern doctor --json`.
 
 ## An agent's integration files are missing or stale
 
-Run:
+discern writes files for each coding agent you use, such as its instructions, its skills, and its connection settings. If they're missing or out of date, ask your agent to run:
 
 ```sh
 discern refresh
 ```
 
-Ask your agent to review the result and commit any intended tracked changes. Refresh rebuilds selected agents' instructions, skills, and integration files from their configured sources.
+It then reviews the changes and commits them. When nothing needed changing, refresh says `refresh: every managed artifact is current.`
 
-If refresh reports a malformed provider settings file, repair the named file first and retry. If setup or upgrade reports `partial_refresh`, its earlier effects remain in place; the reported recovery is `discern refresh`. Completion means the refresh result reports `complete`, which can include no rewritten files when everything was already current.
+If a settings file isn't valid JSON, refresh leaves that file alone and reports `malformed JSON`. Fix the file, then run refresh again. If setup reports `partial_refresh`, the steps before it still stand, so run `discern refresh`. If an upgrade reports it, fix the file it names, then run `discern upgrade` again.
 
-To keep a wording change, edit the authored instruction or skill source, then refresh. The [files and ownership reference](../30-reference/files-and-ownership.md) distinguishes those sources from generated copies.
+To change what these files say, edit the source they're built from, then refresh. Edits to the generated copies get overwritten. [Files and ownership](../30-reference/files-and-ownership.md) shows which files are sources.
 
 ## The tools don't appear in the agent's session
 
-Start a fresh agent session after setup acceptance or an upgrade. Have the agent inspect its available tools and invoke the exact callable named in the handoff, for example `mcp__discern__discern_status` on a host that uses that namespace.
+Coding agents load their tools when a session starts. After setup lands, or after an upgrade, start a fresh session. Then ask the agent to call discern's status tool. Its name depends on the agent: `mcp__discern__discern_status` in Claude Code and Codex, and `discern_status` in Gemini, Cursor, and GitHub Copilot.
 
-If it is still unavailable:
+If the tool still isn't there:
 
-1. Run `discern doctor` to check that the selected provider's integration files and MCP registration exist and parse.
-2. Check the provider's interface for a required server trust or approval step.
-3. Continue through `discern status --markdown` or `--json` while resolving activation. The CLI provides the corresponding discern commands.
+1. Your agent runs `discern doctor`. It checks the agent's instruction file and settings, and names any trust step your coding tool needs.
+2. If your coding tool asks you to trust discern's server, approve it there. discern can't do that step for you.
+3. Meanwhile, the agent keeps working through the command line with `discern status --json`.
 
-Activation is confirmed when the new session can call the registered status tool. Files on disk alone cannot confirm that the provider loaded them. For tools that stopped working during a session, see [MCP, terminal, and docs](mcp-terminal-and-docs.md#the-discern-tools-are-missing-from-the-session).
+It's working when a new session calls the status tool and gets an answer. Files on disk don't prove that. Only a working session does. If the tools worked earlier and then stopped, see [MCP, terminal, and docs](mcp-terminal-and-docs.md#the-discern-tools-are-missing-from-the-session).
 
 ## When to stop
 
-Your agent can continue routine diagnosis and repair within the task you authorized. A new decision is needed when the result asks for setup or landing consent, or when an ambiguous external effect needs a person's confirmation. Provider trust approval happens in the provider's interface.
+Your agent can keep diagnosing and fixing within the setup you asked for. It stops and asks you when:
 
-If the documented correction fails, keep the result and the state it describes. [Crashes and local state](crashes-and-local-state.md) explains what to capture for a report.
+- a result asks for your go-ahead to set up or to land;
+- a setup step may or may not have run, and only a person can check;
+- your coding tool asks you to trust discern's server.
+
+If the fix a result names doesn't work, keep the result and the state it describes. [Crashes and local state](crashes-and-local-state.md) explains what to send in a report.
