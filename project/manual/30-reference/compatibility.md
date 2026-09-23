@@ -1,7 +1,7 @@
 ---
 id: reference-compatibility
 title: "Compatibility"
-description: "How discern versions its published contracts and what can change between releases."
+description: "What stays the same when you upgrade discern, what can change, and how a schema you pinned keeps working."
 order: 140
 publish: true
 kind: reference
@@ -17,14 +17,74 @@ aliases:
 
 # Compatibility
 
-Use this page to decide what to rely on across discern releases.
+An upgrade never leaves your repository unreadable. This page says what stays the same across discern 1.x releases, what can change, and how to tell the two apart in discern's published schemas.
 
-discern versions its published contracts by schema, not by package release. Each published schema carries its own major — the `v1` in its `$id` — and records its compatibility policy inside the artifact; the [schema table](mcp-and-results.md#published-schemas-and-types) links every one. Within a major, surfaces only gain members. A breaking change moves a schema to `/v2/` while `/v1/` stays served, so a pinned copy keeps working; refresh it before validating documents that use newer additions.
+It matters most when you build on discern's formats: a script that reads `discern status --json`, a tool that checks Proof notes, or a check that validates `discern.toml`.
 
-What lives in your repository — configuration, Proof notes, and the script protocols — stays valid across every 1.x release, and an upgrade handles any renames for you. The surfaces an agent reads each session — commands, flags, tool inputs, and result fields — may retire a stable member in a minor release, named in the release notes, with the refusal naming its replacement: a deliberate departure from strict semantic versioning.
+## Each schema has its own version
 
-A few newer commands and settings are marked evolving in their published schemas: complete and supported, but their flags, inputs, and result shapes may still change in a minor release. Everything unmarked is stable. The marker is `stability: "evolving"` on a command, tool, or result contract and `x-discern-stability` on a configuration section.
+discern publishes its contracts as schemas and manifests, listed in the [schema table](mcp-and-results.md#published-schemas-and-types). Each one has its own major version, the `v1` in its `$id`, separate from discern's release number. Each one also records its compatibility policy inside the file.
 
-Result values come in two kinds, and the schema marks each with `x-discern-vocabulary`. An open vocabulary publishes as a string with its known members at the schema root, and grows in ordinary releases: don't reject a value you don't recognize. A closed vocabulary publishes as an enum and changes only with that artifact's own major. The [result reference](mcp-and-results.md#result-vocabularies) lists both.
+- Within a major version, a schema only gains members. [Evolving members](#evolving-members-can-change-in-any-release) are the exception.
+- A breaking change publishes the schema under `/v2/`, and discern keeps serving `/v1/`. A copy you pinned keeps working.
+- A pinned copy validates the stable members it knows. Fetch the current copy before you validate documents that use newer additions.
 
-Within a major, an input enum only gains values, a new positional argument is optional and trailing, and the MCP tools manifest lists every resource and template by name, kind, and URI. Descriptive text, listing order, and rendered Markdown or terminal output are not contract surfaces.
+## Configuration, records, and protocols stay valid
+
+These contracts stay valid across every 1.x release:
+
+- `discern.toml`, and the setup config document that `discern setup begin --config` reads;
+- Proof notes on landed commits;
+- the conventions your scripts rely on, such as the `DISCERN_METRIC` line a standard's command prints and the checkpoint `when` protocol;
+- the release comparison: the release history discern publishes for other tools to read.
+
+When discern renames a setting, `discern upgrade` migrates it for you. discern refuses the old spelling and names the new one.
+
+## Commands, tools, and results can retire a member in a minor release
+
+Your agent reads commands, flags, Model Context Protocol (MCP) tool inputs, and result fields fresh in each session. discern can retire a stable one in a minor release, never in a patch release, and the release notes name it. A retired command or flag refuses and names its replacement.
+
+This departs from strict semantic versioning. A script that still uses a retired spelling stops working, and the refusal tells you what to use instead.
+
+## Evolving members can change in any release
+
+discern marks a few newer commands, tools, results, and settings as **evolving**. They're complete and supported, but their flags, inputs, and result shapes can change in any release. Everything unmarked is stable.
+
+The published schemas carry the marker:
+
+| Where                                                | Marker                                                                                                    |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| A command in the CLI grammar manifest                | `stability: "evolving"`                                                                                   |
+| A tool in the MCP tools manifest                     | `stability: "evolving"`                                                                                   |
+| A result contract in the result schema               | `stability: "evolving"` on its `x-discern-contracts` record, and `x-discern-stability` on its definitions |
+| A section in the `discern.toml` configuration schema | `x-discern-stability`                                                                                     |
+
+## Result values come from open or closed vocabularies
+
+Where a result value comes from a fixed set, the schema marks that set with `x-discern-vocabulary`.
+
+- An **open vocabulary** gains members in ordinary releases. The schema publishes it as a string and lists its known members at the schema root, under the same key. Treat a value you don't recognize as opaque, and keep going.
+- A **closed vocabulary** changes only with a new major version of its schema. The schema publishes it as an enum.
+
+[MCP and results](mcp-and-results.md#result-vocabularies) lists which result vocabularies are closed.
+
+## Inputs only gain values
+
+Within a major version:
+
+- an input enum, such as a flag's accepted values or an MCP tool input, only gains values;
+- a new positional argument is optional, so it always comes last;
+- the MCP tools manifest lists every resource and resource template by name, kind, and URI. New ones can appear, and existing ones keep their name, kind, and URI.
+
+## What isn't part of the contract
+
+Don't build on these. They can change in any release:
+
+- descriptive text, such as CLI help, MCP tool titles and descriptions, and schema descriptions;
+- the order in which commands, tools, and resources are listed;
+- rendered Markdown and terminal output, and hint text;
+- the text of bundled instructions and skills, though their names are fixed;
+- this manual;
+- private file formats and locations on disk.
+
+To upgrade a project, follow [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#upgrade-the-project).
