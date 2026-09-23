@@ -53,7 +53,7 @@ Browsers receive Hypertext Markup Language (HTML). `/` negotiates the shared pla
 
 Rendered pages may remove frontmatter, source-only comments, and presentation-only markers. Their raw editions remain the authored bytes. Search is built from the same reader-visible Markdown projection as rendering, so source-only comments cannot become search vocabulary or snippets while literal examples inside inline or fenced code remain searchable.
 
-Generated manual references reuse the canonical definitions. Their follow-up links prefer human explanations in the offline manual; contributor-only reading links to the corresponding repository file. [`scripts/manual_codegen.ts`](../../../scripts/manual_codegen.ts) owns these editorial destinations separately from public URL redirects, so a reading choice does not claim historical ownership of a route.
+Generated manual references reuse the canonical definitions. Their follow-up links prefer human explanations in the offline manual; contributor-only reading links to the corresponding repository file. [`scripts/manual_codegen.ts`](../../../scripts/manual_codegen.ts) owns these editorial destinations separately from public URL redirects, so a reading choice does not claim historical ownership of a route. Each destination agrees with the manual's own search: it is the page that claims one of the map page's names, or it at least mentions the map page's title ([`manual_policy_test.ts`](../../../tests/manual_policy_test.ts)).
 
 ## Response contract
 

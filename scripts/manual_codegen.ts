@@ -23,8 +23,10 @@ function mapRoute(rel: string): string | undefined {
 
 /** Human reading destinations for concepts shared with the contributor Map.
  * These are editorial choices, keyed by stable manual identity; definitions
- * stay shared while the manual's links keep readers in its offline corpus. */
-const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
+ * stay shared while the manual's links keep readers in its offline corpus.
+ * Each destination is the manual's search home for one of the Map page's
+ * names, or at least mentions its title (tests/manual_policy_test.ts). */
+export const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
   "00-orientation/concepts.md": "explanation-practice-and-roles",
   "00-orientation/the-practice.md": "explanation-practice-and-roles",
   "10-getting-started/README.md": "start-index",
@@ -34,7 +36,7 @@ const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
   "20-quality-gate/proof-notes.md": "reference-proof-and-checkpoint-formats",
   "20-quality-gate/checkpoints.md": "explanation-checkpoints",
   "20-quality-gate/standards.md": "explanation-standards",
-  "20-quality-gate/coupling.md": "explanation-evidence-and-improvement",
+  "20-quality-gate/coupling.md": "guide-improve-the-practice",
   "20-quality-gate/patterns.md": "explanation-evidence-and-improvement",
   "20-quality-gate/improvement.md": "guide-improve-the-practice",
   "20-quality-gate/tidy.md": "guide-maintain-or-remove-discern",
@@ -42,7 +44,7 @@ const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
   "30-worktrees/landing-authority.md": "explanation-proof",
   "30-worktrees/the-desk.md": "guide-coordinate-parallel-tasks",
   "30-worktrees/desk-tips.md": "guide-coordinate-parallel-tasks",
-  "30-worktrees/the-resources.md": "reference-worktrees-and-status",
+  "30-worktrees/the-resources.md": "guide-coordinate-parallel-tasks",
   "40-agent-instructions/README.md": "guide-write-project-instructions",
   "45-skills/README.md": "guide-create-and-manage-skills",
   "70-reference/artifact-ownership.md": "reference-files-and-ownership",

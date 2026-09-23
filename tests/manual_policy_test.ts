@@ -25,7 +25,9 @@ import {
 } from "../scripts/manual_prose_lib.ts";
 import { addsOrReplacesFrontDoor } from "../scripts/manual_front_door_checkpoint.ts";
 import { countManualFrontDoors } from "../scripts/manual_front_doors.ts";
+import { MANUAL_CONCEPT_LINK_TARGETS } from "../scripts/manual_codegen.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
+import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { fencedCommandFindings } from "../src/lib/map_integrity.ts";
 import { SEARCH_KIND_WEIGHT } from "../src/lib/docs_search.js";
 import {
@@ -33,6 +35,7 @@ import {
   manualFrontDoorDestinations,
   manualFrontDoorEntries,
   type ManualProjection,
+  normalizeManualSearchName,
   resolveManualLink,
   staleManualAliasOwnerOverrides,
 } from "../src/lib/manual.ts";
@@ -138,6 +141,84 @@ Deno.test("manual kind policy is closed and every member owns one checkpoint", a
       "name claimed by no page": "reference-cli",
     }),
     ["name claimed by no page"],
+  );
+});
+
+/**
+ * Link-table destinations that disagree with the manual's own search: the
+ * destination must be the page the manual's search sends one of the Map
+ * page's names to, or at least mention the Map page's title.
+ */
+async function conceptLinkIssues(
+  targets: Readonly<Record<string, string>>,
+  manual: ManualProjection,
+): Promise<string[]> {
+  const map = await discoverDocs({
+    cwd: REPO_ROOT,
+    dir: REPO_AUTHORED_PATHS.map,
+    includeInternal: true,
+  });
+  assert(map !== undefined);
+  const mapPages = new Map(
+    map.entries.map((entry) => [entry.relToDocs, entry]),
+  );
+  const homes = new Map<string, string>();
+  for (const page of manual.pages) {
+    for (const name of [page.entry.title, ...page.entry.aliases]) {
+      homes.set(normalizeManualSearchName(name), page.id);
+    }
+  }
+  const issues: string[] = [];
+  for (const [mapRel, targetId] of Object.entries(targets)) {
+    const source = mapPages.get(mapRel);
+    const target = manual.byId.get(targetId);
+    if (source === undefined || target === undefined) {
+      issues.push(
+        `${mapRel} → ${targetId}: no such ${
+          source === undefined ? "Map" : "manual"
+        } page`,
+      );
+      continue;
+    }
+    const names = [source.title, ...source.aliases].map(
+      normalizeManualSearchName,
+    );
+    if (names.some((name) => homes.get(name) === targetId)) continue;
+    const concept = normalizeManualSearchName(source.title).replace(
+      /^the /u,
+      "",
+    ).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    const { body } = parseFrontmatter(
+      await Deno.readTextFile(target.entry.absPath),
+    );
+    if (
+      new RegExp(`(?<![\\p{L}\\p{N}])${concept}(?![\\p{L}\\p{N}])`, "iu")
+        .test(body)
+    ) {
+      continue;
+    }
+    const owners = [...new Set(names.flatMap((name) => homes.get(name) ?? []))];
+    issues.push(
+      `${mapRel} → ${targetId}: the manual's search sends "${source.title}" ` +
+        `to ${owners.join(", ") || "no page"}, and ${targetId} never ` +
+        "mentions it; point the link at the concept's manual home",
+    );
+  }
+  return issues;
+}
+
+Deno.test("generated Map links land on the manual's home for their concept", async () => {
+  const manual = await repositoryManual();
+  assertEquals(
+    await conceptLinkIssues(MANUAL_CONCEPT_LINK_TARGETS, manual),
+    [],
+  );
+  // The guard bites: a destination that neither owns nor mentions the concept.
+  assertEquals(
+    (await conceptLinkIssues({
+      "20-quality-gate/coupling.md": "explanation-evidence-and-improvement",
+    }, manual)).length,
+    1,
   );
 });
 
