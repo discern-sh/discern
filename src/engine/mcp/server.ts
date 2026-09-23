@@ -652,8 +652,8 @@ export const TOOLS: McpTool[] = orderTools([
       "Select action: measure to measure configured standards, compare their limits, " +
       "or pin measured improvements. names narrows measurement and pin candidates; " +
       "omit names for every standard. A plain measurement requests fresh readings; " +
-      "pin may reuse applicable evidence, commits only tighter limits, and carries " +
-      "Proof forward. Non-preview measurement requires a clean worktree unless force " +
+      "pin may reuse applicable evidence and commits only tighter limits; the pin " +
+      "commit needs a fresh discern_done before discern_accept. Non-preview measurement requires a clean worktree unless force " +
       "is set; pin always requires one. discern_done already requires every configured standard. " +
       "Select action: propose only after owner agreement and after every required " +
       "preview, review, regeneration, edit, discern_prepare run, and ordinary commit. " +
@@ -678,7 +678,7 @@ export const TOOLS: McpTool[] = orderTools([
         "Override the clean-worktree guard while authoring or debugging standards; ignored with pin (default false).",
       ),
       pin: z.boolean().optional().describe(
-        "Capture measured improvements, commit the limit change alone, and carry gate Proof forward. Reuses available same-commit values and measures missing selected values (default false).",
+        "Capture measured improvements and commit the limit change alone; that commit needs a fresh `discern_done`. Reuses available same-commit values and measures missing selected values (default false).",
       ),
       names: z.array(z.string()).optional().describe(
         "Measure action only: measure these standards and limit pin candidates to them (default: every standard).",

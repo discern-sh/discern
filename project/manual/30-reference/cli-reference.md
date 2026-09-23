@@ -614,11 +614,11 @@ Measure the named quality standards, or every configured standard when no names 
 
 Usage: `discern standards [names...] [options]`
 
-| Option      | Description                                                                                                                                                                                                                                                                       |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run` | Show the standards that would be measured; touch nothing.                                                                                                                                                                                                                         |
-| `--force`   | Run standards on a dirty worktree; intended only while authoring standards.                                                                                                                                                                                                       |
-| `--pin`     | Capture measured improvements for the named standards, or every one with slack. Same-commit values are reused; named measurement narrows only when gate Proof already validates the clean tree. Commit the limit change alone and carry Proof forward. Requires a clean worktree. |
+| Option      | Description                                                                                                                                                                                                                                                                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run` | Show the standards that would be measured; touch nothing.                                                                                                                                                                                                                                                              |
+| `--force`   | Run standards on a dirty worktree; intended only while authoring standards.                                                                                                                                                                                                                                            |
+| `--pin`     | Capture measured improvements for the named standards, or every one with slack. Same-commit values are reused; named measurement narrows only when gate Proof already validates the clean tree. Commit the limit change alone; that commit needs a fresh `discern done` before it can land. Requires a clean worktree. |
 
 #### `discern standards propose`
 

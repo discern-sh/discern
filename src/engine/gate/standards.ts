@@ -667,8 +667,9 @@ async function restorePinEdits(root: string, rel: string): Promise<boolean> {
 
 /** Rewrite the pinned limits in discern.toml (comment-preservingly, via {@link
  * TomlEditor}) and commit that file ALONE with an audit message. The clean-tree
- * precondition guarantees the config is the only change the commit carries — which is
- * what makes the commit gate-neutral and its proof safe to carry forward.
+ * precondition guarantees the config is the only change the commit carries. The commit
+ * still moves HEAD, so any prior Proof goes stale and the caller runs `done` for the new
+ * commit (ADR 0368).
  *
  * The write → stage → commit sequence is a multi-step mutation, so ANY step that
  * fails after the file is rewritten rolls the config back to HEAD before returning —
@@ -761,9 +762,9 @@ function standardsBuild(
 /**
  * Apply `standards --pin` (ADR 0106): measure every standard, and for each one asked for
  * — all of them, or the named subset — that improved past its limit by more than its
- * margin, tighten the limit toward the measured value, commit that change on its own,
- * and carry any gate proof forward across the (gate-neutral) commit so
- * `accept` need not re-run the whole gate. When a green check already measured this
+ * margin, tighten the limit toward the measured value, and commit that change on its own.
+ * The commit leaves any prior gate Proof stale (ADR 0368), so the caller runs `done`
+ * for it before `accept`. When a green check already measured this
  * exact clean HEAD, its measurement proof stands in for the measurements — the
  * check → pin flow measures once — with only the never-loosen half re-checked live
  * (main can advance while HEAD stands still). A FAILING standard pins nothing — you can't
@@ -870,8 +871,9 @@ async function pinStandardsResult(
   // before writing, so limits can only describe the tree that supplied the values.
   const treePin = await pinValidatedTree(root);
 
-  // Capture the pre-pin vouch BEFORE anything changes: only an honored proof may be
-  // carried across the commit we are about to make (ADR 0106 / 0067).
+  // Read the pre-pin Proof BEFORE anything changes: complete evidence for this clean
+  // tree lets a named pin narrow its measurements (ADR 0354). The pin commit itself
+  // leaves this Proof stale (ADR 0368).
   const priorProof = await inspectGateProof(root);
   const selection = buildStandardSelectionPlan(
     plan,
@@ -1051,8 +1053,8 @@ async function pinStandardsResult(
  * executor stays quiet so the result envelope remains the only rendering source.
  *
  * With `pin`, it instead runs the pin pass (ADR 0106): measure, tighten each
- * asked-for limit that improved past its margin, commit that change alone, and carry
- * a gate proof forward across it. Positional names restrict an ordinary check
+ * asked-for limit that improved past its margin, and commit that change alone, leaving
+ * any prior Proof stale for a fresh `done` (ADR 0368). Positional names restrict an ordinary check
  * and the pin target (empty = all). `dryRun` previews without measuring in BOTH
  * modes; a green check's hints name any pinnable slack, so check → pin is the whole
  * flow.

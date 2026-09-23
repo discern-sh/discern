@@ -667,7 +667,7 @@ Same-major releases may update documentation, add tools, resources, and optional
 | `action`    | `enum`     | yes      | Select measure for readings or pinning; select propose to record one atomic batch of owner-agreed breached limits.                                                      |
 | `dry_run`   | `boolean`  |          | Preview the selected action and touch nothing; proposal preview measures nothing (default false).                                                                       |
 | `force`     | `boolean`  |          | Override the clean-worktree guard while authoring or debugging standards; ignored with pin (default false).                                                             |
-| `pin`       | `boolean`  |          | Capture measured improvements, commit the limit change alone, and carry gate Proof forward. Reuses available same-commit values and measures missing selected values…   |
+| `pin`       | `boolean`  |          | Capture measured improvements and commit the limit change alone; that commit needs a fresh `discern_done`. Reuses available same-commit values and measures missing…    |
 | `names`     | `string[]` |          | Measure action only: measure these standards and limit pin candidates to them (default: every standard).                                                                |
 | `proposals` | `object[]` |          | Propose action only: every simultaneously approved breach as one ordered array of unique standard names. The transaction measures one final HEAD and writes one config… |
 | `path`      | `string`   |          | Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a…         |

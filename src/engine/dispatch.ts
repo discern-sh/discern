@@ -526,7 +526,7 @@ export function attachEngineCommands(
     )
     .option(
       "--pin",
-      "Capture measured improvements for the named standards, or every one with slack. Same-commit values are reused; named measurement narrows only when gate Proof already validates the clean tree. Commit the limit change alone and carry Proof forward. Requires a clean worktree.",
+      "Capture measured improvements for the named standards, or every one with slack. Same-commit values are reused; named measurement narrows only when gate Proof already validates the clean tree. Commit the limit change alone; that commit needs a fresh `discern done` before it can land. Requires a clean worktree.",
     )
     .action(
       recordedExit("standards", async (o, ...names: string[]) => {
