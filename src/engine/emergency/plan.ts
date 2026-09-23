@@ -165,7 +165,7 @@ export async function observeEmergencySubject(
   const landed = await landedCommits(root, trunkHead, source.head);
   const carried = await carriedEfforts(
     root,
-    branch,
+    { branch, worktree },
     (await loadIdentitySettings(root)).branchPrefix,
     landed,
   );

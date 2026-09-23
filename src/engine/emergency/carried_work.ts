@@ -7,6 +7,7 @@ import { short } from "../worktree/accept_support.ts";
 import { listRegisteredWorktrees } from "../worktree/git.ts";
 import { listParkedTaskMetadata } from "../worktree/parked_task_metadata.ts";
 import { readSubmission } from "../worktree/submission.ts";
+import { inspectTaskMetadata } from "../worktree/task_metadata.ts";
 
 /** One commit the repair lands beyond actual trunk. */
 export interface LandedCommit {
@@ -59,16 +60,18 @@ export async function landedCommits(
 
 /**
  * Every other effort whose recorded revision lands with the repair: a
- * registered checkout's head, its submitted commit, a parked head, or the tip
- * of a parked or task branch. The repair's own branch and the disposable
- * integration copies are never another effort.
+ * registered checkout's head, its submitted commit, a parked head, the tip
+ * of a parked or task branch, or the commit the repair's task record says it
+ * started from on another local branch. The repair's own branch and the
+ * disposable integration copies are never another effort.
  */
 export async function carriedEfforts(
   root: string,
-  repairBranch: string,
+  repair: { readonly branch: string; readonly worktree: string },
   branchPrefix: string,
   landed: readonly LandedCommit[],
 ): Promise<CarriedEffort[]> {
+  const tips = await localBranchTips(root);
   const efforts = new Map<string, RecordedEffort>();
   const taskBranch = (branch: string): boolean =>
     branchPrefix !== "" && branch.startsWith(branchPrefix);
@@ -77,7 +80,7 @@ export async function carriedEfforts(
     effort?: string,
   ): RecordedEffort | undefined => {
     if (
-      branch === "" || branch === repairBranch ||
+      branch === "" || branch === repair.branch ||
       branch.startsWith(INTEGRATION_BRANCH_NAMESPACE)
     ) return undefined;
     const entry = efforts.get(branch) ?? {
@@ -101,7 +104,23 @@ export async function carriedEfforts(
   for (const parked of await parkedTasks(root)) {
     record(parked.branch, parked.id)?.revisions.add(parked.head);
   }
-  for (const [branch, tip] of await localBranchTips(root)) {
+  // The task record keeps the start point as given: a full branch ref, a
+  // local branch name, or a tag or commit, which names no effort.
+  const task = await inspectTaskMetadata(repair.worktree);
+  const origin = task.kind === "recorded"
+    ? task.metadata.created_from
+    : undefined;
+  const originBranch = origin === undefined
+    ? undefined
+    : origin.ref.startsWith("refs/heads/")
+    ? origin.ref.slice("refs/heads/".length)
+    : tips.has(origin.ref)
+    ? origin.ref
+    : undefined;
+  if (origin !== undefined && originBranch !== undefined) {
+    record(originBranch)?.revisions.add(origin.commit);
+  }
+  for (const [branch, tip] of tips) {
     if (efforts.has(branch) || taskBranch(branch)) {
       record(branch)?.revisions.add(tip);
     }

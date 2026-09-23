@@ -34,6 +34,7 @@ import type { ExceptionRecord } from "../src/engine/completion/exception.ts";
 import { emergencyId } from "../src/engine/emergency/plan.ts";
 import { carriedEfforts } from "../src/engine/emergency/carried_work.ts";
 import { writeParkedTaskMetadata } from "../src/engine/worktree/parked_task_metadata.ts";
+import { writeStoredTaskMetadata } from "../src/engine/worktree/task_metadata.ts";
 import {
   PARKED_TASK_METADATA_SCHEMA_VERSION,
   TASK_METADATA_SCHEMA_VERSION,
@@ -368,14 +369,23 @@ async function exceptionRecords(dir: string): Promise<readonly unknown[]> {
 }
 
 /** How the other effort `feature` records the commit a repair comes to hold:
- * `before` runs once that commit exists, `after` once the repair holds it. */
+ * `before` runs once that commit exists, `after` once the repair holds it.
+ * `routes` limits a record that only some routes write. */
 const OTHER_EFFORT_RECORDS: Readonly<
   Record<string, {
     readonly before?: (dir: string, checkout: string) => Promise<void>;
     readonly after?: (checkout: string) => Promise<void>;
+    readonly routes?: readonly string[];
   }>
 > = {
   "live worktree": {},
+  // Only the repair's own task record still names where it started.
+  "worktree that moved on": {
+    routes: ["start --from"],
+    after: async (checkout) => {
+      await commitFile(checkout, "later.txt");
+    },
+  },
   "submitted revision": {
     before: async (_dir, checkout) => {
       await recordSubmission(checkout, {
@@ -444,6 +454,7 @@ const CARRYING_ROUTES: Readonly<
 
 for (const [route, carry] of Object.entries(CARRYING_ROUTES)) {
   for (const [kind, recorded] of Object.entries(OTHER_EFFORT_RECORDS)) {
+    if (recorded.routes?.includes(route) === false) continue;
     Deno.test(`emergency refuses a source containing another recorded unlanded effort: ${route} a ${kind}`, async () => {
       await withTempDir(async (dir) => {
         await checkedProject(dir);
@@ -552,6 +563,25 @@ const CARRIED_RECORD_SOURCES: Readonly<
     await git(dir, "branch", "agent/feature", carried);
     return "agent/feature";
   },
+  "the repair's task record of where it started": async (dir, carried) => {
+    await writeStoredTaskMetadata(worktreePath(dir, "repair"), {
+      schema_version: TASK_METADATA_SCHEMA_VERSION,
+      title: "Repair",
+      created_from: { ref: "refs/heads/feature", commit: carried },
+    });
+    return "feature";
+  },
+  "the repair's task record of a start commit on no branch": async (
+    dir,
+    carried,
+  ) => {
+    await writeStoredTaskMetadata(worktreePath(dir, "repair"), {
+      schema_version: TASK_METADATA_SCHEMA_VERSION,
+      title: "Repair",
+      created_from: { ref: carried, commit: carried },
+    });
+    return undefined;
+  },
   "a disposable integration copy": async (dir, carried) => {
     const path = worktreePath(dir, "integration");
     await git(
@@ -595,9 +625,12 @@ for (const [source, arrange] of Object.entries(CARRIED_RECORD_SOURCES)) {
       );
       const branch = await arrange(dir, carried);
       assertEquals(
-        await carriedEfforts(dir, "agent/repair", "agent/", [
-          { commit: carried, subject: "feature work" },
-        ]),
+        await carriedEfforts(
+          dir,
+          { branch: "agent/repair", worktree: repair },
+          "agent/",
+          [{ commit: carried, subject: "feature work" }],
+        ),
         branch === undefined
           ? []
           : [{ effort: "feature", branch, revision: carried }],
