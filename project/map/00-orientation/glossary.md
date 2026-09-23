@@ -82,7 +82,7 @@ Advice from discern about where to look, which never blocks your work. [Coupling
 
 ### Agent file
 
-An instruction file a coding agent reads when it works on the project. `discern refresh` generates `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` from the built-in instructions and your [instruction source](#instruction-source). These files are committed so a clone carries the instructions; `AGENTS.md` is the canonical copy the others import. Edit the authored source, then refresh the generated files. See [agent instructions](../40-agent-instructions/).
+An instruction file your coding agent reads when it works on your project. `discern refresh` writes one for each coding agent listed in `[project].agents`. Claude Code reads `CLAUDE.md`, Gemini reads `GEMINI.md`, and Codex, Cursor, and GitHub Copilot share `AGENTS.md`. Without that key, discern writes the files for Claude Code and Codex. Each file holds discern's built-in instructions, followed by your [instruction source](#instruction-source). When discern writes `AGENTS.md`, the other files import it instead of repeating it. Git tracks the files by default, so anyone who clones the project gets the same instructions. To change them, edit your instruction source and run `discern refresh`. The gate fails if an agent file no longer matches its source. See [agent instructions](../40-agent-instructions/).
 
 ### Checkpoint
 
@@ -90,7 +90,7 @@ A review question your project asks your agent whenever a certain kind of change
 
 ### Coupling
 
-Files that have often changed together in the project's history. `discern coupling` uses that history to suggest related files the current change may have missed. The finding is [advisory](#advisory): past co-change is a reason to investigate, not proof that another file must change. See [coupling](../20-quality-gate/coupling.md).
+Files that have often changed together in your project's Git history. If a change edits one file but not its usual partner, discern names the partner. Your agent then checks whether the partner needs a change too. discern does this after a passing `discern prepare` or `discern done`, unless you set `[coupling].report_in_gate = false`. `discern coupling` runs the same check on demand, and given a file name, it lists that file's usual partners. The finding is [advisory](#advisory) and never blocks, so your agent decides whether it matters. See [coupling](../20-quality-gate/coupling.md).
 
 ### Declaration
 
@@ -102,15 +102,15 @@ Your agent's recorded answer that this change satisfies a checkpoint question. T
 
 ### Declared unmet
 
-The agent has judged that a checkpoint question is not satisfied and has recorded why. The [gate](#gate) can still run. [Proof](#proof) carries the reason for the owner to review, while landing waits for an authorized [variance](#variance). The rationale is kept out of the [logbook](#logbook).
+Your agent's recorded answer that this change doesn't satisfy a checkpoint question, with its reason. The [gate](#gate) still runs. [Proof](#proof) carries the reason for you to review, and the change can't land until you approve a [variance](#variance). The reason stays in the Proof and, after landing, in the [Proof note](#proof-note), so it must hold no secrets. discern keeps the reason out of the [logbook](#logbook). If your agent fixes the problem, it can replace the answer with met.
 
 ### Desk
 
-An interactive view of the project's tasks and the actions available for them. Open it from the main checkout with bare `discern` or `discern desk`. It surveys the [fleet](#fleet), starts tasks, opens configured coding-agent CLIs found on `PATH`, and offers valid actions for the selected worktree. See [the desk](../30-worktrees/the-desk.md).
+The interactive view that opens when you run `discern` in your main checkout. It shows every task in progress and what you can do with each. `discern desk` opens it too, and both need an interactive terminal. Run from a task's worktree, either command points you back to the main checkout instead. From the desk you can see the [fleet](#fleet), start a task, and act on the selected worktree. You can also open any configured coding agent installed on your `PATH`. Actions that can't run yet appear as unavailable, with the reason. The desk is the only place you can pre-authorize a task to land once green, or revoke that grant. See [the desk](../30-worktrees/the-desk.md).
 
 ### discern
 
-A tool that installs and runs an agent development practice in a project. One self-contained program handles setup and maintenance, isolated task [worktrees](#worktree), configured [gate](#gate) checks, project knowledge, and the completion and landing workflow.
+A tool that lets you hand real work to coding agents and still decide what joins your project. It gives each task its own [worktree](#worktree) and runs your project's [gate](#gate) before a change counts as finished. It holds your quality limits, keeps what the project learns for later sessions, and lands a change only with permission. It's one self-contained program that needs only Git, and it has no AI model of its own. Your coding agent does the thinking and runs discern's commands.
 
 ### discern version
 
@@ -122,11 +122,11 @@ One task carried through implementation and review: the work a [worktree](#workt
 
 ### Engine
 
-The part of discern that runs its workflow commands. Commands such as `done`, `prepare`, `status`, `update`, and `accept` use this TypeScript implementation, compiled into the program. It runs the jobs, scopes, standards, and worktree settings the project declares without prescribing a language or framework. The embedded [tidy](#tidy) formatter operates on discern-owned surfaces. See [engine internals](../50-engine-internals/).
+The part of discern that runs the everyday workflow inside a project. Its commands include `discern done`, `discern prepare`, `discern status`, `discern update`, and `discern accept`. The [installer](#installer) commands set a project up, and the engine's commands work inside it. Both parts are TypeScript, compiled into one program. The engine runs the jobs, scopes, standards, and worktree settings your project declares, so it works with any language or framework. It includes discern's formatter, [tidy](#tidy). See [engine internals](../50-engine-internals/).
 
 ### File ownership
 
-The rules for which parts of a file discern may maintain. The categories are [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file), and they determine what `discern upgrade` may change. See [files and ownership](../70-reference/artifact-ownership.md); the [install surface](../80-development/install-surface.md) lists the complete inventory.
+The rules that decide which files, and which parts of files, discern may change in your project. Each file discern writes is [project-owned](#project-owned-file), [shared](#shared-file), or [generated](#generated-file). The category decides what setup, `discern refresh`, `discern upgrade`, and uninstalling may do to that file. A file a coding agent creates for itself, such as its local settings, sits outside these categories. discern never writes it, and only keeps it out of Git. See [files and ownership](../70-reference/artifact-ownership.md). The [install surface](../80-development/install-surface.md) lists every file.
 
 ### Fleet
 
@@ -234,7 +234,7 @@ A named set of project paths used to select work or policy. A `[scopes.<name>]` 
 
 ### Shared file
 
-A file with parts maintained by discern and parts maintained by the project. The ownership registry classifies as shared any registered path where discern manages a delimited region or fixed scaffold while preserving project content around it. The [registered project paths](https://discern.sh/docs/reference/files-and-ownership#registered-project-paths) table contains the complete inventory.
+A file where discern maintains some parts and your project owns the rest. discern's ownership registry classifies as shared any registered path where discern maintains a marked region, named entries, or a fixed outline. discern leaves your content around them alone. Examples include discern's block in `.gitignore`, its entries in a coding agent's settings, and `discern.toml`, where `discern upgrade` adds any missing sections and keys. The [registered project paths](https://discern.sh/docs/reference/files-and-ownership#registered-project-paths) table lists every one.
 
 ### Skill
 
@@ -250,7 +250,7 @@ A held limit for a repeatable project measurement. A `[standards]` entry sets a 
 
 ### Stop / advise
 
-How a [checkpoint](#checkpoint) presents its question. `stop` waits for a recorded conclusion before the [gate](#gate) runs; `advise` presents the question without blocking. Stop is the default mode. Heuristic built-in triggers use advise. A [declared unmet](#declared-unmet) answer allows checks to run, but still needs the owner's [variance](#variance) before landing.
+The setting that decides whether a [checkpoint](#checkpoint) waits for an answer or only gives advice. With `stop`, `discern done` refuses to run the [gate](#gate) until your agent records its answer. With `advise`, the question appears as a notice in `discern prepare`, `discern done`, and `discern status`, blocks nothing, and takes no answer. A checkpoint you write stops unless it says otherwise. A built-in checkpoint keeps the mode discern gives it. The built-ins that watch code changes advise, and the ones that watch project knowledge, such as the map, instructions, and skills, stop. After a [declared unmet](#declared-unmet) answer the checks still run, but the change needs your [variance](#variance) before it lands.
 
 ### Submission
 
@@ -274,7 +274,7 @@ Bring newer work into the current task's [worktree](#worktree). `discern update`
 
 ### Variance
 
-The owner's permission to land a change despite a stated unmet checkpoint. It covers the exact current [declaration](#declaration) and landed commit, without changing the policy for future work. The agent records the owner's explicit current-conversation approval with `discern accept --confirmed --variance <id>`. Standing and effort grants do not cover variances. See [checkpoints](../20-quality-gate/checkpoints.md).
+Your permission to land a change even though your agent answered a checkpoint question unmet. Only you can approve one, in the current conversation. General permission to land doesn't cover it, and neither does any grant. Your agent records your approval with `discern accept --confirmed --variance <id>`, naming every unmet checkpoint. The variance covers that exact [declaration](#declaration), its reason, and the commit that lands. The checkpoint keeps asking its question of later work. See [checkpoints](../20-quality-gate/checkpoints.md).
 
 ### Worktree
 
