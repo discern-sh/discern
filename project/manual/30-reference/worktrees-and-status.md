@@ -87,7 +87,7 @@ During setup, this read-only result reports the recorded phase, dedicated branch
 
 ### Desk actions
 
-The desk, which bare `discern` opens in the main checkout, offers these actions for a selected task; each row names the command behind the action and the confirmation it asks for.
+The desk, which bare `discern` opens in the main checkout, offers these actions for a selected task. Each row names the command behind the action and the confirmation it asks for; granting and revoking pre-authorization have no command outside `discern desk`.
 
 <!-- BEGIN DESK ACTION REGISTRY -->
 
