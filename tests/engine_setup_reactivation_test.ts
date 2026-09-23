@@ -103,10 +103,17 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
       // action in its step (the same structured trust projection doctor surfaces), so the user isn't left
       // with inert config and no idea why the tools never appeared.
       if (provider.trust.required) {
+        const trust = renderProviderTrustCli(provider.trust);
+        const at = step.indexOf(trust);
         assert(
-          step.includes(renderProviderTrustCli(provider.trust)),
+          at >= 0,
           `"${name}" requires a one-time trust, but its reactivation step omits the ` +
             `trust action — the wired config would stay inert with no explanation`,
+        );
+        // The trust text is whole sentences, so it must start a sentence of its own.
+        assert(
+          /[.!?]\s$/.test(step.slice(0, at)),
+          `"${name}" joins its trust sentences into the middle of another sentence`,
         );
       }
       if (provider.humanSetupAdvice !== undefined) {

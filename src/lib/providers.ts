@@ -176,7 +176,7 @@ export function reactivationStep(provider: Provider): string | undefined {
     loads.join(" and ")
   }`;
   const reactivation = provider.trust.required
-    ? `${base}, then ${renderProviderTrustCli(provider.trust)}`
+    ? `${base}. ${renderProviderTrustCli(provider.trust)}`
     : base;
   const activation = activationCheck(provider);
   const verification =
