@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-crashes-and-local-state
 title: "Crashes and local state"
-description: "Recover after a crash, preserve a useful report, and identify local files before removing them."
+description: "Pick up your task after discern crashes, send a useful report, and find out what a discern file holds before you delete it."
 order: 60
 publish: true
 kind: troubleshooting
@@ -25,70 +25,93 @@ aliases:
 
 # Crashes and local state
 
-If discern reports a crash, keep its report and inspect the task's state before retrying. If you are here because a local directory looks unfamiliar, use the sections below to identify it before removing anything.
+If discern crashes, your task's work is still in its **worktree**, the separate copy of the project where it runs. discern also saves a report you can send us. This page shows how to pick the task up safely, and what to put in a bug report.
 
-> discern crashed during this task. Read its report and current status, preserve the unfinished work, and follow any recorded recovery action. Tell me what remains unresolved.
+It also explains the files discern keeps on your machine. When you find one you don't recognize, you can check what it holds before you delete anything. The examples follow a recipe search task.
 
 ## discern crashed
 
-Run `discern status` in the task's checkout and follow the reported recovery. In particular, an interrupted run may still be going and can be [read back](../10-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see), while an interrupted acceptance may already have landed the change. Inspect those facts before repeating an action.
+A crash means discern hit a bug of its own. You'll see one of these:
 
-You can recognize an internal crash by:
+| Where you ran it | What you see                                                                                          |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| A terminal       | The command exits with code `70` and prints ``discern <version> crashed while running `<command>`.``  |
+| An agent's tool  | The result has `ok: false` and `error: "internal_error"`. Its message says where the report is saved. |
+| The saved report | A text file under `discern/crash/` inside your repository's `.git` folder.                            |
 
-| Surface      | What you see                                                                                                                      |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| CLI          | Exit code `70`, with a stderr report naming the version, command, error, stack, and saved report path.                            |
-| JSON or MCP  | `ok: false` and `error: "internal_error"`. An MCP call can fail while the server remains available.                               |
-| Saved report | A text file under `discern/crash/` in the common Git directory, or a system-temp fallback when repository storage is unavailable. |
+The terminal report goes on to say `This is a bug in discern.` and names the saved file.
 
-A failed project check or a normal refusal is a different result, usually exit `1`. It has its own diagnostic and recovery.
+Other stops look different. A failed check or a refusal exits with code `1`, and its result names its own next step. A `discern.toml` that can't be read also exits with `1`, with the code `invalid_toml` or `invalid_config`. Stopping a command with Ctrl-C isn't a crash either.
 
-Keep the saved crash report if the problem needs investigation. discern retains the newest twenty reports in the repository and does not upload them. If saving fails, the CLI's stderr report remains the evidence available to copy. An MCP result omits the full stack, so its saved report is particularly useful.
+### Check the task before you retry
 
-For a bug report, use [discern's issue tracker](https://github.com/discern-sh/discern/issues) and include the report, what you were doing, and whether the documented recovery worked. Review the file before sharing: an error can quote local paths or other details from the command. For a security issue, follow the [security policy](https://github.com/discern-sh/discern/blob/main/SECURITY.md).
+Ask your agent:
 
-You do not need to cause another crash to make a useful report. If the same action keeps crashing, preserve the evidence and investigate or report it before another attempt.
+> discern crashed during the recipe search task. Read the crash report and the task's current status. Keep the unfinished work, follow any recovery status names, and tell me what's still unresolved.
+
+The agent runs `discern status` in the task's worktree before it tries the command again. The crash may have stopped the command partway, and status shows how far it got:
+
+- A long run may still be going. The agent [reads it back](../10-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see) instead of starting it again.
+- A landing may have finished before the crash. Status shows whether the change is already on `main`.
+
+Your agent calls discern's tools over the Model Context Protocol (MCP). If one of those tools crashed, the others keep working in the same session. The agent carries on once it knows what state the task is in. The task is back on track when status shows where it stands, and the command it retries finishes.
+
+### Keep the report
+
+discern keeps the newest 20 crash reports in your repository and never uploads them. If it can't save one there, it saves it in your system's temp directory instead. discern removes those after 24 hours, so copy it somewhere safe if you need it. If discern can't save a report at all, the terminal output is the report. Copy it before you close the terminal.
+
+An MCP result leaves out the full error trace, so attach the saved file rather than the result.
+
+### Report it
+
+Open an issue on [discern's issue tracker](https://github.com/discern-sh/discern/issues). Include the report, what you were doing, and whether the recovery worked. Read the report before you share it, because an error can quote local paths from your machine. For a security problem, follow the [security policy](https://github.com/discern-sh/discern/blob/main/SECURITY.md) instead.
+
+You don't need to crash discern again to make a useful report. If the same command crashes a second time, stop retrying it. Keep both reports and send them.
 
 ## Files named `discern-…` in the temp directory
 
-No cleanup is normally needed. discern sweeps expired registered artifacts during later gate runs, in bounded batches. The retention threshold is 24 hours; it is not a promise that a background process will remove each file at that exact time.
+discern writes a few kinds of file to your system's temp directory. You don't need to clean them up.
 
-Use the path from your result to find a log. A similarly named file may belong to another checkout or project.
+| Name starts with            | What it holds                                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `discern-job-`              | The full output of one check. A result names it as `output_path`.                                                 |
+| `discern-diag-`             | The full text of a failure message that the result shortened.                                                     |
+| `discern-crash-`            | A crash report that discern couldn't save in the repository.                                                      |
+| `discern-checkpoint-input-` | Input for the command that decides whether a checkpoint question applies. It exists only while that command runs. |
+| `discern-self-`             | A leftover folder discern uses when it runs outside a repository.                                                 |
+| `discern-test-`             | A leftover folder from discern's own tests.                                                                       |
 
-| Prefix                      | What it holds                                                       |
-| --------------------------- | ------------------------------------------------------------------- |
-| `discern-job-`              | A gate job's full captured output, available through `output_path`. |
-| `discern-diag-`             | The full text behind a truncated diagnostic.                        |
-| `discern-crash-`            | A crash report saved in the temp directory.                         |
-| `discern-checkpoint-input-` | Structured input for a checkpoint command.                          |
-| `discern-self-`             | A fallback command shim used when no repository root is available.  |
-| `discern-test-`             | Scaffolding from discern's own tests.                               |
+These files expire after 24 hours. `discern done`, `discern prepare`, and `discern test` remove expired ones as they run, at most once an hour and a batch at a time. So a file can stay a little longer than 24 hours.
 
-Keep output you need for an investigation before it expires. Leave artifacts used by a running process alone; a filename prefix is not evidence that its owner has finished.
+If you need a check's output for an investigation, copy it before it expires. Use the exact path the result names. Most names include the project and worktree, and a similar name may belong to another task. Leave alone any file a command is still using.
 
 ## The `.git/discern` directory
 
-Leave this directory in place during recovery. It contains working records such as Proof, completion and recovery state, the logbook, resource ownership, and wait continuations. Deleting it can remove the evidence needed to finish or recover a task.
+Leave this directory in place. discern keeps its working records here. They include Proof (its record of which checks passed), landing permissions you gave in advance, and recovery records for interrupted runs and landings. They also include the logbook, the list of services such as test databases that each worktree set up, and crash reports. Deleting it can remove what a task needs to finish or recover.
 
-In a linked worktree, `.git` is usually a file pointing to Git's administrative storage. Some discern records belong to the common repository; others belong to one worktree. The [runtime-state reference](../30-reference/files-and-ownership.md#runtime-state-inside-git) identifies those lifetimes.
+In a task's worktree, `.git` is usually a small file rather than a folder. It points to Git's storage in your main checkout. Every worktree shares some of discern's records, and others belong to one worktree. The [runtime state reference](../30-reference/files-and-ownership.md#runtime-state-inside-git) lists which is which.
 
-To remove discern from a project, follow [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md). `discern uninstall` checks for registered linked worktrees and recorded external resources before removing runtime state. It retains recovery refs that may be the only names left for user-authored commits.
+To take discern out of a project, follow [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md). `discern uninstall` refuses while any task worktree or recorded resource remains. It keeps every Git reference, including recovery references that may be the only name left for some of your commits.
 
-For a reappeared checkout directory, use the separate [removed-path recovery](worktrees-and-resources.md#removal-failed-or-a-removed-path-came-back). Runtime metadata and a retired checkout need different cleanup procedures.
+If a worktree folder came back after discern removed it, that's a different cleanup. See [a removed path came back](worktrees-and-resources.md#removal-failed-or-a-removed-path-came-back).
 
 ## The logbook looks empty or off
 
-Read the reported recording state before treating an empty view as a failure:
+The **logbook** is discern's local record of what its commands did, such as which command ran and whether it passed. `discern patterns` reads it to find repeated problems. If that report looks empty or wrong, ask your agent to run `discern doctor`, which checks the logbook without changing your project:
 
-- **Enabled and empty:** no events have been recorded yet. This is healthy on first use.
-- **Disabled:** check the project's logbook configuration if you expected recording.
-- **Write denied:** repair access to the named location. That process stops recording after warning; the task itself can continue.
-- **Invalid or incomplete history:** preserve the files and use the reported diagnosis. An interrupted command may have a start record without a finish record.
+| What doctor says                                                | What it means                                                      | What to do                                                           |
+| --------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `healthy but empty`                                             | Recording works, and nothing has finished yet.                     | Nothing. It fills up as your agent works.                            |
+| `recording is off ([project].record_logbook = false)`           | Your configuration turned recording off.                           | Set `[project].record_logbook = true` if you want a record.          |
+| `the environment refused this invocation's logbook write probe` | Something stopped discern writing to the logbook folder.           | Give discern write access to the path doctor names, then retry once. |
+| `skipped N invalid or unreadable entries`                       | Some lines couldn't be read. The rest of the history still counts. | Keep the files if you want to find out why.                          |
 
-The [Logbook reference](../30-reference/logbook.md#logbook-lifecycle) covers archive, reset, and recovery. Those commands let you review and confirm what will happen to the history; deleting the directory to clear a warning loses the record you are trying to understand.
+A command that can't write to the logbook still does its job. That run goes unrecorded.
+
+To start a fresh history, seal the old one into an archive with `discern patterns seal`. `discern patterns reset` deletes it for good. Both show a preview with `--dry-run`, and both ask you to confirm in a terminal. The [logbook reference](../30-reference/logbook.md#logbook-lifecycle) covers them. Don't delete the folder by hand to clear a warning. That loses the history you were trying to understand.
 
 ## When to stop
 
-Stop a retry when the current evidence does not establish that it is appropriate, or when the same crash remains unexplained. Keep the report and any named recovery state so investigation can continue.
+Stop retrying when the same command crashes again, or when you can't tell whether a retry is safe. Keep the report and the task's worktree, and send the report.
 
-Before sharing a report, review what it contains. Before removing state, use the command responsible for that state and read its plan. If it refuses because ownership or a running process is uncertain, resolve that uncertainty first.
+Before you remove any of discern's files, use the command that owns them and read its preview. If it refuses because a command is still running, or because it can't tell who owns something, sort that out first. Your agent can do the investigating. You decide what gets deleted.
