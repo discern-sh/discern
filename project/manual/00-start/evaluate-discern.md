@@ -1,7 +1,7 @@
 ---
 id: start-evaluate-discern
 title: "Evaluate discern"
-description: "See how discern helps you direct coding agents, keep project knowledge, and review finished work before deciding to install it."
+description: "See what discern does for you and your agents, what it asks of you, and where its limits are, before you install it."
 order: 20
 publish: true
 kind: explanation
@@ -15,63 +15,66 @@ aliases:
 
 # Evaluate discern
 
-You have an idea for the next feature. Your coding agent can build it, but you also want the project to remember your decisions, keep existing behavior working, and show you what was checked before you use the result.
+With discern, one person can give coding agents substantial, complete pieces of work. You don't have to coordinate every task, explain your project again each session, or work out afterwards which checks passed. More of your backlog can move at once, and each finished change comes back with a record of what passed.
 
-discern puts that way of working into your project. Your agent sets it up and operates it; you describe what you want to achieve and review what comes back. This page helps you decide whether it fits, before you install anything.
+This page helps you decide whether discern belongs in your project, before you install anything.
 
-## What discern changes
+## What working with discern looks like
 
-Imagine adding search to an app. You explain what people should be able to find, and your agent works on the change in a separate workspace. The current shared version of the project stays apart from the unfinished work.
+Say you're building a reading-list app, and people want to find a book without scrolling. You ask your agent:
 
-Before reporting the change complete, your agent runs the project's configured checks. discern records which version passed and returns that evidence with the result. You can try the search, ask what the checks cover, and decide whether the change is ready to join the shared project.
+> Add a search box to the reading list, so people can find a book by title or author. Show me how to try it, and tell me what you checked before I decide whether it lands.
 
-That sequence brings three useful things together:
+Your agent works in a **worktree**, a separate copy of the project on its own branch. Your project's shared branch, the **trunk** (usually `main`), stays untouched. The search joins the trunk only when it **lands**. Several agents can work at once, each in its own worktree. If another change lands first, discern checks the two changes together before the search lands.
 
-- **A consistent meaning of finished.** The project's final quality check, called the **gate**, runs its own commands. Your agent gets failures to investigate while the work is still in progress, and you receive evidence of the checks that passed.
-- **Room for work to move independently.** Each task gets an isolated workspace, called a **worktree**. Several agents can work without editing the same checkout. Changes that affect the same behavior still need coordination and review.
-- **Knowledge the next session can use.** Instructions and a maintained project guide, called the **map**, live in ordinary project files. When an agent records a convention or decision there, a future session can pick it up without another explanation from you.
+When the search works, your agent commits it and runs the **gate**, the checks your project requires before a change counts as finished. These might build the app and run its tests. If a check fails, the agent investigates and fixes the cause. When every check passes, discern records **Proof**: which checks passed, on exactly which version of the code. The agent ends its report with a line like this:
 
-The completion evidence is called [Proof](../20-understand/proof.md). It belongs to one exact committed version of the change. A passing gate establishes that the configured checks passed; your review covers what those checks cannot decide, including whether the feature is useful and belongs in the product.
+> **Proof:** Gate passed for `agent/reading-list-search-4e1f2a` at `9b3c71d0e5a2` · 4 files changed (+96 −8) vs `main` · View the full Proof: `discern status --verbose`
+
+The line names the task's branch and the commit, a saved version of the code, that the checks ran on. You don't have to take the agent's word for it. A pass tells you those checks passed. Whether the search helps people find their books is still your call, so you try it, ask what the checks don't cover, and decide whether it lands. If you ask for a change, the agent runs the gate again, because the first Proof covered only the first version. [Proof](../20-understand/proof.md) explains how to read the line.
+
+## Your project gets better with every task
+
+discern turns each improvement into something later work has to keep, so the next task starts from a better project.
+
+- **Quality limits only tighten.** A **standard** holds a limit on something your project can measure, such as test coverage or the size of the app's download. A later change can't loosen it to make its own work pass unless you approve. When a change improves the measure, you can lock in the new level for every change after it.
+- **Fixed bugs stay fixed.** discern includes a bug-fixing **skill**, a ready-made playbook your agent follows. It has the agent find the real cause, fix every instance, and add a check that fails if the bug comes back.
+- **Lessons carry forward.** Say you decide the reading list must work offline. Your agent writes that rule and its reason into the project's instructions, and adds checks where it can. Every later session reads the rule, whichever supported coding agent you use.
+
+Your agents also keep a **map**: a guide to how the project works, written in ordinary files. You can read it to see what they understand, and correct what they got wrong.
+
+## Built for your agent to operate
+
+Your agent runs discern for you, so discern treats the agent as its main user. Each result is short and names the next step. When a check fails, the agent gets its output and the command that reproduces it. A quick check loop catches simple mistakes, such as formatting and type errors, before the full gate runs. For common jobs, such as splitting a big piece of work into tasks, the agent has a skill to follow.
+
+That leaves more of the agent's attention for your project. For you, it means less time unblocking your agent, and more of its effort in the work you asked for. You don't need to learn discern's commands.
 
 ## What it asks of you
 
-Setup is a working session with your agent, usually around 20 to 40 minutes of agent effort. The agent studies the project, connects its checks, and writes the project instructions future sessions will inherit. You confirm what setup may change and answer questions about the project's purpose, access, cost, or other choices the files cannot settle.
+**A setup session.** Your agent sets discern up. It studies the project, connects the checks your project already runs, and writes the instructions and map that later sessions will use. Expect roughly 20 to 40 minutes of agent time and a meaningful number of tokens. You confirm what setup may change, and you answer what only you can: what the project is for, and anything that involves cost, access, data, or new dependencies. Setup happens on a separate branch and comes back to you for review before it lands.
 
-After setup, you can give ordinary requests:
+**Plain requests.** After setup, you ask for work the way you asked for search. Your agent follows discern's instructions and the next step each result names.
 
-> Add search to the saved items page. Show me how to try it, explain what you checked, and bring the finished change back for review.
-
-You don't need to learn discern's command sequence to make that request. The agent receives the operating instructions and follows the reported next steps.
-
-You do need time to review results and make decisions. For a small visible change, trying the behavior and understanding the checks may be enough. Changes with broader consequences may need deeper technical review. discern helps you see the evidence available for that decision; it does not supply every kind of expertise a project may need.
+**Time to review.** You still try the results and make the decisions. For a small change you can see, trying it and reading the Proof may be enough. How far to go depends on what the change could affect. When a change touches something you can't judge yourself, such as security, ask for an independent review.
 
 ## What fits your project
 
-discern works with projects kept in Git, the version-control system that records changes. It supports Claude Code, Codex, Gemini, Cursor, and GitHub Copilot on macOS, Linux, and Windows through WSL 2. The [platforms and providers reference](../30-reference/platforms-and-providers.md) gives the current requirements.
+discern works with any language and tools, because it runs the commands your project already uses. It needs Git, which keeps each task on its own branch. If your project isn't in Git yet, your agent offers to set that up first. One setup covers a whole Git repository, even one that holds several apps.
 
-The project's language and tools can vary: discern runs the commands configured for that project. One setup covers an entire Git repository, including a repository with several apps or packages. If you're unsure whether your project is ready, ask your agent to check the prerequisites before installing.
+It supports Claude Code, Codex, Gemini, Cursor, and GitHub Copilot. It runs on macOS and Linux, and on Windows through WSL 2. [Platforms and providers](../30-reference/platforms-and-providers.md) has the details.
 
-It is most useful when you want to:
+It helps most when you want agents to take on bigger pieces of work, and you want to know which checks passed before a change joins your project. Your agent runs discern day to day, so discern only helps if you work with a coding agent.
 
-- give agents work while keeping unfinished changes separate;
-- understand what was checked before a change becomes shared;
-- preserve project decisions across sessions and supported coding tools;
-- keep measured improvements from slipping back as the project grows.
+## Where the boundaries are
 
-A coding agent is the day-to-day operator. If your workflow has no coding agent, discern is unlikely to be a useful addition. It also runs locally rather than providing a hosted team dashboard.
+**It runs on your machine.** discern is one program with no AI model, account, or API key of its own. It keeps a local activity record with metadata such as timings and outcomes. That record leaves out your code and command output, and you can turn it off. There's no hosted dashboard. To see your tasks at a glance, you run `discern` in your project folder to open the **desk**, an interactive view in your terminal. Your agent still uses its own provider, and your project's commands can still reach the network. [What stays on your machine](../20-understand/local-control.md) explains more.
 
-## Where its boundary sits
+**Nothing lands without your permission.** A passing gate doesn't give permission to land. You approve each change yourself, or pre-approve routine areas, such as documentation, and everything else still comes back to you. Landing isn't releasing, either. Getting a change to your users stays with your own release process.
 
-discern is one local executable with no AI model, account, or API key of its own. Its activity record stays on your machine. Your coding agent still uses its own provider, and your project's commands can contact services as they normally would. [What stays on your machine](../20-understand/local-control.md) explains those boundaries.
-
-The project's shared branch is called the **trunk**, usually `main`. Moving a completed change onto it is **landing**. discern requires your permission to land: you can decide change by change, or explicitly arrange permission for routine work within a defined scope. Passing the gate supplies evidence, but you still grant permission before the change lands. Landing also remains separate from publishing or deploying your app.
-
-## How it leaves
-
-The instructions, map, and other material you and your agents write remain ordinary files you own. If you later remove discern, its uninstall command removes the integration wiring and keeps that authored material. You also choose when to upgrade; the binary never updates itself. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md) explains both operations.
+**Your files stay yours.** The instructions, map, and other files you and your agents write are ordinary files in your repository. If you remove discern, `discern uninstall` takes out its wiring and keeps what you wrote. discern never updates itself, so you choose when to upgrade. discern is Fair Source software, and the material it writes into your project comes under the Apache 2.0 license. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md) and [Licenses](../30-reference/licenses.md) have the details.
 
 ## Decide
 
-If this is the way you'd like your agents to work, [install and set up discern](installation-and-setup.md). The setup is reviewed before it lands, and the next tutorial takes you through a small change you can try for yourself.
+If this is how you'd like your agents to work, [install and set up discern](installation-and-setup.md). After setup, the next tutorial takes you through a small change you can try yourself.
 
-For a closer look at the everyday relationship between you, the agent, and the project, read [How discern works](../20-understand/how-discern-works.md).
+For a closer look at who does what, read [How discern works](../20-understand/how-discern-works.md).
