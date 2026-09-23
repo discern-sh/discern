@@ -189,26 +189,6 @@ export function glossarySummary(
   return firstSentence;
 }
 
-/** Small counts spelled out, the way the prose voice writes them. */
-function countWord(n: number): string {
-  const words = [
-    "zero",
-    "one",
-    "two",
-    "three",
-    "four",
-    "five",
-    "six",
-    "seven",
-    "eight",
-    "nine",
-    "ten",
-    "eleven",
-    "twelve",
-  ];
-  return words[n] ?? String(n);
-}
-
 /** `a`, `b`, and `c` — backticked names joined with an Oxford conjunction. */
 function codeList(names: readonly string[], conjunction: string): string {
   const coded = names.map((n) => `\`${n}\``);
@@ -230,7 +210,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     // "accept" is also an HTTP header and an ordinary verb in the manual.
     matches: ["discern accept"],
     definition:
-      "Land validated, authorized work on the [trunk](#trunk), the project's shared branch. From an effort's worktree, `discern accept` records the effort's [submission](#submission), the exact proven commit, and lands it when conversation consent or a recorded grant authorizes it: it fast-forwards the trunk, records the Proof note, converges the main checkout, and removes the worktree, its resources, and its branch when the branch holds nothing beyond the landed submission. When the trunk moved after the Proof, the landing composes and checks the combined code in an [integration worktree](#integration-worktree) and lands that exact proven commit; a second accept waits its turn and resumes on its own. Without authority it refuses, and the submission waits for the owner. See [worktrees](../30-worktrees/) and [landing authority](../30-worktrees/landing-authority.md).",
+      "`discern accept` lands a finished change on your project's shared branch once the change has permission to land. Your agent runs it from the task's worktree, where it first records the task's [submission](#submission): the exact commit that passed the gate. From your main checkout, your agent names the task with `--target`, and discern lands its recorded submission. The change lands on the [trunk](#trunk) if you approved it in the conversation or a grant covers it. Without permission, nothing lands, and the submission waits for you. If other work landed after the change's Proof and the submitted commit doesn't include it, discern combines the two in an [integration worktree](#integration-worktree). It checks the combined code and lands exactly what passed. If another landing is already running, this one waits its turn and then carries on by itself. With `--target`, discern then keeps landing queued tasks that a grant covers, in order, until one needs you. After landing, discern records the Proof note, updates your main checkout, and removes the task's worktree, resources, and branch. The worktree stays if it holds uncommitted files or its branch has newer commits. See [worktrees](../30-worktrees/) and [landing authority](../30-worktrees/landing-authority.md).",
     retired: [
       {
         phrase: "queue reconciliation",
@@ -251,7 +231,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       phrase: "a throwaway copy where finished work is combined and re-checked",
     },
     definition:
-      "A disposable [worktree](#worktree) a landing creates for itself when the [trunk](#trunk) moved after a [submission](#submission)'s Proof. discern creates it from the exact submitted commit through the same setup a task worktree gets, brings the trunk in, proves the combined committed tree with the full gate, lands that exact proven commit, and removes the copy, its resources, and its `integration/` branch. It is discern-owned — never an effort an agent may adopt — with its ownership and exact input recorded, not inferred from its name. A conflict or red combined check removes the copy and returns to the author with nothing landed; a copy whose owning process died is reclaimed by `discern worktree prune`, which never touches a live one. See [worktrees](../30-worktrees/).",
+      "A temporary copy of the project where discern checks a change combined with newer work before landing it. discern creates this [worktree](#worktree) during a landing when other work has reached the [trunk](#trunk) since the [submission](#submission)'s Proof, and the submitted commit doesn't include it. The copy starts from the submitted commit, with the same setup and resources a task worktree gets, and merges in the current trunk. discern runs the full gate on the combined code and lands exactly what passed. If the combined code fires a checkpoint, your agent answers it with `discern accept`, and the same landing carries on. If the changes conflict or a combined check fails, nothing lands. discern removes the copy and hands the problem back to the task's agent. After a landing, discern removes the copy, its resources, and its `integration/` branch. discern records that it owns each copy, so an agent must never adopt one as its own task. If the process that owns a copy dies, `discern worktree prune` cleans it up, and it leaves copies still in use alone. See [worktrees](../30-worktrees/).",
   },
   {
     term: "Advisory",
@@ -261,14 +241,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\badvisor(?:y|ies)\b`,
     },
     definition:
-      "A finding that suggests attention without blocking work. [Coupling](../20-quality-gate/coupling.md), [patterns](../20-quality-gate/patterns.md), [impact](https://discern.sh/docs/reference/cli-reference#discern-impact), and [improvement](../20-quality-gate/improvement.md) provide advice. The finding can prompt investigation; it is not itself a failed [gate](#gate) check.",
+      "Advice from discern about where to look, which never blocks your work. [Coupling](../20-quality-gate/coupling.md), [patterns](../20-quality-gate/patterns.md), [impact](https://discern.sh/docs/reference/cli-reference#discern-impact), and [improvement](../20-quality-gate/improvement.md) all give advice, and so do `advise` checkpoints. A finding can prompt your agent to investigate, and it never fails a [gate](#gate) check. In discern's results, advice arrives in `hints`. The separate `advisories` field lists problems a command worked around while still succeeding.",
   },
   {
     term: "discern version",
     runningCase: "lowercase",
     plain: { phrase: "the version of the Discern program itself" },
     definition:
-      "The version of discern you are running, shown by `discern --version`. Use `discern releases` to see what's new and check for updates. The installer updates the program; `discern upgrade` updates the project's setup to match.",
+      "The version of discern you're running, shown by `discern --version`. `discern releases` opens discern's release notes in your browser, or prints their address, so you can see what's new and whether an upgrade is available. discern never checks the network for updates, and never updates itself. To upgrade, run the [installer](#installer) again, then restart your coding agent's sessions so they use the new program. `discern upgrade` then updates your project's setup to match.",
     retired: [
       {
         phrase: "binary version",
@@ -284,11 +264,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bgate\s+jobs?\b`,
     },
     definition:
-      `A named check or operation scheduled by the [gate](#gate). A project declares its jobs under \`[jobs]\`: the ${
-        countWord(Object.keys(KNOWN_JOBS).length)
-      } known names ${
-        codeList(Object.keys(KNOWN_JOBS), "and")
-      } derive their [stage](#stage), while a custom name declares one. The run also schedules fired [scope](#scope) gates and [standard](#standard) measurements as labeled jobs. Covered in [the quality gate](../20-quality-gate/).`,
+      `One named step the [gate](#gate) runs, such as your tests or your linter. Your project lists its jobs under \`[jobs]\` in \`discern.toml\`. Every job runs as part of every \`discern done\`, whatever the change touches. A job that declares its inputs can reuse an earlier result when none of them changed. A job named ${
+        codeList(Object.keys(KNOWN_JOBS), "or")
+      } gets its [stage](#stage) from its name. Any other name makes a custom job, which declares its own stage. The gate also adds labeled jobs of its own: each \`[generated.<name>]\` command, the \`gate\` command of each [scope](#scope) the change touches, and each [standard](#standard)'s measurement. See [the quality gate](../20-quality-gate/).`,
   },
   {
     term: "Checkpoint",
@@ -298,7 +276,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bcheckpoints?\b`,
     },
     definition:
-      "A review question presented when a relevant kind of change occurs. A rule under `[checkpoints]` pairs a mechanical trigger with a question for the agent. In `stop` mode, the [gate](#gate) waits for a [declared met](#declared-met) or [declared unmet](#declared-unmet) conclusion; `advise` mode does not block it. An unmet conclusion needs an owner-authorized [variance](#variance) before landing. Committed policy preceding the change governs the question, including the recorded predecessor during candidate completion. `discern checkpoints` reports the applicable policy and question states. See [checkpoints](../20-quality-gate/checkpoints.md).",
+      "A review question your project asks your agent whenever a certain kind of change happens. Each `[checkpoints.<id>]` table pairs a trigger, which picks out the changes it applies to, with a [question](#question) for your agent to judge. A `stop` checkpoint makes `discern done` refuse to run the [gate](#gate) until your agent records its answer: [declared met](#declared-met) or [declared unmet](#declared-unmet). An `advise` checkpoint offers its question as advice and blocks nothing. After an unmet answer the checks still run, but the change can't land until you approve a [variance](#variance). discern reads the checkpoints from the trunk as it was when the task started, or when the task last ran `discern update`. So a task can't rewrite the questions it has to answer. `discern checkpoints` shows which checkpoints apply and where each question stands, and changes nothing. See [checkpoints](../20-quality-gate/checkpoints.md).",
   },
   {
     term: "Question",
@@ -319,14 +297,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       },
     ],
     definition:
-      "Something the agent is asked to judge about the project or a change. [Checkpoints](#checkpoint) present questions when changes match their triggers; the [improvement review](../20-quality-gate/improvement.md) asks them about existing work. A question can have a stable id and a `teach` note explaining why it matters. A checkpoint answer is [declared met](#declared-met) or [declared unmet](#declared-unmet), kept separate from machine-verified results. See [checkpoints](../20-quality-gate/checkpoints.md).",
+      "Something discern asks your agent to judge, about a change or about the project as a whole. [Checkpoints](#checkpoint) ask questions when a change matches their triggers, and your agent records each answer as [declared met](#declared-met) or [declared unmet](#declared-unmet). The [improvement review](../20-quality-gate/improvement.md) asks questions about work that already exists, and leaves them open for you and your agent to weigh. A question can carry a `teach` note that says why it matters. Proof keeps checkpoint answers apart from the results of the checks discern runs. See [checkpoints](../20-quality-gate/checkpoints.md).",
   },
   {
     term: "Open question",
     runningCase: "lowercase",
     plain: { phrase: "a record that a judgment stop fired" },
     definition:
-      "The record created when a stop checkpoint asks for judgment on an effort. It keeps the question and its current answer or unanswered state. `discern done` creates the record when a `stop` [checkpoint](#checkpoint) fires. The record lives in the worktree's Git administrative area, survives session restarts, and tracks any later [declaration](#declaration) or reopening. `discern checkpoints` reports its current state without changing it. See [checkpoint state and declarations](../70-reference/checkpoint-state.md).",
+      "discern's record that a stop checkpoint has asked your agent a question about a task. `discern done` opens one when a `stop` [checkpoint](#checkpoint) fires, and so does `discern accept` when the combined code fires one during a landing. The record names the checkpoint and the files it matched, and tracks each later [declaration](#declaration) or reopening. Its state is waiting for an answer, declared met, declared unmet, or reopened. Once it's open, the question still needs an answer even if the trigger stops matching. discern keeps the record in the worktree's Git administration folder, so it survives a session restart and goes away with the worktree. `discern checkpoints` shows its state without changing it. See [checkpoint state and declarations](../70-reference/checkpoint-state.md).",
   },
   {
     term: "Declaration",
@@ -336,14 +314,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: false,
     },
     definition:
-      'The agent\'s recorded answer to a checkpoint [question](#question). The agent uses `discern done --met <id>` for a satisfied question, or `--unmet <id> --why "…"` for an unmet question with a reason. The answer applies to the resolved question and matched content; a relevant change reopens it. [Proof](#proof) labels the answer [declared met](#declared-met) or [declared unmet](#declared-unmet). The gate verifies that a required answer exists, not that the judgment is correct.',
+      "Your agent's recorded answer to a checkpoint [question](#question). For a question it judges satisfied, your agent runs `discern done --met <id>` with the checkpoint's id. For one that isn't, it runs `discern done --unmet <id> --why \"…\"` with a one-paragraph reason. discern accepts an answer only for a `stop` checkpoint whose question is open. The answer covers the checkpoint's question and the files it matched. If the question or those files change, discern asks again, and unrelated edits leave the answer standing. Changing an answer makes the [Proof](#proof) stale, even on the same commit. Proof shows each answer as [declared met](#declared-met) or [declared unmet](#declared-unmet). The gate checks that every required answer exists. It doesn't check whether the judgment is right.",
   },
   {
     term: "Declared met",
     runningCase: "lowercase",
     plain: { phrase: "the agent's recorded yes" },
     definition:
-      "The agent has judged that the checkpoint question is satisfied for this change. This [declaration](#declaration) applies to the question and content the agent examined. A relevant change reopens it. The conclusion is recorded judgment, not independent machine verification.",
+      "Your agent's recorded answer that this change satisfies a checkpoint question. This [declaration](#declaration) covers the question and the matched files as they stood when your agent answered, and a change to either reopens it. The answer is your agent's judgment. discern records it but doesn't check whether it's right. A met answer needs no decision from you before the change lands.",
   },
   {
     term: "Declared unmet",
