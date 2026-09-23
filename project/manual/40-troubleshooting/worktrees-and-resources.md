@@ -72,6 +72,8 @@ The change is on `main`, and its worktree is still there. The first sentence of 
 | `the checkout has uncommitted changes, so it and its branch stay` | Keep the changes you want by committing them. Your agent then runs `discern done`, then `discern accept`.                                      |
 | `could not be removed: run discern worktree prune`                | A program is still using the folder, such as a preview server. Stop it, then run `discern worktree prune` from your main checkout.             |
 
+If the result says `resource teardown failed`, the worktree and branch are gone, but a resource such as a test database remains. Fix the command that removes it, then run `discern worktree prune` from your main checkout.
+
 None of these undoes the landing, and none needs you to approve the change again.
 
 ## Removal failed, or a removed path came back

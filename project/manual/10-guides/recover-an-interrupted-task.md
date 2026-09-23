@@ -107,7 +107,8 @@ If another process is running the landing, let it finish. If files, branches, or
 A worktree that stays after landing can be a normal outcome. The change is already on `main`. The result says why the worktree stayed:
 
 - **The branch has newer commits.** They haven't landed yet. The agent runs `discern done`, then `discern accept`, for them.
-- **Cleanup couldn't finish**, perhaps because another program was still using the folder. Once it stops, run `discern worktree prune` from your main checkout.
+- **The worktree has uncommitted changes.** discern keeps them, and the branch. The agent commits what should stay, then runs `discern done`, then `discern accept`.
+- **Cleanup couldn't finish**, perhaps because another program was still using the folder, or a resource couldn't be removed. Once the cause is fixed, run `discern worktree prune` from your main checkout.
 
 Recovery is done when you know what landed, and why anything is still there. [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers cleanup and resource problems.
 
