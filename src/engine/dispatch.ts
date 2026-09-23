@@ -247,49 +247,43 @@ export function attachEngineCommands(
   root
     .command("done")
     .description(
-      "Require a clean, committed tree. Run finishing steps that may change files, then verify the gate — the project's " +
-        "full quality check: format, lint, type-check, and tests.",
+      "Run the gate on a clean, committed tree and record Proof when it passes. The gate is your project's full quality check: the jobs it configures, such as format, lint, type-check, and tests.\nUncommitted or untracked files stop it before anything runs. Its fixers may change files, and a change to a committed file fails the run without committing anything, so run `discern prepare` and commit first. discern asks any checkpoint questions before the checks run. If current Proof already covers this commit, `done` returns it without running the checks again.",
     )
     .option(
       "--dry-run",
-      "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
+      "Show which checks, jobs, and scope gates would run, without running them. It still needs a committed tree.",
     )
     .option(
       "--policy-base <ref:string>",
-      "Use the fetched immutable policy base for a standalone CI report. Strict completion checks against the trunk's current tip.",
+      "For a CI report, with `--ci` and `--standalone`: judge the change against the settings in this fetched commit instead of the trunk's current tip.",
     )
     .option(
       "--standalone",
-      "Run complete diagnostic feedback, including on a dirty tree. Results are transient and issue no Proof.",
+      "Run every check for feedback, even with uncommitted changes. discern records no Proof and no results it can reuse.",
     )
     .option(
       "--rerun",
-      "Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.",
+      "Run the checks again even when current passing Proof covers this commit, or retry a failure on unchanged code. discern records the rerun, and the newest result wins.",
     )
     .option(
       "--ci",
-      "Run the machine gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
+      "For continuous integration: run the checks and list any checkpoint questions, without waiting for or recording answers. Its Proof can't be used to land.",
     )
     .option(
       "--met <id:string>",
-      "Declare a served checkpoint's question met (repeatable). Valid only " +
-        "for a checkpoint with an active open question here; the declaration is " +
-        "recorded as your judgment, and the gate runs in the same invocation " +
-        "once every awaiting checkpoint has a conclusion.",
+      "Answer a checkpoint question as met, as your recorded judgment (repeatable). It applies only to a question this worktree is waiting on. Once every waiting question has an answer, the checks run in the same call.",
       { collect: true },
     )
     .option(
       "--unmet <id:string>",
-      "Declare a served checkpoint's question unmet (one per invocation; " +
-        "requires --why). The gate still runs; landing then needs the owner " +
-        "to authorize a variance for it.",
+      "Answer one checkpoint question as unmet, with `--why`. The checks still run, but landing then needs the owner to approve a variance.",
       { collect: true },
     )
     .option(
       "--why <rationale:string>",
-      "The required rationale for --unmet: one paragraph, 1-500 characters, " +
-        "no newlines or control characters. Recorded opaquely as Proof " +
-        "evidence for the owner's landing decision.",
+      "Why the question isn't met, for `--unmet`: one paragraph of 1–500 " +
+        "characters, without line breaks or control characters. The Proof " +
+        "keeps it, as written, for the owner's landing decision.",
     )
     .action(
       recordedExit("done", async (o) => {
@@ -354,7 +348,7 @@ export function attachEngineCommands(
   root
     .command("prepare")
     .description(
-      "Fast inner loop: fixers, [generated] regenerations, complete refresh, then read-only checks (no other build jobs, no tests).",
+      "Run the quick checks while you work: fix and regenerate files, then run the read-only checks, without tests.\nIn order, it runs the fix jobs, such as the formatter, the `[generated]` commands, and `discern refresh`, then the check jobs, such as lint and type-check. It works on uncommitted changes, may change files, and never commits. It skips build and test jobs, scope gates, and standards, and records no Proof. Run it before your final commit, so `discern done` has nothing left to rewrite.",
     )
     .action(
       recordedExit("prepare", async (o) => {
@@ -374,7 +368,7 @@ export function attachEngineCommands(
   root
     .command("test")
     .description(
-      "Run the project's configured tests on their own, outside the full gate.",
+      "Run your project's tests on their own, without the rest of the gate.\nIt runs every test-stage job, such as `test` and `smoke`, and waits for a free test-run slot first. It works on uncommitted changes and records no Proof. You don't need it before `discern done`, which runs the tests itself.",
     )
     .action(
       recordedExit("test", async (o) => {
@@ -393,24 +387,22 @@ export function attachEngineCommands(
     .noGlobals()
     .usage("-- <command> [args...]")
     .description(
-      "Run a command while holding one configured concurrent test-run slot. " +
-        "Use `discern await` to watch a fleet condition instead. " +
-        "This command has no `--json`, `--markdown`, or `--render` mode; tokens after `--` belong to the child.",
+      "Run a command, such as a test suite, once a test-run slot is free, so parallel tasks don't overload this machine.\n`[gate].concurrent_test_runs` sets how many slots every checkout shares. Outside a project, or when that setting is 0, the command runs straight away. discern runs it directly, not through a shell, and passes its output and exit status through unchanged. Everything after `--` belongs to the command, and there's no `--json`, `--markdown`, or `--render` form. To wait for another task instead, use `discern await`.",
     );
   registerDirectRecordedCliCommandPath("queue");
 
   root
     .command("improvement")
     .description(
-      "Find the highest-value next improvement, with the health audit and open reviews for agent and owner to evaluate together.",
+      "Find the most valuable improvement to make next in how this project uses discern.\nIt scores what discern can check automatically, lists the review questions it can't, for your agent and you to weigh together, and suggests one next step. It changes nothing.",
     )
     .option(
       "--category <name:string>",
-      `Review a single area (${CATEGORY_NAMES.join(", ")}).`,
+      `Review one area only: ${CATEGORY_NAMES.join(", ")}.`,
     )
     .option(
       "--min-score <n:number>",
-      "Exit non-zero when the overall score is below this floor (a CI/agent gate).",
+      "Exit non-zero when the score is below this number, for use as a CI check. With `--category`, it's that area's score.",
     )
     .action(
       recordedExit("improvement", async (o) => {
@@ -431,7 +423,7 @@ export function attachEngineCommands(
   root
     .command("checkpoints")
     .description(
-      "Report the governing checkpoint policy, each open question's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.",
+      "Show the checkpoints that apply to this task, whether each question has an answer, and which ones the current change would trigger.\nIt also shows how often each checkpoint has fired, been answered unmet, and needed a variance. It runs no `when` commands and changes no checkpoint state.",
     )
     .action(
       recordedExit("checkpoints", async (o) => {
@@ -448,10 +440,7 @@ export function attachEngineCommands(
   root
     .command("progress")
     .description(
-      "Read a long operation back after a lost call: its phase, the counts and " +
-        "failures known so far, and the retained result. Pass the progress " +
-        "handle the operation announced; with no handle, read this checkout's " +
-        "most recently started operation. Reading changes nothing.",
+      "Check on a long operation, such as `discern done`, after losing track of it.\nIt shows the operation's current phase, the counts and failures so far, and its result once it finishes. Pass the progress handle that an MCP call announced or `discern status` shows; without one, it reads this checkout's latest operation. It changes nothing and never reruns the operation.",
     )
     .arguments("[handle:string]")
     .action(
@@ -469,15 +458,15 @@ export function attachEngineCommands(
   root
     .command("mcp")
     .description(
-      "The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents should connect automatically.",
+      "Run discern's MCP (Model Context Protocol) server, which gives coding agents most of discern's commands as tools.\nYou don't need to run it yourself: setup and `discern refresh` configure each agent to start it. It talks over standard input and output.",
     )
     .option(
       MCP_LONG_TOOL_CALLS_FLAG,
-      `Use the long-call transport profile; await calls may run for ${AWAIT_LONG_CALL_SECONDS} seconds.`,
+      `For agents that allow long tool calls: let each await call wait up to ${AWAIT_LONG_CALL_SECONDS} seconds.`,
     )
     .option(
       MCP_STRICT_TOOL_CALLS_FLAG,
-      `Use the strict transport profile; await calls may run for ${AWAIT_STRICT_CALL_SECONDS} seconds.`,
+      `For agents that end long tool calls early: keep each await call to ${AWAIT_STRICT_CALL_SECONDS} seconds, and suggest the command line for long work. Without either option, await calls also stop at ${AWAIT_STRICT_CALL_SECONDS} seconds.`,
     )
     .action(recordedExit("mcp", async (o) => {
       // The server resolves the project root itself and reports a missing one
@@ -496,7 +485,7 @@ export function attachEngineCommands(
   root
     .command("scripts")
     .description(
-      "List executable Project Scripts, or run one literal name at the project root with the four supported DISCERN_* variables and every following argument forwarded unchanged.",
+      "List your project's scripts, or run one by name.\ndiscern looks the name up as written, with no partial matches. It runs the script from the project root with `DISCERN_ROOT`, `DISCERN_TOML`, `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK` set, passes every following argument through unchanged, and returns its exit status.",
     )
     .arguments("[name:string] [...args:string]")
     .action(
@@ -513,20 +502,20 @@ export function attachEngineCommands(
 
   const standardsCommand = new Command()
     .description(
-      "Measure the named quality standards, or every configured standard when no names are given: numbers that can never get worse. `discern done` already verifies and measures them on every run. Authoring one? Hold a rate (`per`) for a number that rises as the project grows, and give a drifting total a `margin` — a ceiling pinned at today's value fails the next legitimate change.",
+      "Measure your project's standards: limits on measured numbers, such as test coverage or bundle size. A change can tighten a limit, but loosening one needs the owner's approval.\nName standards to measure only those; otherwise discern measures them all. It first checks that no limit is looser than the trunk's, and saves each measurement so a later `--pin` or `discern done` can reuse it for the same commit. You don't need it before finishing: `discern done` checks every standard. For a number that grows with the project, hold a rate with `per`. Give a total that drifts a `margin`, or a limit pinned at today's value fails the next ordinary change.",
     )
     .arguments("[names...:string]")
     .option(
       "--dry-run",
-      "Show the standards that would be measured; touch nothing.",
+      "List the standards that would be measured, without measuring them.",
     )
     .option(
       "--force",
-      "Run standards on a dirty worktree; intended only while authoring standards.",
+      "Measure even with uncommitted changes. Use it only while writing a standard; `--pin` ignores it.",
     )
     .option(
       "--pin",
-      "Capture measured improvements for the named standards, or every one with slack. Same-commit values are reused; named measurement narrows only when gate Proof already validates the clean tree. Commit the limit change alone; that commit needs a fresh `discern done` before it can land. Requires a clean worktree.",
+      "Lock in improvements: tighten each named standard's limit, or every limit with room to tighten, to its measured value, keeping its margin as headroom. It needs a clean worktree and reuses measurements already taken for this commit. With names, it measures only those standards when current Proof covers the commit; otherwise it measures them all. discern commits the new limits by themselves, and that commit needs a fresh `discern done` before it can land.",
     )
     .action(
       recordedExit("standards", async (o, ...names: string[]) => {
@@ -550,14 +539,14 @@ export function attachEngineCommands(
     "propose",
     new Command()
       .description(
-        "Finalize a proposed limit for a standard breached by this change. On a clean final HEAD, measure the named standard, then create its config-only proposal commit or renew an unchanged descendant binding. Acceptance still requires explicit approval for the value and reason.",
+        "Propose a looser limit for a standard this change breaks, for the owner to approve.\nRun it on the branch's final, clean commit. discern measures the standard and commits a proposal that changes only its limit, set to the measured value. Rerun after later commits, with the same reason, to carry an unchanged proposal forward without a new commit. Landing still needs the owner's explicit approval of the value and reason.",
       )
       .arguments("<name:string>")
       .option(
         "--reason <reason:string>",
-        "The exact non-empty owner-facing reason for the standard limit proposal (1-500 visible, secret-free characters).",
+        "Why the limit should change, for the owner to read: 1–500 characters on one line, with no secrets and no claim that anyone has approved it.",
       )
-      .option("--dry-run", "Show the proposal plan; touch nothing.")
+      .option("--dry-run", "Show the proposal without making it.")
       .action(recordedExit(
         "standards propose",
         async (o, name: string) => {
@@ -583,13 +572,11 @@ export function attachEngineCommands(
   root
     .command("refresh")
     .description(
-      "Refresh the agent files, skills, provider integrations, and the " +
-        "maintained ADR index. Use " +
-        "`discern update` for this branch; use `discern upgrade` for discern itself.",
+      "Regenerate your agent files, skills, agent integrations, and ADR index from their sources. To bring the trunk into this branch, use `discern update`; to update the project for a newer discern, use `discern upgrade`.\nIt also updates discern's block in `.gitattributes` and discern's settings in the repository's Git config. It writes files but never commits. It never removes an agent's files, even when you drop that agent from `[project].agents`.",
     )
     .option(
       "--dry-run",
-      "List every refresh target and create/update/remove effect; change nothing.",
+      "List each file it would create, update, or remove, without changing anything.",
     )
     .action(recordedExit("refresh", async (o) => {
       const json = jsonFrom(o);
@@ -615,11 +602,11 @@ export function attachEngineCommands(
   root
     .command("tidy [type:string]")
     .description(
-      "Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML, or whose table rows would drop cells when formatted (escape pipes inside code spans as `\\|`), is refused and left unchanged.",
+      "Format the files discern manages: the map, the TODO list, your instruction files, and `discern.toml`.\nPass `md` or `toml` to format one kind; leave it out for both. It also checks that box-drawing diagrams in code blocks stay aligned: a misaligned diagram fails the run without stopping the formatting, and a fence marked `freeform` is skipped. If any file can't be parsed, such as Markdown with invalid YAML frontmatter, or formatting would drop cells from a table row, discern changes no files at all. Escape a pipe inside a code span as `\\|` to keep its cell.",
     )
     .option(
       "--dry-run",
-      "List the files that would change; touch nothing.",
+      "List the files that would change, without changing them.",
     )
     .action(recordedExit("tidy", async (o, type: string | undefined) => {
       // Keep the formatter host and embedded WASMs off every other verb's module
@@ -637,13 +624,11 @@ export function attachEngineCommands(
   root
     .command("impact")
     .description(
-      "Show which configured scopes the branch and working tree wake in the quality " +
-        "gate. Scopes are named regions of the repository with their own gate jobs. " +
-        "With --has, JSON reports data.membership and exits successfully for either Boolean value.",
+      "Show which scopes this branch's changes touch, and so which scope gates `discern done` will run. Scopes are named regions of the repository, set in `discern.toml`.\nIt counts the branch's commits since it left the trunk, plus uncommitted and untracked files. Neutral scopes never appear. It also lists `code` when any file outside the neutral scopes changed, and `previewable` when a scope with a preview command changed.",
     )
     .option(
       "--has <scope:string>",
-      "Test one scope. Bare: print nothing and exit 0/1. JSON: report `data.membership` and exit 0.",
+      "Check one scope, or `code` or `previewable`. On its own, it prints nothing and exits 0 if the change touches it, 1 if not. With `--json`, it reports the answer in `data.membership` and exits 0.",
     )
     .action(
       recordedExit("impact", async (o) => {
@@ -660,9 +645,7 @@ export function attachEngineCommands(
   root
     .command("coupling")
     .description(
-      "Report files that historically change together as a read-only advisory. " +
-        "With no args, report likely siblings missing from the change. With file, " +
-        "report its top partners. Add with to report commits where both changed.",
+      "Find files that usually change together in your Git history, so a change doesn't miss one.\nWith no arguments, it lists files that often change with the ones you changed but are missing from your change. With one file, it lists that file's usual partners. With two files, it lists recent commits that changed both. It's advice only and always exits 0.",
     )
     .arguments("[file:string] [with:string]")
     .action(recordedExit("coupling", async (o, file, withFile) => {
@@ -681,32 +664,29 @@ export function attachEngineCommands(
   root
     .command("await")
     .description(
-      "Block until a fleet condition holds: a sibling branch is green (its " +
-        "worktree holds an honored gate Proof), a branch's work has landed " +
-        "on the trunk, or the trunk has moved. Timing out is not an error; " +
-        "the result carries a short continuation handle that preserves the " +
-        "original condition across calls. To wrap a command behind the " +
-        "concurrent test-run cap, use `discern queue -- <command> [args...]`.",
+      "Wait for another task: until its work passes the gate, until it lands, or until the trunk moves.\n" +
+        `By default it waits up to ${AWAIT_LONG_CALL_SECONDS} seconds and ` +
+        "returns as soon as the condition holds. If time runs out first, it exits with status 124 and returns a short handle; pass it to `--resume` to keep waiting for the same thing. It doesn't change any work, and it blocks only the command that called it. To wait for a free test-run slot before running a command, use `discern queue -- <command> [args...]` instead.",
     )
     .option(
       "--green <worktree:string>",
-      "Select a sibling by worktree id, path, local branch, or full local ref; wait until its checkout holds an honored gate Proof (a landing also satisfies it).",
+      "Wait until that task's worktree has a current, passing Proof. Name it by worktree id, path, local branch, or full local ref. Its landing also counts.",
     )
     .option(
       "--landed <worktree:string>",
-      "Select a sibling by worktree id, path, local branch, or full local ref; wait until its work reaches the trunk.",
+      "Wait until that task's work reaches the trunk. Name it by worktree id, path, local branch, or full local ref.",
     )
     .option(
       "--trunk-moved",
-      "Wait until the trunk ref moves from its position at call start.",
+      "Wait until the trunk moves from where it was when the wait began.",
     )
     .option(
       "--resume <handle:string>",
-      "Continue a previous not-met wait without resetting its pinned state; pass no condition flag with it.",
+      "Keep waiting for an earlier wait's condition, using the handle it returned. Don't add a condition option.",
     )
     .option(
       "--timeout <seconds:number>",
-      `Seconds before answering "not yet". Omit to wait once for up to ${AWAIT_LONG_CALL_SECONDS}s; the condition returns early, and 0 checks once.`,
+      `How many seconds to wait before answering "not yet". Default: up to ${AWAIT_LONG_CALL_SECONDS}. It returns early once the condition holds; 0 checks once without waiting.`,
     )
     .action(recordedExit("await", async (o) => {
       const { runAwait } = await loadModule(() => import("./await/await.ts"));
@@ -722,23 +702,19 @@ export function attachEngineCommands(
 
   const patterns = new Command()
     .description(
-      "Report the patterns in this project's discern use, read from the local " +
-        "logbook: validation, evidence reuse, waits, landing latency, gate fit and " +
-        "standard trends. Counts include observation limits. A read-only advisory.",
+      "Show patterns in how this project uses discern, from its local logbook.\nFindings cover standard trends, how well the gate fits the work, habits such as repeated failures, and the path from start to landing. Each finding shows its counts and what the logbook couldn't see, and says when there isn't enough evidence. It's advice only.",
     )
     .option(
       "--stats",
-      "Report practice stats instead: changes accepted, green streaks, cycle times, " +
-        "standards trends, and agent cohorts, counted from the same local evidence. " +
-        "With --json, the counts join the result as data.stats.",
+      "Show usage statistics instead: changes landed, passing streaks, cycle times, standard trends, and results grouped by coding agent, from the same logbook. With `--json`, they're added to the result as `data.stats`.",
     )
     .option(
       "--all",
-      "Report every finding from every detector.",
+      "Show every finding. Without it, each kind of check shows its first few.",
     )
     .option(
       "--logbook-file <filename:string>",
-      "Read one sealed archive basename listed by `discern patterns archives` instead of the active logbook.",
+      "Read a sealed archive instead of the active logbook. Give a file name that `discern patterns archives` lists.",
     )
     .action(
       recordedExit("patterns", async (o) => {
@@ -762,7 +738,7 @@ export function attachEngineCommands(
       "archives",
       new Command()
         .description(
-          "List sealed logbook archives with their event counts, date spans, and byte sizes.",
+          "List the logbook's sealed archives, with each one's event count, date range, and size.",
         )
         .action(
           recordedExit("patterns archives", async (o) => {
@@ -786,7 +762,7 @@ export function attachEngineCommands(
         .description(action.description)
         .option(
           "--dry-run",
-          "Render the complete plan without requesting confirmation or changing files.",
+          "Show the full plan without asking for confirmation or changing any files.",
         )
         .action(
           recordedExit(invocation, async (o) => {
@@ -817,12 +793,11 @@ export function attachEngineCommands(
   root
     .command("status")
     .description(
-      "Show what's true right now and what to do next (read-only; does not run the " +
-        "gate, the project's full quality check).",
+      "Show where this checkout stands and what to do next.\nIt runs no checks, tests, or measurements, and changes nothing in your project. From the main checkout, it also lists the task worktrees.",
     )
     .option(
       "--all",
-      "Include every worktree even when called from one (local view plus all worktrees).",
+      "Also list every worktree when you run it from a task worktree. You can't combine it with `--local`.",
     )
     .option(
       "--local",
@@ -830,9 +805,7 @@ export function attachEngineCommands(
     )
     .option(
       "-v, --verbose",
-      "Expand fleet attention, per-worktree evidence, configured checks, landing " +
-        "history, and full Proof pages. With JSON, return complete structured " +
-        "status; the default is the bounded orientation projection.",
+      "Show everything: each worktree in full, its evidence, the configured checks, landing history, and full Proof pages. With `--json`, return the complete status instead of the shorter summary; full Proof pages stay out of JSON.",
     )
     .action(recordedExit("status", async (o) => {
       const { runStatus } = await loadModule(() =>
@@ -849,10 +822,7 @@ export function attachEngineCommands(
   root
     .command("desk")
     .description(
-      "Open the live desk: see tasks, review Proof and changes, open an agent, " +
-        "run Project Scripts, or review acceptance and worktree controls. " +
-        "Bare `discern` opens the desk. The desk is interactive only; use " +
-        "status --markdown or status --json to list every worktree.",
+      "Open the desk, your interactive view of every task in this project.\nFrom the desk you can start tasks and agents, run project scripts, review changes and Proof, land work or pre-approve it, and clean up worktrees. Run it from the main checkout; bare `discern` opens it too. It needs an interactive terminal. To list worktrees from a script, use `discern status --all --json`.",
     )
     .action(
       recordedExit("desk", async (o) => {
@@ -864,8 +834,7 @@ export function attachEngineCommands(
   root
     .command("enter")
     .description(
-      "Choose a worktree and open a child shell at the matching project-relative directory. " +
-        "This command is interactive only; use status --all --json to inspect the fleet.",
+      "Open a shell in another worktree, in the same folder you're in now.\nPick the main checkout or a worktree from the list, and exit the shell to return. If that folder doesn't exist there, the shell opens in the nearest one that does. It changes nothing and needs an interactive terminal. To list worktrees from a script, use `discern status --all --json`.",
     )
     .action(
       recordedExit("enter", async (o) => {
@@ -879,26 +848,29 @@ export function attachEngineCommands(
   root
     .command("start")
     .description(
-      "From the main checkout, create a worktree with a separate checkout and branch " +
-        `for one effort. Base it on the trunk${trunkName}, the shared landing branch, ` +
-        "then print its path.",
+      "Create a worktree for a new task: a separate checkout on its own " +
+        `branch, started from the trunk${trunkName}, your project's shared branch.\n` +
+        "Run it from the main checkout. discern sets the worktree up, including its resources and setup commands, then prints its path. Uncommitted work in the main checkout stays where it is.",
     )
-    .option("--dry-run", "Show the start plan; touch nothing.")
+    .option(
+      "--dry-run",
+      "Show what `start` would create, without creating anything. The real run picks a new id.",
+    )
     .option(
       "--name <name:string>",
-      "Set the task title and seed its worktree id. discern preserves this text as the title and normalizes the id. Omit for a random codename.",
+      "Name the task. discern keeps your text as the title and derives the worktree id from it. Without `--name` or `--title`, the id is a random codename.",
     )
     .option(
       "--title <title:string>",
-      "Set the display title separately from --name. With no --name, the title also seeds the worktree id.",
+      "Set a display title that differs from `--name`. Without `--name`, discern derives the id from the title.",
     )
     .option(
       "--brief <brief:string>",
-      "Store an optional one-line brief for task detail and agent handoff.",
+      "Save a one-line description of the task, shown in task details and when an agent starts on it.",
     )
     .option(
       "--from <source:string>",
-      "Branch the new worktree from a ref or an unambiguous worktree id or path. Omit it to start from the trunk.",
+      "Start from something other than the trunk: a branch, tag, commit, or another worktree's id or path. To resume a parked task, pass its branch.",
     )
     .action(recordedExit("start", async (o) => {
       const json = jsonFrom(o);
@@ -924,88 +896,66 @@ export function attachEngineCommands(
     .command("accept [action:accept-action]")
     .type("accept-action", new EnumType(ACCEPT_ACTIONS))
     .description(
-      `Submit this worktree's proven commit and land it on the trunk${trunkName}, ` +
-        "the shared landing branch. Landing needs the owner's consent in this " +
-        "conversation or a recorded grant; without one, the submission waits in " +
-        "the landing queue. If the trunk moved after the Proof, the landing " +
-        "composes and checks the combined code in a disposable integration " +
-        "worktree and lands that exact proven commit; a second accept waits its " +
-        "turn. Landing removes the worktree and its branch when the " +
-        "branch holds nothing beyond the landed commit. Use accept emergency " +
-        "--reason <text> to review an explicit exception against actual trunk. " +
-        "Emergency integration requires fresh exact owner confirmation and issues no passing Proof.",
+      `Land this worktree's proven commit on the trunk${trunkName}, your project's shared branch.\n` +
+        "A proven commit is one that `discern done` passed. It lands only with the owner's approval in this conversation or a recorded grant; otherwise discern records it in the landing queue for the owner. If the trunk moved since the Proof, discern checks the combined code in a temporary integration worktree and lands exactly what passed. A second `accept` waits its turn. After landing, discern removes the worktree, its resources, and its branch, unless the branch has newer commits or the checkout has uncommitted changes. `discern accept queue` adds the commit to the landing queue without landing it. `discern accept emergency --reason <text>` starts an emergency landing of a repair whose checks haven't passed: it needs the owner's fresh, explicit approval and issues no passing Proof.",
     )
-    .option("--dry-run", "Show the selected acceptance plan; touch nothing.")
+    .option(
+      "--dry-run",
+      "Show the landing plan without landing or recording anything. From the main checkout without `--target`, list the landing queue.",
+    )
     .option(
       "--target <effort:string>",
-      "Select the effort by id, path, or branch, from any checkout. With accept queue, record its current proven revision; otherwise start landing under applicable authority.",
+      "Choose the task by id, path, or branch, from any checkout. From the main checkout, it's required. After that task lands, discern lands the rest of the queue in order, each under its own recorded grant. With `accept queue`, add the task's proven commit to the queue instead.",
     )
     .option(
       "--prepare",
-      "Emergency only: run checkpoint triggers and retain exact review evidence without validation or integration.",
+      "Emergency only: answer checkpoint questions before an emergency landing. discern runs the checkpoint triggers and keeps the evidence for review, but runs no checks and lands nothing. Needs `--reason`.",
     )
     .option(
       "--preparation-receipt <receipt:string>",
-      "Emergency only: the checkpoint-preparation receipt for this exact repair and trunk.",
+      "Emergency only: the receipt `--prepare` returned for this repair and trunk.",
     )
     .option(
       "--met <id:string>",
-      "Record a satisfied served checkpoint question (repeatable): the " +
-        "continuation of a landing whose combined result awaits your " +
-        "judgment, or emergency preparation with accept emergency --prepare.",
+      "Answer a checkpoint question as met (repeatable): a question about the combined code, with `--composition-receipt`, or an emergency question, with `accept emergency --prepare`.",
       { collect: true },
     )
     .option(
       "--unmet <id:string>",
-      "Declare one served integration checkpoint question not satisfied " +
-        "(requires --why). The retained composition is still proved; the " +
-        "owner then decides the declared-unmet landing.",
+      "Answer one checkpoint question about the combined code as unmet, with `--why` and `--composition-receipt`. discern still checks the combined code; landing then needs the owner's variance.",
     )
     .option(
       "--why <rationale:string>",
-      "The required one-paragraph rationale for --unmet.",
+      "Why the question isn't met, for `--unmet`, in one paragraph.",
     )
     .option(
       "--composition-receipt <receipt:string>",
-      "The served composition receipt an answer or resumed variance " +
-        "decision binds to; the judgment refusal serves it. A replaced " +
-        "composition refuses the receipt and re-serves its own question.",
+      "The receipt that came with a question about the combined code. Pass it with `--met`, `--unmet`, or `--variance` so your answer applies to that exact combination. If discern has replaced the combination, it refuses the old receipt and asks its own question again.",
     )
     .option(
       "--reason <text:string>",
-      "Emergency only: explain why integration must precede validation.",
+      "Emergency only: why the repair must land before its checks pass. The owner reviews it, and the approval token is tied to it.",
     )
     .option(
       "--approval-token <token:string>",
-      "Emergency only: the current preview token approved by the owner, with --confirmed.",
+      "Emergency only: the preview token the owner approved, with `--confirmed`. It's valid only briefly, and only while the repair, trunk, and reason stay the same.",
     )
     .option(
       "--recover <id:string>",
-      "Emergency only: reconcile one recorded exception transition and cleanup without new landing authority.",
+      "Emergency only: finish an interrupted emergency landing, named by its landing id. discern records whether the trunk moved and cleans up; it lands nothing new and needs no new approval.",
     )
     .option(
       "--confirmed",
-      "Attest that your owner accepted this landing in the current conversation. " +
-        "Recorded standing and effort grants are checked directly. Consent bound " +
-        "to an interrupted transaction may authorize recovery of that transaction " +
-        "only. Without applicable evidence, acceptance refuses read-only; a " +
-        "dry-run needs none.",
+      "Record that the owner approved this landing in the current conversation. It covers only the selected landing. discern checks standing and task grants on its own. Approval given for an interrupted landing covers only finishing that landing. Without approval or a grant, discern lands nothing; `--dry-run` needs neither.",
     )
     .option(
       "--variance <id:string>",
-      "Record that your owner authorized landing this declared-unmet " +
-        "checkpoint without changing it (repeatable; requires --confirmed). " +
-        "The ids must equal the current declared-unmet set, id for id, and " +
-        "recorded grants never authorize a variance.",
+      "Record that the owner approved landing despite this unmet checkpoint answer, without changing it (repeatable; needs `--confirmed`). The ids must match the current unmet answers exactly. No recorded grant can approve a variance.",
       { collect: true },
     )
     .option(
       "--approve-standard <token:string>",
-      "Record that the owner approved the exact standard/value/reason tuple " +
-        "carried by the current Proof (repeatable; requires --confirmed). " +
-        "Use the proposal-bound token served by the read-only refusal; the token " +
-        "set must equal the current proposal set. Standing, effort, and " +
-        "generic landing grants never authorize a standard limit proposal.",
+      "Record that the owner approved a proposed standard limit (repeatable; needs `--confirmed`). Use the token from the refusal: it binds one standard, value, and reason, and the tokens must match the current proposals exactly. No grant can approve a limit change.",
       { collect: true },
     )
     .action(recordedExit(
@@ -1068,15 +1018,16 @@ export function attachEngineCommands(
   root
     .command("update")
     .description(
-      `Update this branch: merge the trunk's latest${trunkName} into this branch and ` +
-        "re-run generated groups and refresh Agent artifacts. The trunk is the shared landing " +
-        "branch. Use `discern upgrade` for discern itself; use `discern refresh` for " +
-        "agent files alone.",
+      `Merge the latest trunk${trunkName}, your project's shared branch, into this ` +
+        "branch, and refresh what depends on it. For a newer discern, use `discern upgrade`; for agent files alone, use `discern refresh`.\nRun it in a task worktree with no uncommitted changes to tracked files. discern settles conflicts in generated files by regenerating them; any other conflict stops the merge and leaves your files as they were. Then it reruns the generators, refreshes agent files, and runs the `ensure` commands, even when there was nothing to merge. It lists the files both sides changed, so you can re-read them.",
     )
-    .option("--dry-run", "Show the update plan; touch nothing.")
+    .option(
+      "--dry-run",
+      "Show what the update would bring in and change, without changing anything.",
+    )
     .option(
       "--from <source:string>",
-      "Pull a ref or an unambiguous worktree id or path into this worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call.",
+      "Merge something other than the trunk: a branch, tag, commit, or another worktree's id or path. Use it to build on work that hasn't landed yet.",
     )
     .action(recordedExit("update", async (o) => {
       const json = jsonFrom(o);
@@ -1094,26 +1045,34 @@ export function attachEngineCommands(
   root
     .command("identity")
     .description(
-      "Print stable values that keep each checkout's branch, development host, port, " +
-        "database, and external resources separate.",
+      "Print a stable value discern derives for a checkout's branch, development host, port, database, and external resources.\nChoose one value per call; the default is the id. Name another checkout by id, path, local branch, or full local ref; the default is the checkout you're in.",
     )
-    .option("--id", "Print the safe base name for this checkout (default).")
-    .option("--site", "Print its development server's host name.")
+    .option("--id", "Print the checkout's id (the default).")
+    .option(
+      "--site",
+      "Print its development-server host name, safe to use in a web address.",
+    )
     .option("--branch", "Print its branch name.")
-    .option("--port", "Print its stable development-server port.")
-    .option("--db", "Print its database-safe name.")
-    .option("--seed", "Print its stable test-order seed.")
+    .option(
+      "--port",
+      "Print its stable development-server port. discern doesn't reserve the port.",
+    )
+    .option(
+      "--db",
+      "Print a name for it that's safe to use as a database name.",
+    )
+    .option("--seed", "Print its stable seed for ordering tests.")
     .option(
       "--worktree",
-      "Print its base resource handle — a stable project-prefixed external name.",
+      "Print its resource handle: a stable name, starting with the project slug, for its external resources.",
     )
     .option(
       "--resource <name:string>",
-      "Print the stable external name for one declared resource.",
+      "Print the stable external name of one declared resource.",
     )
     .option(
       "--resources",
-      "Print every declared resource as name=stable-external-name lines.",
+      "Print every declared resource as `name=handle` lines.",
     )
     .arguments("[worktree:string]")
     .action(recordedExit("identity", async (o, worktree) => {
@@ -1202,19 +1161,21 @@ export function attachEngineCommands(
     }));
 
   const worktreeSetupCommand = new Command()
-    .description("Set up or re-sync the current worktree.")
-    .option("--dry-run", "Show the setup plan; touch nothing.")
+    .description(
+      "Set up this worktree, or bring its setup up to date. `discern start` runs it for you.\nThe first run creates the worktree's resources, env values, and port, and runs its one-time setup steps. Later runs check the resources and rerun the `ensure` commands. Run it inside the worktree. If a setup step was interrupted, it stops and shows how to recover.",
+    )
+    .option("--dry-run", "Show the setup plan without changing anything.")
     .option(
       "--mark-step-complete <id:string>",
-      "After observing an interrupted setup command's external state, mark its running journal entry complete without replaying it.",
+      "Recover an interrupted setup step that you've checked finished: mark it done without running it again. Needs `--confirmed`.",
     )
     .option(
       "--retry-step <id:string>",
-      "After observing an interrupted setup command's external state, reset its running journal entry and run it again.",
+      "Recover an interrupted setup step by running it again. Needs `--confirmed`.",
     )
     .option(
       "--confirmed",
-      "Attest that the owner observed the interrupted command's external state and chose this recovery. Required with either recovery option.",
+      "Record that the owner checked what the interrupted step left behind and chose this recovery. Required with `--mark-step-complete` or `--retry-step`.",
     )
     .action(recordedExit("worktree setup", async (o) => {
       const json = jsonFrom(o);
@@ -1282,7 +1243,7 @@ export function attachEngineCommands(
 
   const worktree = new Command()
     .description(
-      "Manage worktrees — separate checkouts and branches for individual changes.",
+      "Manage worktrees: separate checkouts, each on its own branch, for one task.",
     )
     .action(recordedExit("worktree", function (
       this: Command,
@@ -1298,7 +1259,9 @@ export function attachEngineCommands(
     .command(
       "ensure",
       new Command()
-        .description("Idempotent session-start worktree setup.")
+        .description(
+          "Make sure this worktree is set up; it's safe to run any number of times. Coding agents' session-start hooks run it.\nIn a worktree that isn't set up yet, it runs the full setup. In one that is, it checks the resources and reruns the `ensure` commands, and a failure never blocks the session. In the main checkout it changes nothing and reminds the agent to start a worktree before editing.",
+        )
         .action(
           recordedExit(
             "worktree ensure",
@@ -1337,9 +1300,9 @@ export function attachEngineCommands(
       "rename",
       new Command()
         .description(
-          "Change this worktree's display title. Its id, branch, path, brief, and creation source stay unchanged.",
+          "Change this worktree's title. Its id, branch, path, brief, and starting point stay the same.",
         )
-        .option("--dry-run", "Show the title-change plan; touch nothing.")
+        .option("--dry-run", "Show the change without making it.")
         .arguments("<title:string>")
         .action(recordedExit("worktree rename", async (o, title) => {
           const json = jsonFrom(o);
@@ -1357,9 +1320,12 @@ export function attachEngineCommands(
       "teardown",
       new Command()
         .description(
-          "Discard this worktree's resources (destroy without accepting).",
+          "Remove this worktree's resources, such as its database, and keep everything else.\nThe checkout, branch, and Proof stay. Run it inside the worktree. To remove the worktree as well, use `discern worktree drop` from the main checkout.",
         )
-        .option("--dry-run", "Show the teardown plan; touch nothing.")
+        .option(
+          "--dry-run",
+          "Show what would be removed, without removing anything.",
+        )
         .action(recordedExit("worktree teardown", async (o) => {
           const json = jsonFrom(o);
           return await runWorktreeOp(
@@ -1373,9 +1339,12 @@ export function attachEngineCommands(
       "park",
       new Command()
         .description(
-          "Remove a clean task checkout and its resources while retaining its branch and task wording for resume. Select it by worktree id, path, local branch, or full local ref.",
+          "Set a task aside: remove its checkout and resources, and keep its branch, title, and brief so you can resume it.\nRun it from the main checkout. The worktree must have no uncommitted or untracked changes. Parking also removes the task's Proof, grant, and landing-queue entry. Resume with `discern start --from <branch>`. Name the worktree by id, path, local branch, or full local ref.",
         )
-        .option("--dry-run", "Show the Park plan; touch nothing.")
+        .option(
+          "--dry-run",
+          "Show what parking would remove, without changing anything.",
+        )
         .arguments("<worktree:string>")
         .action(recordedExit("worktree park", async (o, target) => {
           const json = jsonFrom(o);
@@ -1393,16 +1362,16 @@ export function attachEngineCommands(
       "drop",
       new Command()
         .description(
-          "Discard a worktree from the main checkout: tear down its resources, remove " +
-            "it, and delete its branch. Protects uncommitted work and commits not on " +
-            "the trunk, the shared landing branch, unless --force is set. Select it by " +
-            "worktree id, path, local branch, or full local ref.",
+          "Delete a worktree, its resources, and its branch.\nRun it from the main checkout. discern refuses when the worktree has uncommitted changes or commits that aren't on the trunk, unless you pass `--force`, and it never drops a locked worktree. It first saves the branch's last commit to a recovery ref and prints it. It deletes the branch only if discern created it. Name the worktree by id, path, local branch, or full local ref.",
         )
         .option(
           "--force",
-          "Discard even when the worktree holds uncommitted changes or commits not on the trunk.",
+          "Drop the worktree even when it has uncommitted changes or commits that aren't on the trunk. Uncommitted work is lost for good.",
         )
-        .option("--dry-run", "Show the drop plan; touch nothing.")
+        .option(
+          "--dry-run",
+          "Show what would be removed, without removing anything.",
+        )
         .arguments("<worktree:string>")
         .action(recordedExit("worktree drop", async (o, target) => {
           const json = jsonFrom(o);
@@ -1421,17 +1390,19 @@ export function attachEngineCommands(
       "prune",
       new Command()
         .description(
-          "Reclaim positively-owned merged worktrees, stale state, reappeared paths, and orphaned resources.",
+          "Clean up what finished work leaves behind: landed worktrees and their branches, stale records, folders that reappeared, and orphaned resources.\ndiscern removes only what it can show it created, such as a clean worktree whose branch is fully merged. Commits that haven't landed stay on their branches. Run it from the main checkout; it asks before changing anything unless you pass `--yes`.",
         )
-        .option("-y, --yes", "Non-interactive: skip confirmation.")
+        .option(
+          "-y, --yes",
+          "Skip the confirmation. Required without an interactive terminal.",
+        )
         .option(
           "--contained",
-          "Also reclaim contained worktrees — checkouts whose committed work is " +
-            "fully contained in another live branch. Branch refs are always kept.",
+          "Also remove clean, idle worktrees whose commits are all on another live branch. Their branches stay.",
         )
         .option(
           "--dry-run",
-          "Report what would be removed/reclaimed without acting.",
+          "List what would be removed, without removing anything or asking.",
         )
         .action(recordedExit("worktree prune", async (o) => {
           const json = jsonFrom(o);
@@ -1513,7 +1484,7 @@ export function attachEngineCommands(
 function attachSkillsCommand(root: Command): void {
   const skills = new Command()
     .description(
-      "Manage skills: list the effective set, or eject a built-in to customize it.",
+      "Manage skills, the reusable playbooks your agents follow: list them, or copy a built-in one so you can edit it.",
     )
     .action(recordedExit("skills", function (
       this: Command,
@@ -1529,7 +1500,7 @@ function attachSkillsCommand(root: Command): void {
       "list",
       new Command()
         .description(
-          "List the effective skills (built-ins + yours; which override which).",
+          "List the skills your agents get: discern's built-in skills and yours, which of yours replace a built-in, and which are excluded.",
         )
         .action(
           recordedExit(
@@ -1542,11 +1513,11 @@ function attachSkillsCommand(root: Command): void {
       "eject",
       new Command()
         .description(
-          "Copy a bundled built-in into [skills].dir so you can customize it.",
+          "Copy a built-in skill into your skills folder, `[skills].dir`, so you can edit it; your copy then replaces the built-in.\nIf `discern.toml` doesn't set `[skills].dir` yet, discern adds it. It refuses a name that isn't a built-in skill, or one you've already copied, and it doesn't commit.",
         )
         .option(
           "--dry-run",
-          "Preview every ejection and materialization target without changing it.",
+          "Show what would be copied and where agents would get it, without changing anything.",
         )
         .arguments("<name:string>")
         .action(

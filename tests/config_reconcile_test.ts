@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { CONFIG_PROSE } from "../src/shared/config_prose.ts";
 import {
   reconcileConfigTextWithTemplate,
   RECORD_CONFIG_PATHS,
@@ -112,7 +113,7 @@ Deno.test("config reconciliation restores a missing fixed section with comments"
   assertEquals(result.operations, [{ kind: "section", path: "scripts" }]);
   assertStringIncludes(
     result.text,
-    "# What:    Where your executable project scripts live.",
+    `# What:    ${CONFIG_PROSE.scripts.what}`,
   );
   assertStringIncludes(result.text, "\n[scripts]\n");
   assertStringIncludes(result.text, 'dir = "discern/scripts"');
@@ -125,14 +126,17 @@ Deno.test("config reconciliation restores a missing fixed section with comments"
 Deno.test("config reconciliation restores a missing fixed key in template order", async () => {
   const template = await renderedTemplate();
   const drifted = template.replace(
-    /\n\s*# Cancel the in-flight sibling commands[\s\S]*?fail_fast = true\n/u,
+    /\n\s*# Stop everything still running or waiting[\s\S]*?fail_fast = true\n/u,
     "\n",
   );
 
   const result = reconcileConfigTextWithTemplate(drifted, template);
 
   assertEquals(result.operations, [{ kind: "key", path: "gate.fail_fast" }]);
-  assertStringIncludes(result.text, "# Cancel the in-flight sibling commands");
+  assertStringIncludes(
+    result.text,
+    "# Stop everything still running or waiting",
+  );
   assertStringIncludes(result.text, "fail_fast = true");
   assert(
     result.text.indexOf("stream_output = false") <
@@ -149,7 +153,7 @@ Deno.test("config reconciliation preserves existing customized values", async ()
     "stream_output = false",
     "stream_output = true",
   ).replace(
-    /\n\s*# Cancel the in-flight sibling commands[\s\S]*?fail_fast = true\n/u,
+    /\n\s*# Stop everything still running or waiting[\s\S]*?fail_fast = true\n/u,
     "\n",
   );
 
@@ -163,7 +167,7 @@ Deno.test("config reconciliation preserves existing customized values", async ()
 Deno.test("config reconciliation treats named record tables as project-owned", async () => {
   const template = await renderedTemplate();
   const instructionMark = template.indexOf(
-    "# Instruction sources and skills.",
+    "# Instructions, the project brief, and skills.",
   );
   const instructionStart = template.lastIndexOf("\n", instructionMark) + 1;
   const acceptanceHeading = template.indexOf("# [acceptance]\n");

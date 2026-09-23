@@ -200,7 +200,7 @@ Deno.test("command help defines the core vocabulary and routes the three update 
   for (
     const term of [
       "clean, committed",
-      "may change files",
+      "full quality check",
       "format",
       "lint",
       "type-check",
@@ -209,9 +209,15 @@ Deno.test("command help defines the core vocabulary and routes the three update 
   ) {
     assertStringIncludes(done, term);
   }
+  // The root listing shows only a command's first line; the rest of its
+  // description is its own `--help`, which must still warn about fixers.
+  assertStringIncludes(
+    child(root, "done").getDescription(),
+    "may change files",
+  );
   assertStringIncludes(
     child(root, "standards").getShortDescription(),
-    "numbers that can never get worse",
+    "limits on measured numbers",
   );
   assertStringIncludes(
     child(root, "impact").getShortDescription(),
@@ -258,12 +264,12 @@ Deno.test("worktree help renders the configured trunk name, never a hard-coded d
     const description = child(root, name).getShortDescription();
     assertStringIncludes(description, "trunk");
     assertStringIncludes(description, "`master`");
-    assertStringIncludes(description, "shared landing branch");
+    assertStringIncludes(description, "your project's shared branch");
     assert(!description.includes("`main`"));
   }
   assertStringIncludes(
     child(root, "update").getShortDescription(),
-    "trunk's latest (`master`) into this branch",
+    "latest trunk (`master`), your project's shared branch, into this branch",
   );
   const setupAccept = child(child(root, "setup"), "accept")
     .getShortDescription();

@@ -129,7 +129,7 @@ export async function fleetSetupEvidence(
         journal,
         repair: {
           kind: "manual",
-          command: "discern worktree setup begin --dry-run",
+          command: "discern worktree setup --dry-run",
           reason:
             "The ready marker and setup-step journal are missing, so prior one-shot effects cannot be verified.",
         },
@@ -157,7 +157,7 @@ export async function fleetSetupEvidence(
       },
       repair: {
         kind: "manual",
-        command: "discern worktree setup begin --dry-run",
+        command: "discern worktree setup --dry-run",
         reason: "The setup-step journal could not be inspected.",
       },
     };

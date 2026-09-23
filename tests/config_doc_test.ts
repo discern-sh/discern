@@ -583,7 +583,7 @@ Deno.test("every setup-document key declares its concrete consumer", () => {
   }
   assert(
     (configDocSchema.description ?? "").includes(
-      "consumed only by `discern setup begin --config <file>`",
+      "used only by `discern setup begin --config <file>`",
     ),
   );
   assert(!/\bpreset\b/i.test(configDocSchema.description ?? ""));

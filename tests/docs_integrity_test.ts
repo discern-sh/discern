@@ -135,6 +135,23 @@ Deno.test("a stale subcommand fails validation (the guard bites)", () => {
   assert(reason !== undefined && reason.includes("set-slot"), reason);
 });
 
+Deno.test("a word after a command that takes no arguments fails validation (the guard bites)", () => {
+  // `worktree setup` declares no positionals, so the CLI rejects a retired
+  // subcommand spelled after it, with or without flags; so must the guard.
+  for (
+    const stale of [
+      "discern worktree setup begin --dry-run",
+      "discern status bogus",
+    ]
+  ) {
+    const reason = validateFencedCommand(stale, model);
+    assert(
+      reason !== undefined && reason.includes("takes no arguments"),
+      `${stale}: ${reason}`,
+    );
+  }
+});
+
 Deno.test("real commands from the map's conventions validate", () => {
   const fine = [
     "discern",
@@ -154,6 +171,8 @@ Deno.test("real commands from the map's conventions validate", () => {
     "discern map -- --weird-positional",
     "discern done --json && echo landed",
     "discern status --json | head -3",
+    "discern status [--json]",
+    "discern skills list          the effective set, and your overrides",
   ];
   for (const command of fine) {
     assertEquals(

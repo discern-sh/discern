@@ -18,84 +18,84 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 ### Global flags (accepted on every command)
 
-| Flag         | Value            | Default | Description                                                                                                                         |
-| ------------ | ---------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`     |                  |         | Emit one JSON result on stdout.                                                                                                     |
-| `--markdown` |                  |         | Emit one Markdown result on stdout.                                                                                                 |
-| `--render`   |                  |         | Render the Markdown result as terminal output.                                                                                      |
-| `--no-color` |                  |         | Disable color (also honors NO_COLOR and non-TTY output).                                                                            |
-| `--plain`    |                  |         | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.                             |
-| `--theme`    | `<theme:string>` |         | Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background;… |
+| Flag         | Value            | Default | Description                                                                                                                                 |
+| ------------ | ---------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`     |                  |         | Print the result as one JSON document on stdout.                                                                                            |
+| `--markdown` |                  |         | Print the result as one Markdown document on stdout.                                                                                        |
+| `--render`   |                  |         | Print the Markdown result formatted for the terminal.                                                                                       |
+| `--no-color` |                  |         | Turn off color. discern also leaves color off when `NO_COLOR` is set to any non-empty value, when `TERM` is `dumb`, or when output isn't a… |
+| `--plain`    |                  |         | Turn off prompts, paging, the full-screen reader, and live progress, and print static output. discern also skips prompts in CI, with…       |
+| `--theme`    | `<theme:string>` |         | Choose colors for a `light` or `dark` terminal, or `auto`. Default: `auto`, which asks an interactive terminal for its background color…    |
 
 ### Commands
 
 | Command                        | Hidden       | Positional arguments | Own flags                                                                                                                                                                  | Description                                                                                                   |
 | ------------------------------ | ------------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `(root)`                       |              |                      |                                                                                                                                                                            | Operate your project's quality gate (its full quality check) and Git worktrees (a separate checkout and…      |
-| `setup`                        |              |                      |                                                                                                                                                                            | Read the setup welcome and learn the canonical first step. Run `discern setup begin` only after the owner is… |
-| `setup verify`                 |              |                      |                                                                                                                                                                            | Preview what setup will do and the consent checklist to confirm with your human (read-only).                  |
-| `setup begin`                  |              |                      | --name --slug --branch-prefix --brief --agents --map --config --model --dry-run --reseed --allow-dirty --confirmed                                                         | Scaffold discern, record provenance, and print the setup brief (the first mutating step).                     |
-| `setup step`                   |              | `<n>`                |                                                                                                                                                                            | Re-serve one numbered step of the setup brief (read-only; for a mid-setup re-focus).                          |
-| `setup done`                   |              |                      | --unproven                                                                                                                                                                 | Prove the committed setup, return canonical Proof and completion inventory, and record [meta].bootstrapped.   |
-| `setup accept`                 |              |                      | --dry-run                                                                                                                                                                  | Land the proved setup branch on the trunk, then return provider activation checks.                            |
-| `upgrade`                      |              |                      | --dry-run --check --allow-dirty                                                                                                                                            | Bring this project forward to the installed discern: run pending config migrations, reconcile discern-owned…  |
-| `uninstall`                    |              |                      | --dry-run -y/--yes                                                                                                                                                         | Remove discern's wiring from this project (keeps your discern.toml, instructions, and map).                   |
-| `doctor`                       |              |                      | -v/--verbose                                                                                                                                                               | Check the install and Git safety settings, then print each verb's execution model.                            |
-| `releases`                     |              |                      | --dry-run                                                                                                                                                                  | Open discern's release information in the browser, see what's changed, and whether an upgrade is available.   |
-| `licenses`                     |              |                      |                                                                                                                                                                            | Print discern's licenses and bundled third-party software notices.                                            |
+| `(root)`                       |              |                      |                                                                                                                                                                            | Give each task its own worktree, a separate checkout and branch, and check its work with your project's…      |
+| `setup`                        |              |                      |                                                                                                                                                                            | Start here to set up discern: see what setup involves and which step comes next. It changes nothing, and it…  |
+| `setup verify`                 |              |                      |                                                                                                                                                                            | Preview what setup will change, and the checklist to agree with the owner first. It changes nothing. It…      |
+| `setup begin`                  |              |                      | --name --slug --branch-prefix --brief --agents --map --config --model --dry-run --reseed --allow-dirty --confirmed                                                         | Set discern up in this project: add its files and settings, and print the setup brief for your agent. This…   |
+| `setup step`                   |              | `<n>`                |                                                                                                                                                                            | Show one numbered step of the setup brief again, to refocus partway through setup. It changes nothing.        |
+| `setup done`                   |              |                      | --unproven                                                                                                                                                                 | Finish setup: run the gate on the committed setup, record its Proof and a summary of what was set up, and…    |
+| `setup accept`                 |              |                      | --dry-run                                                                                                                                                                  | Land the proven setup branch on the trunk, then list the checks that confirm each coding agent can reach…     |
+| `upgrade`                      |              |                      | --dry-run --check --allow-dirty                                                                                                                                            | Bring this project up to date with the discern you have installed. To bring the trunk into a task branch,…    |
+| `uninstall`                    |              |                      | --dry-run -y/--yes                                                                                                                                                         | Remove discern's wiring from this project, and keep the files you wrote. It removes the generated agent…      |
+| `doctor`                       |              |                      | -v/--verbose                                                                                                                                                               | Check that discern is installed correctly and that Git is set up safely for it. It checks the config, jobs,…  |
+| `releases`                     |              |                      | --dry-run                                                                                                                                                                  | Open discern's release notes in your browser, to see what's new and whether a newer discern is out. discern…  |
+| `licenses`                     |              |                      |                                                                                                                                                                            | Print discern's licenses and notices, and the notices for the third-party software built into it.             |
 | `triangle` (evolving)          | yes (always) |                      |                                                                                                                                                                            | A small mystery for those who find it.                                                                        |
-| `map`                          |              | `<target>?`          | --raw --list --search --pager --dir --width --export --output                                                                                                              | Browse the configured project map that coding agents maintain, or read a named map page.                      |
-| `docs`                         |              | `<target>?`          | --raw --list --search --adr --pager --width --export --output                                                                                                              | Browse the complete bundled product manual, or read a named manual page.                                      |
-| `help`                         |              | `<command…>?`        |                                                                                                                                                                            | Show command-line help.                                                                                       |
-| `config`                       |              |                      |                                                                                                                                                                            | Edit jobs, scopes, and standards with set-*; edit generated groups, checkpoints, and resources with set…      |
-| `config set-job`               |              | `<name> <command>?`  | --stage --run --provides --timeout --not-applicable --applicable --inputs --needs --artifacts --environment --toolchain --dry-run                                          | Set a gate job. Known names (format, build, lint, typecheck, test, smoke) derive their stage and accept a…    |
-| `config set-scope`             |              | `<name> <globs…>`    | --neutral --preview --gate --timeout --inputs --needs --artifacts --environment --toolchain --dry-run                                                                      | Set a scope — a named region of the repository a change can touch.                                            |
-| `config set-standard`          |              | `<name>`             | --limit --metric --direction --run --producer --extract --artifact --per --scale --margin --timeout --inputs --needs --artifacts --environment --toolchain --dry-run       | Set a quality standard — standards are numbers that can never get worse.                                      |
-| `config set`                   |              | `<key> <value>`      | --number --bool --string --dry-run                                                                                                                                         | Set a config key (section.key). The value's TOML type follows the schema; an array-of-strings key wraps a…    |
-| `config get`                   |              | `<key>`              |                                                                                                                                                                            | Print a scalar config value.                                                                                  |
-| `config array`                 |              | `<key>`              |                                                                                                                                                                            | Print an array config value, one item per line.                                                               |
-| `config has`                   |              | `<key>`              |                                                                                                                                                                            | Test whether a key or section exists. Bare: print nothing and exit 0/1. JSON: report `data.present` and exit… |
-| `config subsections`           |              | `<key>`              |                                                                                                                                                                            | Print the immediate child table names under a section.                                                        |
-| `config keys`                  |              | `<key>`              |                                                                                                                                                                            | Print the flat key names declared in a section.                                                               |
-| `config explain`               |              | `<path>`             |                                                                                                                                                                            | Explain a config section, named-table family, or key: what it governs, why it matters, its keys and…          |
-| `done`                         |              |                      | --dry-run --policy-base --standalone --rerun --ci --met --unmet --why                                                                                                      | Require a clean, committed tree. Run finishing steps that may change files, then verify the gate — the…       |
-| `prepare`                      |              |                      |                                                                                                                                                                            | Fast inner loop: fixers, [generated] regenerations, complete refresh, then read-only checks (no other build…  |
-| `test`                         |              |                      |                                                                                                                                                                            | Run the project's configured tests on their own, outside the full gate.                                       |
-| `queue`                        |              |                      |                                                                                                                                                                            | Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet…    |
-| `improvement` (evolving)       |              |                      | --category --min-score                                                                                                                                                     | Find the highest-value next improvement, with the health audit and open reviews for agent and owner to…       |
-| `checkpoints`                  |              |                      |                                                                                                                                                                            | Report the governing checkpoint policy, each open question's declaration state, and a read-only preview of…   |
-| `progress`                     |              | `<handle>?`          |                                                                                                                                                                            | Read a long operation back after a lost call: its phase, the counts and failures known so far, and the…       |
-| `mcp`                          |              |                      | --long-tool-calls --strict-tool-calls                                                                                                                                      | The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents…    |
-| `scripts`                      |              | `<name>? <args…>?`   |                                                                                                                                                                            | List executable Project Scripts, or run one literal name at the project root with the four supported…         |
-| `standards`                    |              | `<names…>?`          | --dry-run --force --pin                                                                                                                                                    | Measure the named quality standards, or every configured standard when no names are given: numbers that can…  |
-| `standards propose`            |              | `<name>`             | --reason --dry-run                                                                                                                                                         | Finalize a proposed limit for a standard breached by this change. On a clean final HEAD, measure the named…   |
-| `refresh`                      |              |                      | --dry-run                                                                                                                                                                  | Refresh the agent files, skills, provider integrations, and the maintained ADR index. Use `discern update`…   |
-| `tidy` (evolving)              |              | `<type>?`            | --dry-run                                                                                                                                                                  | Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced…        |
-| `skills`                       |              |                      |                                                                                                                                                                            | Manage skills: list the effective set, or eject a built-in to customize it.                                   |
-| `skills list`                  |              |                      |                                                                                                                                                                            | List the effective skills (built-ins + yours; which override which).                                          |
-| `skills eject`                 |              | `<name>`             | --dry-run                                                                                                                                                                  | Copy a bundled built-in into [skills].dir so you can customize it.                                            |
-| `impact`                       |              |                      | --has                                                                                                                                                                      | Show which configured scopes the branch and working tree wake in the quality gate. Scopes are named regions…  |
-| `coupling` (evolving)          |              | `<file>? <with>?`    |                                                                                                                                                                            | Report files that historically change together as a read-only advisory. With no args, report likely siblings… |
-| `await`                        |              |                      | --green --landed --trunk-moved --resume --timeout                                                                                                                          | Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate Proof), a… |
-| `patterns` (evolving)          |              |                      | --stats --all --logbook-file                                                                                                                                               | Report the patterns in this project's discern use, read from the local logbook: validation, evidence reuse,…  |
-| `patterns archives` (evolving) |              |                      |                                                                                                                                                                            | List sealed logbook archives with their event counts, date spans, and byte sizes.                             |
-| `patterns reset` (evolving)    |              |                      | --dry-run                                                                                                                                                                  | Permanently remove the active logbook after terminal confirmation. Sealed archives and other Git-admin state… |
-| `patterns seal` (evolving)     |              |                      | --dry-run                                                                                                                                                                  | Seal the active event history into a timestamped archive and begin a fresh active logbook after terminal…     |
-| `status`                       |              |                      | --all --local -v/--verbose                                                                                                                                                 | Show what's true right now and what to do next (read-only; does not run the gate, the project's full quality… |
-| `desk` (evolving)              |              |                      |                                                                                                                                                                            | Open the live desk: see tasks, review Proof and changes, open an agent, run Project Scripts, or review…       |
-| `enter` (evolving)             |              |                      |                                                                                                                                                                            | Choose a worktree and open a child shell at the matching project-relative directory. This command is…         |
-| `start`                        |              |                      | --dry-run --name --title --brief --from                                                                                                                                    | From the main checkout, create a worktree with a separate checkout and branch for one effort. Base it on the… |
-| `accept`                       |              | `<action>?`          | --dry-run --target --prepare --preparation-receipt --met --unmet --why --composition-receipt --reason --approval-token --recover --confirmed --variance --approve-standard | Submit this worktree's proven commit and land it on the trunk, the shared landing branch. Landing needs the…  |
-| `update`                       |              |                      | --dry-run --from                                                                                                                                                           | Update this branch: merge the trunk's latest into this branch and re-run generated groups and refresh Agent…  |
-| `identity`                     |              | `<worktree>?`        | --id --site --branch --port --db --seed --worktree --resource --resources                                                                                                  | Print stable values that keep each checkout's branch, development host, port, database, and external…         |
-| `worktree`                     |              |                      |                                                                                                                                                                            | Manage worktrees — separate checkouts and branches for individual changes.                                    |
-| `worktree setup`               |              |                      | --dry-run --mark-step-complete --retry-step --confirmed                                                                                                                    | Set up or re-sync the current worktree.                                                                       |
-| `worktree ensure`              |              |                      |                                                                                                                                                                            | Idempotent session-start worktree setup.                                                                      |
-| `worktree rename` (evolving)   |              | `<title>`            | --dry-run                                                                                                                                                                  | Change this worktree's display title. Its id, branch, path, brief, and creation source stay unchanged.        |
-| `worktree teardown`            |              |                      | --dry-run                                                                                                                                                                  | Discard this worktree's resources (destroy without accepting).                                                |
-| `worktree park` (evolving)     |              | `<worktree>`         | --dry-run                                                                                                                                                                  | Remove a clean task checkout and its resources while retaining its branch and task wording for resume.…       |
-| `worktree drop`                |              | `<worktree>`         | --force --dry-run                                                                                                                                                          | Discard a worktree from the main checkout: tear down its resources, remove it, and delete its branch.…        |
-| `worktree prune`               |              |                      | -y/--yes --contained --dry-run                                                                                                                                             | Reclaim positively-owned merged worktrees, stale state, reappeared paths, and orphaned resources.             |
+| `map`                          |              | `<target>?`          | --raw --list --search --pager --dir --width --export --output                                                                                                              | Browse your project's map, the documentation your agents keep about how the project works, or read one page…  |
+| `docs`                         |              | `<target>?`          | --raw --list --search --adr --pager --width --export --output                                                                                                              | Browse discern's manual, which comes with discern, or read one page by name.                                  |
+| `help`                         |              | `<command…>?`        |                                                                                                                                                                            | Show help for discern, or for one command, such as `discern help worktree prune`.                             |
+| `config`                       |              |                      |                                                                                                                                                                            | Read, explain, and edit `discern.toml`, keeping its comments. `set-job`, `set-scope`, and `set-standard`…     |
+| `config set-job`               |              | `<name> <command>?`  | --stage --run --provides --timeout --not-applicable --applicable --inputs --needs --artifacts --environment --toolchain --dry-run                                          | Add or change a gate job: one of the commands the gate runs. A known name (format, build, lint, typecheck,…   |
+| `config set-scope`             |              | `<name> <globs…>`    | --neutral --preview --gate --timeout --inputs --needs --artifacts --environment --toolchain --dry-run                                                                      | Add or change a scope: a named region of the repository, defined by path patterns. The patterns you give…     |
+| `config set-standard`          |              | `<name>`             | --limit --metric --direction --run --producer --extract --artifact --per --scale --margin --timeout --inputs --needs --artifacts --environment --toolchain --dry-run       | Add or change a standard: a limit on a measured number, such as test coverage, that the gate holds. Give…     |
+| `config set`                   |              | `<key> <value>`      | --number --bool --string --dry-run                                                                                                                                         | Set one key in `discern.toml`, named as `section.key`, including keys in named tables. discern takes the…     |
+| `config get`                   |              | `<key>`              |                                                                                                                                                                            | Print one value as it's written in `discern.toml`, such as `repository.trunk`. It fails for a key the file…   |
+| `config array`                 |              | `<key>`              |                                                                                                                                                                            | Print a list value from `discern.toml`, one item per line.                                                    |
+| `config has`                   |              | `<key>`              |                                                                                                                                                                            | Check whether `discern.toml` sets a key or section. On its own, it prints nothing and exits 0 if it does, 1…  |
+| `config subsections`           |              | `<key>`              |                                                                                                                                                                            | Print the names of the tables directly under a section, such as each named table under `standards`.           |
+| `config keys`                  |              | `<key>`              |                                                                                                                                                                            | Print the names of the keys a section sets, without its nested tables.                                        |
+| `config explain`               |              | `<path>`             |                                                                                                                                                                            | Explain a section, a family of named tables, or one key of `discern.toml`: what it controls, why it matters,… |
+| `done`                         |              |                      | --dry-run --policy-base --standalone --rerun --ci --met --unmet --why                                                                                                      | Run the gate on a clean, committed tree and record Proof when it passes. The gate is your project's full…     |
+| `prepare`                      |              |                      |                                                                                                                                                                            | Run the quick checks while you work: fix and regenerate files, then run the read-only checks, without tests.… |
+| `test`                         |              |                      |                                                                                                                                                                            | Run your project's tests on their own, without the rest of the gate. It runs every test-stage job, such as…   |
+| `queue`                        |              |                      |                                                                                                                                                                            | Run a command, such as a test suite, once a test-run slot is free, so parallel tasks don't overload this…     |
+| `improvement` (evolving)       |              |                      | --category --min-score                                                                                                                                                     | Find the most valuable improvement to make next in how this project uses discern. It scores what discern can… |
+| `checkpoints`                  |              |                      |                                                                                                                                                                            | Show the checkpoints that apply to this task, whether each question has an answer, and which ones the…        |
+| `progress`                     |              | `<handle>?`          |                                                                                                                                                                            | Check on a long operation, such as `discern done`, after losing track of it. It shows the operation's…        |
+| `mcp`                          |              |                      | --long-tool-calls --strict-tool-calls                                                                                                                                      | Run discern's MCP (Model Context Protocol) server, which gives coding agents most of discern's commands as…   |
+| `scripts`                      |              | `<name>? <args…>?`   |                                                                                                                                                                            | List your project's scripts, or run one by name. discern looks the name up as written, with no partial…       |
+| `standards`                    |              | `<names…>?`          | --dry-run --force --pin                                                                                                                                                    | Measure your project's standards: limits on measured numbers, such as test coverage or bundle size. A change… |
+| `standards propose`            |              | `<name>`             | --reason --dry-run                                                                                                                                                         | Propose a looser limit for a standard this change breaks, for the owner to approve. Run it on the branch's…   |
+| `refresh`                      |              |                      | --dry-run                                                                                                                                                                  | Regenerate your agent files, skills, agent integrations, and ADR index from their sources. To bring the…      |
+| `tidy` (evolving)              |              | `<type>?`            | --dry-run                                                                                                                                                                  | Format the files discern manages: the map, the TODO list, your instruction files, and `discern.toml`. Pass…   |
+| `skills`                       |              |                      |                                                                                                                                                                            | Manage skills, the reusable playbooks your agents follow: list them, or copy a built-in one so you can edit…  |
+| `skills list`                  |              |                      |                                                                                                                                                                            | List the skills your agents get: discern's built-in skills and yours, which of yours replace a built-in, and… |
+| `skills eject`                 |              | `<name>`             | --dry-run                                                                                                                                                                  | Copy a built-in skill into your skills folder, `[skills].dir`, so you can edit it; your copy then replaces…   |
+| `impact`                       |              |                      | --has                                                                                                                                                                      | Show which scopes this branch's changes touch, and so which scope gates `discern done` will run. Scopes are…  |
+| `coupling` (evolving)          |              | `<file>? <with>?`    |                                                                                                                                                                            | Find files that usually change together in your Git history, so a change doesn't miss one. With no…           |
+| `await`                        |              |                      | --green --landed --trunk-moved --resume --timeout                                                                                                                          | Wait for another task: until its work passes the gate, until it lands, or until the trunk moves. By default…  |
+| `patterns` (evolving)          |              |                      | --stats --all --logbook-file                                                                                                                                               | Show patterns in how this project uses discern, from its local logbook. Findings cover standard trends, how…  |
+| `patterns archives` (evolving) |              |                      |                                                                                                                                                                            | List the logbook's sealed archives, with each one's event count, date range, and size.                        |
+| `patterns reset` (evolving)    |              |                      | --dry-run                                                                                                                                                                  | Delete the active logbook for good, once you confirm in an interactive terminal. Sealed archives and…         |
+| `patterns seal` (evolving)     |              |                      | --dry-run                                                                                                                                                                  | Archive the active logbook under a timestamped name and start a fresh one, once you confirm in an…            |
+| `status`                       |              |                      | --all --local -v/--verbose                                                                                                                                                 | Show where this checkout stands and what to do next. It runs no checks, tests, or measurements, and changes…  |
+| `desk` (evolving)              |              |                      |                                                                                                                                                                            | Open the desk, your interactive view of every task in this project. From the desk you can start tasks and…    |
+| `enter` (evolving)             |              |                      |                                                                                                                                                                            | Open a shell in another worktree, in the same folder you're in now. Pick the main checkout or a worktree…     |
+| `start`                        |              |                      | --dry-run --name --title --brief --from                                                                                                                                    | Create a worktree for a new task: a separate checkout on its own branch, started from the trunk, your…        |
+| `accept`                       |              | `<action>?`          | --dry-run --target --prepare --preparation-receipt --met --unmet --why --composition-receipt --reason --approval-token --recover --confirmed --variance --approve-standard | Land this worktree's proven commit on the trunk, your project's shared branch. A proven commit is one that…   |
+| `update`                       |              |                      | --dry-run --from                                                                                                                                                           | Merge the latest trunk, your project's shared branch, into this branch, and refresh what depends on it. For…  |
+| `identity`                     |              | `<worktree>?`        | --id --site --branch --port --db --seed --worktree --resource --resources                                                                                                  | Print a stable value discern derives for a checkout's branch, development host, port, database, and external… |
+| `worktree`                     |              |                      |                                                                                                                                                                            | Manage worktrees: separate checkouts, each on its own branch, for one task.                                   |
+| `worktree setup`               |              |                      | --dry-run --mark-step-complete --retry-step --confirmed                                                                                                                    | Set up this worktree, or bring its setup up to date. `discern start` runs it for you. The first run creates…  |
+| `worktree ensure`              |              |                      |                                                                                                                                                                            | Make sure this worktree is set up; it's safe to run any number of times. Coding agents' session-start hooks…  |
+| `worktree rename` (evolving)   |              | `<title>`            | --dry-run                                                                                                                                                                  | Change this worktree's title. Its id, branch, path, brief, and starting point stay the same.                  |
+| `worktree teardown`            |              |                      | --dry-run                                                                                                                                                                  | Remove this worktree's resources, such as its database, and keep everything else. The checkout, branch, and…  |
+| `worktree park` (evolving)     |              | `<worktree>`         | --dry-run                                                                                                                                                                  | Set a task aside: remove its checkout and resources, and keep its branch, title, and brief so you can resume… |
+| `worktree drop`                |              | `<worktree>`         | --force --dry-run                                                                                                                                                          | Delete a worktree, its resources, and its branch. Run it from the main checkout. discern refuses when the…    |
+| `worktree prune`               |              |                      | -y/--yes --contained --dry-run                                                                                                                                             | Clean up what finished work leaves behind: landed worktrees and their branches, stale records, folders that…  |
 | `worktree hook`                | yes          |                      |                                                                                                                                                                            | Provider hook entry points (machine-invoked; stdin carries the hook payload).                                 |
 | `worktree hook create`         | yes          |                      |                                                                                                                                                                            | Create a worktree from a provider WorktreeCreate payload on stdin.                                            |
 | `worktree hook remove`         | yes          |                      |                                                                                                                                                                            | Tear down the worktree named by a provider WorktreeRemove payload on stdin.                                   |
@@ -104,20 +104,20 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 **`discern setup begin`**
 
-| Argument          | Value             | Default | Description                                                                                                                                                 |
-| ----------------- | ----------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--name`          | `<name:string>`   |         | Project name (free text).                                                                                                                                   |
-| `--slug`          | `<slug:string>`   |         | Project slug (^[a-z0-9][a-z0-9-]*$).                                                                                                                        |
-| `--branch-prefix` | `<prefix:string>` |         | Branch prefix for worktrees.                                                                                                                                |
-| `--brief`         | `<brief:string>`  |         | Free-text project description, or @path to read it from a file.                                                                                             |
-| `--agents`        | `<agents:string>` |         | Comma-separated agent files to emit: claude_code, codex, gemini, cursor, copilot.                                                                           |
-| `--map`           | `<path:string>`   |         | Project-relative directory for the project map — discern's agent-maintained documentation tree.                                                             |
-| `--config`        | `<file:string>`   |         | JSON answers file (or - for stdin) to scaffold declaratively.                                                                                               |
-| `--model`         | `<model:string>`  |         | Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.                                                     |
-| `--dry-run`       | boolean           |         | Print the plan and write nothing.                                                                                                                           |
-| `--reseed`        | boolean           |         | Run setup again and refresh discern's files and settings.                                                                                                   |
-| `--allow-dirty`   | boolean           |         | Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.                                       |
-| `--confirmed`     | boolean           |         | Attest you have held the setup consent conversation with your human — required for a fresh, non-declarative begin; its absence re-serves that conversation. |
+| Argument          | Value             | Default | Description                                                                                                                                                     |
+| ----------------- | ----------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--name`          | `<name:string>`   |         | The project's display name, in any words. Default: the current folder's name.                                                                                   |
+| `--slug`          | `<slug:string>`   |         | A short id for the project, used in each worktree's site, database, and resource names: lowercase letters, digits, and dashes, starting with a letter or digit… |
+| `--branch-prefix` | `<prefix:string>` |         | The prefix for task branch names. Default: `agent/`.                                                                                                            |
+| `--brief`         | `<brief:string>`  |         | What the project is, in your own words, or `@path` to read it from a file. discern saves it as the project brief.                                               |
+| `--agents`        | `<agents:string>` |         | Which coding agents to set up, separated by commas: claude_code, codex, gemini, cursor, copilot. Default: the agents installed on this machine, or claude_code… |
+| `--map`           | `<path:string>`   |         | Where to keep the project map, the documentation your agents maintain, relative to the project root. Default: `discern/map`.                                    |
+| `--config`        | `<file:string>`   |         | Read the setup answers from a JSON file, or `-` for stdin, instead of from the conversation. The file can also fill `discern.toml` sections such as jobs and…   |
+| `--model`         | `<model:string>`  |         | The provider and model running setup, as you'd name them, or `unreported`. discern records it for support and can't verify it.                                  |
+| `--dry-run`       | boolean           |         | Show the plan without writing anything.                                                                                                                         |
+| `--reseed`        | boolean           |         | Run setup again on a project that has it: add any missing starter files, without overwriting existing ones, and refresh discern's settings and generated files. |
+| `--allow-dirty`   | boolean           |         | For CI and advanced use: set up on the current branch as it is, even with uncommitted changes. discern skips the `discern-setup` branch and its own commit and… |
+| `--confirmed`     | boolean           |         | Record that the owner agreed to setup in this conversation. A fresh setup needs it unless you use `--config`; without it, discern writes nothing and shows the… |
 
 **`discern setup step`**
 
@@ -127,70 +127,70 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 **`discern setup done`**
 
-| Argument     | Value   | Default | Description                                                       |
-| ------------ | ------- | ------- | ----------------------------------------------------------------- |
-| `--unproven` | boolean |         | Record completion without Proof; setup acceptance will refuse it. |
+| Argument     | Value   | Default | Description                                                                                                                                          |
+| ------------ | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--unproven` | boolean |         | Mark setup complete without the checks or Proof. `discern setup accept` then refuses to land it; running `discern setup done` again later proves it. |
 
 **`discern setup accept`**
 
-| Argument    | Value   | Default | Description                        |
-| ----------- | ------- | ------- | ---------------------------------- |
-| `--dry-run` | boolean |         | Print the plan and change nothing. |
+| Argument    | Value   | Default | Description                                                            |
+| ----------- | ------- | ------- | ---------------------------------------------------------------------- |
+| `--dry-run` | boolean |         | Show the plan without changing anything. It still needs a valid Proof. |
 
 **`discern upgrade`**
 
-| Argument        | Value   | Default | Description                                                                                                                                                |
-| --------------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`     | boolean |         | Preview the pending migrations and skills refresh; write nothing.                                                                                          |
-| `--check`       | boolean |         | Report pending managed-version adoption, config migrations, fixed config scaffold or managed-banner drift, and discern-owned .gitignore or .gitattributes… |
-| `--allow-dirty` | boolean |         | Upgrade even with uncommitted changes (skips the clean-tree check).                                                                                        |
+| Argument        | Value   | Default | Description                                                                                                                                                 |
+| --------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`     | boolean |         | Show the pending migrations and changes without writing anything.                                                                                           |
+| `--check`       | boolean |         | Check whether this project needs an upgrade, without writing anything or using the network. It exits non-zero when config migrations are pending, when the… |
+| `--allow-dirty` | boolean |         | Upgrade even when tracked files have uncommitted changes.                                                                                                   |
 
 **`discern uninstall`**
 
-| Argument      | Value   | Default | Description                                                                        |
-| ------------- | ------- | ------- | ---------------------------------------------------------------------------------- |
-| `--dry-run`   | boolean |         | Preview what would be removed and kept; change nothing.                            |
-| `-y`, `--yes` | boolean |         | Skip the confirmation. Required without a terminal, and with --json or --markdown. |
+| Argument      | Value   | Default | Description                                                                                                                                                   |
+| ------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`   | boolean |         | Show what would be removed and kept, without changing anything.                                                                                               |
+| `-y`, `--yes` | boolean |         | Skip the confirmation. Without an interactive terminal, in CI, or with `--plain`, `--json`, `--markdown`, or `--render`, uninstall needs it whenever there's… |
 
 **`discern doctor`**
 
-| Argument          | Value   | Default | Description                                                             |
-| ----------------- | ------- | ------- | ----------------------------------------------------------------------- |
-| `-v`, `--verbose` | boolean |         | Show the hint explaining each execution-model step (hidden by default). |
+| Argument          | Value   | Default | Description                                                                                    |
+| ----------------- | ------- | ------- | ---------------------------------------------------------------------------------------------- |
+| `-v`, `--verbose` | boolean |         | Explain each step the workflow commands run. With `--json`, include those steps in the result. |
 
 **`discern releases`**
 
-| Argument    | Value   | Default | Description                                                                  |
-| ----------- | ------- | ------- | ---------------------------------------------------------------------------- |
-| `--dry-run` | boolean |         | Show the release handoff without opening a browser or recording a timestamp. |
+| Argument    | Value   | Default | Description                                                                      |
+| ----------- | ------- | ------- | -------------------------------------------------------------------------------- |
+| `--dry-run` | boolean |         | Show the address it would open, without opening a browser or recording anything. |
 
 **`discern map`**
 
-| Argument   | Value                | Default | Description                                                                 |
-| ---------- | -------------------- | ------- | --------------------------------------------------------------------------- |
-| `<target>` | positional, optional |         |                                                                             |
-| `--raw`    | boolean              |         | Print a doc's pristine Markdown source instead of rendering it.             |
-| `--list`   | boolean              |         | Print a plain table of contents and exit without interaction.               |
-| `--search` | `<query:string>`     |         | Search the map with task language or exact text; use a target to narrow it. |
-| `--pager`  | boolean              |         | Open rendered documents in an external pager (uses $PAGER or less -R).      |
-| `--dir`    | `<path:string>`      |         | Map directory to browse (default: the project's [map].dir).                 |
-| `--width`  | `<cols:number>`      |         | Wrap width for rendered output.                                             |
-| `--export` | `<scope:string>`     |         | Concatenate Markdown: public, all, select, or a configured scope name.      |
-| `--output` | `<path:string>`      |         | Write an export to a file instead of stdout.                                |
+| Argument   | Value                | Default | Description                                                                                                                                                   |
+| ---------- | -------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<target>` | positional, optional |         |                                                                                                                                                               |
+| `--raw`    | boolean              |         | Print a page's Markdown source instead of rendering it.                                                                                                       |
+| `--list`   | boolean              |         | Print a plain table of contents instead of opening the reader.                                                                                                |
+| `--search` | `<query:string>`     |         | Search the map by describing a task or quoting exact text. Add a target to search one page or section.                                                        |
+| `--pager`  | boolean              |         | Show each rendered page in your pager: `$PAGER`, or `less -R` when it's unset.                                                                                |
+| `--dir`    | `<path:string>`      |         | Browse this folder instead of the project's map folder (`[map].dir`).                                                                                         |
+| `--width`  | `<cols:number>`      |         | Wrap rendered output at this many columns.                                                                                                                    |
+| `--export` | `<scope:string>`     |         | Join pages into one Markdown document: `public` for published pages, `all` for every page, `select` to choose sections in a terminal (with `--output`), or a… |
+| `--output` | `<path:string>`      |         | Write the export to this file instead of stdout. The file can't be inside the map folder.                                                                     |
 
 **`discern docs`**
 
-| Argument   | Value                | Default | Description                                                                                                  |
-| ---------- | -------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
-| `<target>` | positional, optional |         |                                                                                                              |
-| `--raw`    | boolean              |         | Print a doc's pristine Markdown source instead of rendering it.                                              |
-| `--list`   | boolean              |         | Print a plain table of contents and exit without interaction.                                                |
-| `--search` | `<query:string>`     |         | Search the manual with task language or exact text; use a target to narrow it.                               |
-| `--adr`    | boolean              |         | Browse this project's decision records, or show their published location when local records are unavailable. |
-| `--pager`  | boolean              |         | Open rendered documents in an external pager (uses $PAGER or less -R).                                       |
-| `--width`  | `<cols:number>`      |         | Wrap width for rendered output.                                                                              |
-| `--export` | `<scope:string>`     |         | Concatenate Markdown to stdout: public.                                                                      |
-| `--output` | `<path:string>`      |         | Write an export to a file instead of stdout.                                                                 |
+| Argument   | Value                | Default | Description                                                                                                                           |
+| ---------- | -------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `<target>` | positional, optional |         |                                                                                                                                       |
+| `--raw`    | boolean              |         | Print a page's Markdown source instead of rendering it.                                                                               |
+| `--list`   | boolean              |         | Print a plain table of contents instead of opening the reader.                                                                        |
+| `--search` | `<query:string>`     |         | Search the manual by describing a task or quoting exact text. Add a target to search one page or section.                             |
+| `--adr`    | boolean              |         | Browse discern's own architecture decision records. An installed discern doesn't include them, so it shows where to read them online. |
+| `--pager`  | boolean              |         | Show each rendered page in your pager: `$PAGER`, or `less -R` when it's unset.                                                        |
+| `--width`  | `<cols:number>`      |         | Wrap rendered output at this many columns.                                                                                            |
+| `--export` | `<scope:string>`     |         | Join the manual's pages into one Markdown document. `public` is the only scope.                                                       |
+| `--output` | `<path:string>`      |         | Write the export to this file instead of stdout.                                                                                      |
 
 **`discern help`**
 
@@ -200,73 +200,73 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 **`discern config set-job`**
 
-| Argument           | Value                | Default | Description                                                           |
-| ------------------ | -------------------- | ------- | --------------------------------------------------------------------- |
-| `<name>`           | positional, required |         |                                                                       |
-| `<command>`        | positional, optional |         |                                                                       |
-| `--stage`          | `<stage:string>`     |         | Custom jobs only: when it runs (fix\|build\|check\|test).             |
-| `--run`            | `<command:string>`   |         | Literal command; repeat to preserve order.                            |
-| `--provides`       | `<label:string>`     |         | Custom jobs only: free-text label.                                    |
-| `--timeout`        | `<seconds:string>`   |         | Command budget in seconds; 0 removes the bound.                       |
-| `--not-applicable` | boolean              |         | Known jobs: exclude an absent lifecycle from setup assurance.         |
-| `--applicable`     | boolean              |         | Known jobs: restore lifecycle applicability.                          |
-| `--inputs`         | `<value:string>`     |         | Complete input glob; repeat for every input.                          |
-| `--needs`          | `<value:string>`     |         | Required producer selector; repeat for every dependency.              |
-| `--artifacts`      | `<value:string>`     |         | Output artifact path to capture; repeat for every artifact.           |
-| `--environment`    | `<value:string>`     |         | Environment variable name to bind to evidence; repeat for every name. |
-| `--toolchain`      | `<value:string>`     |         | Toolchain identity file; repeat for every file.                       |
-| `--dry-run`        | boolean              |         | Print the edit and write nothing.                                     |
+| Argument           | Value                | Default | Description                                                                                                                                    |
+| ------------------ | -------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`           | positional, required |         |                                                                                                                                                |
+| `<command>`        | positional, optional |         |                                                                                                                                                |
+| `--stage`          | `<stage:string>`     |         | Custom jobs only: the stage it runs in, `fix`, `build`, `check`, or `test`.                                                                    |
+| `--run`            | `<command:string>`   |         | A command to run, as written. Repeat it for more commands; they run in order, each only if the previous one succeeded.                         |
+| `--provides`       | `<label:string>`     |         | Custom jobs only: a short label saying what the job provides.                                                                                  |
+| `--timeout`        | `<seconds:string>`   |         | Time limit for the job, in seconds; 0 means no limit. Default: `[gate].timeout`.                                                               |
+| `--not-applicable` | boolean              |         | Known jobs: record that this project has no such step, so setup doesn't count it as missing. The gate's jobs don't change.                     |
+| `--applicable`     | boolean              |         | Known jobs: undo `--not-applicable`, so setup counts the job again.                                                                            |
+| `--inputs`         | `<value:string>`     |         | A file pattern the job reads. Repeat it until every input is listed; discern can then reuse an earlier result while those files are unchanged. |
+| `--needs`          | `<value:string>`     |         | Another job, scope gate, or standard that must succeed first, such as `jobs.build`. Repeat it for each one.                                    |
+| `--artifacts`      | `<value:string>`     |         | A file the job produces, which discern keeps for later steps to read. Repeat it for each one.                                                  |
+| `--environment`    | `<value:string>`     |         | An environment variable that affects the result; a changed value stops discern reusing an earlier result. Repeat it for each one.              |
+| `--toolchain`      | `<value:string>`     |         | A file that pins tool versions, such as a lockfile; a change to it stops discern reusing an earlier result. Repeat it for each one.            |
+| `--dry-run`        | boolean              |         | Show the edit without writing it.                                                                                                              |
 
 **`discern config set-scope`**
 
-| Argument        | Value                           | Default | Description                                                           |
-| --------------- | ------------------------------- | ------- | --------------------------------------------------------------------- |
-| `<name>`        | positional, required            |         |                                                                       |
-| `<globs>`       | positional, repeating, required |         |                                                                       |
-| `--neutral`     | boolean                         |         | Changes here need no gate.                                            |
-| `--preview`     | `<cmd:string>`                  |         | A read-only command an agent can run to preview changes here.         |
-| `--gate`        | `<cmd:string>`                  |         | A command to run when this scope changed.                             |
-| `--timeout`     | `<seconds:string>`              |         | Per-scope gate-command budget in seconds; 0 removes the bound.        |
-| `--inputs`      | `<value:string>`                |         | Complete input glob; repeat for every input.                          |
-| `--needs`       | `<value:string>`                |         | Required producer selector; repeat for every dependency.              |
-| `--artifacts`   | `<value:string>`                |         | Output artifact path to capture; repeat for every artifact.           |
-| `--environment` | `<value:string>`                |         | Environment variable name to bind to evidence; repeat for every name. |
-| `--toolchain`   | `<value:string>`                |         | Toolchain identity file; repeat for every file.                       |
-| `--dry-run`     | boolean                         |         | Print the edit and write nothing.                                     |
+| Argument        | Value                           | Default | Description                                                                                                                                             |
+| --------------- | ------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`        | positional, required            |         |                                                                                                                                                         |
+| `<globs>`       | positional, repeating, required |         |                                                                                                                                                         |
+| `--neutral`     | boolean                         |         | Mark changes here as not code, as for documentation: they trigger no scope gate, and this scope's own gate never runs.                                  |
+| `--preview`     | `<cmd:string>`                  |         | A read-only command your agent can run to preview changes here. discern suggests it but never runs it.                                                  |
+| `--gate`        | `<cmd:string>`                  |         | A command `discern done` runs when a change touches this scope.                                                                                         |
+| `--timeout`     | `<seconds:string>`              |         | Time limit for the scope's gate command, in seconds; 0 means no limit.                                                                                  |
+| `--inputs`      | `<value:string>`                |         | A file pattern the scope's gate reads. Repeat it until every input is listed; discern can then reuse an earlier result while those files are unchanged. |
+| `--needs`       | `<value:string>`                |         | A job, scope gate, or standard that must succeed before the scope's gate, such as `jobs.build`. Repeat it for each one.                                 |
+| `--artifacts`   | `<value:string>`                |         | A file the scope's gate produces, which discern keeps for later steps to read. Repeat it for each one.                                                  |
+| `--environment` | `<value:string>`                |         | An environment variable that affects the result; a changed value stops discern reusing an earlier result. Repeat it for each one.                       |
+| `--toolchain`   | `<value:string>`                |         | A file that pins tool versions, such as a lockfile; a change to it stops discern reusing an earlier result. Repeat it for each one.                     |
+| `--dry-run`     | boolean                         |         | Show the edit without writing it.                                                                                                                       |
 
 **`discern config set-standard`**
 
-| Argument        | Value                       | Default | Description                                                                                              |
-| --------------- | --------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
-| `<name>`        | positional, required        |         |                                                                                                          |
-| `--limit`       | `<n:string>`                |         | The floor (up) or ceiling (down).                                                                        |
-| `--metric`      | `<name:string>`             |         | Metric name the run emits (default: <name>).                                                             |
-| `--direction`   | `<dir:string>`              |         | Either "up" or "down".                                                                                   |
-| `--run`         | `<cmd:string>`              |         | The command that emits the metric line.                                                                  |
-| `--producer`    | `<selector:string>`         |         | Existing producer to consume; mutually exclusive with --run.                                             |
-| `--extract`     | `<cmd:string>`              |         | Read metrics from captured producer output or an artifact on stdin.                                      |
-| `--artifact`    | `<path:string>`             |         | Declared producer artifact supplied to --extract.                                                        |
-| `--per`         | `<metric-or-extent:string>` |         | Denominator metric, or one built-in extent as files=<glob>, lines=<glob>, words=<glob>, or bytes=<glob>. |
-| `--scale`       | `<n:string>`                |         | Multiply a rate into human units.                                                                        |
-| `--margin`      | `<n:string>`                |         | Headroom left when pinning the limit.                                                                    |
-| `--timeout`     | `<seconds:string>`          |         | Measurement-command budget in seconds; 0 removes the bound.                                              |
-| `--inputs`      | `<value:string>`            |         | Complete input glob; repeat for every input.                                                             |
-| `--needs`       | `<value:string>`            |         | Required producer selector; repeat for every dependency.                                                 |
-| `--artifacts`   | `<value:string>`            |         | Output artifact path to capture; repeat for every artifact.                                              |
-| `--environment` | `<value:string>`            |         | Environment variable name to bind to evidence; repeat for every name.                                    |
-| `--toolchain`   | `<value:string>`            |         | Toolchain identity file; repeat for every file.                                                          |
-| `--dry-run`     | boolean                     |         | Print the edit and write nothing.                                                                        |
+| Argument        | Value                       | Default | Description                                                                                                                                                 |
+| --------------- | --------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`        | positional, required        |         |                                                                                                                                                             |
+| `--limit`       | `<n:string>`                |         | The limit: a floor when `--direction` is `up`, a ceiling when it's `down`.                                                                                  |
+| `--metric`      | `<name:string>`             |         | The metric name the measurement prints. Default: the standard's name.                                                                                       |
+| `--direction`   | `<dir:string>`              |         | `up` when higher is better, `down` when lower is better.                                                                                                    |
+| `--run`         | `<cmd:string>`              |         | The command that measures the metric and prints its `DISCERN_METRIC <metric> <number>` line.                                                                |
+| `--producer`    | `<selector:string>`         |         | Measure from an existing job, scope gate, or standard, such as `jobs.test`, instead of `--run`.                                                             |
+| `--extract`     | `<cmd:string>`              |         | A command that reads the metric from the producer's output, or from `--artifact`, on stdin.                                                                 |
+| `--artifact`    | `<path:string>`             |         | A file the producer lists in its artifacts, passed to `--extract` on stdin.                                                                                 |
+| `--per`         | `<metric-or-extent:string>` |         | Hold a rate: divide by another metric, or by a count discern takes itself: `files=<glob>`, `lines=<glob>`, `words=<glob>`, or `bytes=<glob>`.               |
+| `--scale`       | `<n:string>`                |         | Multiply a `--per` rate into readable units: 1000 gives a rate per 1,000. Default: 1.                                                                       |
+| `--margin`      | `<n:string>`                |         | Headroom `discern standards --pin` keeps when it tightens the limit. Default: 0.                                                                            |
+| `--timeout`     | `<seconds:string>`          |         | Time limit for the measuring command, in seconds; 0 means no limit.                                                                                         |
+| `--inputs`      | `<value:string>`            |         | A file pattern the measurement reads. Repeat it until every input is listed; discern can then reuse an earlier measurement while those files are unchanged. |
+| `--needs`       | `<value:string>`            |         | A job, scope gate, or standard that must succeed before the measurement, such as `jobs.build`. Repeat it for each one.                                      |
+| `--artifacts`   | `<value:string>`            |         | A file the measuring command produces, which discern keeps for `--extract` to read. Repeat it for each one.                                                 |
+| `--environment` | `<value:string>`            |         | An environment variable that affects the result; a changed value stops discern reusing an earlier measurement. Repeat it for each one.                      |
+| `--toolchain`   | `<value:string>`            |         | A file that pins tool versions, such as a lockfile; a change to it stops discern reusing an earlier measurement. Repeat it for each one.                    |
+| `--dry-run`     | boolean                     |         | Show the edit without writing it.                                                                                                                           |
 
 **`discern config set`**
 
-| Argument    | Value                | Default | Description                                           |
-| ----------- | -------------------- | ------- | ----------------------------------------------------- |
-| `<key>`     | positional, required |         |                                                       |
-| `<value>`   | positional, required |         |                                                       |
-| `--number`  | boolean              |         | Treat the value as a number (union-typed keys only).  |
-| `--bool`    | boolean              |         | Treat the value as a boolean (union-typed keys only). |
-| `--string`  | boolean              |         | Treat the value as a string (union-typed keys only).  |
-| `--dry-run` | boolean              |         | Print the edit and write nothing.                     |
+| Argument    | Value                | Default | Description                                                                  |
+| ----------- | -------------------- | ------- | ---------------------------------------------------------------------------- |
+| `<key>`     | positional, required |         |                                                                              |
+| `<value>`   | positional, required |         |                                                                              |
+| `--number`  | boolean              |         | Treat the value as a number, for a key that accepts more than one type.      |
+| `--bool`    | boolean              |         | Treat the value as true or false, for a key that accepts more than one type. |
+| `--string`  | boolean              |         | Treat the value as text, for a key that accepts more than one type.          |
+| `--dry-run` | boolean              |         | Show the edit without writing it.                                            |
 
 **`discern config get`**
 
@@ -308,21 +308,21 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 | Argument        | Value                | Default | Description                                                                                                                                                   |
 | --------------- | -------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`     | boolean              |         | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                  |
-| `--policy-base` | `<ref:string>`       |         | Use the fetched immutable policy base for a standalone CI report. Strict completion checks against the trunk's current tip.                                   |
-| `--standalone`  | boolean              |         | Run complete diagnostic feedback, including on a dirty tree. Results are transient and issue no Proof.                                                        |
-| `--rerun`       | boolean              |         | Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.                  |
-| `--ci`          | boolean              |         | Run the machine gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.                           |
-| `--met`         | `<id:string>`        |         | Declare a served checkpoint's question met (repeatable). Valid only for a checkpoint with an active open question here; the declaration is recorded as your…  |
-| `--unmet`       | `<id:string>`        |         | Declare a served checkpoint's question unmet (one per invocation; requires --why). The gate still runs; landing then needs the owner to authorize a variance… |
-| `--why`         | `<rationale:string>` |         | The required rationale for --unmet: one paragraph, 1-500 characters, no newlines or control characters. Recorded opaquely as Proof evidence for the owner's…  |
+| `--dry-run`     | boolean              |         | Show which checks, jobs, and scope gates would run, without running them. It still needs a committed tree.                                                    |
+| `--policy-base` | `<ref:string>`       |         | For a CI report, with `--ci` and `--standalone`: judge the change against the settings in this fetched commit instead of the trunk's current tip.             |
+| `--standalone`  | boolean              |         | Run every check for feedback, even with uncommitted changes. discern records no Proof and no results it can reuse.                                            |
+| `--rerun`       | boolean              |         | Run the checks again even when current passing Proof covers this commit, or retry a failure on unchanged code. discern records the rerun, and the newest…     |
+| `--ci`          | boolean              |         | For continuous integration: run the checks and list any checkpoint questions, without waiting for or recording answers. Its Proof can't be used to land.      |
+| `--met`         | `<id:string>`        |         | Answer a checkpoint question as met, as your recorded judgment (repeatable). It applies only to a question this worktree is waiting on. Once every waiting…   |
+| `--unmet`       | `<id:string>`        |         | Answer one checkpoint question as unmet, with `--why`. The checks still run, but landing then needs the owner to approve a variance.                          |
+| `--why`         | `<rationale:string>` |         | Why the question isn't met, for `--unmet`: one paragraph of 1–500 characters, without line breaks or control characters. The Proof keeps it, as written, for… |
 
 **`discern improvement` (evolving)**
 
-| Argument      | Value           | Default | Description                                                                                       |
-| ------------- | --------------- | ------- | ------------------------------------------------------------------------------------------------- |
-| `--category`  | `<name:string>` |         | Review a single area (gate, setup, instructions, map, worktrees, standards, checkpoints, skills). |
-| `--min-score` | `<n:number>`    |         | Exit non-zero when the overall score is below this floor (a CI/agent gate).                       |
+| Argument      | Value           | Default | Description                                                                                                          |
+| ------------- | --------------- | ------- | -------------------------------------------------------------------------------------------------------------------- |
+| `--category`  | `<name:string>` |         | Review one area only: gate, setup, instructions, map, worktrees, standards, checkpoints, skills.                     |
+| `--min-score` | `<n:number>`    |         | Exit non-zero when the score is below this number, for use as a CI check. With `--category`, it's that area's score. |
 
 **`discern progress`**
 
@@ -332,10 +332,10 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 **`discern mcp`**
 
-| Argument              | Value   | Default | Description                                                                |
-| --------------------- | ------- | ------- | -------------------------------------------------------------------------- |
-| `--long-tool-calls`   | boolean |         | Use the long-call transport profile; await calls may run for 3300 seconds. |
-| `--strict-tool-calls` | boolean |         | Use the strict transport profile; await calls may run for 45 seconds.      |
+| Argument              | Value   | Default | Description                                                                                                                                                    |
+| --------------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--long-tool-calls`   | boolean |         | For agents that allow long tool calls: let each await call wait up to 3300 seconds.                                                                            |
+| `--strict-tool-calls` | boolean |         | For agents that end long tool calls early: keep each await call to 45 seconds, and suggest the command line for long work. Without either option, await calls… |
 
 **`discern scripts`**
 
@@ -346,46 +346,46 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 **`discern standards`**
 
-| Argument    | Value                           | Default | Description                                                                                                                                                    |
-| ----------- | ------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<names>`   | positional, repeating, optional |         |                                                                                                                                                                |
-| `--dry-run` | boolean                         |         | Show the standards that would be measured; touch nothing.                                                                                                      |
-| `--force`   | boolean                         |         | Run standards on a dirty worktree; intended only while authoring standards.                                                                                    |
-| `--pin`     | boolean                         |         | Capture measured improvements for the named standards, or every one with slack. Same-commit values are reused; named measurement narrows only when gate Proof… |
+| Argument    | Value                           | Default | Description                                                                                                                                                |
+| ----------- | ------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<names>`   | positional, repeating, optional |         |                                                                                                                                                            |
+| `--dry-run` | boolean                         |         | List the standards that would be measured, without measuring them.                                                                                         |
+| `--force`   | boolean                         |         | Measure even with uncommitted changes. Use it only while writing a standard; `--pin` ignores it.                                                           |
+| `--pin`     | boolean                         |         | Lock in improvements: tighten each named standard's limit, or every limit with room to tighten, to its measured value, keeping its margin as headroom. It… |
 
 **`discern standards propose`**
 
-| Argument    | Value                | Default | Description                                                                                                      |
-| ----------- | -------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| `<name>`    | positional, required |         |                                                                                                                  |
-| `--reason`  | `<reason:string>`    |         | The exact non-empty owner-facing reason for the standard limit proposal (1-500 visible, secret-free characters). |
-| `--dry-run` | boolean              |         | Show the proposal plan; touch nothing.                                                                           |
+| Argument    | Value                | Default | Description                                                                                                                                 |
+| ----------- | -------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`    | positional, required |         |                                                                                                                                             |
+| `--reason`  | `<reason:string>`    |         | Why the limit should change, for the owner to read: 1–500 characters on one line, with no secrets and no claim that anyone has approved it. |
+| `--dry-run` | boolean              |         | Show the proposal without making it.                                                                                                        |
 
 **`discern refresh`**
 
-| Argument    | Value   | Default | Description                                                                |
-| ----------- | ------- | ------- | -------------------------------------------------------------------------- |
-| `--dry-run` | boolean |         | List every refresh target and create/update/remove effect; change nothing. |
+| Argument    | Value   | Default | Description                                                                   |
+| ----------- | ------- | ------- | ----------------------------------------------------------------------------- |
+| `--dry-run` | boolean |         | List each file it would create, update, or remove, without changing anything. |
 
 **`discern tidy` (evolving)**
 
-| Argument    | Value                | Default | Description                                      |
-| ----------- | -------------------- | ------- | ------------------------------------------------ |
-| `<type>`    | positional, optional |         |                                                  |
-| `--dry-run` | boolean              |         | List the files that would change; touch nothing. |
+| Argument    | Value                | Default | Description                                              |
+| ----------- | -------------------- | ------- | -------------------------------------------------------- |
+| `<type>`    | positional, optional |         |                                                          |
+| `--dry-run` | boolean              |         | List the files that would change, without changing them. |
 
 **`discern skills eject`**
 
-| Argument    | Value                | Default | Description                                                            |
-| ----------- | -------------------- | ------- | ---------------------------------------------------------------------- |
-| `<name>`    | positional, required |         |                                                                        |
-| `--dry-run` | boolean              |         | Preview every ejection and materialization target without changing it. |
+| Argument    | Value                | Default | Description                                                                         |
+| ----------- | -------------------- | ------- | ----------------------------------------------------------------------------------- |
+| `<name>`    | positional, required |         |                                                                                     |
+| `--dry-run` | boolean              |         | Show what would be copied and where agents would get it, without changing anything. |
 
 **`discern impact`**
 
-| Argument | Value            | Default | Description                                                                                  |
-| -------- | ---------------- | ------- | -------------------------------------------------------------------------------------------- |
-| `--has`  | `<scope:string>` |         | Test one scope. Bare: print nothing and exit 0/1. JSON: report `data.membership` and exit 0. |
+| Argument | Value            | Default | Description                                                                                                                                               |
+| -------- | ---------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--has`  | `<scope:string>` |         | Check one scope, or `code` or `previewable`. On its own, it prints nothing and exits 0 if the change touches it, 1 if not. With `--json`, it reports the… |
 
 **`discern coupling` (evolving)**
 
@@ -396,138 +396,138 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 **`discern await`**
 
-| Argument        | Value               | Default | Description                                                                                                                                                |
-| --------------- | ------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--green`       | `<worktree:string>` |         | Select a sibling by worktree id, path, local branch, or full local ref; wait until its checkout holds an honored gate Proof (a landing also satisfies it). |
-| `--landed`      | `<worktree:string>` |         | Select a sibling by worktree id, path, local branch, or full local ref; wait until its work reaches the trunk.                                             |
-| `--trunk-moved` | boolean             |         | Wait until the trunk ref moves from its position at call start.                                                                                            |
-| `--resume`      | `<handle:string>`   |         | Continue a previous not-met wait without resetting its pinned state; pass no condition flag with it.                                                       |
-| `--timeout`     | `<seconds:number>`  |         | Seconds before answering "not yet". Omit to wait once for up to 3300s; the condition returns early, and 0 checks once.                                     |
+| Argument        | Value               | Default | Description                                                                                                                                           |
+| --------------- | ------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--green`       | `<worktree:string>` |         | Wait until that task's worktree has a current, passing Proof. Name it by worktree id, path, local branch, or full local ref. Its landing also counts. |
+| `--landed`      | `<worktree:string>` |         | Wait until that task's work reaches the trunk. Name it by worktree id, path, local branch, or full local ref.                                         |
+| `--trunk-moved` | boolean             |         | Wait until the trunk moves from where it was when the wait began.                                                                                     |
+| `--resume`      | `<handle:string>`   |         | Keep waiting for an earlier wait's condition, using the handle it returned. Don't add a condition option.                                             |
+| `--timeout`     | `<seconds:number>`  |         | How many seconds to wait before answering "not yet". Default: up to 3300. It returns early once the condition holds; 0 checks once without waiting.   |
 
 **`discern patterns` (evolving)**
 
-| Argument         | Value               | Default | Description                                                                                                                                                   |
-| ---------------- | ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--stats`        | boolean             |         | Report practice stats instead: changes accepted, green streaks, cycle times, standards trends, and agent cohorts, counted from the same local evidence. With… |
-| `--all`          | boolean             |         | Report every finding from every detector.                                                                                                                     |
-| `--logbook-file` | `<filename:string>` |         | Read one sealed archive basename listed by `discern patterns archives` instead of the active logbook.                                                         |
+| Argument         | Value               | Default | Description                                                                                                                                                     |
+| ---------------- | ------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--stats`        | boolean             |         | Show usage statistics instead: changes landed, passing streaks, cycle times, standard trends, and results grouped by coding agent, from the same logbook. With… |
+| `--all`          | boolean             |         | Show every finding. Without it, each kind of check shows its first few.                                                                                         |
+| `--logbook-file` | `<filename:string>` |         | Read a sealed archive instead of the active logbook. Give a file name that `discern patterns archives` lists.                                                   |
 
 **`discern patterns reset` (evolving)**
 
-| Argument    | Value   | Default | Description                                                                 |
-| ----------- | ------- | ------- | --------------------------------------------------------------------------- |
-| `--dry-run` | boolean |         | Render the complete plan without requesting confirmation or changing files. |
+| Argument    | Value   | Default | Description                                                               |
+| ----------- | ------- | ------- | ------------------------------------------------------------------------- |
+| `--dry-run` | boolean |         | Show the full plan without asking for confirmation or changing any files. |
 
 **`discern patterns seal` (evolving)**
 
-| Argument    | Value   | Default | Description                                                                 |
-| ----------- | ------- | ------- | --------------------------------------------------------------------------- |
-| `--dry-run` | boolean |         | Render the complete plan without requesting confirmation or changing files. |
+| Argument    | Value   | Default | Description                                                               |
+| ----------- | ------- | ------- | ------------------------------------------------------------------------- |
+| `--dry-run` | boolean |         | Show the full plan without asking for confirmation or changing any files. |
 
 **`discern status`**
 
-| Argument          | Value   | Default | Description                                                                                                                                                 |
-| ----------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--all`           | boolean |         | Include every worktree even when called from one (local view plus all worktrees).                                                                           |
-| `--local`         | boolean |         | Show only this checkout, even in the main checkout.                                                                                                         |
-| `-v`, `--verbose` | boolean |         | Expand fleet attention, per-worktree evidence, configured checks, landing history, and full Proof pages. With JSON, return complete structured status; the… |
+| Argument          | Value   | Default | Description                                                                                                                                                    |
+| ----------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--all`           | boolean |         | Also list every worktree when you run it from a task worktree. You can't combine it with `--local`.                                                            |
+| `--local`         | boolean |         | Show only this checkout, even in the main checkout.                                                                                                            |
+| `-v`, `--verbose` | boolean |         | Show everything: each worktree in full, its evidence, the configured checks, landing history, and full Proof pages. With `--json`, return the complete status… |
 
 **`discern start`**
 
-| Argument    | Value             | Default | Description                                                                                                                              |
-| ----------- | ----------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run` | boolean           |         | Show the start plan; touch nothing.                                                                                                      |
-| `--name`    | `<name:string>`   |         | Set the task title and seed its worktree id. discern preserves this text as the title and normalizes the id. Omit for a random codename. |
-| `--title`   | `<title:string>`  |         | Set the display title separately from --name. With no --name, the title also seeds the worktree id.                                      |
-| `--brief`   | `<brief:string>`  |         | Store an optional one-line brief for task detail and agent handoff.                                                                      |
-| `--from`    | `<source:string>` |         | Branch the new worktree from a ref or an unambiguous worktree id or path. Omit it to start from the trunk.                               |
+| Argument    | Value             | Default | Description                                                                                                                                          |
+| ----------- | ----------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run` | boolean           |         | Show what `start` would create, without creating anything. The real run picks a new id.                                                              |
+| `--name`    | `<name:string>`   |         | Name the task. discern keeps your text as the title and derives the worktree id from it. Without `--name` or `--title`, the id is a random codename. |
+| `--title`   | `<title:string>`  |         | Set a display title that differs from `--name`. Without `--name`, discern derives the id from the title.                                             |
+| `--brief`   | `<brief:string>`  |         | Save a one-line description of the task, shown in task details and when an agent starts on it.                                                       |
+| `--from`    | `<source:string>` |         | Start from something other than the trunk: a branch, tag, commit, or another worktree's id or path. To resume a parked task, pass its branch.        |
 
 **`discern accept`**
 
-| Argument                | Value                | Default | Description                                                                                                                                                     |
-| ----------------------- | -------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<action>`              | positional, optional |         |                                                                                                                                                                 |
-| `--dry-run`             | boolean              |         | Show the selected acceptance plan; touch nothing.                                                                                                               |
-| `--target`              | `<effort:string>`    |         | Select the effort by id, path, or branch, from any checkout. With accept queue, record its current proven revision; otherwise start landing under applicable…   |
-| `--prepare`             | boolean              |         | Emergency only: run checkpoint triggers and retain exact review evidence without validation or integration.                                                     |
-| `--preparation-receipt` | `<receipt:string>`   |         | Emergency only: the checkpoint-preparation receipt for this exact repair and trunk.                                                                             |
-| `--met`                 | `<id:string>`        |         | Record a satisfied served checkpoint question (repeatable): the continuation of a landing whose combined result awaits your judgment, or emergency preparation… |
-| `--unmet`               | `<id:string>`        |         | Declare one served integration checkpoint question not satisfied (requires --why). The retained composition is still proved; the owner then decides the…        |
-| `--why`                 | `<rationale:string>` |         | The required one-paragraph rationale for --unmet.                                                                                                               |
-| `--composition-receipt` | `<receipt:string>`   |         | The served composition receipt an answer or resumed variance decision binds to; the judgment refusal serves it. A replaced composition refuses the receipt and… |
-| `--reason`              | `<text:string>`      |         | Emergency only: explain why integration must precede validation.                                                                                                |
-| `--approval-token`      | `<token:string>`     |         | Emergency only: the current preview token approved by the owner, with --confirmed.                                                                              |
-| `--recover`             | `<id:string>`        |         | Emergency only: reconcile one recorded exception transition and cleanup without new landing authority.                                                          |
-| `--confirmed`           | boolean              |         | Attest that your owner accepted this landing in the current conversation. Recorded standing and effort grants are checked directly. Consent bound to an…        |
-| `--variance`            | `<id:string>`        |         | Record that your owner authorized landing this declared-unmet checkpoint without changing it (repeatable; requires --confirmed). The ids must equal the…        |
-| `--approve-standard`    | `<token:string>`     |         | Record that the owner approved the exact standard/value/reason tuple carried by the current Proof (repeatable; requires --confirmed). Use the proposal-bound…   |
+| Argument                | Value                | Default | Description                                                                                                                                                    |
+| ----------------------- | -------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<action>`              | positional, optional |         |                                                                                                                                                                |
+| `--dry-run`             | boolean              |         | Show the landing plan without landing or recording anything. From the main checkout without `--target`, list the landing queue.                                |
+| `--target`              | `<effort:string>`    |         | Choose the task by id, path, or branch, from any checkout. From the main checkout, it's required. After that task lands, discern lands the rest of the queue…  |
+| `--prepare`             | boolean              |         | Emergency only: answer checkpoint questions before an emergency landing. discern runs the checkpoint triggers and keeps the evidence for review, but runs no…  |
+| `--preparation-receipt` | `<receipt:string>`   |         | Emergency only: the receipt `--prepare` returned for this repair and trunk.                                                                                    |
+| `--met`                 | `<id:string>`        |         | Answer a checkpoint question as met (repeatable): a question about the combined code, with `--composition-receipt`, or an emergency question, with…            |
+| `--unmet`               | `<id:string>`        |         | Answer one checkpoint question about the combined code as unmet, with `--why` and `--composition-receipt`. discern still checks the combined code; landing…    |
+| `--why`                 | `<rationale:string>` |         | Why the question isn't met, for `--unmet`, in one paragraph.                                                                                                   |
+| `--composition-receipt` | `<receipt:string>`   |         | The receipt that came with a question about the combined code. Pass it with `--met`, `--unmet`, or `--variance` so your answer applies to that exact…          |
+| `--reason`              | `<text:string>`      |         | Emergency only: why the repair must land before its checks pass. The owner reviews it, and the approval token is tied to it.                                   |
+| `--approval-token`      | `<token:string>`     |         | Emergency only: the preview token the owner approved, with `--confirmed`. It's valid only briefly, and only while the repair, trunk, and reason stay the same. |
+| `--recover`             | `<id:string>`        |         | Emergency only: finish an interrupted emergency landing, named by its landing id. discern records whether the trunk moved and cleans up; it lands nothing new… |
+| `--confirmed`           | boolean              |         | Record that the owner approved this landing in the current conversation. It covers only the selected landing. discern checks standing and task grants on its…  |
+| `--variance`            | `<id:string>`        |         | Record that the owner approved landing despite this unmet checkpoint answer, without changing it (repeatable; needs `--confirmed`). The ids must match the…    |
+| `--approve-standard`    | `<token:string>`     |         | Record that the owner approved a proposed standard limit (repeatable; needs `--confirmed`). Use the token from the refusal: it binds one standard, value, and… |
 
 **`discern update`**
 
-| Argument    | Value             | Default | Description                                                                                                                                         |
-| ----------- | ----------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run` | boolean           |         | Show the update plan; touch nothing.                                                                                                                |
-| `--from`    | `<source:string>` |         | Pull a ref or an unambiguous worktree id or path into this worktree instead of the trunk. For composing on unlanded work — omit it for the routine… |
+| Argument    | Value             | Default | Description                                                                                                                                    |
+| ----------- | ----------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run` | boolean           |         | Show what the update would bring in and change, without changing anything.                                                                     |
+| `--from`    | `<source:string>` |         | Merge something other than the trunk: a branch, tag, commit, or another worktree's id or path. Use it to build on work that hasn't landed yet. |
 
 **`discern identity`**
 
-| Argument      | Value                | Default | Description                                                               |
-| ------------- | -------------------- | ------- | ------------------------------------------------------------------------- |
-| `<worktree>`  | positional, optional |         |                                                                           |
-| `--id`        | boolean              |         | Print the safe base name for this checkout (default).                     |
-| `--site`      | boolean              |         | Print its development server's host name.                                 |
-| `--branch`    | boolean              |         | Print its branch name.                                                    |
-| `--port`      | boolean              |         | Print its stable development-server port.                                 |
-| `--db`        | boolean              |         | Print its database-safe name.                                             |
-| `--seed`      | boolean              |         | Print its stable test-order seed.                                         |
-| `--worktree`  | boolean              |         | Print its base resource handle — a stable project-prefixed external name. |
-| `--resource`  | `<name:string>`      |         | Print the stable external name for one declared resource.                 |
-| `--resources` | boolean              |         | Print every declared resource as name=stable-external-name lines.         |
+| Argument      | Value                | Default | Description                                                                                           |
+| ------------- | -------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| `<worktree>`  | positional, optional |         |                                                                                                       |
+| `--id`        | boolean              |         | Print the checkout's id (the default).                                                                |
+| `--site`      | boolean              |         | Print its development-server host name, safe to use in a web address.                                 |
+| `--branch`    | boolean              |         | Print its branch name.                                                                                |
+| `--port`      | boolean              |         | Print its stable development-server port. discern doesn't reserve the port.                           |
+| `--db`        | boolean              |         | Print a name for it that's safe to use as a database name.                                            |
+| `--seed`      | boolean              |         | Print its stable seed for ordering tests.                                                             |
+| `--worktree`  | boolean              |         | Print its resource handle: a stable name, starting with the project slug, for its external resources. |
+| `--resource`  | `<name:string>`      |         | Print the stable external name of one declared resource.                                              |
+| `--resources` | boolean              |         | Print every declared resource as `name=handle` lines.                                                 |
 
 **`discern worktree setup`**
 
-| Argument               | Value         | Default | Description                                                                                                                            |
-| ---------------------- | ------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`            | boolean       |         | Show the setup plan; touch nothing.                                                                                                    |
-| `--mark-step-complete` | `<id:string>` |         | After observing an interrupted setup command's external state, mark its running journal entry complete without replaying it.           |
-| `--retry-step`         | `<id:string>` |         | After observing an interrupted setup command's external state, reset its running journal entry and run it again.                       |
-| `--confirmed`          | boolean       |         | Attest that the owner observed the interrupted command's external state and chose this recovery. Required with either recovery option. |
+| Argument               | Value         | Default | Description                                                                                                                                          |
+| ---------------------- | ------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`            | boolean       |         | Show the setup plan without changing anything.                                                                                                       |
+| `--mark-step-complete` | `<id:string>` |         | Recover an interrupted setup step that you've checked finished: mark it done without running it again. Needs `--confirmed`.                          |
+| `--retry-step`         | `<id:string>` |         | Recover an interrupted setup step by running it again. Needs `--confirmed`.                                                                          |
+| `--confirmed`          | boolean       |         | Record that the owner checked what the interrupted step left behind and chose this recovery. Required with `--mark-step-complete` or `--retry-step`. |
 
 **`discern worktree rename` (evolving)**
 
-| Argument    | Value                | Default | Description                                |
-| ----------- | -------------------- | ------- | ------------------------------------------ |
-| `<title>`   | positional, required |         |                                            |
-| `--dry-run` | boolean              |         | Show the title-change plan; touch nothing. |
+| Argument    | Value                | Default | Description                        |
+| ----------- | -------------------- | ------- | ---------------------------------- |
+| `<title>`   | positional, required |         |                                    |
+| `--dry-run` | boolean              |         | Show the change without making it. |
 
 **`discern worktree teardown`**
 
-| Argument    | Value   | Default | Description                            |
-| ----------- | ------- | ------- | -------------------------------------- |
-| `--dry-run` | boolean |         | Show the teardown plan; touch nothing. |
+| Argument    | Value   | Default | Description                                            |
+| ----------- | ------- | ------- | ------------------------------------------------------ |
+| `--dry-run` | boolean |         | Show what would be removed, without removing anything. |
 
 **`discern worktree park` (evolving)**
 
-| Argument     | Value                | Default | Description                        |
-| ------------ | -------------------- | ------- | ---------------------------------- |
-| `<worktree>` | positional, required |         |                                    |
-| `--dry-run`  | boolean              |         | Show the Park plan; touch nothing. |
+| Argument     | Value                | Default | Description                                                |
+| ------------ | -------------------- | ------- | ---------------------------------------------------------- |
+| `<worktree>` | positional, required |         |                                                            |
+| `--dry-run`  | boolean              |         | Show what parking would remove, without changing anything. |
 
 **`discern worktree drop`**
 
-| Argument     | Value                | Default | Description                                                                           |
-| ------------ | -------------------- | ------- | ------------------------------------------------------------------------------------- |
-| `<worktree>` | positional, required |         |                                                                                       |
-| `--force`    | boolean              |         | Discard even when the worktree holds uncommitted changes or commits not on the trunk. |
-| `--dry-run`  | boolean              |         | Show the drop plan; touch nothing.                                                    |
+| Argument     | Value                | Default | Description                                                                                                                    |
+| ------------ | -------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `<worktree>` | positional, required |         |                                                                                                                                |
+| `--force`    | boolean              |         | Drop the worktree even when it has uncommitted changes or commits that aren't on the trunk. Uncommitted work is lost for good. |
+| `--dry-run`  | boolean              |         | Show what would be removed, without removing anything.                                                                         |
 
 **`discern worktree prune`**
 
-| Argument      | Value   | Default | Description                                                                                                                               |
-| ------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `-y`, `--yes` | boolean |         | Non-interactive: skip confirmation.                                                                                                       |
-| `--contained` | boolean |         | Also reclaim contained worktrees — checkouts whose committed work is fully contained in another live branch. Branch refs are always kept. |
-| `--dry-run`   | boolean |         | Report what would be removed/reclaimed without acting.                                                                                    |
+| Argument      | Value   | Default | Description                                                                                          |
+| ------------- | ------- | ------- | ---------------------------------------------------------------------------------------------------- |
+| `-y`, `--yes` | boolean |         | Skip the confirmation. Required without an interactive terminal.                                     |
+| `--contained` | boolean |         | Also remove clean, idle worktrees whose commits are all on another live branch. Their branches stay. |
+| `--dry-run`   | boolean |         | List what would be removed, without removing anything or asking.                                     |
 
 ## B. MCP tools manifest (`schema/discern-mcp-tools.json`, policy `mcp-tools-append-only`)
 
@@ -1109,220 +1109,220 @@ Every section, key, and value type the engine validates, with evolving sections 
 
 Same-major releases may add optional keys, sections, and enum members. Existing keys, types, and defaults stay. Sections marked evolving may change in any release.
 
-| Section                 | Required | Kind     | Description                                                      |
-| ----------------------- | -------- | -------- | ---------------------------------------------------------------- |
-| `[project]`             |          | `object` | The project's identity and the paths discern keeps for it.       |
-| `[repository]`          |          | `object` | Policy every checkout of this repository shares.                 |
-| `[map]`                 |          | `object` | Where the project map lives.                                     |
-| `[instructions]`        |          | `object` | The instruction sources discern compiles into each agent's file. |
-| `[skills]`              |          | `object` | Where your authored skills live, and which skills to leave out.  |
-| `[jobs]`                |          | `allOf`  | The commands the gate runs, in one namespace.                    |
-| `[setup]`               |          | `object` | Known jobs that do not apply to this project.                    |
-| `[scopes]`              |          | `table`  | Named regions of the repository.                                 |
-| `[generated]`           |          | `table`  | Committed artifacts that one generator owns.                     |
-| `[acceptance]`          |          | `object` | Standing grants for landing without a conversation.              |
-| `[worktree]`            |          | `object` | The isolated-worktree workflow.                                  |
-| `[standards]`           |          | `table`  | Quality numbers that can never get worse.                        |
-| `[checkpoints]`         |          | `table`  | Change-triggered review rules.                                   |
-| `[gate]`                |          | `object` | How `discern done` runs its parallel stages.                     |
-| `[coupling]` (evolving) |          | `object` | Co-change detection from git history.                            |
-| `[scripts]`             |          | `object` | Where your executable project scripts live.                      |
-| `[meta]`                | yes      | `object` | Project setup and adoption evidence.                             |
+| Section                 | Required | Kind     | Description                                                                            |
+| ----------------------- | -------- | -------- | -------------------------------------------------------------------------------------- |
+| `[project]`             |          | `object` | The project's name, its coding agents, and a few project-wide settings.                |
+| `[repository]`          |          | `object` | Git settings that every checkout of this repository shares.                            |
+| `[map]`                 |          | `object` | Where the project map lives.                                                           |
+| `[instructions]`        |          | `object` | The instruction files discern compiles into each agent's file.                         |
+| `[skills]`              |          | `object` | Where your own skills live, and which skills to leave out.                             |
+| `[jobs]`                |          | `allOf`  | The commands the gate runs to check a change.                                          |
+| `[setup]`               |          | `object` | Known jobs this project doesn't have.                                                  |
+| `[scopes]`              |          | `table`  | Named regions of the repository.                                                       |
+| `[generated]`           |          | `table`  | Committed files that one command generates.                                            |
+| `[acceptance]`          |          | `object` | Standing grants: scopes whose changes can land without asking you each time.           |
+| `[worktree]`            |          | `object` | How discern creates and prepares task worktrees.                                       |
+| `[standards]`           |          | `table`  | Limits on measured numbers, such as test coverage or bundle size, that the gate holds. |
+| `[checkpoints]`         |          | `table`  | Review questions your agent answers when a change matches a trigger.                   |
+| `[gate]`                |          | `object` | How discern runs jobs, in `discern done` and the other commands that run them.         |
+| `[coupling]` (evolving) |          | `object` | Files that usually change together, found from Git history.                            |
+| `[scripts]`             |          | `object` | Where your project's scripts live.                                                     |
+| `[meta]`                | yes      | `object` | A record of this project's setup and upgrades.                                         |
 
 ### [project]
 
-| Key              | Type      | Default             | Enum | Description                                                                                                                                |
-| ---------------- | --------- | ------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `name`           | `string`  | `""`                |      | Display name, free text, used when compiled instructions address the project. Empty falls back to the slug.                                |
-| `slug`           | `string`  | `""`                |      | Short, lowercase, dash-separated identity, used in worktree, site, and branch names.                                                       |
-| `gotchas_doc`    | `string`  | `""`                |      | The doc the gate points an agent at when a stage fails in a non-obvious way. Keep it current with your stack's traps; empty disables the…  |
-| `todo`           | `string`  | `"discern/TODO.md"` |      | The deferred-work ledger: the running TODO list agents read and maintain, relative to the project root.                                    |
-| `record_logbook` | `boolean` | `true`              |      | When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, with no code or output. Files stay… |
-| `agents`         | `enum[]`  |                     |      | Which agent integrations to enable: claude_code, codex, gemini, cursor, copilot. Omit the key for the default pair (claude_code, codex);…  |
+| Key              | Type      | Default             | Enum | Description                                                                                                                              |
+| ---------------- | --------- | ------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`           | `string`  | `""`                |      | The project's display name, in any words. Compiled instruction files use it to refer to the project; when it's empty, they use the slug. |
+| `slug`           | `string`  | `""`                |      | A short id of lowercase letters, digits, and dashes. discern builds each worktree's site, database, and resource names from it.          |
+| `gotchas_doc`    | `string`  | `""`                |      | A doc of your project's known traps. When `discern done`, `prepare`, or `test` fails, discern points your agent to it, and quotes any…   |
+| `todo`           | `string`  | `"discern/TODO.md"` |      | The TODO list of deferred work that your agents read and keep up to date, relative to the project root.                                  |
+| `record_logbook` | `boolean` | `true`              |      | When true, discern keeps a local logbook of each command it runs: timings, outcomes, and names, but no code or output. It stays inside…  |
+| `agents`         | `enum[]`  |                     |      | Which coding agents discern sets up: claude_code, codex, gemini, cursor, copilot. Leave it out for the default (claude_code, codex); an… |
 
 ### [repository]
 
 | Key                | Type       | Default    | Enum             | Description                                                                                                                                 |
 | ------------------ | ---------- | ---------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `trunk`            | `string`   | `"main"`   |                  | The shared branch the gate compares against and completed work lands on. Detected at setup; DISCERN_TRUNK overrides it per invocation.      |
-| `branch_prefix`    | `string`   | `"agent/"` |                  | Branch prefix for worktrees created by discern, e.g. "agent/my-feature".                                                                    |
-| `proof_notes_mode` | `enum`     | `"local"`  | `local`, `fetch` | Both modes record landed Proof notes locally. "fetch" also manages fetch-only transport. Publishing remains an explicit owner action;…      |
-| `ensure`           | `string[]` | `[]`       |                  | Idempotent commands that make any checkout usable for its tracked tree, such as installing dependencies from a lockfile. They run in order… |
+| `trunk`            | `string`   | `"main"`   |                  | Your project's shared branch: finished work lands here, and the gate checks each change against it. Setup detects it; `DISCERN_TRUNK`…      |
+| `branch_prefix`    | `string`   | `"agent/"` |                  | The start of every branch discern creates for a worktree, as in "agent/my-feature". Include your own `/`: discern adds nothing between the… |
+| `proof_notes_mode` | `enum`     | `"local"`  | `local`, `fetch` | Proof notes are discern's records on landed commits. Both modes record them locally; "fetch" also lets `git fetch` bring in other clones'…  |
+| `ensure`           | `string[]` | `[]`       |                  | Commands that make any checkout ready to use after its files change, such as installing dependencies from a lockfile. They run in order,…   |
 
 ### [map]
 
-| Key   | Type     | Default         | Enum | Description                                                                                                                      |
-| ----- | -------- | --------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `dir` | `string` | `"discern/map"` |      | Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it. |
+| Key   | Type     | Default         | Enum | Description                                                                                                                             |
+| ----- | -------- | --------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `dir` | `string` | `"discern/map"` |      | The map's folder, relative to the project root. `discern setup begin` creates it here if it doesn't exist, and `discern map` reads it.… |
 
 ### [instructions]
 
-| Key       | Type       | Default                       | Enum | Description                                                                                                                                 |
-| --------- | ---------- | ----------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sources` | `string[]` | `["discern/instructions.md"]` |      | Instruction source files or globs, relative to the project root. Missing files are skipped; `discern setup begin` seeds the default source. |
+| Key       | Type       | Default                       | Enum | Description                                                                                                                            |
+| --------- | ---------- | ----------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `sources` | `string[]` | `["discern/instructions.md"]` |      | Your instruction files, or patterns that match them, relative to the project root. discern joins the matching files in path order and… |
 
 ### [skills]
 
-| Key       | Type       | Default            | Enum | Description                                                                                                                             |
-| --------- | ---------- | ------------------ | ---- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `dir`     | `string`   | `"discern/skills"` |      | Where your authored skills live, relative to the project root. Read only when present, so a project with no authored skills uses the…   |
-| `exclude` | `string[]` | `[]`               |      | Skill names, bundled or authored, to leave out of materialization. Each materialized skill occupies context in every agent session, so… |
+| Key       | Type       | Default            | Enum | Description                                                                                                                                 |
+| --------- | ---------- | ------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dir`     | `string`   | `"discern/skills"` |      | The folder for your own skills, relative to the project root, with a folder inside it for each skill. Until it exists, your agents get the… |
+| `exclude` | `string[]` | `[]`               |      | Skills to leave out, built-in or your own. Each skill your agents get adds to every agent session, so leave out what this project never…    |
 
 ### [jobs]
 
-| Key                      | Type                           | Default | Enum                            | Description                                                                                                                              |
-| ------------------------ | ------------------------------ | ------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                                |
-| `format`                 | `string or string[] or object` |         |                                 | A formatter or codemod. Mutating, so it runs first and serially.                                                                         |
-| `build`                  | `string or string[] or object` |         |                                 | Produce the artifacts later stages read: compile, bundle.                                                                                |
-| `lint`                   | `string or string[] or object` |         |                                 | Read-only static analysis.                                                                                                               |
-| `typecheck`              | `string or string[] or object` |         |                                 | Read-only type checking.                                                                                                                 |
-| `test`                   | `string or string[] or object` |         |                                 | The test suite.                                                                                                                          |
-| `smoke`                  | `string or string[] or object` |         |                                 | A fast, side-effect-light readiness check: the app boots with real config in this checkout. `discern done` and `discern test` run it in… |
-| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                             |
-| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc})…  |
-| `<name>.inputs`          | `string[]`                     |         |                                 | Complete input closure as scope globs; omission binds evidence to the candidate.                                                         |
-| `<name>.needs`           | `string[]`                     |         |                                 | Producer selectors that must finish successfully before this producer runs.                                                              |
-| `<name>.artifacts`       | `string[]`                     |         |                                 | Project-relative outputs captured into immutable attempt storage after production.                                                       |
-| `<name>.environment`     | `string[]`                     |         |                                 | Environment variable names whose effective values enter evidence identity as digests.                                                    |
-| `<name>.toolchain`       | `string[]`                     |         |                                 | Project-relative identity files for the applicable toolchain.                                                                            |
-| `<name>.provides`        | `string`                       |         |                                 | A free-text label for humans and audit.                                                                                                  |
-| `<name>.timeout`         | `number`                       |         |                                 | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.             |
+| Key                      | Type                           | Default | Enum                            | Description                                                                                                                             |
+| ------------------------ | ------------------------------ | ------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                               |
+| `format`                 | `string or string[] or object` |         |                                 | A formatter or other tool that rewrites files, so it runs first, one command at a time. `discern prepare` leaves its edits for you to…  |
+| `build`                  | `string or string[] or object` |         |                                 | Builds what later stages need, such as compiling or bundling. `discern done` runs it; `discern prepare` doesn't.                        |
+| `lint`                   | `string or string[] or object` |         |                                 | A linter or other read-only check of the code.                                                                                          |
+| `typecheck`              | `string or string[] or object` |         |                                 | A read-only type check.                                                                                                                 |
+| `test`                   | `string or string[] or object` |         |                                 | Your test suite. It waits for a free test-run slot before it starts.                                                                    |
+| `smoke`                  | `string or string[] or object` |         |                                 | A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it…  |
+| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                            |
+| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`,…           |
+| `<name>.inputs`          | `string[]`                     |         |                                 | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…  |
+| `<name>.needs`           | `string[]`                     |         |                                 | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…    |
+| `<name>.artifacts`       | `string[]`                     |         |                                 | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a… |
+| `<name>.environment`     | `string[]`                     |         |                                 | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…    |
+| `<name>.toolchain`       | `string[]`                     |         |                                 | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…  |
+| `<name>.provides`        | `string`                       |         |                                 | A free-text note on what the job provides, for people reading the config. discern doesn't use it.                                       |
+| `<name>.timeout`         | `number`                       |         |                                 | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                 |
 
 ### [setup]
 
-| Key              | Type     | Default | Enum | Description                                                                                                  |
-| ---------------- | -------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------ |
-| `not_applicable` | `enum[]` | `[]`    |      | Known jobs this project's lifecycle does not have. A job listed here cannot also be configured under [jobs]. |
+| Key              | Type     | Default | Enum | Description                                                                                                           |
+| ---------------- | -------- | ------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| `not_applicable` | `enum[]` | `[]`    |      | Known jobs this project doesn't have. A job listed here can't also appear under `[jobs]`, even with an empty command. |
 
 ### [scopes]
 
-| Key                      | Type                 | Default | Enum | Description                                                                                                                                |
-| ------------------------ | -------------------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `<name>.paths` **(req)** | `string[]`           |         |      | The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/_.ext, src/_), a *.ext suffix at any depth, a /seg/… |
-| `<name>.neutral`         | `boolean`            | `false` |      | true: changes here need no gate, as for documentation and agent instructions.                                                              |
-| `<name>.preview`         | `string or string[]` |         |      | A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes… |
-| `<name>.inputs`          | `string[]`           |         |      | Complete input closure as scope globs; omission binds evidence to the candidate.                                                           |
-| `<name>.needs`           | `string[]`           |         |      | Producer selectors that must finish successfully before this producer runs.                                                                |
-| `<name>.artifacts`       | `string[]`           |         |      | Project-relative outputs captured into immutable attempt storage after production.                                                         |
-| `<name>.environment`     | `string[]`           |         |      | Environment variable names whose effective values enter evidence identity as digests.                                                      |
-| `<name>.toolchain`       | `string[]`           |         |      | Project-relative identity files for the applicable toolchain.                                                                              |
-| `<name>.gate`            | `string or string[]` |         |      | A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir},… |
-| `<name>.timeout`         | `number`             |         |      | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.               |
+| Key                      | Type                 | Default | Enum | Description                                                                                                                               |
+| ------------------------ | -------------------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>.paths` **(req)** | `string[]`           |         |      | The path patterns that define the scope: a folder prefix (`src/**`), a standard glob (`src/**/*.ext`, `src/*`), a `*.ext` suffix at any…  |
+| `<name>.neutral`         | `boolean`            | `false` |      | Set to true when changes here aren't code, as for documentation and agent instructions. They trigger no scope gate, this scope's own…     |
+| `<name>.preview`         | `string or string[]` |         |      | A read-only command your agent can run in its worktree to preview a change in this scope, such as building the docs. discern suggests it… |
+| `<name>.inputs`          | `string[]`           |         |      | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…    |
+| `<name>.needs`           | `string[]`           |         |      | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…      |
+| `<name>.artifacts`       | `string[]`           |         |      | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…   |
+| `<name>.environment`     | `string[]`           |         |      | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…      |
+| `<name>.toolchain`       | `string[]`           |         |      | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…    |
+| `<name>.gate`            | `string or string[]` |         |      | A command `discern done` runs when a change touches this scope, such as a component's own checks. The reuse settings in this table apply… |
+| `<name>.timeout`         | `number`             |         |      | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                   |
 
 ### [generated]
 
 | Key                         | Type                 | Default | Enum | Description                                                                                                                                 |
 | --------------------------- | -------------------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.paths` **(req)**    | `string[]`           |         |      | The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob…      |
-| `<name>.run` **(req)**      | `string or string[]` |         |      | The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove… |
-| `<name>.linguist_generated` | `boolean`            | `false` |      | true marks the group's paths generated for GitHub through the `linguist-generated` attribute: hidden in diffs by default and excluded from… |
-| `<name>.timeout`            | `number`             |         |      | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                |
+| `<name>.paths` **(req)**    | `string[]`           |         |      | Path patterns for the committed files this generator owns entirely, in the scope glob syntax: a folder prefix (`reference/**`), a standard… |
+| `<name>.run` **(req)**      | `string or string[]` |         |      | The command, or list of commands, that rewrites these files. The same source must always produce the same bytes, and the command must…      |
+| `<name>.linguist_generated` | `boolean`            | `false` |      | Set to true to mark these files as generated for GitHub, through the `linguist-generated` attribute. GitHub then collapses them in diffs…   |
+| `<name>.timeout`            | `number`             |         |      | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                     |
 
 ### [acceptance]
 
-| Key              | Type       | Default | Enum | Description                                                                                                                             |
-| ---------------- | ---------- | ------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `pre_authorized` | `string[]` | `[]`    |      | Scope names whose changes may land without a per-landing conversation. An owner decision recorded on the trunk: widening a named scope… |
+| Key              | Type       | Default | Enum | Description                                                                                                                              |
+| ---------------- | ---------- | ------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `pre_authorized` | `string[]` | `[]`    |      | Scopes whose changes can land without the owner's approval each time. A change qualifies only when every file it touches is in a listed… |
 
 ### [worktree]
 
 | Key                         | Type       | Default                 | Enum | Description                                                                                                                                 |
 | --------------------------- | ---------- | ----------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `root`                      | `string`   | `""`                    |      | Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative…    |
-| `inherit_env`               | `string[]` | `[]`                    |      | Names copied from the main checkout's declared env files. A value fills an empty entry or the first file's `<file>.example` default. A…     |
-| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | Env files read and written in order: the last definition wins; new values use the first existing file. Inheritance alone may create the…    |
-| `export_port`               | `boolean`  | `false`                 |      | When true, setup writes DISCERN_WORKTREE_PORT to configured env files, hooks warn when a sibling uses the derived port, and status shows…   |
-| `track_ignored_drift`       | `boolean`  | `true`                  |      | Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when… |
-| `resources`                 | `table`    | `{}`                    |      | External resources provisioned per worktree.                                                                                                |
-| `resources.<name>.create`   | `string`   | `""`                    |      | Command run once at worktree setup. discern records cleanup intent before running it and skips it only after readiness is recorded. An…     |
-| `resources.<name>.destroy`  | `string`   | `""`                    |      | Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.                                  |
-| `resources.<name>.ensure`   | `string`   | `""`                    |      | Idempotently reconcile drift or re-readiness at session start.                                                                              |
-| `resources.<name>.required` | `boolean`  | `true`                  |      | false makes a create failure non-fatal, so setup continues.                                                                                 |
-| `resources.<name>.retries`  | `integer`  | `0`                     |      | Retry create/destroy this many times.                                                                                                       |
-| `resources.<name>.prunable` | `boolean`  | `true`                  |      | false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.                            |
-| `setup`                     | `object`   | `{}`                    |      | Commands that ready a linked worktree.                                                                                                      |
-| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once at worktree creation, in order, after the resources exist: one-shot scaffolding such as seeding fixtures.                 |
-| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run on every linked-worktree pass: creation, session start, and after `discern update`. For convergence that depends on worktree…  |
+| `root`                      | `string`   | `""`                    |      | The folder where discern creates worktrees. Empty means "<repo>.worktrees" beside the repository; a relative path starts from the…          |
+| `inherit_env`               | `string[]` | `[]`                    |      | Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value…     |
+| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | The env files discern reads and writes, in order. When several set the same variable, the last one wins; a new value goes in the first…     |
+| `export_port`               | `boolean`  | `false`                 |      | Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. Every worktree has a port…      |
+| `track_ignored_drift`       | `boolean`  | `true`                  |      | Record the Git-ignored top-level paths, such as `node_modules`, when a worktree is set up, and list the ones that changed when its work…    |
+| `resources`                 | `table`    | `{}`                    |      | Outside resources that each worktree gets its own copy of.                                                                                  |
+| `resources.<name>.create`   | `string`   | `""`                    |      | The command that creates the resource, run once when the worktree is first set up. Before running it, discern records the matching…         |
+| `resources.<name>.destroy`  | `string`   | `""`                    |      | The command that removes the resource when its worktree is removed, or before discern retries a failed `create`. Make it safe to run…       |
+| `resources.<name>.ensure`   | `string`   | `""`                    |      | A command that checks the resource and repairs it if needed, such as restarting a stopped database. It runs at each session start and when… |
+| `resources.<name>.required` | `boolean`  | `true`                  |      | Set to false to let setup finish when `create` fails. discern then doesn't retry `create`; only `ensure` runs later.                        |
+| `resources.<name>.retries`  | `integer`  | `0`                     |      | How many times to retry a failed `create`, `destroy`, or `ensure`, from 0 to 5. `destroy` uses the count in effect when the resource was…   |
+| `resources.<name>.prunable` | `boolean`  | `true`                  |      | Set to false to stop `discern worktree prune` from destroying this resource after its worktree was deleted without discern, for data you…   |
+| `setup`                     | `object`   | `{}`                    |      | Commands that prepare a task worktree for work.                                                                                             |
+| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once, in order, when discern creates the worktree, after its resources exist, such as loading test data. A failing step stops… |
+| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run whenever discern readies a task worktree, for setup that depends on its id, port, or resources. Each must be safe to repeat.…  |
 
 ### [standards]
 
-| Key                          | Type                 | Default | Enum         | Description                                                                                                                              |
-| ---------------------------- | -------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.metric`              | `string`             |         |              | The metric name the run emits. Defaults to the standard's name.                                                                          |
-| `<name>.direction` **(req)** | `enum`               |         | `up`, `down` | "up" when the value should rise, so the limit is a floor; "down" when it should fall, so the limit is a ceiling.                         |
-| `<name>.limit` **(req)**     | `number`             |         |              | The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall.                                      |
-| `<name>.run`                 | `string or string[]` |         |              | This standard's producer command. Emits DISCERN_METRIC <metric> <number>; cannot accompany producer.                                     |
-| `<name>.producer`            | `string`             |         |              | Consume an existing job, scope gate, or standard producer instead of running a separate producer.                                        |
-| `<name>.extract`             | `string or string[]` |         |              | Extract readings from captured producer output on stdin; this is a separate operation from run.                                          |
-| `<name>.artifact`            | `string`             |         |              | Declared producer artifact supplied on stdin to extract; requires extract.                                                               |
-| `<name>.inputs`              | `string[]`           |         |              | Complete input closure as scope globs; omission binds evidence to the candidate.                                                         |
-| `<name>.needs`               | `string[]`           |         |              | Producer selectors that must finish successfully before this producer runs.                                                              |
-| `<name>.artifacts`           | `string[]`           |         |              | Project-relative outputs captured into immutable attempt storage after production.                                                       |
-| `<name>.environment`         | `string[]`           |         |              | Environment variable names whose effective values enter evidence identity as digests.                                                    |
-| `<name>.toolchain`           | `string[]`           |         |              | Project-relative identity files for the applicable toolchain.                                                                            |
-| `<name>.per`                 | `string or object`   |         |              | Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run… |
-| `<name>.scale`               | `number`             | `1`     |              | Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.                                                    |
-| `<name>.margin`              | `number`             | `0`     |              | Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. Give a metric that drifts on unrelated…      |
-| `<name>.timeout`             | `number`             |         |              | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.             |
+| Key                          | Type                 | Default | Enum         | Description                                                                                                                                |
+| ---------------------------- | -------------------- | ------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `<name>.metric`              | `string`             |         |              | The metric name discern reads from the output: the producer's, or the `extract` command's when `extract` is set. Default: the standard's…  |
+| `<name>.direction` **(req)** | `enum`               |         | `up`, `down` | "up" when higher is better, making the limit a floor; "down" when lower is better, making it a ceiling.                                    |
+| `<name>.limit` **(req)**     | `number`             |         |              | The floor or ceiling the measurement must meet; a measurement equal to the limit passes. A branch can raise a floor or lower a ceiling,…   |
+| `<name>.run`                 | `string or string[]` |         |              | The command that measures this standard. It prints `DISCERN_METRIC <metric> <number>`, unless `extract` reads its output instead. Set…     |
+| `<name>.producer`            | `string`             |         |              | Take the measurement from an existing job, scope gate, or standard, named like `jobs.test`, `scopes.<name>.gate`, or `standards.<name>`,…  |
+| `<name>.extract`             | `string or string[]` |         |              | A second command that reads the producer's output, or the `artifact` file, on stdin and prints the `DISCERN_METRIC` line. With `extract`,… |
+| `<name>.artifact`            | `string`             |         |              | A file the producer lists in its `artifacts`, passed to `extract` on stdin in place of the output. Needs `extract`.                        |
+| `<name>.inputs`              | `string[]`           |         |              | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…     |
+| `<name>.needs`               | `string[]`           |         |              | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…       |
+| `<name>.artifacts`           | `string[]`           |         |              | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…    |
+| `<name>.environment`         | `string[]`           |         |              | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…       |
+| `<name>.toolchain`           | `string[]`           |         |              | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…     |
+| `<name>.per`                 | `string or object`   |         |              | Hold a rate instead of a raw count, so the number doesn't rise only because the project grew. Divide by a second metric the command…       |
+| `<name>.scale`               | `number`             | `1`     |              | Multiply a `per` rate into readable units: scale = 1000 gives a rate per 1,000. It has no effect without `per`.                            |
+| `<name>.margin`              | `number`             | `0`     |              | Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. Give a margin to a number that moves with…      |
+| `<name>.timeout`             | `number`             |         |              | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                    |
 
 ### [checkpoints]
 
-| Key                        | Type       | Default | Enum             | Description                                                                                                                                 |
-| -------------------------- | ---------- | ------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.scope`             | `string`   |         |                  | Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a…      |
-| `<name>.paths`             | `string[]` |         |                  | Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either `scope` or `paths`. Registered path… |
-| `<name>.include_generated` | `boolean`  |         |                  | true includes paths a [generated.<name>] group owns; the default evaluates authored change only.                                            |
-| `<name>.exclude_paths`     | `string[]` |         |                  | Globs removed after selection and before every predicate, subject, evidence, and `when`. Registered path references (${map.dir},…           |
-| `<name>.unless_changed`    | `string[]` |         |                  | Hold fire when any changed path matches one of these globs or scope names: flag this change class unless its counterpart moved too.…        |
-| `<name>.kinds`             | `enum[]`   |         |                  | Narrow changed evidence to the named Git kinds: "added", "modified", or "deleted".                                                          |
-| `<name>.adds_matching`     | `string[]` |         |                  | Narrow text evidence to files with an added line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16…   |
-| `<name>.removes_matching`  | `string[]` |         |                  | Narrow text evidence to files with a removed line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16…  |
-| `<name>.new_directory`     | `boolean`  |         |                  | Narrow to added files whose parent directory held no admitted file at the merge-base; root-level additions never qualify.                   |
-| `<name>.binary`            | `boolean`  |         |                  | Narrow to binary changes when true or text changes when false.                                                                              |
-| `<name>.min_changed_files` | `integer`  |         |                  | Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).                                  |
-| `<name>.min_changed_lines` | `integer`  |         |                  | Require this many added-plus-removed text lines across the final narrowed evidence; binary files contribute zero.                           |
-| `<name>.deletion_dominant` | `boolean`  |         |                  | Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut…  |
-| `<name>.similar_new_file`  | `boolean`  |         |                  | Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory, the signature of a parallel…  |
-| `<name>.min_commits`       | `integer`  |         |                  | Require this many commits in merge-base..HEAD, including merge commits; uncommitted work adds no commit.                                    |
-| `<name>.when`              | `string`   |         |                  | Final executable condition: exit 0 fires, exit 10 passes; every other outcome is indeterminate. `DISCERN_MATCH <path>` narrows the…         |
-| `<name>.mode`              | `enum`     |         | `stop`, `advise` | "stop" (the default): the gate refuses to run until the agent declares the question met or unmet. "advise": the question and its evidence…  |
-| `<name>.question`          | `string`   |         |                  | Inline judgment prose. A project checkpoint needs this or `question_file`; a built-in inherits unless overridden. Review surfaces serve…    |
-| `<name>.question_file`     | `string`   |         |                  | Repository-relative Markdown path from the governing merge-base Git tree. Mutually exclusive with `question`; built-ins may inherit. Must…  |
-| `<name>.teach`             | `string`   |         |                  | Optional lesson prose carried into renderings: why the question matters and what good looks like.                                           |
-| `<name>.reference`         | `string`   |         |                  | Optional displayed pointer. discern performs no content loading or execution. Review surfaces may show it. Do not include secrets.          |
+| Key                        | Type       | Default | Enum             | Description                                                                                                                                  |
+| -------------------------- | ---------- | ------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>.scope`             | `string`   |         |                  | The name of a configured scope whose paths this checkpoint watches. Set at most one of `scope` and `paths`; with neither, it watches every…  |
+| `<name>.paths`             | `string[]` |         |                  | Path patterns this checkpoint watches, in the scope glob syntax. Set at most one of `scope` and `paths`. You can write `${map.dir}`,…        |
+| `<name>.include_generated` | `boolean`  |         |                  | Set to true to also watch files a `[generated.<name>]` group owns. By default, a checkpoint watches only files people and agents write.      |
+| `<name>.exclude_paths`     | `string[]` |         |                  | Path patterns to ignore. discern removes them before any other trigger setting or `when` command looks at the change. You can write…         |
+| `<name>.unless_changed`    | `string[]` |         |                  | Stay quiet when the change also touches one of these path patterns or scopes, anywhere in the project, such as the docs that go with an…     |
+| `<name>.kinds`             | `enum[]`   |         |                  | Only count files changed in these ways: "added", "modified", or "deleted". A rename counts as a deletion and an addition.                    |
+| `<name>.adds_matching`     | `string[]` |         |                  | Only count text files where an added line contains one of these exact strings, matched case-sensitively. Up to 16 different strings of…      |
+| `<name>.removes_matching`  | `string[]` |         |                  | Only count text files where a removed line contains one of these exact strings, matched case-sensitively. Up to 16 different strings of…     |
+| `<name>.new_directory`     | `boolean`  |         |                  | Only count files added in a folder that had no files where the branch started. Files added at the project root never count.                  |
+| `<name>.binary`            | `boolean`  |         |                  | Only count binary files when true, or only text files when false.                                                                            |
+| `<name>.min_changed_files` | `integer`  |         |                  | Trigger only when at least this many watched files changed. Leave it out to trigger on any change.                                           |
+| `<name>.min_changed_lines` | `integer`  |         |                  | Trigger only when the counted files have at least this many added and removed lines in total. Binary files count as zero.                    |
+| `<name>.deletion_dominant` | `boolean`  |         |                  | Trigger only when the change mostly removes lines: removals clearly outnumber additions and pass a fixed minimum. A large cut gets…          |
+| `<name>.similar_new_file`  | `boolean`  |         |                  | Trigger only when the change adds a file named like an existing file in the same folder, such as a copy, new, or v2 version of it, which…    |
+| `<name>.min_commits`       | `integer`  |         |                  | Trigger only when the branch has at least this many commits since it left the trunk, merge commits included. Uncommitted work doesn't count. |
+| `<name>.when`              | `string`   |         |                  | A command that makes the final decision, run only when every other setting matches. Exit 0 triggers the checkpoint, and exit 10 doesn't;…    |
+| `<name>.mode`              | `enum`     |         | `stop`, `advise` | "stop" holds `discern done` until the agent answers the question as met or unmet; an unmet answer then needs the owner's variance to land.…  |
+| `<name>.question`          | `string`   |         |                  | The question the agent answers, written here. Your own checkpoint needs this or `question_file`; a built-in one keeps its shipped question…  |
+| `<name>.question_file`     | `string`   |         |                  | A text file holding the question, relative to the repository root, used in place of `question`. discern reads it as committed where the…     |
+| `<name>.teach`             | `string`   |         |                  | Optional: why the question matters and what a good answer looks like. discern shows it with the question.                                    |
+| `<name>.reference`         | `string`   |         |                  | Optional: a pointer to more detail, such as a doc path or web address. discern shows it as written and never opens or runs it. Don't…        |
 
 ### [gate]
 
-| Key                    | Type      | Default | Enum | Description                                                                                                                               |
-| ---------------------- | --------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `stream_output`        | `boolean` | `false` |      | false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the gate frame's… |
-| `fail_fast`            | `boolean` | `true`  |      | Cancel the in-flight sibling commands the moment one fails; an agent-driven gate wants a fast abort. false runs every job and shows all…  |
-| `timeout`              | `integer` | `600`   |      | Time budget in seconds for every command the gate runs. A command that overruns is tree-killed and the stage fails with a timeout…        |
-| `concurrent_test_runs` | `integer` | `1`     |      | How many test stages may run on this machine at once; the rest wait for a slot. Fresh projects use 1; 0 is uncapped.…                     |
+| Key                    | Type      | Default | Enum | Description                                                                                                                              |
+| ---------------------- | --------- | ------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `stream_output`        | `boolean` | `false` |      | How job output looks in CI, in a pipe, or with `--plain`: false shows each job's output as one block, and true prints lines as they…     |
+| `fail_fast`            | `boolean` | `true`  |      | Stop everything still running or waiting as soon as one job fails, so your agent hears about the failure quickly. false keeps going and… |
+| `timeout`              | `integer` | `600`   |      | Time limit in seconds for each job the gate runs, including scope gates, generators, and standard measurements. A job's own `timeout`…   |
+| `concurrent_test_runs` | `integer` | `1`     |      | How many test runs this repository's checkouts can have going at once; 0 means no limit.                                                 |
 
 ### [coupling] (evolving)
 
-| Key              | Type      | Default | Enum | Description                                                                                                                         |
-| ---------------- | --------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `report_in_gate` | `boolean` | `true`  |      | Surface coupling findings as trailing hints in `discern done` and `discern prepare`, while the change is hot. false keeps coupling… |
+| Key              | Type      | Default | Enum | Description                                                                                                                                |
+| ---------------- | --------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `report_in_gate` | `boolean` | `true`  |      | Show coupling findings as hints at the end of a passing `discern done` or `discern prepare`, while the change is fresh. They never change… |
 
 ### [scripts]
 
-| Key   | Type     | Default             | Enum | Description                                                                                                                                |
-| ----- | -------- | ------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `dir` | `string` | `"discern/scripts"` |      | Where your project scripts live, relative to the project root. The default works with no config; point it elsewhere, such as "tools/", if… |
+| Key   | Type     | Default             | Enum | Description                                                                                                                            |
+| ----- | -------- | ------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `dir` | `string` | `"discern/scripts"` |      | The folder for your project scripts, relative to the project root. discern runs only the executable files in it. The default needs no… |
 
 ### [meta]
 
-| Key                        | Type      | Default | Enum                 | Description                                                                                                                               |
-| -------------------------- | --------- | ------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `managed_version`          | `string`  |         |                      | Highest discern release whose successful setup or upgrade adopted managed material. Project evidence, independent of installed binaries,… |
-| `schema_version` **(req)** | `integer` |         |                      | The install schema version. `discern upgrade` bumps it; never edit it by hand.                                                            |
-| `bootstrapped`             | `boolean` | `false` |                      | true once `discern setup` has completed, which retires the one-time setup redirect.                                                       |
-| `setup_completion`         | `enum`    |         | `proven`, `unproven` | Evidence recorded for the setup completion event: proven by the gate, or explicitly completed unproven.                                   |
-| `setup_model`              | `string`  | `""`    |                      | The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it.     |
-| `setup_version`            | `string`  | `""`    |                      | The discern version that ran setup, recorded for support triage.                                                                          |
+| Key                        | Type      | Default | Enum                 | Description                                                                                                                                |
+| -------------------------- | --------- | ------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `managed_version`          | `string`  |         |                      | The newest discern release whose setup or upgrade this project has completed. It only goes up, and it describes the project, whichever…    |
+| `schema_version` **(req)** | `integer` |         |                      | The install schema version: the version of this file's format. Setup writes it and `discern upgrade` raises it; don't edit it by hand.     |
+| `bootstrapped`             | `boolean` | `false` |                      | true once `discern setup done` finishes. Until then, commands that need a finished setup point you back to it.                             |
+| `setup_completion`         | `enum`    |         | `proven`, `unproven` | How setup finished: `proven` when the gate passed, or `unproven` when `discern setup done --unproven` marked it complete without Proof. A… |
+| `setup_model`              | `string`  | `""`    |                      | The model the agent named with `discern setup begin --model`, or `unreported`, kept for support. discern can't verify it.                  |
+| `setup_version`            | `string`  | `""`    |                      | The discern version that ran setup, kept for support.                                                                                      |
 
 ## E. Setup config document (`schema/discern-setup-config.schema.json`, policy `config-input`)
 
@@ -1330,147 +1330,147 @@ The bounded setup recipe consumed only by `setup begin --config`.
 
 Same-major releases may add optional keys, sections, and enum members. Existing keys, types, and defaults stay. Sections marked evolving may change in any release.
 
-| Section           | Required | Kind               | Description                                                                                                                                          |
-| ----------------- | -------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[$schema]`       |          | `string`           | Editor-only pointer to this schema; ignored by discern.                                                                                              |
-| `[version]`       |          | `string or number` | Document major version. Omit (assumed current) or use a matching major; this build understands version 1.                                            |
-| `[name]`          |          | `string`           | Project name (free text).                                                                                                                            |
-| `[slug]`          |          | `string`           | Project slug: lowercase letters, digits and dashes, starting with a letter or digit.                                                                 |
-| `[branch_prefix]` |          | `string`           | Branch prefix for worktrees, e.g. "agent/".                                                                                                          |
-| `[brief]`         |          | `string`           | Free-text description of what the project is.                                                                                                        |
-| `[agents]`        |          | `enum[]`           | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.                            |
-| `[map]`           |          | `object`           | [map] settings — chiefly the project-relative directory holding discern's agent documentation tree.                                                  |
-| `[jobs]`          |          | `allOf`            | [jobs] fills. Known names take a command, list, or { run, timeout } and derive their stage; a custom [jobs.<name>] table requires `stage` and `run`. |
-| `[scopes]`        |          | `table`            | [scopes.<name>] tables — a named region defined by `paths`, with optional attributes.                                                                |
-| `[generated]`     |          | `table`            | [generated.<name>] tables — committed artifacts, their deterministic regeneration command, and an optional timeout.                                  |
-| `[standards]`     |          | `table`            | [standards.<name>] tables. Coverage is just a conventional name.                                                                                     |
-| `[checkpoints]`   |          | `table`            | [checkpoints.<name>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.                                |
-| `[setup]`         |          | `object`           | Bounded [setup] configuration for setup coverage accounting.                                                                                         |
-| `[worktree]`      |          | `object`           | Bounded [worktree] configuration for isolated-checkout behavior and resources.                                                                       |
+| Section           | Required | Kind               | Description                                                                                                                                         |
+| ----------------- | -------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[$schema]`       |          | `string`           | A pointer to this schema for your editor. discern ignores it.                                                                                       |
+| `[version]`       |          | `string or number` | The document's major version. Leave it out to use the current one, or give a matching major version; this discern understands version 1.            |
+| `[name]`          |          | `string`           | The project's display name, in any words.                                                                                                           |
+| `[slug]`          |          | `string`           | A short id for the project: lowercase letters, digits, and dashes, starting with a letter or digit.                                                 |
+| `[branch_prefix]` |          | `string`           | The start of every worktree branch name, such as "agent/".                                                                                          |
+| `[brief]`         |          | `string`           | What the project is, in your own words. discern saves it as the project brief.                                                                      |
+| `[agents]`        |          | `enum[]`           | Which coding agents to set up, with the instruction file each reads: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot ->…    |
+| `[map]`           |          | `object`           | `[map]` settings: the folder for the project map.                                                                                                   |
+| `[jobs]`          |          | `allOf`            | `[jobs]` entries. A known name takes a command, a list, or a table such as { run, timeout }, and has a fixed stage; a custom `[jobs.<name>]` table… |
+| `[scopes]`        |          | `table`            | `[scopes.<name>]` tables: named regions defined by `paths`, with optional settings.                                                                 |
+| `[generated]`     |          | `table`            | `[generated.<name>]` tables: committed generated files and the command that regenerates them.                                                       |
+| `[standards]`     |          | `table`            | `[standards.<name>]` tables. Any name works; coverage is only a common one.                                                                         |
+| `[checkpoints]`   |          | `table`            | `[checkpoints.<name>]` tables: review questions, with their triggers and mode.                                                                      |
+| `[setup]`         |          | `object`           | `[setup]` settings for how setup counts known jobs.                                                                                                 |
+| `[worktree]`      |          | `object`           | `[worktree]` settings for task worktrees and their resources.                                                                                       |
 
 ### [map]
 
-| Key   | Type     | Default         | Enum | Description                                                                                                                      |
-| ----- | -------- | --------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `dir` | `string` | `"discern/map"` |      | Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it. |
+| Key   | Type     | Default         | Enum | Description                                                                                                                             |
+| ----- | -------- | --------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `dir` | `string` | `"discern/map"` |      | The map's folder, relative to the project root. `discern setup begin` creates it here if it doesn't exist, and `discern map` reads it.… |
 
 ### [jobs]
 
-| Key                      | Type                           | Default | Enum                            | Description                                                                                                                              |
-| ------------------------ | ------------------------------ | ------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                                |
-| `format`                 | `string or string[] or object` |         |                                 | A formatter or codemod. Mutating, so it runs first and serially.                                                                         |
-| `build`                  | `string or string[] or object` |         |                                 | Produce the artifacts later stages read: compile, bundle.                                                                                |
-| `lint`                   | `string or string[] or object` |         |                                 | Read-only static analysis.                                                                                                               |
-| `typecheck`              | `string or string[] or object` |         |                                 | Read-only type checking.                                                                                                                 |
-| `test`                   | `string or string[] or object` |         |                                 | The test suite.                                                                                                                          |
-| `smoke`                  | `string or string[] or object` |         |                                 | A fast, side-effect-light readiness check: the app boots with real config in this checkout. `discern done` and `discern test` run it in… |
-| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                             |
-| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc})…  |
-| `<name>.inputs`          | `string[]`                     |         |                                 | Complete input closure as scope globs; omission binds evidence to the candidate.                                                         |
-| `<name>.needs`           | `string[]`                     |         |                                 | Producer selectors that must finish successfully before this producer runs.                                                              |
-| `<name>.artifacts`       | `string[]`                     |         |                                 | Project-relative outputs captured into immutable attempt storage after production.                                                       |
-| `<name>.environment`     | `string[]`                     |         |                                 | Environment variable names whose effective values enter evidence identity as digests.                                                    |
-| `<name>.toolchain`       | `string[]`                     |         |                                 | Project-relative identity files for the applicable toolchain.                                                                            |
-| `<name>.provides`        | `string`                       |         |                                 | A free-text label for humans and audit.                                                                                                  |
-| `<name>.timeout`         | `number`                       |         |                                 | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.             |
+| Key                      | Type                           | Default | Enum                            | Description                                                                                                                             |
+| ------------------------ | ------------------------------ | ------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                               |
+| `format`                 | `string or string[] or object` |         |                                 | A formatter or other tool that rewrites files, so it runs first, one command at a time. `discern prepare` leaves its edits for you to…  |
+| `build`                  | `string or string[] or object` |         |                                 | Builds what later stages need, such as compiling or bundling. `discern done` runs it; `discern prepare` doesn't.                        |
+| `lint`                   | `string or string[] or object` |         |                                 | A linter or other read-only check of the code.                                                                                          |
+| `typecheck`              | `string or string[] or object` |         |                                 | A read-only type check.                                                                                                                 |
+| `test`                   | `string or string[] or object` |         |                                 | Your test suite. It waits for a free test-run slot before it starts.                                                                    |
+| `smoke`                  | `string or string[] or object` |         |                                 | A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it…  |
+| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                            |
+| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`,…           |
+| `<name>.inputs`          | `string[]`                     |         |                                 | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…  |
+| `<name>.needs`           | `string[]`                     |         |                                 | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…    |
+| `<name>.artifacts`       | `string[]`                     |         |                                 | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a… |
+| `<name>.environment`     | `string[]`                     |         |                                 | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…    |
+| `<name>.toolchain`       | `string[]`                     |         |                                 | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…  |
+| `<name>.provides`        | `string`                       |         |                                 | A free-text note on what the job provides, for people reading the config. discern doesn't use it.                                       |
+| `<name>.timeout`         | `number`                       |         |                                 | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                 |
 
 ### [scopes]
 
-| Key                      | Type                 | Default | Enum | Description                                                                                                                                |
-| ------------------------ | -------------------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `<name>.paths` **(req)** | `string[]`           |         |      | The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/_.ext, src/_), a *.ext suffix at any depth, a /seg/… |
-| `<name>.neutral`         | `boolean`            | `false` |      | true: changes here need no gate, as for documentation and agent instructions.                                                              |
-| `<name>.preview`         | `string or string[]` |         |      | A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes… |
-| `<name>.inputs`          | `string[]`           |         |      | Complete input closure as scope globs; omission binds evidence to the candidate.                                                           |
-| `<name>.needs`           | `string[]`           |         |      | Producer selectors that must finish successfully before this producer runs.                                                                |
-| `<name>.artifacts`       | `string[]`           |         |      | Project-relative outputs captured into immutable attempt storage after production.                                                         |
-| `<name>.environment`     | `string[]`           |         |      | Environment variable names whose effective values enter evidence identity as digests.                                                      |
-| `<name>.toolchain`       | `string[]`           |         |      | Project-relative identity files for the applicable toolchain.                                                                              |
-| `<name>.gate`            | `string or string[]` |         |      | A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir},… |
-| `<name>.timeout`         | `number`             |         |      | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.               |
+| Key                      | Type                 | Default | Enum | Description                                                                                                                               |
+| ------------------------ | -------------------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>.paths` **(req)** | `string[]`           |         |      | The path patterns that define the scope: a folder prefix (`src/**`), a standard glob (`src/**/*.ext`, `src/*`), a `*.ext` suffix at any…  |
+| `<name>.neutral`         | `boolean`            | `false` |      | Set to true when changes here aren't code, as for documentation and agent instructions. They trigger no scope gate, this scope's own…     |
+| `<name>.preview`         | `string or string[]` |         |      | A read-only command your agent can run in its worktree to preview a change in this scope, such as building the docs. discern suggests it… |
+| `<name>.inputs`          | `string[]`           |         |      | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…    |
+| `<name>.needs`           | `string[]`           |         |      | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…      |
+| `<name>.artifacts`       | `string[]`           |         |      | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…   |
+| `<name>.environment`     | `string[]`           |         |      | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…      |
+| `<name>.toolchain`       | `string[]`           |         |      | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…    |
+| `<name>.gate`            | `string or string[]` |         |      | A command `discern done` runs when a change touches this scope, such as a component's own checks. The reuse settings in this table apply… |
+| `<name>.timeout`         | `number`             |         |      | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                   |
 
 ### [generated]
 
 | Key                         | Type                 | Default | Enum | Description                                                                                                                                 |
 | --------------------------- | -------------------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.paths` **(req)**    | `string[]`           |         |      | The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob…      |
-| `<name>.run` **(req)**      | `string or string[]` |         |      | The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove… |
-| `<name>.linguist_generated` | `boolean`            | `false` |      | true marks the group's paths generated for GitHub through the `linguist-generated` attribute: hidden in diffs by default and excluded from… |
-| `<name>.timeout`            | `number`             |         |      | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                |
+| `<name>.paths` **(req)**    | `string[]`           |         |      | Path patterns for the committed files this generator owns entirely, in the scope glob syntax: a folder prefix (`reference/**`), a standard… |
+| `<name>.run` **(req)**      | `string or string[]` |         |      | The command, or list of commands, that rewrites these files. The same source must always produce the same bytes, and the command must…      |
+| `<name>.linguist_generated` | `boolean`            | `false` |      | Set to true to mark these files as generated for GitHub, through the `linguist-generated` attribute. GitHub then collapses them in diffs…   |
+| `<name>.timeout`            | `number`             |         |      | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                     |
 
 ### [standards]
 
-| Key                          | Type                 | Default | Enum         | Description                                                                                                                              |
-| ---------------------------- | -------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.metric`              | `string`             |         |              | The metric name the run emits. Defaults to the standard's name.                                                                          |
-| `<name>.direction` **(req)** | `enum`               |         | `up`, `down` | "up" when the value should rise, so the limit is a floor; "down" when it should fall, so the limit is a ceiling.                         |
-| `<name>.limit` **(req)**     | `number`             |         |              | The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall.                                      |
-| `<name>.run`                 | `string or string[]` |         |              | This standard's producer command. Emits DISCERN_METRIC <metric> <number>; cannot accompany producer.                                     |
-| `<name>.producer`            | `string`             |         |              | Consume an existing job, scope gate, or standard producer instead of running a separate producer.                                        |
-| `<name>.extract`             | `string or string[]` |         |              | Extract readings from captured producer output on stdin; this is a separate operation from run.                                          |
-| `<name>.artifact`            | `string`             |         |              | Declared producer artifact supplied on stdin to extract; requires extract.                                                               |
-| `<name>.inputs`              | `string[]`           |         |              | Complete input closure as scope globs; omission binds evidence to the candidate.                                                         |
-| `<name>.needs`               | `string[]`           |         |              | Producer selectors that must finish successfully before this producer runs.                                                              |
-| `<name>.artifacts`           | `string[]`           |         |              | Project-relative outputs captured into immutable attempt storage after production.                                                       |
-| `<name>.environment`         | `string[]`           |         |              | Environment variable names whose effective values enter evidence identity as digests.                                                    |
-| `<name>.toolchain`           | `string[]`           |         |              | Project-relative identity files for the applicable toolchain.                                                                            |
-| `<name>.per`                 | `string or object`   |         |              | Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run… |
-| `<name>.scale`               | `number`             | `1`     |              | Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.                                                    |
-| `<name>.margin`              | `number`             | `0`     |              | Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. Give a metric that drifts on unrelated…      |
-| `<name>.timeout`             | `number`             |         |              | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.             |
+| Key                          | Type                 | Default | Enum         | Description                                                                                                                                |
+| ---------------------------- | -------------------- | ------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `<name>.metric`              | `string`             |         |              | The metric name discern reads from the output: the producer's, or the `extract` command's when `extract` is set. Default: the standard's…  |
+| `<name>.direction` **(req)** | `enum`               |         | `up`, `down` | "up" when higher is better, making the limit a floor; "down" when lower is better, making it a ceiling.                                    |
+| `<name>.limit` **(req)**     | `number`             |         |              | The floor or ceiling the measurement must meet; a measurement equal to the limit passes. A branch can raise a floor or lower a ceiling,…   |
+| `<name>.run`                 | `string or string[]` |         |              | The command that measures this standard. It prints `DISCERN_METRIC <metric> <number>`, unless `extract` reads its output instead. Set…     |
+| `<name>.producer`            | `string`             |         |              | Take the measurement from an existing job, scope gate, or standard, named like `jobs.test`, `scopes.<name>.gate`, or `standards.<name>`,…  |
+| `<name>.extract`             | `string or string[]` |         |              | A second command that reads the producer's output, or the `artifact` file, on stdin and prints the `DISCERN_METRIC` line. With `extract`,… |
+| `<name>.artifact`            | `string`             |         |              | A file the producer lists in its `artifacts`, passed to `extract` on stdin in place of the output. Needs `extract`.                        |
+| `<name>.inputs`              | `string[]`           |         |              | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…     |
+| `<name>.needs`               | `string[]`           |         |              | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…       |
+| `<name>.artifacts`           | `string[]`           |         |              | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…    |
+| `<name>.environment`         | `string[]`           |         |              | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…       |
+| `<name>.toolchain`           | `string[]`           |         |              | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…     |
+| `<name>.per`                 | `string or object`   |         |              | Hold a rate instead of a raw count, so the number doesn't rise only because the project grew. Divide by a second metric the command…       |
+| `<name>.scale`               | `number`             | `1`     |              | Multiply a `per` rate into readable units: scale = 1000 gives a rate per 1,000. It has no effect without `per`.                            |
+| `<name>.margin`              | `number`             | `0`     |              | Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. Give a margin to a number that moves with…      |
+| `<name>.timeout`             | `number`             |         |              | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                    |
 
 ### [checkpoints]
 
-| Key                        | Type       | Default | Enum             | Description                                                                                                                                 |
-| -------------------------- | ---------- | ------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.scope`             | `string`   |         |                  | Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a…      |
-| `<name>.paths`             | `string[]` |         |                  | Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either `scope` or `paths`. Registered path… |
-| `<name>.include_generated` | `boolean`  |         |                  | true includes paths a [generated.<name>] group owns; the default evaluates authored change only.                                            |
-| `<name>.exclude_paths`     | `string[]` |         |                  | Globs removed after selection and before every predicate, subject, evidence, and `when`. Registered path references (${map.dir},…           |
-| `<name>.unless_changed`    | `string[]` |         |                  | Hold fire when any changed path matches one of these globs or scope names: flag this change class unless its counterpart moved too.…        |
-| `<name>.kinds`             | `enum[]`   |         |                  | Narrow changed evidence to the named Git kinds: "added", "modified", or "deleted".                                                          |
-| `<name>.adds_matching`     | `string[]` |         |                  | Narrow text evidence to files with an added line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16…   |
-| `<name>.removes_matching`  | `string[]` |         |                  | Narrow text evidence to files with a removed line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16…  |
-| `<name>.new_directory`     | `boolean`  |         |                  | Narrow to added files whose parent directory held no admitted file at the merge-base; root-level additions never qualify.                   |
-| `<name>.binary`            | `boolean`  |         |                  | Narrow to binary changes when true or text changes when false.                                                                              |
-| `<name>.min_changed_files` | `integer`  |         |                  | Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).                                  |
-| `<name>.min_changed_lines` | `integer`  |         |                  | Require this many added-plus-removed text lines across the final narrowed evidence; binary files contribute zero.                           |
-| `<name>.deletion_dominant` | `boolean`  |         |                  | Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut…  |
-| `<name>.similar_new_file`  | `boolean`  |         |                  | Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory, the signature of a parallel…  |
-| `<name>.min_commits`       | `integer`  |         |                  | Require this many commits in merge-base..HEAD, including merge commits; uncommitted work adds no commit.                                    |
-| `<name>.when`              | `string`   |         |                  | Final executable condition: exit 0 fires, exit 10 passes; every other outcome is indeterminate. `DISCERN_MATCH <path>` narrows the…         |
-| `<name>.mode`              | `enum`     |         | `stop`, `advise` | "stop" (the default): the gate refuses to run until the agent declares the question met or unmet. "advise": the question and its evidence…  |
-| `<name>.question`          | `string`   |         |                  | Inline judgment prose. A project checkpoint needs this or `question_file`; a built-in inherits unless overridden. Review surfaces serve…    |
-| `<name>.question_file`     | `string`   |         |                  | Repository-relative Markdown path from the governing merge-base Git tree. Mutually exclusive with `question`; built-ins may inherit. Must…  |
-| `<name>.teach`             | `string`   |         |                  | Optional lesson prose carried into renderings: why the question matters and what good looks like.                                           |
-| `<name>.reference`         | `string`   |         |                  | Optional displayed pointer. discern performs no content loading or execution. Review surfaces may show it. Do not include secrets.          |
+| Key                        | Type       | Default | Enum             | Description                                                                                                                                  |
+| -------------------------- | ---------- | ------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>.scope`             | `string`   |         |                  | The name of a configured scope whose paths this checkpoint watches. Set at most one of `scope` and `paths`; with neither, it watches every…  |
+| `<name>.paths`             | `string[]` |         |                  | Path patterns this checkpoint watches, in the scope glob syntax. Set at most one of `scope` and `paths`. You can write `${map.dir}`,…        |
+| `<name>.include_generated` | `boolean`  |         |                  | Set to true to also watch files a `[generated.<name>]` group owns. By default, a checkpoint watches only files people and agents write.      |
+| `<name>.exclude_paths`     | `string[]` |         |                  | Path patterns to ignore. discern removes them before any other trigger setting or `when` command looks at the change. You can write…         |
+| `<name>.unless_changed`    | `string[]` |         |                  | Stay quiet when the change also touches one of these path patterns or scopes, anywhere in the project, such as the docs that go with an…     |
+| `<name>.kinds`             | `enum[]`   |         |                  | Only count files changed in these ways: "added", "modified", or "deleted". A rename counts as a deletion and an addition.                    |
+| `<name>.adds_matching`     | `string[]` |         |                  | Only count text files where an added line contains one of these exact strings, matched case-sensitively. Up to 16 different strings of…      |
+| `<name>.removes_matching`  | `string[]` |         |                  | Only count text files where a removed line contains one of these exact strings, matched case-sensitively. Up to 16 different strings of…     |
+| `<name>.new_directory`     | `boolean`  |         |                  | Only count files added in a folder that had no files where the branch started. Files added at the project root never count.                  |
+| `<name>.binary`            | `boolean`  |         |                  | Only count binary files when true, or only text files when false.                                                                            |
+| `<name>.min_changed_files` | `integer`  |         |                  | Trigger only when at least this many watched files changed. Leave it out to trigger on any change.                                           |
+| `<name>.min_changed_lines` | `integer`  |         |                  | Trigger only when the counted files have at least this many added and removed lines in total. Binary files count as zero.                    |
+| `<name>.deletion_dominant` | `boolean`  |         |                  | Trigger only when the change mostly removes lines: removals clearly outnumber additions and pass a fixed minimum. A large cut gets…          |
+| `<name>.similar_new_file`  | `boolean`  |         |                  | Trigger only when the change adds a file named like an existing file in the same folder, such as a copy, new, or v2 version of it, which…    |
+| `<name>.min_commits`       | `integer`  |         |                  | Trigger only when the branch has at least this many commits since it left the trunk, merge commits included. Uncommitted work doesn't count. |
+| `<name>.when`              | `string`   |         |                  | A command that makes the final decision, run only when every other setting matches. Exit 0 triggers the checkpoint, and exit 10 doesn't;…    |
+| `<name>.mode`              | `enum`     |         | `stop`, `advise` | "stop" holds `discern done` until the agent answers the question as met or unmet; an unmet answer then needs the owner's variance to land.…  |
+| `<name>.question`          | `string`   |         |                  | The question the agent answers, written here. Your own checkpoint needs this or `question_file`; a built-in one keeps its shipped question…  |
+| `<name>.question_file`     | `string`   |         |                  | A text file holding the question, relative to the repository root, used in place of `question`. discern reads it as committed where the…     |
+| `<name>.teach`             | `string`   |         |                  | Optional: why the question matters and what a good answer looks like. discern shows it with the question.                                    |
+| `<name>.reference`         | `string`   |         |                  | Optional: a pointer to more detail, such as a doc path or web address. discern shows it as written and never opens or runs it. Don't…        |
 
 ### [setup]
 
-| Key              | Type     | Default | Enum | Description                                                                                                  |
-| ---------------- | -------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------ |
-| `not_applicable` | `enum[]` | `[]`    |      | Known jobs this project's lifecycle does not have. A job listed here cannot also be configured under [jobs]. |
+| Key              | Type     | Default | Enum | Description                                                                                                           |
+| ---------------- | -------- | ------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| `not_applicable` | `enum[]` | `[]`    |      | Known jobs this project doesn't have. A job listed here can't also appear under `[jobs]`, even with an empty command. |
 
 ### [worktree]
 
 | Key                         | Type       | Default                 | Enum | Description                                                                                                                                 |
 | --------------------------- | ---------- | ----------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `root`                      | `string`   | `""`                    |      | Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative…    |
-| `inherit_env`               | `string[]` | `[]`                    |      | Names copied from the main checkout's declared env files. A value fills an empty entry or the first file's `<file>.example` default. A…     |
-| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | Env files read and written in order: the last definition wins; new values use the first existing file. Inheritance alone may create the…    |
-| `export_port`               | `boolean`  | `false`                 |      | When true, setup writes DISCERN_WORKTREE_PORT to configured env files, hooks warn when a sibling uses the derived port, and status shows…   |
-| `track_ignored_drift`       | `boolean`  | `true`                  |      | Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when… |
-| `resources`                 | `table`    | `{}`                    |      | External resources provisioned per worktree.                                                                                                |
-| `resources.<name>.create`   | `string`   | `""`                    |      | Command run once at worktree setup. discern records cleanup intent before running it and skips it only after readiness is recorded. An…     |
-| `resources.<name>.destroy`  | `string`   | `""`                    |      | Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.                                  |
-| `resources.<name>.ensure`   | `string`   | `""`                    |      | Idempotently reconcile drift or re-readiness at session start.                                                                              |
-| `resources.<name>.required` | `boolean`  | `true`                  |      | false makes a create failure non-fatal, so setup continues.                                                                                 |
-| `resources.<name>.retries`  | `integer`  | `0`                     |      | Retry create/destroy this many times.                                                                                                       |
-| `resources.<name>.prunable` | `boolean`  | `true`                  |      | false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.                            |
-| `setup`                     | `object`   | `{}`                    |      | Commands that ready a linked worktree.                                                                                                      |
-| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once at worktree creation, in order, after the resources exist: one-shot scaffolding such as seeding fixtures.                 |
-| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run on every linked-worktree pass: creation, session start, and after `discern update`. For convergence that depends on worktree…  |
+| `root`                      | `string`   | `""`                    |      | The folder where discern creates worktrees. Empty means "<repo>.worktrees" beside the repository; a relative path starts from the…          |
+| `inherit_env`               | `string[]` | `[]`                    |      | Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value…     |
+| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | The env files discern reads and writes, in order. When several set the same variable, the last one wins; a new value goes in the first…     |
+| `export_port`               | `boolean`  | `false`                 |      | Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. Every worktree has a port…      |
+| `track_ignored_drift`       | `boolean`  | `true`                  |      | Record the Git-ignored top-level paths, such as `node_modules`, when a worktree is set up, and list the ones that changed when its work…    |
+| `resources`                 | `table`    | `{}`                    |      | Outside resources that each worktree gets its own copy of.                                                                                  |
+| `resources.<name>.create`   | `string`   | `""`                    |      | The command that creates the resource, run once when the worktree is first set up. Before running it, discern records the matching…         |
+| `resources.<name>.destroy`  | `string`   | `""`                    |      | The command that removes the resource when its worktree is removed, or before discern retries a failed `create`. Make it safe to run…       |
+| `resources.<name>.ensure`   | `string`   | `""`                    |      | A command that checks the resource and repairs it if needed, such as restarting a stopped database. It runs at each session start and when… |
+| `resources.<name>.required` | `boolean`  | `true`                  |      | Set to false to let setup finish when `create` fails. discern then doesn't retry `create`; only `ensure` runs later.                        |
+| `resources.<name>.retries`  | `integer`  | `0`                     |      | How many times to retry a failed `create`, `destroy`, or `ensure`, from 0 to 5. `destroy` uses the count in effect when the resource was…   |
+| `resources.<name>.prunable` | `boolean`  | `true`                  |      | Set to false to stop `discern worktree prune` from destroying this resource after its worktree was deleted without discern, for data you…   |
+| `setup`                     | `object`   | `{}`                    |      | Commands that prepare a task worktree for work.                                                                                             |
+| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once, in order, when discern creates the worktree, after its resources exist, such as loading test data. A failing step stops… |
+| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run whenever discern readies a task worktree, for setup that depends on its id, port, or resources. Each must be safe to repeat.…  |
 
 ## F. Conventions manifest (`schema/discern-conventions.json`, policy `conventions-append-only`)
 
@@ -1480,25 +1480,25 @@ Same-major releases may add names; published existing values are immutable. Priv
 
 ### Environment variables
 
-| Variable                                  | Group                 | Visibility | Meaning                                                                                                                        |
-| ----------------------------------------- | --------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `DISCERN_REPO`                            | installation          | public     | GitHub release repository the installer downloads from. Defaults to `discern-sh/discern`.                                      |
-| `DISCERN_VERSION`                         | installation          | public     | Release version the installer downloads, with or without a leading `v`. Defaults to `latest`.                                  |
-| `DISCERN_BIN_DIR`                         | installation          | public     | Install directory. Overrides the installer's automatic destination selection.                                                  |
-| `DISCERN_TRUNK`                           | runtime-overrides     | public     | Overrides `[repository].trunk` for the current process. Project Scripts receive the resolved trunk in the same variable.       |
-| `DISCERN_NO_ATTRIBUTION`                  | runtime-overrides     | public     | Uses source-only generated-file markers and omits the discern co-author trailer from commits discern composes when set to a…   |
-| `DISCERN_PROJECT_SLUG`                    | worktree-identity     | public     | Overrides `[project].slug` when discern derives worktree identities.                                                           |
-| `DISCERN_WORKTREE_BRANCH_PREFIX`          | worktree-identity     | public     | Overrides `[repository].branch_prefix` when discern derives worktree branch names.                                             |
-| `DISCERN_WORKTREE_ID`                     | worktree-identity     | public     | Sets an explicit worktree id in the process or a configured env file. Accepts letters, numbers, dots, dashes, and underscores. |
-| `DISCERN_ROOT`                            | project-scripts       | public     | Absolute project root exported to a Project Script.                                                                            |
-| `DISCERN_TOML`                            | project-scripts       | public     | Absolute path to the active `discern.toml` exported to a Project Script.                                                       |
-| `DISCERN_SCRIPTS_DIR`                     | project-scripts       | public     | Absolute configured Project Scripts directory exported to a Project Script.                                                    |
-| `DISCERN_CHECKPOINT_INPUT`                | checkpoint-commands   | public     | Absolute path to the versioned JSON facts without raw file content for the current checkpoint `when` command. See the…         |
-| `DISCERN_WORKTREE_PORT`                   | worktree-environment  | public     | Deterministic development port written to a configured worktree env file when `[worktree].export_port = true`.                 |
-| `DISCERN_WORKTREE`                        | worktree-environment  | public     | Generic worktree handle supplied to resource commands and written to configured env files when resources are declared.         |
-| `DISCERN_RESOURCE_<NAME>`                 | worktree-environment  | public     | Stable handle for one declared resource. `<NAME>` is the resource name uppercased with non-alphanumeric runs replaced by…      |
-| `DISCERN_EXPERIMENTAL_MCP_PRELOAD`        | experimental-features | public     | Requests eager discern MCP loading in supported provider integrations when set to `1`.                                         |
-| `DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS` | experimental-features | public     | Sets a positive whole-number cap for one experimental automatic await call.                                                    |
+| Variable                                  | Group                 | Visibility | Meaning                                                                                                                           |
+| ----------------------------------------- | --------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCERN_REPO`                            | installation          | public     | The GitHub repository, as `owner/repo`, whose releases the install script downloads. Default: `discern-sh/discern`.               |
+| `DISCERN_VERSION`                         | installation          | public     | The release the install script downloads, with or without a leading `v`. Default: `latest`.                                       |
+| `DISCERN_BIN_DIR`                         | installation          | public     | The folder the install script puts discern in, created if it doesn't exist. Without it, the script uses a writable…               |
+| `DISCERN_TRUNK`                           | runtime-overrides     | public     | Use a different trunk than `[repository].trunk` while it's set; an empty value is ignored. discern also sets it for each project… |
+| `DISCERN_NO_ATTRIBUTION`                  | runtime-overrides     | public     | Set it to any non-empty value to leave discern's name off what it writes. Generated-file markers drop discern's name and web…     |
+| `DISCERN_PROJECT_SLUG`                    | worktree-identity     | public     | Use this slug instead of `[project].slug` in a worktree's site, database, and resource names. discern converts it to lowercase…   |
+| `DISCERN_WORKTREE_BRANCH_PREFIX`          | worktree-identity     | public     | Use this prefix instead of `[repository].branch_prefix` for worktree branch names. An empty value means no prefix.                |
+| `DISCERN_WORKTREE_ID`                     | worktree-identity     | public     | Give a worktree a chosen id, which its port, site, database, and resource names follow. Set it in the environment, where it…      |
+| `DISCERN_ROOT`                            | project-scripts       | public     | Absolute path of the project root.                                                                                                |
+| `DISCERN_TOML`                            | project-scripts       | public     | Absolute path of the `discern.toml` in use.                                                                                       |
+| `DISCERN_SCRIPTS_DIR`                     | project-scripts       | public     | Absolute path of the project scripts folder, `[scripts].dir`.                                                                     |
+| `DISCERN_CHECKPOINT_INPUT`                | checkpoint-commands   | public     | Absolute path of a JSON file that describes the change for the checkpoint's `when` command. It holds facts about the changed…     |
+| `DISCERN_WORKTREE_PORT`                   | worktree-environment  | public     | The worktree's stable development port. discern writes it into the worktree's env file when `[worktree].export_port = true`;…     |
+| `DISCERN_WORKTREE`                        | worktree-environment  | public     | The worktree's resource handle, a stable name made from the project slug and worktree id. discern gives it to every resource…     |
+| `DISCERN_RESOURCE_<NAME>`                 | worktree-environment  | public     | The stable name of one declared resource. Each resource command gets its own resource's variable, and discern writes them into…   |
+| `DISCERN_EXPERIMENTAL_MCP_PRELOAD`        | experimental-features | public     | Set it to `1` to have coding agents that support it load discern's MCP tools at startup instead of on first use. discern applies… |
+| `DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS` | experimental-features | public     | Limit each await to this many whole seconds; it can only shorten the usual limit. It applies to every agent `discern_await` call… |
 
 ### Providers
 

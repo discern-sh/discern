@@ -1856,7 +1856,7 @@ Deno.test("the brief keeps jobs, reporters, and worktree resources honest", asyn
   // The description wraps at the template's width; compare it unwrapped.
   assertStringIncludes(
     tmpl.replace(/\n\s*#\s+/g, " "),
-    "`discern done` and `discern test` run it in the same fail-fast test group",
+    "`discern done` and `discern test` run it alongside the tests",
   );
   assert(
     !tmpl.includes("node -e"),

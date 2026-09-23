@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-mcp-terminal-and-docs
 title: "MCP, terminal, and docs"
-description: "Restore missing agent tools, continue a wait, find a documentation page, or read a result when an interface fails."
+description: "Get your agent's discern tools back, keep a wait going, read a result you missed, and open the page you need, without running anything twice."
 order: 50
 publish: true
 kind: troubleshooting
@@ -22,83 +22,112 @@ aliases:
 
 # MCP, terminal, and docs
 
-If your agent cannot call a discern tool, it can usually continue through the corresponding CLI command. If a result is hard to read, use `--markdown` or `--json`, or open the saved output named in the result.
+When your agent loses its discern tools, a long wait ends early, or a result is hard to read, the work itself is usually fine. This page helps you get the tools back, carry on a wait, and read a result you missed, without running anything twice.
 
-A useful request is:
+Your agent calls discern's tools over the **Model Context Protocol (MCP)**, the connection coding agents use to call tools. If that connection has a problem, your agent can use the `discern` command line instead. The examples follow a help-pages task that waits for a recipe search task. Ask your agent:
 
-> Check which interface is failing and use its supported fallback. If an earlier command may have completed, inspect its result or current state before running it again.
+> Find out which part is failing and use the command line while you fix it. If an earlier command may have finished, read its result before you run anything again.
 
 ## The discern tools are missing from the session
 
-Use `discern status --markdown` or `--json` from the task's worktree to keep working while you restore the integration. Then choose the relevant repair:
+Your agent can keep working while you fix this. It runs `discern status --json` from the task's worktree, its separate copy of the project, to see where things stand. Then it matches what it sees:
 
-| Symptom                                            | Repair                                                                                                                                                                                                                         |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Tools have never appeared in this session          | Start a fresh session after setup. Have the agent find and invoke the exact registered tool name. If it remains absent, follow [first-time activation](setup-and-integrations.md#the-tools-dont-appear-in-the-agents-session). |
-| Results report a version mismatch after an upgrade | Restart the agent session or reload its MCP servers. The existing server process may still be running the earlier build.                                                                                                       |
-| A tool runs against the wrong checkout             | Give it the task's absolute `path`. Also check the shell's working directory: a tool changing its target does not move the shell.                                                                                              |
+| What your agent sees                                                                                       | What to do                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The tools never appeared in this session.                                                                  | Start a fresh session. If they're still missing, follow [The tools don't appear in the agent's session](setup-and-integrations.md#the-tools-dont-appear-in-the-agents-session). |
+| `Restart your agent session or reload its MCP servers to replace MCP server v<old> with installed v<new>.` | Do that. The session's discern tools are still running the version from before your upgrade.                                                                                    |
+| `The checkout these tools were aimed at is gone`                                                           | The task landed and its worktree was removed. The agent points its next call at the right checkout with `path`.                                                                 |
+| A tool works on the wrong checkout.                                                                        | The agent passes the task's full folder path as `path`. Each call takes it separately, and it doesn't move the agent's shell.                                                   |
 
-Success means the status tool answers from the intended worktree using the expected version. The [MCP and results reference](../30-reference/mcp-and-results.md#model-context-protocol-tools) lists tool names and parameters.
+`path` must be a full path from the root of the disk. A relative one is refused with `` `path` must be an absolute path ``.
 
-## A long call ended without an answer
+The tools are working again when the status tool answers from the right worktree, with no restart notice. The [MCP and results reference](../30-reference/mcp-and-results.md#model-context-protocol-tools) lists every tool and its inputs.
 
-For `discern_await`, look for `ok: true` and `data.met: false`. That means the watch has not finished. Follow its returned continuation with the newest handle:
+## A long wait ended before it was met
 
-```
+Your agent waits for another task with `discern_await`. Say the help-pages task waits for recipe search to pass its checks. Each call waits as long as your coding agent reliably allows, up to 55 minutes. If search isn't ready by then, the call still returns `ok: true`, with `data.met: false` and a handle to continue it. The wait isn't over. The agent calls again with the newest handle:
+
+```text
 discern_await
-  path:   /absolute/path/to/the/worktree
+  path:   /Users/you/projects/recipes.worktrees/help-pages-b41f2c
   resume: C1-BKJD-X4GQ-05
 ```
 
-The CLI form is `discern await --resume C1-BKJD-X4GQ-05`. Replace the example handle with the handle in your result. The continuation preserves the original condition and observations, including a change between calls. No extra sleep or polling loop is needed.
+On the command line, that's `discern await --resume C1-BKJD-X4GQ-05`, which exits with code `124` while the wait isn't met. Use the handle from your own result. The handle keeps the original condition, and it still notices a change that happened between calls. You don't need a delay or a loop.
 
-The watch is complete when `data.met` is `true`. Ending it because the dependency no longer matters is also a valid choice. For scripts, an unfinished CLI wait exits `124`.
+The wait is over when `data.met` is `true`, or when you decide the help pages no longer need search.
 
-Other endings need a different action:
+A refusal is different. It has `ok: false`, and resuming won't help. The result says why:
 
-- **A refusal (`ok: false`).** Follow its recovery. A branch that does not resolve or a green watch whose worktree is gone cannot be fixed by resuming the old request. See [wait refusals](../10-guides/wait-for-another-task.md#handle-a-refusal).
-- **The host cut off a call with no discern result.** Inspect status and available saved output. A transport timeout does not establish whether an effectful command completed, so do not repeat it just to recover the missing display.
+- `Branch <name> was not found in this repository` means the name is wrong, or the branch is gone and discern has no record of it landing.
+- `No checkout holds branch <name>` means the worktree was reclaimed or removed. If a later task holds its work, the result names that task.
+- A handle with a typo, or one older than 7 days, can't resume. Start the wait again with its condition.
 
-Provider limits determine how long a call can reliably wait. The [MCP reference](../30-reference/mcp-and-results.md) and [provider reference](../30-reference/platforms-and-providers.md) describe those limits.
+[Handle a refusal](../10-guides/wait-for-another-task.md#handle-a-refusal) covers these in more detail.
 
-## Stopping the call did not stop the work
+## A call ended with no result
 
-Interrupting a tool call, closing a terminal, or a host giving up on a long call stops only the waiting. The checks or landing that call started keep running on your machine until they finish or are cancelled through discern itself.
+Sometimes your coding agent stops waiting before discern replies. That doesn't tell you whether the command finished. So don't run it again only to see the output. First read the run back:
 
-Have the agent read the run back first with the handle it announced when it started (`discern progress R1-…`), or with no handle for the latest run from that workspace. The reading says whether the run is still going, what it has counted and which checks have failed so far, and its result once it finishes. A run that is still active finishes on its own; a run whose process died reads as stopped without finishing, and a fresh `discern done` reuses the evidence it recorded before stopping and obtains the rest. Starting the same command again while the first is alive gets a refusal, not a second run.
+```sh
+discern progress
+```
+
+With no handle, it reads the most recent run started in that worktree. With the handle the run announced when it started, such as `R1-H596-N6BT-K5`, it reads that run. Then run `discern status` to see where the task stands.
+
+## You stopped a run, or aren't sure it stopped
+
+How you stopped a run decides whether it's still going:
+
+| What happened                                          | What happens to the run                                                           |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| You pressed Ctrl-C, or closed the terminal it ran in.  | discern stops the run and its checks. The command exits with code `130` or `129`. |
+| You cancelled the tool call in your coding agent.      | discern cancels the run.                                                          |
+| Your coding agent stopped waiting, without cancelling. | The run keeps going until it finishes.                                            |
+
+If you can't tell which of these happened, read the run back. discern has no separate cancel command. You stop a run from wherever it started.
+
+To see where a run got to, your agent runs `discern progress` with its handle. The reading says the run is still going, finished, `was cancelled before finishing`, or `stopped without finishing`. The last means its process died.
+
+If your agent starts the same command while the first is still running, discern refuses and changes nothing: `Another discern operation holds the checkout boundary`. It names the running operation and its handle. Wait for that run, or stop it where it started.
+
+When the agent runs `discern done` again after a stopped run, checks that didn't finish run again. Checks that finished, and that declare their inputs, reuse their results when those inputs haven't changed. A landing that stopped partway has its own recovery: [Recover an interrupted acceptance](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance).
 
 ## You need the output of a run that already happened
 
-For a run that announced a handle, `discern progress <handle>` returns its retained result, with every failure and its reproduce command, for up to seven days. For a check's complete transcript, a result keeps each check's output in a file and names the path as `output_path`, on the check's step and on any diagnostic whose text was shortened. You can open that file yourself in any editor; you do not need the agent to read it for you. The files sit in your system's temp directory under names starting `discern-job-` (a check's complete output) or `discern-diag-` (the full text behind a shortened diagnostic), and discern keeps them for 24 hours. [Files named `discern-…` in the temp directory](crashes-and-local-state.md#files-named-discern--in-the-temp-directory) lists every prefix.
+`discern progress <handle>` returns the run's saved result, with every failure and the command that reproduces it. discern keeps these for up to 7 days. When there are many runs, it drops the oldest finished ones sooner.
 
-Repeating the command to see its output again costs another run and can change the state you were trying to read.
+Each check's full output is in a file the result names as `output_path`. You can open it yourself in any editor. These files are in your system's temp directory, with names starting `discern-job-` or `discern-diag-`, and discern keeps them for 24 hours. [Files named `discern-…` in the temp directory](crashes-and-local-state.md#files-named-discern--in-the-temp-directory) lists every kind.
 
-## A docs or map target won't resolve
+Running the command again to see its output costs another run. It can also change the state you were trying to read.
 
-Use a path returned by discern:
+## A docs or map page won't open
 
-- **Ambiguous target:** choose one exact path from the listed candidates.
-- **No match:** try a suggested path, or run `discern docs` or `discern map` without a target to read its index. Search in the language of your task, then open a returned path.
+`discern docs` reads discern's manual. `discern map` reads your project's own map, the guide to how your project works. If a page name doesn't match, the result says so:
 
-Use `docs` for discern's manual and `map` for the project's own documentation. You have resolved the problem when the returned page describes the topic you intended; a similarly named page may belong to a different section.
+| What you see                                           | What to do                                                                                            |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `no doc matches "<name>". Closest matches:` and a list | Use one of the suggested names.                                                                       |
+| `"<name>" matches N docs.`                             | Pick one exact name from the list.                                                                    |
+| No suggestion fits.                                    | Search in the words of your task, such as `discern docs --search "resume a wait"`, and open a result. |
 
-## The terminal output looks broken
+`discern docs --list` prints the table of contents. You've found the right page when it covers what you meant. A page with a similar name may belong to a different section.
 
-Choose the smallest presentation fix:
+## The terminal output looks wrong
 
-| Symptom                                        | What to do                                                                                                                |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| The pager failed                               | Read the plain output discern prints instead. Fix or unset `$PAGER` before the next paged read; the default is `less -R`. |
-| Color is unreadable                            | Set `NO_COLOR=1`.                                                                                                         |
-| Decoration or wrapping gets in the agent's way | Request `--markdown` or `--json` for subsequent commands.                                                                 |
-| A diagnostic was truncated                     | Open its `output_path` or the saved output named in the result.                                                           |
-
-For an effectful command that already ran, retrieve its existing result or inspect status before deciding whether any new action is needed.
+| What you see                                             | What to do                                                                                                  |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `The pager failed (…). Showing the document in discern.` | Read the page as shown. Fix or unset `$PAGER` before using `--pager` again. The default pager is `less -R`. |
+| Colors are hard to read.                                 | Use `--theme light` or `--theme dark`, or turn color off with `--no-color` or `NO_COLOR=1`.                 |
+| Colors, boxes, or wrapping get in your agent's way.      | Use `--markdown` or `--json`. `--plain` also turns off paging and prompts.                                  |
+| A failure message was shortened.                         | Open the file its `output_path` names.                                                                      |
 
 ## A browser didn't open
 
-Open the URL printed in the result in your browser. A failed browser launch does not, by itself, mean the preceding command failed; read the command's own outcome separately.
+`discern releases` and the docs reader open pages in your browser. If that fails, discern prints the link instead, such as `Couldn't open your browser. Use this link to check for updates:`. Open it yourself. The command itself still worked.
 
 ## When to stop
 
-End a watch when its dependency no longer matters. If a version mismatch persists after restarting the MCP server, keep the installed and reported version information for a report. If the host repeatedly cuts off a call before discern can return a result, use the CLI where available and report the affected provider and command.
+End a wait when the task no longer needs what it was waiting for. Ending it changes neither task's code.
+
+If the restart notice comes back after you've restarted your agent's session, keep the version numbers it shows and report it. If your coding agent keeps cutting off calls before discern can reply, use the command line, and report which agent and command were involved. [Crashes and local state](crashes-and-local-state.md#report-it) explains how to report a problem.

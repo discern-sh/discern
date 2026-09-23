@@ -25,6 +25,7 @@ import {
   renderConfigSchemaJson,
   renderManualConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
+import { CONFIG_PROSE } from "../src/shared/config_prose.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
 import { renderGeneratedManualDocument } from "../scripts/manual_codegen.ts";
@@ -552,9 +553,9 @@ Deno.test("the docs reference documents every section, with its describe() prose
       `config-reference should document the [${section}] section`,
     );
   }
-  // a couple of describe() strings render verbatim (prose comes from the schema)
-  assert(doc.includes("numbers that can never get worse"));
-  assert(doc.includes("isolated-worktree workflow"));
+  // section prose renders verbatim from the registry the schema reads
+  assertStringIncludes(doc, CONFIG_PROSE.standards.what);
+  assertStringIncludes(doc, CONFIG_PROSE.worktree.what);
   assertStringIncludes(
     doc,
     "Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger.",
@@ -586,7 +587,7 @@ Deno.test("the reference's [project].agents row matches what the resolver actual
     `the agents row must not document a [] default: ${row}`,
   );
   // Prose documents the two distinct readings the resolver honors.
-  assert(row.includes("Omit the key"), row);
+  assert(row.includes("Leave it out"), row);
   assert(row.includes("empty list"), row);
 
   // And it is faithful: the resolver really does treat unset as the default pair

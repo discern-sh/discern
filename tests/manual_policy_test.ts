@@ -90,6 +90,26 @@ Deno.test("the manual fence guard rejects an unknown live option", () => {
   assertStringIncludes(findings[0]?.detail ?? "", "--no-such-option");
 });
 
+Deno.test("the manual fence guard tells an author how to quote discern's output", () => {
+  // A quoted message that begins with the product name reads as a command
+  // whose path won't resolve, so the finding names the fix where it fails. A
+  // stale flag belongs to a real command and carries no quoting note.
+  const [quoted] = fencedCommandFindings(
+    "fixture.md",
+    "```text\ndiscern found setup step <id> recorded as running\n```\n",
+    TEST_CLI_MODEL(),
+    new Set(),
+  );
+  assertStringIncludes(quoted?.detail ?? "", "move the quote into the prose");
+  const [flag] = fencedCommandFindings(
+    "fixture.md",
+    "```sh\ndiscern done --no-such-option\n```\n",
+    TEST_CLI_MODEL(),
+    new Set(),
+  );
+  assertFalse((flag?.detail ?? "").includes("move the quote"), flag?.detail);
+});
+
 Deno.test("manual kind policy is closed and every member owns one checkpoint", async () => {
   assertEquals(
     MANUAL_KIND_REGISTRY.map((entry) => entry.kind),

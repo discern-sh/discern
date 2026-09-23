@@ -82,7 +82,7 @@ export interface ConfigUnitProse {
 function worktreeTokenDetail(): string[] {
   const width = Math.max(...WORKTREE_TOKENS.map((t) => t.length)) + 2;
   return [
-    "Runtime tokens, expanded per worktree when a command runs:",
+    "Tokens discern replaces with this worktree's values in these commands:",
     ...WORKTREE_TOKENS.map((token) =>
       `  ${`@${token}@`.padEnd(width)}  ${WORKTREE_TOKEN_DESCRIPTIONS[token]}`
     ),
@@ -97,29 +97,42 @@ function worktreeTokenDetail(): string[] {
  */
 export const CONFIG_PROSE = {
   project: {
-    what: "The project's identity and the paths discern keeps for it.",
+    what:
+      "The project's name, its coding agents, and a few project-wide settings.",
     why:
-      "The name and slug appear in worktree, branch, and site names and in every compiled instruction file, so agents and humans see one identity everywhere.",
+      "The name heads every compiled instruction file, and the slug names each worktree's site, database, and resources, so people and agents see one identity everywhere.",
     keys: {
       record_logbook: {
         detail: [
-          "Recording on is recommended. History cannot be recorded after the fact,",
-          "and while recording is off this project goes without:",
+          "Keep recording on: history can't be recorded later, and while it's off",
+          "this project goes without:",
           ...LOGBOOK_POWERED.map((member) => `  - ${member.phrase}`),
+        ],
+      },
+      agents: {
+        detail: [
+          "Each gets an instruction file, skills, discern's MCP tools, and a",
+          "session-start hook. Removing an agent leaves its files in place.",
         ],
       },
     },
   },
   repository: {
-    what: "Policy every checkout of this repository shares.",
+    what: "Git settings that every checkout of this repository shares.",
     why:
-      "The trunk is where accepted work lands and where the gate compares from. Branch naming and convergence commands keep the main checkout and every linked worktree usable after their tracked tree changes.",
+      "The trunk is the branch finished work lands on and the gate checks against. The branch prefix names each task's branch, and `ensure` commands keep every checkout ready to use after its files change.",
     keys: {
       proof_notes_mode: {
         detail: [
-          "`local` adds no transport; `fetch` manages a fetch-only mapping per remote.",
-          "Publish only when the owner chooses:",
+          "`local` changes nothing on your remotes; `fetch` adds a fetch-only rule",
+          "for each remote. To publish notes, the owner runs:",
           `  \`git push <remote> ${PROOF_NOTES_REF}\`.`,
+        ],
+      },
+      ensure: {
+        detail: [
+          "They run when discern sets up a worktree, at each session start, after",
+          "`discern update`, and in the main checkout after each landing.",
         ],
       },
     },
@@ -127,40 +140,40 @@ export const CONFIG_PROSE = {
   map: {
     what: "Where the project map lives.",
     why:
-      "The map is the documentation tree agents maintain and `discern map` browses. Its location also feeds the `${map.dir}` reference other sections use.",
+      "The map is the documentation your agents keep about how the project works, and `discern map` browses it. Other settings can refer to its folder as `${map.dir}`, which ends in `/`, as in `${map.dir}**`.",
   },
   instructions: {
-    what: "The instruction sources discern compiles into each agent's file.",
+    what: "The instruction files discern compiles into each agent's file.",
     why:
-      "You write instructions once. `discern refresh` compiles discern's built-in instructions plus your sources into one generated file per agent, committed so every agent reads the same page and no generated file is edited by hand.",
+      "You write your instructions once. `discern refresh` combines discern's built-in instructions with yours into one generated file per agent. Those files are committed, so every agent reads the same instructions, and the gate fails if one is edited by hand.",
   },
   skills: {
-    what: "Where your authored skills live, and which skills to leave out.",
+    what: "Where your own skills live, and which skills to leave out.",
     why:
-      "A skill is a focused, reusable playbook. discern materializes its bundled skills plus yours into each agent's skills directory; a skill of yours with the same name as a built-in replaces it.",
+      "A skill is a reusable playbook your agents follow for one kind of task. discern copies its built-in skills and yours into each agent's skills folder. A skill of yours with the same name as a built-in one replaces it.",
     detail: [
-      "  discern skills list          the effective set, and your overrides",
-      "  discern skills eject <name>  copy a built-in here to customize it",
+      "  discern skills list          see which skills your agents get",
+      "  discern skills eject <name>  copy a built-in here so you can edit it",
     ],
   },
   jobs: {
-    what: "The commands the gate runs, in one namespace.",
+    what: "The commands the gate runs to check a change.",
     why:
-      "A known name derives its stage; a custom `[jobs.<name>]` table declares one. `discern done` runs the fix stage, then build, then check and test in parallel, and reports what each command returned, so done means the project's own bar was met.",
+      "A known name, such as `test`, has a fixed stage; a custom `[jobs.<name>]` table sets its own. `discern done` runs the fix stage, then build, then the check and test stages side by side. It reports what each command returned, so a pass means your project's own checks passed.",
     detail: [
-      "A value is one command, a list run in order, or a table giving the job",
-      'its own time budget: test = { run = "npm test", timeout = 1200 }.',
-      "A long-running command may report its own progress while it runs: print",
+      "Give a job one command, a list of commands run in order, or a table with",
+      'its own settings, such as test = { run = "npm test", timeout = 1200 }.',
+      "A long command can report its progress by printing lines such as",
       'DISCERN_PROGRESS {"units":{"kind":"files","completed":3,"total":8}}',
-      "lines and discern presents the counts, and any reported failures, live.",
-      "Leave a known job unwired until its command exists; `discern setup` has",
-      "your coding agent fill these from repository evidence.",
+      "and discern shows the counts, and any failures reported, as it runs.",
+      "Leave a known job out until the project has that command. During setup,",
+      "your coding agent fills these in from what the repository already uses.",
     ],
     keys: {
       format: {
         detail: [
-          "Keep `discern tidy` last: it formats the map, instructions, TODO, and",
-          "this file. Put the project's own formatter before it, for example",
+          "Keep `discern tidy` last: it formats the map, instructions, TODO list,",
+          "and this file. Put your own formatter first, for example",
           'format = ["prettier --write .", "discern tidy"].',
         ],
       },
@@ -168,7 +181,13 @@ export const CONFIG_PROSE = {
       lint: { example: '"eslint ."' },
       typecheck: { example: '"tsc --noEmit"' },
       test: { example: '"npm test"' },
-      smoke: { example: '"your-app --version"' },
+      smoke: {
+        example: '"your-app --version"',
+        detail: [
+          "With `[gate].fail_fast`, a quick failure stops the slower tests. It",
+          "also runs in the main checkout after each landing.",
+        ],
+      },
     },
     examples: [
       {
@@ -181,29 +200,29 @@ provides = "license-audit"`,
     ],
   },
   setup: {
-    what: "Known jobs that do not apply to this project.",
+    what: "Known jobs this project doesn't have.",
     why:
-      "Setup measures how many applicable known jobs are wired. A lifecycle the project does not have is declared here, so the measure counts what exists; the gate's schedule still comes from [jobs].",
+      "Setup counts how many of the known jobs that apply to this project are configured. List a job here when the project has no such step, so setup doesn't count it as missing. The gate still runs only what `[jobs]` lists.",
     detail: [
-      "  discern config set-job build --not-applicable   declare one",
-      "  discern config set-job build --applicable       restore it",
+      "  discern config set-job build --not-applicable   mark a job as absent",
+      "  discern config set-job build --applicable       count it again",
     ],
   },
   scopes: {
     what: "Named regions of the repository.",
     why:
-      "A change inside a scope can skip the gate, run its own gate, or offer a preview. A path that matches no scope counts as code and runs every stage.",
+      "A scope can run its own gate command when a change touches it, offer a preview, or mark its changes as neutral, meaning not code. Landing grants, checkpoints, and `discern impact` refer to scopes by name. A path that matches no scope counts as code.",
     seeds: [
       {
         comment:
-          "Documentation the agents maintain. No gate; landing may be pre-authorized.",
+          "Documentation your agents maintain. Neutral, and you can pre-approve it to land.",
         toml: `[scopes.map]
 paths   = [{{scopes_neutral}}]
 neutral = true`,
       },
       {
         comment:
-          "Instruction sources and skills. No gate; landing stays owner-reviewed.",
+          "Instructions, the project brief, and skills. Neutral; you review each change.",
         toml: `[scopes.instructions]
 paths   = [{{scopes_instructions}}]
 neutral = true`,
@@ -211,8 +230,7 @@ neutral = true`,
     ],
     examples: [
       {
-        lead:
-          "A sub-component with its own self-contained gate and a read-only preview",
+        lead: "A component with its own gate command and a read-only preview",
         toml: `[scopes.native]
 paths   = ["native/**"]
 gate    = "make -C native check"
@@ -221,13 +239,13 @@ preview = "make -C native preview"`,
     ],
   },
   generated: {
-    what: "Committed artifacts that one generator owns.",
+    what: "Committed files that one command generates.",
     why:
-      "`discern prepare` and `discern done` rerun each generator and fail when the committed bytes differ, so a generated file cannot drift from its source and nobody edits it by hand.",
+      "`discern prepare` reruns each generator and leaves the new files for you to commit. `discern done` reruns them too, and fails when the committed files differ from what they produce. A generated file can't drift from its source, and nobody needs to edit it by hand.",
     examples: [
       {
         lead:
-          "A reference written from source; the same tree yields the same bytes",
+          "A generated reference: the same source always gives the same bytes",
         toml: `[generated.reference]
 paths = ["reference/**"]
 run   = "tool write-reference --source source/ --output reference/"`,
@@ -235,36 +253,71 @@ run   = "tool write-reference --source source/ --output reference/"`,
     ],
   },
   acceptance: {
-    what: "Standing grants for landing without a conversation.",
+    what:
+      "Standing grants: scopes whose changes can land without asking you each time.",
     why:
-      "Landing needs the owner's acceptance in the conversation unless a scope is named here. Widening a named scope widens its grant; the example grants documentation alone and keeps agent instructions owner-reviewed.",
+      "Without a grant, landing needs your approval in the conversation, or a grant you give one task from the desk. Widening a granted scope's paths widens its grant. The example grants documentation only, so you still review changes to agent instructions.",
     keys: {
-      pre_authorized: { hint: '["map"]' },
+      pre_authorized: {
+        hint: '["map"]',
+        detail: [
+          "discern reads this list, and those scopes' paths, from the trunk, so a",
+          "branch can't grant itself.",
+        ],
+      },
     },
   },
   worktree: {
-    what: "The isolated-worktree workflow.",
+    what: "How discern creates and prepares task worktrees.",
     why:
-      "Each effort runs in its own checkout, so parallel agents never collide. The git mechanics are generic; the resources and setup commands below are what make a fresh worktree ready for this project.",
+      "Each task runs in its own checkout, so agents working side by side don't collide. The Git steps are the same for every project; the resources and setup commands below make a new worktree ready for this one.",
     keys: {
-      inherit_env: { hint: '["APP_KEY", "OPENAI_API_KEY"]' },
+      root: {
+        detail: ["An absolute path is used as written."],
+      },
+      inherit_env: {
+        hint: '["APP_KEY", "OPENAI_API_KEY"]',
+        detail: [
+          "A placeholder is the value in the first env file's `.example` copy.",
+          "discern creates the first env file if it's missing, readable only by",
+          "you (mode 0600), and leaves existing files' permissions alone.",
+        ],
+      },
+      env_files: {
+        detail: [
+          "Only `inherit_env` creates a file. One comment line at the top of each",
+          "file marks the values discern manages.",
+        ],
+      },
+      export_port: {
+        detail: [
+          "When true, discern also avoids giving a new worktree a port another",
+          "checkout uses, warns about a clash, and shows the port in",
+          "`discern status`.",
+        ],
+      },
+      track_ignored_drift: {
+        detail: [
+          "Turn it off when ignored files change too often for the list to help.",
+        ],
+      },
     },
   },
   "worktree.resources": {
-    what: "External resources provisioned per worktree.",
+    what: "Outside resources that each worktree gets its own copy of.",
     why:
-      "Give each worktree a deterministic database, emulator, container, or queue handle. Resources are created top to bottom and destroyed bottom to top. discern records intent before create, cleans uncertain partial state before retry, and lets `discern worktree prune` reclaim a vanished worktree's recorded state.",
+      "Each worktree can have its own database, emulator, container, or queue, with a stable name. discern creates resources in the order listed and destroys them in reverse. It records how to destroy each one before creating it, so it can clean up a half-finished create, and `discern worktree prune` can clean up after a worktree deleted without discern.",
     detail: worktreeTokenDetail(),
     examples: [
       {
-        lead: "A per-worktree database, so test runs never clash",
+        lead: "A database for each worktree, so test runs never clash",
         toml: `[worktree.resources.db]
 create  = "createdb -T @project_slug@_template @db@"
 destroy = "dropdb --if-exists @db@"`,
       },
       {
         lead:
-          "A per-worktree dev-server site: a container vhost, a tunnel, a proxy entry",
+          "A development site for each worktree, such as a container host, tunnel, or proxy entry",
         toml: `[worktree.resources.dev_server]
 create  = "link-site @site@ @port@"
 destroy = "unlink-site @site@"`,
@@ -272,28 +325,39 @@ destroy = "unlink-site @site@"`,
     ],
   },
   "worktree.setup": {
-    what: "Commands that ready a linked worktree.",
+    what: "Commands that prepare a task worktree for work.",
     why:
-      "`steps` run once at creation. `ensure` runs on every pass, including session start and `discern update`, so each command must be idempotent. Checkout-generic installs belong in [repository].ensure so acceptance converges the trunk too.",
+      "`steps` run once, when discern creates the worktree; `ensure` commands run on every pass, so each must be safe to repeat. Neither gets `@token@` replacement. Put installs that every checkout needs, such as dependencies, in `[repository].ensure`, so the main checkout gets them after a landing too.",
     keys: {
-      steps: { hint: '["seed-fixtures"]' },
-      ensure: { hint: '["ready-worktree-resource"]' },
+      steps: {
+        hint: '["seed-fixtures"]',
+        detail: ["Steps you add later don't run in existing worktrees."],
+      },
+      ensure: {
+        hint: '["ready-worktree-resource"]',
+        detail: [
+          "They run at creation, at each session start, after `discern update`,",
+          "and when `discern worktree setup` runs again. Only a failure at",
+          "creation stops anything.",
+        ],
+      },
     },
   },
   standards: {
-    what: "Quality numbers that can never get worse.",
+    what:
+      "Limits on measured numbers, such as test coverage or bundle size, that the gate holds.",
     why:
-      "Every `discern done` requires current readings for each standard and refuses a limit looser than the trunk's. Producers run once for their consumers, and reusable evidence must match the declared inputs, policy, toolchain, and environment. Hold a raw count for an invariant, a rate through `per` for a quality that scales, and give a total that grows with the product a `margin`.",
+      "Every `discern done` needs a current measurement for each standard. A branch can tighten a limit but can't loosen, redefine, or delete a standard the trunk has. discern reuses a measurement only while its inputs, commands, toolchain, and environment match. Hold a raw count for a number that should stay fixed, a rate through `per` for one that grows with the project, and give a total that drifts a `margin`.",
     detail: [
-      "A producer or extractor reports a number: DISCERN_METRIC <name> <number>",
-      "Set run for an inline producer, or producer for an existing selector.",
-      "An extract command receives captured output or the named artifact on stdin.",
-      "Lock in a gain with `discern standards --pin`; a hand-edited limit cannot",
-      "tell a gain from a loosening.",
+      "The measuring command prints each reading as: DISCERN_METRIC <name> <number>",
+      "Set run to measure with a command, or producer to reuse a job's output.",
+      "An extract command reads that output, or the named artifact, on stdin.",
+      "Lock in a gain with `discern standards --pin`: it tightens the limit to",
+      "the measured value, keeping the margin as headroom, and commits it.",
     ],
     examples: [
       {
-        lead: "Line coverage at or above a rising floor",
+        lead: "Line coverage held at or above a floor that only rises",
         toml: `[standards.coverage]
 direction = "up"
 limit     = 80
@@ -301,7 +365,7 @@ run       = "your-coverage-tool"  # DISCERN_METRIC coverage <percent>`,
       },
       {
         lead:
-          "A bundle-size budget: shipped bytes are a true budget, so a raw count is right",
+          "A bundle-size budget: shipped bytes are a real budget, so a raw count fits",
         toml: `[standards.bundle]
 metric    = "bundle_bytes"
 direction = "down"
@@ -310,7 +374,7 @@ run       = "printf 'DISCERN_METRIC bundle_bytes %s\\\\n' \\"$(wc -c < dist/app.
       },
       {
         lead:
-          "Lint density: a rate, so clean code can be added without breaching it",
+          "Lint warnings per 1,000 lines: a rate, so adding clean code never breaks it",
         toml: `[standards.lint_density]
 metric    = "warnings"
 direction = "down"
@@ -322,18 +386,19 @@ run       = "your-linter --count"  # DISCERN_METRIC warnings <count>`,
     ],
   },
   checkpoints: {
-    what: "Change-triggered review rules.",
+    what:
+      "Review questions your agent answers when a change matches a trigger.",
     why:
-      "A deterministic trigger decides when a change makes a question relevant; the agent answers the question and the answer travels with the Proof. The configuration at an effort's merge-base governs, so editing these tables on a branch never changes that branch's own gate.",
+      "A trigger, such as a change to certain paths, decides when a question applies. Your agent answers it, and the answer goes into the Proof. A branch follows the checkpoint rules from the commit it started from, so editing these tables on a branch never changes that branch's own gate.",
     detail: [
-      "Naming a shipped checkpoint enables it with its built-in trigger, mode,",
-      "and question; a field set beneath it overrides the built-in. Delete or",
-      "comment out an entry to disable it.",
+      "Name a built-in checkpoint here to turn it on with its own trigger, mode,",
+      "and question. A field you set under it replaces the built-in value.",
+      "Delete or comment out an entry to turn it off.",
     ],
     examples: [
       {
         lead:
-          "Regions the owner watches; `stop` holds `discern done` for a stated risk",
+          "Paths the owner watches: `stop` holds `discern done` until the agent answers",
         toml: `[checkpoints.sensitive-paths]
 paths = ["src/auth/**", "migrations/**"]
 question = """
@@ -344,7 +409,7 @@ reviewer look at first?
       },
       {
         lead:
-          "A new dependency is a liability the owner carries; point paths at the manifest",
+          "A new dependency is a cost the owner carries: point paths at the manifest",
         toml: `[checkpoints.new-dependency]
 paths = ["package.json"]
 mode  = "advise"
@@ -355,7 +420,8 @@ you need? State what it buys.
 """`,
       },
       {
-        lead: "A deleted or skipped test is a lowered guard",
+        lead:
+          "A change that removes far more test code than it adds lowers protection",
         toml: `[checkpoints.shrinking-tests]
 paths             = ["tests/**"]
 deletion_dominant = true
@@ -368,7 +434,7 @@ Say which in the commit body.
       },
       {
         lead:
-          "An interface changed; its contract docs moved too, or were judged unaffected",
+          "An interface changed: its docs change with it, or the agent judges them unaffected",
         toml: `[checkpoints.interface-review]
 paths          = ["src/api/**"]
 unless_changed = ["docs/api/**"]
@@ -381,24 +447,49 @@ revisit.
     ],
   },
   gate: {
-    what: "How `discern done` runs its parallel stages.",
+    what:
+      "How discern runs jobs, in `discern done` and the other commands that run them.",
     why:
-      "Fail-fast, a per-command time budget, and a cap on concurrent test runs keep the gate fast for one agent and fair across a fleet of worktrees sharing one machine.",
+      "Stopping at the first failure and a time limit for each job keep checks quick. A cap on test runs at once keeps them fair to every worktree of this repository.",
+    keys: {
+      stream_output: {
+        detail: ["A live terminal always shows a live view instead."],
+      },
+      fail_fast: {
+        detail: [
+          "A job that depends on a failed fix or build step still doesn't run,",
+          "and `discern standards` ignores this setting.",
+        ],
+      },
+      timeout: {
+        detail: [
+          "A job's list of commands shares one limit. discern stops a job that",
+          "runs over, with every process it started, and fails its stage with a",
+          "timeout message, so a command stuck in watch mode can't hang the gate.",
+        ],
+      },
+      concurrent_test_runs: {
+        detail: [
+          "Test jobs, standard measurements, `discern test`, `discern standards`,",
+          "and `discern queue -- <command>` each wait for a free slot.",
+        ],
+      },
+    },
   },
   coupling: {
-    what: "Co-change detection from git history.",
+    what: "Files that usually change together, found from Git history.",
     why:
-      "Files that habitually change together point at a sibling the current change may be missing. Coupling is read-only advice that calibrates itself to the repository, with no thresholds to tune; `discern coupling` reads it on demand.",
+      "When a change leaves out a file that usually changes with the ones it touches, discern names it. The finding is advice only, it adjusts to the repository's own history, and there are no thresholds to set. `discern coupling` shows it on demand.",
   },
   scripts: {
-    what: "Where your executable project scripts live.",
+    what: "Where your project's scripts live.",
     why:
-      "`discern scripts <name>` resolves the name literally, runs it from the project root with `DISCERN_ROOT`, `DISCERN_TOML`, `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK`, and forwards every argument. Other config stays available through `discern config get`.",
+      "`discern scripts <name>` runs the script with that name from the project root, with `DISCERN_ROOT`, `DISCERN_TOML`, `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK` set, and passes every argument through. A script can read other settings with `discern config get`.",
   },
   meta: {
-    what: "Project setup and adoption evidence.",
+    what: "A record of this project's setup and upgrades.",
     why:
-      "discern writes these keys while setting up or upgrading the project. They record schema and setup evidence; nothing here needs hand-editing.",
+      "discern writes these keys when it sets up or upgrades the project. They record the config format version and how setup went, so you never need to edit them.",
     keys: Object.fromEntries(
       TEMPLATE_OMITTED_META_KEYS.map((key) => [key, { render: "omit" }]),
     ),

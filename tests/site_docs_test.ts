@@ -42,6 +42,7 @@ import {
   MANUAL_SECTION_REGISTRY,
 } from "../src/shared/manual.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
+import { GLOSSARY, glossarySummary } from "../scripts/glossary_registry.ts";
 import {
   DISCERN_INSTALL_ROUTE,
   DISCERN_REPOSITORY_URL,
@@ -871,8 +872,16 @@ Deno.test("first eligible glossary mentions render summaries and longest matches
     ".discern-glossary-term__definition a",
   )].map((link) => link.getAttribute("href"));
   assertEquals(links, ["/docs/reference/glossary#gate"]);
-  assertStringIncludes(html, "A named check or operation scheduled by the");
-  assert(!html.includes("A project declares its jobs"));
+  // The card shows the registry's summary sentence and nothing after it.
+  const gateJob = GLOSSARY.find((entry) => entry.term === "Gate job");
+  assert(gateJob !== undefined);
+  const visibleText = (markdown: string): string =>
+    markdown.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replaceAll("`", "");
+  assertEquals(
+    cards[0]?.querySelector(".discern-glossary-term__definition")
+      ?.textContent,
+    visibleText(glossarySummary(gateJob)),
+  );
   assert(!html.includes("../20-quality-gate"));
 
   const glossaryLinks = [...document.querySelectorAll<HTMLAnchorElement>(

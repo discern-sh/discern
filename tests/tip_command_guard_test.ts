@@ -17,15 +17,11 @@
 
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import type { Command } from "@cliffy/command";
-import { buildCli } from "../src/main.ts";
-import { cliCommandModel } from "../src/shared/cli_reference_codegen.ts";
-import { validateFencedCommand } from "../src/lib/docs_integrity.ts";
-import { discoverProjectScripts } from "../src/engine/project_scripts.ts";
 import { authoredTipText, renderTipCli, TIPS } from "../src/shared/tips.ts";
 import { stripCommandRefs } from "../src/shared/command_reference.ts";
-import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 import {
+  liveCommandValidator,
   quotedDiscernCommands,
   sourceDiscernCommands,
 } from "./command_span_scan.ts";
@@ -34,16 +30,14 @@ import {
 const TIPS_MODULE = join(REPO_ROOT, "src", "shared", "tips.ts");
 
 Deno.test("every quoted discern command in the tip registry validates against the live CLI", async () => {
-  const model = cliCommandModel(buildCli(false) as unknown as Command);
-  const scripts = await discoverProjectScripts(REPO_AUTHORED_PATHS.scripts);
-  const extraVerbs = new Set(scripts.map((script) => script.name));
+  const validate = await liveCommandValidator();
   const failures: string[] = [];
 
   // Pass 1 — rendered lines, per tip, with references resolved to their CLI
   // spelling: every reference a registered example reaches.
   for (const tip of TIPS) {
     for (const command of quotedDiscernCommands(renderTipCli(tip))) {
-      const reason = validateFencedCommand(command, model, extraVerbs);
+      const reason = validate(command);
       if (reason !== undefined) {
         failures.push(`${tip.id}: \`${command}\` — ${reason}`);
       }
@@ -54,7 +48,7 @@ Deno.test("every quoted discern command in the tip registry validates against th
   // shared helper strings enrol by existing).
   const moduleSource = await Deno.readTextFile(TIPS_MODULE);
   for (const command of new Set(sourceDiscernCommands(moduleSource))) {
-    const reason = validateFencedCommand(command, model, extraVerbs);
+    const reason = validate(command);
     if (reason !== undefined) {
       failures.push(`tips.ts source: \`${command}\` — ${reason}`);
     }

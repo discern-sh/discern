@@ -46,13 +46,13 @@ Deno.test("upgrade --check help enumerates every exit-affecting reconciliation f
     for (
       const condition of [
         "config migrations",
-        "fixed config scaffold",
-        "managed-banner drift",
+        "missing a section or key",
+        "outdated comment banner",
         ".gitignore",
         ".gitattributes",
-        "exit non-zero",
-        "write nothing",
-        "no network",
+        "exits non-zero",
+        "without writing anything",
+        "using the network",
       ]
     ) {
       assertTerminalTextIncludes(help.stdout, condition);

@@ -72,7 +72,7 @@ export interface CommandGroup {
 export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
     name: "Your desk",
-    note: "interactive task supervision and worktree entry",
+    note: "you use these in an interactive terminal",
     commands: ["desk", "enter"],
   },
   {
@@ -90,17 +90,17 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
   },
   {
     name: "Worktree lifecycle",
-    note: "isolated workspaces your agent drives",
+    note: "your agent starts, updates, and lands each task with these",
     commands: ["start", "update", "await", "accept", "worktree", "identity"],
   },
   {
     name: "Project Scripts",
-    note: "project-owned automation, listed or run by name",
+    note: "your project's own scripts, listed or run by name",
     commands: ["scripts"],
   },
   {
     name: "Setup & maintenance",
-    note: "you or your agent tend the installation",
+    note: "you or your agent set up, check, and look after discern",
     commands: [
       "setup",
       "upgrade",
@@ -112,7 +112,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
   },
   {
     name: "Inspect & explore",
-    note: "read-only views for you or your agent",
+    note: "reports, reviews, and documentation for you or your agent",
     commands: [
       "improvement",
       "standards",

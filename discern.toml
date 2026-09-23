@@ -19,10 +19,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [project]
 #
-# What:    The project's identity and the paths discern keeps for it.
-# Why:     The name and slug appear in worktree, branch, and site names and in
-#          every compiled instruction file, so agents and humans see one
-#          identity everywhere.
+# What:    The project's name, its coding agents, and a few project-wide
+#          settings.
+# Why:     The name heads every compiled instruction file, and the slug names
+#          each worktree's site, database, and resources, so people and agents
+#          see one identity everywhere.
 #
 # Help:    `discern config explain project`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -73,10 +74,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [repository]
 #
-# What:    Policy every checkout of this repository shares.
-# Why:     The trunk is where accepted work lands and where the gate compares
-#          from. Branch naming and convergence commands keep the main checkout
-#          and every linked worktree usable after their tracked tree changes.
+# What:    Git settings that every checkout of this repository shares.
+# Why:     The trunk is the branch finished work lands on and the gate checks
+#          against. The branch prefix names each task's branch, and `ensure`
+#          commands keep every checkout ready to use after its files change.
 #
 # Help:    `discern config explain repository`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -107,9 +108,9 @@
 # [map]
 #
 # What:    Where the project map lives.
-# Why:     The map is the documentation tree agents maintain and `discern map`
-#          browses. Its location also feeds the `${map.dir}` reference other
-#          sections use.
+# Why:     The map is the documentation your agents keep about how the project
+#          works, and `discern map` browses it. Other settings can refer to its
+#          folder as `${map.dir}`, which ends in `/`, as in `${map.dir}**`.
 #
 # Help:    `discern config explain map`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -121,11 +122,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [instructions]
 #
-# What:    The instruction sources discern compiles into each agent's file.
-# Why:     You write instructions once. `discern refresh` compiles discern's
-#          built-in instructions plus your sources into one generated file per
-#          agent, committed so every agent reads the same page and no generated
-#          file is edited by hand.
+# What:    The instruction files discern compiles into each agent's file.
+# Why:     You write your instructions once. `discern refresh` combines
+#          discern's built-in instructions with yours into one generated file
+#          per agent. Those files are committed, so every agent reads the same
+#          instructions, and the gate fails if one is edited by hand.
 #
 # Help:    `discern config explain instructions`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -138,13 +139,14 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [skills]
 #
-# What:    Where your authored skills live, and which skills to leave out.
-# Why:     A skill is a focused, reusable playbook. discern materializes its
-#          bundled skills plus yours into each agent's skills directory; a
-#          skill of yours with the same name as a built-in replaces it.
+# What:    Where your own skills live, and which skills to leave out.
+# Why:     A skill is a reusable playbook your agents follow for one kind of
+#          task. discern copies its built-in skills and yours into each agent's
+#          skills folder. A skill of yours with the same name as a built-in one
+#          replaces it.
 #
-#   discern skills list          the effective set, and your overrides
-#   discern skills eject <name>  copy a built-in here to customize it
+#   discern skills list          see which skills your agents get
+#   discern skills eject <name>  copy a built-in here so you can edit it
 #
 # Help:    `discern config explain skills`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -159,19 +161,20 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [jobs]
 #
-# What:    The commands the gate runs, in one namespace.
-# Why:     A known name derives its stage; a custom `[jobs.<name>]` table
-#          declares one. `discern done` runs the fix stage, then build, then
-#          check and test in parallel, and reports what each command returned,
-#          so done means the project's own bar was met.
+# What:    The commands the gate runs to check a change.
+# Why:     A known name, such as `test`, has a fixed stage; a custom
+#          `[jobs.<name>]` table sets its own. `discern done` runs the fix
+#          stage, then build, then the check and test stages side by side. It
+#          reports what each command returned, so a pass means your project's
+#          own checks passed.
 #
-# A value is one command, a list run in order, or a table giving the job
-# its own time budget: test = { run = "npm test", timeout = 1200 }.
-# A long-running command may report its own progress while it runs: print
+# Give a job one command, a list of commands run in order, or a table with
+# its own settings, such as test = { run = "npm test", timeout = 1200 }.
+# A long command can report its progress by printing lines such as
 # DISCERN_PROGRESS {"units":{"kind":"files","completed":3,"total":8}}
-# lines and discern presents the counts, and any reported failures, live.
-# Leave a known job unwired until its command exists; `discern setup` has
-# your coding agent fill these from repository evidence.
+# and discern shows the counts, and any failures reported, as it runs.
+# Leave a known job out until the project has that command. During setup,
+# your coding agent fills these in from what the repository already uses.
 #
 # Custom:  stage, run, inputs, needs, artifacts, environment, toolchain,
 #          provides, timeout
@@ -254,13 +257,14 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [setup]
 #
-# What:    Known jobs that do not apply to this project.
-# Why:     Setup measures how many applicable known jobs are wired. A lifecycle
-#          the project does not have is declared here, so the measure counts
-#          what exists; the gate's schedule still comes from [jobs].
+# What:    Known jobs this project doesn't have.
+# Why:     Setup counts how many of the known jobs that apply to this project
+#          are configured. List a job here when the project has no such step,
+#          so setup doesn't count it as missing. The gate still runs only what
+#          `[jobs]` lists.
 #
-#   discern config set-job build --not-applicable   declare one
-#   discern config set-job build --applicable       restore it
+#   discern config set-job build --not-applicable   mark a job as absent
+#   discern config set-job build --applicable       count it again
 #
 # Help:    `discern config explain setup`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -274,9 +278,10 @@
 # [scopes.<name>]
 #
 # What:    Named regions of the repository.
-# Why:     A change inside a scope can skip the gate, run its own gate, or
-#          offer a preview. A path that matches no scope counts as code and
-#          runs every stage.
+# Why:     A scope can run its own gate command when a change touches it, offer
+#          a preview, or mark its changes as neutral, meaning not code. Landing
+#          grants, checkpoints, and `discern impact` refer to scopes by name. A
+#          path that matches no scope counts as code.
 #
 # Params:  paths, neutral, preview, inputs, needs, artifacts, environment,
 #          toolchain, gate, timeout
@@ -394,10 +399,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [generated.<name>]
 #
-# What:    Committed artifacts that one generator owns.
-# Why:     `discern prepare` and `discern done` rerun each generator and fail
-#          when the committed bytes differ, so a generated file cannot drift
-#          from its source and nobody edits it by hand.
+# What:    Committed files that one command generates.
+# Why:     `discern prepare` reruns each generator and leaves the new files for
+#          you to commit. `discern done` reruns them too, and fails when the
+#          committed files differ from what they produce. A generated file
+#          can't drift from its source, and nobody needs to edit it by hand.
 #
 # Params:  paths, run, linguist_generated, timeout
 # Help:    `discern config explain generated`
@@ -488,11 +494,12 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [acceptance]
 #
-# What:    Standing grants for landing without a conversation.
-# Why:     Landing needs the owner's acceptance in the conversation unless a
-#          scope is named here. Widening a named scope widens its grant; the
-#          example grants documentation alone and keeps agent instructions
-#          owner-reviewed.
+# What:    Standing grants: scopes whose changes can land without asking you
+#          each time.
+# Why:     Without a grant, landing needs your approval in the conversation, or
+#          a grant you give one task from the desk. Widening a granted scope's
+#          paths widens its grant. The example grants documentation only, so
+#          you still review changes to agent instructions.
 #
 # Help:    `discern config explain acceptance`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -506,11 +513,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree]
 #
-# What:    The isolated-worktree workflow.
-# Why:     Each effort runs in its own checkout, so parallel agents never
-#          collide. The git mechanics are generic; the resources and setup
-#          commands below are what make a fresh worktree ready for this
-#          project.
+# What:    How discern creates and prepares task worktrees.
+# Why:     Each task runs in its own checkout, so agents working side by side
+#          don't collide. The Git steps are the same for every project; the
+#          resources and setup commands below make a new worktree ready for
+#          this one.
 #
 # Help:    `discern config explain worktree`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -543,14 +550,15 @@
   # ───────────────────────────────────────────────────────────────────────────
   # [worktree.resources.<name>]
   #
-  # What:    External resources provisioned per worktree.
-  # Why:     Give each worktree a deterministic database, emulator, container,
-  #          or queue handle. Resources are created top to bottom and destroyed
-  #          bottom to top. discern records intent before create, cleans
-  #          uncertain partial state before retry, and lets `discern worktree
-  #          prune` reclaim a vanished worktree's recorded state.
+  # What:    Outside resources that each worktree gets its own copy of.
+  # Why:     Each worktree can have its own database, emulator, container, or
+  #          queue, with a stable name. discern creates resources in the order
+  #          listed and destroys them in reverse. It records how to destroy
+  #          each one before creating it, so it can clean up a half-finished
+  #          create, and `discern worktree prune` can clean up after a worktree
+  #          deleted without discern.
   #
-  # Runtime tokens, expanded per worktree when a command runs:
+  # Tokens discern replaces with this worktree's values in these commands:
   #   @db@            a database-name-safe identity
   #   @site@          a DNS-safe dev-server site or host name
   #   @port@          the deterministic dev-server port
@@ -595,11 +603,12 @@
   # ───────────────────────────────────────────────────────────────────────────
   # [worktree.setup]
   #
-  # What:    Commands that ready a linked worktree.
-  # Why:     `steps` run once at creation. `ensure` runs on every pass,
-  #          including session start and `discern update`, so each command must
-  #          be idempotent. Checkout-generic installs belong in
-  #          [repository].ensure so acceptance converges the trunk too.
+  # What:    Commands that prepare a task worktree for work.
+  # Why:     `steps` run once, when discern creates the worktree; `ensure`
+  #          commands run on every pass, so each must be safe to repeat.
+  #          Neither gets `@token@` replacement. Put installs that every
+  #          checkout needs, such as dependencies, in `[repository].ensure`, so
+  #          the main checkout gets them after a landing too.
   #
   # Help:    `discern config explain worktree.setup`
   # ───────────────────────────────────────────────────────────────────────────
@@ -619,19 +628,21 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [standards.<name>]
 #
-# What:    Quality numbers that can never get worse.
-# Why:     Every `discern done` requires current readings for each standard and
-#          refuses a limit looser than the trunk's. Producers run once for
-#          their consumers, and reusable evidence must match the declared
-#          inputs, policy, toolchain, and environment. Hold a raw count for an
-#          invariant, a rate through `per` for a quality that scales, and give
-#          a total that grows with the product a `margin`.
+# What:    Limits on measured numbers, such as test coverage or bundle size,
+#          that the gate holds.
+# Why:     Every `discern done` needs a current measurement for each standard.
+#          A branch can tighten a limit but can't loosen, redefine, or delete a
+#          standard the trunk has. discern reuses a measurement only while its
+#          inputs, commands, toolchain, and environment match. Hold a raw count
+#          for a number that should stay fixed, a rate through `per` for one
+#          that grows with the project, and give a total that drifts a
+#          `margin`.
 #
-# A producer or extractor reports a number: DISCERN_METRIC <name> <number>
-# Set run for an inline producer, or producer for an existing selector.
-# An extract command receives captured output or the named artifact on stdin.
-# Lock in a gain with `discern standards --pin`; a hand-edited limit cannot
-# tell a gain from a loosening.
+# The measuring command prints each reading as: DISCERN_METRIC <name> <number>
+# Set run to measure with a command, or producer to reuse a job's output.
+# An extract command reads that output, or the named artifact, on stdin.
+# Lock in a gain with `discern standards --pin`: it tightens the limit to
+# the measured value, keeping the margin as headroom, and commits it.
 #
 # Params:  metric, direction, limit, run, producer, extract, artifact, inputs,
 #          needs, artifacts, environment, toolchain, per, scale, margin,
@@ -1251,16 +1262,16 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [checkpoints.<name>]
 #
-# What:    Change-triggered review rules.
-# Why:     A deterministic trigger decides when a change makes a question
-#          relevant; the agent answers the question and the answer travels with
-#          the Proof. The configuration at an effort's merge-base governs, so
-#          editing these tables on a branch never changes that branch's own
-#          gate.
+# What:    Review questions your agent answers when a change matches a trigger.
+# Why:     A trigger, such as a change to certain paths, decides when a
+#          question applies. Your agent answers it, and the answer goes into
+#          the Proof. A branch follows the checkpoint rules from the commit it
+#          started from, so editing these tables on a branch never changes that
+#          branch's own gate.
 #
-# Naming a shipped checkpoint enables it with its built-in trigger, mode,
-# and question; a field set beneath it overrides the built-in. Delete or
-# comment out an entry to disable it.
+# Name a built-in checkpoint here to turn it on with its own trigger, mode,
+# and question. A field you set under it replaces the built-in value.
+# Delete or comment out an entry to turn it off.
 #
 # Params:  scope, paths, include_generated, exclude_paths, unless_changed,
 #          kinds, adds_matching, removes_matching, new_directory, binary,
@@ -1470,10 +1481,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [gate]
 #
-# What:    How `discern done` runs its parallel stages.
-# Why:     Fail-fast, a per-command time budget, and a cap on concurrent test
-#          runs keep the gate fast for one agent and fair across a fleet of
-#          worktrees sharing one machine.
+# What:    How discern runs jobs, in `discern done` and the other commands that
+#          run them.
+# Why:     Stopping at the first failure and a time limit for each job keep
+#          checks quick. A cap on test runs at once keeps them fair to every
+#          worktree of this repository.
 #
 # Help:    `discern config explain gate`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1510,11 +1522,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [coupling]
 #
-# What:    Co-change detection from git history.
-# Why:     Files that habitually change together point at a sibling the current
-#          change may be missing. Coupling is read-only advice that calibrates
-#          itself to the repository, with no thresholds to tune; `discern
-#          coupling` reads it on demand.
+# What:    Files that usually change together, found from Git history.
+# Why:     When a change leaves out a file that usually changes with the ones
+#          it touches, discern names it. The finding is advice only, it adjusts
+#          to the repository's own history, and there are no thresholds to set.
+#          `discern coupling` shows it on demand.
 #
 # Help:    `discern config explain coupling`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1529,11 +1541,12 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [scripts]
 #
-# What:    Where your executable project scripts live.
-# Why:     `discern scripts <name>` resolves the name literally, runs it from
-#          the project root with `DISCERN_ROOT`, `DISCERN_TOML`,
-#          `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK`, and forwards every
-#          argument. Other config stays available through `discern config get`.
+# What:    Where your project's scripts live.
+# Why:     `discern scripts <name>` runs the script with that name from the
+#          project root, with `DISCERN_ROOT`, `DISCERN_TOML`,
+#          `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK` set, and passes every
+#          argument through. A script can read other settings with `discern
+#          config get`.
 #
 # Help:    `discern config explain scripts`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1544,10 +1557,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [meta]
 #
-# What:    Project setup and adoption evidence.
-# Why:     discern writes these keys while setting up or upgrading the project.
-#          They record schema and setup evidence; nothing here needs
-#          hand-editing.
+# What:    A record of this project's setup and upgrades.
+# Why:     discern writes these keys when it sets up or upgrades the project.
+#          They record the config format version and how setup went, so you
+#          never need to edit them.
 #
 # Help:    `discern config explain meta`
 # ─────────────────────────────────────────────────────────────────────────────

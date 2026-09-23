@@ -1,6 +1,6 @@
 # ADR 0248: Crashes leave a report and a distinct exit code
 
-**Status**: accepted.
+**Status**: accepted. The logbook toggle this record calls `[project].logbook` is now `[project].record_logbook`.
 
 ## Context
 

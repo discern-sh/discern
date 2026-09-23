@@ -2275,7 +2275,7 @@ Deno.test("worktree ensure: a successful ensure command's output never leaks int
   });
 });
 
-Deno.test("worktree setup begin --dry-run: lists the ensure commands it would run", async () => {
+Deno.test("worktree setup --dry-run: lists the ensure commands it would run", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithSetup(dir, "dry", {
       steps: ["echo once-only"],

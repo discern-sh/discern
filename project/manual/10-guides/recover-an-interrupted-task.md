@@ -51,7 +51,7 @@ The agent keeps using the same worktree for the rest of the task and its review.
 
 ## Stop a run you can no longer see
 
-If you close a terminal, or your coding tool gives up on a long call, the checks may still be running, or they may have stopped. Either way, the agent reads the run back instead of starting it again.
+If your coding tool gives up on a long call, the checks may still be running, or they may have been cancelled. Closing the terminal a run started in stops that run. Either way, the agent reads the run back instead of starting it again.
 
 discern keeps a record of every long run, such as `discern done` or `discern accept`, behind a short **progress handle**. Your agent's tool receives the handle when the run starts, in a line like this:
 
@@ -107,7 +107,8 @@ If another process is running the landing, let it finish. If files, branches, or
 A worktree that stays after landing can be a normal outcome. The change is already on `main`. The result says why the worktree stayed:
 
 - **The branch has newer commits.** They haven't landed yet. The agent runs `discern done`, then `discern accept`, for them.
-- **Cleanup couldn't finish**, perhaps because another program was still using the folder. Once it stops, run `discern worktree prune` from your main checkout.
+- **The worktree has uncommitted changes.** discern keeps them, and the branch. The agent commits what should stay, then runs `discern done`, then `discern accept`.
+- **Cleanup couldn't finish**, perhaps because another program was still using the folder, or a resource couldn't be removed. Once the cause is fixed, run `discern worktree prune` from your main checkout.
 
 Recovery is done when you know what landed, and why anything is still there. [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers cleanup and resource problems.
 
