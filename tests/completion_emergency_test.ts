@@ -8,7 +8,7 @@
 
 import { decodeBase64 } from "@std/encoding/base64";
 import { candidateAuthor } from "../src/engine/completion/candidate.ts";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import {
   assert,
   assertEquals,
@@ -22,6 +22,9 @@ import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { sha256Hex } from "../src/shared/sha256.ts";
 import { readEffortGrant } from "../src/engine/worktree/effort_grant.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
+import { readySentinelPath } from "../src/engine/worktree/git.ts";
+import { recordSubmission } from "../src/engine/worktree/submission_writer.ts";
+import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import {
   readCompletionRecord,
   writeCompletionRecord,
@@ -29,6 +32,12 @@ import {
 import type { CompletionRecord } from "../src/engine/completion/records.ts";
 import type { ExceptionRecord } from "../src/engine/completion/exception.ts";
 import { emergencyId } from "../src/engine/emergency/plan.ts";
+import { carriedEfforts } from "../src/engine/emergency/carried_work.ts";
+import { writeParkedTaskMetadata } from "../src/engine/worktree/parked_task_metadata.ts";
+import {
+  PARKED_TASK_METADATA_SCHEMA_VERSION,
+  TASK_METADATA_SCHEMA_VERSION,
+} from "../src/shared/task_metadata.ts";
 import {
   canonicalExceptionNote,
   recordExceptionNote,
@@ -40,10 +49,15 @@ import {
   gitOut,
   runAgent,
   scaffoldEngine,
+  worktreePath,
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 import { BOUNDARY, emergencyData } from "./completion_emergency_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { z } from "@zod/zod";
@@ -67,12 +81,17 @@ const CHECK_NO_TABOO = ["#!/usr/bin/env sh", "test ! -e taboo.txt", ""].join(
 
 const DSSE_ENVELOPE_SCHEMA = z.object({ payload: z.string() }).passthrough();
 
-/** A repair worktree whose committed fix trips the gate deliberately. */
-async function failingRepair(dir: string): Promise<string> {
+/** A committed project whose one check fails while `taboo.txt` exists. */
+async function checkedProject(dir: string): Promise<void> {
   await scaffoldEngine(dir);
   await writeConfig(dir, CONFIG_CHECK);
   await writeExecutable(join(dir, "check.sh"), CHECK_NO_TABOO);
   await gitInit(dir);
+}
+
+/** A repair worktree whose committed fix trips the gate deliberately. */
+async function failingRepair(dir: string): Promise<string> {
+  await checkedProject(dir);
   const wt = await addWorktree(dir, "repair");
   await Deno.writeTextFile(join(wt, "hotfix.txt"), "restore service\n");
   await Deno.writeTextFile(join(wt, "taboo.txt"), "known breakage\n");
@@ -299,6 +318,293 @@ Deno.test("emergency refuses a changed subject and a replayed confirmation witho
     assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
   });
 });
+
+/** Commit one new file in a checkout and return the resulting head. */
+async function commitFile(checkout: string, file: string): Promise<string> {
+  await Deno.writeTextFile(join(checkout, file), `${file}\n`);
+  await git(checkout, "add", "-A");
+  await git(checkout, "commit", "-q", "-m", `add ${file}`, "--no-gpg-sign");
+  return await gitOut(checkout, "rev-parse", "HEAD");
+}
+
+/** Start a task from the main checkout and return its checkout path. */
+async function startTask(
+  dir: string,
+  name: string,
+  from: string,
+): Promise<string> {
+  const started = await runAgent(dir, [
+    "start",
+    "--from",
+    from,
+    "--name",
+    name,
+    "--json",
+  ]);
+  assertEquals(started.code, 0, started.output);
+  const result = decodeCliResult(started.stdout, "start");
+  assertResultDataKey(result, "path");
+  return result.data.path;
+}
+
+/** Request an emergency plan from the repair; neither a preview nor a refusal
+ * exits zero. Returns the JSON result. */
+async function requestEmergency(repair: string): Promise<string> {
+  const run = await runAgent(repair, [
+    "accept",
+    "emergency",
+    "--reason",
+    "Restore service",
+    "--json",
+  ]);
+  assertEquals(run.code, 1, run.output);
+  return run.stdout;
+}
+
+/** The exception records in the common store. */
+async function exceptionRecords(dir: string): Promise<readonly unknown[]> {
+  return (await observeCompletionRecords(dir, SYSTEM_CLOCK, ["exception"]))
+    .records;
+}
+
+/** How the other effort `feature` records the commit a repair comes to hold:
+ * `before` runs once that commit exists, `after` once the repair holds it. */
+const OTHER_EFFORT_RECORDS: Readonly<
+  Record<string, {
+    readonly before?: (dir: string, checkout: string) => Promise<void>;
+    readonly after?: (checkout: string) => Promise<void>;
+  }>
+> = {
+  "live worktree": {},
+  "submitted revision": {
+    before: async (_dir, checkout) => {
+      await recordSubmission(checkout, {
+        id: crypto.randomUUID(),
+        effort_id: "feature",
+        branch: "agent/feature",
+        head: await gitOut(checkout, "rev-parse", "HEAD"),
+        tree: await gitOut(checkout, "rev-parse", "HEAD^{tree}"),
+        proof: {
+          candidate_id: crypto.randomUUID(),
+          proof_id: crypto.randomUUID(),
+        },
+        submitted_at: wallTimeIso(SYSTEM_CLOCK.wallNow()),
+      });
+    },
+    // The branch moves on, so only the submission names the carried commit.
+    after: async (checkout) => {
+      await commitFile(checkout, "later.txt");
+    },
+  },
+  "parked branch": {
+    before: async (dir, checkout) => {
+      const marker = await readySentinelPath(checkout);
+      assert(marker !== undefined);
+      await Deno.mkdir(dirname(marker), { recursive: true });
+      await Deno.writeTextFile(marker, "");
+      const parked = await runAgent(dir, ["worktree", "park", "feature"]);
+      assertEquals(parked.code, 0, parked.output);
+    },
+  },
+};
+
+/** How a repair comes to hold `feature`'s commit; returns the repair checkout. */
+const CARRYING_ROUTES: Readonly<
+  Record<string, (dir: string) => Promise<string>>
+> = {
+  "start --from": async (dir) => {
+    const repair = await startTask(dir, "repair", "agent/feature");
+    await commitFile(repair, "hotfix.txt");
+    return repair;
+  },
+  "update --from": async (dir) => {
+    const repair = await addWorktree(dir, "repair");
+    await commitFile(repair, "hotfix.txt");
+    const updated = await runAgent(repair, [
+      "update",
+      "--from",
+      "agent/feature",
+      "--json",
+    ]);
+    assertEquals(updated.code, 0, updated.output);
+    // Keep the agent files the update refreshed, so the repair is clean.
+    await git(repair, "add", "-A");
+    await git(
+      repair,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "keep refreshed agent files",
+      "--no-gpg-sign",
+    );
+    return repair;
+  },
+};
+
+for (const [route, carry] of Object.entries(CARRYING_ROUTES)) {
+  for (const [kind, recorded] of Object.entries(OTHER_EFFORT_RECORDS)) {
+    Deno.test(`emergency refuses a source containing another recorded unlanded effort: ${route} a ${kind}`, async () => {
+      await withTempDir(async (dir) => {
+        await checkedProject(dir);
+        const trunkBefore = await gitOut(dir, "rev-parse", "main");
+        const other = await addWorktree(dir, "feature");
+        const carried = await commitFile(other, "feature.txt");
+        await recorded.before?.(dir, other);
+        const repair = await carry(dir);
+        await recorded.after?.(other);
+
+        const refusal = decodeCliResult(
+          await requestEmergency(repair),
+          "accept",
+        );
+        assertEquals(refusal.error, "precondition_failed", refusal.message);
+        assertStringIncludes(
+          refusal.message ?? "",
+          `The repair contains unlanded work from another effort: \`feature\` on branch \`agent/feature\` at \`${
+            carried.slice(0, 12)
+          }\`.`,
+        );
+        assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+        assertEquals(await exceptionRecords(dir), []);
+      });
+    });
+  }
+}
+
+Deno.test("emergency serves the plan when a sibling builds on the repair and unrelated work waits unlanded", async () => {
+  await withTempDir(async (dir) => {
+    await checkedProject(dir);
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
+    const repair = await addWorktree(dir, "repair");
+    await commitFile(repair, "hotfix.txt");
+    // Unrelated unlanded work the repair does not contain.
+    await commitFile(await addWorktree(dir, "unrelated"), "unrelated.txt");
+    // A sibling started from the repair holds the repair's commits beneath
+    // its own; the repair carries none of the sibling's work.
+    await commitFile(
+      await startTask(dir, "follow-up", "agent/repair"),
+      "follow-up.txt",
+    );
+
+    const preview = await requestEmergency(repair);
+    assertEquals(
+      decodeCliResult(preview, "accept").error,
+      "awaiting_consent",
+      preview,
+    );
+    assertEquals(emergencyData(preview).outcome, "preview");
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+    assertEquals(await exceptionRecords(dir), []);
+  });
+});
+
+/** Each record source alone: the repair `agent/repair` holds the commit
+ * `carried`; `arrange` records it through one more source and returns the
+ * branch the plan names as effort `feature`, or undefined for none. */
+const CARRIED_RECORD_SOURCES: Readonly<
+  Record<string, (dir: string, carried: string) => Promise<string | undefined>>
+> = {
+  "the repair's own checkout alone": () => Promise.resolve(undefined),
+  "a registered checkout outside the task prefix": async (dir, carried) => {
+    const path = worktreePath(dir, "feature");
+    await git(dir, "worktree", "add", "-q", "-b", "feature", path, carried);
+    return "feature";
+  },
+  "a submission whose branch moved on": async (dir, carried) => {
+    const later = await gitOut(
+      dir,
+      "commit-tree",
+      `${carried}^{tree}`,
+      "-p",
+      carried,
+      "-m",
+      "later",
+    );
+    const path = worktreePath(dir, "feature");
+    await git(dir, "worktree", "add", "-q", "-b", "agent/feature", path, later);
+    await recordSubmission(path, {
+      id: crypto.randomUUID(),
+      effort_id: "feature",
+      branch: "agent/feature",
+      head: carried,
+      tree: await gitOut(dir, "rev-parse", `${carried}^{tree}`),
+      proof: {
+        candidate_id: crypto.randomUUID(),
+        proof_id: crypto.randomUUID(),
+      },
+      submitted_at: wallTimeIso(SYSTEM_CLOCK.wallNow()),
+    });
+    return "agent/feature";
+  },
+  "a parked head whose branch is gone": async (dir, carried) => {
+    await writeParkedTaskMetadata(dir, {
+      schema_version: PARKED_TASK_METADATA_SCHEMA_VERSION,
+      id: "feature",
+      branch: "feature",
+      head: carried,
+      parked_at: wallTimeIso(SYSTEM_CLOCK.wallNow()),
+      task: { schema_version: TASK_METADATA_SCHEMA_VERSION, title: "Feature" },
+    });
+    return "feature";
+  },
+  "a task branch without a checkout": async (dir, carried) => {
+    await git(dir, "branch", "agent/feature", carried);
+    return "agent/feature";
+  },
+  "a disposable integration copy": async (dir, carried) => {
+    const path = worktreePath(dir, "integration");
+    await git(
+      dir,
+      "worktree",
+      "add",
+      "-q",
+      "-b",
+      "integration/feature",
+      path,
+      carried,
+    );
+    return undefined;
+  },
+};
+
+for (const [source, arrange] of Object.entries(CARRIED_RECORD_SOURCES)) {
+  Deno.test(`the emergency plan attributes a carried commit recorded by ${source}`, async () => {
+    await withTempDir(async (dir) => {
+      await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+      await gitInit(dir);
+      const carried = await gitOut(
+        dir,
+        "commit-tree",
+        "HEAD^{tree}",
+        "-p",
+        "HEAD",
+        "-m",
+        "feature work",
+      );
+      const repair = worktreePath(dir, "repair");
+      await git(
+        dir,
+        "worktree",
+        "add",
+        "-q",
+        "-b",
+        "agent/repair",
+        repair,
+        carried,
+      );
+      const branch = await arrange(dir, carried);
+      assertEquals(
+        await carriedEfforts(dir, "agent/repair", "agent/", [
+          { commit: carried, subject: "feature work" },
+        ]),
+        branch === undefined
+          ? []
+          : [{ effort: "feature", branch, revision: carried }],
+      );
+    });
+  });
+}
 
 /**
  * The exception record the exchange writes before its transition, rebuilt from

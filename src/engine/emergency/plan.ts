@@ -10,7 +10,7 @@ import { runGit } from "../../shared/subprocess.ts";
 import { pinValidatedTree } from "../gate/proof.ts";
 import { verifyTrunkLimits } from "../gate/standard_limits.ts";
 import { inspectActiveStandardLimitProposals } from "../gate/standard_proposal_state.ts";
-import { resolveIdentity } from "../worktree/identity.ts";
+import { loadIdentitySettings, resolveIdentity } from "../worktree/identity.ts";
 import {
   inLinkedWorktree,
   inspectGitOperation,
@@ -32,6 +32,11 @@ import { configuredValidation } from "../validation/configuration.ts";
 import { classifyScopeImpact } from "../scopes/scopes.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { type EmergencyExceptions, emergencyExceptions } from "./evidence.ts";
+import {
+  carriedEfforts,
+  carriedEffortsRefusal,
+  landedCommits,
+} from "./carried_work.ts";
 
 export const EMERGENCY_CONFIRMATION_MS = 15 * 60_000;
 export interface EmergencyPlan {
@@ -55,7 +60,7 @@ export function emergencyId(digest: string): string {
   }-a${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
 }
 
-/** Emergency integration accepts one source containing actual trunk; update resolves a differing base before review. */
+/** Emergency integration accepts one source containing actual trunk and no other effort's recorded unlanded work; update resolves a differing base before review. */
 export async function observeEmergencySubject(
   ctx: LifecycleContext,
   reason: string,
@@ -157,6 +162,14 @@ export async function observeEmergencySubject(
       "This source is already on trunk. Use discern done to validate its current obligations.",
     );
   }
+  const landed = await landedCommits(root, trunkHead, source.head);
+  const carried = await carriedEfforts(
+    root,
+    branch,
+    (await loadIdentitySettings(root)).branchPrefix,
+    landed,
+  );
+  if (carried.length) throw new Error(carriedEffortsRefusal(carried));
   const policy = await predecessorPolicyIdentity(root, trunkHead);
   const provisional: Candidate = {
     sources: [source],
