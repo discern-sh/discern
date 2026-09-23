@@ -427,10 +427,7 @@ export function buildCli(
     )
     .usage("<command> [options]")
     .description(
-      "Give each task its own worktree, a separate checkout and branch, and " +
-        "check its work with your project's gate, its full quality check, " +
-        "before it lands. New here? `discern setup` explains the first step, " +
-        "and `discern setup begin` starts setting discern up in this project.",
+      "Give each task its own worktree, a separate checkout and branch, and check its work with your project's gate, its full quality check, before it lands. New here? `discern setup` explains the first step, and `discern setup begin` starts setting discern up in this project.",
     )
     .example(
       "Orient yourself",
@@ -489,14 +486,7 @@ export function buildCli(
   // mutating step and every option that can shape it.
   const setupBegin = new Command()
     .description(
-      "Set discern up in this project: add its files and settings, and print the setup brief for your agent. This is the first setup step that changes files.\n" +
-        "A fresh setup starts on the trunk with no uncommitted changes to " +
-        "tracked files. It works on a new `discern-setup` branch, commits " +
-        "discern's own wiring, and records which discern version and model " +
-        "ran it. Without `--confirmed` or `--config`, it writes nothing and " +
-        "shows the consent checklist again. Partway through setup, it prints " +
-        "the brief again; once setup is complete, it does nothing unless you " +
-        "pass `--reseed`.",
+      "Set discern up in this project: add its files and settings, and print the setup brief for your agent. This is the first setup step that changes files.\nA fresh setup starts on the trunk with no uncommitted changes to tracked files. It works on a new `discern-setup` branch, commits discern's own wiring, and records which discern version and model ran it. Without `--confirmed` or `--config`, it writes nothing and shows the consent checklist again. Partway through setup, it prints the brief again; once setup is complete, it does nothing unless you pass `--reseed`.",
     )
     .option(
       "--name <name:string>",
@@ -562,11 +552,7 @@ export function buildCli(
 
   const setupVerify = new Command()
     .description(
-      "Preview what setup will change, and the checklist to agree with the owner first. It changes nothing.\n" +
-        "It reports what it finds, such as existing agent instructions and " +
-        "the coding agents installed here, and where worktrees will go. Then " +
-        "it prints the consent checklist your agent goes through with the " +
-        "owner before anything is written.",
+      "Preview what setup will change, and the checklist to agree with the owner first. It changes nothing.\nIt reports what it finds, such as existing agent instructions and the coding agents installed here, and where worktrees will go. Then it prints the consent checklist your agent goes through with the owner before anything is written.",
     )
     .action(recordedExit("setup verify", async (options) => {
       const { json, noColor } = globalFlags(options);
@@ -591,11 +577,7 @@ export function buildCli(
 
   const setupDone = new Command()
     .description(
-      "Finish setup: run the gate on the committed setup, record its Proof and a summary of what was set up, and mark setup complete (`[meta].bootstrapped`).\n" +
-        "Everything must be committed, with every setup placeholder filled " +
-        "in. discern commits the completion, checks it in a temporary " +
-        "worktree, and runs the full gate; if that fails, it removes its own " +
-        "commit. Then `discern setup accept` lands the setup.",
+      "Finish setup: run the gate on the committed setup, record its Proof and a summary of what was set up, and mark setup complete (`[meta].bootstrapped`).\nEverything must be committed, with every setup placeholder filled in. discern commits the completion, checks it in a temporary worktree, and runs the full gate; if that fails, it removes its own commit. Then `discern setup accept` lands the setup.",
     )
     .option(
       "--unproven",
@@ -615,10 +597,7 @@ export function buildCli(
   const setupAccept = new Command()
     .description(
       `Land the proven setup branch on the trunk${trunkName}, then list the checks that confirm each coding agent can reach discern.\n` +
-        "Run it from the `discern-setup` branch. If the trunk has moved, " +
-        "discern merges it in and runs the gate again first. It records a " +
-        "Proof note, switches you to the trunk, and deletes the setup branch. " +
-        "It doesn't push.",
+        "Run it from the `discern-setup` branch. If the trunk has moved, discern merges it in and runs the gate again first. It records a Proof note, switches you to the trunk, and deletes the setup branch. It doesn't push.",
     )
     .option(
       "--dry-run",
@@ -639,10 +618,7 @@ export function buildCli(
 
   const setup = new Command()
     .description(
-      "Start here to set up discern: see what setup involves and which step comes next.\n" +
-        "It changes nothing, and it works even outside a Git repository. Run " +
-        "`discern setup begin` only once the owner is ready for discern to " +
-        "add its files.",
+      "Start here to set up discern: see what setup involves and which step comes next.\nIt changes nothing, and it works even outside a Git repository. Run `discern setup begin` only once the owner is ready for discern to add its files.",
     )
     .action(recordedExit("setup", async (options) => {
       const { json, noColor } = globalFlags(options);
@@ -661,15 +637,7 @@ export function buildCli(
   root
     .command("upgrade")
     .description(
-      "Bring this project up to date with the discern you have installed. " +
-        "To bring the trunk into a task branch, use `discern update`; to " +
-        "regenerate agent files only, use `discern refresh`.\n" +
-        "It runs any pending config migrations and restores discern's " +
-        "sections, keys, and comment banners in `discern.toml` without " +
-        "touching your values. It updates discern's blocks in `.gitignore` " +
-        "and `.gitattributes`, and refreshes agent files, skills, and " +
-        "integrations. Run it from the project root. It never installs a " +
-        "newer discern, uses no network, and doesn't commit.",
+      "Bring this project up to date with the discern you have installed. To bring the trunk into a task branch, use `discern update`; to regenerate agent files only, use `discern refresh`.\nIt runs any pending config migrations and restores discern's sections, keys, and comment banners in `discern.toml` without touching your values. It updates discern's blocks in `.gitignore` and `.gitattributes`, and refreshes agent files, skills, and integrations. Run it from the project root. It never installs a newer discern, uses no network, and doesn't commit.",
     )
     .option(
       "--dry-run",
@@ -699,14 +667,7 @@ export function buildCli(
   root
     .command("uninstall")
     .description(
-      "Remove discern's wiring from this project, and keep the files you wrote.\n" +
-        "It removes the generated agent files, installed skills, agent " +
-        "integrations, and discern's blocks and settings. Your " +
-        "`discern.toml`, instruction source, map, own skills, project " +
-        "scripts, and TODO list stay. It asks before removing anything. It " +
-        "refuses while task worktrees " +
-        "or their resources exist. It keeps local Git refs such as Proof " +
-        "notes, doesn't remove the discern program, and doesn't commit.",
+      "Remove discern's wiring from this project, and keep the files you wrote.\nIt removes the generated agent files, installed skills, agent integrations, and discern's blocks and settings. Your `discern.toml`, instruction source, map, own skills, project scripts, and TODO list stay. It asks before removing anything. It refuses while task worktrees or their resources exist. It keeps local Git refs such as Proof notes, doesn't remove the discern program, and doesn't commit.",
     )
     .option(
       "--dry-run",
@@ -732,12 +693,7 @@ export function buildCli(
   root
     .command("doctor")
     .description(
-      "Check that discern is installed correctly and that Git is set up safely for it.\n" +
-        "It checks the config, jobs, generated groups, agent integrations, " +
-        "skills, worktree resources, and logbook, and Git settings such as " +
-        "commit identity and history retention. Then it lists the steps each " +
-        "workflow command runs. It changes nothing, and exits 1 only when a " +
-        "check fails.",
+      "Check that discern is installed correctly and that Git is set up safely for it.\nIt checks the config, jobs, generated groups, agent integrations, skills, worktree resources, and logbook, and Git settings such as commit identity and history retention. Then it lists the steps each workflow command runs. It changes nothing, and exits 1 only when a check fails.",
     )
     .option(
       "-v, --verbose",
@@ -757,11 +713,7 @@ export function buildCli(
   root
     .command("releases")
     .description(
-      "Open discern's release notes in your browser, to see what's new and whether a newer discern is out.\n" +
-        "discern itself makes no network request: the page compares your " +
-        "version with the latest. The browser opens only from an interactive " +
-        "terminal. Inside a project, discern records when you last looked, " +
-        "for its reminder to check for releases.",
+      "Open discern's release notes in your browser, to see what's new and whether a newer discern is out.\ndiscern itself makes no network request: the page compares your version with the latest. The browser opens only from an interactive terminal. Inside a project, discern records when you last looked, for its reminder to check for releases.",
     )
     .option(
       "--dry-run",
@@ -975,9 +927,7 @@ export function buildCli(
     .description(
       "Add or change a gate job: one of the commands the gate runs.\n" +
         `A known name (${knownJobList()}) has a fixed stage: give its command ` +
-        "as the argument, or with `--run`, repeated for commands that run in " +
-        "order. A custom name needs `--stage` and `--run`. For a known job " +
-        "this project doesn't have, use `--not-applicable`.",
+        "as the argument, or with `--run`, repeated for commands that run in order. A custom name needs `--stage` and `--run`. For a known job this project doesn't have, use `--not-applicable`.",
     )
     .arguments("<name:string> [command:string]")
     .option(
@@ -1064,9 +1014,7 @@ export function buildCli(
 
   const setScope = new Command()
     .description(
-      "Add or change a scope: a named region of the repository, defined by path patterns.\n" +
-        "The patterns you give replace the scope's `paths`, and options you " +
-        "leave out keep their current values.",
+      "Add or change a scope: a named region of the repository, defined by path patterns.\nThe patterns you give replace the scope's `paths`, and options you leave out keep their current values.",
     )
     .arguments("<name:string> <globs...:string>")
     .option(
@@ -1135,8 +1083,7 @@ export function buildCli(
 
   const setStandard = new Command()
     .description(
-      "Add or change a standard: a limit on a measured number, such as test coverage, that the gate holds.\n" +
-        "Give exactly one of `--run` or `--producer`.",
+      "Add or change a standard: a limit on a measured number, such as test coverage, that the gate holds.\nGive exactly one of `--run` or `--producer`.",
     )
     .arguments("<name:string>")
     .option(
@@ -1250,11 +1197,7 @@ export function buildCli(
 
   const setScalar = new Command()
     .description(
-      "Set one key in `discern.toml`, named as `section.key`, including keys in named tables.\n" +
-        "discern takes the value's type from the schema, and turns a single " +
-        "value into a one-item list for a key that takes a list of strings. " +
-        "It refuses sections, unknown keys, and retired names, and writes " +
-        "nothing if the result would be invalid.",
+      "Set one key in `discern.toml`, named as `section.key`, including keys in named tables.\ndiscern takes the value's type from the schema, and turns a single value into a one-item list for a key that takes a list of strings. It refuses sections, unknown keys, and retired names, and writes nothing if the result would be invalid.",
     )
     .arguments("<key:string> <value:string>")
     .option(
@@ -1365,12 +1308,7 @@ export function buildCli(
 
   const config = new Command()
     .description(
-      "Read, explain, and edit `discern.toml`, keeping its comments.\n" +
-        "`set-job`, `set-scope`, and `set-standard` edit those tables; `set " +
-        "<section.key>` edits other keys, such as generated groups, " +
-        "checkpoints, and resources. discern checks each edit against the " +
-        "schema, writes nothing if the result would be invalid, and never " +
-        "commits. Run edits from the project root.",
+      "Read, explain, and edit `discern.toml`, keeping its comments.\n`set-job`, `set-scope`, and `set-standard` edit those tables; `set <section.key>` edits other keys, such as generated groups, checkpoints, and resources. discern checks each edit against the schema, writes nothing if the result would be invalid, and never commits. Run edits from the project root.",
     )
     .action(recordedExit("config", function (
       this: Command,

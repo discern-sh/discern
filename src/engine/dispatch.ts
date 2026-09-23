@@ -281,7 +281,9 @@ export function attachEngineCommands(
     )
     .option(
       "--why <rationale:string>",
-      "Why the question isn't met, for `--unmet`: one paragraph of 1–500 characters, without line breaks or control characters. The Proof keeps it, as written, for the owner's landing decision.",
+      "Why the question isn't met, for `--unmet`: one paragraph of 1–500 " +
+        "characters, without line breaks or control characters. The Proof " +
+        "keeps it, as written, for the owner's landing decision.",
     )
     .action(
       recordedExit("done", async (o) => {
