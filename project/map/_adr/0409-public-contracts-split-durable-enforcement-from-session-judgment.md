@@ -1,6 +1,6 @@
 # ADR 0409: Public contracts split durable enforcement from session judgment
 
-**Status**: accepted on 2026-09-17. Amends [ADR 0208](0208-public-contracts-version-by-schema-major.md) and [ADR 0390](0390-public-contracts-preserve-behavior-and-independent-format-versions.md).
+**Status**: accepted on 2026-09-17. Amends [ADR 0208](0208-public-contracts-version-by-schema-major.md) and [ADR 0390](0390-public-contracts-preserve-behavior-and-independent-format-versions.md). Where decision 2 and the consequences say evolving members change "in a minor release", decision 5 and the published compatibility policy govern: evolving members may change in any release.
 
 ## Context
 
