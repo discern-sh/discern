@@ -44,7 +44,7 @@ The agent adds a few lines of output to the command, in the format the [configur
 
 <!-- discern-workflow:result-summary -->
 
-**Failed:** A check, or something the checks need, failed, so there's no current Proof.
+**Failed:** A check failed, or something a check needs is missing, so there's no current Proof.
 
 **Next action:** Your agent follows the failure's recovery or reproduce command, fixes the cause, then runs the full gate again.
 
