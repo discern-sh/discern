@@ -1,7 +1,7 @@
 ---
 id: explanation-evidence-and-improvement
 title: "Learn from your project's history"
-description: "Use local findings to understand recurring friction, distinguish observations from explanations, and choose a useful next investigation."
+description: "Find what slows your project's work down, with counts behind every finding, before you change how you work."
 order: 80
 publish: true
 kind: explanation
@@ -31,77 +31,77 @@ aliases:
 
 # Learn from your project's history
 
-The checks feel slower this week. A task needed several attempts before it finished. You wonder whether something in the way the project works could improve, but one memorable task is a weak basis for changing the process.
+discern keeps a local record of how work goes in your project. Your agent can read it to find what slows the work down, with counts behind every finding, before you change how the project works.
 
-discern keeps a local activity record, the **logbook**, that can help your agent investigate. Its pattern report turns recorded outcomes and timings into findings with counts and suggested next steps. You can use those findings to decide where to look, without treating a hunch as an established cause.
+So you fix the friction that keeps coming back, with the numbers to show it. Each fix makes later tasks smoother, and less of your agent's effort goes into getting past the same problem again.
 
 ## Start with a question you recognize
 
-Suppose your agent spends a long time waiting for the final checks on a small change. You might ask:
+Say small changes to your recipe app seem to wait a long time for their checks. You can ask:
 
-> Look at the local evidence for our checks. Is this run unusual, or is there a repeated source of avoidable time worth investigating?
+> Look at our local history for the checks. Is this unusual, or is something costing us time again and again?
 
-The pattern report can show where time went across recorded runs. If tests take most of it, that is an observation. The tests may be essential and already efficient. A recommendation to change them needs more evidence about avoidable cost, such as unnecessary repeated work.
+Your agent runs `discern patterns`, the **pattern report**. It reads the **logbook**, discern's local record of what each command did and how long it took, and turns it into **findings**.
 
-Your agent then inspects the relevant commands or diagnostic output. The report helps choose that investigation; it does not know from a duration alone whether a test should exist.
+Say the report shows that tests take most of the time. That's an observation. The tests may be essential and already fast. Changing them needs evidence of time you could avoid, such as the same slow work repeated for no reason.
 
-## What a finding is
+So your agent looks next at the test commands and their output. The report helps it choose where to look. It can't tell from a timing alone whether a test should exist.
 
-A finding states the condition observed, the evidence supporting it, and a next step. Counts include the population they came from: three failures among four comparable attempts means something different from three among four hundred.
+## What a finding tells you
 
-The report also distinguishes measured values from estimates and identifies limits on the evidence. If an interrupted run's full duration is estimated, that estimate is labeled and comes with the sample used to derive it.
+A finding says what the report saw, the evidence for it, and a next step. Every count comes with the total it came from, because failures in 3 of 4 tries mean something different from failures in 3 of 400.
 
-Each detector needs enough qualifying evidence before reporting a pattern. **Insufficient evidence** means the record cannot support the conclusion yet. It does not mean the problem is absent. A new project may have little to report, and that is a useful answer too.
+The report labels which values it measured and which it estimated. If a run stopped early, for example, the report can estimate how long the full run would have taken. It says so, and shows the runs the estimate came from.
 
-Findings are **advisory**: reading them does not change configuration, fail the gate, or grant permission to make a change.
+Each **detector**, one check the report runs over the logbook, needs enough evidence before it reports anything. **Insufficient evidence** means the logbook can't tell yet. It doesn't mean there's no problem. A new project has little to report, and that's a useful answer too.
+
+Findings are advice. Reading them changes no settings, fails no checks, and gives no one permission to change anything. You and your agent decide what to do.
 
 ## What the detectors watch
 
-The report groups its observations around several questions:
+The detectors are grouped by the question they answer:
 
-- **Are measured improvements lasting?** A standard's trajectory shows its recorded values alongside its limits over time.
-- **Do the checks fit the work?** Findings can identify where gate time goes, waits for shared test capacity, and different results under comparable recorded conditions. They can also flag review questions that rarely fire or repeatedly need exceptions.
-- **Where does work get stuck?** The record can show repeated failed runs or refusals and whether their suggested next actions were followed.
-- **How do tasks move toward landing?** When the necessary events are recorded, the report can follow tasks from start through completion and acceptance, including update and integration, and suggest configuration improvements to remove friction and optimize performance.
+- **Are your gains holding?** Each [standard](standards.md)'s measured values over time, beside its limit.
+- **Do the checks fit the work?** Which checks take most of the time, and how long runs wait for a free test slot. The same code passing one time and failing the next. [Checkpoints](checkpoints.md) that never fire, fire on almost everything, or often land with an unmet answer you approved.
+- **Where does work get stuck?** Repeated failed runs or refusals, and whether the agent followed the suggested next step. Edits made straight on the trunk, your project's shared branch.
+- **How do tasks move toward landing?** Failed runs before the first pass, time from start to landing, landings made of one giant commit, and updates that keep getting harder.
 
-Your agent reads this with `discern patterns`. The `--stats` view also shows recorded accomplishments, such as accepted changes, completion streaks, cycle times, and standard trends.
+`discern patterns --stats` shows what went well from the same record: changes landed, runs of passing checks, how long tasks took, and how your standards have moved.
 
-## Findings can join into investigations
+## Related findings become one investigation
 
-Several observations may point toward the same question. Repeated failed runs and evidence of how the agent responded, for example, can support an investigation of the feedback loop.
+Several findings can point at the same question. Say the recipe app's full checks keep failing on one branch, and running `discern prepare` first would have caught those failures. Together, those findings suggest the agent's feedback loop is too slow.
 
-When the evidence is compatible, discern can present the related findings together with a suggested investigation and what would disprove that interpretation. The original findings remain available. Missing or conflicting evidence prevents the connection from being presented as supported.
+When the evidence fits together, the report shows the findings as one **investigation**. It names what to check next and what would prove that idea wrong. The original findings stay in the report. If evidence is missing or conflicts, the report doesn't link them.
 
-This keeps the next task specific. The agent has a question to investigate and a way to challenge its first explanation, rather than an invitation to rewrite the process broadly.
+That gives your agent one specific question to test, and a way to challenge its first explanation.
 
-## Where comparison stops
+## Where comparisons stop
 
-A comparison is useful only when you know what changed between the things being compared. discern groups trends by compatible recorded setup, including configuration, discern release, and client version. A tooling change starts a separate series.
+A comparison only helps when you know what changed between the runs. discern compares runs that share a setup: the same configuration, discern release, and coding agent version. After a tooling change, it starts a new series.
 
-Even matched records leave things unknown. The logbook excludes code, prompts, and command output. It cannot tell you what the agent was trying to implement or why a test failed merely from the run's metadata. Your agent needs the relevant project evidence to investigate the cause.
+Even well-matched runs leave things out. The logbook doesn't hold code, prompts, or command output. It can't tell you what the agent was building, or why a test failed. Your agent needs the project itself to find the cause.
 
-This matters when a recorded version passes once and fails another time. The difference can justify investigating unstable checks or execution conditions. It does not establish which condition caused it or make either result safe to ignore.
+Say the same code passes once and fails once. That's a reason to look at unstable checks or at the conditions they ran under. It doesn't say which one caused it, and it doesn't make either result safe to ignore.
 
-### Standard trajectory decisions
+### When a gain is ready to lock in
 
-Suppose you reduced the amount someone downloads to open the app. You want to preserve the improvement as a tighter [standard](standards.md), a measured limit held by the gate.
+Say the recipe app's download got smaller, and you want to lock in the gain by tightening its [standard](standards.md). The gate, your project's full set of checks, already says whether a tighter limit is possible. The report adds whether the gain has held across several recent runs.
 
-The gate records whether that measured gain is eligible to be captured. The pattern report also considers whether the gain held across recent comparable readings. If those readings reverse or fail, it points toward investigating the variation rather than recommending an immediate pin.
+If the readings went back and forth, the report suggests looking into the variation instead of tightening the limit yet. Either way, you decide. [Set and raise standards](../10-guides/set-and-raise-standards.md) explains how to lock in a gain.
 
-A recommendation combines a gain the gate can recognize with history supporting its durability. You still decide whether to capture it. [Set and raise standards](../10-guides/set-and-raise-standards.md) explains that action.
+### Comparing coding agents without ranking them
 
-### Cohorts without rankings
+When the logbook shows which coding agent drove enough runs, the report compares those groups, called **cohorts**. Each group's counts appear beside its total. Runs it can't match to an agent stay visible as a separate share.
 
-When the record supports identifying which coding tools drove enough runs, the report can compare those groups, called **cohorts**. Each group's counts appear with its population, and runs whose driver could not be identified stay visible as an unattributed remainder.
+A difference is a place to look. Say one agent keeps hitting a refusal that the others never see. It's worth checking the instruction file discern writes for that agent, such as `CLAUDE.md`. The difference doesn't show that agent is worse. Different agents may have had different work, and the logbook doesn't record what the tasks were.
 
-A difference is a place to investigate. If one provider repeatedly encounters an instruction-related refusal, checking its generated instructions and activation may be useful. That does not establish that the provider is worse: different agents may have been given different work, and the record does not contain those task details.
+When signals about an agent conflict, discern leaves those runs unattributed. The report never grades agents or people, and knowing which agent ran a command never changes how discern treats its work.
 
-Conflicting identity signals remain unresolved. Identifying a provider does not change how discern treats its work, and the report does not grade agents or people.
+## From a finding to one change
 
-## From evidence to one bounded change
+Use the findings to pick one improvement: make an instruction clearer, adjust a check, or aim a checkpoint better. `discern improvement` is another starting point. It checks your setup against the practices discern recommends and suggests one next step. `discern patterns` adds the history of how the setup has worked in practice.
 
-You and your agent can use the findings to choose one improvement: clarify an instruction, adjust a check, or make a review question more relevant. `discern improvement` provides another starting point by examining the configured practice and recommending a next action; `discern patterns` adds the history of how it has been used.
+[Improve how your agents work](../10-guides/improve-the-practice.md) takes one improvement from investigation to review. Later runs show whether it worked, and the earlier history stays in the record for comparison.
 
-[Improve how your agents work](../10-guides/improve-the-practice.md) takes that choice through investigation, implementation, and review. Later comparable evidence can help you assess whether it worked. The original history remains available rather than disappearing when you change a setting.
-
-[What stays on your machine](local-control.md) explains where the records live and what they exclude. [The logbook reference](../30-reference/logbook.md) holds exact fields, statistics, and the choices for recording, sealing, and removing history.
+[What stays on your machine](local-control.md) explains where the logbook lives and what it leaves out. [The logbook reference](../30-reference/logbook.md) lists every field and statistic, and how to turn recording off, seal, or delete the history.
