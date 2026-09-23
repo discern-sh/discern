@@ -1,7 +1,7 @@
 ---
 id: guide-delegate-work
 title: "Delegate substantial work"
-description: "Turn a large idea into clear tasks, give agents what they need, and review what comes back."
+description: "Turn a big idea into tasks that fresh agents can carry on their own, then review what comes back."
 order: 50
 publish: true
 kind: guide
@@ -15,92 +15,98 @@ aliases:
 
 # Delegate substantial work
 
-A substantial idea often needs more than a longer prompt. You might want to add several features, refresh every help page, or improve an app before sharing it. The useful first step is to turn that ambition into tasks with results you can recognize.
+A substantial idea can become several tasks that fresh agents carry on their own. Each task gets a complete brief, its own copy of the project, and a result you can try. You decide what the work should achieve. The agents handle the handovers between them.
 
-Your agent can help you make that plan. discern's delegation skill guides it through finding work that can run together, writing complete briefs, and arranging an independent review. You can spend your attention on what the work should achieve while the briefs carry the detail into fresh sessions.
+This guide follows one idea from plan to review, for a reading-list app. Books should be easier to find, the list should work on a phone, and new readers need clearer help.
 
-## Starting state
+## Before you start
 
-Use this guide once discern is set up in the project and you have an outcome in mind. You do not need a file list or an engineering plan: the planning agent inspects the project and proposes those.
+You need discern set up in your project and an outcome in mind. You don't need a file list or a technical plan. The planning agent reads the project and proposes those.
 
-Give it the context only you can supply, such as who needs the change, what already frustrates them, and anything you want to preserve.
+Bring the context only you have: who the change is for, what bothers them today, and what must stay as it is.
 
-## 1. Ask the agent to use the delegation skill
+## Ask your agent for a plan
 
-Imagine you have an app that keeps a reading list. Finding a book is awkward, the phone layout needs attention, and new readers need clearer instructions. You could ask:
+Ask for a plan before any work starts:
 
-> Use discern-delegate-work to plan these improvements: make books easy to find, make the reading list comfortable to use on a phone, and improve the getting-started help. Suggest which tasks can run together. Keep the existing features, explain any decisions you need from me, and show me the briefs before starting the work.
+> Use discern-delegate-work to plan these improvements: make books easier to find, make the reading list comfortable on a phone, and improve the getting-started help. Suggest which tasks can run at the same time. Keep the existing features, tell me what you need me to decide, and show me the briefs before anything starts.
 
-The skill is a playbook for your agent. It helps the agent turn the request into specific outcomes and decide how to hand them off. It does not launch an extra model inside discern; the work runs in your coding-agent environment.
+`discern-delegate-work` is a **skill**: a ready-made playbook your agent follows. It has the agent find where the work divides cleanly, write a brief each fresh agent can act on, and review each result. The skill runs inside your coding agent. discern adds no model of its own.
 
-## 2. Decide which tasks can run together
+## Check how the work splits
 
-Your agent should bring back a small plan you can assess. For the reading-list example, a proposal might look like this:
+Your agent comes back with a short plan. For the reading list, it might look like this:
 
-| Task                    | What you will be able to review                             | What may affect the split                                      |
-| ----------------------- | ----------------------------------------------------------- | -------------------------------------------------------------- |
-| Find a book             | Search the list by title or author.                         | Search and layout might change the same screen.                |
-| Use the list on a phone | Read titles and reach the controls at a narrow screen size. | Shared screen changes may belong with search.                  |
-| Improve the help        | Follow the instructions to add and find a first book.       | The final instructions depend on the finished search behavior. |
+| Task                    | What you'll be able to try                             | What might change the split                                     |
+| ----------------------- | ------------------------------------------------------ | --------------------------------------------------------------- |
+| Find a book             | Search the list by title or author.                    | Search and the phone layout may change the same screen.         |
+| Use the list on a phone | Read titles and reach the controls on a narrow screen. | Changes to that shared screen may belong with search.           |
+| Improve the help        | Follow the steps to add and find a first book.         | The help should describe search as it works once it's finished. |
 
-This is an illustrative plan; your agent needs to check the actual project before recommending it. Features that sound independent may rely on the same code.
+The agent checks the real code before it recommends a split, because two features that sound separate can change the same files. Tasks that would edit the same files either merge into one task or run one after the other. That way they don't collide when they land.
 
-Each task should have a result you can describe and review. If the split makes a simple change harder to explain, ask the agent to combine it. A single task can still use sub-agents for independent research or review while keeping one workspace and one finished change.
+Each task should end in something you can try. If a split makes a simple change harder to explain, ask the agent to combine the tasks. One task can still use helper agents for research or review inside its own workspace.
 
-For genuinely separate tasks, each agent receives its own **worktree**: a workspace and branch for that effort. Where one task needs another's result, the plan can put them in stages. The later agent can [wait for the earlier task](wait-for-another-task.md) without asking you to carry progress messages between sessions.
+Each separate task gets its own **worktree**: a separate copy of the project on its own branch. When one task needs another's result, the plan puts them in order. Here, the help task needs search, so it can describe what search does. The help task's agent [waits for search by itself](wait-for-another-task.md), so you never carry "search is ready" from one session to another.
 
-## 3. Make every brief stand alone
+## Read each brief as a stranger would
 
-A fresh agent does not inherit the planning conversation. Your planning agent writes a complete brief for each task, including the context, relevant files, expected behavior, exclusions, and checks. It also records any dependency and the worktree the task should use.
+A fresh agent never sees your planning conversation. It starts with its brief and a new copy of the project. So the planning agent writes each brief to stand alone. It covers the background, the files involved, the behavior you expect, what's out of bounds, and which checks the work must pass. It also names the worktree the task should use and any task it waits for.
 
-Read each brief as if it were the only instruction the next agent would receive. Check that it explains:
+Check that each brief gives:
 
-- **A visible result.** “Search finds books by title or author” gives you something to try.
-- **A meaningful boundary.** “Keep the way books are added” preserves a part of the app you already like.
-- **A review plan.** The brief explains how the result will be checked and who will review it.
+- **A result you can try.** "Search finds books by title or author" tells you what to test.
+- **A clear boundary.** "Keep the way books are added" protects something you already like.
+- **A way to check it.** The brief says which checks must pass and who reviews the result.
 
-You can leave technical choices to the receiving agent and ask it to explain their consequences. Product choices need enough direction to avoid guesswork: for example, whether search should include books you have already read.
+Leave technical choices to the receiving agent, and ask it to explain what they mean for you. Product choices need your direction. For example, should search include books you've already read?
 
-A useful follow-up is:
+To find gaps before anyone starts, ask:
 
-> Read these briefs as a fresh agent. What would you have to guess? Fill in what you can learn from the project, and bring me the remaining product decisions.
+> Read these briefs as a fresh agent would. What would you have to guess? Fill in what you can learn from the project, and bring me the decisions only I can make.
 
-## 4. Arrange dependencies and landing
+Each brief also carries your project's standing rules. The agent runs the full set of checks before calling its work done. When it fixes a bug, it fixes the cause and adds a check that fails if the bug comes back. It writes down decisions a later session will need. So each delegated task leaves its gains in place for the tasks that follow.
 
-Decide whether you want to review separate improvements as they finish, or review a combined result. To **land** a change is to add it to the project's shared branch, usually `main`.
+## Decide what lands without you
 
-Independent tasks can land separately. A staged change can build on earlier checked work before it lands. In the reading-list example, the help writer could use the completed search feature to write accurate instructions while you review the feature itself.
+To **land** a change is to add it to your project's shared branch, usually `main`. Starting a task and letting it land are separate decisions. Make the second one now, for each task, and the planning agent writes your answer into its brief:
 
-The planning agent records that arrangement in the briefs and gives each dependent task the exact branch identity returned when its prerequisite starts. You do not need to coordinate the moment of handover yourself.
+- **Review first.** The task passes its checks, then stops at its **Proof**, discern's record of which checks passed on exactly which commit. It waits there for you.
+- **Land when green.** You give permission in advance. When the task's checks pass, its agent lands it without asking you.
 
-Starting work and approving its landing are separate decisions, and review before landing is a choice you make per task rather than a turn every task owes you. A task whose scope you have already granted can finish its checks and land on its own; a task you want to see first stops at its Proof—the evidence for its exact checked commit—and waits. Ask the planning agent to state which is which in each brief. A later task's approval does not automatically approve earlier work included in it. [Proof, review, and authority](../20-understand/proof.md) explains how those decisions accompany the completed change.
+You can give that permission from the **desk**, the interactive view that opens when you run `discern` in your main checkout. A standing grant in your project's settings can also cover areas such as documentation. [Proof](../20-understand/proof.md) explains where permission to land can come from. No grant covers an unmet checkpoint, a change to a standard's limit, or an emergency landing. Those always come back to you.
 
-The agents coordinate the rest without you. A finished task submits its proven commit for landing, an agent waiting for a sibling holds one call until the sibling is ready, and a task you pre-authorized can land when its agent starts acceptance on a green commit. The explicit queue action waits for an active or later acceptance walk. A brief does not need to ask for a separate test run before the full check, a message to you when an independent task is ready to land, or a preview kept open until landing; none of them changes what the checks prove or what acceptance decides.
+Approving one task doesn't approve another. If the help task builds on search before search lands, landing the help task brings search's code with it. So approve it only once you're happy with both.
 
-## 5. Start the agreed tasks
+After that, the agents coordinate the rest. A finished task submits its exact checked commit for landing. If another task lands first, discern checks the two changes together and lands the version that passed, so the later task doesn't start over. A task that depends on another holds until that work is ready. Your briefs don't need to ask for extra test runs, a message before each landing, or a preview left open until the end.
 
-Before launch, you should have copyable briefs and a clear account of how many sessions will run, which tasks wait for others, and how their results come back for review. The agent should also flag limits in your environment that affect the plan, such as available agent slots or test capacity.
+## Start the tasks
 
-Launch the briefs yourself, or accept the agent's offer to launch the described set where your environment supports it. If the proposed set changes, review the revised arrangement before starting the additional work.
+Before anything starts, you should have:
 
-The agent records each returned branch and path so feedback reaches the same effort later. [Coordinate parallel tasks](coordinate-parallel-tasks.md) covers following the work once it is running.
+- a brief for each task that you can copy as it is;
+- how many sessions will run, and which run at the same time;
+- which tasks wait for others;
+- any limit that affects the plan, such as how many test runs your machine can handle at once.
 
-## 6. Review what comes back
+Nothing starts until you say so. Launch the briefs yourself, or accept your agent's offer to launch them. If the plan changes after that, the agent shows you the new plan before it starts anything more.
 
-Try the result against the request. For search, find a book by title, find another by author, and try a search with no matches. Ask your agent to show what the project's checks established and what still needs judgment.
+The agent records each task's branch and worktree, so later feedback reaches the right task. [Coordinate parallel tasks](coordinate-parallel-tasks.md) covers following the work while it runs.
 
-An independent reviewing agent can examine the code, compare the implementation with the brief, and investigate concerns you cannot assess yourself:
+## Review what comes back
 
-> Review this task against its brief and current Proof. Try the promised behavior, inspect the changed code, and tell me what falls short or still needs my decision.
+Try each result against what you asked for. For search, find a book by title and another by author, then search for something that isn't there. Ask your agent what the checks covered and what still needs your judgment.
 
-Use the review to decide whether the result serves your readers. Passing checks supply evidence about the configured requirements; they do not decide whether the feature is useful or pleasant to use.
+A second agent can review the work on its own. It reads the actual changes and compares them with the brief:
 
-Send any corrections back to the same effort. Its agent follows the reported worktree state, makes the changes, and renews completion evidence. See [Finish and land a change](finish-and-land-a-change.md) for reviewing and accepting the result.
+> Review this task against its brief and its current Proof. Try the promised behavior, read the changed code, and tell me what falls short or still needs my decision.
 
-## Completion
+A pass means the project's checks passed on that commit. It can't tell you whether search feels right to use. That judgment is yours.
 
-The handoff is ready when you understand the proposed tasks, each fresh agent has a complete brief, and the review and landing arrangements are clear. The work is complete when those results have been reviewed and the landing result says what reached the shared branch and what remains pending.
+Send any changes back to the same task. Its agent makes them in the same worktree, commits, and runs the checks again. The old Proof covered the old version, so the new version comes back with new Proof. [Finish and land a change](finish-and-land-a-change.md) covers review and landing in detail.
 
-## Bundled skills
+## You're done when
 
-Delegation is one of discern's reusable playbooks. You can also ask for help curing a recurring bug, documenting part of the project, or preserving a lesson for future sessions. [Create and manage skills](create-and-manage-skills.md) shows useful requests and how to adapt the available skills. `discern skills list` lists bundled and project-authored skills and marks exclusions.
+The handoff is ready when you understand the tasks, each brief stands alone, and you've decided which tasks may land without you. The work is done when you've reviewed each result, and each landing result says what reached `main` and what's still waiting. A task that passed its checks is only ready. It isn't on `main` until it lands.
+
+Delegation is one of the skills that come with discern. [Create and manage skills](create-and-manage-skills.md) covers the rest.
