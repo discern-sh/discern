@@ -38,7 +38,7 @@ Make the strongest claim the product supports, then give it a concrete meaning i
 
 Short doesn't mean choppy. Join two short sentences when the second only finishes the first.
 
-Tutorials, guides, explanations, and troubleshooting pages should score at or below grade 7.5 under the `manual_reading_grade` projection. The reference pages score between 7.1 and 7.2. [Check the page](#check-the-page) explains how to measure.
+Tutorials, guides, explanations, and troubleshooting pages should score at or below grade 7.5 under the `manual_reading_grade` projection, as the reference pages do. [Check the page](#check-the-page) explains how to measure.
 
 ### Name the actor
 
@@ -103,7 +103,7 @@ Describe a benefit by what happens. "discern checks the combined code and lands 
 Plain prose only helps if it's still true.
 
 1. Check every claim about behavior against the live product. Start with the current map page for that subsystem, and read the code and tests where the map is unclear. When sources disagree, the code and tests win. Report the disagreement to the page that owns it instead of smoothing it over.
-2. Never copy a claim from another manual page without checking it. Pages drift: the Proof page and the landing guide once disagreed about what happens when the trunk moves.
+2. Never copy a claim from another manual page without checking it. A page can fall behind the product without anyone noticing.
 3. Read the page's benefit obligations and the Human Benefit Canon entries they name.
 4. Run every literal example, including commands, output, and config, against the live product. Examples must work in an external project, so don't use repository-only fixtures.
 
