@@ -1,7 +1,7 @@
 ---
 id: explanation-worktrees-and-trunk
 title: "Worktrees and trunk"
-description: "Understand where separate tasks work, how their results come together, and what reaches the shared branch."
+description: "Let each agent build, break, and fix things in its own copy of the project, while your shared branch moves only when checked work lands."
 order: 40
 publish: true
 kind: explanation
@@ -15,64 +15,70 @@ aliases:
 
 # Worktrees and trunk
 
-Suppose you want to add search to your app and improve its phone layout at the same time. Each agent needs room to change the project, try an approach, and correct mistakes. Meanwhile, you want the shared version of the project to remain available.
+Each task your agent takes on gets its own copy of the project. The agent can try an idea, break something, and fix it there, while your shared branch keeps working. That branch moves only when a finished change passes its checks and has your permission to land.
 
-discern gives each separate task an isolated workspace called a **worktree**. The **trunk** is the shared branch that accepted work joins, usually `main`. Work can continue in several worktrees while the decision to add those changes to the trunk remains separate.
+This page follows a recipe app with two tasks running at once. One agent adds recipe search. Another improves the layout on phones.
 
-## A worktree is a task's own place
+## Each task works in its own copy
 
-A worktree contains a separate working copy of the project and has its own branch, where the task's commits are recorded. The search agent edits its copy; the phone-layout agent edits another. Their saved files do not overwrite each other.
+When your agent starts a task, it runs `discern start`. That creates a **worktree**: a separate copy of the project with its own branch, where the task's commits go. The search agent edits one copy, and the layout agent edits another. Neither can overwrite the other's files.
 
-A new task normally starts from the trunk through `discern start`. discern also prepares the environment the project declares for it, such as a development-server port and a separate test database. This matters because two agents need more than separate source files if their tests would otherwise change the same data.
+discern also sets up anything your project says each copy needs, such as its own port for a development server or its own test database. Both agents can then run their tests at the same time without changing each other's data.
 
-The worktree stays with the effort through implementation, review, and resumed sessions. If you ask for a change to search after reviewing it, the agent continues that effort. A fresh conversation does not mean the work must start again.
+The worktree stays with the task until the change lands. If you review search and ask for changes, the agent makes them in the same worktree. If the session ends, the next one carries on in that worktree instead of starting again.
 
-discern changes a worktree only through the command its agent runs there. It never installs another version of the project into an agent's workspace, and an idle or clean worktree is never treated as free for other work. What the agent left is what the agent finds.
+discern changes a worktree only when a command runs in it. It never slips other work into it, and it never hands a quiet worktree to another task. Whatever the agent left there is what it finds when it comes back.
 
-The main checkout is the original project directory from which you oversee the tasks. Agents do their task edits in worktrees, so that directory can stay available for inspecting the shared project.
+Your original project folder is the **main checkout**. Agents make their task edits in worktrees, so the main checkout stays free for you. Run `discern` there to open the **desk**, an interactive view of every task at once.
 
-## The trunk is what the project agrees on
+## The trunk holds what you've agreed to
 
-The trunk is the common version that new work builds from. In discern's normal workflow, a task reaches it through **acceptance**: the step that checks the evidence and permission for landing.
+The **trunk** is your project's shared branch, usually `main`. Every new task starts from it, and a change reaches it only by **landing**.
 
-Finishing a feature does not add it to the trunk automatically. The agent commits its work and runs `discern done`, which records [Proof](proof.md) for that exact commit. You can review the result before it joins the shared project, or use a recorded permission for work you have already authorized.
+Finishing a task doesn't land it. When search is done, the agent commits its work and runs `discern done`. That runs your project's checks and records [Proof](proof.md): which checks passed, on exactly which commit. Search is now green, meaning its checks passed. But `main` hasn't changed.
 
-A finished task waits in the landing queue once its agent submits it: the exact commit the agent asked to land, with its Proof. Tasks you pre-authorized come first, then tasks waiting for your decision. Approving one task approves only that task.
+So you can try search in its worktree first. Say you find it should search ingredients too. You ask, and the agent makes the change. The first Proof doesn't cover the new version, so the agent runs the checks again. Meanwhile, `main` still holds the last version you accepted.
 
-Think of the reading-list search as an example. You can try it in its worktree, discover that it should search authors as well as titles, and ask for that improvement. Those iterations can happen while the trunk continues to hold the previously accepted version.
+When you're happy, the agent submits search to land. It waits in the **landing queue** until it has permission, from you or from a **grant**: permission you set up in advance. Approving search approves only search. The layout task still needs its own permission. [Proof](proof.md#checks-judgments-and-permission) explains where permission can come from.
 
-This is a working practice, not a sandbox around the agent. It separates checkouts and declared resources; your coding-agent host still governs what commands the agent may run on your machine.
+## How work moves between tasks
 
-## How work and evidence move
+These moves connect a worktree to other work:
 
-These commands connect a task to other work:
+| Move                          | What it does                                                               | In the recipe app                                                       |
+| ----------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Update**                    | Brings the latest trunk into a worktree.                                   | The layout change lands, and the search agent brings it into its copy.  |
+| **Build on work in progress** | Starts a task from another task's branch, or brings that branch into one.  | A task that writes help pages for search starts from the search branch. |
+| **Land**                      | Checks the Proof and permission, then moves the trunk to what was checked. | `main` gets the search you approved.                                    |
 
-| Operation       | What it does                                                                       | In the reading-list example                                                |
-| --------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **Update**      | Brings the latest trunk into an existing worktree.                                 | The search task receives a phone-layout improvement that has landed.       |
-| **Composition** | Builds a task on an explicit commit or branch, including work that has not landed. | A help-writing task tries the checked search feature before you accept it. |
-| **Accept**      | Submits the worktree's proven commit and lands it on the trunk once authorized.    | The shared app receives the approved search improvement.                   |
+Your agent runs these with `discern update`, `discern start --from` or `discern update --from`, and `discern accept`. You don't need to run them yourself. Each result tells the agent what to do next. For example, when an update brings in new work, discern lists the files both sides changed, so the agent knows what to re-read.
 
-For an update, `discern_update` reports files changed on both sides so the agent knows what to re-read. For composition, the agent uses `discern start --from <ref>` or `discern update --from <ref>`. It can [wait for another task](../10-guides/wait-for-another-task.md) to supply the checked commit it needs.
+When one task needs another's work, the agent can [wait for it](../10-guides/wait-for-another-task.md). You don't have to tell it when the other task is ready.
 
-Proof names the exact commit in the task's worktree, and acceptance lands that commit and no other. If the trunk moved after the Proof was recorded, acceptance refuses and names the route: the task's agent brings the trunk in with `discern update`, runs `discern done` again, and submits again. Checks the incoming changes do not affect are reused, so the second run is usually shorter than the first.
+## When other work lands first
 
-You do not need to manage that record by hand. The completion and landing results explain what was verified, what reached the trunk, and what is still waiting. [Finish and land a change](../10-guides/finish-and-land-a-change.md) shows how to review those results.
+Say the layout change lands while search waits for your review. That doesn't send search back to the start.
 
-## What isolation covers, and what it can't
+When search lands, discern combines it with the new `main` in a temporary copy, called an **integration worktree**. It runs the checks on the combined code and lands exactly what passed. If the two changes conflict, or the combined checks fail, nothing lands. The search agent gets the files or the failing check. It brings the new `main` into its worktree, fixes the problem, and tries again.
 
-Separate worktrees prevent agents from overwriting the same working copy. They cannot make two features agree about how the app should behave.
+While the agent is still working, it keeps up with `main` itself. Before it runs the checks, `discern done` asks it to bring in any work that has landed since the task started. [Finish and land a change](../10-guides/finish-and-land-a-change.md#when-other-work-lands-first) shows what this looks like when you review.
 
-The search task might add a search box above the reading list. The phone-layout task might use that same space for a menu. Both changes could work in their own copies, but the combined screen still needs review. discern's fleet view reports files changed by more than one task, and update reports incoming overlap. The agent uses those signals to investigate the combination.
+## What separate copies can't catch
 
-The same care applies to resources. A database declared separately for each worktree can keep test data apart. A shared external service that was never included in that setup remains shared.
+Worktrees keep files apart. They can't make two features agree.
 
-## What happens to a finished workspace
+Search might put a search box at the top of the recipe list. The layout task might put a menu in the same spot. Each works in its own copy, and the combined code might pass every check. You still need to see the two together.
 
-A landing removes the task's worktree, its resources, and its branch when the branch holds nothing beyond what landed. Until then the worktree stays the agent's: review fixes, a resumed session, and the agent's own preview all happen there.
+discern points you to the likely clashes. In the main checkout, `discern status` shows your fleet, all the tasks in progress, and flags tasks that changed the same files. `discern update` names the files both sides touched, so the agent can check how they fit together.
 
-When the worktree stays after a landing, the result says why in one sentence. Either the branch gained commits after the submission, which need their own `discern done` and `discern accept`, or cleanup could not complete, which `discern worktree prune` finishes once whatever blocked it has stopped. The landing stands either way.
+Your project decides what else gets its own copy. A test database set up for each worktree keeps test data apart. A shared service that isn't part of that setup stays shared.
 
-For a longer pause, parking can remove a clean checkout while keeping the task's branch, committed work, and wording. You can return to the branch later. [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md#park-a-task-you-will-return-to) covers that choice; [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) covers a session or operation that stopped unexpectedly.
+discern isn't a sandbox around your agent. Your agent's own permission settings decide what it can read and run on your machine.
 
-Use [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md) to put this model to work. The [worktrees and status reference](../30-reference/worktrees-and-status.md) lists the exact identity, environment, and status fields.
+## After a change lands
+
+When search lands, discern removes its worktree, its branch, and anything set up for it. If the worktree stays, the result says why: the branch has newer commits that haven't landed, or cleanup couldn't finish. [Finish and land a change](../10-guides/finish-and-land-a-change.md#after-it-lands) covers both.
+
+To set a task aside for longer, your agent can **park** it. discern removes the worktree but keeps the branch, its commits, and the task's description, so the work can pick up later. [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md#park-a-task-you-will-return-to) explains when to park. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) helps when a session or command stops partway.
+
+To run several tasks at once, follow [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md). The [worktrees and status reference](../30-reference/worktrees-and-status.md) lists every field.
