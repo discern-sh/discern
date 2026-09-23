@@ -623,7 +623,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bmigrations?\b`,
     },
     definition:
-      "A numbered step that updates a project's discern configuration format. `discern upgrade` runs the pending steps in order from one [schema version](#schema-version) to the next. Each step can be repeated without duplicating its intended effect. The command validates the updated configuration before recording the new version. See [Upgrade discern](../10-getting-started/upgrade-discern.md).",
+      "A numbered step that updates your project's discern setup to a newer format. A step can change `discern.toml`, rename or remove files, or merge a coding agent's settings files. `discern upgrade` runs any pending migrations in order, one [schema version](#schema-version) at a time. Running a migration again doesn't repeat its effect. discern checks that the updated configuration is valid before it records the new version. `discern upgrade` refuses to run with uncommitted changes unless you pass `--allow-dirty`, so Git can undo an upgrade. See [upgrading discern](../10-getting-started/upgrade-discern.md).",
   },
   {
     term: "Namespace",
@@ -633,7 +633,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bnamespaces?\b`,
     },
     definition:
-      `The default directory for the project's authored discern content. The visible \`${NAMESPACE_DIR}\` directory holds the [map](#map), your [instruction source](#instruction-source), authored [skills](#skill), [project scripts](#project-script), the project brief, and the \`TODO.md\` ledger. Its contents are authored sources; configuration can place them elsewhere ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)).`,
+      `The folder that holds your project's own discern content, \`${NAMESPACE_DIR}\` by default. It holds the [map](#map), your [instruction source](#instruction-source), your own [skills](#skill) and [project scripts](#project-script), the project brief from setup, and the \`TODO.md\` list of deferred work. Everything in it belongs to your project. Configuration can move each of these except the brief, which stays at \`${
+        sourcePathDefault("brief")
+      }\` ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)). \`discern.toml\` stays at the project root.`,
   },
   {
     term: "Patterns",
@@ -642,7 +644,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     // "patterns" also names ordinary testing and design patterns in the manual.
     matches: ["discern patterns"],
     definition:
-      "Findings about recurring behavior in the project's recorded use of discern. `discern patterns` reads the [logbook](#logbook) for such patterns as repeated gate failures, avoidable workflow steps, and changes in [standard](#standard) measurements. Each finding states its supporting counts and a next step. It is [advisory](#advisory); when evidence is insufficient, it says so. See [practice patterns](../20-quality-gate/patterns.md).",
+      "discern's report on what keeps happening in your project's work, read from its local history. `discern patterns` reads the [logbook](#logbook) for patterns such as repeated gate failures, avoidable steps, slow checks, and changes in [standard](#standard) measurements. Each finding gives its counts, with the total they came from, and a next step. When the logbook doesn't hold enough evidence, the report says so. `discern patterns --stats` shows what went well instead. The report is [advisory](#advisory), and it has nothing to report when the project doesn't record a logbook. See [practice patterns](../20-quality-gate/patterns.md).",
   },
   {
     term: "Improvement review",
@@ -650,7 +652,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: { phrase: "the project-wide quality review" },
     matches: ["improvement review", "improvement audit"],
     definition:
-      "A review of the project as it exists now, using questions the agent judges. `discern improvement` serves these [questions](#question) alongside rules for where project knowledge belongs. It can uncover existing weaknesses that a new-change [checkpoint](#checkpoint) would not reach. The findings are [advisory](#advisory). See [improvement](../20-quality-gate/improvement.md).",
+      "A review of your project as it stands, which finds the most useful next improvement. `discern improvement` scores the project's setup on a set of health checks and names one next action. It also lists [questions](#question) about existing work for you and your agent to judge, outside the score. They can find weaknesses a [checkpoint](#checkpoint) never sees, because checkpoints look only at new changes. The review is [advisory](#advisory) and never blocks `discern done` or `discern accept`. Its `--min-score` option makes the command fail when the score falls below a floor you choose. See [improvement](../20-quality-gate/improvement.md).",
     retired: [
       {
         // The launch-era name for the review's object ("estate review",
@@ -668,7 +670,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       phrase: "putting a file somewhere is permission to write there",
     },
     definition:
-      "Choosing a managed source location authorizes discern to maintain that content. The default source locations carry that permission; pointing a configuration key at another location gives it explicitly. This governs discern's managed content, not every command an agent or project job may run. See [design principles](design-principles.md) and [files and ownership](../70-reference/artifact-ownership.md).",
+      "The rule that putting content where discern manages it gives discern and your agents permission to maintain it. The default locations carry that permission, and your agents treat anything stale there as a problem to fix. Pointing a configuration key at another location grants it explicitly, because you chose the path. The rule covers only the content discern manages. Your agent's other work and your project's jobs run under their own permissions. See [design principles](design-principles.md) and [files and ownership](../70-reference/artifact-ownership.md).",
   },
   {
     term: "Practice",
@@ -681,7 +683,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     // canonical sense is the definite form product surfaces use.
     matches: ["the practice"],
     definition:
-      "The connected way of working discern installs and the project carries between sessions. Tasks use separate [worktrees](#worktree), configured [gate](#gate) checks, held [standards](#standard), exact completion [Proof](#proof), and owner-controlled [landing authority](#landing-authority). Bundled [skills](#skill) guide delegation, lasting project knowledge, and improvements that address a problem's cause. You direct the work and make the consequential decisions; your agents operate the workflow. See [the practice](the-practice.md).",
+      "The way of working discern sets up in your project, which carries over from one session to the next. Each session starts with the project's instructions. Each task gets its own [worktree](#worktree), passes your project's [gate](#gate), meets your [standards](#standard), and finishes with [Proof](#proof) of which checks passed. Nothing lands without [landing authority](#landing-authority) that you control. Bundled [skills](#skill) guide your agents as they delegate work, keep what the project learns, and fix problems at their cause. You set the direction and make the decisions that matter, and your agents run the workflow. See [the practice](the-practice.md).",
   },
   {
     term: "Project script",
@@ -691,9 +693,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bproject\s+scripts?\b`,
     },
     definition:
-      `A runnable procedure the project supplies for its agents and maintainers. It lives under \`[scripts].dir\` (default \`${
+      `A procedure your project provides for its agents and maintainers to run. Each script is an executable file in any language, placed directly in \`[scripts].dir\`, which defaults to \`${
         sourcePathDefault("scripts")
-      }\`), run as \`discern scripts <name>\` with \`DISCERN_*\` exported. Scripts occupy their own namespace, so built-in verb names stay legal ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).`,
+      }\`. \`discern scripts\` lists them, and \`discern scripts <name>\` runs one from the project root. discern gives each script its own \`DISCERN_*\` values, such as \`DISCERN_ROOT\` and \`DISCERN_TRUNK\`, and removes any it inherited. Scripts have a command of their own, so a script can share its name with a built-in discern command ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).`,
     retired: [
       {
         // The singular invocation. Typed input folds to `scripts` silently
@@ -713,7 +715,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         "the short code that reads a long command back after a lost connection",
     },
     definition:
-      "The short `R1-XXXX-XXXX-XX` code recorded for a long operation and announced to MCP callers. `discern progress <handle>`, or the `discern_progress` tool, reads that operation back after a lost call: its phase, the counts and failures known so far, and the retained result. Human command output omits the startup announcement; `discern progress` without a handle finds the latest operation. It only reads; the `C1` continuation that `discern await` returns is what resumes a wait. See [progress and reconnect](../70-reference/progress-and-reconnect.md).",
+      "A short code, such as `R1-XXXX-XXXX-XX`, that lets your agent read back a long-running command after losing track of it. discern records one for each long operation, such as `discern done` or `discern accept`. `discern progress <handle>`, or the `discern_progress` tool, shows that operation's phase, the counts and failures known so far, and its result once it finishes. An MCP client that asks for progress updates gets the handle first. Terminal output, `--json`, and `--markdown` don't show it. Without a handle, `discern progress` reads the latest operation in the current checkout. Reading progress starts, repeats, and cancels nothing. To resume a wait, your agent uses the `C1` continuation that `discern await` returns. See [progress and reconnect](../70-reference/progress-and-reconnect.md).",
   },
   {
     term: "Proof",
@@ -724,7 +726,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: false,
     },
     definition:
-      "discern's completion evidence for the exact committed change it validated. `discern done` records machine results, held [standards](#standard), and declared checkpoint judgments for the committed tip of the invoking worktree. The Proof line summarizes that evidence; `discern status --verbose` retrieves the full page. Evidence whose inputs are unchanged can be reused, but a later commit needs current validation. Proof does not grant [landing authority](#landing-authority). See [the Proof](../20-quality-gate/the-proof.md).",
+      "discern's record of which of your project's checks passed, on exactly which commit. `discern done` records it when every check passes on the latest commit in the task's worktree, with nothing left uncommitted. It holds the check results, the [standards](#standard) that held, and your agent's checkpoint answers. The Proof line sums it up, and `discern status --verbose` shows the full record. Any later edit makes the Proof stale, and so does a changed checkpoint answer or limit proposal. The new version then needs its own `discern done`. A newer trunk doesn't make Proof stale. A check whose inputs haven't changed can reuse its earlier result. Proof shows what passed, and it never gives a change [landing authority](#landing-authority). See [how to read a Proof](../20-quality-gate/the-proof.md).",
   },
   {
     term: "Proof note",
@@ -735,7 +737,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bproof\s+notes?\b`,
     },
     definition:
-      "A durable copy of landed [Proof](#proof), attached to the commit in Git. The JSON record lives under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) binds the full commit and preserves the payload bytes for future signatures; current notes use an unsigned extension with an empty signatures array. Recording is local by default, fetching is opt-in, and publishing requires an explicit Git push. See [Proof notes](../20-quality-gate/proof-notes.md).",
+      "A copy of a landed change's [Proof](#proof), stored with its commit in Git. When a change lands, discern writes its Proof as a Git note on the landed commit, under `refs/notes/discern`. The note also records who allowed the landing, including any [variance](#variance) and its reason. Anyone with the repository can later look up which checks passed for that commit. The note is a JSON record in a Dead Simple Signing Envelope (DSSE). Its payload names the full commit, and the envelope keeps the exact payload bytes so a future version can add signatures. discern doesn't sign notes yet, so their list of signatures is empty. Notes stay in your local repository. Setting `[repository].proof_notes_mode = \"fetch\"` also fetches them from your remotes, and only an explicit `git push` shares them. An emergency landing writes an exception record there instead of Proof. See [Proof notes](../20-quality-gate/proof-notes.md).",
   },
   {
     term: "Schema version",
