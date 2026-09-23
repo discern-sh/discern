@@ -747,7 +747,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bschema\s+versions?\b`,
     },
     definition:
-      "The version number of the project's discern configuration format. `[meta].schema_version` identifies the current step in the [migration](#migration) sequence. It changes when an installation needs a format migration; a new discern release does not necessarily change it.",
+      "The version number of your project's discern setup format. discern stores it as `[meta].schema_version` in `discern.toml` and changes it itself, so don't edit it by hand. Each [migration](#migration) moves it up by one, and `discern upgrade` runs any that are pending. Many discern releases leave it unchanged. If the number is newer than your copy of discern understands, discern refuses to work on the project until you install a newer version.",
   },
   {
     term: "Scope",
@@ -757,7 +757,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bscopes?\b`,
     },
     definition:
-      "A named set of project paths used to select work or policy. A `[scopes.<name>]` entry declares path patterns and can provide a `gate` command for changes in that area. Unclassified paths still count as code changes, so missing classification does not skip them. `discern map --export <name>` can also use a scope as an ordered reading list. See [the quality gate](../20-quality-gate/).",
+      "A named area of your project, such as its documentation, defined by path patterns. Each `[scopes.<name>]` entry lists its patterns and can give a `gate` command, which runs only when a change touches that area. Standing grants and checkpoint triggers can name scopes too. Every job in `[jobs]` still runs on every change. A path outside every scope fires no scope's `gate` command, and no standing grant covers it. If discern can't tell what changed, it runs every scope's `gate` command. `discern map --export <name>` can also use a scope as an ordered reading list. See [the quality gate](../20-quality-gate/).",
     retired: [
       {
         // The seeded documentation scope's retired name (now [scopes.map]).
@@ -774,7 +774,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bskills?\b`,
     },
     definition:
-      "A reusable playbook that tells an agent how to handle a particular kind of task. Skills use `SKILL.md` files. discern ships bundled skills prefixed `discern-`; you can add your own under `[skills].dir` or override a bundled skill with the same name. `discern refresh` makes the selected set available to configured agents, `discern skills list` shows it, and `[skills].exclude` omits named skills. See [skills](../45-skills/).",
+      `A ready-made playbook that tells your agent how to handle a particular kind of task. Each skill is a folder with a \`SKILL.md\` file. discern comes with bundled skills whose names start with \`discern-\`. You can add your own in \`[skills].dir\`, which defaults to \`${
+        sourcePathDefault("skills")
+      }\`, and one of yours with a bundled skill's name replaces it. \`discern skills eject <name>\` copies a bundled skill there for you to change, and that copy stops getting discern's updates. \`discern refresh\` makes the selected skills available to each configured coding agent. \`discern skills list\` shows every skill, including the ones \`[skills].exclude\` leaves out. See [skills](../45-skills/).`,
   },
   {
     term: "Stage",
@@ -784,9 +786,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bstages?\b`,
     },
     definition:
-      `A group in the order the [gate](#gate) runs work. The stages are ${
-        codeList(STAGES, "or")
-      }. A known [job](#gate-job)'s name determines its stage; a custom job declares one explicitly.`,
+      `A group in the order the [gate](#gate) runs its work. The stages are ${
+        codeList(STAGES, "and")
+      }. A known [job](#gate-job) gets its stage from its name, and a custom job declares its own. \`fix\` jobs run first, one at a time, and may change files. \`build\` jobs run next, and \`check\` and \`test\` jobs then run side by side. A failed result can also name a check outside these stages, such as \`merge\` or \`standards\`.`,
   },
   {
     term: "Standard",
@@ -798,7 +800,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bstandards\b`,
     },
     definition:
-      "A held limit for a repeatable project measurement. A `[standards]` entry sets a floor that may rise or a ceiling that may fall. The gate checks the limit and protected measurement definition against the preceding committed policy; an ordinary branch cannot weaken or delete them. Completion requires every standard, using applicable evidence or a new measurement. `discern standards --pin` captures a gain; `discern prepare` requests no measurements. A weaker limit needs the separate owner-approved proposal process. See [standards](../20-quality-gate/standards.md).",
+      "A measured limit your project holds, such as a maximum download size or a minimum test coverage. Each `[standards.<name>]` entry sets a `direction`: `up` for a floor, which can only rise, or `down` for a ceiling, which can only fall. The gate measures every standard and compares it with its limit, reusing an earlier measurement when none of its inputs changed. It also compares the limit and what gets measured with the trunk's current configuration. So a branch can't weaken, delete, or redefine a standard to make its own work pass. `discern prepare` doesn't measure standards. When a measure improves, `discern standards --pin` tightens the limit to lock in the gain. Only you can approve a looser limit. Your agent proposes it with `discern standards propose`, and you approve that exact proposal before the change lands. No grant covers it. See [standards](../20-quality-gate/standards.md).",
   },
   {
     term: "Trunk",
@@ -808,7 +810,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\btrunks?\b`,
     },
     definition:
-      "The shared branch that accepted work joins, usually `main`. `[repository].trunk` selects it. Tasks bring its changes into their own worktrees with `discern update`; `discern accept` fast-forwards it to a submitted, proven, authorized commit.",
+      "Your project's shared branch, usually `main`, where finished changes land. `[repository].trunk` names it, and `DISCERN_TRUNK` overrides it for one command. By default, each new task branches from the trunk, and a task brings in the trunk's newer changes with `discern update`. `discern accept` moves the trunk forward, and only by fast-forward. If the submitted commit already includes the trunk's latest commit, the trunk moves to the submitted commit. Otherwise discern combines the submission with the current trunk in an [integration worktree](#integration-worktree), checks the result, and moves the trunk to that proven combination.",
     retired: [
       { phrase: "integration branch" },
       {
@@ -832,7 +834,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       phrase: "the agent's request to land one exact finished version",
     },
     definition:
-      "An effort's recorded request to land one exact commit. `discern accept queue` records it without starting a landing; `discern accept` records it and starts landing. Both select the effort from its worktree or with `--target`, naming its branch, the committed revision, and the [Proof](#proof) that covers it, and store the submission beside the effort grant under the worktree's Git administration so no branch can forge it. A later explicit submission from the same effort replaces it; a later commit or Proof alone does not. A landing consumes it, and dropping the worktree removes it. The landing queue lists submissions with honored [Proof](#proof) that have not landed, pre-authorized ones first; a green run its agent never submitted is absent and lands only by the owner's explicit act. See [landing authority](../30-worktrees/landing-authority.md).",
+      "Your agent's recorded request to land one exact commit. `discern accept` records the submission and starts landing it. `discern accept queue` only records it, and refuses if the Proof holds an unmet checkpoint answer or a proposed limit change. Your agent runs either one from the task's worktree, or names the task with `--target`. The submission names the task's branch, the commit, and the [Proof](#proof) that covers it. discern stores it beside any one-task grant, in the worktree's Git administration folder, where nothing committed on a branch can change it. A later explicit submission from the same task replaces it. A new commit or new Proof on its own doesn't. Landing uses the submission up, and removing the worktree deletes it. The landing queue lists every submission that hasn't landed, pre-authorized ones first, and says why any of them is waiting. A change that passed its checks but was never submitted isn't in the queue. It lands only when you act on it yourself. See [landing authority](../30-worktrees/landing-authority.md).",
     retired: [{
       phrase: "early validation",
       // Checking an effort before its predecessor lands. Nothing validates
@@ -852,7 +854,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     },
     matches: ["discern tidy"],
     definition:
-      "discern's formatter for its configured Markdown and TOML surfaces. `discern tidy` formats the [map](#map), deferred-work ledger, and [instruction sources](#instruction-source) as Markdown, and `discern.toml` as TOML. Fresh installations run it through the format [job](#gate-job); removing that command opts out. See [format discern-owned surfaces](../20-quality-gate/tidy.md).",
+      "discern's formatter for the Markdown files it manages and for `discern.toml`. `discern tidy` formats every Markdown page in the [map](#map), the list of deferred work, and your [instruction sources](#instruction-source). It also checks that box-drawing diagrams stay aligned, and it refuses a file whose tables or frontmatter it can't format safely. It doesn't format your source code. New installations run it in the `format` [job](#gate-job), and removing it from that job opts out. See [formatting with tidy](../20-quality-gate/tidy.md).",
   },
   {
     term: "Tip",
@@ -864,7 +866,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     // "tip" is also a branch tip and ordinary English across the manual.
     matches: ["desk tip"],
     definition:
-      "A short practical suggestion shown below the [desk](#desk) status. The desk chooses a tip once per session and records its id in the [logbook](#logbook). The yellow `Tip` label distinguishes it from task status; its advice does not change what the selected task may do. Advice delivered to agents remains in command results. See [desk tips](../30-worktrees/desk-tips.md).",
+      "A short, practical suggestion that the [desk](#desk) shows on one line below its main view. The line starts with `Tip:`. The desk picks one tip when it opens and keeps it until you leave. Press `t` to read the full tip. Each tip only teaches, and every action works without it. When recording is on, the desk notes which tip it showed in the [logbook](#logbook). Advice for agents comes in their command results instead. See [desk tips](../30-worktrees/desk-tips.md).",
   },
   {
     term: "Update",
@@ -876,7 +878,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     // "update" is also an ordinary editing instruction throughout the manual.
     matches: ["discern update"],
     definition:
-      "Bring newer work into the current task's [worktree](#worktree). `discern update` merges the latest [trunk](#trunk) into the task branch and refreshes generated files. With `--from <ref>`, it can bring in another explicit source, including unlanded work. The result names overlapping files for the agent to re-read, because a successful merge does not prove the combined behavior is right. See [worktrees](../30-worktrees/).",
+      "`discern update` brings the latest work from your project's shared branch into a task's [worktree](#worktree). It merges the latest [trunk](#trunk) into the task's branch, then rebuilds generated files and refreshes the agent files and skills. It runs only in a task's worktree, and only when the worktree has no uncommitted changes. If the merge conflicts, it stops and changes nothing, unless the conflicts are only in generated files, which it rebuilds. With `--from <ref>`, it brings in another source instead, such as another task's unlanded work. The result lists files that both sides changed, so your agent can re-read them. Changes can merge cleanly and still clash. See [worktrees](../30-worktrees/).",
   },
   {
     term: "Worktree",
@@ -886,7 +888,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bworktrees?\b`,
     },
     definition:
-      "A separate working copy and branch for one effort. `discern start` creates it so task edits stay apart from the main checkout and other efforts. Review and resumed sessions continue the same effort; a worktree changes only through the operation run in it, and no operation installs another revision into it. A landing removes the worktree, its resources, and its branch when the branch holds nothing beyond the landed [submission](#submission). Each worktree has a derived port and declared [resources](#worktree-resource); `discern enter` opens a child shell in a selected checkout. See [worktrees](../30-worktrees/).",
+      "A separate copy of your project, on its own branch, where one task's work happens. Your agent creates one from your main checkout with `discern start`, and its branch starts from the trunk by default. Work in it stays apart from your main checkout and from other tasks. The task keeps the same worktree through review fixes and later sessions. discern never slips other work into a worktree, and never hands one to another task, even when it's idle. Each worktree gets its own port and any [resources](#worktree-resource) your project declares. `discern enter` opens a shell in the worktree you choose. When the change lands, discern removes the worktree, its resources, and its branch. The worktree stays if it holds uncommitted files, or if its branch has commits beyond the landed [submission](#submission). See [worktrees](../30-worktrees/).",
     retired: [
       {
         phrase: "borrowed checkout",
@@ -937,7 +939,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bworktree\s+resources?\b`,
     },
     definition:
-      "A supporting service or other resource prepared separately for one worktree. Examples include a test database, emulator, or container. `[worktree.resources.<name>]` declares its `create` and `destroy` commands. Worktree setup ensures the declared resource exists, and lifecycle cleanup removes it when appropriate. `discern worktree prune` can reclaim positively identified orphaned resources. See [worktree resources](../30-worktrees/the-resources.md).",
+      "Something one worktree needs of its own, such as a test database, an emulator, or a container. You declare each one under `[worktree.resources.<name>]`, with `create` and `destroy` commands and an optional `ensure` command. discern runs `create` when it first sets up a worktree, and `ensure` on later setups instead of creating the resource again. It runs `destroy` when the worktree goes away, such as after landing. If a worktree leaves a resource behind, `discern worktree prune` removes it, but only when discern can prove no live worktree owns it. See [worktree resources](../30-worktrees/the-resources.md).",
   },
   {
     term: "Project-owned file",
@@ -946,7 +948,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       keep: "'project-owned' reads literally; the register uses it as-is",
     },
     definition:
-      "A file whose ongoing contents belong to the project. discern may create an initial copy, but `discern upgrade` does not overwrite it. Examples include authored [map](#map) pages, instructions, the deferred-work ledger, and skills in the [namespace](#namespace).",
+      "A file that belongs to your project, even when discern created its first copy. `discern upgrade` never overwrites it. Examples include your [map](#map) pages, instruction source, skills, project scripts, and list of deferred work, in the [namespace](#namespace) or wherever your configuration puts them. `discern.toml` isn't one: it's a [shared file](#shared-file).",
   },
 ];
 
