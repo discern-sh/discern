@@ -1,7 +1,7 @@
 ---
 id: guide-land-an-urgent-repair
 title: "Land an urgent repair"
-description: "Land a fix before its checks can finish, understand what you are accepting, and settle the checks afterwards."
+description: "Land a fix before its checks finish, see exactly what you're skipping, and settle the checks afterwards."
 order: 25
 publish: true
 kind: guide
@@ -18,56 +18,60 @@ aliases:
 
 # Land an urgent repair
 
-Your app is down for the people using it, and the fix is a one-line change. The project's full checks take twenty minutes. You want the repair on the shared branch now and the checks done afterwards.
+When a fix can't wait for your project's full checks, you can land it now and run the checks straight afterwards. discern shows you every check you'd skip, and lands the fix only after you approve that plan. It keeps a permanent record of what was skipped, and reminds you until a later run settles it.
 
-discern has a supported route for that moment. It lands the repair without waiting for Proof, records which checks it skipped, and keeps reminding the project until those checks are settled. You decide to take the route each time; nothing your agent says, and no standing permission, can take it for you.
+Say your recipe app is down for everyone, and the fix is one line. The full checks take twenty minutes. You want the fix on `main` now, and the checks done after.
 
-## Starting state
+Only you can choose this route, and you choose it fresh each time. No request from your agent, earlier approval, or standing permission can choose it for you.
 
-The repair is committed in its own worktree and includes the current shared branch. The agent has run what it can: a focused test, `discern prepare`, or the checks that fit the time you have. Ordinary completion through `discern done` would produce Proof, and that is still the normal path when time allows.
+## Before you start
 
-Choose this route when waiting for the checks costs more than the risk of landing without them. A task that merely feels urgent does not qualify on its own; saying "urgent" in a request gives your agent no authority to skip anything.
+The fix is committed in its own **worktree**, a separate copy of the project on its own branch. It includes the latest `main`, and no other task's unlanded work. Your agent has run what it could in the time, such as a focused test or `discern prepare`.
 
-## 1. Ask for the plan
+The usual path, `discern done`, produces **Proof**: discern's record of which checks passed on exactly which commit. When there's time, use it. Take the emergency route only when waiting for the checks costs more than landing without them. Calling something urgent doesn't give your agent permission to skip anything.
+
+## Ask for the plan
 
 Tell your agent:
 
-> Land the outage fix now as an emergency. Show me exactly which checks it would skip and why, and wait for my approval before doing anything.
+> Land the outage fix now as an emergency. Show me which checks it would skip and why, and wait for my approval before doing anything.
 
-The agent runs `discern accept emergency` with a reason and no confirmation. That call changes nothing. It shows the repair, the shared branch it would land on, the reason, and every check that failed, never ran, or has evidence too old to count. If the repair is behind the shared branch, the agent updates it first and asks for a fresh plan.
+The agent runs `discern accept emergency` with a reason. This first call changes nothing. It shows the fix, the `main` commit it would land on, your reason, and every check that failed, didn't run, or has results too old to count. If `main` has moved on, the agent updates the fix first and asks for a new plan.
 
-If the project has review questions (checkpoints) that match the repair, the agent answers them first through a separate preparation step and carries its receipt with `--preparation-receipt`. An unanswered or unmet question still blocks the emergency route; urgency does not remove judgment the project asked for.
+Your project may have **checkpoints**, review questions for certain kinds of change. If one applies to the fix, the agent answers it first, in a separate preparation step. An unanswered or unmet question still blocks the emergency route. Urgency doesn't remove a judgment your project asked for.
 
-## 2. Decide
+## Decide
 
-Read the plan as a list of what you are accepting. A test that never ran is unknown. A test that failed is a known problem you are choosing to live with for now. Ask the agent what each skipped check covers in terms of your app.
+Read the plan as a list of what you're accepting. A check that didn't run is unknown. A check that failed is a known problem you're choosing to live with for now. Ask your agent what each skipped check covers in your app.
 
-When you approve, say so plainly:
+To approve, say so plainly:
 
 > Approved. Land it as an emergency with that reason.
 
-The agent repeats the command with your confirmation and the plan's `--approval-token`. The token expires after 15 minutes and stops matching if the repair, the shared branch, or the reason changes; a changed plan comes back for a fresh decision. Standing grants, earlier approvals, and permission to land ordinary work never cover this step.
+The agent runs the command again with your confirmation and the plan's approval token. The token expires after 15 minutes. It also stops working if anything in the plan changes, such as the fix, `main`, or the reason. A changed plan comes back to you for a new decision.
 
-## 3. Read what landed
+## Read what landed
 
-The result says the repair is on the shared branch and that it landed without Proof: an **emergency landing**. It carries a permanent record of the checks that were skipped and your reason. That record is a different kind from Proof and can never be mistaken for one.
+The result says the fix is on `main`, and that it landed without Proof. That's an **emergency landing**. discern keeps a permanent record of the skipped checks and your reason. The record is a different kind from Proof, and nothing reads it as a pass.
 
-Landing here is the same landing as any other: the shared branch moved. Publishing to users still follows your release process, and any branch protection or deployment approval outside discern keeps its own say.
+In every other way, it's an ordinary landing. `main` now includes the fix, and discern cleans up the worktree as usual. discern doesn't push or deploy. Getting the fix to your users still follows your release process, and any branch protection or deployment approval outside discern still applies.
 
-## 4. Settle the outstanding checks
+## Settle the outstanding checks
 
-Until the skipped checks pass, `discern status` reports the emergency's validation as outstanding. Ask for the follow-up while the incident is fresh:
+Until the skipped checks pass, `discern status` and the desk show the emergency's checks as outstanding. Ask for the follow-up while the incident is fresh:
 
-> Run the full checks on the landed fix and settle the outstanding emergency validation.
+> Run the full checks on the landed fix and settle the outstanding emergency checks.
 
-The agent runs `discern done --rerun` on the current shared branch, or on a later change that contains the repair. A passing result settles the outstanding checks and the emergency stops appearing in everyday status. The historical record stays: anyone reading the project's history can see that this repair landed first and was checked afterwards.
+The agent runs `discern done --rerun` on the current `main`, or on a later change that contains the fix. A passing run that covers the skipped checks settles them, and the emergency stops showing in everyday status. Removing a check from the project doesn't settle it. The record stays in the project's history, so anyone can see that this fix landed first and was checked afterwards.
 
-If the checks fail, you have found the cost of the shortcut early. The agent fixes the cause in an ordinary task and lands the correction with Proof.
+If the checks fail, you've found the cost of the shortcut early. The agent fixes the cause in an ordinary task, which lands with Proof.
 
-## If discern itself cannot run
+## If discern itself can't run
 
-An installation that will not start cannot record an emergency landing. If you must move the shared branch with plain Git, keep a note of what you moved, why, and which checks were not run, and ask your agent to inspect `discern status` and run current validation once discern works again. discern cannot vouch for a change that landed outside it.
+If discern won't start, it can't record an emergency landing. If you must move `main` with plain Git, write down what you moved, why, and which checks didn't run. Once discern works again, ask your agent to check `discern status` and run the checks. discern can't vouch for a change that landed outside it.
 
-## Completion
+## You're done when
 
-The repair is on the shared branch, the emergency's record names what was skipped, and a later passing run has settled the outstanding checks or a follow-up task is fixing what they found. [Proof](../20-understand/proof.md#from-green-to-live) shows where an emergency landing sits among the ordinary states, and the [MCP and results reference](../30-reference/mcp-and-results.md#emergency-integration) lists the exact inputs your agent uses.
+The fix is on `main`, and its emergency record names what was skipped. Either a later passing run has settled those checks, or a follow-up task is fixing what they found.
+
+[From green to live](../20-understand/proof.md#from-green-to-live) shows where an emergency landing sits among the ordinary stages. The [MCP and results reference](../30-reference/mcp-and-results.md#emergency-integration) lists the exact inputs your agent uses.
