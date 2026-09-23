@@ -91,7 +91,7 @@ There's no native Windows release. On Windows, run the Linux binary inside WSL 2
 | Using worktrees                | A Git repository whose root is the project root, with at least 1 commit to branch from.                                                                                                                                                          |
 | Running your project's checks  | Every program that your jobs, standards, setup steps, and resource commands name, available on `PATH`.                                                                                                                                           |
 
-The released binary is self-contained, so a project doesn't need Deno or Node to run discern. Setup can create files outside a Git repository, but `discern start` doesn't work until the project is a repository with a first commit.
+The released binary is self-contained, so a project doesn't need Deno or Node to run discern. Setup needs a Git repository: without one, `discern setup begin` refuses with `no_repository` and changes nothing. `discern start` also needs a first commit to branch from.
 
 To check the prerequisites and the installation, run this from any directory inside the project:
 
