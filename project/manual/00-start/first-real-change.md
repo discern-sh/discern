@@ -1,7 +1,7 @@
 ---
 id: start-first-real-change
 title: "Make and review your first change"
-description: "Ask for a small improvement, try the result, understand its evidence, and decide whether to make it part of your project."
+description: "Ask for a small change, try it, see what was checked, and decide whether it joins your project."
 order: 40
 publish: true
 kind: tutorial
@@ -13,95 +13,101 @@ aliases:
 
 # Make and review your first change
 
-A small improvement is a good way to learn discern's complete workflow. You can see whether the result helps, understand what your agent checked, and make a landing decision without needing to follow every line of code.
+A small change you can see is the quickest way to learn the everyday workflow. You ask for it, try the result, see which checks passed, and decide whether it joins your project. You don't need to read every line of code to do that.
 
-This tutorial uses a search page that says “No results” when it finds nothing. You will ask your agent to make that message more helpful, try the result, and decide whether to add it to the shared project. The same pattern works for a clearer button label or a short explanation beside a form.
+This tutorial uses a search box that says “No results” when nothing matches. You'll ask your agent for a more helpful message. The same steps work for a clearer button label or a short hint beside a form.
 
 ## Before you begin
 
-Finish [setup](installation-and-setup.md) and open a fresh coding-agent session that can call discern's tools. Use a project where you can try a small change locally. If it has no search page, choose another small wording improvement you can see in the app or its documentation.
+Finish [setup](installation-and-setup.md), and open a fresh session with your coding agent. Use a project you can run and try on your own machine. If it has no search, pick another small wording change you can see in the app or its documentation.
 
-The time depends on your project's checks. Allow for your agent to make the change and run those checks, with a few minutes of your own time to try the result.
+How long this takes depends on your project's checks. Allow time for your agent to make the change and run them, plus a few minutes of your own to try the result.
 
 ## 1. Give the request
 
 Tell your agent:
 
-> Make the message shown when search finds nothing more helpful. Suggest wording that tells people they can try a different search. Keep the search behavior the same. Show me how to try the result, explain what you checked, and wait for my review before landing it.
+> Make the message shown when a search finds nothing more helpful. Suggest wording that tells people they can try a different search. Keep the search itself the same. Show me how to try the result, explain what you checked, and wait for my review before landing it.
 
-This request gives the agent a purpose and a clear limit. You want to help someone continue after an empty search; you are not asking for a new search system.
+The request gives the agent a purpose and a limit. You want to help someone carry on after an empty search, and the search itself stays as it is.
 
-For another feature, keep those same ingredients: what should improve, what should stay the same, and how you want to review it.
+For any feature, say what should get better, what should stay the same, and how you want to review it.
 
 ## 2. Let your agent prepare the change
 
-Your agent checks the project state, creates an isolated workspace called a **worktree**, and makes the change there. The project's shared branch, called the **trunk**, stays apart from the unfinished work.
+Your agent checks where the project stands and creates a **worktree**, a separate copy of the project on its own branch. It makes the change there. Your shared branch, the **trunk** (usually `main`), stays as it was. The change joins the trunk only when it **lands**, after your review.
 
-The agent then commits the change and runs the project's configured checks, collectively called the **gate**. The checks need a committed version, because their evidence has to describe something that can land. A check might confirm that the app builds or that searching still returns the expected items. If a check fails, the agent investigates and fixes the cause before reporting completion. [Fix a red gate](../10-guides/fix-a-red-gate.md) explains that path.
+When the change works, the agent commits it and runs the **gate**: the checks your project requires before a change counts as finished. The gate only runs on committed work, so its results describe a version that can land. A check might confirm that the app builds, or that a search still finds the right items. If a check fails, the agent investigates and fixes the cause before it reports back. [Fix a red gate](../10-guides/fix-a-red-gate.md) explains that path.
 
-You should receive the changed wording, a way to try the right version, an account of the checks, and a **Proof line**. Proof records that the gate passed for one exact saved version of the change. It lets you connect the agent's report to the work that was checked.
+When the agent is done, you get the new wording, a way to try this version of the app, an account of what it checked, and a **Proof line**. **Proof** is discern's record that your project's checks passed on one exact commit, a saved version of the code. It lets you match the agent's report to the version you're about to try.
 
 <!-- discern-workflow:procedure -->
 
 ## 3. Try the result
 
-Trying the changed experience connects your request with something you can judge. For the search example, follow the same small journey a person using your app would take.
+Trying the change connects your request to something you can judge. Use the search the way someone using your app would.
 
 **Before you start:**
 
-- Your agent has prepared the changed app and given you a way to open it.
-- The preview shows this task's version rather than the unchanged shared project.
+- Your agent has prepared the changed app and told you how to open it.
+- What you open shows this task's version of the app, from its worktree.
 
 **Steps:**
 
-1. **Find a known item.** Search for something that is present and confirm the usual results still appear.
-2. **Try an empty search result.** Search for something that is absent, read the new message, and consider whether you know what to do next.
-3. **Follow the suggestion.** Change the search and check that you can get back to useful results.
+1. **Find something that's there.** Search for an item you know exists, and check that the usual results still appear.
+2. **Search for something that isn't.** Read the new message, and ask yourself whether you'd know what to do next.
+3. **Follow the suggestion.** Change the search, and check that you get back to useful results.
 
-**You are done when:** you have seen the changed message in context and can say whether it helps someone continue.
+**You are done when:** you've seen the new message in context and can say whether it helps someone carry on.
 
 <!-- /discern-workflow -->
 
-A message such as “No results. Try a different word or a shorter search” offers a next step. Its usefulness still depends on your app: if it only searches exact item names, the wording should reflect that.
+A message such as “No results. Try a different word or a shorter search” gives people a next step. Whether it's right depends on your app. If search only matches exact titles, the wording should say so.
 
-This is a review of the experience you requested. Your knowledge of the people using the app helps you notice things an automated check may not capture.
+This part of the review is yours. You know the people who use your app, so you'll notice things the checks don't cover.
 
-## 4. Understand what was checked
+## 4. See what was checked
 
 Ask:
 
-> Explain the Proof for this change. What checks cover the search behavior, what did you try directly, and what remains for me to assess?
+> Explain the Proof for this change. Which checks cover the search, what did you try yourself, and what's left for me to judge?
 
-Your agent can retrieve the full Proof through discern's status tool or `discern status --verbose`. The answer should distinguish checks recorded by the gate from observations the agent made separately. A passing build, for example, does not tell you whether a message is clear.
+Your agent can show the full Proof with `discern status --verbose`. Its answer should keep the gate's check results apart from things it tried by hand. A passing build, for example, can't tell you whether a message is clear.
 
-For this small change, you now have the requested result, your own experience of it, and the evidence available. If any of those are missing, ask for them before deciding. Larger changes may call for code review, independent review, or checks on another device; the depth should fit the consequences of the change.
+Your project may also have **checkpoints**: review questions your agent answers when certain files change. If one applies, the Proof shows the agent's answer. If the agent answers that a question isn't met, the Proof keeps its reason, and the change can land only if you decide to accept that gap.
+
+For a small change like this, you now have the result, your own experience of it, and the record of what passed. If any of those is missing, ask for it before you decide. Bigger changes may call for a code review, an independent review, or a try on another device. Match the depth of your review to what the change could affect.
 
 ## 5. Ask for a revision or land it
 
-If the wording is still unclear, give specific feedback:
+If the wording still isn't right, say what you want:
 
-> The message should say that search only looks at saved items. Please revise it and bring the checked result back.
+> The message should say that search only looks at titles. Please revise it and bring back the checked result.
 
-The agent continues the same task. Its revised files need fresh verification because the previous Proof covered a different version.
+The agent keeps working in the same worktree. It commits the new version and runs the gate again, because the old Proof covered the old version.
 
 When the result is right, say:
 
 > I've reviewed the change. Land it.
 
-Your agent uses discern's acceptance operation, which checks the evidence and your permission before moving the change onto the trunk. Its result answers about this change first: landed, or not landed and why. Other finished tasks that already have your permission to land may land ahead of it, in order. It reports any cleanup still needed. If the shared project has changed in the meantime, the agent follows discern's instructions to bring the work together and verify it.
+Your agent asks discern to land the change. discern checks the Proof and your permission, then adds the change to the trunk. A passing gate doesn't land anything by itself. Landing needs your permission.
 
-Landing makes the change part of the shared project. Publishing it to users is a separate step in your project's release process.
+If another task landed while you were reviewing, discern checks the two changes together before it lands yours. If they conflict, or the combined checks fail, nothing lands and your agent gets the details to fix. If another landing is already running, yours waits its turn and then carries on by itself.
+
+The first sentence of the result says whether your change landed and, if it didn't, what comes next. It also mentions any cleanup that's still needed.
+
+Landing makes the change part of your shared project. Getting it to your users is a separate step in your own release process.
 
 ## What you now have
 
-The small improvement is on the trunk, with a record of the checks that covered it. You have also practiced the part of the workflow that will stay useful as the work grows: give a clear purpose, try the result, understand the evidence, and decide what becomes shared.
+Your improvement is on the trunk, with a record of the checks that passed on it. You've also practiced the loop that stays useful as the work grows. You give a clear purpose, try the result, understand what was checked, and decide what lands.
 
 <!-- discern-workflow:branch-choice -->
 
 **Choose your next task**
 
-- **Build another improvement:** [Finish and land a change](../10-guides/finish-and-land-a-change.md) covers the daily workflow and review feedback.
-- **Save a lesson:** [Write project instructions](../10-guides/write-project-instructions.md) shows how to carry a convention into future sessions.
-- **Understand the evidence:** [Proof](../20-understand/proof.md) explains what completion establishes and how it stays attached to the work.
+- **Build another improvement:** [Finish and land a change](../10-guides/finish-and-land-a-change.md) covers the everyday workflow and review feedback.
+- **Save a lesson:** [Write project instructions](../10-guides/write-project-instructions.md) shows how to carry a rule into future sessions.
+- **Understand the record:** [Proof](../20-understand/proof.md) explains what a pass means and how it stays with the code.
 
 <!-- /discern-workflow -->

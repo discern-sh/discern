@@ -1,7 +1,7 @@
 ---
 id: guide-wait-for-another-task
 title: "Wait for another task"
-description: "Let a dependent agent continue when the work it needs is ready, without carrying messages between sessions."
+description: "Let an agent carry on as soon as the work it needs from another task is ready, without you passing messages between them."
 order: 70
 publish: true
 kind: guide
@@ -15,77 +15,81 @@ aliases:
 
 # Wait for another task
 
-One agent is adding a way to mark books as read in your reading-list app. Another will add a view of unread books. The second task needs the first result, but you do not need to watch both sessions and announce the handover yourself.
+When one agent's task needs another agent's result, it can wait for that result by itself. You don't have to watch both sessions, or tell the second agent when the first one is ready. It carries on as soon as the work it needs is there.
 
-Your agent can use `discern_await` to wait for the relevant repository state. When the condition holds, discern returns the next step for bringing that work into the waiting task. For checked work, it looks for **Proof**: discern's record of the configured checks that passed.
+This guide uses a reading-list app, where one agent is adding search. Another agent is writing help pages that describe search, so it needs search's code first.
 
 ## Ask for the handover you want
 
-Tell the waiting agent what it needs and when it may use it:
+Tell the waiting agent what it needs, and when it can use it:
 
-> Build the unread-books view once the task that marks books as read has current Proof. Use discern-await-the-fleet to wait for it, bring in its work, and check that marking a book as read works before you continue.
+> Write the help pages once the search task has current Proof. Use discern-await-the-fleet to wait for it, bring in its work, and check that search works before you start writing.
 
-Your agent resolves the other task's exact branch or worktree identity. Include its returned branch or path if you have it; a display title alone may not identify one task. The agent keeps working in its own worktree, or waits from the main checkout if its dependent effort has not started yet.
+**Proof** is discern's record of which of your project's checks passed, on exactly which commit. `discern-await-the-fleet` is a **skill**: a ready-made procedure your agent follows for the wait.
 
-A condition that is already met returns immediately. You can give the request without first checking whether the earlier session has finished.
+If you have the search task's branch or worktree path, include it. Tasks can share a title, so a title alone may not pick out the right one. Without a branch or path, the agent looks up the exact task with `discern status`.
 
-## Choose the condition
+If search is already ready, the wait ends straight away. So you can make the request without first checking on the search task.
 
-The useful distinction is whether the next task can build on checked work or needs work that has already reached the shared branch.
+The help agent waits in its own **worktree**, a separate copy of the project on its own branch. If its task hasn't started yet, it waits in your main checkout and creates its worktree once search is ready.
 
-| What you want                                       | What the agent waits for                                                     | When to choose it                                                 |
-| --------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| “Use the earlier work once it has current Proof.”   | **Green:** the task has current completion evidence, or its work has landed. | Build the unread-books view while you review the earlier feature. |
-| “Use the earlier work after it lands.”              | **Landed:** the target's work has reached the trunk, the shared branch.      | Start from the version already accepted into the project.         |
-| “Continue when anything reaches the shared branch.” | **Trunk moved:** the branch changed after the watch began.                   | React to the next change without requiring one particular task.   |
+## Choose what to wait for
 
-A green task is ready to build on under the plan; its Proof does not grant permission to land. If the dependent task needs your approval, that decision still waits for you. [Proof, review, and authority](../20-understand/proof.md) explains the distinction.
+The main choice is whether to build on checked work now, or to wait until it has landed on your shared branch.
 
-## Start the wait
+| What you want                           | The agent waits for                                                                           | Choose it when                                  |
+| --------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| "Use search once it has current Proof." | **Green:** search has current Proof, or has already landed.                                   | The help can start while you review search.     |
+| "Use search after it lands."            | **Landed:** search's work is on the **trunk**, your project's shared branch (usually `main`). | You want to build only on work you've accepted. |
+| "Carry on when anything lands."         | **Trunk moved:** the trunk changed after the wait began.                                      | Any new work on `main` matters, whoever did it. |
 
-Your agent normally calls the `discern_await` tool with the waiting worktree's absolute `path` and one condition. The command-line equivalent for an illustrative branch is:
+Green isn't landed. A green search task is ready to build on, but its Proof doesn't give it permission to land. That decision still waits for you, or for a grant you set up earlier. [Proof](../20-understand/proof.md) explains the difference.
+
+## What the agent runs
+
+You don't need to run anything yourself. Your agent calls the `discern_await` tool with one condition. On the command line, the same wait looks like this:
 
 ```sh
-discern await --green agent/mark-books-read-b41f2c
+discern await --green agent/reading-search-b41f2c
 ```
 
-The other choices are `--landed <worktree>` and `--trunk-moved`. A named task can be identified by its returned worktree id, absolute path, local branch, or full local ref. `--landed` holds once the task's submitted work is reachable from the trunk — including when its landing composed it with other changes in an integration worktree, so the landed commit is not the branch tip itself. The [CLI reference](../30-reference/cli-reference.md#discern-await) lists the exact options.
+The other conditions are `--landed <task>` and `--trunk-moved`. The agent can name a task by its worktree id, path, or branch. A landed wait also counts search when discern combined it with other work as it landed, so the commit on `main` may differ from search's last commit. The [CLI reference](../30-reference/cli-reference.md#discern-await) lists every option.
 
-The agent leaves the timeout unset so discern chooses the longest reliable call window. It follows continuation instructions if the work is still in progress. You do not need to supply a delay or ask it to check again every few minutes.
+The agent doesn't set a time limit. discern then holds the call as long as the agent's tool connection reliably allows, up to 55 minutes, depending on the coding agent. You don't need to give it a delay, or ask it to check again every few minutes.
 
-## Compose what arrived
+## Keep a long wait going
 
-When the condition holds, the result tells the agent how to bring the work into its own task:
+If the call ends before search is ready, the result says so and gives the agent a short **resume handle**. The agent calls again with that handle, and the wait carries on where it left off. It still notices a change that happened between the two calls. The agent keeps going until search is ready, you tell it to stop, or the help task no longer needs search.
 
-- For green work that has not landed, start from or update from the exact observed commit using `discern start --from <commit>` or `discern update --from <commit>`.
-- For landed work or trunk movement, start from the trunk or bring it into the existing worktree with `discern_update`.
+So a long-running search task doesn't need reminders from you.
 
-The agent then checks the result it received. In the reading-list example, it should be able to mark a book as read before building the unread-books view. A successful wait establishes the repository condition; the task still needs that practical check.
+## Bring in what arrived
 
-Any overlap named by the update deserves a fresh read. Separate agents can make individually sensible changes that need adjustment when combined. The dependent task finishes with the normal gate and review.
+When search is ready, the result tells the agent how to bring the work into its own task:
 
-## Continue an unresolved call
+- **Green, before landing:** the agent starts from, or updates to, the exact commit that passed, with `discern start --from <commit>` or `discern update --from <commit>`. That commit stays usable even if the search branch is later removed.
+- **Landed, or trunk moved:** the agent starts from the trunk, or brings the trunk into its worktree with `discern update`.
 
-If you inspect the raw result, `ok: true` with `data.met: false` means the call window ended while the condition was still unmet. The wait can continue.
+Then the agent checks what it received. Here, it tries search before writing about it. The wait tells the agent that the work has arrived. Only trying it shows that search does what the help will describe.
 
-The result supplies a `resume` handle. Your agent uses that handle with the same worktree path, without repeating the original condition, and continues until the condition holds or the dependency no longer matters. The handle preserves the original watch, including a relevant change between calls.
-
-These continuation mechanics belong to the agent. The practical outcome for you is that a long-running prerequisite does not need repeated reminders.
+`discern update` names any files both tasks changed, and the agent reads those again. Separate agents can each make sensible changes that need adjusting once combined. The help task then finishes as usual, with the gate, your review, and its own permission to land.
 
 ## Handle a refusal
 
-An `ok: false` result means discern cannot answer the watch as requested. It has no continuation. The agent follows its recovery and explains anything it cannot resolve.
+A refusal means discern can't answer the wait as asked. Unlike an unfinished wait, it can't be resumed. The result says why and what to do instead, and the agent follows it or explains what it can't resolve. For example:
 
-For example, a green watch needs a worktree that can hold current Proof. If that checkout has been reclaimed, the result may point to a later branch containing the work or suggest waiting for its landing instead. A mistyped or ambiguous task selector needs correcting. A landing watch can recover an already completed landing from its durable Proof note even after the branch is removed.
+- A green wait needs a worktree that can hold current Proof. If the search worktree was reclaimed because a later task already holds its work, the result points to that later task, or suggests waiting for the landing instead.
+- A mistyped or unclear task name needs correcting. The result asks for an exact path or branch.
+- If search has already landed and its branch is gone, a landed wait given search's exact branch name still finds it. discern reads the Proof note it recorded on `main` when search landed.
 
 You can ask:
 
-> Explain why this wait cannot continue, where the earlier work is now, and which next step still fits our plan.
+> Explain why this wait can't continue, where the search work is now, and which next step still fits our plan.
 
-## When waiting is the wrong tool
+## When not to wait
 
-Use this workflow for dependencies between worktrees in the same repository. It does not wait for a review decision, an external release, or helpers inside the agent's own session. The agent should also continue its own unfinished work rather than wait for itself to become green.
+Use this for tasks in the same project that depend on each other. It doesn't wait for a review decision, a release, or helpers inside the agent's own session. An agent doesn't wait for its own task to pass its checks. It keeps working on it instead.
 
-If the plan changes, tell the agent the dependency no longer matters. Ending the watch is safe; it does not change either task's code. Whether your message interrupts a running tool call immediately depends on your coding-agent host.
+If the plan changes, tell the agent the help task no longer needs search. Ending a wait is safe, because it doesn't change either task's code. Whether your message interrupts a running call straight away depends on your coding agent.
 
-The bundled `discern-await-the-fleet` [skill](create-and-manage-skills.md) gives agents this procedure. [Coordinate parallel tasks](coordinate-parallel-tasks.md) shows how it fits a larger plan, and [MCP and results](../30-reference/mcp-and-results.md) describes the detailed result and timeout contracts.
+[Coordinate parallel tasks](coordinate-parallel-tasks.md) shows how waits fit a larger plan, and [MCP and results](../30-reference/mcp-and-results.md#call-duration-and-continuation) has the exact time limits and result fields.
