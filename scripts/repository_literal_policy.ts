@@ -70,11 +70,6 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
       "codegen projects the installer repository default and checkpoint protocol source",
   },
   {
-    path: "project/manual/30-reference/files-and-ownership.md",
-    counts: { "current-repository": 1 },
-    reason: "the manual links the source inventory in the repository",
-  },
-  {
     path: "project/manual/30-reference/glossary.md",
     counts: { "current-repository": 4 },
     reason:
@@ -86,31 +81,14 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
     reason: "the license reference links the repository legal documents",
   },
   {
-    path: "project/manual/30-reference/logbook.md",
-    counts: { "current-repository": 6 },
-    reason: "the reference links Logbook authorities to their source",
-  },
-  {
     path: "project/manual/30-reference/mcp-and-results.md",
     counts: { "current-repository": PUBLIC_SCHEMA_PUBLICATIONS.length },
     reason: "codegen projects one schema source link per publication",
   },
   {
     path: "project/manual/30-reference/platforms-and-providers.md",
-    counts: { "current-repository": 4 },
-    reason:
-      "the reference gives exact release-verification commands and the entropy source",
-  },
-  {
-    path: "project/manual/30-reference/proof-and-checkpoint-formats.md",
-    counts: { "current-repository": 6 },
-    reason: "the reference links Proof authorities to their source",
-  },
-  {
-    path: "project/manual/30-reference/worktrees-and-status.md",
-    counts: { "current-repository": 14 },
-    reason:
-      "the reference links worktree and status authorities to their source",
+    counts: { "current-repository": 3 },
+    reason: "the reference gives exact release-verification commands",
   },
   {
     path: "project/manual/40-troubleshooting/crashes-and-local-state.md",

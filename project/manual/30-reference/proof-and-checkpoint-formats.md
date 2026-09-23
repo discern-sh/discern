@@ -381,16 +381,3 @@ When the structural trigger holds, an indeterminate `stop` checkpoint serves its
 After a decisive fire, `DISCERN_MATCH <path>` lines in the output can narrow the matched set, but can't add a path that isn't in `changed_files`. Without a valid declared match, the checkpoint keeps the structural matched set.
 
 The governing policy commit supplies the command's text. During strict completion, that's the candidate's expected predecessor. The command runs in the candidate worktree, where its scripts, dependencies, configuration, and interpreter resolve. Those dependencies aren't frozen along with the policy's command text.
-
-## Where it lives in code
-
-If you're extending or contributing to discern, these sources define note storage, the marker, and the `when` runner. The published schema above is the integration contract.
-
-| Concern                                   | Source                                                                                                                       |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Note writer, reader, merge, and transport | [`proof_notes.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/gate/proof_notes.ts)                           |
-| Note recording at acceptance              | [`accept_proof_recording.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/worktree/accept_proof_recording.ts) |
-| Envelope, payload, and issuer schemas     | [`result_schemas.ts`](https://github.com/discern-sh/discern/blob/main/src/shared/result_schemas.ts)                          |
-| Published schema                          | [`discern-proof-note.schema.json`](https://github.com/discern-sh/discern/blob/main/schema/discern-proof-note.schema.json)    |
-| The worktree's Proof marker               | [`proof_records.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/gate/proof_records.ts)                       |
-| The `when` command runner                 | [`when.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/checkpoints/when.ts)                                  |

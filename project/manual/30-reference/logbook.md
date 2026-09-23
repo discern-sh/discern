@@ -311,15 +311,3 @@ A tip-adoption episode compares events only when the config epoch, the discern w
 
 - [What stays on your machine](../20-understand/local-control.md): what discern runs, records, and writes, and what never leaves your computer.
 - [Files and ownership](files-and-ownership.md): where the logbook sits among discern's other local records.
-
-## Where it lives in code
-
-If you're extending or contributing to discern, these sources define the stats and their tests.
-
-| Concern                                | Source                                                                                                                                                                                                                                   |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The computation                        | [`stats.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/logbook/stats.ts)                                                                                                                                                |
-| Identity thresholds and cohort routing | [`cohorts.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/logbook/cohorts.ts)                                                                                                                                            |
-| The flag, the card, and the wire       | [`patterns.ts`](https://github.com/discern-sh/discern/blob/main/src/engine/logbook/patterns.ts)                                                                                                                                          |
-| Counts proven from synthetic streams   | [`stats_test.ts`](https://github.com/discern-sh/discern/blob/main/tests/stats_test.ts)                                                                                                                                                   |
-| Black-box CLI and archive coverage     | [`engine_patterns_test.ts`](https://github.com/discern-sh/discern/blob/main/tests/engine_patterns_test.ts), [`engine_logbook_lifecycle_test.ts`](https://github.com/discern-sh/discern/blob/main/tests/engine_logbook_lifecycle_test.ts) |

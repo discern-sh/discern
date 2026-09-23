@@ -287,10 +287,6 @@ In a terminal, uninstall asks you to confirm. Without terminal input, under `--p
 
 Uninstall runs only from the command line, and makes no remote change. discern never installs Git hooks, so your hooks stay as they are. Remove the installed program separately, once no other project on the computer needs it. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#remove-discern-from-the-repository) walks through the decision and the removal.
 
-## Where it lives in code
-
-If you're extending or contributing to discern, the [artifact ownership map](https://github.com/discern-sh/discern/blob/main/project/map/70-reference/artifact-ownership.md) links the registries and code behind this inventory, and how each ownership rule is enforced.
-
 ## See also
 
 - [Proof](../20-understand/proof.md): what passing checks establish, and why later edits make that evidence stale.
