@@ -2,7 +2,7 @@
 
 **Status:** Binding procedure for the public manual\
 **Applies to:** `project/manual/` tutorials, guides, explanations, reference, and troubleshooting\
-**Reference pages:** `project/manual/20-understand/proof.md` (explanation), `project/manual/10-guides/finish-and-land-a-change.md` (guide), and `project/manual/20-understand/practice-and-roles.md` (overview)\
+**Reference pages:** `project/manual/20-understand/proof.md` (explanation), `project/manual/10-guides/finish-and-land-a-change.md` (guide), and `project/manual/20-understand/how-discern-works.md` (overview)\
 **Change control:** An edit to this procedure or to the reference pages binds only after the owner has approved the exact new text.
 
 The manual is where people learn what discern does for them, decide to adopt it, and learn to direct their agents. It is one of discern's main marketing surfaces, and coding agents read the same pages through `discern docs` and `discern_docs`. Write for the person first: plain, warm, and exact. An agent gets the same facts from plain prose.
@@ -96,6 +96,11 @@ discern's results tell the agent its next step at the moment it applies, and the
 
 Each tutorial, guide, and explanation page is the registered home of specific benefits in `MANUAL_BENEFIT_OBLIGATIONS` (`scripts/manual_benefits.ts`). The [Human Benefit Canon](../feature-canon-human-benefits.md) gives their meaning. Name each benefit at the point where it happens, in the reader's terms: "That doesn't send your change back to the start." A benefit the reader has to work out for themselves hasn't been delivered.
 
+Wherever a page touches them, give prominence to discern's product-wide goals:
+
+- **The project gets better over time.** Gains are kept: a standard's limit only tightens, a fixed bug leaves a check behind, and a lesson reaches every later session. The Human Benefit Canon's "Keep the gains the project earns" describes this.
+- **discern is built for the agent to operate.** Short results name the next step, and failures come with a way to reproduce them, so the agent's effort goes into the project. The [Agent Benefit Canon](../feature-canon-agent-benefits.md) describes what the agent gets. Tell the reader what that means for them: less time unblocking the agent, and more of its effort in the work they asked for.
+
 Describe a benefit by what happens. "discern checks the combined code and lands exactly what passed" persuades in a way no adjective can.
 
 ## Get the facts right
@@ -104,7 +109,7 @@ Plain prose only helps if it's still true.
 
 1. Check every claim about behavior against the live product. Start with the current map page for that subsystem, and read the code and tests where the map is unclear. When sources disagree, the code and tests win. Report the disagreement to the page that owns it instead of smoothing it over.
 2. Never copy a claim from another manual page without checking it. A page can fall behind the product without anyone noticing.
-3. Read the page's benefit obligations and the Human Benefit Canon entries they name.
+3. Read the page's benefit obligations and the Human Benefit Canon entries they name. Where the agent does the work, also read the matching Agent Benefit Canon entries.
 4. Run every literal example, including commands, output, and config, against the live product. Examples must work in an external project, so don't use repository-only fixtures.
 
 The plain feature canon (`project/map/_internal/feature-canon-plain.md`), the [Demand Canon](demand-canon.md), and the [Consequence Canon](consequence-canon.md) are good sources for the human situation and for wording ideas. Never copy them as final text.
@@ -173,7 +178,7 @@ Link to published manual pages. Don't send a manual reader to a map page because
 
 - Keep `id`, `kind`, `order`, `publish`, and `aliases` stable. When you retitle a page, add the old title as an alias.
 - Write `description` as one plain sentence about what the reader gets. Search results and link previews show it.
-- Keep a page's file name, and so its web address, unless the owner approves a change. When the address changes, list the old route in `redirect_from`.
+- Keep a page's file name, and so its web address, unless the owner approves a change. When the address changes, list the old page route in `redirect_from`. The site adds the raw `.md` redirect itself.
 
 ## Before and after
 
@@ -244,7 +249,7 @@ deno run --allow-read --allow-write --allow-env --allow-run scripts/manual_prose
 deno run --allow-read scripts/manual_reading_grade.ts --pages
 ```
 
-The first must report no findings; the lint blocks counted introductions and scope intensifiers. The second shows editorial advice. Take the suggestions that make a sentence clearer and ignore the rest. The third lists each page's grade, hardest first, then the corpus grade that the `manual_reading_grade` standard holds. Reference pages don't appear because the standard doesn't measure them.
+The first must report no findings; the lint blocks counted introductions and scope intensifiers. The second shows editorial advice. Take the suggestions that make a sentence clearer and ignore the rest. The third lists each page's grade, hardest first, then the corpus grade that the `manual_reading_grade` standard holds. Reference pages don't appear because the standard doesn't measure them. The measure reads text without a full stop as part of the next sentence, which includes headings, table cells, and list items that end in semicolons. When list items are full sentences, give each its own capital and full stop.
 
 Then confirm that:
 
