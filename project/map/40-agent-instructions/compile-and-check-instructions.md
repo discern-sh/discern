@@ -24,7 +24,7 @@ discern status
 
 `refresh` compiles built-in and `[instructions].sources` text, then reconciles skills, integrations, and the maintained architecture decision record (ADR) index.
 
-`--dry-run` lists create, update, and removal targets for agent files, merge attributes, integrations, materialized skills, the ADR index, Proof-note Git config, and planning errors without writing. Command-line interface (CLI) JSON/Markdown and Model Context Protocol (MCP) `discern_refresh` expose the same plan. Apply consumes it; `status` and the gate use its tracked projection ([ADR 0335](../_adr/0335-operation-policy-enrolls-faithful-previews.md)).
+`--dry-run` lists the planned targets for agent files, merge attributes, integrations, materialized skills, the ADR index, and Proof-note Git config, plus any planning errors, without writing. Refresh creates or updates agent files but never removes one. Command-line interface (CLI) JSON/Markdown and Model Context Protocol (MCP) `discern_refresh` expose the same plan. Apply consumes it; `status` and the gate use its tracked projection ([ADR 0335](../_adr/0335-operation-policy-enrolls-faithful-previews.md)).
 
 For each full-body output, local Markdown destinations are rewritten to resolve to the same project target they had beside their source. The parser limits edits to destination bytes; external, root-absolute, fragment-only, and code-like text stays unchanged. Provider pointers remain registry-defined.
 
@@ -36,7 +36,7 @@ The built-in map section also derives a compact region list from the configured 
 
 `discern prepare` runs the complete refresh after fix and `[generated]` jobs, before checks. Green means provider files and skills are current; partial materialization is red with a `discern refresh` reproduction.
 
-The configured agent set decides which instruction files exist:
+The configured agent set decides which instruction files refresh writes and the gate checks:
 
 | Agent integration | File the agent reads |
 | ----------------- | -------------------- |
@@ -46,7 +46,7 @@ The configured agent set decides which instruction files exist:
 | Cursor            | `AGENTS.md`          |
 | GitHub Copilot    | `AGENTS.md`          |
 
-`AGENTS.md` holds the canonical compiled body when an integration reads it. Claude Code and Gemini use their own files, which can point to that canonical body. Cursor and GitHub Copilot read `AGENTS.md` directly. The provider registry owns these mappings, so adding an integration updates every consumer from one record.
+`AGENTS.md` holds the canonical compiled body when an integration reads it. Claude Code and Gemini use their own files, which can point to that canonical body. Cursor and GitHub Copilot read `AGENTS.md` directly. The provider registry owns these mappings, so adding an integration updates every consumer from one record. Removing an integration from `[project].agents` leaves its files in place, and the gate stops checking them. Today only `discern uninstall` removes them.
 
 ## Keep sources and outputs together
 
