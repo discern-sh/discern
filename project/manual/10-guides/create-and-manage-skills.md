@@ -83,7 +83,7 @@ Read the procedure as a method you're choosing for every future review. It shoul
 
 ### Refresh and try it
 
-The agent runs `discern refresh`, which copies the skill into each coding tool's skills folder, such as `.claude/skills/`. discern rebuilds those folders, so edits belong in `discern/skills/`. Then `discern skills list` should show the new skill once, marked as yours.
+The agent runs `discern refresh`, which links the skill into each coding tool's skills folder, such as `.claude/skills/`. discern rebuilds those folders, so edits belong in `discern/skills/`. Then `discern skills list` should show the new skill once, marked as yours.
 
 Next, try it in a new session, opened in the task's **worktree**: the separate copy of the project where the agent made the skill.
 

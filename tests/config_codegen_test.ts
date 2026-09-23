@@ -451,6 +451,13 @@ Deno.test("Proof-note modes publish their exact local-recording semantics", () =
   }
 });
 
+Deno.test("skills prose says built-in skills are copied and yours are linked", () => {
+  const why = CONFIG_PROSE.skills.why;
+  for (const fact of ["copies its built-in skills", "links yours"]) {
+    assertStringIncludes(why, fact);
+  }
+});
+
 Deno.test("the flagship config carries no commented-out jobs, standards, or retired Gate prose", async () => {
   const text = await Deno.readTextFile(
     new URL("../discern.toml", import.meta.url),

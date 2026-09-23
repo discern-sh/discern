@@ -150,7 +150,7 @@ export const CONFIG_PROSE = {
   skills: {
     what: "Where your own skills live, and which skills to leave out.",
     why:
-      "A skill is a reusable playbook your agents follow for one kind of task. discern copies its built-in skills and yours into each agent's skills folder. A skill of yours with the same name as a built-in one replaces it.",
+      "A skill is a reusable playbook your agents follow for one kind of task. discern copies its built-in skills into each agent's skills folder and links yours there, so edits to yours apply at once. A skill of yours with the same name as a built-in one replaces it.",
     detail: [
       "  discern skills list          see which skills your agents get",
       "  discern skills eject <name>  copy a built-in here so you can edit it",
