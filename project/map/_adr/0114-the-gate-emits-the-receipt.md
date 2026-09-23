@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md), [ADR 0245](0245-receipt-renamed-to-proof.md)):** current spellings are `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), and known/custom `job` (formerly gate `capability` / custom `check`); the gate-pass artifact became the receipt, and ADR 0245 renames the receipt-family terms to **proof**; the decision and reasoning are unchanged.
+> - **Complete local Proof ([ADR 0368](0368-local-durable-formats-declare-forward-skew.md)):** a pin no longer carries a sha-only vouch across its commit. The pin commit gets its own complete Proof from `done` before acceptance.
 
 **Status**: accepted. Builds on [ADR 0028](0028-result-envelope-and-diagnostics.md) (the one-object result rule) and [ADR 0067](0067-accept-validates-the-landed-tree.md) (the gate receipt vouch); the review moment it serves is the landing model's ([ADR 0110](0110-the-landing-model.md)) handoff point.
 

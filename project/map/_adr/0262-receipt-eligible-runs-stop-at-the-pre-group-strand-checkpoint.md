@@ -1,5 +1,7 @@
 # ADR 0262: Receipt-eligible runs stop at the pre-group strand checkpoint
 
+> **Amendment ([ADR 0368](0368-local-durable-formats-declare-forward-skew.md)).** The pin carry-forward that the alternatives below cite no longer exists: a pin commit now needs its own `done`. The rejection of carrying Proof across a strand-absorbing commit stands on its own reasoning.
+
 **Status**: accepted; extends [ADR 0047](0047-fix-stage-strand-detection.md) and [ADR 0148](0148-strand-detection-covers-every-gate-stage.md), the remedial complement of [ADR 0261](0261-prepare-runs-the-generated-regenerations.md); reads the tree pin from [ADR 0116](0116-receipts-vouch-only-for-the-pinned-tree.md)
 
 ## Context
