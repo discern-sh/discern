@@ -153,13 +153,13 @@ Explain each concept fully in one page, and link to that page elsewhere. The lan
 
 Some reference text is generated from the product's own source, so the page and the product can't disagree. Edit the source, run `deno task codegen`, and commit the source and its output together. Never edit generated text by hand: the gate fails when it drifts from its source.
 
-| Page or section          | Edit this source                                                                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Glossary                 | `GLOSSARY` in `scripts/glossary_registry.ts`, which also renders the map's glossary.                                                            |
-| CLI reference            | The command and option descriptions that `buildCli` in `src/main.ts` assembles. The same text is `discern --help`.                              |
+| Page or section          | Edit this source                                                                                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Glossary                 | `GLOSSARY` in `scripts/glossary_registry.ts`, which also renders the map's glossary.                                                                                                   |
+| CLI reference            | The command and option descriptions that `buildCli` in `src/main.ts` assembles. The same text is `discern --help`.                                                                     |
 | Config reference         | Key descriptions in `src/shared/config_schema.ts` and section prose in `src/shared/config_prose.ts`. The same text becomes each project's `discern.toml` and `discern config explain`. |
-| Environment variables    | The definitions in `src/shared/environment_variables.ts`.                                                                                        |
-| `BEGIN GENERATED` blocks | Their registries. Write the prose around them and leave the block itself to codegen.                                                             |
+| Environment variables    | The definitions in `src/shared/environment_variables.ts`.                                                                                                                              |
+| `BEGIN GENERATED` blocks | Their registries. Write the prose around them and leave the block itself to codegen.                                                                                                   |
 
 CLI help, config prose, and the `discern.toml` template reach every project that installs discern. Keep that text free of this repository's vocabulary and examples.
 
