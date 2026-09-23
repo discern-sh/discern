@@ -20,6 +20,8 @@ The product voice is:
 
 It is calm, canonical, bounded, and useful under pressure.
 
+Plain words and short sentences are part of exactness. A reader can't act on a fact they have to decode.
+
 The product never uses personality to conceal uncertainty, state, authority, or consequences.
 
 When editing copy that predates this skill, bring it up to this standard rather than matching the surrounding tone.
@@ -219,6 +221,9 @@ Review sentences around the machine state `honored` so they read naturally; in h
 ## Sentence design
 
 - Prefer active voice when the actor or system action matters.
+- Give every sentence an actor: the person, the agent, or discern. Don't let an abstraction such as "the practice" or "evidence" do the work.
+- Prefer verbs to abstract nouns: "you said yes" instead of "consent was attested".
+- Keep sentences short. In documentation, aim for 10 to 14 words on average and split any sentence over 25 words.
 - Keep one action per sentence in high-stakes instructions.
 - Put commands in code formatting.
 - Keep path, branch, and identifier spellings exact.
@@ -226,6 +231,7 @@ Review sentences around the machine state `honored` so they read naturally; in h
 - Avoid pronouns when “it” could refer to the branch, Gate, Proof, or command.
 - Keep diagnostic detail close to the state it supports.
 - Spend "never" and "always" on real guarantees; cut the absolute that is there for cadence.
+- State each limit once, where it changes what the reader does. Don't repeat a caveat for reassurance or stack hedges around certain behavior.
 - Buttons and labels say what they do: "Delete 3 files," not "Confirm."
 
 ## Product-surface patterns
@@ -292,17 +298,24 @@ State:
 
 ### Documentation
 
-- conclusion or purpose first;
-- literal headings that state what the section contains;
+- what the reader gets first, in the reader's terms;
+- plain words and short sentences a reader can follow on first reading;
+- a clear actor in every sentence: you, your agent, or discern;
+- one example carried through the page;
+- each term defined in the sentence where it first appears, then used consistently;
+- literal headings that state what the section answers or does;
 - canonical nouns;
-- mechanism and boundary;
+- the real artifact shown, then explained;
+- mechanism and boundary, with each limit stated once where it matters;
 - examples that match live commands;
 - example values with personality: `ada`, `apollo-11`, `margaret@hamilton.example` — never `foo` or `user1`;
 - explicit links to deeper reference;
-- no marketing superlatives;
+- benefits described by what happens, without marketing superlatives;
 - the ordinary path before exceptions: include a caveat only when omitting it could change the reader’s decision or action;
 - direct explanations before contrasts: do not invent a mistaken assumption for the reader;
 - permission described through the person’s decision, without surrounding a simple step with legal qualifications.
+
+The public manual follows `project/map/_internal/brand/manual-authoring.md`, which applies these rules page by page.
 
 ## Tone by state
 
@@ -313,6 +326,7 @@ State:
 | Destructive action      | Explicit, sober, confirmation-oriented               |
 | Consent or authority    | Precise, human, consequence-aware                    |
 | Setup narration         | Warm, transparent, stage-level                       |
+| Teaching documentation  | Plain, warm, direct; the reader's gain first         |
 | Reference documentation | Dense only where precision requires it               |
 | Advisory analysis       | Evidence-led, non-judgmental, careful with inference |
 | Successful handoff      | Calm confidence; state what remains for the human    |
@@ -325,7 +339,8 @@ When a human-facing product surface mentions agents:
 - avoid moral or personality judgment;
 - attribute cohort observations to recorded evidence;
 - distinguish agent identity from task mix;
-- preserve the product philosophy that capable agents benefit from better conditions.
+- preserve the product philosophy that capable agents benefit from better conditions;
+- call a single agent "it" or "your agent", and keep "they" for people and for several agents, so every pronoun has one possible meaning.
 
 Bad:
 
@@ -360,6 +375,14 @@ Better:
 ### Scoped success: stronger
 
 > The exact committed tree passed the configured Gate and held its Standards. Exercise the changed workflow, then decide whether to accept it.
+
+### Abstract documentation: reject
+
+> What helps that exchange keep working as the project grows is a shared account of how the project works, what it values, and what needs checking before a change is complete.
+
+### Plain documentation: stronger
+
+> discern gives each part of the job a clear owner. You decide what to build and what ships. Your agent does the work. The project remembers what the next task needs to know.
 
 ### Performative consent: reject
 
@@ -426,7 +449,7 @@ Each entry explains the failure to avoid and the reason for it. Context-sensitiv
 
 ## Enforcement
 
-Vale detects the mechanical subset of these rules in the linted map and manual. New or rewritten pages must have zero blocking findings. Review editorial alerts as opportunities to improve the sentence, not invitations to justify it. Try a direct explanation first; retain a flagged construction only when it carries necessary meaning. Counted introductions and scope intensifiers remain blocking. The shared `EDITORIAL_PROSE_RULES` policy in `scripts/prose_lib.ts` names the selected advisory rules; other blocking rules remain enforced. Re-check map pages with `discern scripts prose-page <page…>` and use `scripts/manual_prose_check.ts --review` for manual pages. Review the full alerts as well as the blocking result. A passing check does not replace editorial judgment.
+Vale detects the mechanical subset of these rules in the linted map and manual. New or rewritten pages must have zero blocking findings. Review editorial alerts as opportunities to improve the sentence, not invitations to justify it. Try a direct explanation first; retain a flagged construction only when it carries necessary meaning. Counted introductions and scope intensifiers remain blocking. The shared `EDITORIAL_PROSE_RULES` policy in `scripts/prose_lib.ts` names the selected advisory rules; other blocking rules remain enforced. Re-check map pages with `discern scripts prose-page <page…>` and use `scripts/manual_prose_check.ts --review` for manual pages. Review the full alerts as well as the blocking result. The `manual_reading_grade` standard holds the manual's reading grade as a falling ceiling; aim new and rewritten teaching pages at grade 7.5 or lower. A passing check does not replace editorial judgment.
 
 ## Mechanics
 
@@ -440,6 +463,8 @@ Vale detects the mechanical subset of these rules in the linted map and manual. 
 A product string is ready when:
 
 - every product term is canonical;
+- a reader can follow each sentence on first reading;
+- each limit appears once, where it matters;
 - the current state is clear;
 - the relevant object is named;
 - the next action is explicit;
