@@ -2,228 +2,244 @@
 
 **Status:** Binding procedure for the public manual\
 **Applies to:** `project/manual/` tutorials, guides, explanations, reference, and troubleshooting\
-**Reference pair:** `project/manual/20-understand/proof.md` and `project/manual/10-guides/wait-for-another-task.md`\
-**Change control:** An edit to this procedure or to the reference pair binds only after the owner has approved the exact new text.
+**Reference pages:** `project/manual/20-understand/proof.md` (explanation), `project/manual/10-guides/finish-and-land-a-change.md` (guide), and `project/manual/20-understand/practice-and-roles.md` (overview)\
+**Change control:** An edit to this procedure or to the reference pages binds only after the owner has approved the exact new text.
 
-The public manual helps a human understand, adopt, and direct discern while giving a coding agent the same accurate body to act from. It is human product documentation: warmer and more explanatory than a specification, more exact than marketing, and independent of the surface that renders it.
+The manual is where people learn what discern does for them, decide to adopt it, and learn to direct their agents. It is one of discern's main marketing surfaces, and coding agents read the same pages through `discern docs` and `discern_docs`. Write for the person first: plain, warm, and exact. An agent gets the same facts from plain prose.
 
-Use the [product-voice Skill](../../../skills/discern-product-voice/SKILL.md) as the surface register. The [register bridge](register-bridge.md) is the drafting method. Brand material can supply a real human situation, but the manual never switches to `discern-brand-voice`.
+Write in the [product voice](../../../skills/discern-product-voice/SKILL.md). Use the [register bridge](register-bridge.md) to turn a product fact into a reason to care. The manual never switches to `discern-brand-voice`.
 
-## The voice lock
+## The voice in brief
 
-### Be generous toward the reader
+Lead with what the reader gets. Use plain words and short sentences. Name who does what: you, your agent, or discern. Carry one example through the page. Define each term in the sentence where it first appears. State each limit once, where it matters, without hedging. Show the real artifact, then say what it means. Check every claim against the live product.
 
-Assume the reader arrives without the surrounding conversation or repository context. Give the missing premise before introducing a rule, and introduce depth as the page earns it. A short page that makes the reader guess is not a simpler page.
+The reference pages show all of this at work. Read them before drafting.
 
-Use familiar examples, such as finding a saved item, reading a list on a phone, or recovering from an accidental deletion. Show what the person can ask, what they will see, and what they decide. Explain the benefit through the problem the step solves, without adding a slogan to each procedure.
+## Lead with what the reader gets
 
-Let each page do its own teaching while keeping exact reference facts in one home. Repeat an essential distinction when applying it to a new situation; link duplicated inventories and protocols to their reference. Use headings, examples, tables, and the existing reading components to make the next useful part visible.
+The first paragraph renders as the page's large introduction, above the first `##` heading. It tells the reader what they get, in their own terms:
 
-### Explain the task without defensive qualifications
+> When your agent says a change is finished, Proof shows you what that means: which of your project's checks passed, on exactly which version of the code.
 
-Describe the ordinary path first. Add a caveat where leaving it out could change what the reader decides or does. Do not invent assumptions for the reader, deny capabilities they have not asked about, or append internal recovery details to an otherwise complete explanation.
+A second short paragraph can add the payoff or the page's scope. Don't open with a mechanism, a command, an internal object, or a scene that takes several sentences to reach its point.
 
-When permission matters, say who decides and what happens next. Prefer “you grant permission before the change lands” to an abstract contrast between evidence and authority. Keep exact distinctions in the relevant reference, and repeat them in a guide only when its next step depends on them.
+Make the strongest claim the product supports, then give it a concrete meaning in the next sentence or two, so no reader mistakes it for a bigger promise. Proof means the project's checks passed on one exact commit. It never stands in for defect discovery, security review, or the decision to release.
 
-Treat a style alert as an opportunity to improve the sentence before defending its construction. Ask whether deleting the qualifier or final caveat would change the reader’s understanding or action. If it would not, remove it. Counts and scope intensifiers remain blocking; do not dodge them by changing digits or substituting another intensifier.
+## Write plainly
 
-### Give the reader a reason to care before the first H2
+### Use plain words and short sentences
 
-Every page states its human value in the opening paragraphs, above the first `##` heading. That opening is where a reader decides whether the rest deserves attention.
+- Aim for 10 to 14 words per sentence on average, and split any sentence longer than 25 words.
+- Give each sentence one idea, and each paragraph one topic.
+- Prefer verbs to abstract nouns: "you said yes" instead of "consent was attested", and "finish" instead of "completion".
+- Prefer common words: use, check, show, keep, stop, land.
+- Use contractions: don't, can't, it's, you're.
+- Cut filler: intensifiers, throat-clearing openers, and phrases that take four words to say what one word says. Keep "exactly" only where precision is the point.
 
-Start with a recognizable situation, consequence, or desired outcome. Then connect it to the page's promise. Even a capability operated entirely by an agent has human value: better agent ergonomics returns time, attention, confidence, or coordination capacity to the person responsible for the project.
+Short doesn't mean choppy. Join two short sentences when the second only finishes the first.
 
-The opening must remain product truth. State the strongest benefit the live authorities support, then place its scope close enough that a novice cannot reasonably mistake it for a broader claim. This is the intended balance:
+Tutorials, guides, explanations, and troubleshooting pages should score at or below grade 7.5 under the `manual_reading_grade` projection. The reference pages score between 7.1 and 7.2. [Check the page](#check-the-page) explains how to measure.
 
-> discern uses Proof to do that checking for you. It confirms that the project's declared checks ran and passed, records the exact commit they covered, and shows whether the evidence is still current.
+### Name the actor
 
-The first sentence is appealing because the second sentence gives “checking” a concrete, supportable meaning. Do not weaken it into legal prose, and do not let it imply that Proof finds every defect.
+Every sentence needs a subject that does something. The manual's actors are:
 
-### Write for the human, name the actor
+- **you**, the reader, who sets the direction, reviews the work, and decides what lands;
+- **your agent**, which operates discern, changes the project, answers checkpoints, and follows recovery instructions;
+- **discern**, which runs the checks, records the evidence, and lands a change only with permission.
 
-The human's surface-level impression matters first because the human decides whether to trust, install, and use discern. Coding agents remain equally important readers, but they consult the manual on demand and extract the same facts at any register, so the register optimizes for the human. On every page, of every kind, the addressee is the human; the body describes agents rather than addressing them as an ambiguous “you.”
+The project keeps things: rules, checks, and records. Don't make "the project", "the practice", "evidence", or "the gate" the subject of a sentence when a person or discern does the work. Write "discern runs your checks" rather than "the gate establishes completion".
 
-Treat the human, the coding agent, and the project as distinct participants. This is the same three-part relationship used by the [visual identity](visual-identity.md):
+Address the human reader as "you" on every page. Call a single agent "it" or "your agent", and keep "they" for people and for several agents, so every pronoun has one possible meaning.
 
-- the **human** sets intent, supplies judgment, and grants authority;
-- the **coding agent** operates discern, changes the project, answers checkpoints, and follows recovery;
-- the **project** carries its instructions, checks, history, and durable evidence.
+When a step belongs to the agent, say so. Tell the reader when they don't need to act: "You don't need to run any of these commands yourself."
 
-Use “you” when the human reader is genuinely the actor, such as reviewing Proof or deciding whether a change should land. When a command belongs to the coding agent, say “the agent runs…” This keeps responsibility clear without making either participant feel like an afterthought.
+### Carry one example through the page
 
-The actors vary by page; the addressee doesn't. A page about work only agents perform is still written to the human who directs and benefits from it, and the human remains the addressee even when every command belongs to the agent. Agents take “they” (“the agent commits, then they rerun the Gate”), or “your agent” when the sentence speaks to the human about their own.
+Pick one small, familiar scenario, such as recipe search, saved lists, or a phone layout. Introduce it in the opening and use it to the end. A reader who meets a new scenario halfway through has to start orienting again.
 
-### Show the product when there is something worth seeing
+### Define terms where they first appear
 
-Prefer one authentic artifact over another paragraph of description. A Proof line, a short result, a configuration fragment, or an observable file can make an abstract promise tangible. The artifact must come from, or be validated against, the current product and must work in an external project; repository-only fixtures are not public examples.
+Give the plain meaning in the same sentence, then use the canonical term from then on:
 
-Lead an agent-operated procedure with a useful request the human can give, or a result they can recognize. Show an MCP call or command when it helps the reader understand or perform the step. MCP remains the agent's primary interface, but a page does not need an invocation merely to establish that fact. Exact transport syntax belongs in Reference when it adds no understanding to the human journey.
+- "the **desk**: the interactive view that opens when you run `discern` in your main checkout";
+- "a **worktree**, a separate copy of the project on its own branch";
+- "a **variance**: permission to land despite an unmet checkpoint."
 
-Do not force an artifact into a page whose subject has no useful visible form. Demonstrate a real product object only when it materially improves understanding.
+Never use a term the page hasn't defined or linked. Don't replace `gate`, `Proof`, `checkpoint`, `grant`, `variance`, `trunk`, or `worktree` with friendlier synonyms. Don't surround them with abstractions such as "candidate", "subject", "surface", or "observed work" when "change", "branch", "page", or "files" says the same thing. Plain words leave the reader attention for the terms that matter.
 
-### Explain why the facts matter
+### Say it once, without hedging
 
-A sequence of correct “what” sentences can still leave the reader without a mental model. Add the causal bridge: why the state exists, why two states stay separate, why a later edit changes the answer, or why the next step follows.
+State each limit where it changes what the reader does, in plain words: "A pass means those checks passed, and nothing more." Don't repeat it as reassurance.
 
-Vary sentence length and structure. Use contractions where they sound natural, familiar situations a reader can recognize, and an occasional question the reader is likely to ask. A short sentence can land an important fact; a paragraph of short subject–verb–object sentences becomes tiring.
+- Describe the ordinary path first. Add an exception only where leaving it out would change a decision or an action.
+- Say what discern does. Drop hedges such as "can help", "may be able to", and "is designed to" around behavior that is certain.
+- When behavior depends on setup, name the condition: "If your project defines scopes, the gate runs only the checks for the areas the change touches."
+- Give the reason for a rule when it changes what the reader does, usually in one sentence: "The gate only runs on committed work, so the Proof always describes a version that can land."
+- Don't deny capabilities nobody asked about, and don't invent a mistaken belief to correct.
 
-A recognizable scene may quote its moment (the Proof explanation opens on an agent's “I'm done!”), and quoted speech inside a scene is characterization rather than authorial emphasis. Spend such moments where attention is decided: the opening above the first H2, or a completion. Keep them out of sentences that state scope, state, or authority.
+Repeating a distinction teaches when the reader meets it in a new situation. Green versus landed appears in Proof's explanation, its stage table, and the landing guide's closing section. Repeating a caveat for safety doesn't teach anything.
 
-Repeat a central distinction when the reader meets it in a new context. The Proof explanation establishes green versus landed in prose, reinforces it in the state table, and applies it again in the next-action list. That repetition teaches. Repeating the same wording without adding a new use does not.
+### Show the real thing, then say what it means
 
-### Document the process; discern teaches agents at need
+A Proof line, a command, the first sentence of a result, or a short config fragment makes a promise concrete. Show it, then explain it. A table that breaks an artifact into parts works well, as in Proof's "Read a Proof line".
 
-An agent-driven capability doesn't need its every outcome enumerated in the body. discern's results and hints deliver the next valid action at the moment a state is reached, and the bundled Skills carry the operating procedure. The manual therefore explains what lets the human understand, predict, and trust the flow: the situation, its shape (start, unfinished, refused, success), and the human's stake in each part. If a detail's only reader is an agent already inside the flow, it belongs to Reference or to those runtime surfaces rather than to the page body. The wait guide holds this line: it teaches the four outcomes and their meaning, and leaves timeout derivation, handle storage, and exit codes to Reference.
+Put commands in code formatting and match the live product. Say in plain words what each command does. Keep exhaustive flags, fields, and transport detail in Reference, and link to it.
 
-## Evidence before prose
+Include requests the reader can give their agent. They show how to direct the work. Keep them short and realistic, with at most one per step.
 
-Complete the maintainer's private manual evidence worksheet before treating a draft as settled. Work through the sources in this order:
+### Leave runtime detail to runtime
 
-1. Verify live commands, config, code, tests, and the relevant technical feature entry. These establish product truth.
-2. Read the paired entry in `project/map/_internal/feature-canon-plain.md` for coverage and translation ideas. Never copy it as final wording.
-3. Select the public value from the [Human Benefit Canon](../feature-canon-human-benefits.md). Read the paired [Agent Benefit Canon](../feature-canon-agent-benefits.md) entry for the agent's operating consequence, and the [Demand Canon](demand-canon.md) for the human situation that makes the capability matter. Read the [Consequence Canon](consequence-canon.md) before drafting to connect the capability to what changes for the reader. Agent ergonomics is also a human benefit, but it does not justify a claim beyond the live product basis.
-4. Apply the register bridge in order: product truth → human moment → plain proposition → product nouns as proof.
-5. Draft in product voice. Define canonical terms at first use, validate every literal example, and check that every linked destination is published for the manual reader.
+discern's results tell the agent its next step at the moment it applies, and the bundled skills carry operating procedures. A page explains what the reader needs to understand and trust the flow. That means the situation, how it starts, how it succeeds or stops, and what the reader decides. If only an agent already inside the flow needs a detail, leave it to the result or to Reference. The landing guide says an agent answers a checkpoint about combined code "and the same landing continues". It doesn't explain composition receipts.
 
-If the sources disagree, stop at the live code and tests. Elegance cannot resolve a product fact. Record a shared defect for the owning stream rather than smoothing it over in prose.
+### Make every benefit explicit
 
-## The five page jobs and spines
+Each tutorial, guide, and explanation page is the registered home of specific benefits in `MANUAL_BENEFIT_OBLIGATIONS` (`scripts/manual_benefits.ts`). The [Human Benefit Canon](../feature-canon-human-benefits.md) gives their meaning. Name each benefit at the point where it happens, in the reader's terms: "That doesn't send your change back to the start." A benefit the reader has to work out for themselves hasn't been delivered.
 
-Every page has one primary job. The page kind determines what the reader must be able to do after reading it and what its checkpoint must judge.
+Describe a benefit by what happens. "discern checks the combined code and lands exactly what passed" persuades in a way no adjective can.
 
-| Kind                | Its job                                                                    | The reader leaves able to…                                             |
-| ------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **Tutorial**        | Teach one first success through a complete learning journey.               | reach and recognize the promised result, then choose the next step.    |
-| **Guide**           | Help someone accomplish one outcome from a named starting state.           | take the steps, handle an unfinished or refused path, and verify done. |
-| **Explanation**     | Build a usable mental model for a concept and its consequences.            | restate it, distinguish nearby states and authority, and predict why.  |
-| **Reference**       | Provide the complete current contract for exact lookup.                    | find the relevant type, field, default, limit, or supported boundary.  |
-| **Troubleshooting** | Recover safely from an observable symptom without guessing at destruction. | identify the likely cause, take recovery, and know when to stop.       |
+## Get the facts right
 
-Use these spines to guide the sequence. The headings may vary with the subject.
+Plain prose only helps if it's still true.
 
-### Tutorial spine
+1. Check every claim about behavior against the live product. Start with the current map page for that subsystem, and read the code and tests where the map is unclear. When sources disagree, the code and tests win. Report the disagreement to the page that owns it instead of smoothing it over.
+2. Never copy a claim from another manual page without checking it. Pages drift: the Proof page and the landing guide once disagreed about what happens when the trunk moves.
+3. Read the page's benefit obligations and the Human Benefit Canon entries they name.
+4. Run every literal example, including commands, output, and config, against the live product. Examples must work in an external project, so don't use repository-only fixtures.
 
-1. Above the first H2, name the first success and why it is worth the effort.
-2. State prerequisites, the starting state, and a realistic expectation of time or agent effort.
-3. Lead through ordered actions, naming human and agent responsibilities at each handoff.
-4. Show the visible result after each meaningful phase and place recovery links where failure can occur.
-5. End with the observable first success and one valid next step.
+The plain feature canon (`project/map/_internal/feature-canon-plain.md`), the [Demand Canon](demand-canon.md), and the [Consequence Canon](consequence-canon.md) are good sources for the human situation and for wording ideas. Never copy them as final text.
 
-### Guide spine
+## Structure the page
 
-1. Above the first H2, name the situation, desired outcome, and practical benefit.
-2. State the required starting state and any decision the reader must make before acting.
-3. Give the shortest complete procedure, with one realistic validated example where it helps.
-4. Separate an unfinished state from a refusal or error, and identify who owns any decision.
-5. State the observable completion condition and the next action; link exact flags, fields, and limits to Reference.
+### Page kinds
 
-### Explanation spine
+Every page has one job, set by its `kind`. The kind decides what the reader can do afterwards and which checkpoint question judges the page.
 
-1. Above the first H2, begin at the human review or decision moment and explain why the concept matters.
-2. Introduce the concept in plain language, then show an authentic artifact when one makes it concrete.
-3. Explain the causal model: what establishes the state, why its boundary exists, and what changes it.
-4. Distinguish adjacent states, machine results, declared judgment, and human authority where relevant.
-5. Close with common next paths and links to exact formats or procedures.
+| Kind                | Its job                                                       | Afterwards, the reader can…                                    |
+| ------------------- | ------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Tutorial**        | Teach one first success from start to finish.                 | reach and recognize the result, then choose a next step.       |
+| **Guide**           | Help someone reach one outcome from a known starting point.   | take the steps, handle a refusal, and recognize success.       |
+| **Explanation**     | Build a working mental model of a concept.                    | restate it, tell it apart from nearby states, and predict why. |
+| **Reference**       | Give the complete, current contract for exact lookup.         | find the field, default, limit, or supported value they need.  |
+| **Troubleshooting** | Recover safely from something the reader can see going wrong. | find the likely cause, recover, and know when to stop.         |
 
-### Reference spine
+### Spines
 
-1. Above the first H2, state what this lookup lets the reader answer and why that answer matters.
-2. Define its scope and prerequisites without requiring another page first.
-3. Organize exact fields, types, defaults, limits, states, and supported values under stable headings.
-4. State exceptions and unsupported cases explicitly; use validated examples only where they clarify the contract.
-5. Link outward to a guide, explanation, or troubleshooting page for tasks and mental models.
+Headings can vary with the subject. The order holds.
 
-### Troubleshooting spine
+- **Tutorial:** the first success and why it's worth the effort; prerequisites and a realistic time or effort estimate; ordered steps that say who acts at each handoff; the visible result after each phase, with recovery links where failure can happen; the finished result and one next step.
+- **Guide:** the situation, the outcome, and the benefit; the starting point and any decision needed first; the shortest complete procedure with one example; what refusal or an unfinished state looks like, and who decides; how the reader knows it's done, and what comes next.
+- **Explanation:** the reader's review or decision moment and why the concept matters; the concept in plain words, with the real artifact; how it works, what changes it, and why its boundaries exist; the nearby states, and who decides what; the usual next steps.
+- **Reference:** what the lookup answers and why it matters; its scope; exact fields, types, defaults, limits, and states under stable headings; exceptions and unsupported cases; links to the guide or explanation for tasks and mental models.
+- **Troubleshooting:** the symptom the reader sees and the recovery promise; the exact text or state they observe; the likely cause and how to tell it from nearby causes; the safe recovery first, with alternatives last; what success looks like, and when to stop and ask.
 
-1. Above the first H2, name the observable symptom, the recovery promise, and why the safe route matters.
-2. Repeat the text or state the reader can observe.
-3. Give the likely cause and the evidence that distinguishes it from nearby causes.
-4. Put the recommended safe recovery first and alternatives or escape hatches last.
-5. State what recovery success looks like and when to stop for human judgment or further diagnosis.
+Reference stays exact and complete. Write it in the same plain voice, but never drop a default, limit, or exception to shorten it.
 
-## Spend the vocabulary budget on terms that matter
+### Headings
 
-Canonical product terms earn their place because they make state and authority exact. Define a term in plain language at first use, then use the same term consistently:
+Write headings that say what the section answers or does: "Without permission, nothing lands" and "What a pass does and doesn't tell you". Use sentence case.
 
-- “the project's final quality check (the gate)”;
-- “evidence for one exact completed change (Proof)”;
-- “the project's shared branch (the trunk).”
+Before renaming a heading, search for links to its anchor across `project/`, `templates/`, `src/`, and `site/`, then keep the heading or update every link.
 
-Do not replace `gate`, `Proof`, `checkpoint`, `grant`, `variance`, or `trunk` with a rotating set of friendlier synonyms. Equally, do not surround those terms with incidental abstractions such as “candidate,” “subject,” “surface,” “product-managed,” or “observed work” when “change,” “branch,” “page,” or “files” says the same thing. Plain words leave the reader more attention for the vocabulary that carries product meaning.
+### Tables
 
-## Link detail without creating a context cliff
+Use tables for comparisons, part-by-part breakdowns, sources of permission, and sequences of states. Keep each cell to a phrase or one short sentence.
 
-A link deepens an answer; it must not contain the missing premise that makes the current page intelligible.
+### One home per concept
 
-Before linking away, give the reader the minimum useful fact, its consequence, and the local next action. Then link the exact material with a label that says what it adds. For example, the wait guide explains that `data.met: false` is an unfinished window and tells the agent to follow `data.resume`; Reference owns handle storage, timeout bounds, and the exit-code table.
+Explain each concept fully in one page, and link to that page elsewhere. The landing guide links to Proof's "From green to live" table instead of repeating it. Reference owns exact flags, fields, defaults, and limits.
 
-Prefer a published Guide, Explanation, Reference, or Troubleshooting destination. Do not link a public manual reader into a repository Map page merely because it holds the current implementation detail. When no public destination exists, keep the minimum truthful fact in the page and record the missing destination for the stream that owns it.
+### Link without a context cliff
 
-## Approved transformations
+A link adds depth. It must not hold the premise the current page needs. Before linking away, give the reader the key fact, why it matters, and what to do next. Then link, with text that says what the destination adds.
 
-These before/after patterns describe reusable teaching moves. Adapt them to the subject.
+Link to published manual pages. Don't send a manual reader to a map page because it holds the implementation detail. When no public destination exists, keep the minimum true fact on the page and record the gap for its owner.
 
-| Before shape                                        | Approved move                                                                                                                    | Reusable rule                                                                             |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| “Proof records evidence for a clean commit.”        | Begin with the owner receiving an agent's completion claim, then explain how Proof removes the need to reconstruct the checks.   | Put the human consequence before the mechanism.                                           |
-| A description of Proof with no visible output.      | Show one real Proof line near the opening, then explain the full view and durable note by link.                                  | Demonstrate an authentic artifact when it turns an abstraction into something reviewable. |
-| “A later edit invalidates Proof. Generated output…” | Explain the formatter or generator scenario, why the checked code would differ, and then list the changes that make Proof stale. | Give the causal “why” before the rule list.                                               |
-| “Wait for the dependency, then update your branch.” | Name the coding agent as operator, the owner as beneficiary, and the project state that satisfies the wait.                      | Resolve actor ambiguity before giving steps.                                              |
-| A familiar speed idiom after the wait.              | Say that the owner can begin the dependent task without coordinating the exact time its agent should return.                     | Preserve the practical benefit in words that describe the interaction.                    |
-| Full timeout, handle, and exit-status mechanics.    | Teach `met: false`, continuation, refusal, and the successful hint; send exact transport limits and exit codes to Reference.     | Keep the guide sufficient for action and let Reference own exhaustive transport detail.   |
+### Frontmatter
 
-“Proof does the checking for you” remains a useful product statement when the next sentence defines the checking: the declared checks ran and passed on the exact committed state, and the evidence is current. It must never stand in for defect discovery, security review, or release judgment.
+- Keep `id`, `kind`, `order`, `publish`, and `aliases` stable. When you retitle a page, add the old title as an alias.
+- Write `description` as one plain sentence about what the reader gets. Search results and link previews show it.
+- Keep a page's file name, and so its web address, unless the owner approves a change. When the address changes, list the old route in `redirect_from`.
 
-## Answer the checkpoint with evidence
+## Before and after
 
-The per-kind checkpoint judges comprehension. Before declaring it met, write a short answer against the actual page in the stream's evidence file:
+These pairs come from the reference pages. Reuse the move, in your own words.
 
-- restate what the named reader can now understand or accomplish;
-- name the starting state and observable completion, where the kind requires them;
-- identify the adjacent states, actor responsibilities, and authority boundaries the page distinguishes;
-- name facts left to a link and explain why the page remains usable without following it;
-- answer any launch distinction the page touches: green versus landed, who can authorize an unmet checkpoint, and why a later edit makes Proof stale.
+| Before                                                                                                                                                                          | After                                                                                                                                                  | The move                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| "What helps that exchange keep working as the project grows is a shared account of how the project works, what it values, and what needs checking before a change is complete." | "It works by giving each part of the job a clear owner. You decide what to build and what ships. Your agent does the work."                            | Make a person or discern the subject. Say the real thing. |
+| "Evidence needs to describe the version that will become part of the project."                                                                                                  | "Proof belongs to one commit. discern records it only when every change in the worktree is committed, so the checks describe exactly what would land." | Replace the abstraction with the actor and the reason.    |
+| "A green gate by itself cannot establish that no defects remain or that an application is ready for release."                                                                   | "A pass means those checks passed, and nothing more."                                                                                                  | State the limit once, plainly.                            |
+| "Landing permission can come from your approval in the current conversation, a standing grant for named areas of the project, or a grant you record for one task at the desk."  | "a grant for one task, which you record from the desk: the interactive view that opens when you run `discern` in your main checkout."                  | Define the term where it first appears.                   |
+| A 188-word paragraph on integration worktrees, served composition receipts, and continuation commands.                                                                          | "Another task may land on `main` while yours waits for review. That doesn't send your change back to the start."                                       | Lead with the situation and the benefit, then the facts.  |
+| "Proof keeps automated checks, review judgments, and permission distinct."                                                                                                      | "A Proof keeps three things separate, so you can see who vouched for what."                                                                            | Say why the reader should care.                           |
 
-The approved Proof answer is that a reader can explain what green establishes for one exact tree, move through ready for review, accepted, landed, and released, separate verified machine results from declared checkpoint conclusions, and identify the owner as the only source of an unmet variance. The reader can also predict that an edit or generated rewrite stales Proof because the code waiting to land no longer matches the code that passed. Exact note fields and checkpoint protocols remain in Reference.
+## Shapes to reject
 
-The approved wait answer is that a reader can direct the coding agent to choose green, landed, or moved trunk from the dependency; start one MCP or command-line wait; continue `met: false`; treat `ok: false` as a separate refusal; follow the successful composition hint; and verify that the dependency is present in the agent's tree. Exact timeout derivation, continuation storage, and exit behavior remain in Reference.
+Reject a draft that turns into any of these:
 
-A checkpoint that can be declared met without making these judgments is defective. Strengthen its question, matcher, or tests in the checkpoint's owning authority instead of recording a ceremonial answer.
+- **feature catalogue:** a list of mechanisms instead of one promise to the reader;
+- **mechanism-first opening:** a command, subsystem, schema, or internal object before the reader has a reason to care;
+- **abstract actor:** "the project carries", "evidence establishes", or "the practice consists of" where a person or discern does the work;
+- **hedge stack:** "can help", "may be able to", or "is designed to" around behavior that is certain;
+- **defensive repetition:** the same caveat stated again for safety;
+- **roaming example:** a scenario that changes partway through the page;
+- **undefined term:** a product noun used before the page explains it;
+- **runtime transcript:** every flag, receipt, and continuation of an agent-only path copied into a guide;
+- **repository shorthand:** local paths, test fixtures, ADR numbers, or team vocabulary the reader needs to understand the page;
+- **duplicate reference:** a guide or explanation that repeats the flags, fields, defaults, or limits Reference owns;
+- **marketing flourish:** emotional language that hides the state, scope, or next step;
+- **agent blame:** prose that mocks or judges the coding agent instead of describing the product boundary;
+- **false certainty:** green becomes "correct", Proof becomes defect detection, landed becomes live, or an old conversation becomes permission;
+- **surface-specific copy:** a different authored body for the website, terminal, MCP, or raw Markdown.
 
-## Prohibited shapes
+Also cut these machine-written habits:
 
-Reject a draft that becomes any of these:
+- a dramatic reversal between doubt and a confident claim;
+- paired slogan fragments that make evidence sound like certainty;
+- a trailing fragment such as ", every time" or ", by design";
+- a count that introduces a list ("does two things:"), which the lint blocks;
+- moral or dramatic adverbs on ordinary claims;
+- noun-phrase negation. Write "a guessed branch name won't resolve" instead of "a guessed name resolves to no branch".
 
-- **feature catalogue:** completeness of the mechanism list substitutes for one page promise;
-- **mechanism-first opening:** a command, subsystem, schema, or internal artifact appears before the reader has a reason to care;
-- **repository-only shorthand:** local paths, test fixtures, ADR numbers, or team vocabulary are required to understand the page;
-- **duplicate reference:** a guide or explanation carries exhaustive flags, fields, defaults, limits, or transport tables already owned by Reference;
-- **marketing flourish:** emotional language hides the exact state, scope, or next valid action;
-- **agent blame:** prose mocks or judges the coding agent instead of describing the product boundary — describing agents as colleagues (“they,” a sibling, the fleet) is house style, and the defect is mockery;
-- **false certainty:** green becomes “correct,” Proof becomes defect detection, landed becomes live, or old conversation becomes authority;
-- **surface-specific body copy:** website, terminal, MCP, or raw readers receive a different authored explanation.
+Comparisons that carry product meaning stay: green versus landed, unfinished versus refused, and checked versus declared.
 
-Also remove common machine-written mannerisms when they carry no product meaning:
+## Answer the checkpoint
 
-- a decorative reversal between uncertainty and a capitalized proof claim;
-- paired slogan fragments that make evidence appear to remove uncertainty;
-- trailing modifier fragments added to imply repeatability or intent;
-- counts that add no information about the checks or sequence;
-- moral or dramatic adverbs added to ordinary claims;
-- noun-phrase negation that makes a simple failure harder to parse. Write “a guessed branch name won't resolve,” not “a guessed name resolves to no branch.”
+Each page kind has a checkpoint question about comprehension. Before declaring it met, check the actual page:
 
-Necessary comparison remains welcome. Green versus landed, unfinished versus refused, and verified versus declared carry required product meaning.
+- what can its reader now understand or do;
+- where does it start and how does the reader recognize the end, where the kind needs them;
+- which nearby states, responsibilities, and permission boundaries does it separate;
+- which facts does it leave to a link, and why is the page still usable without following it;
+- what does it say, where relevant, about green versus landed, who can approve an unmet checkpoint, and why a later edit makes Proof stale.
 
-## Final author check
+The Proof page's answer: a reader can say what a pass means. The project's checks passed on one exact commit, and nothing more. They can follow a change through green, ready for review, submitted, authorized, landed, and live. They can tell check results from the agent's checkpoint answers and from permission to land, and they know only the owner can approve a variance. They can predict what makes Proof stale: a new commit, an uncommitted file, a changed checkpoint answer, or a changed limit proposal. A newer trunk doesn't.
 
-Before committing a page, confirm that:
+The landing guide's answer: a reader can ask for a reviewable result and follow what the agent does before the handoff. They can review the change, ask for fixes, and land it or learn why it didn't land. They know that other work landing first doesn't send the change back. They know where permission to land can come from, and that no grant covers a variance, a limit change, or an emergency landing. They recognize a finished landing, and the reasons a worktree can remain afterwards.
 
-- its promise, kind, and intended reader agree;
-- the reason to care appears above the first H2;
-- human, agent, and project responsibilities are unambiguous;
-- at least one causal “why” supports the important rules;
-- any artifact and literal example match the live product;
-- canonical terms receive plain first definitions and incidental jargon has been cut;
-- linked detail deepens a complete local explanation and resolves on every public surface;
-- the checkpoint answer names comprehension, states, authority, links, and observable completion;
-- website, terminal, MCP, and raw Markdown project the same authored body.
+If a question could be declared met without this work, strengthen the question, its matcher, or its tests instead of recording a ceremonial answer.
+
+## Check the page
+
+Run these before you commit:
+
+```sh
+deno run --allow-read --allow-write --allow-env --allow-run scripts/manual_prose_check.ts <page…>
+deno run --allow-read --allow-write --allow-env --allow-run scripts/manual_prose_check.ts --review <page…>
+deno run --allow-read scripts/manual_reading_grade.ts
+```
+
+The first must report no findings; the lint blocks counted introductions and scope intensifiers. The second shows editorial advice. Take the suggestions that make a sentence clearer and ignore the rest. The third prints the corpus grade that the `manual_reading_grade` standard holds.
+
+Then confirm that:
+
+- the opening tells the reader what they get, above the first `##` heading;
+- every sentence has a clear actor, and the pronouns are unambiguous;
+- one example runs through the page;
+- every term is defined where it first appears;
+- each limit appears once, where it matters;
+- every claim and example matches the live product;
+- every benefit the page owns is stated in the reader's terms;
+- headings that other pages link to still resolve;
+- website, terminal, MCP, and raw Markdown show the same authored text.
