@@ -26,23 +26,21 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import type { Command } from "@cliffy/command";
-import { buildCli } from "../src/main.ts";
-import { cliCommandModel } from "../src/shared/cli_reference_codegen.ts";
 import { validateFencedCommand } from "../src/lib/docs_integrity.ts";
-import { discoverProjectScripts } from "../src/engine/project_scripts.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import {
   renderCommandRefsCli,
   stripCommandRefs,
 } from "../src/shared/command_reference.ts";
-import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 /** The channel-owning module — the closed universe every hint is defined in. */
 const HINTS_MODULE = join(REPO_ROOT, "src", "shared", "hints.ts");
 
 import {
+  liveCommandValidator,
   quotedDiscernCommands,
   sourceDiscernCommands,
 } from "./command_span_scan.ts";
@@ -81,7 +79,7 @@ Deno.test("hint source scan skips interpolated spans and survives concatenation"
 });
 
 Deno.test("a stale command in an unexercised branch is flagged end-to-end", () => {
-  const model = cliCommandModel(buildCli(false) as unknown as Command);
+  const model = TEST_CLI_MODEL();
   const template = ({ legacy }: { legacy: boolean }): string =>
     legacy ? `Run \`discern frobnicate\` to migrate.` : "Up to date.";
   const [command] = sourceDiscernCommands(String(template));
@@ -93,9 +91,7 @@ Deno.test("a stale command in an unexercised branch is flagged end-to-end", () =
 });
 
 Deno.test("every quoted discern command in the hint registry validates against the live CLI", async () => {
-  const model = cliCommandModel(buildCli(false) as unknown as Command);
-  const scripts = await discoverProjectScripts(REPO_AUTHORED_PATHS.scripts);
-  const extraVerbs = new Set(scripts.map((script) => script.name));
+  const validate = await liveCommandValidator();
   const failures: string[] = [];
 
   // Pass 1 — rendered examples, per hint, with references resolved to their
@@ -108,7 +104,7 @@ Deno.test("every quoted discern command in the hint registry validates against t
     };
     const rendered = renderCommandRefsCli(def.template(def.example));
     for (const command of quotedDiscernCommands(rendered)) {
-      const reason = validateFencedCommand(command, model, extraVerbs);
+      const reason = validate(command);
       if (reason !== undefined) {
         failures.push(`${key}: \`${command}\` — ${reason}`);
       }
@@ -119,7 +115,7 @@ Deno.test("every quoted discern command in the hint registry validates against t
   // and shared helper strings; new templates and helpers enrol by existing).
   const moduleSource = await Deno.readTextFile(HINTS_MODULE);
   for (const command of new Set(sourceDiscernCommands(moduleSource))) {
-    const reason = validateFencedCommand(command, model, extraVerbs);
+    const reason = validate(command);
     if (reason !== undefined) {
       failures.push(`hints.ts source: \`${command}\` — ${reason}`);
     }
@@ -174,14 +170,12 @@ Deno.test("a reference with a stale flag or subcommand fails the live validation
   // Constructors validate the verb word at build time, but a stale flag or
   // subcommand only resolves against the live CLI model — prove the rendered
   // pass rejects both, through the same validator the live pass uses.
-  const model = cliCommandModel(buildCli(false) as unknown as Command);
-  const scripts = await discoverProjectScripts(REPO_AUTHORED_PATHS.scripts);
-  const extraVerbs = new Set(scripts.map((script) => script.name));
+  const validate = await liveCommandValidator();
   for (
     const stale of ["discern map some-target --jsonx", "discern setup beginx"]
   ) {
     assert(
-      validateFencedCommand(stale, model, extraVerbs) !== undefined,
+      validate(stale) !== undefined,
       `the live validator must reject "${stale}"`,
     );
   }
@@ -193,9 +187,7 @@ Deno.test("every constructor-built reference in authored source names a live ver
   // literal word path in a branch no test renders still resolves or fails
   // here. Interpolated word paths are covered by the constructors' own
   // KNOWN_VERBS check at build time.
-  const model = cliCommandModel(buildCli(false) as unknown as Command);
-  const scripts = await discoverProjectScripts(REPO_AUTHORED_PATHS.scripts);
-  const extraVerbs = new Set(scripts.map((script) => script.name));
+  const validate = await liveCommandValidator();
   const pattern = /(?:discernCommand|ownerDiscernCommand)\(\s*"([^"\n]*)"/g;
   const failures: string[] = [];
   let scanned = 0;
@@ -217,11 +209,7 @@ Deno.test("every constructor-built reference in authored source names a live ver
       if (words === "") {
         continue; // the root form (`discern --help`) has no word path
       }
-      const reason = validateFencedCommand(
-        `discern ${words}`,
-        model,
-        extraVerbs,
-      );
+      const reason = validate(`discern ${words}`);
       if (reason !== undefined) {
         failures.push(`${rel}: discernCommand("${words}") — ${reason}`);
       }
@@ -256,7 +244,7 @@ function commandValueLiterals(source: string): string[] {
 Deno.test("the command-value scan reaches a served command no rendering exercises", () => {
   // The adversarial sibling: a repair command naming a retired subcommand,
   // pinned verbatim by its own status test, so only a validator catches it.
-  const model = cliCommandModel(buildCli(false) as unknown as Command);
+  const model = TEST_CLI_MODEL();
   const source = [
     'repair: { kind: "manual", command: "discern worktree setup begin --dry-run" },',
     'const hint = { label: "discern gate step", next_action: `discern ${verb}` };',
@@ -270,9 +258,7 @@ Deno.test("the command-value scan reaches a served command no rendering exercise
 });
 
 Deno.test("every command-valued literal in authored source names a live command", async () => {
-  const model = cliCommandModel(buildCli(false) as unknown as Command);
-  const scripts = await discoverProjectScripts(REPO_AUTHORED_PATHS.scripts);
-  const extraVerbs = new Set(scripts.map((script) => script.name));
+  const validate = await liveCommandValidator();
   const failures: string[] = [];
   let scanned = 0;
   for (
@@ -289,7 +275,7 @@ Deno.test("every command-valued literal in authored source names a live command"
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const command of commandValueLiterals(source)) {
       scanned += 1;
-      const reason = validateFencedCommand(command, model, extraVerbs);
+      const reason = validate(command);
       if (reason !== undefined) {
         failures.push(`${rel}: "${command}" — ${reason}`);
       }
