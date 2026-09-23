@@ -1,7 +1,7 @@
 ---
 id: reference-files-and-ownership
 title: "Files and ownership"
-description: "Find which files you can edit, what discern maintains, where local records live, and what removal keeps."
+description: "Look up which files you can edit, which files discern maintains or rebuilds, where it keeps local records, and what uninstalling leaves behind."
 order: 80
 publish: true
 kind: reference
@@ -18,47 +18,62 @@ aliases:
 
 # Files and ownership
 
-Use this reference to decide which files you or your agent may edit, which discern may rewrite, and what remains after removal. Knowing those boundaries helps you protect the project's work while keeping generated files current.
+Look up which files in your project you and your agent can edit, which ones discern maintains or rebuilds, and what stays after you remove discern. Knowing the boundary lets you change anything you own without losing the edit to a rebuild.
 
-Start with [the ownership table](#the-ownership-contract) for what to edit, or [registered project paths](#registered-project-paths) to find a particular file. For local records, use [Git configuration](#clone-local-git-configuration), [runtime state](#runtime-state-inside-git), [Git refs](#git-refs), or [temporary files](#temporary-files-and-crash-records). [Removing it all](#removing-it-all) explains what uninstall keeps.
+discern also keeps working records inside Git's own directory, and a few temporary files outside the project. This page lists every one of them, with how long it lasts.
 
-Project-owned files remain yours to change. Shared files contain entries discern maintains alongside yours. Generated files are rebuilt from their source, so your agent changes the source to keep an edit from being overwritten.
-
-File ownership is an operational term for edit and overwrite authority. It does not assign copyright or change a file's license.
+| Find                                | Go to                                                                   |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| Whether you can edit a file         | [The ownership contract](#the-ownership-contract)                       |
+| A particular file discern registers | [Registered project paths](#registered-project-paths)                   |
+| How Git treats discern's files      | [How Git treats registered paths](#how-git-treats-registered-paths)     |
+| Git settings discern writes         | [Clone-local Git configuration](#clone-local-git-configuration)         |
+| Records inside `.git`               | [Runtime state inside `.git`](#runtime-state-inside-git)                |
+| Refs discern creates                | [Git refs](#git-refs)                                                   |
+| Temporary files and crash reports   | [Temporary files and crash records](#temporary-files-and-crash-records) |
+| What uninstalling removes and keeps | [Removing it all](#removing-it-all)                                     |
 
 ## The ownership contract
 
-| Bucket                                          | May you edit it?                                                                   | Can discern overwrite it?                                           |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| [Project-owned](glossary.md#project-owned-file) | Yes. Edit the file in place.                                                       | No. Setup may seed it, then discern leaves it alone.                |
-| [Shared](glossary.md#shared-file)               | Yes, outside discern's marked region or named entry.                               | It may replace its region or entry and preserves the rest.          |
-| [Generated](glossary.md#generated-file)         | Ask your agent to edit the instructions or skill source and run `discern refresh`. | Yes. `refresh` and `upgrade` rebuild it from its reviewable source. |
+Every file discern registers belongs to one of these buckets:
 
-The coding tool creates and maintains provider-local files, such as its machine-local permission settings. discern only ignores their registered paths. Other untracked provider files have no entry.
+| Bucket                                          | May you edit it?                                                                   | Can discern overwrite it?                                                                             |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [Project-owned](glossary.md#project-owned-file) | Yes. Edit the file in place.                                                       | No. Setup may seed it, then discern leaves it alone, apart from the ADR index region described below. |
+| [Shared](glossary.md#shared-file)               | Yes, outside discern's marked region or named entry.                               | It may replace its own region or entry, and keeps the rest.                                           |
+| [Generated](glossary.md#generated-file)         | Ask your agent to edit the instructions or skill source and run `discern refresh`. | Yes. `refresh` and `upgrade` rebuild it from its reviewable source.                                   |
+
+Project-owned files have an exception: the list of Architecture Decision Records (ADRs). Setup seeds the map's `_adr/README.md` with a region between `BEGIN GENERATED` and `END GENERATED` markers. `discern refresh` rewrites that region from the record files, and `discern done` fails when the region has drifted from them. Everything outside the markers stays yours.
+
+A **provider-local** file belongs to a coding tool, which creates and maintains it, such as its machine-local permission settings. discern only keeps its registered path out of Git. Other untracked files a coding tool creates have no entry.
+
+Ownership here means who may edit or overwrite a file. It doesn't assign copyright or change a file's license.
 
 ## Repository boundary
 
-Each Git repository has one discern installation and one `discern.toml` at its root. In a monorepo, that file can assign different checks to different paths. A folder that is itself a separate Git repository can have its own installation. A second `discern.toml` in an ordinary nested folder has no effect.
+Each Git repository has one discern installation, with one `discern.toml` at the repository root. In a monorepo, that file can assign different checks to different paths. A folder that is itself a separate Git repository can have its own installation.
+
+A `discern.toml` in an ordinary nested folder isn't a second installation, but commands you run beneath that folder use it as their project root. There, `discern doctor` fails its repository-shape check, and `discern start` and `discern accept` refuse, because a worktree always checks out the repository from its root.
 
 ## License for discern-authored portions
 
-The `Discern-authored portions` column identifies material covered by the [Apache-2.0 project-payload grant](licenses.md). Project, user, provider, and third-party portions keep their existing terms. Ownership in this table tells you who may edit or overwrite a file; authorship determines its license.
+The `discern-authored portions` column shows the material that the [Apache-2.0 project-payload grant](licenses.md) covers. Project, user, provider, and third-party portions keep their existing terms. Ownership says who may edit or overwrite a file; authorship decides its license.
 
 ## Provenance classes
 
-Shared and generated artifacts also declare one provenance class:
+Each shared or generated file also has a provenance class, which decides whether it carries a marker saying where it came from:
 
-- **Context-loaded:** unmarked. Agent files and skills load in full, so each marker would spend context tokens. Providers also render comments differently. Instructions and drift checks enforce ownership.
-- **Comment-incapable:** no marker because JSON forbids comments.
-- **Comment-capable non-context:** its marker identifies the source. By default, it also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product byline and link.
+- **Context-loaded:** no marker. Agents load agent files and skills in full, so a marker would spend context, and coding tools render comments differently. Instructions and drift checks enforce ownership instead.
+- **Comment-incapable:** no marker, because JSON doesn't allow comments.
+- **Comment-capable non-context:** the marker names the file's source. By default it also names discern and links to [discern.sh](https://discern.sh). A non-empty `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product name and link.
 
-A missing marker does not make an artifact project-owned. Use the inventory below to identify its source before editing.
+A missing marker doesn't make a file project-owned. Look the file up in the inventory below before you edit it.
 
 ## Registered project paths
 
-`/**` covers a directory. Provider-local remains visible so ignored files are not mistaken for Generated ones.
+In this table, `/**` covers a directory. Provider-local files are listed too, so you don't mistake an ignored file for a generated one.
 
-The table uses fresh-install defaults. An isolated workspace for one task (a Git worktree) may use configured environment-file paths instead of `.env`; those files keep the same Shared and Apache-2.0 answers.
+The table shows the paths of a fresh install. The `.env` and `.env.local` rows are the default `[worktree].env_files`. A project that sets its own list uses those files instead, with the same Shared and Apache-2.0 answers.
 
 <!-- BEGIN GENERATED: project artifact ownership -->
 <!-- This table is generated from the ownership registries. -->
@@ -95,134 +110,190 @@ The table uses fresh-install defaults. An isolated workspace for one task (a Git
 
 <!-- END GENERATED: project artifact ownership -->
 
-Path overrides change placement. The ownership bucket still determines edit and overwrite authority ([ADR 0099](https://discern.sh/docs/decisions/0099-consolidate-authored-surface-under-discern-namespace)).
+Configuring a different path moves a file, but its ownership bucket still decides who may edit or overwrite it ([ADR 0099](https://discern.sh/docs/decisions/0099-consolidate-authored-surface-under-discern-namespace)).
 
 ## How Git treats registered paths
 
-Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](https://discern.sh/docs/decisions/0034-agents-md-untracked-currency-check), [ADR 0128](https://discern.sh/docs/decisions/0128-enumerated-ownership-tracked-guidance)). The tracked-refresh plan also covers discern's managed portions of tracked shared files, including generated attributes and provider integrations. `done` and `accept` require an empty plan before landing. After landing, acceptance materializes only ignored or local artifacts ([ADR 0264](https://discern.sh/docs/decisions/0264-tracked-refresh-convergence-precedes-landing)).
+### Agent files and the refresh plan
 
-Project rules outside `.gitattributes`' discern markers remain unchanged, including nested and Git-local attributes. `setup`, `refresh`, and `upgrade` rebuild the block from `discern.toml`, the source-path registry, and the active agent registry. A rebuild replaces hand edits inside the block ([ADR 0093](https://discern.sh/docs/decisions/0093-upgrade-reconciles-gitignore-block), [ADR 0259](https://discern.sh/docs/decisions/0259-generated-groups-opt-in-to-review-metadata)).
+The agent files `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are tracked, so a clone has them before discern runs. `discern done` blocks a stale copy, and accepts a missing one ([ADR 0034](https://discern.sh/docs/decisions/0034-agents-md-untracked-currency-check), [ADR 0128](https://discern.sh/docs/decisions/0128-enumerated-ownership-tracked-guidance)).
 
-The managed block requests `merge=discern-generated` for every tracked declared [generated artifact](glossary.md#generated-artifact) and live agent-file output. Doctor passes that same canonical population to `git check-attr --stdin -z merge`; Git decides each path's protection instead of block inspection. It reports unsafe values without rewriting rules. Set `linguist_generated = true` inside one `[generated.<name>]` table to mark only that group's paths as generated for GitHub. GitHub then hides them in diffs by default and excludes them from language statistics. The default is false ([ADR 0247](https://discern.sh/docs/decisions/0247-generated-artifacts-regenerate-never-merge)).
+The tracked-refresh plan also covers discern's portions of tracked files: the generated attributes, the provider integrations, and the ADR index. `discern done` and `discern accept` require that plan to be empty before a change lands. After landing, acceptance materializes only ignored or local files ([ADR 0264](https://discern.sh/docs/decisions/0264-tracked-refresh-convergence-precedes-landing)).
 
-Markdown inside discern's registered surfaces uses Git's built-in `markdown` diff driver. This covers configured map, instructions, skills, scripts, TODO, and brief paths plus active agent files. There is no repo-wide `*.md` rule: a project's README and other Markdown stay under the project's own attributes policy unless one of those paths is explicitly configured as a discern surface.
+`discern done` also fails at its `tracked_artifacts` stage if materialized skills or provider-local files have been force-added to Git.
 
-Materialized skills and provider-local state are ignored by exact registry path, leaving neighboring files unchanged. Add agent-file ignores outside the managed block if preferred. The currency check accepts a missing copy.
+### `.gitattributes`
 
-The ignore reconciler owns only its marked block and exact standalone rules that the current provider-artifact registry declares. Similar broad or retired rules outside the block remain project-owned. When `[worktree].root` resolves inside the repository, the managed block also ignores that exact nested directory; the default sibling worktree root needs no repository rule.
+discern maintains one marked block in `.gitattributes`. Your rules outside the markers stay unchanged, including nested and Git-local attribute files. `setup`, `refresh`, and `upgrade` rebuild the block from `discern.toml`, the source-path registry, and the active agents, and a rebuild replaces any hand edits inside it ([ADR 0093](https://discern.sh/docs/decisions/0093-upgrade-reconciles-gitignore-block), [ADR 0259](https://discern.sh/docs/decisions/0259-generated-groups-opt-in-to-review-metadata)).
+
+- **Merge driver:** the block requests `merge=discern-generated` for every tracked [generated artifact](glossary.md#generated-artifact) you declare, and for the live agent files ([ADR 0247](https://discern.sh/docs/decisions/0247-generated-artifacts-regenerate-never-merge)). A `[generated]` pattern that `.gitattributes` can't express is left out, and refresh warns about it: whitespace, a leading `!`, `#`, or `"`, a backslash, a `.` or `..` segment, an empty segment, braces, or an extended glob group. `discern doctor` flags the tracked paths such a pattern leaves unprotected.
+- **Checking protection:** `discern doctor` passes the same set of paths to `git check-attr --stdin -z merge`, so Git itself decides each path's protection. Doctor reports unsafe values without rewriting your rules.
+- **GitHub's generated marking:** set `linguist_generated = true` inside one `[generated.<name>]` table to mark only that group's paths as generated for GitHub, which then hides them in diffs by default and leaves them out of language statistics. The default is `false`.
+- **Markdown diffs:** Markdown in discern's registered locations uses Git's built-in `markdown` diff driver. That covers the configured map, instructions, skills, scripts, TODO, and brief paths, and the active agent files. There's no rule for every `*.md` file, so your README and other Markdown follow your own attributes.
+
+### `.gitignore`
+
+discern ignores materialized skills and provider-local files by their exact registered paths, so neighboring files stay as they are. You can add ignore rules for the agent files outside discern's block if you prefer; the stale-copy check accepts a missing agent file.
+
+discern owns only its marked block, and exact standalone rules that the current provider registry declares. Similar broad or retired rules outside the block stay yours. When `[worktree].root` resolves inside the repository, the block also ignores that exact directory. The default worktree location, beside the project, needs no rule.
 
 ## Clone-local Git configuration
 
-These are the only Git configuration entries discern writes. discern stores all of them in clone-local configuration.
+discern writes only these Git configuration entries, all in the clone's own configuration:
 
-| Key or keyed pattern                                            | Scope        | Writer                           | Uninstall behavior                                                               |
+| Key or keyed pattern                                            | Scope        | Writer                           | What uninstall does                                                              |
 | --------------------------------------------------------------- | ------------ | -------------------------------- | -------------------------------------------------------------------------------- |
-| `merge.discern-generated.driver`                                | Clone-local  | Setup and refresh reconciliation | Removes the common value and obsolete worktree-local copies.                     |
-| `extensions.worktreeConfig`                                     | Clone-local  | Pre-v1 generated-merge setup     | Removes it only when no surviving checkout-specific configuration depends on it. |
+| `merge.discern-generated.driver`                                | Clone-local  | Setup and refresh reconciliation | Removes the shared value, and obsolete copies in worktree configuration.         |
+| `extensions.worktreeConfig`                                     | Clone-local  | Generated-merge setup before 1.0 | Removes it only when no remaining checkout-specific configuration depends on it. |
 | `discern.proofNotesFetchRemote`                                 | Clone-local  | Proof note fetch reconciliation  | Removes each recorded ownership marker.                                          |
 | `remote.<name>.fetch with one exact discern Proof note mapping` | Remote entry | Proof note fetch reconciliation  | Removes only the exact mappings paired with discern's ownership marker.          |
 
-The generated merge driver has one definition in the common clone config and is effective from the main checkout and every linked worktree. Reconciliation migrates redundant `config.worktree` copies. A fresh clone has the tracked attributes but not clone-local configuration; its first setup or `discern refresh` installs the shared driver. An identical unmarked remote fetch mapping is project-owned and remains unchanged.
+The generated merge driver has one definition, in the shared clone configuration, and works from the main checkout and every linked worktree. Reconciliation moves redundant `config.worktree` copies into it. A fresh clone has the tracked attributes but not the clone-local configuration, so its first setup or `discern refresh` installs the driver.
+
+discern writes the Proof note fetch mapping and its marker only when `[repository].proof_notes_mode` is `"fetch"`; the default is `"local"`. An identical fetch mapping without discern's marker belongs to the project, and stays unchanged.
 
 ## Runtime state inside `.git`
 
-These local working records live under `discern/` inside Git's administrative directories. Your agent manages them through discern so checks, approvals, and recovery state stay consistent across sessions; leave them out of project commits and manual edits. A checkpoint is a question the agent must judge, and only the owner may authorize an unmet answer.
+discern keeps these working records under `discern/` inside Git's administrative directories. Your agent manages them through discern, so checks, approvals, and recovery state stay consistent across sessions. Leave them out of commits, and don't edit them by hand.
 
-| Registered path                                    | Lifetime   | Purpose                                                                                                                                    |
-| -------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `discern/completion/records/`                      | repository | Candidate, attempt, evidence, Proof, presentation, and exception records used by public commands.                                          |
-| `discern/completion/artifacts/`                    | repository | Captured producer output and extraction artifacts consumed by standards and emergency review.                                              |
-| `discern/resources/`                               | repository | Resource ledger.                                                                                                                           |
-| `discern/logbook/`                                 | repository | [Logbook](../20-understand/local-control.md) events.                                                                                       |
-| `discern/logbook-archives/`                        | repository | Sealed logbook event streams for historical patterns and Stats reads.                                                                      |
-| `discern/logbook-recovery/`                        | repository | Detached logbook source retained if reset cleanup or archive sealing fails.                                                                |
-| `discern/logbook-lifecycle.lock`                   | repository | Advisory lock serializing terminal-confirmed logbook reset and archive actions.                                                            |
-| `discern/validation-hmac-key`                      | repository | Local key that makes validation-state and execution digests opaque but comparable across this repository's worktrees.                      |
-| `discern/continuations/`                           | repository | Short-handle continuation state, kept for up to 7 days.                                                                                    |
-| `discern/operations/`                              | repository | Progress journals for long operations behind short reconnect handles, kept for up to 7 days.                                               |
-| `discern/retired-worktree-paths/`                  | repository | Up to 256 removed-path records; status ignores records 90 days after removal.                                                              |
-| `discern/drop-recovery.lock`                       | repository | Advisory lock serializing the bounded drop-recovery ref transaction.                                                                       |
-| `discern/crash/`                                   | repository | Crash reports.                                                                                                                             |
-| `discern/test-slots/`                              | repository | Fleet test-run cap lock files.                                                                                                             |
-| `discern/release-check.json`                       | repository | First adoption and optional last release-handoff timestamp and version.                                                                    |
-| `discern/desk/tips.json`                           | repository | Desk tip evidence.                                                                                                                         |
-| `discern/desk/preferences.json`                    | repository | Desk display preferences.                                                                                                                  |
-| `discern/parked-tasks/`                            | repository | Branch-keyed task wording retained while `discern worktree park` removes the checkout.                                                     |
-| `discern/temp-artifact-sweep`                      | repository | Temp-retention sweep stamp and cursor.                                                                                                     |
-| `discern/integration-landings/`                    | repository | One record per live or interrupted integration worktree: its owner and the frozen submission it composes.                                  |
-| `discern/gate-proof`                               | worktree   | Proof from a clean `done` run.                                                                                                             |
-| `discern/last-gate-run`                            | worktree   | Last gate verdict.                                                                                                                         |
-| `discern/standard-measurements`                    | worktree   | Reusable measurements.                                                                                                                     |
-| `discern/standard-measurement-evidence.json`       | worktree   | Fresh clean-commit measurements, including failures, used only to propose a new limit.                                                     |
-| `discern/standard-limit-proposals.json`            | worktree   | Pending commit-bound standard limit proposals.                                                                                             |
-| `discern/standard-limit-proposal-transaction.json` | worktree   | Interruption recovery for one proposed-limit config edit, commit, and record transition.                                                   |
-| `discern/ignored-baseline`                         | worktree   | Ignored-file baseline.                                                                                                                     |
-| `discern/effort-grant`                             | worktree   | Desk landing grant.                                                                                                                        |
-| `discern/effort-grant-claims/`                     | worktree   | Claims held by acceptance.                                                                                                                 |
-| `discern/submission`                               | worktree   | The effort's submitted revision.                                                                                                           |
-| `discern/acceptance-transaction.json`              | worktree   | Acceptance recovery journal.                                                                                                               |
-| `discern/setup-machinery-commit-evidence.json`     | worktree   | Setup retry evidence.                                                                                                                      |
-| `discern/worktree-ready`                           | worktree   | Completed-setup marker.                                                                                                                    |
-| `discern/worktree-setup-steps.json`                | worktree   | Step journal for interrupted worktree setup.                                                                                               |
-| `discern/task-metadata.json`                       | worktree   | Display title, optional brief, and creation source.                                                                                        |
-| `discern/checkpoint-open-questions`                | worktree   | Served checkpoint questions awaiting or holding a declared conclusion.                                                                     |
-| `discern/shim/`                                    | worktree   | Per-identity self-shim ([ADR 0249](https://discern.sh/docs/decisions/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded)). |
+A **repository** record lives in the common Git directory and is shared by every worktree. A **worktree** record belongs to one worktree, and disappears with it ([ADR 0165](https://discern.sh/docs/decisions/0165-git-admin-state-namespaced-by-lifetime)).
 
-Durable state replacements share one interruption-safe policy; intentional moves and create-once publication remain separate ([ADR 0326](https://discern.sh/docs/decisions/0326-durable-replace-writes-use-one-atomic-writer)).
+| Registered path                                    | Lifetime   | Purpose                                                                                                                                                           |
+| -------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern/completion/records/`                      | repository | Candidate, attempt, evidence, Proof, presentation, and exception records that discern's commands use.                                                             |
+| `discern/completion/artifacts/`                    | repository | Captured command output and extracted artifacts, used by standards and emergency review.                                                                          |
+| `discern/resources/`                               | repository | The resource ledger.                                                                                                                                              |
+| `discern/logbook/`                                 | repository | [Logbook](logbook.md) events.                                                                                                                                     |
+| `discern/logbook-archives/`                        | repository | Sealed logbook history, for historical patterns and stats.                                                                                                        |
+| `discern/logbook-recovery/`                        | repository | Detached logbook history kept when sealing or reset cleanup fails.                                                                                                |
+| `discern/logbook-lifecycle.lock`                   | repository | Lock that lets only one logbook seal or reset run at a time.                                                                                                      |
+| `discern/validation-hmac-key`                      | repository | Local key that makes validation digests opaque, but comparable across this repository's worktrees.                                                                |
+| `discern/continuations/`                           | repository | State behind short continuation handles, kept for up to 7 days.                                                                                                   |
+| `discern/operations/`                              | repository | Progress journals for long operations behind short reconnect handles, kept for up to 7 days.                                                                      |
+| `discern/retired-worktree-paths/`                  | repository | Up to 256 removed-path records, which status ignores 90 days after removal, and branch records that let `discern worktree prune` finish a failed branch deletion. |
+| `discern/drop-recovery.lock`                       | repository | Lock that serializes the bounded recovery-ref update when you drop a worktree.                                                                                    |
+| `discern/crash/`                                   | repository | Crash reports.                                                                                                                                                    |
+| `discern/test-slots/`                              | repository | Lock files for the cap on concurrent test runs.                                                                                                                   |
+| `discern/release-check.json`                       | repository | First adoption time, and the time and version of the last release handoff.                                                                                        |
+| `discern/desk/tips.json`                           | repository | Evidence for the desk's tips.                                                                                                                                     |
+| `discern/desk/preferences.json`                    | repository | Remembered desk defaults: the last agent, and the task-creation route.                                                                                            |
+| `discern/parked-tasks/`                            | repository | Task wording, keyed by branch, kept while `discern worktree park` removes the checkout.                                                                           |
+| `discern/temp-artifact-sweep`                      | repository | Timestamp and cursor for the temporary-file sweep.                                                                                                                |
+| `discern/integration-landings/`                    | repository | One record per live or interrupted integration worktree: its owner, and the submission it composes.                                                               |
+| `discern/gate-proof`                               | worktree   | Proof from a clean `discern done` run.                                                                                                                            |
+| `discern/last-gate-run`                            | worktree   | The last gate verdict.                                                                                                                                            |
+| `discern/standard-measurements`                    | worktree   | Reusable measurements.                                                                                                                                            |
+| `discern/standard-measurement-evidence.json`       | worktree   | Fresh measurements of a clean commit, failures included, used only to propose a new limit.                                                                        |
+| `discern/standard-limit-proposals.json`            | worktree   | Pending limit proposals, each bound to a commit.                                                                                                                  |
+| `discern/standard-limit-proposal-transaction.json` | worktree   | Recovery state for one proposed-limit configuration edit, commit, and record change.                                                                              |
+| `discern/ignored-baseline`                         | worktree   | Baseline of ignored files.                                                                                                                                        |
+| `discern/effort-grant`                             | worktree   | A landing grant recorded from the desk.                                                                                                                           |
+| `discern/effort-grant-claims/`                     | worktree   | Claims that acceptance holds on that grant.                                                                                                                       |
+| `discern/submission`                               | worktree   | The submitted commit.                                                                                                                                             |
+| `discern/acceptance-transaction.json`              | worktree   | Acceptance recovery journal.                                                                                                                                      |
+| `discern/setup-machinery-commit-evidence.json`     | worktree   | Evidence for retrying setup.                                                                                                                                      |
+| `discern/worktree-ready`                           | worktree   | Marker that worktree setup finished.                                                                                                                              |
+| `discern/worktree-setup-steps.json`                | worktree   | Step journal for an interrupted worktree setup.                                                                                                                   |
+| `discern/task-metadata.json`                       | worktree   | Display title, optional brief, and the ref and commit the task started from.                                                                                      |
+| `discern/checkpoint-open-questions`                | worktree   | Served checkpoint questions, awaiting or holding a declared answer.                                                                                               |
+| `discern/shim/`                                    | worktree   | discern's own shim for this worktree ([ADR 0249](https://discern.sh/docs/decisions/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded)).          |
 
-Repository records use the common Git directory; worktree records disappear with that worktree ([ADR 0165](https://discern.sh/docs/decisions/0165-git-admin-state-namespaced-by-lifetime)). `discern worktree park` copies the current task wording into `discern/parked-tasks/` before removing the worktree record; a successful `discern start --from` at the parked commit transfers the wording into the new worktree and removes the record ([ADR 0358](https://discern.sh/docs/decisions/0358-recovery-observes-before-repair-and-park-preserves-the-branch)). Await continuation records have a 7-day time limit and a 512-record repository cap ([ADR 0243](https://discern.sh/docs/decisions/0243-await-continuations-use-short-repository-local-handles)). Removed worktree path evidence has a 90-day limit and a 256-record cap; it authorizes only an explicit prune offer for the recorded path ([ADR 0265](https://discern.sh/docs/decisions/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup)). Guards enforce namespace, lifetime, and reset behavior.
+discern replaces durable records with one interruption-safe writer. Intentional moves, and records written once, follow their own rules ([ADR 0326](https://discern.sh/docs/decisions/0326-durable-replace-writes-use-one-atomic-writer)). Tests guard each record's namespace, lifetime, and reset behavior.
 
-Git stores drop recovery through ordinary refs under `refs/discern/recovery/`. Git can therefore choose its files-based or `reftable` storage format. The newest 32 refs keep committed tips reachable after their worktree branches are deleted. They remain local unless a person configures transport. `discern uninstall` leaves them in place because a ref may be the only remaining name for user-authored commits. Review and delete them with `git update-ref -d <ref>` when that recovery history is no longer needed ([ADR 0271](https://discern.sh/docs/decisions/0271-destructive-drops-retain-bounded-recovery-refs)).
+### Retention and recovery
 
-Ordinary acceptance fast-forwards the trunk and creates its marker under `refs/worktree/discern/acceptance-transactions/<transaction-id>` in the same ref transaction. An interrupted landing resumes from that marker and the worktree's journal without repeating the landing.
+- **Parked tasks:** `discern worktree park` copies the task's wording into `discern/parked-tasks/` before it removes the worktree record. A successful `discern start --from` at the parked commit moves the wording into the new worktree and removes the record ([ADR 0358](https://discern.sh/docs/decisions/0358-recovery-observes-before-repair-and-park-preserves-the-branch)).
+- **Continuations:** records behind `discern await` resume handles have a 7-day time limit and a 512-record repository cap ([ADR 0243](https://discern.sh/docs/decisions/0243-await-continuations-use-short-repository-local-handles)).
+- **Removed worktree paths:** each record has a 90-day limit, and the store has a 256-record cap. A record only lets discern offer an explicit prune of that recorded path ([ADR 0265](https://discern.sh/docs/decisions/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup)).
 
-This local record supports update reminders and is shared by linked worktrees. Successful setup or upgrade starts the clock; opening release information resets it. A reminder can appear after 14 UTC calendar days. Viewing the reminder leaves it in place. Turning off the logbook does not affect it, and uninstall removes the record.
+When you drop a worktree, discern keeps its committed tip reachable through an ordinary ref under `refs/discern/recovery/`, so Git can use its files or `reftable` storage for it. The newest 32 refs are kept. They stay local unless you configure a transport for them. `discern uninstall` leaves them in place, because a ref may be the only remaining name for commits you wrote. When you no longer need that recovery history, review each ref and delete it with `git update-ref -d <ref>` ([ADR 0271](https://discern.sh/docs/decisions/0271-destructive-drops-retain-bounded-recovery-refs)).
+
+An ordinary landing moves the trunk and creates its marker, `refs/worktree/discern/acceptance-transactions/<transaction-id>`, in the same ref transaction. If a landing is interrupted, recovery reads that marker and the worktree's journal:
+
+- if the trunk already points at the landed commit, discern finishes the landing's cleanup, without replaying the landing's authority;
+- if the trunk was reset or moved somewhere else, recovery stops and asks you to inspect the trunk's reflog. It never replays the authority.
+
+### The release-check record
+
+`discern/release-check.json` supports update reminders, and every linked worktree shares it. It records when the project first adopted discern, and the time and version of the last release handoff.
+
+- Setup, when it finishes with honored Proof, or a successful `discern upgrade` creates the record if it doesn't exist. Neither resets an existing record.
+- Any `discern releases` run that isn't a dry run records a handoff, which resets the reminder clock. That includes runs with `--json` or `--markdown`, where no browser opens.
+- A reminder can appear 14 UTC calendar days after the last handoff, or after first adoption. Viewing the reminder leaves it in place.
+- discern never overwrites a record in a newer format, or one it can't read.
+- Turning off the logbook doesn't affect the record, and `discern uninstall` removes it.
 
 ## Git refs
 
-| Ref or namespace                                                 | Writer                                              | Lifecycle                                                | Uninstall |
-| ---------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------- | --------- |
-| `refs/heads/discern-setup`                                       | `setup begin`                                       | Landed or retained as an ordinary local branch.          | Retained  |
-| `refs/heads/<repository.branch_prefix><worktree-id>`             | `start`                                             | Deleted only with positive lifecycle ownership evidence. | Retained  |
-| `refs/notes/discern`                                             | `accept`                                            | Durable local landing evidence.                          | Retained  |
-| `refs/discern/remotes/<remote>/notes`                            | An ordinary user-owned fetch after discern wires it | Durable fetched landing evidence.                        | Retained  |
-| `refs/discern/recovery/<timestamp>-<worktree-id>-<nonce>`        | `worktree drop`                                     | Bounded recovery evidence.                               | Retained  |
-| `refs/worktree/discern/acceptance-transactions/<transaction-id>` | `accept`                                            | Temporary compare-and-swap recovery evidence.            | Retained  |
+| Ref or namespace                                                 | Writer                                              | Lifecycle                                                 | Uninstall |
+| ---------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------- | --------- |
+| `refs/heads/discern-setup`                                       | `setup begin`                                       | Landed, or kept as an ordinary local branch.              | Kept      |
+| `refs/heads/<repository.branch_prefix><worktree-id>`             | `start`                                             | Deleted only with positive evidence that discern owns it. | Kept      |
+| `refs/notes/discern`                                             | `accept`                                            | Durable local landing evidence.                           | Kept      |
+| `refs/discern/remotes/<remote>/notes`                            | Your own ordinary `git fetch`, once discern maps it | Durable fetched landing evidence.                         | Kept      |
+| `refs/discern/recovery/<timestamp>-<worktree-id>-<nonce>`        | `worktree drop`                                     | Bounded recovery evidence.                                | Kept      |
+| `refs/worktree/discern/acceptance-transactions/<transaction-id>` | `accept`                                            | Temporary recovery evidence for the trunk update.         | Kept      |
 
-Uninstall never deletes a ref. Its result can suggest exact `git update-ref -d '<ref>'` commands for retained private refs. Keep their recovery evidence unless you have established it is no longer needed. Ordinary local branches remain visible as branches and receive no automatic cleanup suggestion.
+Uninstall never deletes a ref. Its result can suggest exact `git update-ref -d '<ref>'` commands for the private refs it kept. Keep their recovery evidence unless you've established you no longer need it. Ordinary local branches stay visible as branches, and get no cleanup suggestion.
 
 ## Temporary files and crash records
 
-Temporary artifacts use the operating system's temporary directory. They remain local evidence outside the project and its commits.
+discern writes temporary files in the operating system's temporary directory, outside the project and its commits.
 
 | Family            | Name shape                                                   | Contents                                                                                  |
 | ----------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Gate output       | `discern-job-<project>-<worktree>-<random>.log`              | Full combined output for one gate job.                                                    |
-| Diagnostic output | `discern-diag-<project>-<worktree>-<random>.log`             | Full text offloaded from a truncated diagnostic.                                          |
-| Crash fallback    | `discern-crash-<random>.log`                                 | Crash report when no repository-local crash directory is available.                       |
+| Gate output       | `discern-job-<project>-<worktree>-<random>.log`              | The full combined output of one gate job.                                                 |
+| Diagnostic output | `discern-diag-<project>-<worktree>-<random>.log`             | The full text of a diagnostic that was shortened.                                         |
+| Crash fallback    | `discern-crash-<project>-<worktree>-<random>.log`            | A crash report, when no crash directory in the repository is available.                   |
 | Checkpoint input  | `discern-checkpoint-input-<project>-<worktree>-<random>.log` | Versioned JSON facts, mode `0600`, present only while one checkpoint `when` command runs. |
-| Self shim         | `discern-self-<random>/`                                     | Abandoned no-repository self-shim directory.                                              |
-| Test scaffold     | `discern-test-<random>/`                                     | Abandoned discern development-test scaffold.                                              |
+| Self shim         | `discern-self-<random>/`                                     | An abandoned shim directory from outside any repository.                                  |
+| Test scaffold     | `discern-test-<random>/`                                     | An abandoned scaffold from discern's own development tests.                               |
 
-Registered temporary artifacts expire after 24 hours. A sweep inspects at most 500 matching entries and removes at most 500 expired entries per page. The repository coordinator runs at most one page per hour and retains a cursor so later pages continue through a large population. Only registered prefix-and-suffix combinations are eligible; unrelated temporary files are not supported sweep targets.
+A file's name includes the project and worktree when discern knows them. Without a checkout identity, the name is the family prefix, a random part, and `.log`.
 
-Repository-local crash reports use `<git-common-dir>/discern/crash/<timestamp>-<pid>-<unique>.txt`, mode `0600`, with the newest 20 retained. A command-line crash exits `70`; JSON uses `error: "internal_error"`. An MCP tool crash returns an `internal_error` result without terminating the server. If repository-local storage is unavailable, the report uses the temporary crash family above. The report records the discern version, timestamp, attempted verb, platform, error name/message, and stack; it is local diagnostic evidence and can contain local paths.
+Registered temporary files expire after 24 hours. `discern prepare`, `discern done`, and `discern test` sweep them. One sweep inspects at most 500 matching entries and removes at most 500 expired entries. The repository runs at most one page per hour, and keeps a cursor so later pages work through a large backlog. discern sweeps only its registered families: files with a registered prefix and the `.log` suffix, and directories with a registered prefix, which it removes with their contents. It never touches other temporary files.
 
-For symptom-led preservation and cleanup, see [Crashes and local state](../40-troubleshooting/crashes-and-local-state.md).
+A crash report in the repository is `<git-common-dir>/discern/crash/<timestamp>-<pid>-<unique>.txt`, with mode `0600`, and discern keeps the newest 20. A crash on the command line exits `70`, and JSON output reports `error: "internal_error"`. A crash inside an MCP tool returns an `internal_error` result, and the server keeps running. When the repository's crash directory isn't available, the report uses the crash fallback family above.
+
+A report records the discern version, the timestamp, the command that ran, the platform, the runtime version, the error's name and message, and the stack. It's local diagnostic evidence, and can contain local paths. For what to keep and what to clean up, see [Crashes and local state](../40-troubleshooting/crashes-and-local-state.md).
 
 ## Removing it all
 
-`discern uninstall` removes generated files, discern-owned Shared entries, the managed `.gitignore` and `.gitattributes` blocks, the whole `discern/` runtime-state namespace under Git's administrative directories, the common generated-merge driver and its obsolete checkout-local copies, and only marked Proof note fetch mappings ([ADR 0104](https://discern.sh/docs/decisions/0104-uninstall-is-the-exit-honesty-verb)). Preview with `discern uninstall --dry-run`.
+`discern uninstall` removes discern from the repository ([ADR 0104](https://discern.sh/docs/decisions/0104-uninstall-is-the-exit-honesty-verb)). Preview it with `discern uninstall --dry-run`.
 
-It keeps project-owned files, `discern.toml`, unmarked Git configuration, checkout-specific configuration the project still needs, and every ref. It reports retained private refs and optional exact cleanup commands without running them. It names Shared settings that it cannot clean without bundled templates. It refuses while any linked Git worktree remains registered, including a completed checkout you retained, or while the resource ledger records provisioned resources. Those entries hold their only destroy commands, so reclaim them with `discern worktree prune` first. Uninstall is CLI-only, performs no remote operation, and leaves normal Git hooks to run with Git's usual exit semantics. Remove the installed binary separately only when no other project on the machine needs it. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#remove-discern-from-the-repository) walks through the decision and removal.
+It removes:
+
+- generated files;
+- discern's entries in shared files;
+- discern's blocks in `.gitignore` and `.gitattributes`;
+- the whole `discern/` runtime-state namespace inside Git's administrative directories;
+- the shared generated-merge driver, and its obsolete checkout-specific copies;
+- only the Proof note fetch mappings that carry discern's marker.
+
+It keeps:
+
+- project-owned files and `discern.toml`;
+- Git configuration without discern's marker, and checkout-specific configuration the project still needs;
+- every ref. It reports the private refs it kept, with optional exact cleanup commands, and runs none of them.
+
+It refuses, and changes nothing:
+
+- when you run it from a linked worktree, rather than the main checkout;
+- while any linked worktree is registered, including a finished checkout you kept;
+- while the resource ledger records provisioned resources, because those entries hold their only destroy commands. Reclaim them with `discern worktree prune` first. An entry marked `prunable = false` needs the project's own teardown;
+- when it can't plan the Git configuration cleanup.
+
+In a terminal, uninstall asks you to confirm. Without terminal input, under `--plain`, in CI, or with `--json` or `--markdown`, it needs `--yes`, and otherwise refuses with `confirmation_required`. It cleans up the Git configuration first. If that fails, it removes no project files, and reports `apply_failed`.
+
+Uninstall runs only from the command line, and makes no remote change. discern never installs Git hooks, so your hooks stay as they are. Remove the installed program separately, once no other project on the computer needs it. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#remove-discern-from-the-repository) walks through the decision and the removal.
 
 ## Where it lives in code
 
-The [artifact ownership map](https://github.com/discern-sh/discern/blob/main/project/map/70-reference/artifact-ownership.md) links the registries and implementation behind this inventory. Use it when contributing to discern or checking how an ownership rule is enforced.
+If you're extending or contributing to discern, the [artifact ownership map](https://github.com/discern-sh/discern/blob/main/project/map/70-reference/artifact-ownership.md) links the registries and code behind this inventory, and how each ownership rule is enforced.
 
 ## See also
 
-- [Proof](../20-understand/proof.md): what passing checks establishes and why later edits make that evidence stale.
-- [Licenses for project payloads](licenses.md): the authorship boundary and downstream redistribution responsibility.
-- [Platforms and providers](platforms-and-providers.md): the exact file table per coding tool.
-- [Trust and your data](../20-understand/local-control.md): the network, telemetry, and execution contract on one screen.
+- [Proof](../20-understand/proof.md): what passing checks establish, and why later edits make that evidence stale.
+- [Licenses](licenses.md): the authorship boundary, and what you're responsible for when you redistribute.
+- [Platforms and providers](platforms-and-providers.md): the exact files for each coding tool.
+- [What stays on your machine](../20-understand/local-control.md): what discern runs, records, and writes, and what never leaves your computer.
