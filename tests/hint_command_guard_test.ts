@@ -18,6 +18,10 @@
  *    scanned across ALL authored TypeScript (call sites build references
  *    too), so a stale word path in a branch no example renders is caught
  *    statically.
+ * 4. COMMAND VALUES: a result field that holds one whole command — a repair
+ *    command, a next action, a reproduce command — is often a plain string
+ *    literal outside the registry. Every such literal in authored TypeScript
+ *    is validated too, so a served command can't name a retired subcommand.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -233,5 +237,71 @@ Deno.test("every constructor-built reference in authored source names a live ver
     `constructor-built references must name live verb paths:\n  ${
       failures.join("\n  ")
     }`,
+  );
+});
+
+/** Properties whose string value is one whole command a result serves. Prose
+ * that merely begins with the product name lives under other keys. */
+const COMMAND_VALUE_PATTERN =
+  /\b(?:command|next_action|nextAction|next_command|reproduce_cmd|reproduceCmd)\s*:\s*(["'`])(discern(?:\s[^"'`\n]*)?)\1/g;
+
+/** Whole-command string literals held by command-valued properties; an
+ * interpolated literal only exists after rendering and is skipped. */
+function commandValueLiterals(source: string): string[] {
+  return [...source.matchAll(COMMAND_VALUE_PATTERN)]
+    .map((match) => match[2] ?? "")
+    .filter((command) => !command.includes("${"));
+}
+
+Deno.test("the command-value scan reaches a served command no rendering exercises", () => {
+  // The adversarial sibling: a repair command naming a retired subcommand,
+  // pinned verbatim by its own status test, so only a validator catches it.
+  const model = cliCommandModel(buildCli(false) as unknown as Command);
+  const source = [
+    'repair: { kind: "manual", command: "discern worktree setup begin --dry-run" },',
+    'const hint = { label: "discern gate step", next_action: `discern ${verb}` };',
+  ].join("\n");
+  const commands = commandValueLiterals(source);
+  assertEquals(commands, ["discern worktree setup begin --dry-run"]);
+  assert(
+    validateFencedCommand(commands[0] ?? "", model, new Set()) !== undefined,
+    "a retired subcommand reached through the command-value scan must be rejected",
+  );
+});
+
+Deno.test("every command-valued literal in authored source names a live command", async () => {
+  const model = cliCommandModel(buildCli(false) as unknown as Command);
+  const scripts = await discoverProjectScripts(REPO_AUTHORED_PATHS.scripts);
+  const extraVerbs = new Set(scripts.map((script) => script.name));
+  const failures: string[] = [];
+  let scanned = 0;
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/hint_command_guard_test.ts#command-value-literals",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Only the shipped binary under src/ serves commands in results; tests and site pages quote invalid ones on purpose.",
+        include: (rel) => rel.startsWith("src/"),
+      },
+    })
+  ) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    for (const command of commandValueLiterals(source)) {
+      scanned += 1;
+      const reason = validateFencedCommand(command, model, extraVerbs);
+      if (reason !== undefined) {
+        failures.push(`${rel}: "${command}" — ${reason}`);
+      }
+    }
+  }
+  assert(
+    scanned > 0,
+    "the command-value sweep found no commands — broken scan",
+  );
+  assertEquals(
+    failures,
+    [],
+    `served commands must name live commands:\n  ${failures.join("\n  ")}`,
   );
 });
