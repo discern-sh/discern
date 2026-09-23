@@ -65,7 +65,7 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 | `improvement` (evolving)       |              |                      | --category --min-score                                                                                                                                                     | Find the most valuable improvement to make next in how this project uses discern. It scores what discern can… |
 | `checkpoints`                  |              |                      |                                                                                                                                                                            | Show the checkpoints that apply to this task, whether each question has an answer, and which ones the…        |
 | `progress`                     |              | `<handle>?`          |                                                                                                                                                                            | Check on a long operation, such as `discern done`, after losing track of it. It shows the operation's…        |
-| `mcp`                          |              |                      | --long-tool-calls --strict-tool-calls                                                                                                                                      | Run discern's MCP (Model Context Protocol) server, which gives coding agents discern's main commands as…      |
+| `mcp`                          |              |                      | --long-tool-calls --strict-tool-calls                                                                                                                                      | Run discern's MCP (Model Context Protocol) server, which gives coding agents most of discern's commands as…   |
 | `scripts`                      |              | `<name>? <args…>?`   |                                                                                                                                                                            | List your project's scripts, or run one by name. discern looks the name up as written, with no partial…       |
 | `standards`                    |              | `<names…>?`          | --dry-run --force --pin                                                                                                                                                    | Measure your project's standards: limits on measured numbers, such as test coverage or bundle size. A change… |
 | `standards propose`            |              | `<name>`             | --reason --dry-run                                                                                                                                                         | Propose a looser limit for a standard this change breaks, for the owner to approve. Run it on the branch's…   |
@@ -139,11 +139,11 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 **`discern upgrade`**
 
-| Argument        | Value   | Default | Description                                                                                                                                                  |
-| --------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--dry-run`     | boolean |         | Show the pending migrations and changes without writing anything.                                                                                            |
-| `--check`       | boolean |         | Check whether this project needs an upgrade, without writing anything or using the network. It exits non-zero when migrations are pending, when the project… |
-| `--allow-dirty` | boolean |         | Upgrade even when tracked files have uncommitted changes.                                                                                                    |
+| Argument        | Value   | Default | Description                                                                                                                                                 |
+| --------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`     | boolean |         | Show the pending migrations and changes without writing anything.                                                                                           |
+| `--check`       | boolean |         | Check whether this project needs an upgrade, without writing anything or using the network. It exits non-zero when config migrations are pending, when the… |
+| `--allow-dirty` | boolean |         | Upgrade even when tracked files have uncommitted changes.                                                                                                   |
 
 **`discern uninstall`**
 

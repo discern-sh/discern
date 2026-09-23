@@ -225,7 +225,7 @@ Usage: `discern update [options]`
 
 ### `discern await`
 
-Wait for another task: until its work passes the gate, until it lands, or until the trunk moves. By default it waits up to 3300 seconds and returns as soon as the condition holds. If time runs out first, it exits with status 124 and returns a short handle; pass it to `--resume` to keep waiting for the same thing. It doesn't change any work, and it blocks only the command that called it. To wait for a free test-run slot before running a command, use `discern queue` instead.
+Wait for another task: until its work passes the gate, until it lands, or until the trunk moves. By default it waits up to 3300 seconds and returns as soon as the condition holds. If time runs out first, it exits with status 124 and returns a short handle; pass it to `--resume` to keep waiting for the same thing. It doesn't change any work, and it blocks only the command that called it. To wait for a free test-run slot before running a command, use `discern queue -- <command> [args...]` instead.
 
 Usage: `discern await [options]`
 
@@ -435,11 +435,11 @@ Bring this project up to date with the discern you have installed. To bring the 
 
 Usage: `discern upgrade [options]`
 
-| Option          | Description                                                                                                                                                                                                                                                                                    |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`     | Show the pending migrations and changes without writing anything.                                                                                                                                                                                                                              |
-| `--check`       | Check whether this project needs an upgrade, without writing anything or using the network. It exits non-zero when migrations are pending, when the project hasn't adopted this discern version, or when discern's parts of `discern.toml`, `.gitignore`, or `.gitattributes` are out of date. |
-| `--allow-dirty` | Upgrade even when tracked files have uncommitted changes.                                                                                                                                                                                                                                      |
+| Option          | Description                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`     | Show the pending migrations and changes without writing anything.                                                                                                                                                                                                                                                                                                                      |
+| `--check`       | Check whether this project needs an upgrade, without writing anything or using the network. It exits non-zero when config migrations are pending, when the project hasn't adopted this discern version, when `discern.toml` is missing a section or key discern ships or has an outdated comment banner, or when discern's blocks in `.gitignore` or `.gitattributes` are out of date. |
+| `--allow-dirty` | Upgrade even when tracked files have uncommitted changes.                                                                                                                                                                                                                                                                                                                              |
 
 ### `discern doctor`
 
@@ -453,7 +453,7 @@ Usage: `discern doctor [options]`
 
 ### `discern config <subcommand>`
 
-Read, explain, and edit `discern.toml`, keeping its comments. `set-job`, `set-scope`, and `set-standard` edit those tables; `set <section.key>` edits other keys, such as generated groups, checkpoints, and resources. discern checks each edit against the schema, writes nothing if the result would be invalid, and never commits. Run edits from the project root.
+Read, explain, and edit `discern.toml`, keeping its comments. `set-job`, `set-scope`, and `set-standard` edit those tables; `set <dotted.key>` edits other keys, such as generated groups, checkpoints, and resources. discern checks each edit against the schema, writes nothing if the result would be invalid, and never commits. Run edits from the project root.
 
 Usage: `discern config <subcommand>`
 
@@ -771,7 +771,7 @@ Usage: `discern releases [options]`
 
 ### `discern mcp`
 
-Run discern's MCP (Model Context Protocol) server, which gives coding agents discern's main commands as tools. You don't need to run it yourself: setup and `discern refresh` configure each agent to start it. It talks over standard input and output.
+Run discern's MCP (Model Context Protocol) server, which gives coding agents most of discern's commands as tools. You don't need to run it yourself: setup and `discern refresh` configure each agent to start it. It talks over standard input and output.
 
 Usage: `discern mcp [options]`
 

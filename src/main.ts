@@ -645,7 +645,7 @@ export function buildCli(
     )
     .option(
       "--check",
-      "Check whether this project needs an upgrade, without writing anything or using the network. It exits non-zero when migrations are pending, when the project hasn't adopted this discern version, or when discern's parts of `discern.toml`, `.gitignore`, or `.gitattributes` are out of date.",
+      "Check whether this project needs an upgrade, without writing anything or using the network. It exits non-zero when config migrations are pending, when the project hasn't adopted this discern version, when `discern.toml` is missing a section or key discern ships or has an outdated comment banner, or when discern's blocks in `.gitignore` or `.gitattributes` are out of date.",
     )
     .option(
       "--allow-dirty",
@@ -1308,7 +1308,7 @@ export function buildCli(
 
   const config = new Command()
     .description(
-      "Read, explain, and edit `discern.toml`, keeping its comments.\n`set-job`, `set-scope`, and `set-standard` edit those tables; `set <section.key>` edits other keys, such as generated groups, checkpoints, and resources. discern checks each edit against the schema, writes nothing if the result would be invalid, and never commits. Run edits from the project root.",
+      "Read, explain, and edit `discern.toml`, keeping its comments.\n`set-job`, `set-scope`, and `set-standard` edit those tables; `set <dotted.key>` edits other keys, such as generated groups, checkpoints, and resources. discern checks each edit against the schema, writes nothing if the result would be invalid, and never commits. Run edits from the project root.",
     )
     .action(recordedExit("config", function (
       this: Command,

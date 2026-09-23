@@ -1677,9 +1677,9 @@ Deno.test("command help keeps the product manual and project Map distinct", asyn
     assertEquals(map.code, 0, map.stderr);
     assertTerminalTextIncludes(
       manual.stdout,
-      "complete bundled product manual",
+      "Browse discern's manual",
     );
-    assertTerminalTextIncludes(map.stdout, "configured project map");
+    assertTerminalTextIncludes(map.stdout, "Browse your project's map");
     assert(!manual.stdout.includes("agent-maintained Map"));
   });
 });

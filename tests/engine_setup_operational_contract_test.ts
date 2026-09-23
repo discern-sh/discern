@@ -870,14 +870,14 @@ Deno.test("every shipped start description states that start returns a path", as
   const commandSurface = await Deno.readTextFile(
     join(REPO_ROOT, "src/engine/dispatch.ts"),
   );
-  assert(commandSurface.includes("then print its path"));
+  assert(commandSurface.includes("then prints its path"));
   assert(
     !/discern start[^.\n]*(moves you|changes (?:the )?directory)/i.test(
       commandSurface,
     ),
   );
   const rootHelp = await Deno.readTextFile(join(REPO_ROOT, "src/main.ts"));
-  assert(rootHelp.includes("re-root at the returned worktree path"));
+  assert(rootHelp.includes("move into the worktree path it prints"));
   assert(
     !/discern start[^.\n]*(moves you|changes (?:the )?directory)/i.test(
       rootHelp,

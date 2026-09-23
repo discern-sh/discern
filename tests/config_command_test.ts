@@ -758,9 +758,12 @@ Deno.test("config set-job help teaches ordered commands and applicability from t
   await withTempDir(async (dir) => {
     const help = await runCli(["config", "set-job", "--help"], dir);
     assertEquals(help.code, 0, help.stderr);
-    assertTerminalTextIncludes(help.stdout, "repeatable ordered --run");
+    assertTerminalTextIncludes(
+      help.stdout,
+      "repeated for commands that run in order",
+    );
     assertTerminalTextIncludes(help.stdout, "--run <command>");
-    assertTerminalTextIncludes(help.stdout, "repeat to preserve order");
+    assertTerminalTextIncludes(help.stdout, "they run in order");
     assertStringIncludes(help.stdout, "--not-applicable");
     assertStringIncludes(help.stdout, "--applicable");
   });

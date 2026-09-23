@@ -458,7 +458,7 @@ export function attachEngineCommands(
   root
     .command("mcp")
     .description(
-      "Run discern's MCP (Model Context Protocol) server, which gives coding agents discern's main commands as tools.\nYou don't need to run it yourself: setup and `discern refresh` configure each agent to start it. It talks over standard input and output.",
+      "Run discern's MCP (Model Context Protocol) server, which gives coding agents most of discern's commands as tools.\nYou don't need to run it yourself: setup and `discern refresh` configure each agent to start it. It talks over standard input and output.",
     )
     .option(
       MCP_LONG_TOOL_CALLS_FLAG,
@@ -666,7 +666,7 @@ export function attachEngineCommands(
     .description(
       "Wait for another task: until its work passes the gate, until it lands, or until the trunk moves.\n" +
         `By default it waits up to ${AWAIT_LONG_CALL_SECONDS} seconds and ` +
-        "returns as soon as the condition holds. If time runs out first, it exits with status 124 and returns a short handle; pass it to `--resume` to keep waiting for the same thing. It doesn't change any work, and it blocks only the command that called it. To wait for a free test-run slot before running a command, use `discern queue` instead.",
+        "returns as soon as the condition holds. If time runs out first, it exits with status 124 and returns a short handle; pass it to `--resume` to keep waiting for the same thing. It doesn't change any work, and it blocks only the command that called it. To wait for a free test-run slot before running a command, use `discern queue -- <command> [args...]` instead.",
     )
     .option(
       "--green <worktree:string>",
