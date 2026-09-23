@@ -1,7 +1,7 @@
 ---
 id: explanation-practice-and-roles
 title: "Practice and roles"
-description: "See how your direction becomes checked work, what the agent handles, and what the project keeps for future sessions."
+description: "How discern works: what you decide, what your agent does, and what the project remembers for the next task."
 order: 20
 publish: true
 kind: explanation
@@ -22,64 +22,62 @@ aliases:
 
 # Practice and roles
 
-Suppose you want to make saved items easier to find in your app. You can describe the experience you want, and your coding agent can work out the implementation. What helps that exchange keep working as the project grows is a shared account of how the project works, what it values, and what needs checking before a change is complete.
+discern lets you hand coding agents substantial work without coordinating every step, re-explaining your project each session, or working out afterwards what was checked.
 
-discern gives that account a home in the project. Your agent operates the tools and follows the project instructions. You supply direction and review the result. The project keeps the instructions, checks, and evidence available for the next task.
+It works by giving each part of the job a clear owner. You decide what to build and what ships. Your agent does the work. The project remembers what the next task needs to know.
 
 ## Who does what
 
-**You give the work its purpose.** You know who the app is for and what would make it better. A request such as “help people find a saved item without scrolling through a long list” gives the agent a useful problem to solve. You can also explain constraints: keep existing lists intact, or make the feature work on a phone.
+**You set the direction.** You know who the software is for and what would make it better. "Help people find a saved item without scrolling through a long list" gives the agent a real problem to solve. You can add limits too: keep the existing lists as they are, and make it work on a phone. When the work comes back, you review it and decide whether it lands.
 
-**Your coding agent carries the implementation.** It studies the project, proposes an approach when needed, makes the change, and runs the checks. It investigates failures and brings back questions that need your decision. You can ask for recommendations and explanations without knowing the commands yourself.
+**Your agent does the work, and runs discern.** It studies the project, proposes an approach when there's a choice to make, makes the change, and runs the checks. When something fails, it investigates. When a decision needs you, it brings you the question with a recommendation. You don't need to learn discern's commands. The agent runs them for you.
 
-**The project keeps what the work produces.** Alongside the code, it holds working instructions, a maintained guide, reusable procedures, and records of completed checks. When an agent writes a lesson there, later sessions can use it. Knowledge left only in a conversation does not become project knowledge automatically.
+**The project remembers.** Alongside the code, the project keeps its working rules, a guide to how it works, reusable procedures, and a record of completed checks. When an agent writes a lesson down there, every later session can use it. A lesson left in a conversation is lost when the conversation ends.
 
-You can think of the exchange as: a request goes in, work happens under the project's rules, and a result comes back with evidence for your review.
+## One task, start to finish
 
-## The working loop
+Say you ask:
 
-For the saved-items example, you might say:
+> Add a search box to the saved items page, so people can find an item by name. Show me the result on a phone-sized screen, and explain what you checked before I decide whether to land it.
 
-> Add a search box to the saved items page. It should help people find an item by name. Show me the result on a phone-sized screen and explain what you checked before I decide whether to land it.
+1. **The agent gets its own workspace.** It creates a **worktree**, a separate copy of the project on its own branch. Your shared branch, the **trunk** (usually `main`), stays untouched while the work is in progress.
+2. **The agent makes the change and checks it,** fixing whatever fails along the way.
+3. **The agent runs the gate.** It commits the final version and runs the **gate**, the full set of checks your project requires. A pass produces **Proof**: a record of which checks passed, on exactly which commit.
+4. **You review.** The agent shows you the result and explains the Proof. You try finding an item, check the layout, and ask what happens when nothing matches. If you want changes, the agent makes them in the same worktree and runs the gate again.
+5. **The change lands.** When you're satisfied, you give permission, and discern checks both the Proof and your permission before the change **lands** on the trunk. Releasing it to your users stays a separate step in your own release process.
 
-Your agent starts by checking the project's current state. It makes the change in an isolated workspace called a **worktree**, keeping the unfinished version separate from the shared branch, or **trunk**.
+## What discern gives you
 
-As it works, the agent checks the change and fixes failures. To finish, it saves the final version as a Git commit and runs the project's **gate**: the configured checks required for completion. A pass produces **Proof**, which records the checks and the exact change they covered.
+| When you want to…                                       | discern gives you                                                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Know what was checked before a change lands             | The gate runs your project's checks, and [Proof](proof.md) records what passed on that exact commit.                                                    |
+| Give several agents work at once                        | [Worktrees](worktrees-and-trunk.md) give each task its own copy of the project, so one agent's edits never overwrite another's.                         |
+| Have a question asked whenever a certain change happens | [Checkpoints](checkpoints.md) ask the agent for a recorded answer. For example: does this new form explain what happens to the information it collects? |
+| Stop a hard-won improvement from slipping back          | [Standards](standards.md) hold a measured limit, such as how much someone has to download to open the app.                                              |
+| Make future sessions follow a rule or reuse a method    | [Instructions, skills, and the map](instructions-skills-and-map.md) store rules, reusable procedures, and the project's own account of how it works.    |
 
-The agent then shows you the result and explains the evidence. You can try finding an item, check the layout, and ask what happens when no item matches. If you want a revision, the agent continues the same effort and verifies the new version.
+discern has no AI model of its own. Your coding agent does the thinking. discern runs the process around it: the workspaces, the checks, and the records.
 
-When the result is ready, you authorize it to **land**, meaning join the trunk. discern checks that permission and the completion evidence before landing. Publishing the app is a separate part of your release process.
+## Why the project keeps the knowledge
 
-This loop gives you a stable way to review work as tasks become more substantial. You do not have to reconstruct which checks ran from the agent's chat history; the evidence comes with the change.
+Say you've decided that saved lists must open without an internet connection. Ask your agent to write that rule and its reason into the project, and to add checks for the behavior it can test. From then on, every agent that changes the app reads the rule and faces the same checks, and you never have to explain it again.
 
-## What the practice consists of
+That's how one task makes the next one easier. Written rules carry the context, and automated checks enforce what can be tested.
 
-As you use discern, these names give you ways to ask for useful things:
+The knowledge also survives a change of tools. discern supports Claude Code, Codex, Gemini, Cursor, and GitHub Copilot, and gives each one the same project instructions from a single source. You can switch agents without rewriting your rules. Each tool's own features and conversation history stay with that tool.
 
-| When you want to…                                      | The part of discern that helps                                                                                                                        |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Know what was checked for the completed change         | The gate runs the project's checks; [Proof](proof.md) records what passed for that exact version.                                                     |
-| Give more than one agent work                          | [Worktrees](worktrees-and-trunk.md) keep tasks in separate checkouts, while the shared project connects their results.                                |
-| Raise a review question when a relevant change happens | [Checkpoints](checkpoints.md) ask the agent for a recorded judgment, such as whether a new form explains what happens to the information it collects. |
-| Keep an improvement from slipping back                 | [Standards](standards.md) hold a measured limit, such as the amount someone downloads to open the app.                                                |
-| Carry a rule or lesson into another session            | [Instructions, skills, and the map](instructions-skills-and-map.md) store working rules, reusable procedures, and project understanding.              |
+## Your agent's attention stays on your project
 
-The project defines its checks and review questions. discern does not contain an AI model of its own; the coding agent supplies the reasoning and discern records the results of the configured process.
+discern is built for your agent to operate. Its results are short, and each one tells the agent what to do next. Advice arrives inside the results the agent already reads, at the moment it applies. For common jobs, discern provides ready-made playbooks called **skills**: splitting big work into tasks, for example, or fixing a bug so it can't come back. When the agent needs documentation, a search returns the few pages that matter.
 
-## Why the project carries it
+That leaves more of the agent's context, the limited amount it can hold in mind at once, for understanding and changing your project.
 
-Suppose you have settled on a rule: opening a saved list should work without an internet connection. Ask your agent to record the rule and establish checks for the behavior it can test. The next agent can read the reason for that choice and face the same checks when changing the app.
+## What stays with you
 
-That is how an investment in one task can help later work. Written records carry context; executable checks cover the parts that can be tested. These records spare you from explaining the same decisions again.
+A passing gate means your project's checks passed. It can't tell you whether a feature helps people or whether a design is right. Ask your agent what the checks don't cover, and ask for more checks or an independent review when the change warrants it.
 
-The same source instructions are supplied to each configured coding tool. You can change supported providers without maintaining a separate version of the project's rules for each one. Provider-specific features and private conversation history still belong to those tools.
+You also decide how much to delegate. You can approve every change before it lands, or pre-approve routine work within limits you set. Passing checks never grants permission to land. [Proof](proof.md) explains how permission works.
 
-## What remains for your judgment
+discern doesn't sandbox your agent. Your agent's own permission settings govern what it can read and run. [Local control](local-control.md) explains what discern itself runs, records, and writes.
 
-A passing gate tells you that the configured checks passed. It cannot tell you everything about whether a feature helps people or whether a design is right. You can ask your agent to explain gaps, arrange further checks, or bring in independent review when the change warrants it.
-
-You also decide how much permission to grant. You may review each change before landing, or explicitly pre-authorize routine work within a defined scope. Passing checks does not create that permission. [Proof](proof.md) explains the evidence and landing decision in more detail.
-
-Your agent's own permission settings govern what it may read and run; discern does not sandbox it. [Local control](local-control.md) explains what discern itself runs, records, and writes.
-
-To try this relationship on a small task, follow [Make and review your first change](../00-start/first-real-change.md). For a larger objective, [Delegate work](../10-guides/delegate-work.md) explains how your agent can help shape it into manageable pieces.
+To try all this on a small task, follow [Make and review your first change](../00-start/first-real-change.md). For something bigger, [Delegate substantial work](../10-guides/delegate-work.md) shows how your agent can break it into pieces.
