@@ -79,7 +79,7 @@
           "type": "object",
           "properties": {
             "format": {
-              "description": "A formatter, or another tool that rewrites files. Because it changes files, it runs first, one command at a time. In `discern prepare` its edits stay for you to commit; in `discern done`, a change to a committed file fails the run.",
+              "description": "A formatter or other tool that rewrites files, so it runs first, one command at a time. `discern prepare` leaves its edits for you to commit; `discern done` fails if it edits a committed file.",
               "anyOf": [
                 {
                   "type": "string"
@@ -494,7 +494,7 @@
               ]
             },
             "smoke": {
-              "description": "A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it alongside the tests, so with `[gate].fail_fast` a quick failure stops the slower tests. It also runs in the main checkout after each landing.",
+              "description": "A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it alongside the tests.",
               "anyOf": [
                 {
                   "type": "string"
@@ -1196,12 +1196,12 @@
       "properties": {
         "root": {
           "default": "",
-          "description": "The folder where discern creates worktrees. Empty means a folder beside the repository, named \"<repo>.worktrees\". A relative path is relative to the repository root, and an absolute path is used as written. A change applies to new worktrees only.",
+          "description": "The folder where discern creates worktrees. Empty means \"<repo>.worktrees\" beside the repository; a relative path starts from the repository root. A change affects new worktrees only.",
           "type": "string"
         },
         "inherit_env": {
           "default": [],
-          "description": "Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value, unless that value is empty or still the placeholder from the first env file's `.example` copy. discern creates the first env file if it's missing, readable only by you (mode 0600), and leaves existing files' permissions alone.",
+          "description": "Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value unless it's empty or still a placeholder.",
           "type": "array",
           "items": {
             "type": "string"
@@ -1212,7 +1212,7 @@
             ".env",
             ".env.local"
           ],
-          "description": "The env files discern reads and writes, in order. When several set the same variable, the last one wins. discern updates a value where it already is, or adds it to the first listed file that exists; only `inherit_env` creates a file. One comment line at the top of each file marks the values discern manages.",
+          "description": "The env files discern reads and writes, in order. When several set the same variable, the last one wins; a new value goes in the first listed file that exists.",
           "type": "array",
           "items": {
             "type": "string",
@@ -1222,12 +1222,12 @@
         },
         "export_port": {
           "default": false,
-          "description": "Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. discern then avoids giving a new worktree a port another checkout uses, warns about a clash, and shows the port in `discern status`. Every worktree has a port either way; `discern identity --port` prints it.",
+          "description": "Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. Every worktree has a port either way; `discern identity --port` prints it.",
           "type": "boolean"
         },
         "track_ignored_drift": {
           "default": true,
-          "description": "Record the Git-ignored top-level paths, such as `node_modules` or `.env`, when a worktree is set up, and list the ones that changed when its work lands. The list is for information only. Turn it off when ignored files change too often for it to help.",
+          "description": "Record the Git-ignored top-level paths, such as `node_modules`, when a worktree is set up, and list the ones that changed when its work lands, for information only.",
           "type": "boolean"
         },
         "resources": {
@@ -1284,7 +1284,7 @@
           "properties": {
             "steps": {
               "default": [],
-              "description": "Commands run once, in order, when discern creates the worktree, after its resources exist. Use them for one-time setup, such as loading test data. A failing step stops creation, and steps you add later don't run in existing worktrees.",
+              "description": "Commands run once, in order, when discern creates the worktree, after its resources exist, such as loading test data. A failing step stops creation.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -1292,7 +1292,7 @@
             },
             "ensure": {
               "default": [],
-              "description": "Commands run whenever discern readies a task worktree: at creation, at each session start, when `discern worktree setup` runs again, and after `discern update`. Use them for setup that depends on the worktree's id, port, or resources. They must be safe to repeat, and only a failure at creation stops anything. The main checkout never runs them.",
+              "description": "Commands run whenever discern readies a task worktree, for setup that depends on its id, port, or resources. Each must be safe to repeat. The main checkout never runs them.",
               "type": "array",
               "items": {
                 "type": "string"

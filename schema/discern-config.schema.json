@@ -6,7 +6,7 @@
   "type": "object",
   "properties": {
     "project": {
-      "description": "The project's name and identity, its coding agents, and a few project-wide files and settings.",
+      "description": "The project's name, its coding agents, and a few project-wide settings.",
       "default": {},
       "type": "object",
       "properties": {
@@ -33,11 +33,11 @@
         },
         "record_logbook": {
           "default": true,
-          "description": "When true, discern keeps a local logbook: a few lines of metadata for each command it runs, such as timings, outcomes, and names, but no code or output. It stays inside `.git`, out of commits and off the network. false stops all new writes.",
+          "description": "When true, discern keeps a local logbook of each command it runs: timings, outcomes, and names, but no code or output. It stays inside `.git`, out of commits and off the network. false stops new writes.",
           "type": "boolean"
         },
         "agents": {
-          "description": "Which coding agents discern sets up: claude_code, codex, gemini, cursor, copilot. Each gets an instruction file, skills, discern's MCP tools, and a session-start hook. Leave it out for the default (claude_code, codex); an empty list sets up none. Removing an agent leaves its files in place.",
+          "description": "Which coding agents discern sets up: claude_code, codex, gemini, cursor, copilot. Leave it out for the default (claude_code, codex); an empty list sets up none.",
           "type": "array",
           "items": {
             "type": "string",
@@ -65,12 +65,12 @@
         },
         "branch_prefix": {
           "default": "agent/",
-          "description": "The start of every branch discern creates for a worktree, as in \"agent/my-feature\". discern adds nothing between the prefix and the worktree id, so include your own `/`. A change applies to new worktrees only.",
+          "description": "The start of every branch discern creates for a worktree, as in \"agent/my-feature\". Include your own `/`: discern adds nothing between the prefix and the id. A change affects new worktrees only.",
           "type": "string"
         },
         "proof_notes_mode": {
           "default": "local",
-          "description": "How discern handles Proof notes, the records it attaches to landed commits. Both modes record notes locally. \"fetch\" also sets up each Git remote so fetching brings in other clones' notes. Publishing stays the owner's choice, and there is no off mode.",
+          "description": "Proof notes are discern's records on landed commits. Both modes record them locally; \"fetch\" also lets `git fetch` bring in other clones' notes. Publishing is up to the owner, and there is no off mode.",
           "type": "string",
           "enum": [
             "local",
@@ -79,7 +79,7 @@
         },
         "ensure": {
           "default": [],
-          "description": "Commands that make any checkout ready to use after its files change, such as installing dependencies from a lockfile. They run in order when discern sets up a worktree, at each session start, after `discern update`, and in the main checkout after each landing, so each must be safe to repeat.",
+          "description": "Commands that make any checkout ready to use after its files change, such as installing dependencies from a lockfile. They run in order, so each must be safe to repeat.",
           "type": "array",
           "items": {
             "type": "string"
@@ -159,7 +159,7 @@
           "type": "object",
           "properties": {
             "format": {
-              "description": "A formatter, or another tool that rewrites files. Because it changes files, it runs first, one command at a time. In `discern prepare` its edits stay for you to commit; in `discern done`, a change to a committed file fails the run.",
+              "description": "A formatter or other tool that rewrites files, so it runs first, one command at a time. `discern prepare` leaves its edits for you to commit; `discern done` fails if it edits a committed file.",
               "anyOf": [
                 {
                   "type": "string"
@@ -574,7 +574,7 @@
               ]
             },
             "smoke": {
-              "description": "A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it alongside the tests, so with `[gate].fail_fast` a quick failure stops the slower tests. It also runs in the main checkout after each landing.",
+              "description": "A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it alongside the tests.",
               "anyOf": [
                 {
                   "type": "string"
@@ -931,7 +931,7 @@
       "properties": {
         "pre_authorized": {
           "default": [],
-          "description": "Scopes whose changes can land without the owner's approval each time. A change qualifies only when every file it touches is in a listed scope. discern reads this list and the scopes' paths from the trunk, so a branch can't grant itself. Empty means every landing needs the owner's approval or a grant for that task.",
+          "description": "Scopes whose changes can land without the owner's approval each time. A change qualifies only when every file it touches is in a listed scope. Empty means no scope is pre-approved.",
           "type": "array",
           "items": {
             "type": "string"
@@ -947,12 +947,12 @@
       "properties": {
         "root": {
           "default": "",
-          "description": "The folder where discern creates worktrees. Empty means a folder beside the repository, named \"<repo>.worktrees\". A relative path is relative to the repository root, and an absolute path is used as written. A change applies to new worktrees only.",
+          "description": "The folder where discern creates worktrees. Empty means \"<repo>.worktrees\" beside the repository; a relative path starts from the repository root. A change affects new worktrees only.",
           "type": "string"
         },
         "inherit_env": {
           "default": [],
-          "description": "Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value, unless that value is empty or still the placeholder from the first env file's `.example` copy. discern creates the first env file if it's missing, readable only by you (mode 0600), and leaves existing files' permissions alone.",
+          "description": "Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value unless it's empty or still a placeholder.",
           "type": "array",
           "items": {
             "type": "string"
@@ -963,7 +963,7 @@
             ".env",
             ".env.local"
           ],
-          "description": "The env files discern reads and writes, in order. When several set the same variable, the last one wins. discern updates a value where it already is, or adds it to the first listed file that exists; only `inherit_env` creates a file. One comment line at the top of each file marks the values discern manages.",
+          "description": "The env files discern reads and writes, in order. When several set the same variable, the last one wins; a new value goes in the first listed file that exists.",
           "type": "array",
           "items": {
             "type": "string",
@@ -973,12 +973,12 @@
         },
         "export_port": {
           "default": false,
-          "description": "Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. discern then avoids giving a new worktree a port another checkout uses, warns about a clash, and shows the port in `discern status`. Every worktree has a port either way; `discern identity --port` prints it.",
+          "description": "Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. Every worktree has a port either way; `discern identity --port` prints it.",
           "type": "boolean"
         },
         "track_ignored_drift": {
           "default": true,
-          "description": "Record the Git-ignored top-level paths, such as `node_modules` or `.env`, when a worktree is set up, and list the ones that changed when its work lands. The list is for information only. Turn it off when ignored files change too often for it to help.",
+          "description": "Record the Git-ignored top-level paths, such as `node_modules`, when a worktree is set up, and list the ones that changed when its work lands, for information only.",
           "type": "boolean"
         },
         "resources": {
@@ -1035,7 +1035,7 @@
           "properties": {
             "steps": {
               "default": [],
-              "description": "Commands run once, in order, when discern creates the worktree, after its resources exist. Use them for one-time setup, such as loading test data. A failing step stops creation, and steps you add later don't run in existing worktrees.",
+              "description": "Commands run once, in order, when discern creates the worktree, after its resources exist, such as loading test data. A failing step stops creation.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -1043,7 +1043,7 @@
             },
             "ensure": {
               "default": [],
-              "description": "Commands run whenever discern readies a task worktree: at creation, at each session start, when `discern worktree setup` runs again, and after `discern update`. Use them for setup that depends on the worktree's id, port, or resources. They must be safe to repeat, and only a failure at creation stops anything. The main checkout never runs them.",
+              "description": "Commands run whenever discern readies a task worktree, for setup that depends on its id, port, or resources. Each must be safe to repeat. The main checkout never runs them.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -1411,24 +1411,24 @@
       "properties": {
         "stream_output": {
           "default": false,
-          "description": "How job output appears when it isn't going to a live terminal, such as in CI, a pipe, or with `--plain`. false shows each job's full output as one block; true prints lines as they arrive, each marked with its job. A live terminal always shows a live view instead.",
+          "description": "How job output looks in CI, in a pipe, or with `--plain`: false shows each job's output as one block, and true prints lines as they arrive, marked with the job.",
           "type": "boolean"
         },
         "fail_fast": {
           "default": true,
-          "description": "Stop everything still running or waiting as soon as one job fails, so your agent hears about the failure quickly. false keeps going and shows more failures in one run, though a job that depends on a failed fix or build step still doesn't run. `discern standards` ignores this setting.",
+          "description": "Stop everything still running or waiting as soon as one job fails, so your agent hears about the failure quickly. false keeps going and shows more failures in one run.",
           "type": "boolean"
         },
         "timeout": {
           "default": 600,
-          "description": "Time limit in seconds for each job the gate runs, including scope gates, generators, and standard measurements; a job's list of commands shares one limit. discern stops a job that runs over, with every process it started, and fails its stage with a timeout message, so a command stuck in watch mode can't hang the gate. A job's own `timeout` replaces this. 0 means no limit.",
+          "description": "Time limit in seconds for each job the gate runs, including scope gates, generators, and standard measurements. A job's own `timeout` replaces it; 0 means no limit.",
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
         },
         "concurrent_test_runs": {
           "default": 1,
-          "description": "How many test runs this repository's checkouts can have going at once. Test jobs, standard measurements, `discern test`, `discern standards`, and `discern queue -- <command>` each wait for a free slot. 0 means no limit.",
+          "description": "How many test runs this repository's checkouts can have going at once; 0 means no limit.",
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991

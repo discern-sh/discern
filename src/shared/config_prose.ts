@@ -98,7 +98,7 @@ function worktreeTokenDetail(): string[] {
 export const CONFIG_PROSE = {
   project: {
     what:
-      "The project's name and identity, its coding agents, and a few project-wide files and settings.",
+      "The project's name, its coding agents, and a few project-wide settings.",
     why:
       "The name heads every compiled instruction file, and the slug names each worktree's site, database, and resources, so people and agents see one identity everywhere.",
     keys: {
@@ -107,6 +107,12 @@ export const CONFIG_PROSE = {
           "Keep recording on: history can't be recorded later, and while it's off",
           "this project goes without:",
           ...LOGBOOK_POWERED.map((member) => `  - ${member.phrase}`),
+        ],
+      },
+      agents: {
+        detail: [
+          "Each gets an instruction file, skills, discern's MCP tools, and a",
+          "session-start hook. Removing an agent leaves its files in place.",
         ],
       },
     },
@@ -121,6 +127,12 @@ export const CONFIG_PROSE = {
           "`local` changes nothing on your remotes; `fetch` adds a fetch-only rule",
           "for each remote. To publish notes, the owner runs:",
           `  \`git push <remote> ${PROOF_NOTES_REF}\`.`,
+        ],
+      },
+      ensure: {
+        detail: [
+          "They run when discern sets up a worktree, at each session start, after",
+          "`discern update`, and in the main checkout after each landing.",
         ],
       },
     },
@@ -169,7 +181,13 @@ export const CONFIG_PROSE = {
       lint: { example: '"eslint ."' },
       typecheck: { example: '"tsc --noEmit"' },
       test: { example: '"npm test"' },
-      smoke: { example: '"your-app --version"' },
+      smoke: {
+        example: '"your-app --version"',
+        detail: [
+          "With `[gate].fail_fast`, a quick failure stops the slower tests. It",
+          "also runs in the main checkout after each landing.",
+        ],
+      },
     },
     examples: [
       {
@@ -240,7 +258,13 @@ run   = "tool write-reference --source source/ --output reference/"`,
     why:
       "Without a grant, landing needs your approval in the conversation, or a grant you give one task from the desk. Widening a granted scope's paths widens its grant. The example grants documentation only, so you still review changes to agent instructions.",
     keys: {
-      pre_authorized: { hint: '["map"]' },
+      pre_authorized: {
+        hint: '["map"]',
+        detail: [
+          "discern reads this list, and those scopes' paths, from the trunk, so a",
+          "branch can't grant itself.",
+        ],
+      },
     },
   },
   worktree: {
@@ -248,7 +272,35 @@ run   = "tool write-reference --source source/ --output reference/"`,
     why:
       "Each task runs in its own checkout, so agents working side by side don't collide. The Git steps are the same for every project; the resources and setup commands below make a new worktree ready for this one.",
     keys: {
-      inherit_env: { hint: '["APP_KEY", "OPENAI_API_KEY"]' },
+      root: {
+        detail: ["An absolute path is used as written."],
+      },
+      inherit_env: {
+        hint: '["APP_KEY", "OPENAI_API_KEY"]',
+        detail: [
+          "A placeholder is the value in the first env file's `.example` copy.",
+          "discern creates the first env file if it's missing, readable only by",
+          "you (mode 0600), and leaves existing files' permissions alone.",
+        ],
+      },
+      env_files: {
+        detail: [
+          "Only `inherit_env` creates a file. One comment line at the top of each",
+          "file marks the values discern manages.",
+        ],
+      },
+      export_port: {
+        detail: [
+          "When true, discern also avoids giving a new worktree a port another",
+          "checkout uses, warns about a clash, and shows the port in",
+          "`discern status`.",
+        ],
+      },
+      track_ignored_drift: {
+        detail: [
+          "Turn it off when ignored files change too often for the list to help.",
+        ],
+      },
     },
   },
   "worktree.resources": {
@@ -277,15 +329,25 @@ destroy = "unlink-site @site@"`,
     why:
       "`steps` run once, when discern creates the worktree; `ensure` commands run on every pass, so each must be safe to repeat. Neither gets `@token@` replacement. Put installs that every checkout needs, such as dependencies, in `[repository].ensure`, so the main checkout gets them after a landing too.",
     keys: {
-      steps: { hint: '["seed-fixtures"]' },
-      ensure: { hint: '["ready-worktree-resource"]' },
+      steps: {
+        hint: '["seed-fixtures"]',
+        detail: ["Steps you add later don't run in existing worktrees."],
+      },
+      ensure: {
+        hint: '["ready-worktree-resource"]',
+        detail: [
+          "They run at creation, at each session start, after `discern update`,",
+          "and when `discern worktree setup` runs again. Only a failure at",
+          "creation stops anything.",
+        ],
+      },
     },
   },
   standards: {
     what:
       "Limits on measured numbers, such as test coverage or bundle size, that the gate holds.",
     why:
-      "Every `discern done` needs a current measurement for each standard. A branch can tighten a limit or change its `margin` or `timeout`, but it can't loosen, redefine, or delete a standard the trunk has. A command that feeds several standards runs once, and discern reuses a measurement only while its inputs, commands, toolchain, and environment all match. Hold a raw count for a number that should stay fixed, a rate through `per` for one that grows with the project, and give a total that drifts a `margin`.",
+      "Every `discern done` needs a current measurement for each standard. A branch can tighten a limit but can't loosen, redefine, or delete a standard the trunk has. discern reuses a measurement only while its inputs, commands, toolchain, and environment match. Hold a raw count for a number that should stay fixed, a rate through `per` for one that grows with the project, and give a total that drifts a `margin`.",
     detail: [
       "The measuring command prints each reading as: DISCERN_METRIC <name> <number>",
       "Set run to measure with a command, or producer to reuse a job's output.",
@@ -389,6 +451,30 @@ revisit.
       "How discern runs jobs, in `discern done` and the other commands that run them.",
     why:
       "Stopping at the first failure and a time limit for each job keep checks quick. A cap on test runs at once keeps them fair to every worktree of this repository.",
+    keys: {
+      stream_output: {
+        detail: ["A live terminal always shows a live view instead."],
+      },
+      fail_fast: {
+        detail: [
+          "A job that depends on a failed fix or build step still doesn't run,",
+          "and `discern standards` ignores this setting.",
+        ],
+      },
+      timeout: {
+        detail: [
+          "A job's list of commands shares one limit. discern stops a job that",
+          "runs over, with every process it started, and fails its stage with a",
+          "timeout message, so a command stuck in watch mode can't hang the gate.",
+        ],
+      },
+      concurrent_test_runs: {
+        detail: [
+          "Test jobs, standard measurements, `discern test`, `discern standards`,",
+          "and `discern queue -- <command>` each wait for a free slot.",
+        ],
+      },
+    },
   },
   coupling: {
     what: "Files that usually change together, found from Git history.",

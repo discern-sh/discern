@@ -1109,45 +1109,45 @@ Every section, key, and value type the engine validates, with evolving sections 
 
 Same-major releases may add optional keys, sections, and enum members. Existing keys, types, and defaults stay. Sections marked evolving may change in any release.
 
-| Section                 | Required | Kind     | Description                                                                                    |
-| ----------------------- | -------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `[project]`             |          | `object` | The project's name and identity, its coding agents, and a few project-wide files and settings. |
-| `[repository]`          |          | `object` | Git settings that every checkout of this repository shares.                                    |
-| `[map]`                 |          | `object` | Where the project map lives.                                                                   |
-| `[instructions]`        |          | `object` | The instruction files discern compiles into each agent's file.                                 |
-| `[skills]`              |          | `object` | Where your own skills live, and which skills to leave out.                                     |
-| `[jobs]`                |          | `allOf`  | The commands the gate runs to check a change.                                                  |
-| `[setup]`               |          | `object` | Known jobs this project doesn't have.                                                          |
-| `[scopes]`              |          | `table`  | Named regions of the repository.                                                               |
-| `[generated]`           |          | `table`  | Committed files that one command generates.                                                    |
-| `[acceptance]`          |          | `object` | Standing grants: scopes whose changes can land without asking you each time.                   |
-| `[worktree]`            |          | `object` | How discern creates and prepares task worktrees.                                               |
-| `[standards]`           |          | `table`  | Limits on measured numbers, such as test coverage or bundle size, that the gate holds.         |
-| `[checkpoints]`         |          | `table`  | Review questions your agent answers when a change matches a trigger.                           |
-| `[gate]`                |          | `object` | How discern runs jobs, in `discern done` and the other commands that run them.                 |
-| `[coupling]` (evolving) |          | `object` | Files that usually change together, found from Git history.                                    |
-| `[scripts]`             |          | `object` | Where your project's scripts live.                                                             |
-| `[meta]`                | yes      | `object` | A record of this project's setup and upgrades.                                                 |
+| Section                 | Required | Kind     | Description                                                                            |
+| ----------------------- | -------- | -------- | -------------------------------------------------------------------------------------- |
+| `[project]`             |          | `object` | The project's name, its coding agents, and a few project-wide settings.                |
+| `[repository]`          |          | `object` | Git settings that every checkout of this repository shares.                            |
+| `[map]`                 |          | `object` | Where the project map lives.                                                           |
+| `[instructions]`        |          | `object` | The instruction files discern compiles into each agent's file.                         |
+| `[skills]`              |          | `object` | Where your own skills live, and which skills to leave out.                             |
+| `[jobs]`                |          | `allOf`  | The commands the gate runs to check a change.                                          |
+| `[setup]`               |          | `object` | Known jobs this project doesn't have.                                                  |
+| `[scopes]`              |          | `table`  | Named regions of the repository.                                                       |
+| `[generated]`           |          | `table`  | Committed files that one command generates.                                            |
+| `[acceptance]`          |          | `object` | Standing grants: scopes whose changes can land without asking you each time.           |
+| `[worktree]`            |          | `object` | How discern creates and prepares task worktrees.                                       |
+| `[standards]`           |          | `table`  | Limits on measured numbers, such as test coverage or bundle size, that the gate holds. |
+| `[checkpoints]`         |          | `table`  | Review questions your agent answers when a change matches a trigger.                   |
+| `[gate]`                |          | `object` | How discern runs jobs, in `discern done` and the other commands that run them.         |
+| `[coupling]` (evolving) |          | `object` | Files that usually change together, found from Git history.                            |
+| `[scripts]`             |          | `object` | Where your project's scripts live.                                                     |
+| `[meta]`                | yes      | `object` | A record of this project's setup and upgrades.                                         |
 
 ### [project]
 
-| Key              | Type      | Default             | Enum | Description                                                                                                                               |
-| ---------------- | --------- | ------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`           | `string`  | `""`                |      | The project's display name, in any words. Compiled instruction files use it to refer to the project; when it's empty, they use the slug.  |
-| `slug`           | `string`  | `""`                |      | A short id of lowercase letters, digits, and dashes. discern builds each worktree's site, database, and resource names from it.           |
-| `gotchas_doc`    | `string`  | `""`                |      | A doc of your project's known traps. When `discern done`, `prepare`, or `test` fails, discern points your agent to it, and quotes any…    |
-| `todo`           | `string`  | `"discern/TODO.md"` |      | The TODO list of deferred work that your agents read and keep up to date, relative to the project root.                                   |
-| `record_logbook` | `boolean` | `true`              |      | When true, discern keeps a local logbook: a few lines of metadata for each command it runs, such as timings, outcomes, and names, but no… |
-| `agents`         | `enum[]`  |                     |      | Which coding agents discern sets up: claude_code, codex, gemini, cursor, copilot. Each gets an instruction file, skills, discern's MCP…   |
+| Key              | Type      | Default             | Enum | Description                                                                                                                              |
+| ---------------- | --------- | ------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`           | `string`  | `""`                |      | The project's display name, in any words. Compiled instruction files use it to refer to the project; when it's empty, they use the slug. |
+| `slug`           | `string`  | `""`                |      | A short id of lowercase letters, digits, and dashes. discern builds each worktree's site, database, and resource names from it.          |
+| `gotchas_doc`    | `string`  | `""`                |      | A doc of your project's known traps. When `discern done`, `prepare`, or `test` fails, discern points your agent to it, and quotes any…   |
+| `todo`           | `string`  | `"discern/TODO.md"` |      | The TODO list of deferred work that your agents read and keep up to date, relative to the project root.                                  |
+| `record_logbook` | `boolean` | `true`              |      | When true, discern keeps a local logbook of each command it runs: timings, outcomes, and names, but no code or output. It stays inside…  |
+| `agents`         | `enum[]`  |                     |      | Which coding agents discern sets up: claude_code, codex, gemini, cursor, copilot. Leave it out for the default (claude_code, codex); an… |
 
 ### [repository]
 
 | Key                | Type       | Default    | Enum             | Description                                                                                                                                 |
 | ------------------ | ---------- | ---------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `trunk`            | `string`   | `"main"`   |                  | Your project's shared branch: finished work lands here, and the gate checks each change against it. Setup detects it; `DISCERN_TRUNK`…      |
-| `branch_prefix`    | `string`   | `"agent/"` |                  | The start of every branch discern creates for a worktree, as in "agent/my-feature". discern adds nothing between the prefix and the…        |
-| `proof_notes_mode` | `enum`     | `"local"`  | `local`, `fetch` | How discern handles Proof notes, the records it attaches to landed commits. Both modes record notes locally. "fetch" also sets up each Git… |
-| `ensure`           | `string[]` | `[]`       |                  | Commands that make any checkout ready to use after its files change, such as installing dependencies from a lockfile. They run in order…    |
+| `branch_prefix`    | `string`   | `"agent/"` |                  | The start of every branch discern creates for a worktree, as in "agent/my-feature". Include your own `/`: discern adds nothing between the… |
+| `proof_notes_mode` | `enum`     | `"local"`  | `local`, `fetch` | Proof notes are discern's records on landed commits. Both modes record them locally; "fetch" also lets `git fetch` bring in other clones'…  |
+| `ensure`           | `string[]` | `[]`       |                  | Commands that make any checkout ready to use after its files change, such as installing dependencies from a lockfile. They run in order,…   |
 
 ### [map]
 
@@ -1170,24 +1170,24 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 
 ### [jobs]
 
-| Key                      | Type                           | Default | Enum                            | Description                                                                                                                                 |
-| ------------------------ | ------------------------------ | ------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                                   |
-| `format`                 | `string or string[] or object` |         |                                 | A formatter, or another tool that rewrites files. Because it changes files, it runs first, one command at a time. In `discern prepare` its… |
-| `build`                  | `string or string[] or object` |         |                                 | Builds what later stages need, such as compiling or bundling. `discern done` runs it; `discern prepare` doesn't.                            |
-| `lint`                   | `string or string[] or object` |         |                                 | A linter or other read-only check of the code.                                                                                              |
-| `typecheck`              | `string or string[] or object` |         |                                 | A read-only type check.                                                                                                                     |
-| `test`                   | `string or string[] or object` |         |                                 | Your test suite. It waits for a free test-run slot before it starts.                                                                        |
-| `smoke`                  | `string or string[] or object` |         |                                 | A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it…      |
-| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                                |
-| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`,…               |
-| `<name>.inputs`          | `string[]`                     |         |                                 | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…      |
-| `<name>.needs`           | `string[]`                     |         |                                 | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…        |
-| `<name>.artifacts`       | `string[]`                     |         |                                 | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…     |
-| `<name>.environment`     | `string[]`                     |         |                                 | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…        |
-| `<name>.toolchain`       | `string[]`                     |         |                                 | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…      |
-| `<name>.provides`        | `string`                       |         |                                 | A free-text note on what the job provides, for people reading the config. discern doesn't use it.                                           |
-| `<name>.timeout`         | `number`                       |         |                                 | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                     |
+| Key                      | Type                           | Default | Enum                            | Description                                                                                                                             |
+| ------------------------ | ------------------------------ | ------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                               |
+| `format`                 | `string or string[] or object` |         |                                 | A formatter or other tool that rewrites files, so it runs first, one command at a time. `discern prepare` leaves its edits for you to…  |
+| `build`                  | `string or string[] or object` |         |                                 | Builds what later stages need, such as compiling or bundling. `discern done` runs it; `discern prepare` doesn't.                        |
+| `lint`                   | `string or string[] or object` |         |                                 | A linter or other read-only check of the code.                                                                                          |
+| `typecheck`              | `string or string[] or object` |         |                                 | A read-only type check.                                                                                                                 |
+| `test`                   | `string or string[] or object` |         |                                 | Your test suite. It waits for a free test-run slot before it starts.                                                                    |
+| `smoke`                  | `string or string[] or object` |         |                                 | A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it…  |
+| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                            |
+| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`,…           |
+| `<name>.inputs`          | `string[]`                     |         |                                 | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…  |
+| `<name>.needs`           | `string[]`                     |         |                                 | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…    |
+| `<name>.artifacts`       | `string[]`                     |         |                                 | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a… |
+| `<name>.environment`     | `string[]`                     |         |                                 | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…    |
+| `<name>.toolchain`       | `string[]`                     |         |                                 | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…  |
+| `<name>.provides`        | `string`                       |         |                                 | A free-text note on what the job provides, for people reading the config. discern doesn't use it.                                       |
+| `<name>.timeout`         | `number`                       |         |                                 | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                 |
 
 ### [setup]
 
@@ -1229,11 +1229,11 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 
 | Key                         | Type       | Default                 | Enum | Description                                                                                                                                 |
 | --------------------------- | ---------- | ----------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `root`                      | `string`   | `""`                    |      | The folder where discern creates worktrees. Empty means a folder beside the repository, named "<repo>.worktrees". A relative path is…       |
-| `inherit_env`               | `string[]` | `[]`                    |      | Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value,…    |
-| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | The env files discern reads and writes, in order. When several set the same variable, the last one wins. discern updates a value where it…  |
-| `export_port`               | `boolean`  | `false`                 |      | Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. discern then avoids giving a…   |
-| `track_ignored_drift`       | `boolean`  | `true`                  |      | Record the Git-ignored top-level paths, such as `node_modules` or `.env`, when a worktree is set up, and list the ones that changed when…   |
+| `root`                      | `string`   | `""`                    |      | The folder where discern creates worktrees. Empty means "<repo>.worktrees" beside the repository; a relative path starts from the…          |
+| `inherit_env`               | `string[]` | `[]`                    |      | Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value…     |
+| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | The env files discern reads and writes, in order. When several set the same variable, the last one wins; a new value goes in the first…     |
+| `export_port`               | `boolean`  | `false`                 |      | Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. Every worktree has a port…      |
+| `track_ignored_drift`       | `boolean`  | `true`                  |      | Record the Git-ignored top-level paths, such as `node_modules`, when a worktree is set up, and list the ones that changed when its work…    |
 | `resources`                 | `table`    | `{}`                    |      | Outside resources that each worktree gets its own copy of.                                                                                  |
 | `resources.<name>.create`   | `string`   | `""`                    |      | The command that creates the resource, run once when the worktree is first set up. Before running it, discern records the matching…         |
 | `resources.<name>.destroy`  | `string`   | `""`                    |      | The command that removes the resource when its worktree is removed, or before discern retries a failed `create`. Make it safe to run…       |
@@ -1242,8 +1242,8 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 | `resources.<name>.retries`  | `integer`  | `0`                     |      | How many times to retry a failed `create`, `destroy`, or `ensure`, from 0 to 5. `destroy` uses the count in effect when the resource was…   |
 | `resources.<name>.prunable` | `boolean`  | `true`                  |      | Set to false to stop `discern worktree prune` from destroying this resource after its worktree was deleted without discern, for data you…   |
 | `setup`                     | `object`   | `{}`                    |      | Commands that prepare a task worktree for work.                                                                                             |
-| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once, in order, when discern creates the worktree, after its resources exist. Use them for one-time setup, such as loading…    |
-| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run whenever discern readies a task worktree: at creation, at each session start, when `discern worktree setup` runs again, and…   |
+| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once, in order, when discern creates the worktree, after its resources exist, such as loading test data. A failing step stops… |
+| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run whenever discern readies a task worktree, for setup that depends on its id, port, or resources. Each must be safe to repeat.…  |
 
 ### [standards]
 
@@ -1294,12 +1294,12 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 
 ### [gate]
 
-| Key                    | Type      | Default | Enum | Description                                                                                                                               |
-| ---------------------- | --------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `stream_output`        | `boolean` | `false` |      | How job output appears when it isn't going to a live terminal, such as in CI, a pipe, or with `--plain`. false shows each job's full…     |
-| `fail_fast`            | `boolean` | `true`  |      | Stop everything still running or waiting as soon as one job fails, so your agent hears about the failure quickly. false keeps going and…  |
-| `timeout`              | `integer` | `600`   |      | Time limit in seconds for each job the gate runs, including scope gates, generators, and standard measurements; a job's list of commands… |
-| `concurrent_test_runs` | `integer` | `1`     |      | How many test runs this repository's checkouts can have going at once. Test jobs, standard measurements, `discern test`,…                 |
+| Key                    | Type      | Default | Enum | Description                                                                                                                              |
+| ---------------------- | --------- | ------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `stream_output`        | `boolean` | `false` |      | How job output looks in CI, in a pipe, or with `--plain`: false shows each job's output as one block, and true prints lines as they…     |
+| `fail_fast`            | `boolean` | `true`  |      | Stop everything still running or waiting as soon as one job fails, so your agent hears about the failure quickly. false keeps going and… |
+| `timeout`              | `integer` | `600`   |      | Time limit in seconds for each job the gate runs, including scope gates, generators, and standard measurements. A job's own `timeout`…   |
+| `concurrent_test_runs` | `integer` | `1`     |      | How many test runs this repository's checkouts can have going at once; 0 means no limit.                                                 |
 
 ### [coupling] (evolving)
 
@@ -1356,24 +1356,24 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 
 ### [jobs]
 
-| Key                      | Type                           | Default | Enum                            | Description                                                                                                                                 |
-| ------------------------ | ------------------------------ | ------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                                   |
-| `format`                 | `string or string[] or object` |         |                                 | A formatter, or another tool that rewrites files. Because it changes files, it runs first, one command at a time. In `discern prepare` its… |
-| `build`                  | `string or string[] or object` |         |                                 | Builds what later stages need, such as compiling or bundling. `discern done` runs it; `discern prepare` doesn't.                            |
-| `lint`                   | `string or string[] or object` |         |                                 | A linter or other read-only check of the code.                                                                                              |
-| `typecheck`              | `string or string[] or object` |         |                                 | A read-only type check.                                                                                                                     |
-| `test`                   | `string or string[] or object` |         |                                 | Your test suite. It waits for a free test-run slot before it starts.                                                                        |
-| `smoke`                  | `string or string[] or object` |         |                                 | A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it…      |
-| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                                |
-| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`,…               |
-| `<name>.inputs`          | `string[]`                     |         |                                 | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…      |
-| `<name>.needs`           | `string[]`                     |         |                                 | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…        |
-| `<name>.artifacts`       | `string[]`                     |         |                                 | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…     |
-| `<name>.environment`     | `string[]`                     |         |                                 | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…        |
-| `<name>.toolchain`       | `string[]`                     |         |                                 | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…      |
-| `<name>.provides`        | `string`                       |         |                                 | A free-text note on what the job provides, for people reading the config. discern doesn't use it.                                           |
-| `<name>.timeout`         | `number`                       |         |                                 | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                     |
+| Key                      | Type                           | Default | Enum                            | Description                                                                                                                             |
+| ------------------------ | ------------------------------ | ------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                               |
+| `format`                 | `string or string[] or object` |         |                                 | A formatter or other tool that rewrites files, so it runs first, one command at a time. `discern prepare` leaves its edits for you to…  |
+| `build`                  | `string or string[] or object` |         |                                 | Builds what later stages need, such as compiling or bundling. `discern done` runs it; `discern prepare` doesn't.                        |
+| `lint`                   | `string or string[] or object` |         |                                 | A linter or other read-only check of the code.                                                                                          |
+| `typecheck`              | `string or string[] or object` |         |                                 | A read-only type check.                                                                                                                 |
+| `test`                   | `string or string[] or object` |         |                                 | Your test suite. It waits for a free test-run slot before it starts.                                                                    |
+| `smoke`                  | `string or string[] or object` |         |                                 | A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it…  |
+| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                            |
+| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`,…           |
+| `<name>.inputs`          | `string[]`                     |         |                                 | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…  |
+| `<name>.needs`           | `string[]`                     |         |                                 | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…    |
+| `<name>.artifacts`       | `string[]`                     |         |                                 | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a… |
+| `<name>.environment`     | `string[]`                     |         |                                 | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…    |
+| `<name>.toolchain`       | `string[]`                     |         |                                 | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…  |
+| `<name>.provides`        | `string`                       |         |                                 | A free-text note on what the job provides, for people reading the config. discern doesn't use it.                                       |
+| `<name>.timeout`         | `number`                       |         |                                 | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                 |
 
 ### [scopes]
 
@@ -1456,11 +1456,11 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 
 | Key                         | Type       | Default                 | Enum | Description                                                                                                                                 |
 | --------------------------- | ---------- | ----------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `root`                      | `string`   | `""`                    |      | The folder where discern creates worktrees. Empty means a folder beside the repository, named "<repo>.worktrees". A relative path is…       |
-| `inherit_env`               | `string[]` | `[]`                    |      | Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value,…    |
-| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | The env files discern reads and writes, in order. When several set the same variable, the last one wins. discern updates a value where it…  |
-| `export_port`               | `boolean`  | `false`                 |      | Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. discern then avoids giving a…   |
-| `track_ignored_drift`       | `boolean`  | `true`                  |      | Record the Git-ignored top-level paths, such as `node_modules` or `.env`, when a worktree is set up, and list the ones that changed when…   |
+| `root`                      | `string`   | `""`                    |      | The folder where discern creates worktrees. Empty means "<repo>.worktrees" beside the repository; a relative path starts from the…          |
+| `inherit_env`               | `string[]` | `[]`                    |      | Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value…     |
+| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | The env files discern reads and writes, in order. When several set the same variable, the last one wins; a new value goes in the first…     |
+| `export_port`               | `boolean`  | `false`                 |      | Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. Every worktree has a port…      |
+| `track_ignored_drift`       | `boolean`  | `true`                  |      | Record the Git-ignored top-level paths, such as `node_modules`, when a worktree is set up, and list the ones that changed when its work…    |
 | `resources`                 | `table`    | `{}`                    |      | Outside resources that each worktree gets its own copy of.                                                                                  |
 | `resources.<name>.create`   | `string`   | `""`                    |      | The command that creates the resource, run once when the worktree is first set up. Before running it, discern records the matching…         |
 | `resources.<name>.destroy`  | `string`   | `""`                    |      | The command that removes the resource when its worktree is removed, or before discern retries a failed `create`. Make it safe to run…       |
@@ -1469,8 +1469,8 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 | `resources.<name>.retries`  | `integer`  | `0`                     |      | How many times to retry a failed `create`, `destroy`, or `ensure`, from 0 to 5. `destroy` uses the count in effect when the resource was…   |
 | `resources.<name>.prunable` | `boolean`  | `true`                  |      | Set to false to stop `discern worktree prune` from destroying this resource after its worktree was deleted without discern, for data you…   |
 | `setup`                     | `object`   | `{}`                    |      | Commands that prepare a task worktree for work.                                                                                             |
-| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once, in order, when discern creates the worktree, after its resources exist. Use them for one-time setup, such as loading…    |
-| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run whenever discern readies a task worktree: at creation, at each session start, when `discern worktree setup` runs again, and…   |
+| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once, in order, when discern creates the worktree, after its resources exist, such as loading test data. A failing step stops… |
+| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run whenever discern readies a task worktree, for setup that depends on its id, port, or resources. Each must be safe to repeat.…  |
 
 ## F. Conventions manifest (`schema/discern-conventions.json`, policy `conventions-append-only`)
 

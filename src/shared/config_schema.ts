@@ -724,14 +724,14 @@ const projectSection = z.strictObject({
     "The TODO list of deferred work that your agents read and keep up to date, relative to the project root.",
   ),
   record_logbook: z.boolean().default(true).describe(
-    "When true, discern keeps a local logbook: a few lines of metadata for each command it runs, such as timings, outcomes, and names, but no code or output. " +
-      "It stays inside `.git`, out of commits and off the network. false stops all new writes.",
+    "When true, discern keeps a local logbook of each command it runs: timings, outcomes, and names, but no code or output. " +
+      "It stays inside `.git`, out of commits and off the network. false stops new writes.",
   ),
   agents: z.array(z.enum(AGENT_NAMES)).optional().describe(
     `Which coding agents discern sets up: ${AGENT_NAMES.join(", ")}. ` +
-      `Each gets an instruction file, skills, discern's MCP tools, and a session-start hook. Leave it out for the default (${
+      `Leave it out for the default (${
         DEFAULT_AGENTS.join(", ")
-      }); an empty list sets up none. Removing an agent leaves its files in place.`,
+      }); an empty list sets up none.`,
   ),
 }).prefault({}).describe(CONFIG_PROSE.project.what);
 
@@ -740,13 +740,13 @@ const repositorySection = z.strictObject({
     `Your project's shared branch: finished work lands here, and the gate checks each change against it. Setup detects it; \`${DISCERN_ENVIRONMENT_VARIABLES.trunk}\` overrides it for one command.`,
   ),
   branch_prefix: z.string().default(DEFAULT_WORKTREE_BRANCH_PREFIX).describe(
-    `The start of every branch discern creates for a worktree, as in "${DEFAULT_WORKTREE_BRANCH_PREFIX}my-feature". discern adds nothing between the prefix and the worktree id, so include your own \`/\`. A change applies to new worktrees only.`,
+    `The start of every branch discern creates for a worktree, as in "${DEFAULT_WORKTREE_BRANCH_PREFIX}my-feature". Include your own \`/\`: discern adds nothing between the prefix and the id. A change affects new worktrees only.`,
   ),
   proof_notes_mode: z.enum(["local", "fetch"]).default("local").describe(
-    "How discern handles Proof notes, the records it attaches to landed commits. Both modes record notes locally. \"fetch\" also sets up each Git remote so fetching brings in other clones' notes. Publishing stays the owner's choice, and there is no off mode.",
+    "Proof notes are discern's records on landed commits. Both modes record them locally; \"fetch\" also lets `git fetch` bring in other clones' notes. Publishing is up to the owner, and there is no off mode.",
   ),
   ensure: z.array(z.string()).default([]).describe(
-    "Commands that make any checkout ready to use after its files change, such as installing dependencies from a lockfile. They run in order when discern sets up a worktree, at each session start, after `discern update`, and in the main checkout after each landing, so each must be safe to repeat.",
+    "Commands that make any checkout ready to use after its files change, such as installing dependencies from a lockfile. They run in order, so each must be safe to repeat.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.repository.what);
 
@@ -782,7 +782,7 @@ const mapSection = z.strictObject({
  * generated reference describe the same namespace. */
 const jobValuesObject = z.strictObject({
   format: knownJobCommand.optional().describe(
-    "A formatter, or another tool that rewrites files. Because it changes files, it runs first, one command at a time. In `discern prepare` its edits stay for you to commit; in `discern done`, a change to a committed file fails the run.",
+    "A formatter or other tool that rewrites files, so it runs first, one command at a time. `discern prepare` leaves its edits for you to commit; `discern done` fails if it edits a committed file.",
   ),
   build: knownJobCommand.optional().describe(
     "Builds what later stages need, such as compiling or bundling. `discern done` runs it; `discern prepare` doesn't.",
@@ -797,7 +797,7 @@ const jobValuesObject = z.strictObject({
     "Your test suite. It waits for a free test-run slot before it starts.",
   ),
   smoke: knownJobCommand.optional().describe(
-    "A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it alongside the tests, so with `[gate].fail_fast` a quick failure stops the slower tests. It also runs in the main checkout after each landing.",
+    "A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it alongside the tests.",
   ),
 }).catchall(customJobValue);
 const jobsObject = z.intersection(
@@ -838,7 +838,7 @@ const generatedSection = z.record(
 
 const acceptanceSection = z.strictObject({
   pre_authorized: z.array(z.string()).default([]).describe(
-    "Scopes whose changes can land without the owner's approval each time. A change qualifies only when every file it touches is in a listed scope. discern reads this list and the scopes' paths from the trunk, so a branch can't grant itself. Empty means every landing needs the owner's approval or a grant for that task.",
+    "Scopes whose changes can land without the owner's approval each time. A change qualifies only when every file it touches is in a listed scope. Empty means no scope is pre-approved.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.acceptance.what);
 
@@ -881,31 +881,31 @@ export const RECORD_ENTRY_SCHEMAS = {
 
 const worktreeSection = z.strictObject({
   root: z.string().default("").describe(
-    'The folder where discern creates worktrees. Empty means a folder beside the repository, named "<repo>.worktrees". A relative path is relative to the repository root, and an absolute path is used as written. A change applies to new worktrees only.',
+    'The folder where discern creates worktrees. Empty means "<repo>.worktrees" beside the repository; a relative path starts from the repository root. A change affects new worktrees only.',
   ),
   inherit_env: z.array(z.string()).default([]).describe(
-    "Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value, unless that value is empty or still the placeholder from the first env file's `.example` copy. discern creates the first env file if it's missing, readable only by you (mode 0600), and leaves existing files' permissions alone.",
+    "Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value unless it's empty or still a placeholder.",
   ),
   env_files: z.array(projectFilePath).refine(projectPathsAreUnique, {
     message:
       "each env-file path may appear only once, including aliases on a case-insensitive filesystem",
   }).meta({ uniqueItems: true }).default([".env", ".env.local"]).describe(
-    "The env files discern reads and writes, in order. When several set the same variable, the last one wins. discern updates a value where it already is, or adds it to the first listed file that exists; only `inherit_env` creates a file. One comment line at the top of each file marks the values discern manages.",
+    "The env files discern reads and writes, in order. When several set the same variable, the last one wins; a new value goes in the first listed file that exists.",
   ),
   export_port: z.boolean().default(false).describe(
-    "Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. discern then avoids giving a new worktree a port another checkout uses, warns about a clash, and shows the port in `discern status`. Every worktree has a port either way; `discern identity --port` prints it.",
+    "Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. Every worktree has a port either way; `discern identity --port` prints it.",
   ),
   track_ignored_drift: z.boolean().default(true).describe(
-    "Record the Git-ignored top-level paths, such as `node_modules` or `.env`, when a worktree is set up, and list the ones that changed when its work lands. The list is for information only. Turn it off when ignored files change too often for it to help.",
+    "Record the Git-ignored top-level paths, such as `node_modules`, when a worktree is set up, and list the ones that changed when its work lands, for information only.",
   ),
   resources: z.record(z.string().regex(NAME_RE), resourceValue).default({})
     .describe(CONFIG_PROSE["worktree.resources"].what),
   setup: z.strictObject({
     steps: z.array(z.string()).default([]).describe(
-      "Commands run once, in order, when discern creates the worktree, after its resources exist. Use them for one-time setup, such as loading test data. A failing step stops creation, and steps you add later don't run in existing worktrees.",
+      "Commands run once, in order, when discern creates the worktree, after its resources exist, such as loading test data. A failing step stops creation.",
     ),
     ensure: z.array(z.string()).default([]).describe(
-      "Commands run whenever discern readies a task worktree: at creation, at each session start, when `discern worktree setup` runs again, and after `discern update`. Use them for setup that depends on the worktree's id, port, or resources. They must be safe to repeat, and only a failure at creation stops anything. The main checkout never runs them.",
+      "Commands run whenever discern readies a task worktree, for setup that depends on its id, port, or resources. Each must be safe to repeat. The main checkout never runs them.",
     ),
   }).prefault({}).describe(CONFIG_PROSE["worktree.setup"].what),
 }).prefault({}).describe(CONFIG_PROSE.worktree.what);
@@ -925,16 +925,16 @@ const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
 
 const gateSection = z.strictObject({
   stream_output: z.boolean().default(false).describe(
-    "How job output appears when it isn't going to a live terminal, such as in CI, a pipe, or with `--plain`. false shows each job's full output as one block; true prints lines as they arrive, each marked with its job. A live terminal always shows a live view instead.",
+    "How job output looks in CI, in a pipe, or with `--plain`: false shows each job's output as one block, and true prints lines as they arrive, marked with the job.",
   ),
   fail_fast: z.boolean().default(true).describe(
-    "Stop everything still running or waiting as soon as one job fails, so your agent hears about the failure quickly. false keeps going and shows more failures in one run, though a job that depends on a failed fix or build step still doesn't run. `discern standards` ignores this setting.",
+    "Stop everything still running or waiting as soon as one job fails, so your agent hears about the failure quickly. false keeps going and shows more failures in one run.",
   ),
   timeout: z.number().int().min(0).default(600).describe(
-    "Time limit in seconds for each job the gate runs, including scope gates, generators, and standard measurements; a job's list of commands shares one limit. discern stops a job that runs over, with every process it started, and fails its stage with a timeout message, so a command stuck in watch mode can't hang the gate. A job's own `timeout` replaces this. 0 means no limit.",
+    "Time limit in seconds for each job the gate runs, including scope gates, generators, and standard measurements. A job's own `timeout` replaces it; 0 means no limit.",
   ),
   concurrent_test_runs: z.number().int().min(0).default(1).describe(
-    "How many test runs this repository's checkouts can have going at once. Test jobs, standard measurements, `discern test`, `discern standards`, and `discern queue -- <command>` each wait for a free slot. 0 means no limit.",
+    "How many test runs this repository's checkouts can have going at once; 0 means no limit.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.gate.what);
 
