@@ -1,12 +1,13 @@
 ---
 id: explanation-evidence-and-improvement
-title: "Evidence and improvement"
+title: "Learn from your project's history"
 description: "Use local findings to understand recurring friction, distinguish observations from explanations, and choose a useful next investigation."
 order: 80
 publish: true
 kind: explanation
 aliases:
   - "explanation-evidence-and-improvement"
+  - "Evidence and improvement"
   - "Practice patterns"
   - "patterns"
   - "detectors"
@@ -28,7 +29,7 @@ aliases:
   - "Standard variance"
 ---
 
-# Evidence and improvement
+# Learn from your project's history
 
 The checks feel slower this week. A task needed several attempts before it finished. You wonder whether something in the way the project works could improve, but one memorable task is a weak basis for changing the process.
 
@@ -101,6 +102,6 @@ Conflicting identity signals remain unresolved. Identifying a provider does not 
 
 You and your agent can use the findings to choose one improvement: clarify an instruction, adjust a check, or make a review question more relevant. `discern improvement` provides another starting point by examining the configured practice and recommending a next action; `discern patterns` adds the history of how it has been used.
 
-[Improve the practice](../10-guides/improve-the-practice.md) takes that choice through investigation, implementation, and review. Later comparable evidence can help you assess whether it worked. The original history remains available rather than disappearing when you change a setting.
+[Improve how your agents work](../10-guides/improve-the-practice.md) takes that choice through investigation, implementation, and review. Later comparable evidence can help you assess whether it worked. The original history remains available rather than disappearing when you change a setting.
 
-[Local control](local-control.md) explains where the records live and what they exclude. [The logbook reference](../30-reference/logbook.md) holds exact fields, statistics, and the choices for recording, sealing, and removing history.
+[What stays on your machine](local-control.md) explains where the records live and what they exclude. [The logbook reference](../30-reference/logbook.md) holds exact fields, statistics, and the choices for recording, sealing, and removing history.

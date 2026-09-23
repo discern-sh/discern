@@ -62,7 +62,7 @@ A coding agent is the day-to-day operator. If your workflow has no coding agent,
 
 ## Where its boundary sits
 
-discern is one local executable with no AI model, account, or API key of its own. Its activity record stays on your machine. Your coding agent still uses its own provider, and your project's commands can contact services as they normally would. [Local control](../20-understand/local-control.md) explains those boundaries.
+discern is one local executable with no AI model, account, or API key of its own. Its activity record stays on your machine. Your coding agent still uses its own provider, and your project's commands can contact services as they normally would. [What stays on your machine](../20-understand/local-control.md) explains those boundaries.
 
 The project's shared branch is called the **trunk**, usually `main`. Moving a completed change onto it is **landing**. discern requires your permission to land: you can decide change by change, or explicitly arrange permission for routine work within a defined scope. Passing the gate supplies evidence, but you still grant permission before the change lands. Landing also remains separate from publishing or deploying your app.
 

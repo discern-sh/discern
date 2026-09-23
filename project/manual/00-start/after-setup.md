@@ -82,7 +82,7 @@ Set up discern once at the root of each Git repository. A repository containing 
 
 Task workspaces live beside your project by default, under `<repo>.worktrees`. Each holds one effort's work until its change lands and discern removes it. The landing result tells your agent whether cleanup completed or needs attention.
 
-The local activity record, called the **logbook**, lives in Git's administrative storage and is not a tracked project file. It records metadata about discern use, excluding code and command output. [Local control](../20-understand/local-control.md) explains the records and network boundaries.
+The local activity record, called the **logbook**, lives in Git's administrative storage and is not a tracked project file. It records metadata about discern use, excluding code and command output. [What stays on your machine](../20-understand/local-control.md) explains the records and network boundaries.
 
 ## The decision the diff supports
 

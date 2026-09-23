@@ -121,7 +121,7 @@ A finished change passes several milestones on its way to your users:
 
 Worktrees are temporary; Proof isn't. By default, when a change lands, discern attaches its Proof to the landed commit as a Git note. Months later, anyone can look up what was checked for that commit, long after the conversation and the workspace are gone.
 
-The note lives in your local repository. discern never uploads it. Sharing notes is an ordinary Git choice. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) has the commands to inspect and share them, and [Local control](local-control.md) explains what else stays on your machine.
+The note lives in your local repository. discern never uploads it. Sharing notes is an ordinary Git choice. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) has the commands to inspect and share them, and [What stays on your machine](local-control.md) explains what else stays on your machine.
 
 ## What to ask your agent for
 

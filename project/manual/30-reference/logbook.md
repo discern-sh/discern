@@ -35,7 +35,7 @@ The logbook records local activity so you can inspect recurring failures, check 
 | Archive or remove active history      | [Logbook lifecycle](#logbook-lifecycle)                       |
 | Read a sealed archive                 | [Find and read sealed history](#find-and-read-sealed-history) |
 
-Recording must be enabled to collect new evidence. Existing active or sealed history remains readable after recording stops. For help using findings, read [Evidence and improvement](../20-understand/evidence-and-improvement.md).
+Recording must be enabled to collect new evidence. Existing active or sealed history remains readable after recording stops. For help using findings, read [Learn from your project's history](../20-understand/evidence-and-improvement.md).
 
 ## The logbook
 

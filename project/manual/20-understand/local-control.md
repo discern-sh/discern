@@ -1,12 +1,13 @@
 ---
 id: explanation-local-control
-title: "Local control"
+title: "What stays on your machine"
 description: "See what discern runs, writes, and records on your machine, and how those boundaries differ from your coding agent and project commands."
 order: 90
 publish: true
 kind: explanation
 aliases:
   - "explanation-local-control"
+  - "Local control"
   - "Trust & your data"
   - "trust"
   - "privacy"
@@ -15,7 +16,7 @@ aliases:
   - "security"
 ---
 
-# Local control
+# What stays on your machine
 
 Before adding a tool to your project, you may want to know where its records go, what it can change, and whether it adds another service to manage. discern keeps its own work local: it contains no AI model, needs no account or API key, and sends no telemetry.
 
@@ -51,7 +52,7 @@ That review should examine the actual commands and provider settings. discern do
 
 The **logbook** is a local activity record. It holds metadata about discern use, such as command names, branches, outcomes, durations, and measured quality values. It excludes source code, prompts, command output, file contents, and checkpoint rationales.
 
-The record lives in Git's administrative storage rather than tracked project files. discern does not upload it. It can help your agent investigate repeated failures or slow checks; [Evidence and improvement](evidence-and-improvement.md) explains that use, and [the logbook reference](../30-reference/logbook.md) lists the recorded fields.
+The record lives in Git's administrative storage rather than tracked project files. discern does not upload it. It can help your agent investigate repeated failures or slow checks; [Learn from your project's history](evidence-and-improvement.md) explains that use, and [the logbook reference](../30-reference/logbook.md) lists the recorded fields.
 
 You can turn recording off with `[project].record_logbook = false`. Sealing or removing existing history uses an owner command that asks for confirmation in a terminal. The reference explains those choices and which features depend on recording.
 

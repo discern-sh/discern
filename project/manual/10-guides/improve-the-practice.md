@@ -1,12 +1,13 @@
 ---
 id: guide-improve-the-practice
-title: "Improve the practice"
+title: "Improve how your agents work"
 description: "Use the project's local record to choose a useful improvement, test it, and see whether it helps later work."
 order: 120
 publish: true
 kind: guide
 aliases:
   - "guide-improve-the-practice"
+  - "Improve the practice"
   - "The continuous-improvement coach"
   - "improvement coach"
   - "practice health"
@@ -16,7 +17,7 @@ aliases:
   - "change partners"
 ---
 
-# Improve the practice
+# Improve how your agents work
 
 Sometimes the work is moving, but the process keeps getting in the way. Checks take a long time, the same refusal returns, or agents need repeated reminders. You want to improve the way the project works without starting a broad cleanup on a hunch.
 
@@ -48,7 +49,7 @@ For example, suppose the tests take most of the gate's time. That fact alone doe
 
 The report gives counts, the runs those counts came from, and limits on the comparison. If it says **insufficient evidence**, the cause remains unknown. You can leave the practice as it is or choose a small investigation; there is no need to invent an improvement to complete the review.
 
-[Evidence and improvement](../20-understand/evidence-and-improvement.md) explains how to read these findings. [The logbook reference](../30-reference/logbook.md) covers recording choices and stored fields.
+[Learn from your project's history](../20-understand/evidence-and-improvement.md) explains how to read these findings. [The logbook reference](../30-reference/logbook.md) covers recording choices and stored fields.
 
 ## 3. Inspect the related work
 

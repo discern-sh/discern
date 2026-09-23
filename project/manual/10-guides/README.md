@@ -50,7 +50,7 @@ If discern is new to the project, begin with [installation and setup](../00-star
 - [Create and manage skills](create-and-manage-skills.md): use the bundled playbooks and capture procedures worth repeating.
 - [Set and raise standards](set-and-raise-standards.md): preserve a measured improvement as a limit future changes must meet.
 - [Place and answer checkpoints](place-and-answer-checkpoints.md): have an agent consider a review question when a relevant change occurs.
-- [Improve the practice](improve-the-practice.md): use the project's recorded experience to choose what to improve next.
+- [Improve how your agents work](improve-the-practice.md): use the project's recorded experience to choose what to improve next.
 
 ## Look after the setup
 

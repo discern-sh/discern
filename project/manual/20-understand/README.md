@@ -30,10 +30,10 @@ For a particular question, choose a page below.
 
 - [Standards](standards.md): how a measured improvement becomes a limit that later changes must respect.
 - [Instructions, skills, and the map](instructions-skills-and-map.md): how rules, procedures, and project understanding survive the session that produced them.
-- [Evidence and improvement](evidence-and-improvement.md): how local records help you and your agent investigate recurring friction.
+- [Learn from your project's history](evidence-and-improvement.md): how local records help you and your agent investigate recurring friction.
 
 ## What stays under your control?
 
-- [Local control](local-control.md): what discern runs and records on your machine, what it may write, and how its boundaries differ from those of your coding agent.
+- [What stays on your machine](local-control.md): what discern runs and records on your machine, what it may write, and how its boundaries differ from those of your coding agent.
 
 When you're ready to act, the [guides](../10-guides/README.md) explain the procedure. [Reference](../30-reference/README.md) is available when you need an exact field, command, or setting.

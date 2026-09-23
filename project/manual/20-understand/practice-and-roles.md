@@ -78,6 +78,6 @@ A passing gate means your project's checks passed. It can't tell you whether a f
 
 You also decide how much to delegate. You can approve every change before it lands, or pre-approve routine work within limits you set. Passing checks never grants permission to land. [Proof](proof.md) explains how permission works.
 
-discern doesn't sandbox your agent. Your agent's own permission settings govern what it can read and run. [Local control](local-control.md) explains what discern itself runs, records, and writes.
+discern doesn't sandbox your agent. Your agent's own permission settings govern what it can read and run. [What stays on your machine](local-control.md) explains what discern itself runs, records, and writes.
 
 To try all this on a small task, follow [Make and review your first change](../00-start/first-real-change.md). For something bigger, [Delegate substantial work](../10-guides/delegate-work.md) shows how your agent can break it into pieces.
