@@ -51,7 +51,7 @@ The agent keeps using the same worktree for the rest of the task and its review.
 
 ## Stop a run you can no longer see
 
-If you close a terminal, or your coding tool gives up on a long call, the checks may still be running, or they may have stopped. Either way, the agent reads the run back instead of starting it again.
+If your coding tool gives up on a long call, the checks may still be running, or they may have been cancelled. Closing the terminal a run started in stops that run. Either way, the agent reads the run back instead of starting it again.
 
 discern keeps a record of every long run, such as `discern done` or `discern accept`, behind a short **progress handle**. Your agent's tool receives the handle when the run starts, in a line like this:
 
