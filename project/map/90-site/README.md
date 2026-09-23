@@ -45,7 +45,7 @@ The main implementation boundaries are:
 
 Manual search uses its registry-owned endpoint. Map entries link to repository Markdown files from the single `/map` overview; they have no individual site routes or search endpoint. The llms editions project only the manual.
 
-Production's canonical origin is `https://discern.sh`, and page URLs have no trailing slash. Hypertext Transfer Protocol (HTTP), `www`, `.html`, trailing-slash, and `index.html` variants resolve with a 308 before routing. No pre-public manual address is claimed as history: every authored `redirect_from` list and [`STATIC_REDIRECTS`](../../../site/seo.tsx) starts empty. After publication, a moved destination owns its `redirect_from`; section-level moves live in `STATIC_REDIRECTS`. Both automatically cover `.md`. The combined registry rejects dead targets, collisions, chains, and loops ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)). A known route retired without a successor requires an explicit 410 tombstone.
+Production's canonical origin is `https://discern.sh`, and page URLs have no trailing slash. Hypertext Transfer Protocol (HTTP), `www`, `.html`, trailing-slash, and `index.html` variants resolve with a 308 before routing. A moved destination owns its old routes in `redirect_from`; section-level moves live in [`STATIC_REDIRECTS`](../../../site/seo.tsx). Both automatically cover `.md`. Addresses that moved before the public launch were never claimed as history. The combined registry rejects dead targets, collisions, chains, and loops ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)). A known route retired without a successor requires an explicit 410 tombstone.
 
 ## Reader negotiation
 

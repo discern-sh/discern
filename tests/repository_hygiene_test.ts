@@ -17,7 +17,6 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { MAP_TIER_PUBLICATION_POSTURES } from "../src/lib/paths.ts";
 import { mapPageKind } from "../src/lib/map_policy.ts";
 import { extractDocLinks } from "../src/lib/docs_integrity.ts";
-import { STATIC_REDIRECTS } from "../site/seo.tsx";
 
 const text = async (rel: string): Promise<string> =>
   await Deno.readTextFile(join(REPO_ROOT, rel));
@@ -185,22 +184,6 @@ Deno.test("every contributor surface projects the inactive agreement authority",
       .join("\n");
     assert(inactive.test(guideOpening));
   }
-});
-
-Deno.test("the pre-public redirect authorities are empty", async () => {
-  const manualFiles = await structuralGuardScope({
-    guard: "tests/repository_hygiene_test.ts#manual-redirects",
-    universe: "tracked-markdown",
-    narrow: {
-      reason:
-        "manual frontmatter is the authored route-claim boundary for pre-public redirects",
-      include: (rel) => rel.startsWith("project/manual/"),
-    },
-  });
-  for (const rel of manualFiles) {
-    assertEquals((await text(rel)).includes("\nredirect_from:\n"), false, rel);
-  }
-  assertEquals(STATIC_REDIRECTS, {});
 });
 
 Deno.test("public Windows support surfaces use the canonical WSL 2 name", async () => {
