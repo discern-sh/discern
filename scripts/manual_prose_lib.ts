@@ -212,6 +212,14 @@ export function manualProseSource(
   return stage.sources.get(resolve(path)) ?? path;
 }
 
+/** The page kinds whose prose enters the reading-complexity measure. */
+function readingMeasuredKinds(): ReadonlySet<ManualPage["kind"]> {
+  return new Set(
+    MANUAL_KIND_REGISTRY.filter((entry) => entry.measuresReadingComplexity)
+      .map((entry) => entry.kind),
+  );
+}
+
 /**
  * Reading grade for human-facing purpose kinds. Reference remains in voice,
  * terminology, links, and exactness checks but does not enter this measure.
@@ -219,10 +227,7 @@ export function manualProseSource(
 export function manualReadingGrade(
   pages: readonly ManualProsePage[],
 ): number {
-  const measuredKinds = new Set(
-    MANUAL_KIND_REGISTRY.filter((entry) => entry.measuresReadingComplexity)
-      .map((entry) => entry.kind),
-  );
+  const measuredKinds = readingMeasuredKinds();
   const total: ProseCounts = { sentences: 0, words: 0, syllables: 0 };
   for (const page of pages) {
     if (!measuredKinds.has(page.page.kind)) continue;
@@ -232,4 +237,36 @@ export function manualReadingGrade(
     total.syllables += counts.syllables;
   }
   return fleschKincaidGrade(total);
+}
+
+/** One measured page's reading grade under the corpus projection. */
+export interface ManualPageReadingGrade {
+  /** The page's path relative to the manual root. */
+  readonly path: string;
+  readonly kind: ManualPage["kind"];
+  readonly words: number;
+  readonly grade: number;
+}
+
+/**
+ * Each measured page's grade, hardest first, so an author can find the pages
+ * that raise the corpus grade. A page's grade is `manualReadingGrade` over
+ * that page alone.
+ */
+export function manualReadingGradesByPage(
+  pages: readonly ManualProsePage[],
+): ManualPageReadingGrade[] {
+  const measuredKinds = readingMeasuredKinds();
+  return pages
+    .filter((page) => measuredKinds.has(page.page.kind))
+    .map((page) => {
+      const counts = countProse(page.measuredProse);
+      return {
+        path: page.page.entry.relToDocs,
+        kind: page.page.kind,
+        words: counts.words,
+        grade: fleschKincaidGrade(counts),
+      };
+    })
+    .sort((a, b) => b.grade - a.grade || a.path.localeCompare(b.path));
 }

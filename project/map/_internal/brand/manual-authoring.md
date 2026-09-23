@@ -227,10 +227,10 @@ Run these before you commit:
 ```sh
 deno run --allow-read --allow-write --allow-env --allow-run scripts/manual_prose_check.ts <page…>
 deno run --allow-read --allow-write --allow-env --allow-run scripts/manual_prose_check.ts --review <page…>
-deno run --allow-read scripts/manual_reading_grade.ts
+deno run --allow-read scripts/manual_reading_grade.ts --pages
 ```
 
-The first must report no findings; the lint blocks counted introductions and scope intensifiers. The second shows editorial advice. Take the suggestions that make a sentence clearer and ignore the rest. The third prints the corpus grade that the `manual_reading_grade` standard holds.
+The first must report no findings; the lint blocks counted introductions and scope intensifiers. The second shows editorial advice. Take the suggestions that make a sentence clearer and ignore the rest. The third lists each page's grade, hardest first, then the corpus grade that the `manual_reading_grade` standard holds. Reference pages don't appear because the standard doesn't measure them.
 
 Then confirm that:
 

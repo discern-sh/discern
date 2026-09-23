@@ -18,6 +18,7 @@ import {
   checkManualProse,
   manualProseSource,
   manualReadingGrade,
+  manualReadingGradesByPage,
   measuredManualProse,
   projectManualProse,
   withStagedManualProse,
@@ -304,6 +305,34 @@ code must not count
       : { ...page, measuredProse: "Go. Go. Go. Go." }
   );
   assert(manualReadingGrade(changedTutorial) !== baseline);
+});
+
+Deno.test("per-page reading grades apply the corpus measure to each measured page", async () => {
+  const measured = new Set(
+    MANUAL_KIND_REGISTRY.filter((entry) => entry.measuresReadingComplexity)
+      .map((entry) => entry.kind),
+  );
+  const pages = await projectManualProse(REPO_ROOT);
+  const graded = manualReadingGradesByPage(pages);
+  const byPath = new Map(graded.map((row) => [row.path, row]));
+  for (const page of pages) {
+    const row = byPath.get(page.page.entry.relToDocs);
+    if (measured.has(page.page.kind)) {
+      assertEquals(row?.grade, manualReadingGrade([page]));
+    } else {
+      assertEquals(
+        row,
+        undefined,
+        `${page.page.entry.relToDocs} is unmeasured`,
+      );
+    }
+  }
+  assert(
+    graded.every((row, index) =>
+      index === 0 || (graded[index - 1]?.grade ?? Infinity) >= row.grade
+    ),
+    "the hardest page comes first",
+  );
 });
 
 Deno.test("manual product-voice staging maps diagnostics to exact authored sources", async () => {
