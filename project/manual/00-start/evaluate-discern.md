@@ -74,4 +74,4 @@ The instructions, map, and other material you and your agents write remain ordin
 
 If this is the way you'd like your agents to work, [install and set up discern](installation-and-setup.md). The setup is reviewed before it lands, and the next tutorial takes you through a small change you can try for yourself.
 
-For a closer look at the everyday relationship between you, the agent, and the project, read [Practice and roles](../20-understand/practice-and-roles.md).
+For a closer look at the everyday relationship between you, the agent, and the project, read [How discern works](../20-understand/practice-and-roles.md).

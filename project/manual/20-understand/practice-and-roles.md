@@ -1,6 +1,6 @@
 ---
 id: explanation-practice-and-roles
-title: "Practice and roles"
+title: "How discern works"
 description: "How discern works: what you decide, what your agent does, and what the project remembers for the next task."
 order: 20
 publish: true
@@ -11,7 +11,7 @@ aliases:
   - "concepts"
   - "overview"
   - "mental model"
-  - "how discern works"
+  - "Practice and roles"
   - "Design principles"
   - "principles"
   - "philosophy"
@@ -20,7 +20,7 @@ aliases:
   - "practice"
 ---
 
-# Practice and roles
+# How discern works
 
 discern lets you hand coding agents substantial work without coordinating every step, re-explaining your project each session, or working out afterwards what was checked.
 
