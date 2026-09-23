@@ -6,11 +6,11 @@
   "type": "object",
   "properties": {
     "$schema": {
-      "description": "Editor-only pointer to this schema; ignored by discern.",
+      "description": "A pointer to this schema for your editor. discern ignores it.",
       "type": "string"
     },
     "version": {
-      "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 1.",
+      "description": "The document's major version. Leave it out to use the current one, or give a matching major version; this discern understands version 1.",
       "anyOf": [
         {
           "type": "string"
@@ -21,23 +21,23 @@
       ]
     },
     "name": {
-      "description": "Project name (free text).",
+      "description": "The project's display name, in any words.",
       "type": "string"
     },
     "slug": {
-      "description": "Project slug: lowercase letters, digits and dashes, starting with a letter or digit.",
+      "description": "A short id for the project: lowercase letters, digits, and dashes, starting with a letter or digit.",
       "type": "string"
     },
     "branch_prefix": {
-      "description": "Branch prefix for worktrees, e.g. \"agent/\".",
+      "description": "The start of every worktree branch name, such as \"agent/\".",
       "type": "string"
     },
     "brief": {
-      "description": "Free-text description of what the project is.",
+      "description": "What the project is, in your own words. discern saves it as the project brief.",
       "type": "string"
     },
     "agents": {
-      "description": "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
+      "description": "Which coding agents to set up, with the instruction file each reads: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
       "type": "array",
       "items": {
         "type": "string",
@@ -51,13 +51,13 @@
       }
     },
     "map": {
-      "description": "[map] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
+      "description": "`[map]` settings: the folder for the project map.",
       "default": {},
       "type": "object",
       "properties": {
         "dir": {
           "default": "discern/map",
-          "description": "Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it.",
+          "description": "The map's folder, relative to the project root. `discern setup begin` creates it here if it doesn't exist, and `discern map` reads it. Changing it doesn't move any files.",
           "type": "string",
           "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
         }
@@ -65,7 +65,7 @@
       "additionalProperties": false
     },
     "jobs": {
-      "description": "[jobs] fills. Known names take a command, list, or { run, timeout } and derive their stage; a custom [jobs.<name>] table requires `stage` and `run`.",
+      "description": "`[jobs]` entries. A known name takes a command, a list, or a table such as { run, timeout }, and has a fixed stage; a custom `[jobs.<name>]` table needs `stage` and `run`.",
       "allOf": [
         {
           "type": "object",
@@ -79,7 +79,7 @@
           "type": "object",
           "properties": {
             "format": {
-              "description": "A formatter or codemod. Mutating, so it runs first and serially.",
+              "description": "A formatter, or another tool that rewrites files. Because it changes files, it runs first, one command at a time. In `discern prepare` its edits stay for you to commit; in `discern done`, a change to a committed file fails the run.",
               "anyOf": [
                 {
                   "type": "string"
@@ -105,15 +105,15 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written."
                     },
                     "timeout": {
-                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
+                      "description": "Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.",
                       "type": "number",
                       "minimum": 0
                     },
                     "inputs": {
-                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "description": "Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those files and the command are unchanged; a file you leave out can let a stale result through. Without `inputs`, a result counts only for the commit it ran on.",
                       "minItems": 1,
                       "type": "array",
                       "items": {
@@ -122,7 +122,7 @@
                       }
                     },
                     "needs": {
-                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "description": "Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or `standards.<name>`.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -130,7 +130,7 @@
                       }
                     },
                     "artifacts": {
-                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "description": "Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a standard's `extract` to read.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -138,7 +138,7 @@
                       }
                     },
                     "environment": {
-                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "description": "Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an earlier result. Listing a variable doesn't set it.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -146,7 +146,7 @@
                       }
                     },
                     "toolchain": {
-                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "description": "Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier result.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -162,7 +162,7 @@
               ]
             },
             "build": {
-              "description": "Produce the artifacts later stages read: compile, bundle.",
+              "description": "Builds what later stages need, such as compiling or bundling. `discern done` runs it; `discern prepare` doesn't.",
               "anyOf": [
                 {
                   "type": "string"
@@ -188,15 +188,15 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written."
                     },
                     "timeout": {
-                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
+                      "description": "Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.",
                       "type": "number",
                       "minimum": 0
                     },
                     "inputs": {
-                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "description": "Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those files and the command are unchanged; a file you leave out can let a stale result through. Without `inputs`, a result counts only for the commit it ran on.",
                       "minItems": 1,
                       "type": "array",
                       "items": {
@@ -205,7 +205,7 @@
                       }
                     },
                     "needs": {
-                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "description": "Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or `standards.<name>`.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -213,7 +213,7 @@
                       }
                     },
                     "artifacts": {
-                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "description": "Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a standard's `extract` to read.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -221,7 +221,7 @@
                       }
                     },
                     "environment": {
-                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "description": "Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an earlier result. Listing a variable doesn't set it.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -229,7 +229,7 @@
                       }
                     },
                     "toolchain": {
-                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "description": "Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier result.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -245,7 +245,7 @@
               ]
             },
             "lint": {
-              "description": "Read-only static analysis.",
+              "description": "A linter or other read-only check of the code.",
               "anyOf": [
                 {
                   "type": "string"
@@ -271,15 +271,15 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written."
                     },
                     "timeout": {
-                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
+                      "description": "Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.",
                       "type": "number",
                       "minimum": 0
                     },
                     "inputs": {
-                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "description": "Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those files and the command are unchanged; a file you leave out can let a stale result through. Without `inputs`, a result counts only for the commit it ran on.",
                       "minItems": 1,
                       "type": "array",
                       "items": {
@@ -288,7 +288,7 @@
                       }
                     },
                     "needs": {
-                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "description": "Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or `standards.<name>`.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -296,7 +296,7 @@
                       }
                     },
                     "artifacts": {
-                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "description": "Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a standard's `extract` to read.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -304,7 +304,7 @@
                       }
                     },
                     "environment": {
-                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "description": "Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an earlier result. Listing a variable doesn't set it.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -312,7 +312,7 @@
                       }
                     },
                     "toolchain": {
-                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "description": "Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier result.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -328,7 +328,7 @@
               ]
             },
             "typecheck": {
-              "description": "Read-only type checking.",
+              "description": "A read-only type check.",
               "anyOf": [
                 {
                   "type": "string"
@@ -354,15 +354,15 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written."
                     },
                     "timeout": {
-                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
+                      "description": "Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.",
                       "type": "number",
                       "minimum": 0
                     },
                     "inputs": {
-                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "description": "Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those files and the command are unchanged; a file you leave out can let a stale result through. Without `inputs`, a result counts only for the commit it ran on.",
                       "minItems": 1,
                       "type": "array",
                       "items": {
@@ -371,7 +371,7 @@
                       }
                     },
                     "needs": {
-                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "description": "Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or `standards.<name>`.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -379,7 +379,7 @@
                       }
                     },
                     "artifacts": {
-                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "description": "Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a standard's `extract` to read.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -387,7 +387,7 @@
                       }
                     },
                     "environment": {
-                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "description": "Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an earlier result. Listing a variable doesn't set it.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -395,7 +395,7 @@
                       }
                     },
                     "toolchain": {
-                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "description": "Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier result.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -411,7 +411,7 @@
               ]
             },
             "test": {
-              "description": "The test suite.",
+              "description": "Your test suite. It waits for a free test-run slot before it starts.",
               "anyOf": [
                 {
                   "type": "string"
@@ -437,15 +437,15 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written."
                     },
                     "timeout": {
-                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
+                      "description": "Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.",
                       "type": "number",
                       "minimum": 0
                     },
                     "inputs": {
-                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "description": "Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those files and the command are unchanged; a file you leave out can let a stale result through. Without `inputs`, a result counts only for the commit it ran on.",
                       "minItems": 1,
                       "type": "array",
                       "items": {
@@ -454,7 +454,7 @@
                       }
                     },
                     "needs": {
-                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "description": "Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or `standards.<name>`.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -462,7 +462,7 @@
                       }
                     },
                     "artifacts": {
-                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "description": "Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a standard's `extract` to read.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -470,7 +470,7 @@
                       }
                     },
                     "environment": {
-                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "description": "Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an earlier result. Listing a variable doesn't set it.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -478,7 +478,7 @@
                       }
                     },
                     "toolchain": {
-                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "description": "Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier result.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -494,7 +494,7 @@
               ]
             },
             "smoke": {
-              "description": "A fast, side-effect-light readiness check: the app boots with real config in this checkout. `discern done` and `discern test` run it in the same fail-fast test group, so a quick failure cancels slower siblings.",
+              "description": "A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it alongside the tests, so with `[gate].fail_fast` a quick failure stops the slower tests. It also runs in the main checkout after each landing.",
               "anyOf": [
                 {
                   "type": "string"
@@ -520,15 +520,15 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written."
                     },
                     "timeout": {
-                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
+                      "description": "Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.",
                       "type": "number",
                       "minimum": 0
                     },
                     "inputs": {
-                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "description": "Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those files and the command are unchanged; a file you leave out can let a stale result through. Without `inputs`, a result counts only for the commit it ran on.",
                       "minItems": 1,
                       "type": "array",
                       "items": {
@@ -537,7 +537,7 @@
                       }
                     },
                     "needs": {
-                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "description": "Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or `standards.<name>`.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -545,7 +545,7 @@
                       }
                     },
                     "artifacts": {
-                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "description": "Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a standard's `extract` to read.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -553,7 +553,7 @@
                       }
                     },
                     "environment": {
-                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "description": "Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an earlier result. Listing a variable doesn't set it.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -561,7 +561,7 @@
                       }
                     },
                     "toolchain": {
-                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "description": "Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier result.",
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -602,10 +602,10 @@
                     }
                   }
                 ],
-                "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                "description": "The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written."
               },
               "inputs": {
-                "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                "description": "Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those files and the command are unchanged; a file you leave out can let a stale result through. Without `inputs`, a result counts only for the commit it ran on.",
                 "minItems": 1,
                 "type": "array",
                 "items": {
@@ -614,7 +614,7 @@
                 }
               },
               "needs": {
-                "description": "Producer selectors that must finish successfully before this producer runs.",
+                "description": "Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or `standards.<name>`.",
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -622,7 +622,7 @@
                 }
               },
               "artifacts": {
-                "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                "description": "Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a standard's `extract` to read.",
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -630,7 +630,7 @@
                 }
               },
               "environment": {
-                "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                "description": "Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an earlier result. Listing a variable doesn't set it.",
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -638,7 +638,7 @@
                 }
               },
               "toolchain": {
-                "description": "Project-relative identity files for the applicable toolchain.",
+                "description": "Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier result.",
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -646,11 +646,11 @@
                 }
               },
               "provides": {
-                "description": "A free-text label for humans and audit.",
+                "description": "A free-text note on what the job provides, for people reading the config. discern doesn't use it.",
                 "type": "string"
               },
               "timeout": {
-                "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
+                "description": "Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.",
                 "type": "number",
                 "minimum": 0
               }
@@ -660,13 +660,13 @@
               "run"
             ],
             "additionalProperties": false,
-            "description": "A custom job. Its name is open, but its stage and command are explicit."
+            "description": "A custom job: any name of letters, digits, `_`, or `-`, with its stage and command set out."
           }
         }
       ]
     },
     "scopes": {
-      "description": "[scopes.<name>] tables — a named region defined by `paths`, with optional attributes.",
+      "description": "`[scopes.<name>]` tables: named regions defined by `paths`, with optional settings.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -680,15 +680,15 @@
             "items": {
               "type": "string"
             },
-            "description": "The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "The path patterns that define the scope: a folder prefix (`src/**`), a standard glob (`src/**/*.ext`, `src/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written."
           },
           "neutral": {
             "default": false,
-            "description": "true: changes here need no gate, as for documentation and agent instructions.",
+            "description": "Set to true when changes here aren't code, as for documentation and agent instructions. They trigger no scope gate, this scope's own `gate` never runs, and coupling ignores them. The gate's jobs still run.",
             "type": "boolean"
           },
           "preview": {
-            "description": "A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes it. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "A read-only command your agent can run in its worktree to preview a change in this scope, such as building the docs. discern suggests it but never runs it. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written.",
             "anyOf": [
               {
                 "type": "string"
@@ -702,7 +702,7 @@
             ]
           },
           "inputs": {
-            "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+            "description": "Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those files and the command are unchanged; a file you leave out can let a stale result through. Without `inputs`, a result counts only for the commit it ran on.",
             "minItems": 1,
             "type": "array",
             "items": {
@@ -711,7 +711,7 @@
             }
           },
           "needs": {
-            "description": "Producer selectors that must finish successfully before this producer runs.",
+            "description": "Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or `standards.<name>`.",
             "type": "array",
             "items": {
               "type": "string",
@@ -719,7 +719,7 @@
             }
           },
           "artifacts": {
-            "description": "Project-relative outputs captured into immutable attempt storage after production.",
+            "description": "Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a standard's `extract` to read.",
             "type": "array",
             "items": {
               "type": "string",
@@ -727,7 +727,7 @@
             }
           },
           "environment": {
-            "description": "Environment variable names whose effective values enter evidence identity as digests.",
+            "description": "Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an earlier result. Listing a variable doesn't set it.",
             "type": "array",
             "items": {
               "type": "string",
@@ -735,7 +735,7 @@
             }
           },
           "toolchain": {
-            "description": "Project-relative identity files for the applicable toolchain.",
+            "description": "Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier result.",
             "type": "array",
             "items": {
               "type": "string",
@@ -743,7 +743,7 @@
             }
           },
           "gate": {
-            "description": "A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "A command `discern done` runs when a change touches this scope, such as a component's own checks. The reuse settings in this table apply to it. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written.",
             "anyOf": [
               {
                 "type": "string"
@@ -757,7 +757,7 @@
             ]
           },
           "timeout": {
-            "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
+            "description": "Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.",
             "type": "number",
             "minimum": 0
           }
@@ -769,7 +769,7 @@
       }
     },
     "generated": {
-      "description": "[generated.<name>] tables — committed artifacts, their deterministic regeneration command, and an optional timeout.",
+      "description": "`[generated.<name>]` tables: committed generated files and the command that regenerates them.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -783,7 +783,7 @@
             "items": {
               "type": "string"
             },
-            "description": "The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "Path patterns for the committed files this generator owns entirely, in the scope glob syntax: a folder prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written."
           },
           "run": {
             "anyOf": [
@@ -797,15 +797,15 @@
                 }
               }
             ],
-            "description": "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "The command, or list of commands, that rewrites these files. The same source must always produce the same bytes, and the command must delete any file it no longer generates. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written."
           },
           "linguist_generated": {
             "default": false,
-            "description": "true marks the group's paths generated for GitHub through the `linguist-generated` attribute: hidden in diffs by default and excluded from language statistics.",
+            "description": "Set to true to mark these files as generated for GitHub, through the `linguist-generated` attribute. GitHub then collapses them in diffs and leaves them out of language statistics.",
             "type": "boolean"
           },
           "timeout": {
-            "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
+            "description": "Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.",
             "type": "number",
             "minimum": 0
           }
@@ -818,7 +818,7 @@
       }
     },
     "standards": {
-      "description": "[standards.<name>] tables. Coverage is just a conventional name.",
+      "description": "`[standards.<name>]` tables. Any name works; coverage is only a common one.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -828,7 +828,7 @@
         "type": "object",
         "properties": {
           "metric": {
-            "description": "The metric name the run emits. Defaults to the standard's name.",
+            "description": "The metric name discern reads from the output: the producer's, or the `extract` command's when `extract` is set. Default: the standard's name.",
             "type": "string"
           },
           "direction": {
@@ -837,15 +837,15 @@
               "up",
               "down"
             ],
-            "description": "\"up\" when the value should rise, so the limit is a floor; \"down\" when it should fall, so the limit is a ceiling."
+            "description": "\"up\" when higher is better, making the limit a floor; \"down\" when lower is better, making it a ceiling."
           },
           "limit": {
             "type": "number",
             "minimum": -9007199254740991,
-            "description": "The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall."
+            "description": "The floor or ceiling the measurement must meet; a measurement equal to the limit passes. A branch can raise a floor or lower a ceiling, but loosening one needs `discern standards propose` and the owner's approval."
           },
           "run": {
-            "description": "This standard's producer command. Emits DISCERN_METRIC <metric> <number>; cannot accompany producer.",
+            "description": "The command that measures this standard. It prints `DISCERN_METRIC <metric> <number>`, unless `extract` reads its output instead. Set exactly one of `run` or `producer`.",
             "anyOf": [
               {
                 "type": "string",
@@ -862,12 +862,12 @@
             ]
           },
           "producer": {
-            "description": "Consume an existing job, scope gate, or standard producer instead of running a separate producer.",
+            "description": "Take the measurement from an existing job, scope gate, or standard, named like `jobs.test`, `scopes.<name>.gate`, or `standards.<name>`, instead of running a command of your own. That producer runs once for every standard that reads it. With `producer`, the standard's `needs`, `artifacts`, `environment`, and `toolchain` are ignored.",
             "type": "string",
             "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
           },
           "extract": {
-            "description": "Extract readings from captured producer output on stdin; this is a separate operation from run.",
+            "description": "A second command that reads the producer's output, or the `artifact` file, on stdin and prints the `DISCERN_METRIC` line. With `extract`, discern reuses a measurement only when the standard declares `inputs`.",
             "anyOf": [
               {
                 "type": "string",
@@ -884,12 +884,12 @@
             ]
           },
           "artifact": {
-            "description": "Declared producer artifact supplied on stdin to extract; requires extract.",
+            "description": "A file the producer lists in its `artifacts`, passed to `extract` on stdin in place of the output. Needs `extract`.",
             "type": "string",
             "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
           },
           "inputs": {
-            "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+            "description": "Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those files and the command are unchanged; a file you leave out can let a stale result through. Without `inputs`, a result counts only for the commit it ran on.",
             "minItems": 1,
             "type": "array",
             "items": {
@@ -898,7 +898,7 @@
             }
           },
           "needs": {
-            "description": "Producer selectors that must finish successfully before this producer runs.",
+            "description": "Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or `standards.<name>`.",
             "type": "array",
             "items": {
               "type": "string",
@@ -906,7 +906,7 @@
             }
           },
           "artifacts": {
-            "description": "Project-relative outputs captured into immutable attempt storage after production.",
+            "description": "Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a standard's `extract` to read.",
             "type": "array",
             "items": {
               "type": "string",
@@ -914,7 +914,7 @@
             }
           },
           "environment": {
-            "description": "Environment variable names whose effective values enter evidence identity as digests.",
+            "description": "Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an earlier result. Listing a variable doesn't set it.",
             "type": "array",
             "items": {
               "type": "string",
@@ -922,7 +922,7 @@
             }
           },
           "toolchain": {
-            "description": "Project-relative identity files for the applicable toolchain.",
+            "description": "Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier result.",
             "type": "array",
             "items": {
               "type": "string",
@@ -930,7 +930,7 @@
             }
           },
           "per": {
-            "description": "Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run emits, or a built-in extent discern measures itself, per = { words = \"${map.dir}**\" } (files, lines, words, or bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Hold a rate instead of a raw count, so the number doesn't rise only because the project grew. Divide by a second metric the command prints, which must be above 0, or by a count discern takes itself: files, lines, words, or bytes in the files a pattern matches, for example per = { words = \"${map.dir}**\" }. Patterns use the scope glob syntax and match the files Git tracks or would track. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written.",
             "anyOf": [
               {
                 "type": "string"
@@ -1001,18 +1001,18 @@
           },
           "scale": {
             "default": 1,
-            "description": "Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.",
+            "description": "Multiply a `per` rate into readable units: scale = 1000 gives a rate per 1,000. It has no effect without `per`.",
             "type": "number",
             "exclusiveMinimum": 0
           },
           "margin": {
             "default": 0,
-            "description": "Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. Give a metric that drifts on unrelated changes, such as a size or a coverage percentage, a margin so a pinned limit is not tripped by ordinary fluctuation.",
+            "description": "Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. Give a margin to a number that moves with unrelated changes, such as a size or a coverage percentage, so ordinary movement doesn't fail a pinned limit.",
             "type": "number",
             "minimum": 0
           },
           "timeout": {
-            "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
+            "description": "Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.",
             "type": "number",
             "minimum": 0
           }
@@ -1025,7 +1025,7 @@
       }
     },
     "checkpoints": {
-      "description": "[checkpoints.<name>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.",
+      "description": "`[checkpoints.<name>]` tables: review questions, with their triggers and mode.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -1035,37 +1035,37 @@
         "type": "object",
         "properties": {
           "scope": {
-            "description": "Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a checkpoint takes one selector.",
+            "description": "The name of a configured scope whose paths this checkpoint watches. Set at most one of `scope` and `paths`; with neither, it watches every file people or agents changed.",
             "type": "string",
             "pattern": "^[A-Za-z0-9_-]+$"
           },
           "paths": {
-            "description": "Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either `scope` or `paths`. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Path patterns this checkpoint watches, in the scope glob syntax. Set at most one of `scope` and `paths`. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written.",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "include_generated": {
-            "description": "true includes paths a [generated.<name>] group owns; the default evaluates authored change only.",
+            "description": "Set to true to also watch files a `[generated.<name>]` group owns. By default, a checkpoint watches only files people and agents write.",
             "type": "boolean"
           },
           "exclude_paths": {
-            "description": "Globs removed after selection and before every predicate, subject, evidence, and `when`. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Path patterns to ignore. discern removes them before any other trigger setting or `when` command looks at the change. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written.",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "unless_changed": {
-            "description": "Hold fire when any changed path matches one of these globs or scope names: flag this change class unless its counterpart moved too. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Stay quiet when the change also touches one of these path patterns or scopes, anywhere in the project, such as the docs that go with an interface. You can write `${map.dir}`, `${skills.dir}`, `${scripts.dir}`, `${project.todo}`, or `${project.gotchas_doc}` for a path this config sets; discern fills in its value before use and leaves other `${…}` text as written.",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "kinds": {
-            "description": "Narrow changed evidence to the named Git kinds: \"added\", \"modified\", or \"deleted\".",
+            "description": "Only count files changed in these ways: \"added\", \"modified\", or \"deleted\". A rename counts as a deletion and an addition.",
             "minItems": 1,
             "type": "array",
             "items": {
@@ -1078,7 +1078,7 @@
             }
           },
           "adds_matching": {
-            "description": "Narrow text evidence to files with an added line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16 distinct patterns of 1–128 UTF-8 bytes; NUL, CR, and LF are invalid.",
+            "description": "Only count text files where an added line contains one of these exact strings, matched case-sensitively. Up to 16 different strings of 1–128 UTF-8 bytes each, without NUL, CR, or LF. discern skips the check when a change is too large to scan, and records that it did.",
             "minItems": 1,
             "maxItems": 16,
             "type": "array",
@@ -1088,7 +1088,7 @@
             }
           },
           "removes_matching": {
-            "description": "Narrow text evidence to files with a removed line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16 distinct patterns of 1–128 UTF-8 bytes; NUL, CR, and LF are invalid.",
+            "description": "Only count text files where a removed line contains one of these exact strings, matched case-sensitively. Up to 16 different strings of 1–128 UTF-8 bytes each, without NUL, CR, or LF. discern skips the check when a change is too large to scan, and records that it did.",
             "minItems": 1,
             "maxItems": 16,
             "type": "array",
@@ -1098,45 +1098,45 @@
             }
           },
           "new_directory": {
-            "description": "Narrow to added files whose parent directory held no admitted file at the merge-base; root-level additions never qualify.",
+            "description": "Only count files added in a folder that had no files where the branch started. Files added at the project root never count.",
             "type": "boolean"
           },
           "binary": {
-            "description": "Narrow to binary changes when true or text changes when false.",
+            "description": "Only count binary files when true, or only text files when false.",
             "type": "boolean"
           },
           "min_changed_files": {
-            "description": "Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).",
+            "description": "Trigger only when at least this many watched files changed. Leave it out to trigger on any change.",
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991
           },
           "min_changed_lines": {
-            "description": "Require this many added-plus-removed text lines across the final narrowed evidence; binary files contribute zero.",
+            "description": "Trigger only when the counted files have at least this many added and removed lines in total. Binary files count as zero.",
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991
           },
           "deletion_dominant": {
-            "description": "Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut is reviewed and an ordinary edit or balanced refactor is not.",
+            "description": "Trigger only when the change mostly removes lines: removals clearly outnumber additions and pass a fixed minimum. A large cut gets reviewed; an ordinary edit or a balanced refactor doesn't.",
             "type": "boolean"
           },
           "similar_new_file": {
-            "description": "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory, the signature of a parallel implementation growing beside the original.",
+            "description": "Trigger only when the change adds a file named like an existing file in the same folder, such as a copy, new, or v2 version of it, which suggests a second version growing beside the first.",
             "type": "boolean"
           },
           "min_commits": {
-            "description": "Require this many commits in merge-base..HEAD, including merge commits; uncommitted work adds no commit.",
+            "description": "Trigger only when the branch has at least this many commits since it left the trunk, merge commits included. Uncommitted work doesn't count.",
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991
           },
           "when": {
-            "description": "Final executable condition: exit 0 fires, exit 10 passes; every other outcome is indeterminate. `DISCERN_MATCH <path>` narrows the structural matches.",
+            "description": "A command that makes the final decision, run only when every other setting matches. Exit 0 triggers the checkpoint, and exit 10 doesn't; `DISCERN_MATCH <path>` lines it prints narrow the matched files. Any other result, including running out of time, counts as undecided: a `stop` checkpoint then fires over every matched file, and landing needs the owner's approval in the conversation.",
             "type": "string"
           },
           "mode": {
-            "description": "\"stop\" (the default): the gate refuses to run until the agent declares the question met or unmet. \"advise\": the question and its evidence are delivered through the advisory channel and nothing blocks.",
+            "description": "\"stop\" holds `discern done` until the agent answers the question as met or unmet; an unmet answer then needs the owner's variance to land. \"advise\" shows the question as advice and blocks nothing. Your own checkpoints default to \"stop\"; a built-in one keeps its own mode.",
             "type": "string",
             "enum": [
               "stop",
@@ -1144,20 +1144,20 @@
             ]
           },
           "question": {
-            "description": "Inline judgment prose. A project checkpoint needs this or `question_file`; a built-in inherits unless overridden. Review surfaces serve it. Do not include secrets.",
+            "description": "The question the agent answers, written here. Your own checkpoint needs this or `question_file`; a built-in one keeps its shipped question unless you set one. Review screens show it, so don't include secrets.",
             "type": "string"
           },
           "question_file": {
-            "description": "Repository-relative Markdown path from the governing merge-base Git tree. Mutually exclusive with `question`; built-ins may inherit. Must be a regular Git blob, valid UTF-8, and at most 65536 bytes. Text can appear in terminal, MCP, CI, Proof, and landing review; repository access is its only privacy. Do not include secrets.",
+            "description": "A text file holding the question, relative to the repository root, used in place of `question`. discern reads it as committed where the branch started. It must be a regular file that Git tracks, valid UTF-8, and at most 65536 bytes. Its text can appear in the terminal, MCP, CI, Proof, and landing review, and only repository access keeps it private, so don't include secrets.",
             "type": "string",
             "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
           },
           "teach": {
-            "description": "Optional lesson prose carried into renderings: why the question matters and what good looks like.",
+            "description": "Optional: why the question matters and what a good answer looks like. discern shows it with the question.",
             "type": "string"
           },
           "reference": {
-            "description": "Optional displayed pointer. discern performs no content loading or execution. Review surfaces may show it. Do not include secrets.",
+            "description": "Optional: a pointer to more detail, such as a doc path or web address. discern shows it as written and never opens or runs it. Don't include secrets.",
             "type": "string"
           }
         },
@@ -1165,13 +1165,13 @@
       }
     },
     "setup": {
-      "description": "Bounded [setup] configuration for setup coverage accounting.",
+      "description": "`[setup]` settings for how setup counts known jobs.",
       "default": {},
       "type": "object",
       "properties": {
         "not_applicable": {
           "default": [],
-          "description": "Known jobs this project's lifecycle does not have. A job listed here cannot also be configured under [jobs].",
+          "description": "Known jobs this project doesn't have. A job listed here can't also appear under `[jobs]`, even with an empty command.",
           "type": "array",
           "items": {
             "type": "string",
@@ -1190,18 +1190,18 @@
       "additionalProperties": false
     },
     "worktree": {
-      "description": "Bounded [worktree] configuration for isolated-checkout behavior and resources.",
+      "description": "`[worktree]` settings for task worktrees and their resources.",
       "default": {},
       "type": "object",
       "properties": {
         "root": {
           "default": "",
-          "description": "Where per-worktree checkouts are created. Empty means a sibling of the repository, \"<repo>.worktrees\", outside the checkout. A relative path resolves against the repo root; absolute is used as-is.",
+          "description": "The folder where discern creates worktrees. Empty means a folder beside the repository, named \"<repo>.worktrees\". A relative path is relative to the repository root, and an absolute path is used as written. A change applies to new worktrees only.",
           "type": "string"
         },
         "inherit_env": {
           "default": [],
-          "description": "Names copied from the main checkout's declared env files. A value fills an empty entry or the first file's `<file>.example` default. A missing first file is created at mode 0600; existing modes stay unchanged.",
+          "description": "Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value, unless that value is empty or still the placeholder from the first env file's `.example` copy. discern creates the first env file if it's missing, readable only by you (mode 0600), and leaves existing files' permissions alone.",
           "type": "array",
           "items": {
             "type": "string"
@@ -1212,7 +1212,7 @@
             ".env",
             ".env.local"
           ],
-          "description": "Env files read and written in order: the last definition wins; new values use the first existing file. Inheritance alone may create the first file. Managed values share one scoped marker.",
+          "description": "The env files discern reads and writes, in order. When several set the same variable, the last one wins. discern updates a value where it already is, or adds it to the first listed file that exists; only `inherit_env` creates a file. One comment line at the top of each file marks the values discern manages.",
           "type": "array",
           "items": {
             "type": "string",
@@ -1222,17 +1222,17 @@
         },
         "export_port": {
           "default": false,
-          "description": "When true, setup writes DISCERN_WORKTREE_PORT to configured env files, hooks warn when a sibling uses the derived port, and status shows it. The port exists either way, and `discern identity --port` always reports it.",
+          "description": "Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. discern then avoids giving a new worktree a port another checkout uses, warns about a clash, and shows the port in `discern status`. Every worktree has a port either way; `discern identity --port` prints it.",
           "type": "boolean"
         },
         "track_ignored_drift": {
           "default": true,
-          "description": "Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.",
+          "description": "Record the Git-ignored top-level paths, such as `node_modules` or `.env`, when a worktree is set up, and list the ones that changed when its work lands. The list is for information only. Turn it off when ignored files change too often for it to help.",
           "type": "boolean"
         },
         "resources": {
           "default": {},
-          "description": "External resources provisioned per worktree.",
+          "description": "Outside resources that each worktree gets its own copy of.",
           "type": "object",
           "propertyNames": {
             "type": "string",
@@ -1243,34 +1243,34 @@
             "properties": {
               "create": {
                 "default": "",
-                "description": "Command run once at worktree setup. discern records cleanup intent before running it and skips it only after readiness is recorded. An empty command is a clean no-op.",
+                "description": "The command that creates the resource, run once when the worktree is first set up. Before running it, discern records the matching `destroy`, so if `create` fails partway, the next setup cleans up and tries again. Once `create` succeeds, it never runs again. An empty command does nothing.",
                 "type": "string"
               },
               "destroy": {
                 "default": "",
-                "description": "Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.",
+                "description": "The command that removes the resource when its worktree is removed, or before discern retries a failed `create`. Make it safe to run twice, and don't rely on the current folder: `discern worktree prune` may run it after the worktree is gone. discern keeps the command as it was when the resource was created.",
                 "type": "string"
               },
               "ensure": {
                 "default": "",
-                "description": "Idempotently reconcile drift or re-readiness at session start.",
+                "description": "A command that checks the resource and repairs it if needed, such as restarting a stopped database. It runs at each session start and when `discern worktree setup` runs again, but not at creation or after `discern update`. It must be safe to repeat, and a failure only warns.",
                 "type": "string"
               },
               "required": {
                 "default": true,
-                "description": "false makes a create failure non-fatal, so setup continues.",
+                "description": "Set to false to let setup finish when `create` fails. discern then doesn't retry `create`; only `ensure` runs later.",
                 "type": "boolean"
               },
               "retries": {
                 "default": 0,
-                "description": "Retry create/destroy this many times.",
+                "description": "How many times to retry a failed `create`, `destroy`, or `ensure`, from 0 to 5. `destroy` uses the count in effect when the resource was created.",
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 5
               },
               "prunable": {
                 "default": true,
-                "description": "false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.",
+                "description": "Set to false to stop `discern worktree prune` from destroying this resource after its worktree was deleted without discern, for data you can't afford to lose. Removing the worktree through discern still destroys it. The value in effect when the resource was created applies.",
                 "type": "boolean"
               }
             },
@@ -1278,13 +1278,13 @@
           }
         },
         "setup": {
-          "description": "Commands that ready a linked worktree.",
+          "description": "Commands that prepare a task worktree for work.",
           "default": {},
           "type": "object",
           "properties": {
             "steps": {
               "default": [],
-              "description": "Commands run once at worktree creation, in order, after the resources exist: one-shot scaffolding such as seeding fixtures.",
+              "description": "Commands run once, in order, when discern creates the worktree, after its resources exist. Use them for one-time setup, such as loading test data. A failing step stops creation, and steps you add later don't run in existing worktrees.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -1292,7 +1292,7 @@
             },
             "ensure": {
               "default": [],
-              "description": "Commands run on every linked-worktree pass: creation, session start, and after `discern update`. For convergence that depends on worktree identity, ports, or resources; the main checkout never runs them.",
+              "description": "Commands run whenever discern readies a task worktree: at creation, at each session start, when `discern worktree setup` runs again, and after `discern update`. Use them for setup that depends on the worktree's id, port, or resources. They must be safe to repeat, and only a failure at creation stops anything. The main checkout never runs them.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -1306,5 +1306,5 @@
     }
   },
   "additionalProperties": false,
-  "description": "A bounded version-2 setup recipe consumed only by `discern setup begin --config <file>`. Project identity and setup inputs stay flat; its map, jobs, scopes, generated groups, standards, checkpoints, setup policy, and worktree settings fill discern.toml. Standing acceptance grants remain outside this document. Every field is optional."
+  "description": "A setup recipe, format version 1, used only by `discern setup begin --config <file>`. The project's identity and setup answers sit at the top level; its map, jobs, scopes, generated groups, standards, checkpoints, setup, and worktree settings go into discern.toml. Standing landing grants can't be set here. Every field is optional."
 }

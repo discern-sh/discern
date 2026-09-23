@@ -76,7 +76,7 @@ Deno.test("extracts a ruled-doc section (skills) with its doc block, header, and
   assertExists(block, "skills block should be found");
   // Leads with the section's documentation banner...
   assertStringIncludes(block, "# [skills]\n");
-  assertStringIncludes(block, "# What:    Where your authored skills live");
+  assertStringIncludes(block, "# What:    Where your own skills live");
   // ...then the header...
   assertStringIncludes(block, "\n[skills]\n");
   // ...then the body of defaults.
@@ -115,11 +115,11 @@ Deno.test("the seed scope comments keep instructions outside the docs grant exam
   const unwrapped = (block: string): string => block.replace(/\n\s*#\s+/g, " ");
   assertStringIncludes(docs, "paths   = [{{scopes_neutral}}]");
   assertStringIncludes(instructions, "paths   = [{{scopes_instructions}}]");
-  assertStringIncludes(unwrapped(instructions), "landing stays owner-reviewed");
+  assertStringIncludes(unwrapped(instructions), "you review each change");
   assertStringIncludes(acceptance, 'pre_authorized = [] # e.g. ["map"]');
   assertStringIncludes(
     unwrapped(acceptance),
-    "keeps agent instructions owner-reviewed",
+    "you still review changes to agent instructions",
   );
 });
 
@@ -182,7 +182,7 @@ Deno.test("extracts a documented key block and section key order", async () => {
   ]);
   const block = keyBlockFromTemplate(template, "gate.fail_fast");
   assertExists(block);
-  assertStringIncludes(block, "# Cancel the in-flight sibling commands");
+  assertStringIncludes(block, "# Stop everything still running or waiting");
   assertStringIncludes(block, "fail_fast = true");
 });
 
@@ -221,7 +221,7 @@ Deno.test("extracts the last section ([scripts]) up to EOF, trailing blanks trim
   assertExists(block);
   assertStringIncludes(
     block,
-    "# What:    Where your executable project scripts live.",
+    `# What:    ${CONFIG_PROSE.scripts.what}`,
   );
   assertStringIncludes(block, "\n[scripts]\n");
   assertStringIncludes(block, 'dir = "discern/scripts"');

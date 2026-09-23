@@ -1109,220 +1109,220 @@ Every section, key, and value type the engine validates, with evolving sections 
 
 Same-major releases may add optional keys, sections, and enum members. Existing keys, types, and defaults stay. Sections marked evolving may change in any release.
 
-| Section                 | Required | Kind     | Description                                                      |
-| ----------------------- | -------- | -------- | ---------------------------------------------------------------- |
-| `[project]`             |          | `object` | The project's identity and the paths discern keeps for it.       |
-| `[repository]`          |          | `object` | Policy every checkout of this repository shares.                 |
-| `[map]`                 |          | `object` | Where the project map lives.                                     |
-| `[instructions]`        |          | `object` | The instruction sources discern compiles into each agent's file. |
-| `[skills]`              |          | `object` | Where your authored skills live, and which skills to leave out.  |
-| `[jobs]`                |          | `allOf`  | The commands the gate runs, in one namespace.                    |
-| `[setup]`               |          | `object` | Known jobs that do not apply to this project.                    |
-| `[scopes]`              |          | `table`  | Named regions of the repository.                                 |
-| `[generated]`           |          | `table`  | Committed artifacts that one generator owns.                     |
-| `[acceptance]`          |          | `object` | Standing grants for landing without a conversation.              |
-| `[worktree]`            |          | `object` | The isolated-worktree workflow.                                  |
-| `[standards]`           |          | `table`  | Quality numbers that can never get worse.                        |
-| `[checkpoints]`         |          | `table`  | Change-triggered review rules.                                   |
-| `[gate]`                |          | `object` | How `discern done` runs its parallel stages.                     |
-| `[coupling]` (evolving) |          | `object` | Co-change detection from git history.                            |
-| `[scripts]`             |          | `object` | Where your executable project scripts live.                      |
-| `[meta]`                | yes      | `object` | Project setup and adoption evidence.                             |
+| Section                 | Required | Kind     | Description                                                                                    |
+| ----------------------- | -------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `[project]`             |          | `object` | The project's name and identity, its coding agents, and a few project-wide files and settings. |
+| `[repository]`          |          | `object` | Git settings that every checkout of this repository shares.                                    |
+| `[map]`                 |          | `object` | Where the project map lives.                                                                   |
+| `[instructions]`        |          | `object` | The instruction files discern compiles into each agent's file.                                 |
+| `[skills]`              |          | `object` | Where your own skills live, and which skills to leave out.                                     |
+| `[jobs]`                |          | `allOf`  | The commands the gate runs to check a change.                                                  |
+| `[setup]`               |          | `object` | Known jobs this project doesn't have.                                                          |
+| `[scopes]`              |          | `table`  | Named regions of the repository.                                                               |
+| `[generated]`           |          | `table`  | Committed files that one command generates.                                                    |
+| `[acceptance]`          |          | `object` | Standing grants: scopes whose changes can land without asking you each time.                   |
+| `[worktree]`            |          | `object` | How discern creates and prepares task worktrees.                                               |
+| `[standards]`           |          | `table`  | Limits on measured numbers, such as test coverage or bundle size, that the gate holds.         |
+| `[checkpoints]`         |          | `table`  | Review questions your agent answers when a change matches a trigger.                           |
+| `[gate]`                |          | `object` | How discern runs jobs, in `discern done` and the other commands that run them.                 |
+| `[coupling]` (evolving) |          | `object` | Files that usually change together, found from Git history.                                    |
+| `[scripts]`             |          | `object` | Where your project's scripts live.                                                             |
+| `[meta]`                | yes      | `object` | A record of this project's setup and upgrades.                                                 |
 
 ### [project]
 
-| Key              | Type      | Default             | Enum | Description                                                                                                                                |
-| ---------------- | --------- | ------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `name`           | `string`  | `""`                |      | Display name, free text, used when compiled instructions address the project. Empty falls back to the slug.                                |
-| `slug`           | `string`  | `""`                |      | Short, lowercase, dash-separated identity, used in worktree, site, and branch names.                                                       |
-| `gotchas_doc`    | `string`  | `""`                |      | The doc the gate points an agent at when a stage fails in a non-obvious way. Keep it current with your stack's traps; empty disables the…  |
-| `todo`           | `string`  | `"discern/TODO.md"` |      | The deferred-work ledger: the running TODO list agents read and maintain, relative to the project root.                                    |
-| `record_logbook` | `boolean` | `true`              |      | When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, with no code or output. Files stay… |
-| `agents`         | `enum[]`  |                     |      | Which agent integrations to enable: claude_code, codex, gemini, cursor, copilot. Omit the key for the default pair (claude_code, codex);…  |
+| Key              | Type      | Default             | Enum | Description                                                                                                                               |
+| ---------------- | --------- | ------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`           | `string`  | `""`                |      | The project's display name, in any words. Compiled instruction files use it to refer to the project; when it's empty, they use the slug.  |
+| `slug`           | `string`  | `""`                |      | A short id of lowercase letters, digits, and dashes. discern builds each worktree's site, database, and resource names from it.           |
+| `gotchas_doc`    | `string`  | `""`                |      | A doc of your project's known traps. When `discern done`, `prepare`, or `test` fails, discern points your agent to it, and quotes any…    |
+| `todo`           | `string`  | `"discern/TODO.md"` |      | The TODO list of deferred work that your agents read and keep up to date, relative to the project root.                                   |
+| `record_logbook` | `boolean` | `true`              |      | When true, discern keeps a local logbook: a few lines of metadata for each command it runs, such as timings, outcomes, and names, but no… |
+| `agents`         | `enum[]`  |                     |      | Which coding agents discern sets up: claude_code, codex, gemini, cursor, copilot. Each gets an instruction file, skills, discern's MCP…   |
 
 ### [repository]
 
 | Key                | Type       | Default    | Enum             | Description                                                                                                                                 |
 | ------------------ | ---------- | ---------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `trunk`            | `string`   | `"main"`   |                  | The shared branch the gate compares against and completed work lands on. Detected at setup; DISCERN_TRUNK overrides it per invocation.      |
-| `branch_prefix`    | `string`   | `"agent/"` |                  | Branch prefix for worktrees created by discern, e.g. "agent/my-feature".                                                                    |
-| `proof_notes_mode` | `enum`     | `"local"`  | `local`, `fetch` | Both modes record landed Proof notes locally. "fetch" also manages fetch-only transport. Publishing remains an explicit owner action;…      |
-| `ensure`           | `string[]` | `[]`       |                  | Idempotent commands that make any checkout usable for its tracked tree, such as installing dependencies from a lockfile. They run in order… |
+| `trunk`            | `string`   | `"main"`   |                  | Your project's shared branch: finished work lands here, and the gate checks each change against it. Setup detects it; `DISCERN_TRUNK`…      |
+| `branch_prefix`    | `string`   | `"agent/"` |                  | The start of every branch discern creates for a worktree, as in "agent/my-feature". discern adds nothing between the prefix and the…        |
+| `proof_notes_mode` | `enum`     | `"local"`  | `local`, `fetch` | How discern handles Proof notes, the records it attaches to landed commits. Both modes record notes locally. "fetch" also sets up each Git… |
+| `ensure`           | `string[]` | `[]`       |                  | Commands that make any checkout ready to use after its files change, such as installing dependencies from a lockfile. They run in order…    |
 
 ### [map]
 
-| Key   | Type     | Default         | Enum | Description                                                                                                                      |
-| ----- | -------- | --------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `dir` | `string` | `"discern/map"` |      | Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it. |
+| Key   | Type     | Default         | Enum | Description                                                                                                                             |
+| ----- | -------- | --------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `dir` | `string` | `"discern/map"` |      | The map's folder, relative to the project root. `discern setup begin` creates it here if it doesn't exist, and `discern map` reads it.… |
 
 ### [instructions]
 
-| Key       | Type       | Default                       | Enum | Description                                                                                                                                 |
-| --------- | ---------- | ----------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sources` | `string[]` | `["discern/instructions.md"]` |      | Instruction source files or globs, relative to the project root. Missing files are skipped; `discern setup begin` seeds the default source. |
+| Key       | Type       | Default                       | Enum | Description                                                                                                                            |
+| --------- | ---------- | ----------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `sources` | `string[]` | `["discern/instructions.md"]` |      | Your instruction files, or patterns that match them, relative to the project root. discern joins the matching files in path order and… |
 
 ### [skills]
 
-| Key       | Type       | Default            | Enum | Description                                                                                                                             |
-| --------- | ---------- | ------------------ | ---- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `dir`     | `string`   | `"discern/skills"` |      | Where your authored skills live, relative to the project root. Read only when present, so a project with no authored skills uses the…   |
-| `exclude` | `string[]` | `[]`               |      | Skill names, bundled or authored, to leave out of materialization. Each materialized skill occupies context in every agent session, so… |
+| Key       | Type       | Default            | Enum | Description                                                                                                                                 |
+| --------- | ---------- | ------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dir`     | `string`   | `"discern/skills"` |      | The folder for your own skills, relative to the project root, with a folder inside it for each skill. Until it exists, your agents get the… |
+| `exclude` | `string[]` | `[]`               |      | Skills to leave out, built-in or your own. Each skill your agents get adds to every agent session, so leave out what this project never…    |
 
 ### [jobs]
 
-| Key                      | Type                           | Default | Enum                            | Description                                                                                                                              |
-| ------------------------ | ------------------------------ | ------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                                |
-| `format`                 | `string or string[] or object` |         |                                 | A formatter or codemod. Mutating, so it runs first and serially.                                                                         |
-| `build`                  | `string or string[] or object` |         |                                 | Produce the artifacts later stages read: compile, bundle.                                                                                |
-| `lint`                   | `string or string[] or object` |         |                                 | Read-only static analysis.                                                                                                               |
-| `typecheck`              | `string or string[] or object` |         |                                 | Read-only type checking.                                                                                                                 |
-| `test`                   | `string or string[] or object` |         |                                 | The test suite.                                                                                                                          |
-| `smoke`                  | `string or string[] or object` |         |                                 | A fast, side-effect-light readiness check: the app boots with real config in this checkout. `discern done` and `discern test` run it in… |
-| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                             |
-| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc})…  |
-| `<name>.inputs`          | `string[]`                     |         |                                 | Complete input closure as scope globs; omission binds evidence to the candidate.                                                         |
-| `<name>.needs`           | `string[]`                     |         |                                 | Producer selectors that must finish successfully before this producer runs.                                                              |
-| `<name>.artifacts`       | `string[]`                     |         |                                 | Project-relative outputs captured into immutable attempt storage after production.                                                       |
-| `<name>.environment`     | `string[]`                     |         |                                 | Environment variable names whose effective values enter evidence identity as digests.                                                    |
-| `<name>.toolchain`       | `string[]`                     |         |                                 | Project-relative identity files for the applicable toolchain.                                                                            |
-| `<name>.provides`        | `string`                       |         |                                 | A free-text label for humans and audit.                                                                                                  |
-| `<name>.timeout`         | `number`                       |         |                                 | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.             |
+| Key                      | Type                           | Default | Enum                            | Description                                                                                                                                 |
+| ------------------------ | ------------------------------ | ------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                                   |
+| `format`                 | `string or string[] or object` |         |                                 | A formatter, or another tool that rewrites files. Because it changes files, it runs first, one command at a time. In `discern prepare` its… |
+| `build`                  | `string or string[] or object` |         |                                 | Builds what later stages need, such as compiling or bundling. `discern done` runs it; `discern prepare` doesn't.                            |
+| `lint`                   | `string or string[] or object` |         |                                 | A linter or other read-only check of the code.                                                                                              |
+| `typecheck`              | `string or string[] or object` |         |                                 | A read-only type check.                                                                                                                     |
+| `test`                   | `string or string[] or object` |         |                                 | Your test suite. It waits for a free test-run slot before it starts.                                                                        |
+| `smoke`                  | `string or string[] or object` |         |                                 | A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it…      |
+| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                                |
+| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`,…               |
+| `<name>.inputs`          | `string[]`                     |         |                                 | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…      |
+| `<name>.needs`           | `string[]`                     |         |                                 | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…        |
+| `<name>.artifacts`       | `string[]`                     |         |                                 | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…     |
+| `<name>.environment`     | `string[]`                     |         |                                 | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…        |
+| `<name>.toolchain`       | `string[]`                     |         |                                 | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…      |
+| `<name>.provides`        | `string`                       |         |                                 | A free-text note on what the job provides, for people reading the config. discern doesn't use it.                                           |
+| `<name>.timeout`         | `number`                       |         |                                 | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                     |
 
 ### [setup]
 
-| Key              | Type     | Default | Enum | Description                                                                                                  |
-| ---------------- | -------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------ |
-| `not_applicable` | `enum[]` | `[]`    |      | Known jobs this project's lifecycle does not have. A job listed here cannot also be configured under [jobs]. |
+| Key              | Type     | Default | Enum | Description                                                                                                           |
+| ---------------- | -------- | ------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| `not_applicable` | `enum[]` | `[]`    |      | Known jobs this project doesn't have. A job listed here can't also appear under `[jobs]`, even with an empty command. |
 
 ### [scopes]
 
-| Key                      | Type                 | Default | Enum | Description                                                                                                                                |
-| ------------------------ | -------------------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `<name>.paths` **(req)** | `string[]`           |         |      | The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/_.ext, src/_), a *.ext suffix at any depth, a /seg/… |
-| `<name>.neutral`         | `boolean`            | `false` |      | true: changes here need no gate, as for documentation and agent instructions.                                                              |
-| `<name>.preview`         | `string or string[]` |         |      | A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes… |
-| `<name>.inputs`          | `string[]`           |         |      | Complete input closure as scope globs; omission binds evidence to the candidate.                                                           |
-| `<name>.needs`           | `string[]`           |         |      | Producer selectors that must finish successfully before this producer runs.                                                                |
-| `<name>.artifacts`       | `string[]`           |         |      | Project-relative outputs captured into immutable attempt storage after production.                                                         |
-| `<name>.environment`     | `string[]`           |         |      | Environment variable names whose effective values enter evidence identity as digests.                                                      |
-| `<name>.toolchain`       | `string[]`           |         |      | Project-relative identity files for the applicable toolchain.                                                                              |
-| `<name>.gate`            | `string or string[]` |         |      | A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir},… |
-| `<name>.timeout`         | `number`             |         |      | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.               |
+| Key                      | Type                 | Default | Enum | Description                                                                                                                               |
+| ------------------------ | -------------------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>.paths` **(req)** | `string[]`           |         |      | The path patterns that define the scope: a folder prefix (`src/**`), a standard glob (`src/**/*.ext`, `src/*`), a `*.ext` suffix at any…  |
+| `<name>.neutral`         | `boolean`            | `false` |      | Set to true when changes here aren't code, as for documentation and agent instructions. They trigger no scope gate, this scope's own…     |
+| `<name>.preview`         | `string or string[]` |         |      | A read-only command your agent can run in its worktree to preview a change in this scope, such as building the docs. discern suggests it… |
+| `<name>.inputs`          | `string[]`           |         |      | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…    |
+| `<name>.needs`           | `string[]`           |         |      | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…      |
+| `<name>.artifacts`       | `string[]`           |         |      | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…   |
+| `<name>.environment`     | `string[]`           |         |      | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…      |
+| `<name>.toolchain`       | `string[]`           |         |      | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…    |
+| `<name>.gate`            | `string or string[]` |         |      | A command `discern done` runs when a change touches this scope, such as a component's own checks. The reuse settings in this table apply… |
+| `<name>.timeout`         | `number`             |         |      | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                   |
 
 ### [generated]
 
 | Key                         | Type                 | Default | Enum | Description                                                                                                                                 |
 | --------------------------- | -------------------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.paths` **(req)**    | `string[]`           |         |      | The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob…      |
-| `<name>.run` **(req)**      | `string or string[]` |         |      | The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove… |
-| `<name>.linguist_generated` | `boolean`            | `false` |      | true marks the group's paths generated for GitHub through the `linguist-generated` attribute: hidden in diffs by default and excluded from… |
-| `<name>.timeout`            | `number`             |         |      | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                |
+| `<name>.paths` **(req)**    | `string[]`           |         |      | Path patterns for the committed files this generator owns entirely, in the scope glob syntax: a folder prefix (`reference/**`), a standard… |
+| `<name>.run` **(req)**      | `string or string[]` |         |      | The command, or list of commands, that rewrites these files. The same source must always produce the same bytes, and the command must…      |
+| `<name>.linguist_generated` | `boolean`            | `false` |      | Set to true to mark these files as generated for GitHub, through the `linguist-generated` attribute. GitHub then collapses them in diffs…   |
+| `<name>.timeout`            | `number`             |         |      | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                     |
 
 ### [acceptance]
 
-| Key              | Type       | Default | Enum | Description                                                                                                                             |
-| ---------------- | ---------- | ------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `pre_authorized` | `string[]` | `[]`    |      | Scope names whose changes may land without a per-landing conversation. An owner decision recorded on the trunk: widening a named scope… |
+| Key              | Type       | Default | Enum | Description                                                                                                                              |
+| ---------------- | ---------- | ------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `pre_authorized` | `string[]` | `[]`    |      | Scopes whose changes can land without the owner's approval each time. A change qualifies only when every file it touches is in a listed… |
 
 ### [worktree]
 
 | Key                         | Type       | Default                 | Enum | Description                                                                                                                                 |
 | --------------------------- | ---------- | ----------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `root`                      | `string`   | `""`                    |      | Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative…    |
-| `inherit_env`               | `string[]` | `[]`                    |      | Names copied from the main checkout's declared env files. A value fills an empty entry or the first file's `<file>.example` default. A…     |
-| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | Env files read and written in order: the last definition wins; new values use the first existing file. Inheritance alone may create the…    |
-| `export_port`               | `boolean`  | `false`                 |      | When true, setup writes DISCERN_WORKTREE_PORT to configured env files, hooks warn when a sibling uses the derived port, and status shows…   |
-| `track_ignored_drift`       | `boolean`  | `true`                  |      | Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when… |
-| `resources`                 | `table`    | `{}`                    |      | External resources provisioned per worktree.                                                                                                |
-| `resources.<name>.create`   | `string`   | `""`                    |      | Command run once at worktree setup. discern records cleanup intent before running it and skips it only after readiness is recorded. An…     |
-| `resources.<name>.destroy`  | `string`   | `""`                    |      | Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.                                  |
-| `resources.<name>.ensure`   | `string`   | `""`                    |      | Idempotently reconcile drift or re-readiness at session start.                                                                              |
-| `resources.<name>.required` | `boolean`  | `true`                  |      | false makes a create failure non-fatal, so setup continues.                                                                                 |
-| `resources.<name>.retries`  | `integer`  | `0`                     |      | Retry create/destroy this many times.                                                                                                       |
-| `resources.<name>.prunable` | `boolean`  | `true`                  |      | false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.                            |
-| `setup`                     | `object`   | `{}`                    |      | Commands that ready a linked worktree.                                                                                                      |
-| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once at worktree creation, in order, after the resources exist: one-shot scaffolding such as seeding fixtures.                 |
-| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run on every linked-worktree pass: creation, session start, and after `discern update`. For convergence that depends on worktree…  |
+| `root`                      | `string`   | `""`                    |      | The folder where discern creates worktrees. Empty means a folder beside the repository, named "<repo>.worktrees". A relative path is…       |
+| `inherit_env`               | `string[]` | `[]`                    |      | Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value,…    |
+| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | The env files discern reads and writes, in order. When several set the same variable, the last one wins. discern updates a value where it…  |
+| `export_port`               | `boolean`  | `false`                 |      | Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. discern then avoids giving a…   |
+| `track_ignored_drift`       | `boolean`  | `true`                  |      | Record the Git-ignored top-level paths, such as `node_modules` or `.env`, when a worktree is set up, and list the ones that changed when…   |
+| `resources`                 | `table`    | `{}`                    |      | Outside resources that each worktree gets its own copy of.                                                                                  |
+| `resources.<name>.create`   | `string`   | `""`                    |      | The command that creates the resource, run once when the worktree is first set up. Before running it, discern records the matching…         |
+| `resources.<name>.destroy`  | `string`   | `""`                    |      | The command that removes the resource when its worktree is removed, or before discern retries a failed `create`. Make it safe to run…       |
+| `resources.<name>.ensure`   | `string`   | `""`                    |      | A command that checks the resource and repairs it if needed, such as restarting a stopped database. It runs at each session start and when… |
+| `resources.<name>.required` | `boolean`  | `true`                  |      | Set to false to let setup finish when `create` fails. discern then doesn't retry `create`; only `ensure` runs later.                        |
+| `resources.<name>.retries`  | `integer`  | `0`                     |      | How many times to retry a failed `create`, `destroy`, or `ensure`, from 0 to 5. `destroy` uses the count in effect when the resource was…   |
+| `resources.<name>.prunable` | `boolean`  | `true`                  |      | Set to false to stop `discern worktree prune` from destroying this resource after its worktree was deleted without discern, for data you…   |
+| `setup`                     | `object`   | `{}`                    |      | Commands that prepare a task worktree for work.                                                                                             |
+| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once, in order, when discern creates the worktree, after its resources exist. Use them for one-time setup, such as loading…    |
+| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run whenever discern readies a task worktree: at creation, at each session start, when `discern worktree setup` runs again, and…   |
 
 ### [standards]
 
-| Key                          | Type                 | Default | Enum         | Description                                                                                                                              |
-| ---------------------------- | -------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.metric`              | `string`             |         |              | The metric name the run emits. Defaults to the standard's name.                                                                          |
-| `<name>.direction` **(req)** | `enum`               |         | `up`, `down` | "up" when the value should rise, so the limit is a floor; "down" when it should fall, so the limit is a ceiling.                         |
-| `<name>.limit` **(req)**     | `number`             |         |              | The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall.                                      |
-| `<name>.run`                 | `string or string[]` |         |              | This standard's producer command. Emits DISCERN_METRIC <metric> <number>; cannot accompany producer.                                     |
-| `<name>.producer`            | `string`             |         |              | Consume an existing job, scope gate, or standard producer instead of running a separate producer.                                        |
-| `<name>.extract`             | `string or string[]` |         |              | Extract readings from captured producer output on stdin; this is a separate operation from run.                                          |
-| `<name>.artifact`            | `string`             |         |              | Declared producer artifact supplied on stdin to extract; requires extract.                                                               |
-| `<name>.inputs`              | `string[]`           |         |              | Complete input closure as scope globs; omission binds evidence to the candidate.                                                         |
-| `<name>.needs`               | `string[]`           |         |              | Producer selectors that must finish successfully before this producer runs.                                                              |
-| `<name>.artifacts`           | `string[]`           |         |              | Project-relative outputs captured into immutable attempt storage after production.                                                       |
-| `<name>.environment`         | `string[]`           |         |              | Environment variable names whose effective values enter evidence identity as digests.                                                    |
-| `<name>.toolchain`           | `string[]`           |         |              | Project-relative identity files for the applicable toolchain.                                                                            |
-| `<name>.per`                 | `string or object`   |         |              | Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run… |
-| `<name>.scale`               | `number`             | `1`     |              | Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.                                                    |
-| `<name>.margin`              | `number`             | `0`     |              | Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. Give a metric that drifts on unrelated…      |
-| `<name>.timeout`             | `number`             |         |              | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.             |
+| Key                          | Type                 | Default | Enum         | Description                                                                                                                                |
+| ---------------------------- | -------------------- | ------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `<name>.metric`              | `string`             |         |              | The metric name discern reads from the output: the producer's, or the `extract` command's when `extract` is set. Default: the standard's…  |
+| `<name>.direction` **(req)** | `enum`               |         | `up`, `down` | "up" when higher is better, making the limit a floor; "down" when lower is better, making it a ceiling.                                    |
+| `<name>.limit` **(req)**     | `number`             |         |              | The floor or ceiling the measurement must meet; a measurement equal to the limit passes. A branch can raise a floor or lower a ceiling,…   |
+| `<name>.run`                 | `string or string[]` |         |              | The command that measures this standard. It prints `DISCERN_METRIC <metric> <number>`, unless `extract` reads its output instead. Set…     |
+| `<name>.producer`            | `string`             |         |              | Take the measurement from an existing job, scope gate, or standard, named like `jobs.test`, `scopes.<name>.gate`, or `standards.<name>`,…  |
+| `<name>.extract`             | `string or string[]` |         |              | A second command that reads the producer's output, or the `artifact` file, on stdin and prints the `DISCERN_METRIC` line. With `extract`,… |
+| `<name>.artifact`            | `string`             |         |              | A file the producer lists in its `artifacts`, passed to `extract` on stdin in place of the output. Needs `extract`.                        |
+| `<name>.inputs`              | `string[]`           |         |              | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…     |
+| `<name>.needs`               | `string[]`           |         |              | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…       |
+| `<name>.artifacts`           | `string[]`           |         |              | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…    |
+| `<name>.environment`         | `string[]`           |         |              | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…       |
+| `<name>.toolchain`           | `string[]`           |         |              | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…     |
+| `<name>.per`                 | `string or object`   |         |              | Hold a rate instead of a raw count, so the number doesn't rise only because the project grew. Divide by a second metric the command…       |
+| `<name>.scale`               | `number`             | `1`     |              | Multiply a `per` rate into readable units: scale = 1000 gives a rate per 1,000. It has no effect without `per`.                            |
+| `<name>.margin`              | `number`             | `0`     |              | Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. Give a margin to a number that moves with…      |
+| `<name>.timeout`             | `number`             |         |              | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                    |
 
 ### [checkpoints]
 
-| Key                        | Type       | Default | Enum             | Description                                                                                                                                 |
-| -------------------------- | ---------- | ------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.scope`             | `string`   |         |                  | Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a…      |
-| `<name>.paths`             | `string[]` |         |                  | Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either `scope` or `paths`. Registered path… |
-| `<name>.include_generated` | `boolean`  |         |                  | true includes paths a [generated.<name>] group owns; the default evaluates authored change only.                                            |
-| `<name>.exclude_paths`     | `string[]` |         |                  | Globs removed after selection and before every predicate, subject, evidence, and `when`. Registered path references (${map.dir},…           |
-| `<name>.unless_changed`    | `string[]` |         |                  | Hold fire when any changed path matches one of these globs or scope names: flag this change class unless its counterpart moved too.…        |
-| `<name>.kinds`             | `enum[]`   |         |                  | Narrow changed evidence to the named Git kinds: "added", "modified", or "deleted".                                                          |
-| `<name>.adds_matching`     | `string[]` |         |                  | Narrow text evidence to files with an added line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16…   |
-| `<name>.removes_matching`  | `string[]` |         |                  | Narrow text evidence to files with a removed line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16…  |
-| `<name>.new_directory`     | `boolean`  |         |                  | Narrow to added files whose parent directory held no admitted file at the merge-base; root-level additions never qualify.                   |
-| `<name>.binary`            | `boolean`  |         |                  | Narrow to binary changes when true or text changes when false.                                                                              |
-| `<name>.min_changed_files` | `integer`  |         |                  | Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).                                  |
-| `<name>.min_changed_lines` | `integer`  |         |                  | Require this many added-plus-removed text lines across the final narrowed evidence; binary files contribute zero.                           |
-| `<name>.deletion_dominant` | `boolean`  |         |                  | Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut…  |
-| `<name>.similar_new_file`  | `boolean`  |         |                  | Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory, the signature of a parallel…  |
-| `<name>.min_commits`       | `integer`  |         |                  | Require this many commits in merge-base..HEAD, including merge commits; uncommitted work adds no commit.                                    |
-| `<name>.when`              | `string`   |         |                  | Final executable condition: exit 0 fires, exit 10 passes; every other outcome is indeterminate. `DISCERN_MATCH <path>` narrows the…         |
-| `<name>.mode`              | `enum`     |         | `stop`, `advise` | "stop" (the default): the gate refuses to run until the agent declares the question met or unmet. "advise": the question and its evidence…  |
-| `<name>.question`          | `string`   |         |                  | Inline judgment prose. A project checkpoint needs this or `question_file`; a built-in inherits unless overridden. Review surfaces serve…    |
-| `<name>.question_file`     | `string`   |         |                  | Repository-relative Markdown path from the governing merge-base Git tree. Mutually exclusive with `question`; built-ins may inherit. Must…  |
-| `<name>.teach`             | `string`   |         |                  | Optional lesson prose carried into renderings: why the question matters and what good looks like.                                           |
-| `<name>.reference`         | `string`   |         |                  | Optional displayed pointer. discern performs no content loading or execution. Review surfaces may show it. Do not include secrets.          |
+| Key                        | Type       | Default | Enum             | Description                                                                                                                                  |
+| -------------------------- | ---------- | ------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>.scope`             | `string`   |         |                  | The name of a configured scope whose paths this checkpoint watches. Set at most one of `scope` and `paths`; with neither, it watches every…  |
+| `<name>.paths`             | `string[]` |         |                  | Path patterns this checkpoint watches, in the scope glob syntax. Set at most one of `scope` and `paths`. You can write `${map.dir}`,…        |
+| `<name>.include_generated` | `boolean`  |         |                  | Set to true to also watch files a `[generated.<name>]` group owns. By default, a checkpoint watches only files people and agents write.      |
+| `<name>.exclude_paths`     | `string[]` |         |                  | Path patterns to ignore. discern removes them before any other trigger setting or `when` command looks at the change. You can write…         |
+| `<name>.unless_changed`    | `string[]` |         |                  | Stay quiet when the change also touches one of these path patterns or scopes, anywhere in the project, such as the docs that go with an…     |
+| `<name>.kinds`             | `enum[]`   |         |                  | Only count files changed in these ways: "added", "modified", or "deleted". A rename counts as a deletion and an addition.                    |
+| `<name>.adds_matching`     | `string[]` |         |                  | Only count text files where an added line contains one of these exact strings, matched case-sensitively. Up to 16 different strings of…      |
+| `<name>.removes_matching`  | `string[]` |         |                  | Only count text files where a removed line contains one of these exact strings, matched case-sensitively. Up to 16 different strings of…     |
+| `<name>.new_directory`     | `boolean`  |         |                  | Only count files added in a folder that had no files where the branch started. Files added at the project root never count.                  |
+| `<name>.binary`            | `boolean`  |         |                  | Only count binary files when true, or only text files when false.                                                                            |
+| `<name>.min_changed_files` | `integer`  |         |                  | Trigger only when at least this many watched files changed. Leave it out to trigger on any change.                                           |
+| `<name>.min_changed_lines` | `integer`  |         |                  | Trigger only when the counted files have at least this many added and removed lines in total. Binary files count as zero.                    |
+| `<name>.deletion_dominant` | `boolean`  |         |                  | Trigger only when the change mostly removes lines: removals clearly outnumber additions and pass a fixed minimum. A large cut gets…          |
+| `<name>.similar_new_file`  | `boolean`  |         |                  | Trigger only when the change adds a file named like an existing file in the same folder, such as a copy, new, or v2 version of it, which…    |
+| `<name>.min_commits`       | `integer`  |         |                  | Trigger only when the branch has at least this many commits since it left the trunk, merge commits included. Uncommitted work doesn't count. |
+| `<name>.when`              | `string`   |         |                  | A command that makes the final decision, run only when every other setting matches. Exit 0 triggers the checkpoint, and exit 10 doesn't;…    |
+| `<name>.mode`              | `enum`     |         | `stop`, `advise` | "stop" holds `discern done` until the agent answers the question as met or unmet; an unmet answer then needs the owner's variance to land.…  |
+| `<name>.question`          | `string`   |         |                  | The question the agent answers, written here. Your own checkpoint needs this or `question_file`; a built-in one keeps its shipped question…  |
+| `<name>.question_file`     | `string`   |         |                  | A text file holding the question, relative to the repository root, used in place of `question`. discern reads it as committed where the…     |
+| `<name>.teach`             | `string`   |         |                  | Optional: why the question matters and what a good answer looks like. discern shows it with the question.                                    |
+| `<name>.reference`         | `string`   |         |                  | Optional: a pointer to more detail, such as a doc path or web address. discern shows it as written and never opens or runs it. Don't…        |
 
 ### [gate]
 
 | Key                    | Type      | Default | Enum | Description                                                                                                                               |
 | ---------------------- | --------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `stream_output`        | `boolean` | `false` |      | false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the gate frame's… |
-| `fail_fast`            | `boolean` | `true`  |      | Cancel the in-flight sibling commands the moment one fails; an agent-driven gate wants a fast abort. false runs every job and shows all…  |
-| `timeout`              | `integer` | `600`   |      | Time budget in seconds for every command the gate runs. A command that overruns is tree-killed and the stage fails with a timeout…        |
-| `concurrent_test_runs` | `integer` | `1`     |      | How many test stages may run on this machine at once; the rest wait for a slot. Fresh projects use 1; 0 is uncapped.…                     |
+| `stream_output`        | `boolean` | `false` |      | How job output appears when it isn't going to a live terminal, such as in CI, a pipe, or with `--plain`. false shows each job's full…     |
+| `fail_fast`            | `boolean` | `true`  |      | Stop everything still running or waiting as soon as one job fails, so your agent hears about the failure quickly. false keeps going and…  |
+| `timeout`              | `integer` | `600`   |      | Time limit in seconds for each job the gate runs, including scope gates, generators, and standard measurements; a job's list of commands… |
+| `concurrent_test_runs` | `integer` | `1`     |      | How many test runs this repository's checkouts can have going at once. Test jobs, standard measurements, `discern test`,…                 |
 
 ### [coupling] (evolving)
 
-| Key              | Type      | Default | Enum | Description                                                                                                                         |
-| ---------------- | --------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `report_in_gate` | `boolean` | `true`  |      | Surface coupling findings as trailing hints in `discern done` and `discern prepare`, while the change is hot. false keeps coupling… |
+| Key              | Type      | Default | Enum | Description                                                                                                                                |
+| ---------------- | --------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `report_in_gate` | `boolean` | `true`  |      | Show coupling findings as hints at the end of a passing `discern done` or `discern prepare`, while the change is fresh. They never change… |
 
 ### [scripts]
 
-| Key   | Type     | Default             | Enum | Description                                                                                                                                |
-| ----- | -------- | ------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `dir` | `string` | `"discern/scripts"` |      | Where your project scripts live, relative to the project root. The default works with no config; point it elsewhere, such as "tools/", if… |
+| Key   | Type     | Default             | Enum | Description                                                                                                                            |
+| ----- | -------- | ------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `dir` | `string` | `"discern/scripts"` |      | The folder for your project scripts, relative to the project root. discern runs only the executable files in it. The default needs no… |
 
 ### [meta]
 
-| Key                        | Type      | Default | Enum                 | Description                                                                                                                               |
-| -------------------------- | --------- | ------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `managed_version`          | `string`  |         |                      | Highest discern release whose successful setup or upgrade adopted managed material. Project evidence, independent of installed binaries,… |
-| `schema_version` **(req)** | `integer` |         |                      | The install schema version. `discern upgrade` bumps it; never edit it by hand.                                                            |
-| `bootstrapped`             | `boolean` | `false` |                      | true once `discern setup` has completed, which retires the one-time setup redirect.                                                       |
-| `setup_completion`         | `enum`    |         | `proven`, `unproven` | Evidence recorded for the setup completion event: proven by the gate, or explicitly completed unproven.                                   |
-| `setup_model`              | `string`  | `""`    |                      | The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it.     |
-| `setup_version`            | `string`  | `""`    |                      | The discern version that ran setup, recorded for support triage.                                                                          |
+| Key                        | Type      | Default | Enum                 | Description                                                                                                                                |
+| -------------------------- | --------- | ------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `managed_version`          | `string`  |         |                      | The newest discern release whose setup or upgrade this project has completed. It only goes up, and it describes the project, whichever…    |
+| `schema_version` **(req)** | `integer` |         |                      | The install schema version: the version of this file's format. Setup writes it and `discern upgrade` raises it; don't edit it by hand.     |
+| `bootstrapped`             | `boolean` | `false` |                      | true once `discern setup done` finishes. Until then, commands that need a finished setup point you back to it.                             |
+| `setup_completion`         | `enum`    |         | `proven`, `unproven` | How setup finished: `proven` when the gate passed, or `unproven` when `discern setup done --unproven` marked it complete without Proof. A… |
+| `setup_model`              | `string`  | `""`    |                      | The model the agent named with `discern setup begin --model`, or `unreported`, kept for support. discern can't verify it.                  |
+| `setup_version`            | `string`  | `""`    |                      | The discern version that ran setup, kept for support.                                                                                      |
 
 ## E. Setup config document (`schema/discern-setup-config.schema.json`, policy `config-input`)
 
@@ -1330,147 +1330,147 @@ The bounded setup recipe consumed only by `setup begin --config`.
 
 Same-major releases may add optional keys, sections, and enum members. Existing keys, types, and defaults stay. Sections marked evolving may change in any release.
 
-| Section           | Required | Kind               | Description                                                                                                                                          |
-| ----------------- | -------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[$schema]`       |          | `string`           | Editor-only pointer to this schema; ignored by discern.                                                                                              |
-| `[version]`       |          | `string or number` | Document major version. Omit (assumed current) or use a matching major; this build understands version 1.                                            |
-| `[name]`          |          | `string`           | Project name (free text).                                                                                                                            |
-| `[slug]`          |          | `string`           | Project slug: lowercase letters, digits and dashes, starting with a letter or digit.                                                                 |
-| `[branch_prefix]` |          | `string`           | Branch prefix for worktrees, e.g. "agent/".                                                                                                          |
-| `[brief]`         |          | `string`           | Free-text description of what the project is.                                                                                                        |
-| `[agents]`        |          | `enum[]`           | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.                            |
-| `[map]`           |          | `object`           | [map] settings — chiefly the project-relative directory holding discern's agent documentation tree.                                                  |
-| `[jobs]`          |          | `allOf`            | [jobs] fills. Known names take a command, list, or { run, timeout } and derive their stage; a custom [jobs.<name>] table requires `stage` and `run`. |
-| `[scopes]`        |          | `table`            | [scopes.<name>] tables — a named region defined by `paths`, with optional attributes.                                                                |
-| `[generated]`     |          | `table`            | [generated.<name>] tables — committed artifacts, their deterministic regeneration command, and an optional timeout.                                  |
-| `[standards]`     |          | `table`            | [standards.<name>] tables. Coverage is just a conventional name.                                                                                     |
-| `[checkpoints]`   |          | `table`            | [checkpoints.<name>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.                                |
-| `[setup]`         |          | `object`           | Bounded [setup] configuration for setup coverage accounting.                                                                                         |
-| `[worktree]`      |          | `object`           | Bounded [worktree] configuration for isolated-checkout behavior and resources.                                                                       |
+| Section           | Required | Kind               | Description                                                                                                                                         |
+| ----------------- | -------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[$schema]`       |          | `string`           | A pointer to this schema for your editor. discern ignores it.                                                                                       |
+| `[version]`       |          | `string or number` | The document's major version. Leave it out to use the current one, or give a matching major version; this discern understands version 1.            |
+| `[name]`          |          | `string`           | The project's display name, in any words.                                                                                                           |
+| `[slug]`          |          | `string`           | A short id for the project: lowercase letters, digits, and dashes, starting with a letter or digit.                                                 |
+| `[branch_prefix]` |          | `string`           | The start of every worktree branch name, such as "agent/".                                                                                          |
+| `[brief]`         |          | `string`           | What the project is, in your own words. discern saves it as the project brief.                                                                      |
+| `[agents]`        |          | `enum[]`           | Which coding agents to set up, with the instruction file each reads: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot ->…    |
+| `[map]`           |          | `object`           | `[map]` settings: the folder for the project map.                                                                                                   |
+| `[jobs]`          |          | `allOf`            | `[jobs]` entries. A known name takes a command, a list, or a table such as { run, timeout }, and has a fixed stage; a custom `[jobs.<name>]` table… |
+| `[scopes]`        |          | `table`            | `[scopes.<name>]` tables: named regions defined by `paths`, with optional settings.                                                                 |
+| `[generated]`     |          | `table`            | `[generated.<name>]` tables: committed generated files and the command that regenerates them.                                                       |
+| `[standards]`     |          | `table`            | `[standards.<name>]` tables. Any name works; coverage is only a common one.                                                                         |
+| `[checkpoints]`   |          | `table`            | `[checkpoints.<name>]` tables: review questions, with their triggers and mode.                                                                      |
+| `[setup]`         |          | `object`           | `[setup]` settings for how setup counts known jobs.                                                                                                 |
+| `[worktree]`      |          | `object`           | `[worktree]` settings for task worktrees and their resources.                                                                                       |
 
 ### [map]
 
-| Key   | Type     | Default         | Enum | Description                                                                                                                      |
-| ----- | -------- | --------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `dir` | `string` | `"discern/map"` |      | Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it. |
+| Key   | Type     | Default         | Enum | Description                                                                                                                             |
+| ----- | -------- | --------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `dir` | `string` | `"discern/map"` |      | The map's folder, relative to the project root. `discern setup begin` creates it here if it doesn't exist, and `discern map` reads it.… |
 
 ### [jobs]
 
-| Key                      | Type                           | Default | Enum                            | Description                                                                                                                              |
-| ------------------------ | ------------------------------ | ------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                                |
-| `format`                 | `string or string[] or object` |         |                                 | A formatter or codemod. Mutating, so it runs first and serially.                                                                         |
-| `build`                  | `string or string[] or object` |         |                                 | Produce the artifacts later stages read: compile, bundle.                                                                                |
-| `lint`                   | `string or string[] or object` |         |                                 | Read-only static analysis.                                                                                                               |
-| `typecheck`              | `string or string[] or object` |         |                                 | Read-only type checking.                                                                                                                 |
-| `test`                   | `string or string[] or object` |         |                                 | The test suite.                                                                                                                          |
-| `smoke`                  | `string or string[] or object` |         |                                 | A fast, side-effect-light readiness check: the app boots with real config in this checkout. `discern done` and `discern test` run it in… |
-| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                             |
-| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc})…  |
-| `<name>.inputs`          | `string[]`                     |         |                                 | Complete input closure as scope globs; omission binds evidence to the candidate.                                                         |
-| `<name>.needs`           | `string[]`                     |         |                                 | Producer selectors that must finish successfully before this producer runs.                                                              |
-| `<name>.artifacts`       | `string[]`                     |         |                                 | Project-relative outputs captured into immutable attempt storage after production.                                                       |
-| `<name>.environment`     | `string[]`                     |         |                                 | Environment variable names whose effective values enter evidence identity as digests.                                                    |
-| `<name>.toolchain`       | `string[]`                     |         |                                 | Project-relative identity files for the applicable toolchain.                                                                            |
-| `<name>.provides`        | `string`                       |         |                                 | A free-text label for humans and audit.                                                                                                  |
-| `<name>.timeout`         | `number`                       |         |                                 | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.             |
+| Key                      | Type                           | Default | Enum                            | Description                                                                                                                                 |
+| ------------------------ | ------------------------------ | ------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`                 | table                          |         |                                 | A custom table under this section; its accepted keys follow the schema's `allOf` members.                                                   |
+| `format`                 | `string or string[] or object` |         |                                 | A formatter, or another tool that rewrites files. Because it changes files, it runs first, one command at a time. In `discern prepare` its… |
+| `build`                  | `string or string[] or object` |         |                                 | Builds what later stages need, such as compiling or bundling. `discern done` runs it; `discern prepare` doesn't.                            |
+| `lint`                   | `string or string[] or object` |         |                                 | A linter or other read-only check of the code.                                                                                              |
+| `typecheck`              | `string or string[] or object` |         |                                 | A read-only type check.                                                                                                                     |
+| `test`                   | `string or string[] or object` |         |                                 | Your test suite. It waits for a free test-run slot before it starts.                                                                        |
+| `smoke`                  | `string or string[] or object` |         |                                 | A quick check, with few side effects, that the app starts with real config in this checkout. `discern done` and `discern test` run it…      |
+| `<name>.stage` **(req)** | `enum`                         |         | `fix`, `build`, `check`, `test` | The gate stage this job runs in: fix, build, check, or test.                                                                                |
+| `<name>.run` **(req)**   | `string or string[]`           |         |                                 | The command to run, or a list of commands run in order, each only if the previous one succeeded. You can write `${map.dir}`,…               |
+| `<name>.inputs`          | `string[]`                     |         |                                 | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…      |
+| `<name>.needs`           | `string[]`                     |         |                                 | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…        |
+| `<name>.artifacts`       | `string[]`                     |         |                                 | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…     |
+| `<name>.environment`     | `string[]`                     |         |                                 | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…        |
+| `<name>.toolchain`       | `string[]`                     |         |                                 | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…      |
+| `<name>.provides`        | `string`                       |         |                                 | A free-text note on what the job provides, for people reading the config. discern doesn't use it.                                           |
+| `<name>.timeout`         | `number`                       |         |                                 | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                     |
 
 ### [scopes]
 
-| Key                      | Type                 | Default | Enum | Description                                                                                                                                |
-| ------------------------ | -------------------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `<name>.paths` **(req)** | `string[]`           |         |      | The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/_.ext, src/_), a *.ext suffix at any depth, a /seg/… |
-| `<name>.neutral`         | `boolean`            | `false` |      | true: changes here need no gate, as for documentation and agent instructions.                                                              |
-| `<name>.preview`         | `string or string[]` |         |      | A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes… |
-| `<name>.inputs`          | `string[]`           |         |      | Complete input closure as scope globs; omission binds evidence to the candidate.                                                           |
-| `<name>.needs`           | `string[]`           |         |      | Producer selectors that must finish successfully before this producer runs.                                                                |
-| `<name>.artifacts`       | `string[]`           |         |      | Project-relative outputs captured into immutable attempt storage after production.                                                         |
-| `<name>.environment`     | `string[]`           |         |      | Environment variable names whose effective values enter evidence identity as digests.                                                      |
-| `<name>.toolchain`       | `string[]`           |         |      | Project-relative identity files for the applicable toolchain.                                                                              |
-| `<name>.gate`            | `string or string[]` |         |      | A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir},… |
-| `<name>.timeout`         | `number`             |         |      | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.               |
+| Key                      | Type                 | Default | Enum | Description                                                                                                                               |
+| ------------------------ | -------------------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>.paths` **(req)** | `string[]`           |         |      | The path patterns that define the scope: a folder prefix (`src/**`), a standard glob (`src/**/*.ext`, `src/*`), a `*.ext` suffix at any…  |
+| `<name>.neutral`         | `boolean`            | `false` |      | Set to true when changes here aren't code, as for documentation and agent instructions. They trigger no scope gate, this scope's own…     |
+| `<name>.preview`         | `string or string[]` |         |      | A read-only command your agent can run in its worktree to preview a change in this scope, such as building the docs. discern suggests it… |
+| `<name>.inputs`          | `string[]`           |         |      | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…    |
+| `<name>.needs`           | `string[]`           |         |      | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…      |
+| `<name>.artifacts`       | `string[]`           |         |      | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…   |
+| `<name>.environment`     | `string[]`           |         |      | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…      |
+| `<name>.toolchain`       | `string[]`           |         |      | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…    |
+| `<name>.gate`            | `string or string[]` |         |      | A command `discern done` runs when a change touches this scope, such as a component's own checks. The reuse settings in this table apply… |
+| `<name>.timeout`         | `number`             |         |      | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                   |
 
 ### [generated]
 
 | Key                         | Type                 | Default | Enum | Description                                                                                                                                 |
 | --------------------------- | -------------------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.paths` **(req)**    | `string[]`           |         |      | The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob…      |
-| `<name>.run` **(req)**      | `string or string[]` |         |      | The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove… |
-| `<name>.linguist_generated` | `boolean`            | `false` |      | true marks the group's paths generated for GitHub through the `linguist-generated` attribute: hidden in diffs by default and excluded from… |
-| `<name>.timeout`            | `number`             |         |      | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                |
+| `<name>.paths` **(req)**    | `string[]`           |         |      | Path patterns for the committed files this generator owns entirely, in the scope glob syntax: a folder prefix (`reference/**`), a standard… |
+| `<name>.run` **(req)**      | `string or string[]` |         |      | The command, or list of commands, that rewrites these files. The same source must always produce the same bytes, and the command must…      |
+| `<name>.linguist_generated` | `boolean`            | `false` |      | Set to true to mark these files as generated for GitHub, through the `linguist-generated` attribute. GitHub then collapses them in diffs…   |
+| `<name>.timeout`            | `number`             |         |      | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                     |
 
 ### [standards]
 
-| Key                          | Type                 | Default | Enum         | Description                                                                                                                              |
-| ---------------------------- | -------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.metric`              | `string`             |         |              | The metric name the run emits. Defaults to the standard's name.                                                                          |
-| `<name>.direction` **(req)** | `enum`               |         | `up`, `down` | "up" when the value should rise, so the limit is a floor; "down" when it should fall, so the limit is a ceiling.                         |
-| `<name>.limit` **(req)**     | `number`             |         |              | The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall.                                      |
-| `<name>.run`                 | `string or string[]` |         |              | This standard's producer command. Emits DISCERN_METRIC <metric> <number>; cannot accompany producer.                                     |
-| `<name>.producer`            | `string`             |         |              | Consume an existing job, scope gate, or standard producer instead of running a separate producer.                                        |
-| `<name>.extract`             | `string or string[]` |         |              | Extract readings from captured producer output on stdin; this is a separate operation from run.                                          |
-| `<name>.artifact`            | `string`             |         |              | Declared producer artifact supplied on stdin to extract; requires extract.                                                               |
-| `<name>.inputs`              | `string[]`           |         |              | Complete input closure as scope globs; omission binds evidence to the candidate.                                                         |
-| `<name>.needs`               | `string[]`           |         |              | Producer selectors that must finish successfully before this producer runs.                                                              |
-| `<name>.artifacts`           | `string[]`           |         |              | Project-relative outputs captured into immutable attempt storage after production.                                                       |
-| `<name>.environment`         | `string[]`           |         |              | Environment variable names whose effective values enter evidence identity as digests.                                                    |
-| `<name>.toolchain`           | `string[]`           |         |              | Project-relative identity files for the applicable toolchain.                                                                            |
-| `<name>.per`                 | `string or object`   |         |              | Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run… |
-| `<name>.scale`               | `number`             | `1`     |              | Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.                                                    |
-| `<name>.margin`              | `number`             | `0`     |              | Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. Give a metric that drifts on unrelated…      |
-| `<name>.timeout`             | `number`             |         |              | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.             |
+| Key                          | Type                 | Default | Enum         | Description                                                                                                                                |
+| ---------------------------- | -------------------- | ------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `<name>.metric`              | `string`             |         |              | The metric name discern reads from the output: the producer's, or the `extract` command's when `extract` is set. Default: the standard's…  |
+| `<name>.direction` **(req)** | `enum`               |         | `up`, `down` | "up" when higher is better, making the limit a floor; "down" when lower is better, making it a ceiling.                                    |
+| `<name>.limit` **(req)**     | `number`             |         |              | The floor or ceiling the measurement must meet; a measurement equal to the limit passes. A branch can raise a floor or lower a ceiling,…   |
+| `<name>.run`                 | `string or string[]` |         |              | The command that measures this standard. It prints `DISCERN_METRIC <metric> <number>`, unless `extract` reads its output instead. Set…     |
+| `<name>.producer`            | `string`             |         |              | Take the measurement from an existing job, scope gate, or standard, named like `jobs.test`, `scopes.<name>.gate`, or `standards.<name>`,…  |
+| `<name>.extract`             | `string or string[]` |         |              | A second command that reads the producer's output, or the `artifact` file, on stdin and prints the `DISCERN_METRIC` line. With `extract`,… |
+| `<name>.artifact`            | `string`             |         |              | A file the producer lists in its `artifacts`, passed to `extract` on stdin in place of the output. Needs `extract`.                        |
+| `<name>.inputs`              | `string[]`           |         |              | Every file pattern the command reads, in the scope glob syntax. With a complete list, discern can reuse an earlier result while those…     |
+| `<name>.needs`               | `string[]`           |         |              | Other jobs, scope gates, or standards that must succeed before this command runs, named like `jobs.build`, `scopes.<name>.gate`, or…       |
+| `<name>.artifacts`           | `string[]`           |         |              | Files the command produces, as exact paths relative to the project root. After each run, discern keeps its own copy, for example for a…    |
+| `<name>.environment`         | `string[]`           |         |              | Environment variables whose values affect the result. discern records a hash of each value, and a changed value stops it reusing an…       |
+| `<name>.toolchain`           | `string[]`           |         |              | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…     |
+| `<name>.per`                 | `string or object`   |         |              | Hold a rate instead of a raw count, so the number doesn't rise only because the project grew. Divide by a second metric the command…       |
+| `<name>.scale`               | `number`             | `1`     |              | Multiply a `per` rate into readable units: scale = 1000 gives a rate per 1,000. It has no effect without `per`.                            |
+| `<name>.margin`              | `number`             | `0`     |              | Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. Give a margin to a number that moves with…      |
+| `<name>.timeout`             | `number`             |         |              | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                    |
 
 ### [checkpoints]
 
-| Key                        | Type       | Default | Enum             | Description                                                                                                                                 |
-| -------------------------- | ---------- | ------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.scope`             | `string`   |         |                  | Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a…      |
-| `<name>.paths`             | `string[]` |         |                  | Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either `scope` or `paths`. Registered path… |
-| `<name>.include_generated` | `boolean`  |         |                  | true includes paths a [generated.<name>] group owns; the default evaluates authored change only.                                            |
-| `<name>.exclude_paths`     | `string[]` |         |                  | Globs removed after selection and before every predicate, subject, evidence, and `when`. Registered path references (${map.dir},…           |
-| `<name>.unless_changed`    | `string[]` |         |                  | Hold fire when any changed path matches one of these globs or scope names: flag this change class unless its counterpart moved too.…        |
-| `<name>.kinds`             | `enum[]`   |         |                  | Narrow changed evidence to the named Git kinds: "added", "modified", or "deleted".                                                          |
-| `<name>.adds_matching`     | `string[]` |         |                  | Narrow text evidence to files with an added line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16…   |
-| `<name>.removes_matching`  | `string[]` |         |                  | Narrow text evidence to files with a removed line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16…  |
-| `<name>.new_directory`     | `boolean`  |         |                  | Narrow to added files whose parent directory held no admitted file at the merge-base; root-level additions never qualify.                   |
-| `<name>.binary`            | `boolean`  |         |                  | Narrow to binary changes when true or text changes when false.                                                                              |
-| `<name>.min_changed_files` | `integer`  |         |                  | Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).                                  |
-| `<name>.min_changed_lines` | `integer`  |         |                  | Require this many added-plus-removed text lines across the final narrowed evidence; binary files contribute zero.                           |
-| `<name>.deletion_dominant` | `boolean`  |         |                  | Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut…  |
-| `<name>.similar_new_file`  | `boolean`  |         |                  | Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory, the signature of a parallel…  |
-| `<name>.min_commits`       | `integer`  |         |                  | Require this many commits in merge-base..HEAD, including merge commits; uncommitted work adds no commit.                                    |
-| `<name>.when`              | `string`   |         |                  | Final executable condition: exit 0 fires, exit 10 passes; every other outcome is indeterminate. `DISCERN_MATCH <path>` narrows the…         |
-| `<name>.mode`              | `enum`     |         | `stop`, `advise` | "stop" (the default): the gate refuses to run until the agent declares the question met or unmet. "advise": the question and its evidence…  |
-| `<name>.question`          | `string`   |         |                  | Inline judgment prose. A project checkpoint needs this or `question_file`; a built-in inherits unless overridden. Review surfaces serve…    |
-| `<name>.question_file`     | `string`   |         |                  | Repository-relative Markdown path from the governing merge-base Git tree. Mutually exclusive with `question`; built-ins may inherit. Must…  |
-| `<name>.teach`             | `string`   |         |                  | Optional lesson prose carried into renderings: why the question matters and what good looks like.                                           |
-| `<name>.reference`         | `string`   |         |                  | Optional displayed pointer. discern performs no content loading or execution. Review surfaces may show it. Do not include secrets.          |
+| Key                        | Type       | Default | Enum             | Description                                                                                                                                  |
+| -------------------------- | ---------- | ------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>.scope`             | `string`   |         |                  | The name of a configured scope whose paths this checkpoint watches. Set at most one of `scope` and `paths`; with neither, it watches every…  |
+| `<name>.paths`             | `string[]` |         |                  | Path patterns this checkpoint watches, in the scope glob syntax. Set at most one of `scope` and `paths`. You can write `${map.dir}`,…        |
+| `<name>.include_generated` | `boolean`  |         |                  | Set to true to also watch files a `[generated.<name>]` group owns. By default, a checkpoint watches only files people and agents write.      |
+| `<name>.exclude_paths`     | `string[]` |         |                  | Path patterns to ignore. discern removes them before any other trigger setting or `when` command looks at the change. You can write…         |
+| `<name>.unless_changed`    | `string[]` |         |                  | Stay quiet when the change also touches one of these path patterns or scopes, anywhere in the project, such as the docs that go with an…     |
+| `<name>.kinds`             | `enum[]`   |         |                  | Only count files changed in these ways: "added", "modified", or "deleted". A rename counts as a deletion and an addition.                    |
+| `<name>.adds_matching`     | `string[]` |         |                  | Only count text files where an added line contains one of these exact strings, matched case-sensitively. Up to 16 different strings of…      |
+| `<name>.removes_matching`  | `string[]` |         |                  | Only count text files where a removed line contains one of these exact strings, matched case-sensitively. Up to 16 different strings of…     |
+| `<name>.new_directory`     | `boolean`  |         |                  | Only count files added in a folder that had no files where the branch started. Files added at the project root never count.                  |
+| `<name>.binary`            | `boolean`  |         |                  | Only count binary files when true, or only text files when false.                                                                            |
+| `<name>.min_changed_files` | `integer`  |         |                  | Trigger only when at least this many watched files changed. Leave it out to trigger on any change.                                           |
+| `<name>.min_changed_lines` | `integer`  |         |                  | Trigger only when the counted files have at least this many added and removed lines in total. Binary files count as zero.                    |
+| `<name>.deletion_dominant` | `boolean`  |         |                  | Trigger only when the change mostly removes lines: removals clearly outnumber additions and pass a fixed minimum. A large cut gets…          |
+| `<name>.similar_new_file`  | `boolean`  |         |                  | Trigger only when the change adds a file named like an existing file in the same folder, such as a copy, new, or v2 version of it, which…    |
+| `<name>.min_commits`       | `integer`  |         |                  | Trigger only when the branch has at least this many commits since it left the trunk, merge commits included. Uncommitted work doesn't count. |
+| `<name>.when`              | `string`   |         |                  | A command that makes the final decision, run only when every other setting matches. Exit 0 triggers the checkpoint, and exit 10 doesn't;…    |
+| `<name>.mode`              | `enum`     |         | `stop`, `advise` | "stop" holds `discern done` until the agent answers the question as met or unmet; an unmet answer then needs the owner's variance to land.…  |
+| `<name>.question`          | `string`   |         |                  | The question the agent answers, written here. Your own checkpoint needs this or `question_file`; a built-in one keeps its shipped question…  |
+| `<name>.question_file`     | `string`   |         |                  | A text file holding the question, relative to the repository root, used in place of `question`. discern reads it as committed where the…     |
+| `<name>.teach`             | `string`   |         |                  | Optional: why the question matters and what a good answer looks like. discern shows it with the question.                                    |
+| `<name>.reference`         | `string`   |         |                  | Optional: a pointer to more detail, such as a doc path or web address. discern shows it as written and never opens or runs it. Don't…        |
 
 ### [setup]
 
-| Key              | Type     | Default | Enum | Description                                                                                                  |
-| ---------------- | -------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------ |
-| `not_applicable` | `enum[]` | `[]`    |      | Known jobs this project's lifecycle does not have. A job listed here cannot also be configured under [jobs]. |
+| Key              | Type     | Default | Enum | Description                                                                                                           |
+| ---------------- | -------- | ------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| `not_applicable` | `enum[]` | `[]`    |      | Known jobs this project doesn't have. A job listed here can't also appear under `[jobs]`, even with an empty command. |
 
 ### [worktree]
 
 | Key                         | Type       | Default                 | Enum | Description                                                                                                                                 |
 | --------------------------- | ---------- | ----------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `root`                      | `string`   | `""`                    |      | Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative…    |
-| `inherit_env`               | `string[]` | `[]`                    |      | Names copied from the main checkout's declared env files. A value fills an empty entry or the first file's `<file>.example` default. A…     |
-| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | Env files read and written in order: the last definition wins; new values use the first existing file. Inheritance alone may create the…    |
-| `export_port`               | `boolean`  | `false`                 |      | When true, setup writes DISCERN_WORKTREE_PORT to configured env files, hooks warn when a sibling uses the derived port, and status shows…   |
-| `track_ignored_drift`       | `boolean`  | `true`                  |      | Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when… |
-| `resources`                 | `table`    | `{}`                    |      | External resources provisioned per worktree.                                                                                                |
-| `resources.<name>.create`   | `string`   | `""`                    |      | Command run once at worktree setup. discern records cleanup intent before running it and skips it only after readiness is recorded. An…     |
-| `resources.<name>.destroy`  | `string`   | `""`                    |      | Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.                                  |
-| `resources.<name>.ensure`   | `string`   | `""`                    |      | Idempotently reconcile drift or re-readiness at session start.                                                                              |
-| `resources.<name>.required` | `boolean`  | `true`                  |      | false makes a create failure non-fatal, so setup continues.                                                                                 |
-| `resources.<name>.retries`  | `integer`  | `0`                     |      | Retry create/destroy this many times.                                                                                                       |
-| `resources.<name>.prunable` | `boolean`  | `true`                  |      | false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.                            |
-| `setup`                     | `object`   | `{}`                    |      | Commands that ready a linked worktree.                                                                                                      |
-| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once at worktree creation, in order, after the resources exist: one-shot scaffolding such as seeding fixtures.                 |
-| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run on every linked-worktree pass: creation, session start, and after `discern update`. For convergence that depends on worktree…  |
+| `root`                      | `string`   | `""`                    |      | The folder where discern creates worktrees. Empty means a folder beside the repository, named "<repo>.worktrees". A relative path is…       |
+| `inherit_env`               | `string[]` | `[]`                    |      | Environment variables to copy from the main checkout's env files into each worktree's when it's set up. A worktree keeps its own value,…    |
+| `env_files`                 | `string[]` | `[".env",".env.local"]` |      | The env files discern reads and writes, in order. When several set the same variable, the last one wins. discern updates a value where it…  |
+| `export_port`               | `boolean`  | `false`                 |      | Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. discern then avoids giving a…   |
+| `track_ignored_drift`       | `boolean`  | `true`                  |      | Record the Git-ignored top-level paths, such as `node_modules` or `.env`, when a worktree is set up, and list the ones that changed when…   |
+| `resources`                 | `table`    | `{}`                    |      | Outside resources that each worktree gets its own copy of.                                                                                  |
+| `resources.<name>.create`   | `string`   | `""`                    |      | The command that creates the resource, run once when the worktree is first set up. Before running it, discern records the matching…         |
+| `resources.<name>.destroy`  | `string`   | `""`                    |      | The command that removes the resource when its worktree is removed, or before discern retries a failed `create`. Make it safe to run…       |
+| `resources.<name>.ensure`   | `string`   | `""`                    |      | A command that checks the resource and repairs it if needed, such as restarting a stopped database. It runs at each session start and when… |
+| `resources.<name>.required` | `boolean`  | `true`                  |      | Set to false to let setup finish when `create` fails. discern then doesn't retry `create`; only `ensure` runs later.                        |
+| `resources.<name>.retries`  | `integer`  | `0`                     |      | How many times to retry a failed `create`, `destroy`, or `ensure`, from 0 to 5. `destroy` uses the count in effect when the resource was…   |
+| `resources.<name>.prunable` | `boolean`  | `true`                  |      | Set to false to stop `discern worktree prune` from destroying this resource after its worktree was deleted without discern, for data you…   |
+| `setup`                     | `object`   | `{}`                    |      | Commands that prepare a task worktree for work.                                                                                             |
+| `setup.steps`               | `string[]` | `[]`                    |      | Commands run once, in order, when discern creates the worktree, after its resources exist. Use them for one-time setup, such as loading…    |
+| `setup.ensure`              | `string[]` | `[]`                    |      | Commands run whenever discern readies a task worktree: at creation, at each session start, when `discern worktree setup` runs again, and…   |
 
 ## F. Conventions manifest (`schema/discern-conventions.json`, policy `conventions-append-only`)
 
