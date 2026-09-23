@@ -90,7 +90,7 @@ The **Landing queue** lists every submitted change, in a registered worktree, wh
 - the submission names a different commit from the branch's valid Proof, so its agent runs `discern accept queue` to queue the proven commit, or `discern accept` to submit and start landing;
 - its Proof can't be read, so its agent runs `discern done`, then `discern accept`;
 - its branch moved on after the submission, so its agent runs `discern done`, then `discern accept`, for the new work;
-- a newer strict gate run judged the submitted commit red, so its agent fixes the failure and runs `discern done --rerun`, then `discern accept`;
+- a later strict gate run judged the submitted commit red, so its agent fixes the failure and runs `discern done --rerun`, then `discern accept`;
 - the strict verdict for the submitted commit can't be read, so its agent runs `discern done`, then `discern accept`.
 
 A trunk that only moved after the Proof isn't a reason to wait, because acceptance checks the combined code itself. A run its agent never submitted has no line. The desk and the acceptance preview build their lists from the same source, so every view shows the same tasks in the same order.

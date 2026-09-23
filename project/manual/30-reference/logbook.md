@@ -41,7 +41,7 @@ Recording needs to be on to collect new evidence. History you already have stays
 
 With recording on and `discern.toml` readable, every CLI command and MCP call that resolves to the project records local metadata. A command that can change something records a start event and a completion event, joined by one invocation id. Every worktree, the separate copy of the project where one task happens, writes to the same plain-text files, in the repository's common Git directory.
 
-An MCP call whose explicit `path` is outside every discern project returns `no_project` and records nothing, because no project logbook or consent setting applies there. `discern_docs` is the exception: it answers from the bundled manual instead, and still records nothing.
+An MCP call whose explicit `path` is outside every discern project returns `no_project` and records nothing, because no project logbook or consent setting applies there. `discern_docs` is the exception: it answers from discern's own bundled documentation instead, and still records nothing.
 
 - **Read active history:** `discern patterns` reports findings. For raw JSON lines, find the common Git directory with `git rev-parse --path-format=absolute --git-common-dir`, and read the month files in its `discern/logbook/` directory. In the main checkout that's usually `.git/discern/logbook/`; a linked worktree's `.git` is a file that points elsewhere.
 - **List and read sealed history:** run `discern patterns archives`, then `discern patterns --logbook-file <filename>`. Add `--stats`, `--all`, or `--json` as needed.
