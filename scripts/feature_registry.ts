@@ -703,7 +703,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "standards-pin",
         title: "Capturing a gain",
         what:
-          "`discern standards --pin` tightens each improved limit and commits the change on its own; that commit then needs its own `discern done`. It reuses available values from the same clean commit and runs missing selected measurements. Named measurement narrows after Gate Proof validates the complete tree.",
+          "`discern standards --pin` tightens each improved limit and commits the change on its own. It reuses available values from the same clean commit and runs missing selected measurements. Named measurement narrows after Gate Proof validates the complete tree.",
         why:
           "Tightening is mechanical and provable; a hand-edit can't tell a real gain from a quiet loosening.",
         plain: {
