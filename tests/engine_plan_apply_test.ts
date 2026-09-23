@@ -214,7 +214,7 @@ Deno.test("standards --json serializes the held/failed results", async () => {
 
 // ── worktree setup ─────────────────────────────────────────────────────────────
 
-Deno.test("worktree setup begin --dry-run shows the setup plan; --json reports the steps", async () => {
+Deno.test("worktree setup --dry-run shows the setup plan; --json reports the steps", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "setup");
 
