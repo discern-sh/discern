@@ -33,6 +33,11 @@ Deno.test("a standalone CI report uses the pre-push policy even when current mai
     ]);
     assertEquals(strict.code, 1, strict.output);
     assert(strict.output.includes("invalid_arguments"), strict.output);
+    // The CLI and MCP paths share one refusal naming the live comparison.
+    assert(
+      strict.output.includes("checks against the trunk's current tip"),
+      strict.output,
+    );
     const report = await runAgent(root, [
       "done",
       "--ci",

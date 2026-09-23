@@ -1805,6 +1805,28 @@ export interface FinishResultOptions {
   validationCaptureOptions?: ValidationCaptureOptions;
 }
 
+/** One refusal for `--policy-base` outside a standalone CI report, shared by
+ * the CLI and MCP paths so their wording can't diverge. */
+function explicitPolicyBaseRefusal(opts: {
+  readonly policyBase?: string | undefined;
+  readonly ci?: boolean | undefined;
+  readonly standalone?: boolean | undefined;
+}): DiscernResult<GateData> | undefined {
+  if (
+    opts.policyBase === undefined ||
+    (opts.ci === true && opts.standalone === true)
+  ) {
+    return undefined;
+  }
+  return {
+    ok: false,
+    verb: "done",
+    error: "invalid_arguments",
+    message:
+      "An explicit policy base is available only for standalone CI reports; strict completion always checks against the trunk's current tip.",
+  };
+}
+
 /**
  * Compute the `done` {@link DiscernResult} without exiting. Machine callers choose
  * `quiet`, keeping protocol stdout uncontaminated. Human composites choose `human`,
@@ -1837,16 +1859,8 @@ export async function finishResult(
   const treeRefusal = await completionTreeRefusal(root, opts.standalone);
   if (treeRefusal !== undefined) return treeRefusal;
   const mode = opts.ci === true ? "report" as const : "strict" as const;
-  if (opts.policyBase !== undefined && (!opts.ci || !opts.standalone)) {
-    const refusal: DiscernResult<GateData> = {
-      ok: false,
-      verb: "done",
-      error: "invalid_arguments",
-      message:
-        "An explicit policy base is available only for standalone CI reports; strict completion always checks against the trunk's current tip.",
-    };
-    return refusal;
-  }
+  const policyBaseRefusal = explicitPolicyBaseRefusal(opts);
+  if (policyBaseRefusal !== undefined) return policyBaseRefusal;
   if (
     mode === "report" &&
     ((opts.met?.length ?? 0) > 0 || opts.unmet !== undefined)
@@ -2008,16 +2022,10 @@ export async function runFinish(
     return 1;
   }
   const mode = opts.ci === true ? "report" as const : "strict" as const;
-  if (opts.policyBase !== undefined && (!opts.ci || !opts.standalone)) {
-    const refusal: DiscernResult<GateData> = {
-      ok: false,
-      verb: "done",
-      error: "invalid_arguments",
-      message:
-        "An explicit policy base is available only for standalone CI reports; strict completion always uses its recorded queue predecessor.",
-    };
-    observeResult(refusal);
-    emitResult(refusal);
+  const policyBaseRefusal = explicitPolicyBaseRefusal(opts);
+  if (policyBaseRefusal !== undefined) {
+    observeResult(policyBaseRefusal);
+    emitResult(policyBaseRefusal);
     return 1;
   }
   if (opts.dryRun ?? false) {
