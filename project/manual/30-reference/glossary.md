@@ -65,7 +65,7 @@ Jump to: [A](#accept) · [C](#checkpoint) · [D](#declaration) · [E](#effort) �
 
 ### Advisory
 
-Advice from discern about where to look, which never blocks your work. [Coupling](../10-guides/improve-the-practice.md), [patterns](../20-understand/evidence-and-improvement.md), [impact](https://discern.sh/docs/reference/cli-reference#discern-impact), and [improvement](../10-guides/improve-the-practice.md) all give advice, and so do `advise` checkpoints. A finding can prompt your agent to investigate, and it never fails a [gate](#gate) check. In discern's results, advice arrives in `hints`. The separate `advisories` field lists problems a command worked around while still succeeding.
+Advice from discern about where to look, which never blocks your work. [Coupling](../10-guides/improve-the-practice.md#follow-the-finding-into-the-work), [patterns](../20-understand/evidence-and-improvement.md), [impact](https://discern.sh/docs/reference/cli-reference#discern-impact), and [improvement](../10-guides/improve-the-practice.md) all give advice, and so do `advise` checkpoints. A finding can prompt your agent to investigate, and it never fails a [gate](#gate) check. In discern's results, advice arrives in `hints`. The separate `advisories` field lists problems a command worked around while still succeeding.
 
 ### Agent file
 
@@ -77,7 +77,7 @@ A review question your project asks your agent whenever a certain kind of change
 
 ### Coupling
 
-Files that have often changed together in your project's Git history. If a change edits one file but not its usual partner, discern names the partner. Your agent then checks whether the partner needs a change too. discern does this after a passing `discern prepare` or `discern done`, unless you set `[coupling].report_in_gate = false`. `discern coupling` runs the same check on demand, and given a file name, it lists that file's usual partners. The finding is [advisory](#advisory) and never blocks, so your agent decides whether it matters. See [coupling](../10-guides/improve-the-practice.md).
+Files that have often changed together in your project's Git history. If a change edits one file but not its usual partner, discern names the partner. Your agent then checks whether the partner needs a change too. discern does this after a passing `discern prepare` or `discern done`, unless you set `[coupling].report_in_gate = false`. `discern coupling` runs the same check on demand, and given a file name, it lists that file's usual partners. The finding is [advisory](#advisory) and never blocks, so your agent decides whether it matters. See [coupling](../10-guides/improve-the-practice.md#follow-the-finding-into-the-work).
 
 ### Declaration
 
@@ -269,4 +269,4 @@ A separate copy of your project, on its own branch, where one task's work happen
 
 ### Worktree resource
 
-Something one worktree needs of its own, such as a test database, an emulator, or a container. You declare each one under `[worktree.resources.<name>]`, with `create` and `destroy` commands and an optional `ensure` command. discern runs `create` when it first sets up a worktree, and `ensure` on later setups instead of creating the resource again. It runs `destroy` when the worktree goes away, such as after landing. If a worktree leaves a resource behind, `discern worktree prune` removes it, but only when discern can prove no live worktree owns it. See [worktree resources](../10-guides/coordinate-parallel-tasks.md).
+Something one worktree needs of its own, such as a test database, an emulator, or a container. You declare each one under `[worktree.resources.<name>]`, with `create` and `destroy` commands and an optional `ensure` command. discern runs `create` when it first sets up a worktree, and `ensure` on later setups instead of creating the resource again. It runs `destroy` when the worktree goes away, such as after landing. If a worktree leaves a resource behind, `discern worktree prune` removes it, but only when discern can prove no live worktree owns it. See [worktree resources](../10-guides/coordinate-parallel-tasks.md#keep-running-apps-apart-too).

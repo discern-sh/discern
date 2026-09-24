@@ -38,7 +38,8 @@ export const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
   "20-quality-gate/proof-notes.md": "reference-proof-and-checkpoint-formats",
   "20-quality-gate/checkpoints.md": "explanation-checkpoints",
   "20-quality-gate/standards.md": "explanation-standards",
-  "20-quality-gate/coupling.md": "guide-improve-the-practice",
+  "20-quality-gate/coupling.md":
+    "guide-improve-the-practice#follow-the-finding-into-the-work",
   "20-quality-gate/patterns.md": "explanation-evidence-and-improvement",
   "20-quality-gate/improvement.md": "guide-improve-the-practice",
   "20-quality-gate/tidy.md": "guide-maintain-or-remove-discern",
@@ -46,7 +47,8 @@ export const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
   "30-worktrees/landing-authority.md": "explanation-proof",
   "30-worktrees/the-desk.md": "guide-coordinate-parallel-tasks",
   "30-worktrees/desk-tips.md": "guide-coordinate-parallel-tasks",
-  "30-worktrees/the-resources.md": "guide-coordinate-parallel-tasks",
+  "30-worktrees/the-resources.md":
+    "guide-coordinate-parallel-tasks#keep-running-apps-apart-too",
   "40-agent-instructions/README.md": "guide-write-project-instructions",
   "45-skills/README.md": "guide-create-and-manage-skills",
   "70-reference/artifact-ownership.md": "reference-files-and-ownership",
