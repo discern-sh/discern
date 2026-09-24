@@ -1,6 +1,6 @@
 {
   "name": "discern",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "exports": "./src/main.ts",
   "license": "FSL-1.1-ALv2",
   "minimumDependencyAge": {
