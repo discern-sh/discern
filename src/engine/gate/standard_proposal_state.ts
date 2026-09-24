@@ -7,10 +7,8 @@ import { z } from "@zod/zod";
 import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import type { Diagnostic } from "../../shared/result.ts";
-import {
-  type StandardLimitProposalData,
-  StandardLimitProposalSchema,
-} from "../../shared/result_schemas.ts";
+import type { StandardLimitProposalData } from "../../shared/result_schemas.ts";
+import { StandardLimitProposalSchema } from "../../shared/landing_decision_schemas.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { pathMatchesPattern } from "../scopes/glob.ts";
 import { repoPathPrefix } from "../scopes/scopes.ts";

@@ -3,7 +3,7 @@ import { z } from "@zod/zod";
 import {
   AuthorizedVarianceSchema,
   StandardLimitProposalSchema,
-} from "../../shared/result_schemas.ts";
+} from "../../shared/landing_decision_schemas.ts";
 import { DigestSchema, NameSchema } from "./identity.ts";
 
 export { ExceptionClaimSchema } from "./exception_claim.ts";

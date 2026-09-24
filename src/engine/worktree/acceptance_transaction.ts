@@ -16,11 +16,11 @@ import {
   LANDING_CONSENT_SOURCES,
   type LandingConsent,
 } from "../../shared/consent.ts";
-import {
-  type AuthorizedVarianceData,
-  type StandardLimitProposalData,
-  StandardLimitProposalSchema,
+import type {
+  AuthorizedVarianceData,
+  StandardLimitProposalData,
 } from "../../shared/result_schemas.ts";
+import { StandardLimitProposalSchema } from "../../shared/landing_decision_schemas.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { runGit } from "../../shared/subprocess.ts";

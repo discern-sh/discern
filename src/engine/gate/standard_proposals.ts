@@ -26,11 +26,11 @@ import type {
   StepResult,
 } from "../../shared/result.ts";
 import { previewResult, verbatimStepLabel } from "../../shared/result.ts";
-import {
-  type StandardLimitProposalData,
-  StandardLimitProposalSchema,
-  type StandardsData,
+import type {
+  StandardLimitProposalData,
+  StandardsData,
 } from "../../shared/result_schemas.ts";
+import { StandardLimitProposalSchema } from "../../shared/landing_decision_schemas.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { decodeJson } from "../../shared/runtime_decode.ts";
 import { runGit } from "../../shared/subprocess.ts";

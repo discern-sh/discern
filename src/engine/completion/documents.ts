@@ -1,9 +1,7 @@
 /** Data contracts for the documents a run retains beside its records. */
 import { z } from "@zod/zod";
-import {
-  ProofCheckpointsSchema,
-  StandardLimitProposalSchema,
-} from "../../shared/result_schemas.ts";
+import { ProofCheckpointsSchema } from "../../shared/result_schemas.ts";
+import { StandardLimitProposalSchema } from "../../shared/landing_decision_schemas.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import { CompletionProofPointerSchema } from "../../shared/completion_proof.ts";
 import { ObjectIdSchema, RecordIdSchema } from "./identity.ts";
