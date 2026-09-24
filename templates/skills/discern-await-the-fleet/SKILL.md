@@ -62,7 +62,7 @@ Relay the observed state without asking the user to reconstruct the watch:
 - **Your own branch.** Run your gate or do the work; awaiting yourself never returns.
 - **A sub-agent or background task inside your own session.** Your own session already tracks those; `discern_await` watches other worktrees and the trunk.
 - **Something only the user can supply.** A review, a decision, a credential — report what you need and stop; don't hold a call against a human.
-- **A validation slot or a place in the landing queue.** `discern_done` and `discern_accept` explain their own waits, naming the setting that binds; `discern_await` watches outcomes (green, landed, trunk moved), never capacity.
+- **A validation slot or a place in the landing queue.** `discern_done` explains a wait for a validation slot and names the setting that binds it; `discern_accept` explains a wait for its landing turn. `discern_await` watches outcomes (green, landed, trunk moved), never capacity.
 - **A watch made unnecessary mid-wait** — the plan changed, the dependency got cut. Say so and move on; that is a valid end to the watch.
 
 ---
