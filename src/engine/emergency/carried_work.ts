@@ -1,6 +1,7 @@
 /** What an emergency lands beyond actual trunk, and whose recorded work is among it. */
 import { INTEGRATION_BRANCH_NAMESPACE } from "../../shared/git_conventions.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
+import { plural } from "../../shared/result_markdown_values.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import type {
   ParkedTaskMetadata,
@@ -66,6 +67,27 @@ export async function landedCommits(
     commits.push({ commit, subject });
   }
   return commits;
+}
+
+/** One review line per listed commit, then how to list the rest of `total`. */
+export function landedCommitLines(
+  commits: readonly LandedCommit[],
+  total: number,
+  range: { readonly predecessor: string; readonly head: string },
+): string {
+  const lines = commits.map(({ commit, subject }) =>
+    `${markdownCodeSpan(short(commit))} ${subject}`
+  );
+  if (total > commits.length) {
+    lines.push(
+      `and ${plural(total - commits.length, "more commit")}. ${
+        markdownCodeSpan(
+          `git log --oneline ${short(range.predecessor)}..${short(range.head)}`,
+        )
+      } lists all ${total}.`,
+    );
+  }
+  return lines.join("\n");
 }
 
 /**

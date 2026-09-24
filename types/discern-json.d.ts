@@ -6388,6 +6388,11 @@ export type DiscernAcceptResult = DiscernResultState & {
         state: "failed" | "unrun" | "stale";
         evidence_id: string | null;
       }>;
+      commits?: Array<{
+        commit: string;
+        subject: string;
+      }>;
+      commits_total?: number;
       confirmation?: string;
       preparation?: string;
       expires_at?: number;

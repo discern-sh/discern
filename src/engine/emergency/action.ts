@@ -1,6 +1,7 @@
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import { candidateAuthor } from "../completion/candidate.ts";
-import { displayBranch } from "../../shared/result_markdown_values.ts";
+import { displayBranch, plural } from "../../shared/result_markdown_values.ts";
+import { landedCommitLines } from "./carried_work.ts";
 import { emergencyOptionError } from "./arguments.ts";
 import { prepareEmergency } from "./prepare.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
@@ -190,6 +191,8 @@ async function prepareAndIntegrate(
       candidate: plan.candidate,
       reason: plan.reason,
       exceptions: plan.exceptions,
+      commits: [...plan.commits],
+      commits_total: plan.commits_total,
       confirmation,
       expires_at: expires,
       outcome: "preview",
@@ -208,11 +211,13 @@ async function prepareAndIntegrate(
       data: preview,
       message: `Emergency plan for ${
         markdownCodeSpan(displayBranch(candidateAuthor(plan.candidate).branch))
-      }: land its repair on ${plan.trunk} now, skipping ${
-        plan.exceptions.length === 1
-          ? "1 check"
-          : `${plan.exceptions.length} checks`
+      }: land ${
+        plural(plan.commits_total, "commit")
+      } on ${plan.trunk} now, skipping ${
+        plural(plan.exceptions.length, "check")
       }. Reason: ${plan.reason}\n\n${
+        landedCommitLines(plan.commits, plan.commits_total, plan.candidate)
+      }\n\n${
         plan.exceptions.map((entry) =>
           `${entry.state}: ${entry.requirement.kind} ${entry.requirement.id}`
         ).join("\n")

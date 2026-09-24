@@ -32,7 +32,10 @@ import {
 import type { CompletionRecord } from "../src/engine/completion/records.ts";
 import type { ExceptionRecord } from "../src/engine/completion/exception.ts";
 import { emergencyId } from "../src/engine/emergency/plan.ts";
-import { carriedEfforts } from "../src/engine/emergency/carried_work.ts";
+import {
+  carriedEfforts,
+  landedCommitLines,
+} from "../src/engine/emergency/carried_work.ts";
 import { writeParkedTaskMetadata } from "../src/engine/worktree/parked_task_metadata.ts";
 import { writeStoredTaskMetadata } from "../src/engine/worktree/task_metadata.ts";
 import {
@@ -138,6 +141,19 @@ Deno.test("emergency serves an exact confirmation, excludes recorded grants, and
     assertEquals(previewEmergency.outcome, "preview");
     assert(previewEmergency.confirmation !== undefined, preview.output);
     assert((previewEmergency.exceptions?.length ?? 0) > 0, preview.output);
+    // The owner sees every commit that would land beyond actual trunk.
+    assertEquals(previewEmergency.commits, [
+      { commit: repairHead, subject: "fix: emergency repair" },
+    ]);
+    assertEquals(previewEmergency.commits_total, 1);
+    assertStringIncludes(
+      previewEnvelope.message ?? "",
+      `: land 1 commit on main now, skipping `,
+    );
+    assertStringIncludes(
+      previewEnvelope.message ?? "",
+      `\n\n\`${repairHead.slice(0, 12)}\` fix: emergency repair\n\n`,
+    );
     assertStringIncludes(previewEnvelope.message ?? "", BOUNDARY);
     assertStringIncludes(
       previewEnvelope.message ?? "",
@@ -318,6 +334,22 @@ Deno.test("emergency refuses a changed subject and a replayed confirmation witho
     );
     assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
   });
+});
+
+Deno.test("the emergency review lists each landed commit it holds and how to list the rest", () => {
+  const commits = ["0", "1"].map((digit) => ({
+    commit: digit.repeat(40),
+    subject: `change ${digit}`,
+  }));
+  const range = { predecessor: "a".repeat(40), head: "b".repeat(40) };
+  assertEquals(
+    landedCommitLines(commits, 2, range),
+    "`000000000000` change 0\n`111111111111` change 1",
+  );
+  assertEquals(
+    landedCommitLines(commits, 5, range),
+    "`000000000000` change 0\n`111111111111` change 1\nand 3 more commits. `git log --oneline aaaaaaaaaaaa..bbbbbbbbbbbb` lists all 5.",
+  );
 });
 
 /** Commit one new file in a checkout and return the resulting head. */

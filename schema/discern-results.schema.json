@@ -26365,6 +26365,27 @@
                         ]
                       }
                     },
+                    "commits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "commit": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "commit",
+                          "subject"
+                        ]
+                      }
+                    },
+                    "commits_total": {
+                      "type": "number"
+                    },
                     "confirmation": {
                       "type": "string"
                     },

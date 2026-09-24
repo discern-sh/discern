@@ -36,7 +36,7 @@ Tell your agent:
 
 > Land the outage fix now as an emergency. Show me which checks it would skip and why, and wait for my approval before doing anything.
 
-The agent runs `discern accept emergency` with a reason. This first call changes nothing. It shows the fix, the `main` commit it would land on, your reason, and every check that failed, didn't run, or has results too old to count. If `main` has moved on, the agent updates the fix first and asks for a new plan.
+The agent runs `discern accept emergency` with a reason. This first call changes nothing. It shows the fix, each commit it would add to `main`, the `main` commit it would land on, your reason, and every check that failed, didn't run, or has results too old to count. If `main` has moved on, the agent updates the fix first and asks for a new plan.
 
 Your project may have **checkpoints**, review questions for certain kinds of change. If one applies to the fix, the agent answers it first, in a separate preparation step. An unanswered or unmet question still blocks the emergency route. Urgency doesn't remove a judgment your project asked for.
 

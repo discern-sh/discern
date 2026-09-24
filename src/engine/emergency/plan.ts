@@ -35,10 +35,13 @@ import { type EmergencyExceptions, emergencyExceptions } from "./evidence.ts";
 import {
   carriedEfforts,
   carriedEffortsRefusal,
+  type LandedCommit,
   landedCommits,
 } from "./carried_work.ts";
 
 export const EMERGENCY_CONFIRMATION_MS = 15 * 60_000;
+/** How many of the landed commits the owner review lists. */
+export const EMERGENCY_COMMIT_CAP = 10;
 export interface EmergencyPlan {
   /** The main checkout the repair lands in. */
   readonly root: string;
@@ -50,6 +53,12 @@ export interface EmergencyPlan {
   readonly candidate: Candidate;
   readonly reason: string;
   readonly exceptions: EmergencyExceptions;
+  /** The newest commits the repair lands beyond actual trunk, at most
+   * {@link EMERGENCY_COMMIT_CAP}; the candidate's predecessor and head bind
+   * them all. */
+  readonly commits: readonly LandedCommit[];
+  /** How many commits the repair lands beyond actual trunk. */
+  readonly commits_total: number;
   readonly review?: CompletionArtifact;
 }
 
@@ -256,6 +265,8 @@ export async function observeEmergencySubject(
     candidate,
     reason: reason.trim(),
     exceptions,
+    commits: landed.slice(0, EMERGENCY_COMMIT_CAP),
+    commits_total: landed.length,
   };
 }
 

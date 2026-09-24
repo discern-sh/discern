@@ -20,6 +20,11 @@ export const EmergencyDataSchema = z.strictObject({
   candidate: CandidateSchema.optional(),
   reason: z.string().optional(),
   exceptions: ExceptionClaimSchema.shape.exceptions.optional(),
+  /** The newest commits the repair lands beyond actual trunk, each with its
+   * subject; `commits_total` counts them all. */
+  commits: z.array(z.strictObject({ commit: z.string(), subject: z.string() }))
+    .optional(),
+  commits_total: z.number().optional(),
   confirmation: z.string().optional(),
   preparation: z.string().optional(),
   expires_at: z.number().optional(),

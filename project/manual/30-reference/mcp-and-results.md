@@ -169,7 +169,7 @@ If checkpoint questions block an emergency plan, your agent first calls `discern
 - `dry_run: true` previews preparation without running triggers or recording answers.
 - Preparation can't be combined with confirmation, or with transition recovery.
 
-For the emergency itself, your agent calls `discern_accept` with `action: "emergency"` and a `reason`. You review the displayed trunk, the repair revision, the reason, and the checks that failed, never ran, or have out-of-date evidence. Then your agent supplies `confirmed` and the plan's `approval_token`. The token expires after 15 minutes, and a changed plan needs fresh approval. discern builds the repair on the actual trunk, and composes no other queued work into it. Checkpoint judgments and protected policy still come first.
+For the emergency itself, your agent calls `discern_accept` with `action: "emergency"` and a `reason`. You review the displayed trunk, the repair revision, each commit it lands, the reason, and the checks that failed, never ran, or have out-of-date evidence. Then your agent supplies `confirmed` and the plan's `approval_token`. The token expires after 15 minutes, and a changed plan needs fresh approval. discern builds the repair on the actual trunk, and composes no other queued work into it. Checkpoint judgments and protected policy still come first.
 
 The exception has its own record type, and can't serve as passing Proof. This action doesn't push, deploy, or change external branch protections. `recover` resumes an interrupted emergency by its landing id.
 
