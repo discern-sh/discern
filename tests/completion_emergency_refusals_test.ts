@@ -6,7 +6,10 @@
  */
 
 import { join } from "@std/path";
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
+import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import {
   addWorktree,
   git,
@@ -32,6 +35,14 @@ const CONFIG_CHECK = [
   'lint = "sh check.sh"',
   "",
 ].join("\n");
+
+/** The refusal for a repair whose `hotspots` ceiling rose above the trunk's. */
+const LOOSENED_HOTSPOTS =
+  "The repair changes protected policy or standard limits without valid approval: `hotspots`. Emergency integration cannot weaken ordinary policy, and a recorded limit proposal does not apply to it. Resolve those changes before preparing its plan.";
+
+/** The refusal for an owner decision the emergency exchange cannot carry. */
+const ORDINARY_DECISIONS_ONLY =
+  "Emergency confirmation cannot approve a checkpoint variance or a standard limit proposal.";
 
 /** Run `accept emergency` and return the refusal message. */
 async function refusal(cwd: string, ...args: string[]): Promise<string> {
@@ -164,7 +175,116 @@ Deno.test("a repair that weakens a protected standard limit cannot use the emerg
     await git(wt, "commit", "-q", "-m", "loosen the limit", "--no-gpg-sign");
     assertStringIncludes(
       await refusal(wt, "--reason", "Restore service"),
-      "The repair changes protected policy or standard limits without valid approval. Emergency integration cannot weaken ordinary policy; resolve those changes before preparing its plan.",
+      LOOSENED_HOTSPOTS,
     );
+  });
+});
+
+Deno.test("a recorded limit proposal does not open the emergency route to a loosened standard", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        CONFIG_CHECK,
+        "[standards.hotspots]",
+        'direction = "down"',
+        "limit = 5",
+        'run = "echo DISCERN_METRIC hotspots 7"',
+        'inputs = ["hotfix.txt"]',
+        "",
+      ].join("\n"),
+    );
+    await writeExecutable(
+      join(dir, "check.sh"),
+      ["#!/usr/bin/env sh", "test ! -e taboo.txt", ""].join("\n"),
+    );
+    await gitInit(dir);
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
+    const wt = await addWorktree(dir, "propose");
+    await Deno.writeTextFile(join(wt, "hotfix.txt"), "restore service\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "fix: repair", "--no-gpg-sign");
+    // The agent records a proposal that raises the ceiling to the measured 7;
+    // only the owner's approval in ordinary acceptance could land it.
+    const proposed = await runAgent(wt, [
+      "standards",
+      "propose",
+      "hotspots",
+      "--reason",
+      "The repair adds hotspots the outage fix needs.",
+      "--json",
+    ]);
+    assertEquals(proposed.code, 0, proposed.output);
+    assertStringIncludes(
+      await Deno.readTextFile(join(wt, "discern.toml")),
+      "limit = 7",
+    );
+    assertStringIncludes(
+      await refusal(wt, "--reason", "Restore service"),
+      LOOSENED_HOTSPOTS,
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+    assertEquals(
+      (await observeCompletionRecords(dir, SYSTEM_CLOCK, ["exception"]))
+        .records,
+      [],
+    );
+  });
+});
+
+/** The owner decisions only ordinary acceptance can make, as each surface
+ * spells them. */
+const ORDINARY_DECISIONS = [
+  {
+    cli: ["--variance", "release-notes"],
+    mcp: { variance: ["release-notes"] },
+  },
+  {
+    cli: ["--approve-standard", "limit-approval-token"],
+    mcp: { approve_standard: ["limit-approval-token"] },
+  },
+] as const;
+
+Deno.test("emergency confirmation refuses a checkpoint variance and a standard approval on every surface", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, CONFIG_CHECK);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "repair");
+    const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
+    assert(tool !== undefined);
+    for (const decision of ORDINARY_DECISIONS) {
+      const cli = await runAgent(wt, [
+        "accept",
+        "emergency",
+        "--reason",
+        "Restore service",
+        ...decision.cli,
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(cli.code, 1, cli.output);
+      const envelope = decodeCliResult(cli.stdout, "accept");
+      assertEquals(envelope.error, "invalid_arguments", cli.output);
+      assertStringIncludes(envelope.message ?? "", ORDINARY_DECISIONS_ONLY);
+      const mcp = await runTool(
+        tool,
+        new WorkingRoot(wt),
+        {
+          action: "emergency",
+          reason: "Restore service",
+          confirmed: true,
+          ...decision.mcp,
+        },
+        undefined,
+        () => Promise.resolve(undefined),
+      );
+      assertEquals(mcp.structuredContent?.error, "invalid_arguments");
+      assertStringIncludes(
+        String(mcp.structuredContent?.message),
+        ORDINARY_DECISIONS_ONLY,
+      );
+    }
   });
 });

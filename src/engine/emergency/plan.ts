@@ -9,7 +9,7 @@ import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { pinValidatedTree } from "../gate/proof.ts";
 import { verifyTrunkLimits } from "../gate/standard_limits.ts";
-import { inspectActiveStandardLimitProposals } from "../gate/standard_proposal_state.ts";
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import { loadIdentitySettings, resolveIdentity } from "../worktree/identity.ts";
 import {
   inLinkedWorktree,
@@ -227,23 +227,22 @@ export async function observeEmergencySubject(
       observation,
     });
   // Emergency integration cannot weaken ordinary policy: the repair's config
-  // must hold every standard limit the trunk protects.
-  const standards = [...settled.standards];
-  const proposals = await inspectActiveStandardLimitProposals(
-    ctx.cwd,
-    trunk,
-    standards,
-  );
+  // must hold every standard limit the trunk protects. A recorded limit
+  // proposal waits for the owner's approval in ordinary acceptance, so none
+  // applies here.
   const limits = await verifyTrunkLimits(
     ctx.cwd,
     trunk,
-    standards,
-    proposals.active,
+    [...settled.standards],
+    new Map(),
     settled.config,
   );
   if (limits.blocking) {
+    const named = [...limits.blockedStandards].sort().map(markdownCodeSpan);
     throw new Error(
-      "The repair changes protected policy or standard limits without valid approval. Emergency integration cannot weaken ordinary policy; resolve those changes before preparing its plan.",
+      `The repair changes protected policy or standard limits without valid approval${
+        named.length === 0 ? "" : `: ${named.join(", ")}`
+      }. Emergency integration cannot weaken ordinary policy, and a recorded limit proposal does not apply to it. Resolve those changes before preparing its plan.`,
     );
   }
   const exceptions = await emergencyExceptions(

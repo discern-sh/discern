@@ -16,22 +16,31 @@ type EmergencyArguments =
   }
   | { readonly kind: "refusal"; readonly result: DiscernResult<AcceptData> };
 
+/** Owner decisions only ordinary acceptance can take. */
+type OrdinaryDecisionFields = {
+  readonly [K in "variance" | "approveStandard"]?:
+    | readonly string[]
+    | undefined;
+};
+
 /** Require the explicit action before interpreting emergency fields; ordinary consent stays separate. */
 export function emergencyArguments(
   action: string | undefined,
-  fields: {
-    readonly [
-      K in
-        | "reason"
-        | "approvalToken"
-        | "recover"
-        | "confirmed"
-        | "dryRun"
-        | "prepare"
-        | "preparationReceipt"
-        | "met"
-    ]?: EmergencyOptions[K] | undefined;
-  },
+  fields:
+    & {
+      readonly [
+        K in
+          | "reason"
+          | "approvalToken"
+          | "recover"
+          | "confirmed"
+          | "dryRun"
+          | "prepare"
+          | "preparationReceipt"
+          | "met"
+      ]?: EmergencyOptions[K] | undefined;
+    }
+    & OrdinaryDecisionFields,
 ): EmergencyArguments {
   let message: string | undefined;
   if (
@@ -54,6 +63,13 @@ export function emergencyArguments(
   }
   if (action === EMERGENCY_ACCEPT_ACTION) {
     message ??= emergencyOptionError(fields);
+    if (
+      (fields.variance?.length ?? 0) > 0 ||
+      (fields.approveStandard?.length ?? 0) > 0
+    ) {
+      message ??=
+        "Emergency confirmation cannot approve a checkpoint variance or a standard limit proposal. Remove --variance and --approve-standard (MCP: variance and approve_standard), then request the emergency plan again. Only ordinary acceptance decides them.";
+    }
   }
   if (message !== undefined) {
     return {

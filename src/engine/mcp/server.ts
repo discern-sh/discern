@@ -1227,6 +1227,7 @@ export const TOOLS: McpTool[] = orderTools([
         ...args,
         preparationReceipt: args.preparation_receipt,
         approvalToken: args.approval_token,
+        approveStandard: args.approve_standard,
         dryRun: args.dry_run === true,
       });
       if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
