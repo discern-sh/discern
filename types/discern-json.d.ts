@@ -5555,6 +5555,10 @@ export type DiscernStatusResult = DiscernResultState & {
       resources: {
         [key: string]: string;
       };
+      read_failure?: {
+        file?: string;
+        reason: string;
+      };
     } | null;
     git: {
       branch: string;
@@ -5766,6 +5770,10 @@ export type DiscernStatusResult = DiscernResultState & {
       git_unavailable?: boolean;
       git_failure?: {
         command: string;
+        reason: string;
+      };
+      read_failure?: {
+        file?: string;
         reason: string;
       };
       id?: string;

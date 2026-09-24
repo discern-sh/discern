@@ -22527,6 +22527,20 @@
                           "additionalProperties": {
                             "type": "string"
                           }
+                        },
+                        "read_failure": {
+                          "type": "object",
+                          "properties": {
+                            "file": {
+                              "type": "string"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "reason"
+                          ]
                         }
                       },
                       "required": [
@@ -23505,6 +23519,20 @@
                         },
                         "required": [
                           "command",
+                          "reason"
+                        ]
+                      },
+                      "read_failure": {
+                        "type": "object",
+                        "properties": {
+                          "file": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
                           "reason"
                         ]
                       },
