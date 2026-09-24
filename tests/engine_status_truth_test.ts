@@ -233,6 +233,63 @@ Deno.test("a failed worktree status read stays unreadable through status and the
   });
 });
 
+Deno.test("one checkout that refuses its reads stays one unreadable row", async (t) => {
+  if (Deno.build.os === "windows") {
+    await t.step({
+      name: "mode 0o000 cannot refuse a read on Windows",
+      ignore: true,
+      fn: () => {},
+    });
+    return;
+  }
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const sealed = await addWorktree(dir, "sealed-checkout");
+    await addWorktree(dir, "open-checkout");
+    await Deno.chmod(sealed, 0o000);
+    try {
+      let refusal: unknown;
+      try {
+        await Deno.stat(join(sealed, "discern.toml"));
+      } catch (error) {
+        refusal = error;
+      }
+      if (refusal === undefined) {
+        await t.step({
+          name:
+            "the current user traverses mode-0o000 directories, so the refusal cannot be simulated",
+          ignore: true,
+          fn: () => {},
+        });
+        return;
+      }
+
+      // The sealed row degrades to the facts the fleet listing observed plus
+      // the failure; the sibling's survey completes untouched.
+      const result = await statusJson(dir);
+      const row = result.data.fleet?.find((e) =>
+        e.path.endsWith("sealed-checkout")
+      );
+      assert(row !== undefined, JSON.stringify(result.data.fleet));
+      assert(row.read_failure !== undefined, JSON.stringify(row));
+      assertEquals(row.git_unavailable, true, JSON.stringify(row));
+      const open = result.data.fleet?.find((e) =>
+        e.path.endsWith("open-checkout")
+      );
+      assert(open !== undefined, JSON.stringify(result.data.fleet));
+      assertEquals(open.read_failure, undefined);
+      assertEquals(open.id, "open-checkout");
+      assertHasHint(result, HINTS["status-fleet-member-unreadable"], {
+        total: 1,
+        names: ["sealed-checkout"],
+      });
+    } finally {
+      await Deno.chmod(sealed, 0o755);
+    }
+  });
+});
+
 Deno.test("configured worktrees without a ready marker expose safe and manual setup recovery", async () => {
   const cases = [{
     name: "idempotent",

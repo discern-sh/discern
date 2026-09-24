@@ -178,7 +178,7 @@ Dirty, behind, and missing-Proof states are observations, so status can still re
 
 Each sampled fleet row carries the recovery facts available for it: Git registration, branch reachability, whether the folder exists, cleanliness, divergence, the setup-ready marker, the journal, and the repair classification. A failed Git read keeps the command and its diagnostic. A fact discern couldn't read stays absent, or is marked unavailable.
 
-`read_failure` marks a checkout whose env file discern can't read, and makes that checkout unreadable. `file` names the env file, and `reason` says why. The row still shows its derived id and port, and leaves out `resources`. The current checkout's `worktree` block carries the same field, with empty `resources`.
+`read_failure` gives the reason for any other read that failed in a checkout, and marks that checkout unreadable. When an env file caused it, `file` names the file, and that row still shows its derived id and port but leaves out `resources`. The current checkout's `worktree` block carries the same field, with empty `resources`. One checkout's failed read never stops the rest of the fleet.
 
 A readable row also carries its activity, one `gate_proof`, and its `landing_authority`.
 

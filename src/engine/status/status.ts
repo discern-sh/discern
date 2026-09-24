@@ -513,7 +513,14 @@ export async function statusResult(
     fleet = await observeFleet(
       fleetRows,
       async (row) => {
-        const entry = await fleetEntryFor(row, here, cfg, settings);
+        // One checkout's failed read degrades its own row; the survey of every
+        // other checkout still completes.
+        let entry: StatusFleetEntry;
+        try {
+          entry = await fleetEntryFor(row, here, cfg, settings);
+        } catch (error) {
+          entry = await unreadableFleetEntry(row, here, error);
+        }
         return applyLogbookActivity(
           entry,
           logbookActivity?.byBranch.get(row.branch),
@@ -788,16 +795,14 @@ function recordedResources(
   return out;
 }
 
-/** Augment a cheap fleet row with its identity and independent recovery facts.
- * Missing config marks the pre-configuration crash class as broken. A present
- * config still needs positive setup-ready evidence before ordinary actions are
- * available. */
-async function fleetEntryFor(
+/** The facts the fleet listing already observed for one registered checkout:
+ * its registration, branch, and Git state. Pure, so a row whose remaining
+ * reads fail still reports them. */
+function registeredFleetEntry(
   row: FleetWorktree,
   here: string,
-  cfg: DiscernConfig,
-  settings: IdentitySettings | undefined,
-): Promise<StatusFleetEntry> {
+  filesystem: NonNullable<StatusFleetEntry["filesystem"]>,
+): StatusFleetEntry {
   const entry: StatusFleetEntry = {
     path: row.path,
     is_main: row.isMain,
@@ -811,7 +816,7 @@ async function fleetEntryFor(
       prunable: row.prunable,
     },
     branch_reachable: row.branch !== "",
-    filesystem: await fleetFilesystem(row.path),
+    filesystem,
   };
   if (row.snapshot !== undefined) {
     entry.clean = row.snapshot.clean;
@@ -830,6 +835,39 @@ async function fleetEntryFor(
       entry.git_failure = row.gitFailure;
     }
   }
+  return entry;
+}
+
+/** A row whose remaining facts could not be read: the facts the fleet listing
+ * observed, plus the failure, with nothing inferred in place of the rest. */
+async function unreadableFleetEntry(
+  row: FleetWorktree,
+  here: string,
+  error: unknown,
+): Promise<StatusFleetEntry> {
+  return {
+    ...registeredFleetEntry(row, here, await fleetFilesystem(row.path)),
+    read_failure: {
+      reason: error instanceof Error ? error.message : String(error),
+    },
+  };
+}
+
+/** Augment a cheap fleet row with its identity and independent recovery facts.
+ * Missing config marks the pre-configuration crash class as broken. A present
+ * config still needs positive setup-ready evidence before ordinary actions are
+ * available. */
+async function fleetEntryFor(
+  row: FleetWorktree,
+  here: string,
+  cfg: DiscernConfig,
+  settings: IdentitySettings | undefined,
+): Promise<StatusFleetEntry> {
+  const entry = registeredFleetEntry(
+    row,
+    here,
+    await fleetFilesystem(row.path),
+  );
   const env = await readEnvFilesAt(row.path, cfg.worktree.env_files);
   if (env.state === "unreadable") {
     entry.read_failure = { file: env.file, reason: env.reason };

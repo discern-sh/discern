@@ -8,13 +8,15 @@ import {
   text,
 } from "./result_markdown_values.ts";
 
-/** One fact for a configured env file that status could not read. */
+/** One fact for a checkout-local read that status could not complete. */
 export function readFailureFact(value: unknown): string | undefined {
   const failure = object(value);
-  const file = text(failure?.file);
   const reason = text(failure?.reason);
-  if (file === undefined || reason === undefined) return undefined;
-  return `Env file ${code(file)} is unreadable: ${code(reason)}.`;
+  if (reason === undefined) return undefined;
+  const file = text(failure?.file);
+  return `${
+    file === undefined ? "Checkout files are" : `Env file ${code(file)} is`
+  } unreadable: ${code(reason)}.`;
 }
 
 /** One fleet row's Git state, divergence, Proof status, and any failed read

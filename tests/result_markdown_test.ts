@@ -1169,6 +1169,13 @@ Deno.test("status Markdown names each checkout-local read that failed", () => {
           ahead: 0,
           behind: 0,
           read_failure: envFailure,
+        }, {
+          path: "/workspace/project.worktrees/sealed-row",
+          is_main: false,
+          is_current: false,
+          branch: "agent/sealed-row",
+          git_unavailable: true,
+          read_failure: { reason: "Permission denied" },
         }],
       },
     },
@@ -1181,6 +1188,10 @@ Deno.test("status Markdown names each checkout-local read that failed", () => {
   assertStringIncludes(
     rendered,
     "`agent/env-row`: clean, 0 ahead, 0 behind, Proof `unknown`. Env file `.env.local` is unreadable: `Permission denied`.",
+  );
+  assertStringIncludes(
+    rendered,
+    "`agent/sealed-row`: Git state unavailable. Checkout files are unreadable: `Permission denied`.",
   );
 });
 

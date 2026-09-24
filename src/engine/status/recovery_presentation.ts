@@ -22,17 +22,17 @@ export function degradedFleetKind(
 }
 
 /** What an unreadable checkout could not read, most fundamental first: Git
- * state, then one configured env file. */
+ * state, then one configured env file, then the checkout's other files. */
 export type UnreadableSubject =
   | { readonly kind: "git" }
-  | { readonly kind: "env-file"; readonly file: string };
+  | { readonly kind: "env-file"; readonly file: string }
+  | { readonly kind: "checkout" };
 
 /** Name the unreadable part of a checkout the classifier marked unreadable. */
 export function unreadableSubject(entry: StatusFleetEntry): UnreadableSubject {
-  const failure = entry.read_failure;
-  return entry.git_unavailable === true || failure === undefined
-    ? { kind: "git" }
-    : { kind: "env-file", file: failure.file };
+  if (entry.git_unavailable === true) return { kind: "git" };
+  const file = entry.read_failure?.file;
+  return file === undefined ? { kind: "checkout" } : { kind: "env-file", file };
 }
 
 /** The fact that leads an unreadable checkout's guidance. */
@@ -43,6 +43,8 @@ function unreadableFact(entry: StatusFleetEntry): string {
       return "Git could not read this checkout.";
     case "env-file":
       return `discern could not read the env file \`${subject.file}\` in this checkout.`;
+    case "checkout":
+      return "discern could not read this checkout's files.";
   }
 }
 

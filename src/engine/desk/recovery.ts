@@ -58,6 +58,8 @@ export function finalChecksAvailability(
       return "Git state is unreadable. Repair Git before final checks.";
     case "env-file":
       return `The env file ${subject.file} is unreadable. Make it readable before final checks.`;
+    case "checkout":
+      return "The checkout's files are unreadable. Follow the task's recovery steps before final checks.";
   }
 }
 

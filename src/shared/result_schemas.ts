@@ -1762,8 +1762,8 @@ const statusIdentityShape = {
 /** A read of checkout-local state that discern could not complete. */
 const statusReadFailureSchema = z.strictObject({
   /** The configured `[worktree].env_files` entry that could not be read,
-   * relative to the checkout. */
-  file: z.string(),
+   * relative to the checkout. Absent when the failure is not one env file. */
+  file: z.string().optional(),
   reason: z.string(),
 });
 
@@ -1894,9 +1894,10 @@ const statusFleetEntrySchema = z.strictObject({
   git_unavailable: z.boolean().optional(),
   /** The command and diagnostic behind `git_unavailable`. */
   git_failure: statusFleetGitFailureSchema.optional(),
-  /** Present when a configured env file exists but cannot be read. Values it
-   * records are unknown: `id` and `port` carry derived values and `resources`
-   * is absent. */
+  /** Present when discern could not read part of this checkout's own state:
+   * a configured env file (`file`), or the row's remaining facts. Values an
+   * unreadable env file records are unknown: `id` and `port` carry derived
+   * values and `resources` is absent. */
   read_failure: statusReadFailureSchema.optional(),
   id: z.string().optional(),
   port: z.number().optional(),

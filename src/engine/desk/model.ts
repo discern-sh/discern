@@ -519,6 +519,7 @@ function collisionDetails(collisions: readonly DeskCollision[]): DeskDetail[] {
 const UNREADABLE_HEADLINES = {
   git: "Git state unreadable",
   "env-file": "Env file unreadable",
+  checkout: "Checkout files unreadable",
 } as const satisfies Record<UnreadableSubject["kind"], string>;
 
 /** Choose the short headline for the already-classified decision. */

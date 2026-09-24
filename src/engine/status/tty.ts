@@ -1196,7 +1196,7 @@ function unreadableCount(
 ): Array<{ label: TerminalLine; value: TerminalLine }> {
   return failure === undefined ? [] : [{
     label: terminalLine("Unreadable"),
-    value: terminalLine(failure.file),
+    value: terminalLine(failure.file ?? "checkout files"),
   }];
 }
 

@@ -931,6 +931,16 @@ Deno.test("each unreadable subject names what discern could not read", () => {
       failure: "denied",
       nextStep: "Make .env.local a readable file, then run discern status.",
     },
+    {
+      name: "the checkout's other files",
+      over: { read_failure: { reason: "denied" } },
+      headline: "Checkout files unreadable",
+      attention: "discern could not read this checkout's files.",
+      finalChecks:
+        "The checkout's files are unreadable. Follow the task's recovery steps before final checks.",
+      failure: "denied",
+      nextStep: "Run discern doctor.",
+    },
   ];
   for (const testCase of cases) {
     const row = presentFleetRow(entry(testCase.over), {
