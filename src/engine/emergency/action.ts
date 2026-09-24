@@ -24,6 +24,7 @@ import {
   WorktreeGitError,
 } from "../worktree/git.ts";
 import {
+  clearCompletedAcceptanceJournal,
   inspectInterruptedAcceptance,
   performAcceptanceTransition,
   recoverInterruptedAcceptance,
@@ -528,14 +529,33 @@ async function recoverEmergency(
       if (interrupted.kind === "recorded") {
         const recovered = await withAcceptanceTransactionLock(
           effort.path,
-          () => recoverInterruptedAcceptance(effort.path, interrupted),
+          async () => {
+            const outcome = await recoverInterruptedAcceptance(
+              effort.path,
+              interrupted,
+            );
+            // The exception record, not this journal, carries what the
+            // landed transition still owes, so its journal retires at once.
+            if (
+              outcome.kind === "landed" &&
+              !(await clearCompletedAcceptanceJournal(
+                effort.path,
+                interrupted.transaction.target,
+              ))
+            ) {
+              ctx.log.warn(
+                `Could not retire the recovered landing's journal at ${interrupted.path}; the next acceptance from this checkout settles it first.`,
+              );
+            }
+            return outcome;
+          },
         );
         if (recovered.kind === "stopped" && !recovered.trunkLanded) {
           throw new WorktreeGitError(recovered.message);
         }
         landed = recovered.kind === "ready"
           ? await commitIsMerged(root, current.data.target, trunk)
-          : recovered.trunkLanded;
+          : recovered.kind === "landed" || recovered.trunkLanded;
       }
     }
     current = await settleException(root, current, {

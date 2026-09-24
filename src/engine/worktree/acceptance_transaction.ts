@@ -146,6 +146,15 @@ export type InterruptedAcceptanceRecovery =
     readonly recoveryPerformed: boolean;
   }
   | {
+    /** The recorded transition stands at the trunk tip with its one-shot
+     * authority spent and the trunk checkout settled. The journal stays: the
+     * caller retires it with {@link clearCompletedAcceptanceJournal} once it
+     * has settled what the landing still owes. */
+    readonly kind: "landed";
+    readonly recoveryPerformed: boolean;
+    readonly message: string;
+  }
+  | {
     readonly kind: "stopped";
     readonly recoveryPerformed: boolean;
     readonly trunkLanded: boolean;
@@ -457,11 +466,12 @@ async function readAcceptanceTransaction(
   }
 }
 
-/** Retire the journal of a landing that completed with its checkout kept.
+/** Retire the journal of a landing whose post-transition obligations settled.
  *
  * A journal recording exactly the landed target is the spent retry vehicle of
- * a transaction whose post-transition obligations all settled; leaving it in
- * a surviving checkout would send the next acceptance into recovery for a
+ * a transaction whose post-transition obligations all settled — in the
+ * landing itself, or in the retry that recovered it; leaving it in a
+ * surviving checkout would send the next acceptance into recovery for a
  * finished landing instead of landing new work. The worktree-scoped marker
  * ref stays, so landed authority remains spent. Any other journal — another
  * target, or unreadable — stays for recovery to classify. */
@@ -822,7 +832,8 @@ function stoppedRecovery(
  * A pre-CAS/explicitly rolled-back claim is restored and ordinary acceptance
  * may continue under freshly checked authority. A durable CAS consumes its
  * one-shot authority, converges only an exact journal-owned old checkout, and
- * stops with the cleanup command instead of replaying the landing.
+ * reports the landing without replaying it; the caller settles what the
+ * landing still owes before retiring the journal.
  */
 export async function recoverInterruptedAcceptance(
   cwd: string,
@@ -932,26 +943,22 @@ export async function recoverInterruptedAcceptance(
         true,
       );
     }
-    const cleared = consumed && await clearRecoveredJournal(recorded);
-    const performed = checkout.changed || cleared ||
+    const performed = checkout.changed ||
       (transaction.effort_claim && consumed);
-    if (consumed && !cleared) {
+    const resumed =
+      `discern resumed the recorded landing of ${transaction.target} ` +
+      `onto ${transaction.trunk}. No landing authority was replayed.` +
+      (consumed ? effortConsumedClause(transaction) : "");
+    if (!consumed) {
       return stoppedRecovery(
-        journalCleanupFailure(recorded),
+        `${resumed} Its effort claim could not be consumed, so the ` +
+          `recovery journal remains at ${recorded.path}; re-run ` +
+          "`discern accept` to retry.",
         performed,
         true,
       );
     }
-    return stoppedRecovery(
-      `discern completed the interrupted landing of ${transaction.target} ` +
-        `onto ${transaction.trunk}. No landing authority was replayed.` +
-        effortConsumedClause(transaction) +
-        ` Run \`discern worktree prune\` from ${transaction.main_repo} to finish ` +
-        `the already-landed branch's cleanup.` +
-        (cleared ? "" : ` The recovery journal remains at ${recorded.path}.`),
-      performed,
-      true,
-    );
+    return { kind: "landed", recoveryPerformed: performed, message: resumed };
   }
 
   if (provenPreCas) {

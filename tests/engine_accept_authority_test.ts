@@ -495,13 +495,16 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
       "--confirmed",
       "--json",
     ]);
-    assertEquals(retried.code, 1, retried.output);
+    assertEquals(retried.code, 0, retried.output);
     const retriedResult = decodeCliResult(retried.stdout, "accept");
     assertResultDataKey(retriedResult, "proof_note");
     assert(retriedResult.message !== undefined);
     const message = retriedResult.message;
-    assertStringIncludes(message, "completed the interrupted landing");
-    assertStringIncludes(message, "discern worktree prune");
+    assertStringIncludes(message, "resumed the recorded landing");
+    assertStringIncludes(
+      message,
+      "its checkout, branch, and resources are gone",
+    );
     assert(
       !message.includes("uncommitted tracked changes"),
       "the journal-owned stale checkout must not trip the ordinary dirty guard",
@@ -512,8 +515,10 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
       "landed before checkout convergence\n",
     );
     assertEquals(await targetExists(interrupted.journal), false);
-    assert(await targetExists(worktree));
-    // The worktree still holds the honored Proof for the landed target, so
+    // With its note recorded, the recovered landing finishes the ordinary
+    // cleanup instead of leaving it for another command.
+    assertEquals(await targetExists(worktree), false);
+    // The worktree still held the honored Proof for the landed target, so
     // recovery records the durable Proof note under the journal's consent.
     const recoveredProofNote = retriedResult.data.proof_note;
     assert(recoveredProofNote !== undefined);
@@ -569,12 +574,14 @@ Deno.test("post-CAS recovery discloses a missing worktree Proof marker", async (
       "--confirmed",
       "--json",
     ]);
-    assertEquals(recovered.code, 1, recovered.output);
+    assertEquals(recovered.code, 0, recovered.output);
     const envelope = decodeCliResult(recovered.stdout, "accept");
     assertResultDataKey(envelope, "proof_note");
     const recoveredProofNote = envelope.data.proof_note;
     assert(recoveredProofNote !== undefined);
     assertEquals(recoveredProofNote.write.status, "missing_proof");
+    // No Proof remains to record, so recovery discloses it and still
+    // finishes the cleanup.
     assert(
       envelope.steps?.some((step) =>
         step.advisory?.kind === "proof-recording-unavailable" &&
@@ -583,11 +590,12 @@ Deno.test("post-CAS recovery discloses a missing worktree Proof marker", async (
       recovered.output,
     );
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
-    assert(await targetExists(worktree));
+    assertEquals(await targetExists(interrupted.journal), false);
+    assertEquals(await targetExists(worktree), false);
   });
 });
 
-Deno.test("journal-bound consent recovers a post-CAS transaction flaglessly and records the partial landing", async () => {
+Deno.test("journal-bound consent recovers a post-CAS transaction flaglessly and records the settled landing", async () => {
   const consentCases: LandingConsent[] = [
     { source: "conversation" },
     { source: "standing-grant", scopes: ["map"] },
@@ -628,12 +636,12 @@ Deno.test("journal-bound consent recovers a post-CAS transaction flaglessly and 
       await injectCommittedAcceptanceMarker(worktree, interrupted, target);
 
       const recovered = await runAgent(worktree, ["accept", "--json"]);
-      assertEquals(recovered.code, 1, recovered.output);
+      assertEquals(recovered.code, 0, recovered.output);
       const envelope = decodeCliResult(recovered.stdout, "accept");
       assertResultDataKey(envelope, "consent");
       assertResultDataKey(envelope, "landing");
       assertResultDataKey(envelope, "root");
-      assertEquals(envelope.error, "partial_acceptance");
+      assertEquals(envelope.ok, true);
       assertEquals(envelope.data.consent, {
         source: consent.source,
         ...(consent.scopes === undefined
@@ -643,17 +651,17 @@ Deno.test("journal-bound consent recovers a post-CAS transaction flaglessly and 
       assertEquals(envelope.data.landing, {
         recovery_performed: true,
         trunk_landed: true,
-        worktree_removed: false,
-        branch_deleted: false,
+        worktree_removed: true,
+        branch_deleted: true,
       });
       assertEquals(envelope.data.root, dir);
       assertEquals(await gitOut(dir, "status", "--porcelain"), "");
       assertEquals(await targetExists(interrupted.journal), false);
-      assert(await targetExists(worktree));
+      assertEquals(await targetExists(worktree), false);
 
       const event = (await acceptEvents(dir)).at(-1);
       assert(event?.kind === "verb");
-      assertEquals(event.outcome, "partial");
+      assertEquals(event.outcome, "ok");
       assertEquals(event.consent, {
         source: consent.source,
         ...(consent.scopes === undefined
@@ -1428,12 +1436,12 @@ Deno.test("accept retry consumes an effort claim interrupted after trunk CAS wit
     await injectCommittedAcceptanceMarker(worktree, interrupted, target);
 
     const retried = await runAgent(worktree, ["accept", "--json"]);
-    assertEquals(retried.code, 1, retried.output);
+    assertEquals(retried.code, 0, retried.output);
     const retriedResult = decodeCliResult(retried.stdout, "accept");
     assert(retriedResult.message !== undefined);
     const message = retriedResult.message;
-    assertStringIncludes(message, "completed the interrupted landing");
-    assertStringIncludes(message, "discern worktree prune");
+    assertStringIncludes(message, "resumed the recorded landing");
+    assertStringIncludes(message, "Its effort grant was consumed");
     assert(
       !message.includes("Re-authorize"),
       "a post-CAS retry must never make the spent grant replayable",
@@ -1443,7 +1451,7 @@ Deno.test("accept retry consumes an effort claim interrupted after trunk CAS wit
     assertEquals(await targetExists(interrupted.journal), false);
     assertEquals(await gitOut(dir, "status", "--porcelain"), "");
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
-    assert(await targetExists(worktree));
+    assertEquals(await targetExists(worktree), false);
   });
 });
 

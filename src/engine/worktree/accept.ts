@@ -139,6 +139,7 @@ import {
   clearCompletedAcceptanceJournal,
   inspectInterruptedAcceptance,
   performAcceptanceTransition,
+  type RecordedAcceptanceTransaction,
   recoverInterruptedAcceptance,
   withAcceptanceTransactionLock,
 } from "./acceptance_transaction.ts";
@@ -604,22 +605,30 @@ function recoveryStep(outcome: StepOutcome): StepResult {
 
 // ── journal recovery ─────────────────────────────────────────────────────────
 
+/** How acceptance proceeds once any recorded transaction is reconciled: a
+ * fresh landing continues with the recovery steps, or the recorded landing
+ * settled here is the call's whole outcome. */
+type JournalRecovery =
+  | { readonly kind: "continue"; readonly steps: StepResult[] }
+  | { readonly kind: "settled"; readonly result: DiscernResult<AcceptData> };
+
 /**
- * Reconcile an interrupted transaction before any new landing. Returns the
- * recovery steps when ordinary acceptance may continue; throws the partial
- * result when the recorded transaction landed or stopped.
+ * Reconcile an interrupted transaction before any new landing. A rolled-back
+ * transaction continues into ordinary acceptance with the recovery steps; a
+ * landed one is settled here and returned; any other stop throws the partial
+ * result.
  */
 async function recoverInterruptedJournal(
   effort: EffortCheckout,
   authority: LandingAuthorityResolution,
   confirmed: boolean,
   env: Pick<typeof Deno.env, "get">,
-): Promise<StepResult[]> {
+): Promise<JournalRecovery> {
   const interrupted = await inspectInterruptedAcceptance(
     effort.path,
     effort.trunk,
   );
-  if (interrupted.kind !== "recorded") return [];
+  if (interrupted.kind !== "recorded") return { kind: "continue", steps: [] };
   const recoveryConsent = interrupted.consent ??
     availableLandingConsent(authority, confirmed);
   if (recoveryConsent === undefined) refuseAwaitingConsent(authority, false);
@@ -627,6 +636,8 @@ async function recoverInterruptedJournal(
     effort.path,
     interrupted,
   );
+  const trunkLanded = recovered.kind === "landed" ||
+    (recovered.kind === "stopped" && recovered.trunkLanded);
   // A recorded integration copy is settled with its transaction: obsolete
   // after a proven pre-CAS rollback, and landed after a durable CAS. The
   // ambiguous arms keep it for inspection; `discern worktree prune` reclaims
@@ -634,7 +645,7 @@ async function recoverInterruptedJournal(
   const recordedIntegration = interrupted.transaction.integration;
   if (
     recordedIntegration !== undefined &&
-    (recovered.kind === "ready" || recovered.trunkLanded)
+    (recovered.kind === "ready" || trunkLanded)
   ) {
     const failures = await removeIntegrationWorktree(
       interrupted.transaction.main_repo,
@@ -655,108 +666,208 @@ async function recoverInterruptedJournal(
   }
   const progress = freshAcceptExecutionProgress([
     recoveryStep(
-      recovered.kind === "ready" || recovered.recoveryPerformed
+      recovered.kind !== "stopped" || recovered.recoveryPerformed
         ? "ok"
         : "failed",
     ),
   ]);
   progress.landing.recovery_performed = recovered.recoveryPerformed;
-  if (recovered.kind === "stopped") {
-    progress.landing.trunk_landed = recovered.trunkLanded;
-    if (recovered.trunkLanded) {
-      // The journal's own Proof pointer wins: an integrated landing's Proof
-      // never lived in this worktree's gate marker.
-      let pointed: Proof | undefined;
-      if (interrupted.transaction.proof !== undefined) {
-        try {
-          pointed = await readProofPresentation(
-            effort.path,
-            interrupted.transaction.proof,
-          );
-        } catch (error) {
-          effort.ctx.log.warn(
-            `Could not read the journal's recorded Proof presentation; falling back to the worktree's gate marker: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-          pointed = undefined;
-        }
-      }
-      const recoveredProof = await inspectGateProof(effort.path);
-      const matching = pointed ??
-        (recoveredProof.status === "honored" &&
-            recoveredProof.head === interrupted.transaction.target
-          ? recoveredProof.proof_data
-          : undefined);
-      const recording = await recordLandingProofNote({
-        mainRepo: interrupted.transaction.main_repo,
-        commit: interrupted.transaction.target,
-        mode: effort.ctx.config.repository.proof_notes_mode,
-        proof: matching,
-        checkpointDrops: uniqueCheckpointDrops([
-          ...(matching?.checkpoint_drops ?? []),
-          ...(recoveredProof.checkpoint_drops ?? []),
-        ]),
-        consent: interrupted.transaction.consent,
-        variances: interrupted.transaction.variances,
-        standardProposals: interrupted.transaction.standard_proposals,
-        log: effort.ctx.log,
-        env,
-      });
-      progress.steps.push(...recording.steps);
-      progress.proofNote = recording.proofNote;
-      progress.convergenceHints.push(...recording.hints);
-      if (matching !== undefined) {
-        if (pointed === undefined && recoveredProof.status === "honored") {
-          progress.gateValidation = { mode: "proof", proof: recoveredProof };
-        }
-        if (matching.markdown !== "") {
-          progress.proofMarkdown = matching.markdown;
-        }
-        if (matching.line !== "") {
-          progress.proofLine = renderLandingProofLine(
-            matching.line,
-            interrupted.transaction.consent,
-            {
-              ...(interrupted.transaction.standard_proposals.length > 0
-                ? { proposals: interrupted.transaction.standard_proposals }
-                : {}),
-              ...(interrupted.transaction.variances.length > 0 &&
-                  matching.checkpoints !== undefined
-                ? { checkpoints: matching.checkpoints }
-                : {}),
-            },
-          );
-        }
-      }
-      // Consumption is exact: with a recorded submission id, only that
-      // submission is spent; a replacement recorded before this retry
-      // survives the older transaction's settling.
-      if (interrupted.transaction.submission_id === undefined) {
-        await clearSubmission(effort.path);
-      } else {
-        await clearSubmissionIfCurrent(
-          effort.path,
-          interrupted.transaction.submission_id,
-        );
-      }
-    }
-    if (recovered.recoveryPerformed || recovered.trunkLanded) {
-      throwPartialAcceptance(
-        interrupted.transaction.main_repo,
+  if (recovered.kind === "ready") {
+    return { kind: "continue", steps: progress.steps };
+  }
+  progress.landing.trunk_landed = trunkLanded;
+  if (trunkLanded) {
+    await recordRecoveredLanding(effort, interrupted, progress, env);
+  }
+  if (recovered.kind === "landed") {
+    return {
+      kind: "settled",
+      result: await settleRecoveredLanding(
+        effort,
+        interrupted,
         recoveryConsent,
-        progress,
         recovered.message,
+        progress,
+      ),
+    };
+  }
+  if (recovered.recoveryPerformed || recovered.trunkLanded) {
+    throwPartialAcceptance(
+      interrupted.transaction.main_repo,
+      recoveryConsent,
+      progress,
+      recovered.message,
+    );
+  }
+  throw new WorktreeGitError(recovered.message);
+}
+
+/** Record a recovered landing's Proof note from the journal's own evidence,
+ * and consume exactly the submission the journal names. */
+async function recordRecoveredLanding(
+  effort: EffortCheckout,
+  interrupted: RecordedAcceptanceTransaction,
+  progress: AcceptExecutionProgress,
+  env: Pick<typeof Deno.env, "get">,
+): Promise<void> {
+  const { transaction } = interrupted;
+  // The journal's own Proof pointer wins: an integrated landing's Proof
+  // never lived in this worktree's gate marker.
+  let pointed: Proof | undefined;
+  if (transaction.proof !== undefined) {
+    try {
+      pointed = await readProofPresentation(effort.path, transaction.proof);
+    } catch (error) {
+      effort.ctx.log.warn(
+        `Could not read the journal's recorded Proof presentation; falling back to the worktree's gate marker: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      pointed = undefined;
+    }
+  }
+  const recoveredProof = await inspectGateProof(effort.path);
+  const matching = pointed ??
+    (recoveredProof.status === "honored" &&
+        recoveredProof.head === transaction.target
+      ? recoveredProof.proof_data
+      : undefined);
+  const recording = await recordLandingProofNote({
+    mainRepo: transaction.main_repo,
+    commit: transaction.target,
+    mode: effort.ctx.config.repository.proof_notes_mode,
+    proof: matching,
+    checkpointDrops: uniqueCheckpointDrops([
+      ...(matching?.checkpoint_drops ?? []),
+      ...(recoveredProof.checkpoint_drops ?? []),
+    ]),
+    consent: transaction.consent,
+    variances: transaction.variances,
+    standardProposals: transaction.standard_proposals,
+    log: effort.ctx.log,
+    env,
+  });
+  progress.steps.push(...recording.steps);
+  progress.proofNote = recording.proofNote;
+  progress.convergenceHints.push(...recording.hints);
+  if (matching !== undefined) {
+    if (pointed === undefined && recoveredProof.status === "honored") {
+      progress.gateValidation = { mode: "proof", proof: recoveredProof };
+    }
+    if (matching.markdown !== "") {
+      progress.proofMarkdown = matching.markdown;
+    }
+    if (matching.line !== "") {
+      progress.proofLine = renderLandingProofLine(
+        matching.line,
+        transaction.consent,
+        {
+          ...(transaction.standard_proposals.length > 0
+            ? { proposals: transaction.standard_proposals }
+            : {}),
+          ...(transaction.variances.length > 0 &&
+              matching.checkpoints !== undefined
+            ? { checkpoints: matching.checkpoints }
+            : {}),
+        },
       );
     }
-    throw new WorktreeGitError(recovered.message);
   }
-  return progress.steps;
+  // Consumption is exact: with a recorded submission id, only that
+  // submission is spent; a replacement recorded before this retry survives
+  // the older transaction's settling.
+  if (transaction.submission_id === undefined) {
+    await clearSubmission(effort.path);
+  } else {
+    await clearSubmissionIfCurrent(effort.path, transaction.submission_id);
+  }
+}
+
+/** The branch revision a recovered landing consumed. The journal records only
+ * the landed target — the composed commit when the landing integrated — so a
+ * branch tip the target contains holds nothing beyond the landing, and any
+ * other tip holds later work that keeps the checkout. */
+async function recoveredSubmittedHead(
+  effort: EffortCheckout,
+  target: string,
+): Promise<string> {
+  const tipRun = await runGit(
+    ["rev-parse", "--verify", `refs/heads/${effort.branch}^{commit}`],
+    { cwd: effort.mainRepo },
+  );
+  const tip = tipRun.success ? tipRun.stdout.trim() : "";
+  return tip !== "" && await commitIsAncestorOf(effort.mainRepo, tip, target)
+    ? tip
+    : target;
+}
+
+/**
+ * Finish a recovered landing as the landing itself would have: once its Proof
+ * note is recorded, or reported as unrecordable, the journal retires, and the
+ * ordinary cleanup rule then decides what stays. Nothing lands again and no
+ * authority is replayed.
+ */
+async function settleRecoveredLanding(
+  effort: EffortCheckout,
+  interrupted: RecordedAcceptanceTransaction,
+  consent: LandingConsent,
+  recovered: string,
+  progress: AcceptExecutionProgress,
+): Promise<DiscernResult<AcceptData>> {
+  const { transaction } = interrupted;
+  const mainRepo = transaction.main_repo;
+  // Retired before cleanup, so a cleanup that stops partway leaves nothing
+  // that would send the next acceptance into recovery again.
+  if (
+    !(await clearCompletedAcceptanceJournal(effort.path, transaction.target))
+  ) {
+    throwPartialAcceptance(
+      mainRepo,
+      consent,
+      progress,
+      `${recovered} discern could not remove its recovery journal at ${interrupted.path}; re-run \`discern accept\` to retry that cleanup before landing new work.`,
+    );
+  }
+  progress.landing.recovery_performed = true;
+  let disposition: CleanupDisposition;
+  try {
+    disposition = await cleanUpEffort(
+      effort,
+      transaction.target,
+      progress,
+      await recoveredSubmittedHead(effort, transaction.target),
+    );
+  } catch (error) {
+    throwPartialAcceptance(
+      mainRepo,
+      consent,
+      progress,
+      `${recovered} ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  const message = `${recovered} ${
+    landedMessage(effort, transaction.target, disposition)
+  }`;
+  effort.ctx.log.heading("Acceptance complete.");
+  effort.ctx.log.line(`  ${message}`);
+  const result: DiscernResult<AcceptData> = appliedResult(
+    "accept",
+    progress.steps,
+    progress.diagnostics,
+  );
+  result.message = message;
+  result.data = progressData(mainRepo, consent, progress);
+  result.hints = progress.proofLine === undefined
+    ? progress.convergenceHints
+    : mergeHintTexts(
+      hintTexts([fire(HINTS["accept-relay-landing-proof"])]),
+      progress.convergenceHints,
+    );
+  return result;
 }
 
 // ── the landing ──────────────────────────────────────────────────────────────
 
-/** What the cleanup tail found in the effort's checkout after the landing. */
 /** The first paragraph of a completed landing: the branch, what happened, one next command. */
 export function landedMessage(
   effort: EffortCheckout,
@@ -1333,12 +1444,18 @@ async function landEffortOnce(
     let authority = await inspectLandingAuthority(effort.path, effort.trunk, {
       includeScopeEvidence: true,
     });
-    const recoverySteps = request.dryRun ? [] : await recoverInterruptedJournal(
-      effort,
-      authority,
-      request.confirmed,
-      env,
-    );
+    const recovery: JournalRecovery = request.dryRun
+      ? { kind: "continue", steps: [] }
+      : await recoverInterruptedJournal(
+        effort,
+        authority,
+        request.confirmed,
+        env,
+      );
+    // A recorded landing settled by recovery is this call's whole outcome:
+    // recovery never lands new work in the same call.
+    if (recovery.kind === "settled") return recovery.result;
+    const recoverySteps = recovery.steps;
     if (recoverySteps.length > 0) {
       authority = await inspectLandingAuthority(effort.path, effort.trunk, {
         includeScopeEvidence: true,
@@ -1677,7 +1794,17 @@ async function landingResult(
       preWait.status === "submitted" ? preWait.submission : undefined,
       enteredSubject,
     );
-    if (request.dryRun || !selected.ok || !effort.explicit) return selected;
+    // The walk follows the selected submission's landing; a call that only
+    // settled an earlier recorded landing has no landed selection to follow.
+    const selectionLanded =
+      selected.data?.landings?.some((row) =>
+        row.selected && row.status === "landed"
+      ) ?? false;
+    if (
+      request.dryRun || !selected.ok || !effort.explicit || !selectionLanded
+    ) {
+      return selected;
+    }
     return await walkQueue(
       ctx,
       effort,

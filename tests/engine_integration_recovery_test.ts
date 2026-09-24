@@ -19,7 +19,10 @@ import {
   performAcceptanceTransition,
   withAcceptanceTransactionLock,
 } from "../src/engine/worktree/acceptance_transaction.ts";
-import { fastForwardCheckedOutBranch } from "../src/engine/worktree/git.ts";
+import {
+  commitIsMerged,
+  fastForwardCheckedOutBranch,
+} from "../src/engine/worktree/git.ts";
 import { loadIdentitySettings } from "../src/engine/worktree/identity.ts";
 import {
   type IntegrationAttempt,
@@ -30,6 +33,7 @@ import {
   writeIntegrationLandingRecord,
 } from "../src/engine/worktree/integration_record.ts";
 import { readSubmission } from "../src/engine/worktree/submission.ts";
+import { submissionRows } from "../src/engine/worktree/submissions_view.ts";
 import {
   clearSubmission,
   recordSubmission,
@@ -192,11 +196,11 @@ Deno.test("a kill after the trunk moved retries into Proof, exact consumption, a
     assertEquals((await readSubmission(effort.path)).status, "submitted");
 
     const retried = await runAgent(beta, ["accept", "--json"]);
-    assertEquals(retried.code, 1, retried.output);
+    assertEquals(retried.code, 0, retried.output);
     const retriedResult = decodeCliResult(retried.stdout, "accept");
     assertStringIncludes(
       retriedResult.message ?? "",
-      "completed the interrupted landing",
+      "resumed the recorded landing",
     );
     assertStringIncludes(
       retriedResult.message ?? "",
@@ -215,17 +219,18 @@ Deno.test("a kill after the trunk moved retries into Proof, exact consumption, a
       green.head,
     );
     assert(note.length > 0);
-    assertEquals((await readSubmission(effort.path)).status, "missing");
+    assertEquals(await submissionRows(effort.mainRepo, "main"), []);
     assertEquals(await listIntegrationLandingRecords(effort.mainRepo), []);
     assertEquals(
       await gitOut(dir, "branch", "--list", green.record.worktree.branch),
       "",
     );
     assertEquals(await targetExists(green.record.worktree.path), false);
-    // The author's checkout and branch still hold the submitted work; the
-    // recovery message named `discern worktree prune` as the cleanup route.
-    assertEquals(await gitOut(beta, "rev-parse", "HEAD"), frozenHead);
-    assertStringIncludes(retriedResult.message ?? "", "discern worktree prune");
+    // The author's branch held only the submitted revision the composed
+    // commit contains, so the retry finishes the ordinary cleanup too.
+    assert(await commitIsMerged(dir, frozenHead, "main"));
+    assertEquals(await targetExists(beta), false);
+    assertEquals(await gitOut(dir, "branch", "--list", effort.branch), "");
   });
 });
 
@@ -284,12 +289,18 @@ Deno.test("a replacement submission survives settling the older snapshot's landi
     });
 
     const retried = await runAgent(beta, ["accept", "--json"]);
-    assertEquals(retried.code, 1, retried.output);
+    assertEquals(retried.code, 0, retried.output);
     const retriedResult = decodeCliResult(retried.stdout, "accept");
     assertStringIncludes(
       retriedResult.message ?? "",
-      "completed the interrupted landing",
+      "resumed the recorded landing",
     );
+    // The newer commit is later work, so the checkout stays for it.
+    assertStringIncludes(
+      retriedResult.message ?? "",
+      "the branch holds later commits",
+    );
+    assert(await targetExists(beta));
 
     // Settling the older snapshot consumed nothing of the newer record.
     const current = await readSubmission(effort.path);
