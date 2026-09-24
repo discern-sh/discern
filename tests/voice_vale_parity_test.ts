@@ -243,6 +243,7 @@ const CONTEXTUAL_PROSE_EXAMPLES = [
   "Explain exactly what it would measure.",
   "A failed write must not silently discard the saved value.",
   "An honest account includes the checks that did not run.",
+  "The agent passes the resume handle back to continue the wait.",
 ] as const;
 
 /** Every regex pattern written in a list or scalar by an authored rule. */
