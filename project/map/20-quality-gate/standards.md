@@ -104,7 +104,7 @@ Repeating an identical complete batch on its bound commit changes nothing. A lat
 discern accept --confirmed --approve-standard <token>
 ```
 
-Repeat `--approve-standard` for every proposal. The supplied tokens must equal the current proposal set. Standing grants, effort grants, generic landing consent, checkpoint variances, and earlier tokens do not approve standard limit proposals. Acceptance lands the proposal commit that passed the gate. It does not edit the limit or create a later commit.
+Repeat `--approve-standard` for every proposal. The supplied tokens must equal the current proposal set. Standing grants, effort grants, generic landing consent, checkpoint variances, and earlier tokens do not approve standard limit proposals. Acceptance lands the proposal commit that passed the gate. It does not edit the limit or create a later commit. An [emergency landing](../30-worktrees/emergency-integration.md#exact-owner-decision) serves the same tokens in its plan, and its confirmation carries them the same way.
 
 If the owner declines, leave acceptance stopped, restore the trunk limit in the branch, commit that restoration, and run `discern done` under ordinary enforcement.
 

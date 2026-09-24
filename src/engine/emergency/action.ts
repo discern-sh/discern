@@ -2,6 +2,10 @@ import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import { candidateAuthor } from "../completion/candidate.ts";
 import { displayBranch, plural } from "../../shared/result_markdown_values.ts";
 import { carriedEffortLines, landedCommitLines } from "./carried_work.ts";
+import {
+  resolveStandardApprovals,
+  standardApprovalLines,
+} from "../worktree/standard_approval.ts";
 import { emergencyOptionError } from "./arguments.ts";
 import { prepareEmergency } from "./prepare.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
@@ -75,6 +79,8 @@ export interface EmergencyOptions {
   readonly confirmed?: boolean;
   readonly dryRun?: boolean;
   readonly recover?: string;
+  /** The owner's approval tokens for the plan's loosened limits. */
+  readonly approveStandard?: readonly string[];
   readonly signal?: AbortSignal;
 }
 
@@ -84,8 +90,106 @@ type RecordedException = Extract<CompletionRecord, { kind: "exception" }>;
  * every emergency result reports them. */
 function claimDisclosures(
   claim: RecordedException["data"]["claim"],
-): Pick<NonNullable<AcceptData["emergency"]>, "carried"> {
-  return claim.carried === undefined ? {} : { carried: claim.carried };
+): Pick<
+  NonNullable<AcceptData["emergency"]>,
+  "carried" | "standard_approvals"
+> {
+  return {
+    ...(claim.carried === undefined ? {} : { carried: claim.carried }),
+    ...(claim.standard_approvals === undefined
+      ? {}
+      : { standard_approvals: claim.standard_approvals }),
+  };
+}
+
+const LIST = new Intl.ListFormat("en", { type: "conjunction" });
+
+/** The owner's per-item decisions a current confirmation still lacks, by name. */
+function unconfirmedDecisions(
+  plan: EmergencyPlan,
+  options: EmergencyOptions,
+): string[] {
+  const approved = new Set(options.approveStandard ?? []);
+  return plan.standard_approvals.filter(({ token }) => !approved.has(token))
+    .map(({ proposal }) => proposal.standard);
+}
+
+/** The read-only owner review: every fact the confirmation token binds, and
+ * the exact call that confirms it. */
+function emergencyPreview(
+  plan: EmergencyPlan,
+  options: EmergencyOptions,
+  confirmation: { readonly token: string; readonly expires: number },
+  missing: readonly string[],
+): DiscernResult<AcceptData> {
+  const flags = [
+    "the same --reason",
+    ...(options.preparationReceipt === undefined
+      ? []
+      : [`--preparation-receipt ${options.preparationReceipt}`]),
+    "--confirmed",
+    `--approval-token ${confirmation.token}`,
+    ...plan.standard_approvals.map(({ token }) =>
+      `--approve-standard ${token}`
+    ),
+  ];
+  const limits = plan.standard_approvals.length;
+  return {
+    verb: "accept",
+    ...(options.dryRun
+      ? { ok: true as const, dry_run: true }
+      : { ok: false as const, error: AWAITING_CONSENT_SLUG }),
+    data: {
+      root: plan.root,
+      emergency: {
+        candidate_id: plan.candidate_id,
+        candidate: plan.candidate,
+        reason: plan.reason,
+        exceptions: plan.exceptions,
+        commits: [...plan.commits],
+        commits_total: plan.commits_total,
+        ...(plan.carried.length === 0 ? {} : { carried: [...plan.carried] }),
+        confirmation: confirmation.token,
+        expires_at: confirmation.expires,
+        outcome: "preview",
+      },
+      ...(limits === 0
+        ? {}
+        : { standard_approvals_required: [...plan.standard_approvals] }),
+    },
+    message: [
+      ...(missing.length === 0 ? [] : [
+        `The owner's confirmation must also cover every decision below; missing: ${
+          missing.map(markdownCodeSpan).join(", ")
+        }.`,
+      ]),
+      `Emergency plan for ${
+        markdownCodeSpan(displayBranch(candidateAuthor(plan.candidate).branch))
+      }: land ${
+        plural(plan.commits_total, "commit")
+      } on ${plan.trunk} now, skipping ${
+        plural(plan.exceptions.length, "check")
+      }. Reason: ${plan.reason}`,
+      landedCommitLines(plan.commits, plan.commits_total, plan.candidate),
+      ...(plan.carried.length === 0 ? [] : [carriedEffortLines(plan.carried)]),
+      ...(limits === 0 ? [] : [
+        `It loosens ${
+          limits === 1
+            ? "a standard limit under its recorded proposal, which needs"
+            : `${limits} standard limits under their recorded proposals, each needing`
+        } the owner's approval:\n\n${
+          standardApprovalLines(plan.standard_approvals)
+        }`,
+      ]),
+      plan.exceptions.map((entry) =>
+        `${entry.state}: ${entry.requirement.kind} ${entry.requirement.id}`
+      ).join("\n"),
+      boundary,
+      `Review this plan with the owner. After fresh explicit approval, repeat accept emergency with ${
+        LIST.format(flags)
+      }. The confirmation expires in 15 minutes; changed subjects require another review.`,
+    ].join("\n\n"),
+  };
 }
 
 const boundary =
@@ -190,60 +294,36 @@ async function prepareAndIntegrate(
     options.reason ?? "",
     options.preparationReceipt,
   );
+  const standards = resolveStandardApprovals(plan.standard_approvals, {
+    confirmed: options.confirmed === true,
+    names: options.approveStandard ?? [],
+  });
+  if (standards.kind === "invalid") {
+    return {
+      ok: false,
+      verb: "accept",
+      error: "invalid_value",
+      message: standards.message,
+    };
+  }
   const now = SYSTEM_CLOCK.wallNow();
   const expires = now + EMERGENCY_CONFIRMATION_MS;
-  const confirmation = await emergencyToken(plan, expires);
-  const preview: AcceptData = {
-    root: plan.root,
-    emergency: {
-      candidate_id: plan.candidate_id,
-      candidate: plan.candidate,
-      reason: plan.reason,
-      exceptions: plan.exceptions,
-      commits: [...plan.commits],
-      commits_total: plan.commits_total,
-      ...(plan.carried.length === 0 ? {} : { carried: [...plan.carried] }),
-      confirmation,
-      expires_at: expires,
-      outcome: "preview",
-    },
-  };
+  const token = await emergencyToken(plan, expires);
+  const current = options.approvalToken !== undefined &&
+    await emergencyConfirmationCurrent(plan, options.approvalToken, now);
   if (
     options.dryRun || !options.confirmed ||
-    options.approvalToken === undefined ||
-    !await emergencyConfirmationCurrent(plan, options.approvalToken, now)
+    options.approvalToken === undefined || !current ||
+    standards.kind !== "approved"
   ) {
-    return {
-      verb: "accept",
-      ...(options.dryRun
-        ? { ok: true as const, dry_run: true }
-        : { ok: false as const, error: AWAITING_CONSENT_SLUG }),
-      data: preview,
-      message: [
-        `Emergency plan for ${
-          markdownCodeSpan(
-            displayBranch(candidateAuthor(plan.candidate).branch),
-          )
-        }: land ${
-          plural(plan.commits_total, "commit")
-        } on ${plan.trunk} now, skipping ${
-          plural(plan.exceptions.length, "check")
-        }. Reason: ${plan.reason}`,
-        landedCommitLines(plan.commits, plan.commits_total, plan.candidate),
-        ...(plan.carried.length === 0
-          ? []
-          : [carriedEffortLines(plan.carried)]),
-        plan.exceptions.map((entry) =>
-          `${entry.state}: ${entry.requirement.kind} ${entry.requirement.id}`
-        ).join("\n"),
-        boundary,
-        `Review this plan with the owner. After fresh explicit approval, repeat accept emergency with the same --reason, ${
-          options.preparationReceipt === undefined
-            ? ""
-            : `--preparation-receipt ${options.preparationReceipt}, `
-        }--confirmed, and --approval-token ${confirmation}. The confirmation expires in 15 minutes; changed subjects require another review.`,
-      ].join("\n\n"),
-    };
+    return emergencyPreview(
+      plan,
+      options,
+      { token, expires },
+      options.dryRun || !options.confirmed || !current
+        ? []
+        : unconfirmedDecisions(plan, options),
+    );
   }
   const approvedToken = options.approvalToken;
   const id = emergencyId(await sha256Hex(approvedToken));
@@ -279,6 +359,9 @@ async function prepareAndIntegrate(
         reason: plan.reason,
         exceptions: plan.exceptions,
         ...(plan.carried.length === 0 ? {} : { carried: [...plan.carried] }),
+        ...(standards.proposals.length === 0
+          ? {}
+          : { standard_approvals: standards.proposals }),
         ...(plan.review === undefined ? {} : { review: plan.review }),
       },
       executor: actor,
@@ -330,7 +413,7 @@ async function prepareAndIntegrate(
       effortClaim: false,
       consent: { source: "conversation" },
       variances: [],
-      standardProposals: [],
+      standardProposals: standards.proposals,
     });
     if (transition.kind === "authority-changed") {
       throw new Error("Emergency integration claims no effort grant.");

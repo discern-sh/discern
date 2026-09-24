@@ -955,7 +955,7 @@ export function attachEngineCommands(
     )
     .option(
       "--approve-standard <token:string>",
-      "Record that the owner approved a proposed standard limit (repeatable; needs `--confirmed`). Use the token from the refusal: it binds one standard, value, and reason, and the tokens must match the current proposals exactly. No grant can approve a limit change.",
+      "Record that the owner approved a proposed standard limit (repeatable; needs `--confirmed`). Use the token from the refusal or the emergency plan: it binds one standard, value, and reason, and the tokens must match the current proposals exactly. No grant can approve a limit change.",
       { collect: true },
     )
     .action(recordedExit(

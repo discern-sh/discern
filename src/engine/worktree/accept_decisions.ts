@@ -24,7 +24,11 @@ import {
   serveUnmetConclusion,
   type StandingUnmetConclusion,
 } from "./acceptance_checkpoints.ts";
-import { standardLimitApprovalRequests } from "./standard_approval.ts";
+import {
+  resolveStandardApprovals,
+  standardApprovalLines,
+  standardLimitApprovalRequests,
+} from "./standard_approval.ts";
 
 /** A reopened or missing checkpoint declaration routes back to `done`. */
 function refuseDeclarationsStale(ids: readonly string[]): never {
@@ -113,15 +117,7 @@ function refuseAwaitingStandardApproval(
   const missing = approvals.filter((approval) =>
     !requested.includes(approval.token)
   );
-  const detail = approvals.map(({ proposal, token }) =>
-    `${proposal.standard}: ${proposal.trunk_limit} → ${proposal.proposed_limit} ` +
-    `(measured ${proposal.measurement}; delta ${
-      proposal.delta >= 0 ? "+" : ""
-    }${proposal.delta})\n` +
-    `  Reason: ${proposal.reason}\n` +
-    `  Responsible paths: ${proposal.evidence_paths.join(", ")}\n` +
-    `  Approval token: ${token}`
-  ).join("\n\n");
+  const detail = standardApprovalLines(approvals);
   const command = `discern accept --confirmed ${
     approvals.map(({ token }) => `--approve-standard ${token}`).join(" ")
   }`;
@@ -177,43 +173,22 @@ export async function enforceStandardLimitApprovals(
     }
   }
   const approvals = await standardLimitApprovalRequests(proofProposals);
-  const uniqueRequested = [...new Set(request.names)].sort();
-  if (uniqueRequested.length !== request.names.length) {
-    refusal(
-      "invalid_value",
-      `Duplicate --approve-standard tokens are not an exact approval set. Expected proposals: ${
-        proofProposals.map((proposal) => proposal.standard).join(", ") ||
-        "(none)"
-      }. ${ACCEPT_NOTHING_LANDED}`,
-    );
+  const resolution = resolveStandardApprovals(approvals, request);
+  switch (resolution.kind) {
+    case "invalid":
+      return refusal(
+        "invalid_value",
+        `${resolution.message} ${ACCEPT_NOTHING_LANDED}`,
+      );
+    case "awaiting":
+      return refuseAwaitingStandardApproval(
+        approvals,
+        request.confirmed,
+        request.names,
+      );
+    case "approved":
+      return resolution.proposals;
   }
-  const expectedTokens = approvals.map(({ token }) => token).sort();
-  const extras = uniqueRequested.filter((token) =>
-    !expectedTokens.includes(token)
-  );
-  if (extras.length > 0) {
-    refusal(
-      "invalid_value",
-      `--approve-standard contains a token for no current exact proposal: ${
-        extras.join(", ")
-      }. Current proposals: ${
-        proofProposals.map((proposal) => proposal.standard).join(", ") ||
-        "(none)"
-      }. ${ACCEPT_NOTHING_LANDED}`,
-    );
-  }
-  if (proofProposals.length === 0) return [];
-  const missing = expectedTokens.filter((token) =>
-    !uniqueRequested.includes(token)
-  );
-  if (!request.confirmed || missing.length > 0) {
-    refuseAwaitingStandardApproval(
-      approvals,
-      request.confirmed,
-      uniqueRequested,
-    );
-  }
-  return proofProposals.map(cloneStandardLimitProposal);
 }
 
 /** Refuse an acceptance whose declaration binding cannot be read. */

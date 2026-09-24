@@ -6406,6 +6406,22 @@ export type DiscernAcceptResult = DiscernResultState & {
         branch: string;
         revision: string;
       }>;
+      standard_approvals?: Array<{
+        standard: string;
+        commit: string;
+        bound_commit: string;
+        measured_commit: string;
+        definition_fingerprint: string;
+        trunk: string;
+        trunk_commit: string;
+        direction: "up" | "down";
+        trunk_limit: number;
+        proposed_limit: number;
+        measurement: number;
+        delta: number;
+        reason: string;
+        evidence_paths: Array<string>;
+      }>;
       confirmation?: string;
       preparation?: string;
       expires_at?: number;

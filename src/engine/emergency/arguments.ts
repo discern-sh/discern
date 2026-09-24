@@ -16,8 +16,8 @@ type EmergencyArguments =
   }
   | { readonly kind: "refusal"; readonly result: DiscernResult<AcceptData> };
 
-/** Owner decisions only ordinary acceptance can take. */
-type OrdinaryDecisionFields = {
+/** The owner's per-item decisions, each confirmed by its exact id or token. */
+type OwnerDecisionFields = {
   readonly [K in "variance" | "approveStandard"]?:
     | readonly string[]
     | undefined;
@@ -40,7 +40,7 @@ export function emergencyArguments(
           | "met"
       ]?: EmergencyOptions[K] | undefined;
     }
-    & OrdinaryDecisionFields,
+    & OwnerDecisionFields,
 ): EmergencyArguments {
   let message: string | undefined;
   if (
@@ -63,12 +63,9 @@ export function emergencyArguments(
   }
   if (action === EMERGENCY_ACCEPT_ACTION) {
     message ??= emergencyOptionError(fields);
-    if (
-      (fields.variance?.length ?? 0) > 0 ||
-      (fields.approveStandard?.length ?? 0) > 0
-    ) {
+    if ((fields.variance?.length ?? 0) > 0) {
       message ??=
-        "Emergency confirmation cannot approve a checkpoint variance or a standard limit proposal. Remove --variance and --approve-standard (MCP: variance and approve_standard), then request the emergency plan again. Only ordinary acceptance decides them.";
+        "Emergency confirmation cannot approve a checkpoint variance. Remove --variance (MCP: variance), then request the emergency plan again. Only ordinary acceptance decides it.";
     }
   }
   if (message !== undefined) {
@@ -99,6 +96,9 @@ export function emergencyArguments(
             ? {}
             : { approvalToken: fields.approvalToken }),
           ...(fields.recover === undefined ? {} : { recover: fields.recover }),
+          ...(fields.approveStandard === undefined
+            ? {}
+            : { approveStandard: fields.approveStandard }),
           confirmed: fields.confirmed === true,
           dryRun: fields.dryRun === true,
         },
@@ -183,7 +183,14 @@ export function emergencyOptionError(options: {
   readonly confirmed?: boolean | undefined;
   readonly approvalToken?: string | undefined;
   readonly recover?: string | undefined;
+  readonly approveStandard?: readonly string[] | undefined;
 }): string | undefined {
+  if (
+    (options.prepare || options.recover !== undefined) &&
+    (options.approveStandard?.length ?? 0) > 0
+  ) {
+    return "The owner's limit approvals belong to the emergency confirmation, beside --confirmed and --approval-token. Preparation and recovery take none.";
+  }
   if (
     options.prepare &&
     (options.preparationReceipt !== undefined || options.confirmed ||

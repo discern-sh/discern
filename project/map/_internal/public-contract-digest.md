@@ -444,23 +444,23 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 
 **`discern accept`**
 
-| Argument                | Value                | Default | Description                                                                                                                                                    |
-| ----------------------- | -------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<action>`              | positional, optional |         |                                                                                                                                                                |
-| `--dry-run`             | boolean              |         | Show the landing plan without landing or recording anything. From the main checkout without `--target`, list the landing queue.                                |
-| `--target`              | `<effort:string>`    |         | Choose the task by id, path, or branch, from any checkout. From the main checkout, it's required. After that task lands, discern lands the rest of the queue…  |
-| `--prepare`             | boolean              |         | Emergency only: answer checkpoint questions before an emergency landing. discern runs the checkpoint triggers and keeps the evidence for review, but runs no…  |
-| `--preparation-receipt` | `<receipt:string>`   |         | Emergency only: the receipt `--prepare` returned for this repair and trunk.                                                                                    |
-| `--met`                 | `<id:string>`        |         | Answer a checkpoint question as met (repeatable): a question about the combined code, with `--composition-receipt`, or an emergency question, with…            |
-| `--unmet`               | `<id:string>`        |         | Answer one checkpoint question about the combined code as unmet, with `--why` and `--composition-receipt`. discern still checks the combined code; landing…    |
-| `--why`                 | `<rationale:string>` |         | Why the question isn't met, for `--unmet`, in one paragraph.                                                                                                   |
-| `--composition-receipt` | `<receipt:string>`   |         | The receipt that came with a question about the combined code. Pass it with `--met`, `--unmet`, or `--variance` so your answer applies to that exact…          |
-| `--reason`              | `<text:string>`      |         | Emergency only: why the repair must land before its checks pass. The owner reviews it, and the approval token is tied to it.                                   |
-| `--approval-token`      | `<token:string>`     |         | Emergency only: the preview token the owner approved, with `--confirmed`. It's valid only briefly, and only while the repair, trunk, and reason stay the same. |
-| `--recover`             | `<id:string>`        |         | Emergency only: finish an interrupted emergency landing, named by its landing id. discern records whether the trunk moved and cleans up; it lands nothing new… |
-| `--confirmed`           | boolean              |         | Record that the owner approved this landing in the current conversation. It covers only the selected landing. discern checks standing and task grants on its…  |
-| `--variance`            | `<id:string>`        |         | Record that the owner approved landing despite this unmet checkpoint answer, without changing it (repeatable; needs `--confirmed`). The ids must match the…    |
-| `--approve-standard`    | `<token:string>`     |         | Record that the owner approved a proposed standard limit (repeatable; needs `--confirmed`). Use the token from the refusal: it binds one standard, value, and… |
+| Argument                | Value                | Default | Description                                                                                                                                                     |
+| ----------------------- | -------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<action>`              | positional, optional |         |                                                                                                                                                                 |
+| `--dry-run`             | boolean              |         | Show the landing plan without landing or recording anything. From the main checkout without `--target`, list the landing queue.                                 |
+| `--target`              | `<effort:string>`    |         | Choose the task by id, path, or branch, from any checkout. From the main checkout, it's required. After that task lands, discern lands the rest of the queue…   |
+| `--prepare`             | boolean              |         | Emergency only: answer checkpoint questions before an emergency landing. discern runs the checkpoint triggers and keeps the evidence for review, but runs no…   |
+| `--preparation-receipt` | `<receipt:string>`   |         | Emergency only: the receipt `--prepare` returned for this repair and trunk.                                                                                     |
+| `--met`                 | `<id:string>`        |         | Answer a checkpoint question as met (repeatable): a question about the combined code, with `--composition-receipt`, or an emergency question, with…             |
+| `--unmet`               | `<id:string>`        |         | Answer one checkpoint question about the combined code as unmet, with `--why` and `--composition-receipt`. discern still checks the combined code; landing…     |
+| `--why`                 | `<rationale:string>` |         | Why the question isn't met, for `--unmet`, in one paragraph.                                                                                                    |
+| `--composition-receipt` | `<receipt:string>`   |         | The receipt that came with a question about the combined code. Pass it with `--met`, `--unmet`, or `--variance` so your answer applies to that exact…           |
+| `--reason`              | `<text:string>`      |         | Emergency only: why the repair must land before its checks pass. The owner reviews it, and the approval token is tied to it.                                    |
+| `--approval-token`      | `<token:string>`     |         | Emergency only: the preview token the owner approved, with `--confirmed`. It's valid only briefly, and only while the repair, trunk, and reason stay the same.  |
+| `--recover`             | `<id:string>`        |         | Emergency only: finish an interrupted emergency landing, named by its landing id. discern records whether the trunk moved and cleans up; it lands nothing new…  |
+| `--confirmed`           | boolean              |         | Record that the owner approved this landing in the current conversation. It covers only the selected landing. discern checks standing and task grants on its…   |
+| `--variance`            | `<id:string>`        |         | Record that the owner approved landing despite this unmet checkpoint answer, without changing it (repeatable; needs `--confirmed`). The ids must match the…     |
+| `--approve-standard`    | `<token:string>`     |         | Record that the owner approved a proposed standard limit (repeatable; needs `--confirmed`). Use the token from the refusal or the emergency plan: it binds one… |
 
 **`discern update`**
 
@@ -636,7 +636,7 @@ Same-major releases may update documentation, add tools, resources, and optional
 | `dry_run`             | `boolean`  |          | Preview the landing plan and the queue; touch nothing (default false).                                                                                                  |
 | `confirmed`           | `boolean`  |          | Attestation that the owner has approved this landing in the current conversation. Set it only then. Recorded standing and effort grants are checked directly; do not…   |
 | `variance`            | `string[]` |          | The owner's authorization to land each named declared-unmet checkpoint without changing it (requires confirmed). The ids must equal the current declared-unmet set, id… |
-| `approve_standard`    | `string[]` |          | The owner's exact approval tokens for the standard limit proposals carried by the current Proof (requires confirmed). Use the tokens served by the read-only refusal;…  |
+| `approve_standard`    | `string[]` |          | The owner's exact approval tokens for the standard limit proposals carried by the current Proof or emergency plan (requires confirmed). Use the tokens served by the…   |
 | `path`                | `string`   |          | Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a…         |
 
 **`discern_map`** — Read the project map

@@ -8,7 +8,16 @@ import { sha256Hex } from "../../shared/sha256.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { pinValidatedTree } from "../gate/proof.ts";
-import { verifyTrunkLimits } from "../gate/standard_limits.ts";
+import {
+  type TrunkLimitsVerification,
+  verifyTrunkLimits,
+} from "../gate/standard_limits.ts";
+import {
+  type ActiveStandardLimitProposals,
+  inspectActiveStandardLimitProposals,
+} from "../gate/standard_proposal_state.ts";
+import { standardLimitApprovalRequests } from "../worktree/standard_approval.ts";
+import type { StandardLimitApprovalRequestData } from "../../shared/result_schemas.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import { loadIdentitySettings, resolveIdentity } from "../worktree/identity.ts";
 import {
@@ -61,6 +70,9 @@ export interface EmergencyPlan {
   readonly commits_total: number;
   /** Other tasks' unlanded work among those commits. */
   readonly carried: readonly CarriedEffort[];
+  /** Each limit the repair loosens under its recorded proposal, with the
+   * token of the owner's exact approval. */
+  readonly standard_approvals: readonly StandardLimitApprovalRequestData[];
   readonly review?: CompletionArtifact;
 }
 
@@ -227,25 +239,25 @@ export async function observeEmergencySubject(
       candidate,
       observation,
     });
-  // Emergency integration cannot weaken ordinary policy: the repair's config
-  // must hold every standard limit the trunk protects. A recorded limit
-  // proposal waits for the owner's approval in ordinary acceptance, so none
-  // applies here.
+  // Standard limits follow ordinary acceptance's policy exactly: a loosened
+  // limit lands only under its current recorded proposal, which the plan
+  // serves for the owner's exact approval, and a redefined or deleted
+  // standard never lands.
+  const standards = [...settled.standards];
+  const proposals = await inspectActiveStandardLimitProposals(
+    ctx.cwd,
+    trunk,
+    standards,
+    { head: source.head, predecessor: trunkHead, config: settled.config },
+  );
   const limits = await verifyTrunkLimits(
     ctx.cwd,
     trunk,
-    [...settled.standards],
-    new Map(),
+    standards,
+    proposals.active,
     settled.config,
   );
-  if (limits.blocking) {
-    const named = [...limits.blockedStandards].sort().map(markdownCodeSpan);
-    throw new Error(
-      `The repair changes protected policy or standard limits without valid approval${
-        named.length === 0 ? "" : `: ${named.join(", ")}`
-      }. Emergency integration cannot weaken ordinary policy, and a recorded limit proposal does not apply to it. Resolve those changes before preparing its plan.`,
-    );
-  }
+  if (limits.blocking) throw new Error(limitsRefusal(limits, proposals));
   const exceptions = await emergencyExceptions(
     root,
     settled.snapshot,
@@ -268,7 +280,39 @@ export async function observeEmergencySubject(
     commits: landed.slice(0, EMERGENCY_COMMIT_CAP),
     commits_total: landed.length,
     carried,
+    standard_approvals: await standardLimitApprovalRequests(
+      [...limits.proposals.values()].sort((a, b) =>
+        a.standard.localeCompare(b.standard)
+      ),
+    ),
   };
+}
+
+/** Why the repair's standards stop the plan, naming each blocked standard
+ * and the reason any recorded proposal for it is stale. */
+function limitsRefusal(
+  limits: TrunkLimitsVerification,
+  proposals: ActiveStandardLimitProposals,
+): string {
+  if (limits.blockedStandards.size === 0) {
+    return `The trunk's standard limits could not be compared with the repair's: ${
+      limits.diagnostics[0]?.message ?? limits.summary.reason ?? "unknown"
+    } Restore the trunk's configuration, then prepare a new emergency plan.`;
+  }
+  const blocked = [...limits.blockedStandards].sort();
+  return [
+    `The repair loosens, redefines, or deletes a standard without a current limit proposal: ${
+      blocked.map(markdownCodeSpan).join(", ")
+    }.`,
+    ...proposals.stale.filter(({ proposal }) =>
+      limits.blockedStandards.has(proposal.standard)
+    ).map(({ proposal, reason }) =>
+      `The recorded proposal for ${
+        markdownCodeSpan(proposal.standard)
+      } is stale: ${reason}.`
+    ),
+    `An emergency landing loosens a limit only under its recorded proposal, with the owner's approval in the plan. After the owner agrees to the looser limit, record it with discern standards propose <name> --reason "<why>", then prepare a new emergency plan. A redefined or deleted standard can't land this way or through ordinary acceptance: restore its trunk definition.`,
+  ].join(" ");
 }
 
 /** A read-only integration plan requires current checkpoint evidence before exposing confirmation. */
@@ -329,6 +373,7 @@ export async function emergencyToken(
     reason: plan.reason,
     exceptions: plan.exceptions,
     carried: plan.carried,
+    standard_approvals: plan.standard_approvals,
     review: plan.review,
   }));
   return `${expires}.${digest}`;

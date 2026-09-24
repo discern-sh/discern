@@ -139,7 +139,7 @@ When the agent asks to land the change, `discern accept` stops and gives it an a
 discern accept --confirmed --approve-standard <token>
 ```
 
-The token covers one standard, one value, and one reason. If any of them changes, you're asked again. Permission to land the feature doesn't approve the new limit, and no grant you set up in advance does either.
+The token covers one standard, one value, and one reason. If any of them changes, you're asked again. Permission to land the feature doesn't approve the new limit, and no grant you set up in advance does either. An [urgent repair](land-an-urgent-repair.md) follows the same rule: its plan shows the new limit, and you approve it with the same kind of token.
 
 ## When it's done
 

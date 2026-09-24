@@ -20,7 +20,8 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { emergencyData } from "./completion_emergency_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
 /** A gate whose one check passes while `taboo.txt` is absent. */
@@ -36,13 +37,18 @@ const CONFIG_CHECK = [
   "",
 ].join("\n");
 
-/** The refusal for a repair whose `hotspots` ceiling rose above the trunk's. */
+/** The refusal for a repair whose `hotspots` ceiling rose with no current
+ * recorded proposal. */
 const LOOSENED_HOTSPOTS =
-  "The repair changes protected policy or standard limits without valid approval: `hotspots`. Emergency integration cannot weaken ordinary policy, and a recorded limit proposal does not apply to it. Resolve those changes before preparing its plan.";
+  "The repair loosens, redefines, or deletes a standard without a current limit proposal: `hotspots`.";
 
 /** The refusal for an owner decision the emergency exchange cannot carry. */
 const ORDINARY_DECISIONS_ONLY =
-  "Emergency confirmation cannot approve a checkpoint variance or a standard limit proposal.";
+  "Emergency confirmation cannot approve a checkpoint variance.";
+
+/** The refusal for an owner decision passed outside the confirmation. */
+const CONFIRMATION_DECISIONS_ONLY =
+  "The owner's limit approvals belong to the emergency confirmation, beside --confirmed and --approval-token. Preparation and recovery take none.";
 
 /** Run `accept emergency` and return the refusal message. */
 async function refusal(cwd: string, ...args: string[]): Promise<string> {
@@ -145,7 +151,7 @@ Deno.test("each emergency precondition refuses with its own recovery sentence an
   });
 });
 
-Deno.test("a repair that weakens a protected standard limit cannot use the emergency route", async () => {
+Deno.test("a repair that loosens a limit without a recorded proposal cannot use the emergency route", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -180,7 +186,7 @@ Deno.test("a repair that weakens a protected standard limit cannot use the emerg
   });
 });
 
-Deno.test("a recorded limit proposal does not open the emergency route to a loosened standard", async () => {
+Deno.test("an emergency lands a recorded limit proposal only with the owner's approval of it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -205,8 +211,8 @@ Deno.test("a recorded limit proposal does not open the emergency route to a loos
     await Deno.writeTextFile(join(wt, "hotfix.txt"), "restore service\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "fix: repair", "--no-gpg-sign");
-    // The agent records a proposal that raises the ceiling to the measured 7;
-    // only the owner's approval in ordinary acceptance could land it.
+    // After the owner agrees, the agent records a proposal that raises the
+    // ceiling to the measured 7.
     const proposed = await runAgent(wt, [
       "standards",
       "propose",
@@ -216,19 +222,100 @@ Deno.test("a recorded limit proposal does not open the emergency route to a loos
       "--json",
     ]);
     assertEquals(proposed.code, 0, proposed.output);
+    const emergency = (...args: string[]) =>
+      runAgent(wt, [
+        "accept",
+        "emergency",
+        "--reason",
+        "Restore service",
+        ...args,
+        "--json",
+      ]);
+
+    // The plan serves the proposal and its approval token for the owner.
+    const preview = await emergency();
+    assertEquals(preview.code, 1, preview.output);
+    const envelope = decodeCliResult(preview.stdout, "accept");
+    assertEquals(envelope.error, "awaiting_consent", preview.output);
+    assertResultDataKey(envelope, "standard_approvals_required");
+    const required = envelope.data.standard_approvals_required ?? [];
+    assertEquals(
+      required.map(({ proposal }) => [
+        proposal.standard,
+        proposal.trunk_limit,
+        proposal.proposed_limit,
+      ]),
+      [["hotspots", 5, 7]],
+    );
+    const approval = required[0]?.token;
+    const token = emergencyData(preview.stdout).confirmation;
+    assert(approval !== undefined && token !== undefined, preview.output);
     assertStringIncludes(
-      await Deno.readTextFile(join(wt, "discern.toml")),
-      "limit = 7",
+      envelope.message ?? "",
+      "It loosens a standard limit under its recorded proposal, which needs the owner's approval:\n\nhotspots: 5 → 7 (measured 7; delta +2)",
     );
     assertStringIncludes(
-      await refusal(wt, "--reason", "Restore service"),
-      LOOSENED_HOTSPOTS,
+      envelope.message ?? "",
+      `--approve-standard ${approval}`,
+    );
+
+    // A confirmation without the limit's approval serves the plan again.
+    const unapproved = await emergency(
+      "--confirmed",
+      "--approval-token",
+      token,
+    );
+    assertEquals(unapproved.code, 1, unapproved.output);
+    const again = decodeCliResult(unapproved.stdout, "accept");
+    assertEquals(again.error, "awaiting_consent", unapproved.output);
+    assertStringIncludes(again.message ?? "", "missing: `hotspots`.");
+
+    // A token for no current proposal is an error, never an approval.
+    const unknown = await emergency(
+      "--confirmed",
+      "--approval-token",
+      token,
+      "--approve-standard",
+      "0".repeat(64),
+    );
+    assertEquals(unknown.code, 1, unknown.output);
+    assertEquals(
+      decodeCliResult(unknown.stdout, "accept").error,
+      "invalid_value",
+      unknown.output,
     );
     assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
     assertEquals(
       (await observeCompletionRecords(dir, SYSTEM_CLOCK, ["exception"]))
         .records,
       [],
+    );
+
+    // The owner's exact approval lands the looser limit and records it.
+    const landed = await emergency(
+      "--confirmed",
+      "--approval-token",
+      token,
+      "--approve-standard",
+      approval,
+    );
+    assertEquals(landed.code, 0, landed.output);
+    const approved = required.map(({ proposal }) => proposal);
+    assertEquals(emergencyData(landed.stdout).standard_approvals, approved);
+    assertStringIncludes(
+      await gitOut(dir, "show", "main:discern.toml"),
+      "limit = 7",
+    );
+    const [record] =
+      (await observeCompletionRecords(dir, SYSTEM_CLOCK, ["exception"]))
+        .records;
+    assert(
+      record?.reading.kind === "recorded" &&
+        record.reading.record.kind === "exception",
+    );
+    assertEquals(
+      record.reading.record.data.claim.standard_approvals,
+      approved,
     );
   });
 });
@@ -240,13 +327,9 @@ const ORDINARY_DECISIONS = [
     cli: ["--variance", "release-notes"],
     mcp: { variance: ["release-notes"] },
   },
-  {
-    cli: ["--approve-standard", "limit-approval-token"],
-    mcp: { approve_standard: ["limit-approval-token"] },
-  },
 ] as const;
 
-Deno.test("emergency confirmation refuses a checkpoint variance and a standard approval on every surface", async () => {
+Deno.test("emergency confirmation refuses a checkpoint variance on every surface", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG_CHECK);
@@ -285,6 +368,68 @@ Deno.test("emergency confirmation refuses a checkpoint variance and a standard a
         String(mcp.structuredContent?.message),
         ORDINARY_DECISIONS_ONLY,
       );
+    }
+  });
+});
+
+/** The owner's per-item emergency decisions, as each surface spells them. */
+const CONFIRMATION_DECISIONS = [
+  {
+    cli: ["--approve-standard", "limit-approval-token"],
+    mcp: { approve_standard: ["limit-approval-token"] },
+  },
+] as const;
+
+/** The emergency calls that take no owner decision, on each surface. */
+const UNDECIDED_CALLS = [
+  { cli: ["--prepare"], mcp: { prepare: true } },
+  { cli: ["--recover", "landing-id"], mcp: { recover: "landing-id" } },
+] as const;
+
+Deno.test("the owner's emergency decisions belong to its confirmation on every surface", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, CONFIG_CHECK);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "repair");
+    const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
+    assert(tool !== undefined);
+    for (const decision of CONFIRMATION_DECISIONS) {
+      for (const call of UNDECIDED_CALLS) {
+        const cli = await runAgent(wt, [
+          "accept",
+          "emergency",
+          "--reason",
+          "Restore service",
+          ...call.cli,
+          ...decision.cli,
+          "--json",
+        ]);
+        assertEquals(cli.code, 1, cli.output);
+        const envelope = decodeCliResult(cli.stdout, "accept");
+        assertEquals(envelope.error, "invalid_arguments", cli.output);
+        assertStringIncludes(
+          envelope.message ?? "",
+          CONFIRMATION_DECISIONS_ONLY,
+        );
+        const mcp = await runTool(
+          tool,
+          new WorkingRoot(wt),
+          {
+            action: "emergency",
+            reason: "Restore service",
+            ...call.mcp,
+            ...decision.mcp,
+          },
+          undefined,
+          () => Promise.resolve(undefined),
+        );
+        assertEquals(mcp.structuredContent?.error, "invalid_arguments");
+        assertStringIncludes(
+          String(mcp.structuredContent?.message),
+          CONFIRMATION_DECISIONS_ONLY,
+        );
+      }
     }
   });
 });

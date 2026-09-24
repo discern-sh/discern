@@ -58,7 +58,7 @@ export const ON_DISK_FORMATS = {
       module: "src/engine/completion/records.ts",
       export: "CompletionRecordSchema",
       sha256:
-        "9089a2ef9f5fe1148fec52ea8fbea83158b1a2a72faea418bb6af33af112aa4c",
+        "964f35306c272d91e94b2e17fcea100405136b15339dfa602c419c1b492e8573",
     },
     versionField: "version",
     reader: "src/engine/completion/store.ts#readCompletionRecord",

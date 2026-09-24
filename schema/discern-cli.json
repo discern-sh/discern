@@ -6737,7 +6737,7 @@
           "spellings": [
             "--approve-standard"
           ],
-          "description": "Record that the owner approved a proposed standard limit (repeatable; needs `--confirmed`). Use the token from the refusal: it binds one standard, value, and reason, and the tokens must match the current proposals exactly. No grant can approve a limit change.",
+          "description": "Record that the owner approved a proposed standard limit (repeatable; needs `--confirmed`). Use the token from the refusal or the emergency plan: it binds one standard, value, and reason, and the tokens must match the current proposals exactly. No grant can approve a limit change.",
           "type_definition": "<token:string>",
           "arity": 1,
           "value_types": [

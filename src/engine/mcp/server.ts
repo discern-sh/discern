@@ -1204,9 +1204,10 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       approve_standard: z.array(z.string()).optional().describe(
         "The owner's exact approval tokens for the standard limit proposals " +
-          "carried by the current Proof (requires confirmed). Use the tokens " +
-          "served by the read-only refusal; they bind each standard, value, and " +
-          "reason. Generic or recorded landing grants never authorize them.",
+          "carried by the current Proof or emergency plan (requires " +
+          "confirmed). Use the tokens served by the read-only refusal or " +
+          "emergency preview; they bind each standard, value, and reason. " +
+          "Generic or recorded landing grants never authorize them.",
       ),
       ...PATH_PARAM,
     },

@@ -1520,6 +1520,83 @@
                   "revision"
                 ]
               }
+            },
+            "standard_approvals": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "standard": {
+                    "type": "string"
+                  },
+                  "commit": {
+                    "type": "string"
+                  },
+                  "bound_commit": {
+                    "type": "string"
+                  },
+                  "measured_commit": {
+                    "type": "string"
+                  },
+                  "definition_fingerprint": {
+                    "type": "string"
+                  },
+                  "trunk": {
+                    "type": "string"
+                  },
+                  "trunk_commit": {
+                    "type": "string"
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "up",
+                      "down"
+                    ],
+                    "x-discern-vocabulary": "x-discern-proposal-directions"
+                  },
+                  "trunk_limit": {
+                    "type": "number"
+                  },
+                  "proposed_limit": {
+                    "type": "number"
+                  },
+                  "measurement": {
+                    "type": "number"
+                  },
+                  "delta": {
+                    "type": "number"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "evidence_paths": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "standard",
+                  "commit",
+                  "bound_commit",
+                  "measured_commit",
+                  "definition_fingerprint",
+                  "trunk",
+                  "trunk_commit",
+                  "direction",
+                  "trunk_limit",
+                  "proposed_limit",
+                  "measurement",
+                  "delta",
+                  "reason",
+                  "evidence_paths"
+                ]
+              }
             }
           },
           "required": [

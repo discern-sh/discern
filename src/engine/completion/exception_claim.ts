@@ -9,6 +9,7 @@ import {
   SourceRevisionSchema,
 } from "./identity.ts";
 import { ArtifactSchema, RequirementSchema } from "./evidence.ts";
+import { StandardLimitProposalSchema } from "../../shared/landing_decision_schemas.ts";
 
 /** Another task's unlanded revision that the repair carries onto the trunk. */
 export const CarriedEffortSchema = z.strictObject({
@@ -38,6 +39,9 @@ export const ExceptionClaimSchema = z.strictObject({
   /** Other tasks' unlanded work the owner saw the repair carry; absent when
    * it carried none. */
   carried: z.array(CarriedEffortSchema).min(1).optional(),
+  /** Each loosened standard limit the owner approved with this exception,
+   * as its recorded proposal; absent when the repair loosened none. */
+  standard_approvals: z.array(StandardLimitProposalSchema).min(1).optional(),
 }).refine(
   (claim) =>
     claim.review === undefined ||
