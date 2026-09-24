@@ -33,6 +33,7 @@ import {
   docsLlmsSection,
   type DocsPage,
   glossaryMentions,
+  glossaryMentionSpellings,
   loadDocsSite,
   relatedDecisionCitations,
   rewriteLinks,
@@ -769,6 +770,27 @@ Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are exp
     Error,
     "belongs to both First and Second",
   );
+  // A multi-word term's plural and hyphenated spellings belong to it too.
+  assertThrows(
+    () =>
+      glossaryMentions([
+        {
+          term: "Open question",
+          runningCase: "lowercase",
+          definition: "A recorded question.",
+          plain: { keep: "fixture" },
+        },
+        {
+          term: "Question",
+          runningCase: "lowercase",
+          definition: "A question.",
+          matches: ["open-questions"],
+          plain: { keep: "fixture" },
+        },
+      ]),
+    Error,
+    "belongs to both Open question and Question",
+  );
   // `match: false` holds on either plain variant: no default match, and an
   // explicit match must be a multi-word product phrase.
   assertEquals(
@@ -810,6 +832,32 @@ function cardTerms(html: string): string[] {
     match[1] ?? ""
   );
 }
+
+Deno.test("a longer term's plural or hyphenated form keeps its own card", async () => {
+  const site = await loadDocsSite();
+  const plural = glossaryMentions().filter((mention) => mention.plural);
+  assert(plural.length > 0, "multi-word terms match their plural spellings");
+  for (const mention of plural) {
+    for (const spelling of glossaryMentionSpellings(mention)) {
+      for (const written of [spelling, spelling.replaceAll(" ", "-")]) {
+        assertEquals(
+          cardTerms(createGlossaryProseRenderer(site)(`See the ${written}.`)),
+          [mention.entry.term],
+          `"${written}" opened the wrong card`,
+        );
+      }
+    }
+  }
+  for (
+    const [prose, term] of [
+      ["It tracks abandoned open questions.", "Open question"],
+      ["Its open-question evidence stays.", "Open question"],
+      ["It lists the planned gate jobs.", "Gate job"],
+    ] as const
+  ) {
+    assertEquals(cardTerms(createGlossaryProseRenderer(site)(prose)), [term]);
+  }
+});
 
 Deno.test("bare common words stay plain while code-form matches link", async () => {
   const site = await loadDocsSite();

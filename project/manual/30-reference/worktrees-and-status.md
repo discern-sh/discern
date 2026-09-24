@@ -97,7 +97,7 @@ A trunk that only moved after the Proof isn't a reason to wait, because acceptan
 
 The report uses a task's stored title when it has one, and `--verbose` shows the complete worktree and branch names. Use the stable id or the branch name in commands, even when the report shows a friendlier title.
 
-Rows are ordered by status. Problems come first: broken, setup incomplete, unreadable, and failed. Then come blocked, behind, ready, running, stale, and in progress, then Proof unreadable, Proof unavailable, Proof stale, needs gate, and idle. Within a status, the current checkout comes first, then the most recent activity. Collisions over shared files and ADR numbers appear separately, as landing risks.
+Rows are ordered by status. Problems come first: broken, setup incomplete, unreadable, and failed. Then come blocked, behind, ready, running, stale, and in progress, then Proof unreadable, Proof unavailable, Proof stale, needs gate, and idle. Within a status, the current checkout comes first, then the most recent activity. Overlapping file changes and contested ADR numbers appear separately, as landing risks.
 
 Each task row reports:
 
@@ -188,7 +188,7 @@ A readable row also carries its activity, one `gate_proof`, and its `landing_aut
 
 Structured fleet rows leave out the older `proof_honored`, `proof`, and `proof_line` copies.
 
-`fleet_collisions` pairs branches whose changed files overlap, with the count of shared files. `adr_collisions` names contested ADR numbers and the branches that claim them, including branches without worktrees. Structured results leave out their path lists. The terminal report shows them, though in the main checkout's fleet view only with `--verbose`. A later `discern update` names the overlapping paths to re-read.
+`fleet_collisions` pairs branches whose changed files overlap, with the count of overlapping files. `adr_collisions` names contested ADR numbers and the branches that claim them, including branches without worktrees. Structured results leave out their path lists. The terminal report shows them, though in the main checkout's fleet view only with `--verbose`. A later `discern update` names the overlapping paths to re-read.
 
 #### Recovery records
 

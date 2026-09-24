@@ -37,7 +37,7 @@ This guide follows one example: finishing small changes has started to take long
 
 > Review how this project is working with discern. Focus on why finishing small changes has started taking longer. Find one improvement the evidence supports, explain why it's worth doing, and say how we'd tell whether it helped.
 
-The agent starts with `discern improvement`. It scores the project's setup on a set of health checks, covering instructions, checks, documentation, and more. It lists open questions for you and the agent to judge separately, outside the score. It then names one next action.
+The agent starts with `discern improvement`. It scores the project's setup on a set of health checks, covering instructions, checks, documentation, and more. It lists questions for you and the agent to judge separately, outside the score. It then names one next action.
 
 Ask what the finding means in practice. "The instructions need attention" should become what's missing, which tasks it affects, and what fixing it would change. A low score alone isn't a reason to add more rules.
 

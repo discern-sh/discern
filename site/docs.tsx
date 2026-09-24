@@ -662,11 +662,55 @@ export function rewriteLinks(
 export interface GlossaryMention {
   entry: GlossaryEntry;
   text: string;
+  /**
+   * Whether prose may also name it in the plural: set for a multi-word term
+   * matched by its own name, so "open questions" is still Open question and
+   * never the shorter term inside it.
+   */
+  plural: boolean;
 }
 
 /** Quote glossary mention text before building ownership and linking patterns. */
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** A mention's words; prose may join them with spaces or hyphens. */
+function mentionWords(text: string): string[] {
+  return text.trim().split(/[\s-]+/u);
+}
+
+/** A word's regular English plural. */
+function pluralWord(word: string): string {
+  if (/[^aeiou]y$/iu.test(word)) return `${word.slice(0, -1)}ies`;
+  if (/(?:s|x|z|ch|sh)$/iu.test(word)) return `${word}es`;
+  return `${word}s`;
+}
+
+/** Each word sequence prose may use for a mention, plural first. */
+function mentionSpellings(
+  text: string,
+  plural: boolean,
+): readonly (readonly string[])[] {
+  const words = mentionWords(text);
+  const last = words.at(-1);
+  return plural && last !== undefined
+    ? [[...words.slice(0, -1), pluralWord(last)], words]
+    : [words];
+}
+
+/** Every word sequence prose may use for a mention, space-separated. */
+export function glossaryMentionSpellings(mention: GlossaryMention): string[] {
+  return mentionSpellings(mention.text, mention.plural).map((words) =>
+    words.join(" ")
+  );
+}
+
+/** The regular-expression source that finds one mention in prose. */
+function mentionPatternSource(mention: GlossaryMention): string {
+  return mentionSpellings(mention.text, mention.plural)
+    .map((words) => words.map(escapeRegExp).join("[\\s-]+"))
+    .join("|");
 }
 
 /**
@@ -684,23 +728,27 @@ export function glossaryMentions(
       if (text.trim().length === 0) {
         throw new Error(`docs: glossary mention is empty for ${entry.term}`);
       }
-      if (
-        readsAsOrdinaryEnglish(entry) && text.trim().split(/\s+/u).length < 2
-      ) {
+      const words = mentionWords(text);
+      if (readsAsOrdinaryEnglish(entry) && words.length < 2) {
         throw new Error(
           `docs: glossary mention ${text} is an everyday word; ${entry.term} reads as ordinary English, so match a multi-word product phrase or nothing`,
         );
       }
-      const key = text.toLowerCase();
-      const prior = owners.get(key);
-      if (prior !== undefined && prior !== entry.term) {
-        throw new Error(
-          `docs: glossary mention ${text} belongs to both ${prior} and ${entry.term}`,
-        );
+      const plural = entry.matches === undefined && words.length > 1;
+      const keys = mentionSpellings(text, plural).map((spelling) =>
+        spelling.join(" ").toLowerCase()
+      );
+      if (keys.every((key) => owners.get(key) === entry.term)) continue;
+      for (const key of keys) {
+        const prior = owners.get(key);
+        if (prior !== undefined && prior !== entry.term) {
+          throw new Error(
+            `docs: glossary mention ${text} belongs to both ${prior} and ${entry.term}`,
+          );
+        }
+        owners.set(key, entry.term);
       }
-      if (prior === entry.term) continue;
-      owners.set(key, entry.term);
-      mentions.push({ entry, text });
+      mentions.push({ entry, text, plural });
     }
   }
   return mentions.toSorted((a, b) =>
@@ -709,14 +757,8 @@ export function glossaryMentions(
 }
 
 const GLOSSARY_MENTIONS = glossaryMentions();
-const GLOSSARY_BY_MENTION = new Map(
-  GLOSSARY_MENTIONS.map((mention) => [
-    mention.text.toLowerCase(),
-    mention.entry,
-  ]),
-);
 const GLOSSARY_MENTION_PATTERN = GLOSSARY_MENTIONS
-  .map((mention) => escapeRegExp(mention.text))
+  .map((mention) => `(${mentionPatternSource(mention)})`)
   .join("|");
 const GLOSSARY_PANEL_IDS = new Map(
   GLOSSARY.map((entry, index) => [
@@ -783,7 +825,9 @@ function glossaryTermHtml(
 /**
  * Build one page-scoped prose renderer. Each entry's first eligible matching
  * phrase becomes the design system's Glossary term semantic HTML with the
- * entry's summary; later matches for that entry remain plain text.
+ * entry's summary; later matches for that entry remain plain text. Longer
+ * mentions are tried first at each position, so a term inside a longer term
+ * never takes its card.
  */
 export function createGlossaryProseRenderer(
   site: DocsSite,
@@ -801,7 +845,10 @@ export function createGlossaryProseRenderer(
     for (const match of text.matchAll(matcher)) {
       const visible = match[0];
       const index = match.index;
-      const entry = GLOSSARY_BY_MENTION.get(visible.toLowerCase());
+      const group = match.findIndex((captured, at) =>
+        at > 0 && captured !== undefined
+      );
+      const entry = GLOSSARY_MENTIONS[group - 1]?.entry;
       if (index === undefined || entry === undefined) continue;
       html += escapeMarkdownHtml(text.slice(cursor, index));
       const summary = summaries.get(entry.term);
