@@ -24,9 +24,9 @@ An explicit `discern worktree drop <worktree>` can select a foreign checkout by 
 
 ## Removal after landing
 
-A landing removes the effort's worktree, its resources, and its branch when the branch holds nothing beyond the landed submission, after the engine proves current ownership, cleanliness, resource inventory, and exclusion. A branch with later commits, an uncertain resource, or an active child process keeps the checkout in place; the landing stands and the result names the route. Pending Proof notes remain available outside the removed checkout.
+A landing removes the effort's worktree, its resources, and its branch when the branch holds nothing beyond the landed submission, the checkout is clean, and the landing owes no Proof note; deleting the branch still requires that discern owns it. Later commits or uncommitted changes keep the checkout and branch, and the result names the route. A resource whose destroy command fails stays recorded for `discern worktree prune`, while the checkout and branch still go. A Proof note that fails to record keeps the checkout, its branch, its resources, and its acceptance journal, the note's only retry vehicle; `discern accept` from that checkout records the note and then cleans up.
 
-A note or cleanup failure reports the change as landed with recovery pending. Retrying settles that record; it cannot land again or spend authority twice. [Interrupted landing recovery](acceptance-recovery.md) describes the current states and next actions.
+A note or cleanup failure never lands the change again or spends its authority twice. [Interrupted landing recovery](acceptance-recovery.md) describes the current states and next actions.
 
 ## Prove absence before reporting success
 

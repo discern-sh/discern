@@ -16,6 +16,14 @@ import {
   stepResultSatisfiesCompletion,
 } from "./result.ts";
 import { appendHintTexts, fire, firedHintsFromTexts, HINTS } from "./hints.ts";
+import { SETUP_BRANCH } from "./git_conventions.ts";
+import {
+  ACCEPT_PROOF_NOTE_RETRY,
+  PROOF_NOTE_FETCH_REPAIR,
+  PROOF_NOTE_MISSING,
+  proofNoteOwed,
+  setupProofNoteRetry,
+} from "./proof_note_recovery.ts";
 
 export const RESULT_REQUIRED_POSTCONDITIONS = [
   "declared-outcome",
@@ -360,6 +368,24 @@ function strings(value: unknown): string[] {
     : [];
 }
 
+/**
+ * The retry each note-recording verb serves when its landing's Proof note is
+ * owed. Each landing keeps what its retry needs — the effort's checkout for
+ * acceptance, the setup branch for setup acceptance — so every entry names a
+ * live command; a verb that owes a note without an entry is an invariant
+ * failure, never a vague recovery.
+ */
+export const PROOF_NOTE_RETRIES: Readonly<
+  Record<string, (data: UnknownRecord | undefined) => string>
+> = {
+  accept: () => ACCEPT_PROOF_NOTE_RETRY,
+  "setup accept": (data) =>
+    setupProofNoteRetry(
+      nonBlank(data?.branch) ?? SETUP_BRANCH,
+      nonBlank(data?.target) ?? "the trunk",
+    ),
+};
+
 interface RequiredPostconditionFailure {
   readonly error: ErrorSlug;
   readonly message: string;
@@ -693,21 +719,34 @@ function derivedAdvisories(
   const proofNote = record(data?.proof_note);
   const proofFetch = record(proofNote?.fetch);
   const proofWrite = record(proofNote?.write);
-  const proofEvidence = [
-    ...(proofFetch?.status === "failed" ? strings(proofFetch.errors) : []),
-    ...(proofWrite?.status === "record_failed" ||
-        proofWrite?.status === "missing_proof"
-      ? [
-        nonBlank(proofWrite.reason) ??
-          `Proof note: ${String(proofWrite.status)}`,
-      ]
-      : []),
-  ];
-  if (proofEvidence.length > 0) {
+  if (proofFetch?.status === "failed") {
     add(
       "proof-recording-unavailable",
-      proofEvidence,
-      "Inspect `data.proof_note`, repair Git-notes storage, and retry the documented Proof note recovery without repeating the landing.",
+      strings(proofFetch.errors),
+      PROOF_NOTE_FETCH_REPAIR,
+    );
+  }
+  if (
+    proofWrite?.status === "record_failed" ||
+    proofWrite?.status === "missing_proof"
+  ) {
+    let nextAction = PROOF_NOTE_MISSING;
+    if (proofNoteOwed(proofWrite)) {
+      const retry = PROOF_NOTE_RETRIES[result.verb];
+      if (retry === undefined) {
+        throw new Error(
+          `internal result invariant: \`discern ${result.verb}\` owes a Proof note but names no retry`,
+        );
+      }
+      nextAction = retry(data);
+    }
+    add(
+      "proof-recording-unavailable",
+      [
+        nonBlank(proofWrite.reason) ??
+          `Proof note: ${String(proofWrite.status)}`,
+      ],
+      nextAction,
     );
   }
 
@@ -730,7 +769,12 @@ function derivedAdvisories(
     );
   }
 
-  if (data?.landed === true && data.branch_deleted === false) {
+  // A branch kept for an owed Proof note is the note's retry route, never
+  // leftover cleanup.
+  if (
+    data?.landed === true && data.branch_deleted === false &&
+    !proofNoteOwed(proofWrite)
+  ) {
     const branch = nonBlank(data.branch) ?? "the landed branch";
     add(
       "acceptance-cleanup-incomplete",

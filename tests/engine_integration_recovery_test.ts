@@ -47,10 +47,12 @@ import {
   runAgent,
   scaffoldEngine,
   writeConfig,
+  writeNoteWriteFailingGit,
 } from "./engine_helpers.ts";
 import { readOperationJournal } from "../src/engine/completion/operation_journal.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -231,6 +233,56 @@ Deno.test("a kill after the trunk moved retries into Proof, exact consumption, a
     assert(await commitIsMerged(dir, frozenHead, "main"));
     assertEquals(await targetExists(beta), false);
     assertEquals(await gitOut(dir, "branch", "--list", effort.branch), "");
+  });
+});
+
+Deno.test("an integrated landing whose Proof note fails keeps the author's checkout until the retry it names records the note", async () => {
+  await withTempDir(async (dir) => {
+    await fixture(dir);
+    const alpha = await provenEffort(dir, "alpha");
+    const beta = await provenEffort(dir, "beta");
+    assertEquals(
+      (await runAgent(alpha, ["accept", "--confirmed", "--json"])).code,
+      0,
+    );
+    const failingGit = join(dir, ".git", "note-write-failing-git");
+    await writeNoteWriteFailingGit(failingGit);
+
+    const landed = await runAgent(beta, ["accept", "--confirmed", "--json"], {
+      env: { GIT_BIN: failingGit },
+    });
+    assertEquals(landed.code, 0, landed.output);
+    const result = decodeCliResult(landed.stdout, "accept");
+    const composed = await gitOut(dir, "rev-parse", "main");
+    assertResultDataKey(result, "landings");
+    assertEquals(result.data.landings?.[0]?.integrated, true);
+    assertEquals(result.data.landings?.[0]?.landed_commit, composed);
+    assertResultDataKey(result, "proof_note");
+    assertEquals(result.data.proof_note?.write.status, "record_failed");
+    // The author's checkout and its journal stay as the note's retry; the
+    // disposable integration copy goes, since its Proof is in common storage.
+    const journal = await gitAdminStatePath(beta, "acceptanceTransaction");
+    assert(journal !== undefined && await targetExists(journal));
+    assertEquals(
+      await listIntegrationLandingRecords(await Deno.realPath(dir)),
+      [],
+    );
+    const retryFrom = /run `discern accept` from (.+?); it records the note/
+      .exec(result.message ?? "")?.[1];
+    assertEquals(retryFrom, await Deno.realPath(beta), landed.output);
+    assert(retryFrom !== undefined);
+
+    const retried = await runAgent(retryFrom, ["accept", "--json"]);
+    assertEquals(retried.code, 0, retried.output);
+    const settled = decodeCliResult(retried.stdout, "accept");
+    assertResultDataKey(settled, "proof_note");
+    assertEquals(settled.data.proof_note?.write.status, "recorded");
+    assert(
+      (await gitOut(dir, "notes", "--ref=discern", "show", composed)).length >
+        0,
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), composed);
+    assertEquals(await targetExists(beta), false);
   });
 });
 

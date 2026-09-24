@@ -5,9 +5,10 @@
  * The journal is written before either durable boundary. A landing that
  * removes its worktree lets Git reap the journal with the admin directory; a
  * landing that keeps its checkout retires the journal once every
- * post-transition step settles; an interrupted retry reads recorded facts
- * before ordinary authority and dirty-tree guards can mistake the
- * transaction's own state for user work.
+ * post-transition step settles, and a landing whose Proof note is still owed
+ * keeps both, so a retry can record the note; an interrupted retry reads
+ * recorded facts before ordinary authority and dirty-tree guards can mistake
+ * the transaction's own state for user work.
  */
 
 import { dirname, isAbsolute } from "@std/path";
@@ -34,7 +35,9 @@ import {
   settleEffortGrantClaim,
 } from "./effort_grant_cleanup.ts";
 import {
+  type CheckedOutFastForwardRecovery,
   type CheckedOutFastForwardResult,
+  commitIsAncestorOf,
   fastForwardCheckedOutBranch,
   mainRepoPath,
   readAcceptanceTransactionMarker,
@@ -146,10 +149,11 @@ export type InterruptedAcceptanceRecovery =
     readonly recoveryPerformed: boolean;
   }
   | {
-    /** The recorded transition stands at the trunk tip with its one-shot
-     * authority spent and the trunk checkout settled. The journal stays: the
-     * caller retires it with {@link clearCompletedAcceptanceJournal} once it
-     * has settled what the landing still owes. */
+    /** The recorded transition stands on the trunk — at its tip, or beneath
+     * later landings — with its one-shot authority spent and the trunk
+     * checkout settled. The journal stays: the caller retires it with
+     * {@link clearCompletedAcceptanceJournal} once the landing's remaining
+     * obligations settle, so a Proof note that still fails keeps its retry. */
     readonly kind: "landed";
     readonly recoveryPerformed: boolean;
     readonly message: string;
@@ -830,9 +834,10 @@ function stoppedRecovery(
 /**
  * Complete or roll back one already-inspected, already-authorized interrupted acceptance.
  * A pre-CAS/explicitly rolled-back claim is restored and ordinary acceptance
- * may continue under freshly checked authority. A durable CAS consumes its
- * one-shot authority, converges only an exact journal-owned old checkout, and
- * reports the landing without replaying it; the caller settles what the
+ * may continue under freshly checked authority. A durable CAS — the trunk at
+ * the target, or the marker-proven target beneath later landings — consumes
+ * its one-shot authority, converges only an exact journal-owned old checkout,
+ * and reports the landing without replaying it; the caller settles what the
  * landing still owes before retiring the journal.
  */
 export async function recoverInterruptedAcceptance(
@@ -922,14 +927,28 @@ export async function recoverInterruptedAcceptance(
     );
   }
 
-  if (current === transaction.target) {
-    const consumed = await consumeRecordedClaim(cwd, transaction);
-    const checkout = await recoverCheckedOutFastForward(
+  // The marker proves this transaction advanced the trunk to its target, so a
+  // trunk that still contains the target was built on by later landings: the
+  // landing stands and only its own obligations remain.
+  const landedBeneath = current !== transaction.target &&
+    marker.kind === "present" &&
+    await commitIsAncestorOf(
       transaction.main_repo,
-      transaction.trunk,
-      transaction.expected_trunk,
       transaction.target,
+      current,
     );
+  if (current === transaction.target || landedBeneath) {
+    const consumed = await consumeRecordedClaim(cwd, transaction);
+    // Later landings converged the trunk checkout past this target, so only a
+    // trunk still at the target leaves this transaction a checkout to settle.
+    const checkout: CheckedOutFastForwardRecovery = landedBeneath
+      ? { kind: "converged", changed: false }
+      : await recoverCheckedOutFastForward(
+        transaction.main_repo,
+        transaction.trunk,
+        transaction.expected_trunk,
+        transaction.target,
+      );
     if (checkout.kind === "preserved") {
       return stoppedRecovery(
         `discern found that the interrupted landing already advanced ` +
@@ -947,7 +966,11 @@ export async function recoverInterruptedAcceptance(
       (transaction.effort_claim && consumed);
     const resumed =
       `discern resumed the recorded landing of ${transaction.target} ` +
-      `onto ${transaction.trunk}. No landing authority was replayed.` +
+      `onto ${transaction.trunk}` +
+      (landedBeneath
+        ? `; ${transaction.trunk} has since moved on to ${current}`
+        : "") +
+      `. No landing authority was replayed.` +
       (consumed ? effortConsumedClause(transaction) : "");
     if (!consumed) {
       return stoppedRecovery(
@@ -992,7 +1015,7 @@ export async function recoverInterruptedAcceptance(
     );
   }
   const evidenceDetail = marker.kind === "present"
-    ? `its per-worktree marker proves it previously advanced to ${transaction.target}`
+    ? `its per-worktree marker proves it previously advanced to ${transaction.target}, which ${transaction.trunk} no longer contains`
     : `Git could not read the per-worktree marker (${marker.detail}), so discern cannot prove that the trunk transition never happened`;
   return stoppedRecovery(
     `discern found interrupted acceptance ${transaction.id} after ` +

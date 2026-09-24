@@ -70,6 +70,7 @@ The change is on `main`, and its worktree is still there. The first sentence of 
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `the branch holds later commits, so its checkout and branch stay` | Those commits came after the version that landed, so they haven't landed yet. Your agent runs `discern done`, then `discern accept`, for them. |
 | `the checkout has uncommitted changes, so it and its branch stay` | Keep the changes you want by committing them. Your agent then runs `discern done`, then `discern accept`.                                      |
+| `its Proof note was not recorded`                                 | Fix the reported Git-notes problem. Your agent then runs `discern accept` from that worktree, which records the note without landing again.    |
 | `could not be removed: run discern worktree prune`                | A program is still using the folder, such as a preview server. Stop it, then run `discern worktree prune` from your main checkout.             |
 
 If the result says `resource teardown failed`, the worktree and branch are gone, but a resource such as a test database remains. Fix the command that removes it, then run `discern worktree prune` from your main checkout.

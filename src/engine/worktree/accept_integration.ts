@@ -18,6 +18,7 @@ import {
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
+import { acceptProofNoteOwed } from "../../shared/proof_note_recovery.ts";
 import {
   BUILT_IN_STEP_LABELS,
   type DiscernResult,
@@ -93,6 +94,8 @@ function landedIntegratedMessage(
     short(landed)
   }, on ${effort.trunk}`;
   switch (disposition.kind) {
+    case "proof-note-owed":
+      return `${lead}, ${acceptProofNoteOwed(effort.path)}`;
     case "removed":
       return `${lead}; its checkout, branch, and resources are gone.`;
     case "resources-remain":

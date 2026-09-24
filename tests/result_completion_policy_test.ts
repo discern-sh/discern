@@ -31,8 +31,14 @@ import {
   completionPolicyCoverage,
   completionStateVerdict,
   evaluateResultCompletion,
+  PROOF_NOTE_RETRIES,
   RESULT_COMPLETION_POLICIES,
 } from "../src/shared/result_completion.ts";
+import {
+  ACCEPT_PROOF_NOTE_RETRY,
+  PROOF_NOTE_MISSING,
+  setupProofNoteRetry,
+} from "../src/shared/proof_note_recovery.ts";
 
 const registeredVerbs = CLI_JSON_RESULT_CONTRACTS.map((contract) =>
   contract.verb
@@ -415,6 +421,80 @@ Deno.test("optional degradations stay green only as typed advisories", () => {
   assertEquals(
     upgrade.advisories?.[0]?.kind,
     "generated-attribute-pattern-untranslated",
+  );
+});
+
+Deno.test("an unrecorded Proof note's advisory names the retry its own landing kept", () => {
+  const reason = "Git refused the notes commit";
+  const note = (status: string) => ({
+    fetch: { status: "local", errors: [] },
+    write: { status, reason },
+  });
+  const owed: Readonly<
+    Record<string, { data: Record<string, unknown>; retry: string }>
+  > = {
+    accept: {
+      data: {
+        landing: {
+          recovery_performed: false,
+          trunk_landed: true,
+          worktree_removed: false,
+          branch_deleted: false,
+        },
+      },
+      retry: ACCEPT_PROOF_NOTE_RETRY,
+    },
+    "setup accept": {
+      data: {
+        landed: true,
+        branch: "discern-setup",
+        target: "main",
+        branch_deleted: false,
+      },
+      retry: setupProofNoteRetry("discern-setup", "main"),
+    },
+  };
+  assertEquals(
+    Object.keys(owed).sort(),
+    Object.keys(PROOF_NOTE_RETRIES).sort(),
+  );
+  for (const [verb, { data, retry }] of Object.entries(owed)) {
+    const recorded = evaluateResultCompletion({
+      ok: true,
+      verb,
+      data: { ...data, proof_note: note("record_failed") },
+    });
+    assertEquals(recorded.ok, true, verb);
+    // The kept branch or checkout is the retry's vehicle, never leftover
+    // cleanup to delete.
+    assertEquals(recorded.advisories, [{
+      kind: "proof-recording-unavailable",
+      evidence: [reason],
+      next_action: retry,
+    }], verb);
+
+    const missing = evaluateResultCompletion({
+      ok: true,
+      verb,
+      data: { ...data, proof_note: note("missing_proof") },
+    });
+    assertEquals(
+      missing.advisories?.find((advisory) =>
+        advisory.kind === "proof-recording-unavailable"
+      )?.next_action,
+      PROOF_NOTE_MISSING,
+      verb,
+    );
+  }
+  assertThrows(
+    () =>
+      evaluateResultCompletion({
+        ok: true,
+        verb: "done",
+        data: { failed_stage: null, proof_note: note("record_failed") },
+      }),
+    Error,
+    "owes a Proof note but names no retry",
   );
 });
 

@@ -33,6 +33,7 @@ import {
   type LandingConsentSource,
 } from "../src/shared/consent.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
+import { PROOF_NOTE_MISSING } from "../src/shared/proof_note_recovery.ts";
 import {
   addWorktree,
   convergeFixtureGitattributes,
@@ -580,11 +581,12 @@ Deno.test("post-CAS recovery discloses a missing worktree Proof marker", async (
     const recoveredProofNote = envelope.data.proof_note;
     assert(recoveredProofNote !== undefined);
     assertEquals(recoveredProofNote.write.status, "missing_proof");
-    // No Proof remains to record, so recovery discloses it and still
-    // finishes the cleanup.
+    // No Proof remains to record, so the disclosure promises no retry and
+    // keeps nothing for one.
     assert(
       envelope.steps?.some((step) =>
         step.advisory?.kind === "proof-recording-unavailable" &&
+        step.advisory.next_action === PROOF_NOTE_MISSING &&
         step.outcome === "failed"
       ) ?? false,
       recovered.output,

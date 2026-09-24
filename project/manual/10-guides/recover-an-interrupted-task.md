@@ -108,7 +108,10 @@ A worktree that stays after landing can be a normal outcome. The change is alrea
 
 - **The branch has newer commits.** They haven't landed yet. The agent runs `discern done`, then `discern accept`, for them.
 - **The worktree has uncommitted changes.** discern keeps them, and the branch. The agent commits what should stay, then runs `discern done`, then `discern accept`.
-- **Cleanup couldn't finish**, perhaps because another program was still using the folder, or a resource couldn't be removed. Once the cause is fixed, run `discern worktree prune` from your main checkout.
+- **The Proof note wasn't recorded.** discern keeps the worktree and its branch so the note can still be written. Once the reported problem is fixed, the agent runs `discern accept` from that worktree. It records the note without landing again, then removes the worktree.
+- **Cleanup couldn't finish**, perhaps because another program was still using the folder. Once it has stopped, run `discern worktree prune` from your main checkout.
+
+A resource that couldn't be removed, such as a test database, doesn't keep the worktree: the worktree and branch go, and the result names the resource. Once its cause is fixed, `discern worktree prune` removes it.
 
 Recovery is done when you know what landed, and why anything is still there. [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers cleanup and resource problems.
 

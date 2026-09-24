@@ -81,9 +81,9 @@ A note write reports `recorded`, `already_present`, `record_failed`, or `missing
 
 discern writes the notes commit as `discern <done@discern.sh>`, both author and committer. With a non-empty `DISCERN_NO_ATTRIBUTION`, it uses the repository's Git identity instead, and still records the Proof.
 
-If writing the note fails, the landing still stands. The acceptance result reports the write in `data.proof_note.write`, with its status and reason, and marks the note step failed with a `proof-recording-unavailable` advisory. The worktree's acceptance journal keeps the consent, variances, proposals, and Proof pointer, so a retry can record the note without repeating the landing or spending its authority again. A retry is only possible while the worktree survives, because an ordinary cleanup removes the worktree and its journal.
+If writing the note fails, the landing still stands. The acceptance result reports the write in `data.proof_note.write`, with its status and reason, and marks the note step failed with a `proof-recording-unavailable` advisory. discern keeps the task's worktree, its branch, and its acceptance journal, which holds the consent, variances, proposals, and Proof pointer. The result's first sentence names the retry: fix the reported problem, then run `discern accept` from that worktree. The retry records the note without repeating the landing or spending its authority again, even when other changes have landed since. Then it cleans up the worktree the way a landing does. If no complete Proof remains to record, the result says so, and the landing stands without a note.
 
-Setup results report `data.proof_note.write` and `data.proof_note.fetch`.
+Setup results report `data.proof_note.write` and `data.proof_note.fetch`. If the setup note fails, `discern setup accept` keeps the `discern-setup` branch and the Proof it writes the note from. Check out that branch and run `discern setup accept` again to record the note.
 
 ### Carry notes between clones
 

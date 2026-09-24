@@ -3,14 +3,15 @@
  * direct and integration executors share. The preflight proves the main
  * checkout is clean, idle, and on the trunk before any effect; the cleanup
  * removes the effort's resources, checkout, and branch exactly when the
- * branch holds nothing beyond what landed. This module never imports
- * `accept.ts` at runtime.
+ * branch holds nothing beyond what landed and the landing owes no Proof
+ * note. This module never imports `accept.ts` at runtime.
  */
 
 import { commandEvidence } from "../../shared/command_evidence.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { BUILT_IN_STEP_LABELS } from "../../shared/result.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
+import { proofNoteOwed } from "../../shared/proof_note_recovery.ts";
 import { ACCEPT_NOTHING_LANDED, short } from "./accept_support.ts";
 import {
   inspectGitOperation,
@@ -117,7 +118,7 @@ export async function assertMainCheckoutReady(
   }
 }
 
-/** The landing's projected steps for one effort, from its own configuration. */
+/** What the cleanup tail did with the effort's checkout after the landing. */
 export type CleanupDisposition =
   | { readonly kind: "removed" }
   | {
@@ -126,19 +127,26 @@ export type CleanupDisposition =
     readonly failed: readonly string[];
   }
   | { readonly kind: "later-commits" }
-  | { readonly kind: "uncommitted-changes" };
+  | { readonly kind: "uncommitted-changes" }
+  /** The landing's Proof note was not recorded; the checkout's acceptance
+   * journal is the note's only retry vehicle, so nothing was removed. */
+  | { readonly kind: "proof-note-owed" };
 
 /** Whether the disposition leaves the effort's checkout (and its worktree-scoped
  * state, such as the acceptance journal) on disk. */
 export function cleanupKeepsCheckout(disposition: CleanupDisposition): boolean {
   return disposition.kind === "later-commits" ||
-    disposition.kind === "uncommitted-changes";
+    disposition.kind === "uncommitted-changes" ||
+    disposition.kind === "proof-note-owed";
 }
 
 /** Remove the effort's resources, checkout, and branch when nothing remains
- * beyond the landing. A failed resource destroy is retained (with its recovery
- * advisory) and reported as the `resources-remain` disposition, so the
- * result's first sentence can state the incomplete cleanup truthfully. */
+ * beyond the landing and the landing owes nothing its checkout carries. An
+ * owed Proof note keeps everything, because the checkout's acceptance journal
+ * is the note's only retry vehicle. A failed resource destroy is retained
+ * (with its recovery advisory) and reported as the `resources-remain`
+ * disposition, so the result's first sentence can state the incomplete
+ * cleanup truthfully. */
 export async function cleanUpEffort(
   effort: EffortCheckout,
   landed: string,
@@ -150,6 +158,9 @@ export async function cleanUpEffort(
    * landing". */
   submittedHead: string = landed,
 ): Promise<CleanupDisposition> {
+  if (proofNoteOwed(progress.proofNote?.write)) {
+    return { kind: "proof-note-owed" };
+  }
   const log = effort.ctx.log;
   const results = progress.steps;
   const tipRun = await runGit(

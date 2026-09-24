@@ -33,8 +33,10 @@ import {
   gitOut,
   runAgent,
   scaffoldEngine,
+  writeNoteWriteFailingGit,
 } from "./engine_helpers.ts";
 import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
+import { setupProofNoteRetry } from "../src/shared/proof_note_recovery.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import { parseGateProofFile } from "../src/engine/gate/proof_records.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
@@ -511,6 +513,66 @@ Deno.test("setup accept merges when the integration branch has advanced", async 
     assert(await branchGone(dir, "discern-setup"));
     assert(await fileExists(join(dir, "setup-work.txt")));
     assert(await fileExists(join(dir, "main-work.txt")));
+  });
+});
+
+Deno.test("setup accept keeps its branch and gate Proof while the Proof note is owed, and the retry it names records it", async () => {
+  await withTempDir(async (dir) => {
+    const proved = await setupBranchRepo(dir);
+    const failingGit = join(dir, ".git", "note-write-failing-git");
+    await writeNoteWriteFailingGit(failingGit);
+
+    const res = await runAgent(dir, ["setup", "accept", "--json"], {
+      env: { GIT_BIN: failingGit },
+    });
+    assertEquals(res.code, 0, res.output);
+    const result = decodeCliResult(res.stdout, "setup accept");
+    assertResultDataKey(result, "landed");
+    const data = result.data;
+    assertEquals(data.landed, true);
+    assertExists(data.proof_note);
+    assertEquals(data.proof_note.write.status, "record_failed");
+    assertEquals(data.branch_deleted, false);
+    assertEquals(data.proof_cleared, false);
+    assertEquals(data.proof_clear_error, undefined);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), proved.head);
+    assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
+    assertEquals(await gitOut(dir, "rev-parse", SETUP_BRANCH), proved.head);
+    assert(await fileExists(await proofPath(dir)));
+    // Every advice surface names the one retry; none asks to delete the
+    // branch that retry runs from.
+    const retry = setupProofNoteRetry(SETUP_BRANCH, "main");
+    assertStringIncludes(result.message ?? "", retry);
+    assert(
+      result.advisories?.some((advisory) =>
+        advisory.kind === "proof-recording-unavailable" &&
+        advisory.next_action === retry
+      ) ?? false,
+      res.output,
+    );
+    assert(
+      !(result.advisories?.some((advisory) =>
+        advisory.kind === "acceptance-cleanup-incomplete"
+      ) ?? false),
+      res.output,
+    );
+
+    await git(dir, "checkout", SETUP_BRANCH);
+    const retried = await runAgent(dir, ["setup", "accept", "--json"]);
+    assertEquals(retried.code, 0, retried.output);
+    const settled = decodeCliResult(retried.stdout, "setup accept");
+    assertResultDataKey(settled, "landed");
+    assertExists(settled.data.proof_note);
+    assertEquals(settled.data.proof_note.write.status, "recorded");
+    assertEquals(settled.data.branch_deleted, true);
+    assertEquals(settled.data.proof_cleared, true);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), proved.head);
+    assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
+    assert(await branchGone(dir, SETUP_BRANCH));
+    assert(
+      (await gitOut(dir, "notes", "--ref=discern", "show", proved.head))
+        .length > 0,
+    );
   });
 });
 

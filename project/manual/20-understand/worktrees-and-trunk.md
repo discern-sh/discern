@@ -77,7 +77,7 @@ discern isn't a sandbox around your agent. Your agent's own permission settings 
 
 ## After a change lands
 
-When search lands, discern removes its worktree, its branch, and anything set up for it. If the worktree stays, the result says why. The branch may have newer commits that haven't landed, the worktree may have uncommitted changes, or cleanup may not have finished. [Finish and land a change](../10-guides/finish-and-land-a-change.md#after-it-lands) covers each case.
+When search lands, discern removes its worktree, its branch, and anything set up for it. If the worktree stays, the result says why. The branch may have newer commits that haven't landed, the worktree may have uncommitted changes, its Proof note may still need recording, or cleanup may not have finished. [Finish and land a change](../10-guides/finish-and-land-a-change.md#after-it-lands) covers each case.
 
 To set a task aside for longer, your agent can **park** it. discern removes the worktree but keeps the branch, its commits, and the task's description, so the work can pick up later. [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md#park-a-task-you-will-return-to) explains when to park. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) helps when a session or command stops partway.
 

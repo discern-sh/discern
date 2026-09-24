@@ -48,6 +48,10 @@ import {
   mergeHintTexts,
 } from "../../shared/hints.ts";
 import {
+  acceptProofNoteOwed,
+  proofNoteOwed,
+} from "../../shared/proof_note_recovery.ts";
+import {
   appliedResult,
   BUILT_IN_STEP_LABELS,
   type Diagnostic,
@@ -802,10 +806,10 @@ async function recoveredSubmittedHead(
 }
 
 /**
- * Finish a recovered landing as the landing itself would have: once its Proof
- * note is recorded, or reported as unrecordable, the journal retires, and the
- * ordinary cleanup rule then decides what stays. Nothing lands again and no
- * authority is replayed.
+ * Finish a recovered landing as the landing itself would have: the journal
+ * retires once the Proof note stands — an owed note keeps it, and the
+ * checkout, as the note's retry — and the ordinary cleanup rule then decides
+ * what stays. Nothing lands again and no authority is replayed.
  */
 async function settleRecoveredLanding(
   effort: EffortCheckout,
@@ -816,19 +820,21 @@ async function settleRecoveredLanding(
 ): Promise<DiscernResult<AcceptData>> {
   const { transaction } = interrupted;
   const mainRepo = transaction.main_repo;
-  // Retired before cleanup, so a cleanup that stops partway leaves nothing
-  // that would send the next acceptance into recovery again.
-  if (
-    !(await clearCompletedAcceptanceJournal(effort.path, transaction.target))
-  ) {
-    throwPartialAcceptance(
-      mainRepo,
-      consent,
-      progress,
-      `${recovered} discern could not remove its recovery journal at ${interrupted.path}; re-run \`discern accept\` to retry that cleanup before landing new work.`,
-    );
+  if (!proofNoteOwed(progress.proofNote?.write)) {
+    // Retired before cleanup, so a cleanup that stops partway leaves nothing
+    // that would send the next acceptance into recovery again.
+    if (
+      !(await clearCompletedAcceptanceJournal(effort.path, transaction.target))
+    ) {
+      throwPartialAcceptance(
+        mainRepo,
+        consent,
+        progress,
+        `${recovered} discern could not remove its recovery journal at ${interrupted.path}; re-run \`discern accept\` to retry that cleanup before landing new work.`,
+      );
+    }
+    progress.landing.recovery_performed = true;
   }
-  progress.landing.recovery_performed = true;
   let disposition: CleanupDisposition;
   try {
     disposition = await cleanUpEffort(
@@ -876,6 +882,8 @@ export function landedMessage(
 ): string {
   const lead = `Landed ${effort.branch} at ${short(landed)} on ${effort.trunk}`;
   switch (disposition.kind) {
+    case "proof-note-owed":
+      return `${lead}, ${acceptProofNoteOwed(effort.path)}`;
     case "removed":
       return `${lead}; its checkout, branch, and resources are gone. You are on ${effort.trunk} in ${effort.mainRepo}.`;
     case "resources-remain":
@@ -1183,9 +1191,9 @@ async function executeLanding(
   const disposition = await cleanUpEffort(effort, subject.head, progress);
   // A kept checkout outlives its transaction. Once every post-transition step
   // settled, the journal is a spent retry vehicle and must not send the next
-  // accept into recovery; while any step remains failed, the journal stays so
-  // a retry can finish it. The journal is worktree-scoped state, so only the
-  // dispositions that keep the checkout (later commits, uncommitted changes)
+  // accept into recovery; while any step remains failed — an owed Proof note
+  // above all — the journal stays so a retry can finish it. The journal is
+  // worktree-scoped state, so only the dispositions that keep the checkout
   // have a journal left to settle — `removed` and `resources-remain` deleted
   // the checkout, and its journal went with it.
   if (

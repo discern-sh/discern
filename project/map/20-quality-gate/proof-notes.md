@@ -35,7 +35,7 @@ git notes --ref=discern show <commit>
 
 The DSSE-compatible Base64 payload separates structured result facts from human presentation and excludes runtime telemetry. A future signature covers both; verification policy reads only the `proof` field. `signatures: []` records no signature, and discern signs or verifies nothing today ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
-Current v1 records carry the landed commit, its complete component evidence, its authority, and the Proof presentation. A note written in a pre-launch shape has no reader and never becomes authority through conversion. Unknown payload types report unsupported; bare and pre-split private formats are not Proof notes. [Proof note format](../70-reference/proof-note-format.md) defines the contract and reading rules.
+Current v1 records carry the landed commit, its complete component evidence, and the Proof presentation. A note an accepted landing writes also carries an `acceptance` block: the consent source, the owner-authorized variances, and the approved standard limits. A note written in a pre-launch shape has no reader and never becomes authority through conversion. Unknown payload types report unsupported; bare and pre-split private formats are not Proof notes. [Proof note format](../70-reference/proof-note-format.md) defines the contract and reading rules.
 
 ## Replay keeps the first presentation
 
@@ -45,7 +45,7 @@ The write identity is the explicit subject commit plus the stable machine-readab
 
 The notes commit uses `discern <done@discern.sh>` as author and committer. With `DISCERN_NO_ATTRIBUTION` set, it uses the repository's Git identity instead. The Proof still records.
 
-The landing record survives a failed note write. Its prefix remains landed while `note: recovery` identifies the pending publication. A retry uses the retained complete Proof and settled authority; it does not move trunk or spend the grant again. Fetch transport still reports its own result.
+A failed note write leaves the landing standing and keeps what a retry needs. `discern accept` keeps the effort's checkout, its branch, its resources, and its acceptance journal, and the result's first sentence names the retry: `discern accept` from that checkout. The retry records the note from the journal's Proof pointer and consent evidence, including after later landings moved the trunk on, then cleans up as a landing does. It never moves the trunk or spends the grant again, and a retry whose write still fails keeps everything for the next one. `discern setup accept` keeps the setup branch and the gate Proof the note is written from; running it again from that branch records the note. A landed commit with no complete Proof left to record stays landed without a note, and nothing is kept for a retry. Fetch transport still reports its own result.
 
 ## Carry notes between clones
 
@@ -84,11 +84,12 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 
 ## Where it lives in code
 
-| Concern                    | Source                                                      |
-| -------------------------- | ----------------------------------------------------------- |
-| Note, merge, and transport | [`proof_notes.ts`](../../../src/engine/gate/proof_notes.ts) |
-| Acceptance boundary        | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts) |
-| Setup acceptance boundary  | [`setup_accept.ts`](../../../src/commands/setup_accept.ts)  |
+| Concern                    | Source                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| Note, merge, and transport | [`proof_notes.ts`](../../../src/engine/gate/proof_notes.ts)                           |
+| Acceptance boundary        | [`accept_proof_recording.ts`](../../../src/engine/worktree/accept_proof_recording.ts) |
+| Setup acceptance boundary  | [`setup_accept.ts`](../../../src/commands/setup_accept.ts)                            |
+| Retry routes for a note    | [`proof_note_recovery.ts`](../../../src/shared/proof_note_recovery.ts)                |
 
 ## Current state and gotchas
 

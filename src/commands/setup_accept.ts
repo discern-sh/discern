@@ -15,7 +15,9 @@
  * It is the main-checkout counterpart to `discern accept` (which lands a linked
  * WORKTREE's branch): same Proof validation, tracked-refresh boundary, exact commit
  * transition, durable Proof note, and checkout convergence, without resource or
- * worktree teardown.
+ * worktree teardown. A Proof note that fails to record keeps the setup branch and
+ * the gate Proof it is written from; running this again from that branch records
+ * it with a no-op transition.
  * Choosing instead to leave the branch for review, or to discard it, is simply not
  * running this command; `setup done` spells out all three options.
  */
@@ -52,6 +54,11 @@ import {
   reconcileProofNotesFetch,
   writeProofNote,
 } from "../engine/gate/proof_notes.ts";
+import {
+  PROOF_NOTE_MISSING,
+  proofNoteOwed,
+  setupProofNoteRetry,
+} from "../shared/proof_note_recovery.ts";
 import {
   instructionRefreshErrors,
   materializeLocalRefreshArtifacts,
@@ -856,23 +863,29 @@ export async function runSetupAccept(
     validated.data,
   );
   const proofNote = { fetch: proofFetch, write: proofWrite };
+  // An owed note is recorded by running setup acceptance again from the setup
+  // branch, from this checkout's gate Proof, so both stay until it is.
+  const noteOwed = proofNoteOwed(proofWrite);
 
   // This checkout survives setup acceptance, unlike an ordinary accepted
   // worktree. Retire its worktree-local cache after the durable note is written.
-  const cleared = await clearGateProof(root);
-  const proofCleared = cleared.status === "cleared";
+  const cleared = noteOwed ? undefined : await clearGateProof(root);
+  const proofCleared = cleared?.status === "cleared";
 
   // The setup branch is fully contained in the target branch. Retire only the
   // exact dedicated ref at the commit the accepted Proof identified; a moved
   // or unexpectedly checked-out branch remains visible instead.
-  const branchDeletion = await deleteAutomaticallyOwnedBranch({
-    repoRoot: root,
-    branch,
-    expectedCommit: validated.head,
-    ownership: { kind: "setup", branch },
-    mergedInto: target,
-  });
-  const branchDeleted = branchDeletion.kind !== "refused";
+  const branchDeletion = noteOwed
+    ? undefined
+    : await deleteAutomaticallyOwnedBranch({
+      repoRoot: root,
+      branch,
+      expectedCommit: validated.head,
+      ownership: { kind: "setup", branch },
+      mergedInto: target,
+    });
+  const branchDeleted = branchDeletion !== undefined &&
+    branchDeletion.kind !== "refused";
   const reactivation = reactivationHandoff(landingConfig);
   const postLandingHints = hintTexts([
     ...(reactivation.per_agent.length > 0
@@ -903,15 +916,22 @@ export async function runSetupAccept(
     ...(reactivation.per_agent.length === 0
       ? {}
       : { activation_context: ACTIVATION_MOMENT.why }),
-    ...(proofCleared || cleared.reason === undefined
+    ...(cleared === undefined || proofCleared || cleared.reason === undefined
       ? {}
       : { proof_clear_error: cleared.reason }),
   };
+  const noteKept = noteOwed
+    ? `The ${branch} branch and its gate Proof stay until the Proof note is recorded. ${
+      setupProofNoteRetry(branch, target)
+    }`
+    : undefined;
   if (opts.json) {
     emitResult({
       ok: true,
       verb: "setup accept",
-      message: `Setup landed onto ${target}.`,
+      message: noteKept === undefined
+        ? `Setup landed onto ${target}.`
+        : `Setup landed onto ${target}, but its Proof note was not recorded. ${noteKept}`,
       hints: postLandingHints,
       data,
     });
@@ -926,8 +946,8 @@ export async function runSetupAccept(
   log.info(`You are now on ${target} with discern set up.`);
   if (branchDeleted) {
     log.info(`Deleted the merged ${branch} branch.`);
-  } else {
-    const reason = branchDeletion.kind === "refused"
+  } else if (!noteOwed) {
+    const reason = branchDeletion?.kind === "refused"
       ? `: ${branchDeletion.reason}`
       : "";
     log.info(
@@ -951,8 +971,9 @@ export async function runSetupAccept(
         proofWrite.reason ?? proofWrite.status
       }`,
     );
+    log.warn(noteKept ?? PROOF_NOTE_MISSING);
   }
-  if (!proofCleared) {
+  if (cleared !== undefined && !proofCleared) {
     log.warn(
       `The setup checkout's gate Proof cache could not be cleared: ${
         cleared.reason ?? cleared.status

@@ -13,6 +13,12 @@ import type {
   StandardLimitProposalData,
 } from "../../shared/result_schemas.ts";
 import { fireOwnerAttention, HINTS, hintTexts } from "../../shared/hints.ts";
+import {
+  ACCEPT_PROOF_NOTE_RETRY,
+  PROOF_NOTE_FETCH_REPAIR,
+  PROOF_NOTE_MISSING,
+  proofNoteOwed,
+} from "../../shared/proof_note_recovery.ts";
 import { cloneStandardLimitProposal } from "../gate/standard_proposal_state.ts";
 import {
   proofNotesFetchSucceeded,
@@ -66,8 +72,7 @@ export async function recordLandingProofNote(input: {
         evidence: proofFetch.errors.length === 0
           ? [`Proof note fetch transport status: ${proofFetch.status}.`]
           : [...proofFetch.errors],
-        next_action:
-          "Repair the reported Git-notes fetch configuration; the landing itself does not need to be repeated.",
+        next_action: PROOF_NOTE_FETCH_REPAIR,
       },
     }),
   };
@@ -111,8 +116,9 @@ export async function recordLandingProofNote(input: {
         evidence: [
           proofWrite.reason ?? `Proof note write status: ${proofWrite.status}.`,
         ],
-        next_action:
-          "Repair the reported Git-notes storage problem and use the documented Proof note recovery without repeating the landing.",
+        next_action: proofNoteOwed(proofWrite)
+          ? ACCEPT_PROOF_NOTE_RETRY
+          : PROOF_NOTE_MISSING,
       },
     }),
   };

@@ -29,6 +29,8 @@ import {
   writeProofNote,
 } from "../src/engine/gate/proof_notes.ts";
 import { inspectGateProof } from "../src/engine/gate/proof.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -1413,52 +1415,161 @@ Deno.test("proof-note recording merges fetched divergence and fails open on a co
   });
 });
 
-Deno.test("a post-landing note identity failure is carried without failing acceptance", async () => {
+const NO_ATTRIBUTION = { [DISCERN_NO_ATTRIBUTION]: "1" };
+
+/** A landing whose Proof note failed after the trunk moved. */
+interface OwedNoteLanding {
+  readonly worktree: string;
+  readonly target: string;
+  readonly accepted: Awaited<ReturnType<typeof runAgent>>;
+}
+
+/** Prove one effort, then land it while the repository has no Git identity.
+ * With attribution off the notes commit needs that identity, so the trunk
+ * moves and the Proof note write fails after it. */
+async function landWithoutNoteIdentity(
+  dir: string,
+  name: string,
+): Promise<OwedNoteLanding> {
+  const worktree = await addWorktree(dir, name);
+  await Deno.writeTextFile(join(worktree, `${name}.txt`), `${name}\n`);
+  const refreshed = await runAgent(worktree, ["refresh", "--json"], {
+    env: NO_ATTRIBUTION,
+  });
+  assertEquals(refreshed.code, 0, refreshed.output);
+  await git(worktree, "add", `${name}.txt`);
+  await git(worktree, "commit", "-q", "-m", `Add ${name}`, "--no-gpg-sign");
+  const target = await gitOut(worktree, "rev-parse", "HEAD");
+  const done = await runAgent(worktree, ["done", "--json"], {
+    env: NO_ATTRIBUTION,
+  });
+  assertEquals(done.code, 0, done.output);
+  await git(dir, "config", "--local", "--unset-all", "user.name");
+  await git(dir, "config", "--local", "--unset-all", "user.email");
+  await git(dir, "config", "--local", "user.useConfigOnly", "true");
+
+  const accepted = await runAgent(
+    worktree,
+    ["accept", "--confirmed", "--json"],
+    { env: NO_ATTRIBUTION },
+  );
+  assertEquals(await gitOut(dir, "rev-parse", "main"), target);
+  return { worktree, target, accepted };
+}
+
+/** Restore the identity {@link landWithoutNoteIdentity} removed. */
+async function restoreNoteIdentity(dir: string): Promise<void> {
+  await git(dir, "config", "--local", "user.name", "Engine Test");
+  await git(dir, "config", "--local", "user.email", "engine-test@example.com");
+}
+
+/** Assert an acceptance run left the landing standing with its note owed —
+ * checkout, branch, and journal kept — and that every advice surface names
+ * one retry; return the checkout that sentence names. */
+async function assertOwedNoteKept(
+  dir: string,
+  owed: OwedNoteLanding,
+  run: Awaited<ReturnType<typeof runAgent>>,
+): Promise<string> {
+  assertEquals(run.code, 0, run.output);
+  const result = decodeCliResult(run.stdout, "accept");
+  assertEquals(result.ok, true);
+  assertResultDataKey(result, "proof_note");
+  assert(result.data.proof_note !== undefined);
+  assertEquals(result.data.proof_note.write.status, "record_failed");
+  assert((result.data.proof_note.write.reason ?? "").length > 0);
+  assertResultDataKey(result, "landing");
+  assertEquals(result.data.landing, {
+    recovery_performed: false,
+    trunk_landed: true,
+    worktree_removed: false,
+    branch_deleted: false,
+  });
+  assert(await targetExists(owed.worktree));
+  const branch = await gitOut(owed.worktree, "branch", "--show-current");
+  assertEquals(await gitOut(dir, "rev-parse", branch), owed.target);
+  const journal = await gitAdminStatePath(
+    owed.worktree,
+    "acceptanceTransaction",
+  );
+  assert(journal !== undefined && await targetExists(journal));
+  const named = /run `discern accept` from (.+?); it records the note/.exec(
+    result.message ?? "",
+  )?.[1];
+  assert(named !== undefined, run.output);
+  assertEquals(named, await Deno.realPath(owed.worktree), run.output);
+  assert(
+    result.advisories?.some((advisory) =>
+      advisory.kind === "proof-recording-unavailable" &&
+      advisory.next_action.includes("run `discern accept` from")
+    ) ?? false,
+    run.output,
+  );
+  return named;
+}
+
+/** Follow a kept landing's named retry and assert it settled the landing:
+ * the note recorded, the checkout cleaned up, and no second landing. */
+async function followNoteRetry(
+  dir: string,
+  owed: OwedNoteLanding,
+  retryFrom: string,
+  trunk: string,
+): Promise<void> {
+  const retried = await runAgent(retryFrom, ["accept", "--json"], {
+    env: NO_ATTRIBUTION,
+  });
+  assertEquals(retried.code, 0, retried.output);
+  const settled = decodeCliResult(retried.stdout, "accept");
+  assertResultDataKey(settled, "proof_note");
+  assertEquals(settled.data.proof_note?.write.status, "recorded");
+  assertResultDataKey(settled, "landing");
+  assertEquals(settled.data.landing, {
+    recovery_performed: true,
+    trunk_landed: true,
+    worktree_removed: true,
+    branch_deleted: true,
+  });
+  assertEquals(
+    (await noteAt(dir, owed.target)).head,
+    owed.target.slice(0, 12),
+  );
+  assertEquals(await gitOut(dir, "rev-parse", "main"), trunk);
+  assertEquals(await targetExists(owed.worktree), false);
+}
+
+Deno.test("a post-landing note identity failure keeps the checkout until the retry it names records the note", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, proofConfig("local"));
     await gitInit(dir);
-    const worktree = await addWorktree(dir, "missing-identity");
-    await Deno.writeTextFile(join(worktree, "feature.txt"), "feature\n");
-    const noAttribution = { [DISCERN_NO_ATTRIBUTION]: "1" };
-    const refreshed = await runAgent(worktree, ["refresh", "--json"], {
-      env: noAttribution,
-    });
-    assertEquals(refreshed.code, 0, refreshed.output);
-    await git(worktree, "add", "feature.txt");
-    await git(
-      worktree,
-      "commit",
-      "-q",
-      "-m",
-      "Add feature",
-      "--no-gpg-sign",
-    );
-    const target = await gitOut(worktree, "rev-parse", "HEAD");
-    const done = await runAgent(worktree, ["done", "--json"], {
-      env: noAttribution,
-    });
-    assertEquals(done.code, 0, done.output);
-    await git(dir, "config", "--local", "--unset-all", "user.name");
-    await git(dir, "config", "--local", "--unset-all", "user.email");
-    await git(dir, "config", "--local", "user.useConfigOnly", "true");
+    const owed = await landWithoutNoteIdentity(dir, "missing-identity");
+    const retryFrom = await assertOwedNoteKept(dir, owed, owed.accepted);
 
-    const accepted = await runAgent(
-      worktree,
-      ["accept", "--confirmed", "--json"],
-      { env: noAttribution },
-    );
-    assertEquals(accepted.code, 0, accepted.output);
-    const result = decodeCliResult(accepted.stdout, "accept");
-    assertResultDataKey(result, "proof_note");
-    assert(result.data.proof_note !== undefined);
-    assertEquals(result.ok, true);
-    assertEquals(
-      result.data.proof_note.write.status,
-      "record_failed",
-    );
-    assert(result.data.proof_note.write.reason !== undefined);
-    assert(result.data.proof_note.write.reason.length > 0);
-    assertEquals(await gitOut(dir, "rev-parse", "main"), target);
+    // A retry that still cannot write the note keeps its own retry.
+    const stillOwed = await runAgent(retryFrom, ["accept", "--json"], {
+      env: NO_ATTRIBUTION,
+    });
+    assertEquals(await assertOwedNoteKept(dir, owed, stillOwed), retryFrom);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), owed.target);
+
+    await restoreNoteIdentity(dir);
+    await followNoteRetry(dir, owed, retryFrom, owed.target);
+  });
+});
+
+Deno.test("a note retry after later landings records the note and leaves the trunk where they put it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, proofConfig("local"));
+    await gitInit(dir);
+    const owed = await landWithoutNoteIdentity(dir, "first");
+    const retryFrom = await assertOwedNoteKept(dir, owed, owed.accepted);
+
+    await restoreNoteIdentity(dir);
+    const later = await land(dir, "second", NO_ATTRIBUTION);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), later.target);
+
+    await followNoteRetry(dir, owed, retryFrom, later.target);
   });
 });

@@ -762,6 +762,30 @@ export async function writeExecutable(
 }
 
 /**
+ * Write a `GIT_BIN` wrapper at `path` that refuses only Proof-note writes
+ * (`git notes … add`), so a landing's trunk transition succeeds while its
+ * note does not. Keep it outside any checkout a test proves clean.
+ */
+export async function writeNoteWriteFailingGit(path: string): Promise<void> {
+  await writeExecutable(
+    path,
+    [
+      "#!/bin/sh",
+      'notes=""',
+      'for arg in "$@"; do',
+      '  if [ "$arg" = "notes" ]; then notes=1; fi',
+      '  if [ "$notes" = 1 ] && [ "$arg" = "add" ]; then',
+      '    echo "forced Proof note write failure" >&2',
+      "    exit 1",
+      "  fi",
+      "done",
+      'exec git "$@"',
+      "",
+    ].join("\n"),
+  );
+}
+
+/**
  * Initialise a hermetic git repo in `dir` with one commit on a `main` branch.
  * Uses repo-local identity and disables signing so it works regardless of the
  * developer's global git configuration.

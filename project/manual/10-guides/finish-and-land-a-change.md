@@ -147,6 +147,7 @@ If anything is left behind, the result's first sentence says why:
 
 - **The branch has newer commits.** They haven't landed yet. The agent runs `discern done`, then `discern accept`, for them.
 - **The worktree has uncommitted changes.** discern keeps them, and the branch. The agent commits what should stay, then runs `discern done`, then `discern accept`.
+- **The Proof note wasn't recorded.** The change has landed. discern keeps the worktree and its branch until the note is recorded. Once the reported problem is fixed, the agent runs `discern accept` from that worktree. It records the note without landing again, then removes the worktree.
 - **Cleanup didn't finish**, perhaps because another program was still using the folder, or a resource couldn't be removed. The change has landed. Once the cause is fixed, run `discern worktree prune` from your main checkout to finish.
 
 Landing isn't releasing: getting the change to your users is still up to your release process. [From green to live](../20-understand/proof.md#from-green-to-live) shows every stage. If a fix is too urgent to wait for its checks, see [Land an urgent repair](land-an-urgent-repair.md). For every command and flag, see the [CLI reference](../30-reference/cli-reference.md).
