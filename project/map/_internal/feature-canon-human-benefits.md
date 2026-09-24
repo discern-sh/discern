@@ -156,7 +156,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ### Keep the final say over what ships
 
-- **Value:** Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared. They can hold or withdraw it and revise its order without discarding valid evidence.
+- **Value:** Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared. They can leave it unlanded, or revoke a grant they recorded, without discarding valid evidence.
 - **Mechanism:** `discern accept` checks conversational consent or a recorded grant against the actual landing diff, including a combined result. An explicitly selected queue walk checks each later submission's own authority; consent for the selected work never spreads to the rest.
 - **Product basis:** Landing authority is proved per invocation · Accept.
 
