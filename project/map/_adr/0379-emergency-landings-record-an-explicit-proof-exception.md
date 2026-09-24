@@ -1,6 +1,6 @@
 # ADR 0379: Emergency landings record an explicit Proof exception
 
-**Status**: accepted on 2026-09-05; implemented on 2026-09-12 by the `exception` record family. Amends the ordinary acceptance boundary of [ADR 0110](0110-the-landing-model.md) and the claim contract of [ADR 0215](0215-landing-receipts-travel-as-git-notes.md), with authority from [ADR 0375](0375-source-authority-survives-declared-composition.md).
+**Status**: accepted on 2026-09-05; implemented on 2026-09-12 by the `exception` record family. Amends the ordinary acceptance boundary of [ADR 0110](0110-the-landing-model.md) and the claim contract of [ADR 0215](0215-landing-receipts-travel-as-git-notes.md), with authority from [ADR 0375](0375-source-authority-survives-declared-composition.md). Amended on 2026-09-24: an emergency skips the gate's evidence, never the owner's decisions. The plan names any other effort's unlanded work the repair already carries, which lands with it under ADR 0375's source-tip authority; discern still composes nothing else in. A loosened standard limit lands only under its recorded proposal with the owner's exact approval, and a declared-unmet checkpoint only under the owner's variance, as in ordinary acceptance; a redefined or deleted standard never lands. The confirmation binds each of these, the exception record keeps them, and none makes the landing Proof. The route itself still creates no skip setting, weaker limit, or grant.
 
 ## Context
 
