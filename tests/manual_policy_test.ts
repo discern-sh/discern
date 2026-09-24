@@ -6,6 +6,7 @@ import {
   assertFalse,
   assertRejects,
   assertStringIncludes,
+  assertThrows,
 } from "@std/assert";
 import { copy } from "@std/fs";
 import { join } from "@std/path";
@@ -28,6 +29,7 @@ import { countManualFrontDoors } from "../scripts/manual_front_doors.ts";
 import {
   MANUAL_CONCEPT_LINK_TARGETS,
   manualReadingTarget,
+  renderGeneratedManualDocument,
 } from "../scripts/manual_codegen.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { headingAnchors } from "../src/lib/docs_integrity.ts";
@@ -231,6 +233,42 @@ Deno.test("generated Map links land on the manual's home for their concept", asy
         "explanation-evidence-and-improvement#no-such-section",
     }, manual)).length,
     2,
+  );
+});
+
+Deno.test("a generated reference refuses a link that would leave the manual", async () => {
+  const manual = await repositoryManual();
+  const render = (destination: string): string =>
+    renderGeneratedManualDocument(
+      [
+        "---",
+        "title: Fixture reference",
+        "description: One link for the manual adapter to place.",
+        "---",
+        "",
+        "# Fixture reference",
+        "",
+        `See [the concept](${destination}).`,
+        "",
+      ].join("\n"),
+      "00-orientation/glossary.md",
+      "30-reference/glossary.md",
+      { id: "fixture-reference", order: 999 },
+      manual,
+    );
+  assertStringIncludes(
+    render("../70-reference/progress-and-reconnect.md"),
+    "](mcp-and-results.md#progress-handles-and-reconnect)",
+  );
+  assertThrows(
+    () => render("../50-engine-internals/"),
+    Error,
+    "has no manual destination",
+  );
+  assertThrows(
+    () => render("../../../src/main.ts"),
+    Error,
+    "leaves the manual",
   );
 });
 

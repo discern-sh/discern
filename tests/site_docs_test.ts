@@ -1295,9 +1295,10 @@ Deno.test("every local link in every published page resolves — no dead ends", 
 });
 
 /**
- * Flag absolute destinations an external reader could not reach from every
- * projection: a discern.sh path that is not a live route or declared schema
- * publication, or a repository link into protected Map content.
+ * Flag absolute destinations that leave the manual's public projection: a
+ * discern.sh path that is not a live route or declared schema publication, or
+ * a repository link into Map content, which the manual links through its own
+ * pages instead.
  */
 function crossCorpusLinkFailures(
   path: string,
@@ -1320,11 +1321,11 @@ function crossCorpusLinkFailures(
         /^\/(?:blob|tree)\/[^/]+\//,
         "",
       );
-      if (/^project\/map\/(?:_internal|_private)(?:\/|$)/.test(repoPath)) {
+      if (/^project\/map(?:\/|$)/.test(repoPath)) {
         failures.push(
           `${path}: ${
             match[0]
-          } links protected Map content through the repository`,
+          } links Map content through the repository; link the manual page that covers it`,
         );
       }
       continue;
@@ -1354,20 +1355,24 @@ Deno.test("cross-corpus links stay inside the public projection on every surface
   const bad = crossCorpusLinkFailures(
     "fixture.md",
     `[repo Map](${repositoryBlobUrl("project/map/_private/secret.md")}) ` +
+      `[public Map](${
+        repositoryBlobUrl("project/map/00-orientation/system-map.md")
+      }) ` +
       "[gone](https://discern.sh/docs/retired-nowhere) " +
       "[unadmitted](https://discern.sh/map/internal/secret) " +
       "[unknown schema](https://discern.sh/schema/v9/discern-imaginary.schema.json)",
     live,
     schemaIds,
   );
-  assertEquals(bad.length, 4);
-  // A live exhibit route and a declared schema publication pass.
+  assertEquals(bad.length, 5);
+  // A live exhibit route, a declared schema publication, and a repository
+  // legal text pass.
   assertEquals(
     crossCorpusLinkFailures(
       "fixture.md",
-      `[exhibit](https://discern.sh/map) [source](${
-        repositoryBlobUrl("project/map/00-orientation/system-map.md")
-      }) [schema](${[...schemaIds][0] ?? "https://discern.sh/schema/none"})`,
+      `[exhibit](https://discern.sh/map) [schema](${
+        [...schemaIds][0] ?? "https://discern.sh/schema/none"
+      }) [license](${repositoryBlobUrl("LICENSE")})`,
       live,
       schemaIds,
     ),

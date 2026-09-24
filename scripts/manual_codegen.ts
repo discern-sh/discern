@@ -8,7 +8,6 @@ import {
   parseFrontmatter,
   readFrontmatterBlock,
 } from "../src/lib/frontmatter.ts";
-import { repositoryBlobUrl, repositoryTreeUrl } from "../src/shared/brand.ts";
 
 export interface GeneratedManualMetadata {
   readonly id: string;
@@ -141,10 +140,16 @@ function manualDestination(
       const slug = posix.basename(mapRel).replace(/\.md$/iu, "");
       return `https://discern.sh/docs/decisions/${slug}${fragment}`;
     }
+    throw new Error(
+      `${sourceMapRel}: ${destination} names the Map page ${mapRel}, which ` +
+        "has no manual destination; add it to MANUAL_CONCEPT_LINK_TARGETS " +
+        "in scripts/manual_codegen.ts, or drop the link",
+    );
   }
-  return /\.[A-Za-z0-9]+$/u.test(resolved)
-    ? repositoryBlobUrl(resolved, fragment)
-    : repositoryTreeUrl(resolved, fragment);
+  throw new Error(
+    `${sourceMapRel}: ${destination} leaves the manual for the repository ` +
+      `file ${resolved}; link a manual page instead, or drop the link`,
+  );
 }
 
 /** Rewrite links outside code fences without changing any other body byte. */
