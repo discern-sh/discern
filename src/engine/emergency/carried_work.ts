@@ -2,7 +2,10 @@
 import { INTEGRATION_BRANCH_NAMESPACE } from "../../shared/git_conventions.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import type { ParkedTaskMetadata } from "../../shared/task_metadata.ts";
+import type {
+  ParkedTaskMetadata,
+  StoredTaskMetadata,
+} from "../../shared/task_metadata.ts";
 import { short } from "../worktree/accept_support.ts";
 import { listRegisteredWorktrees } from "../worktree/git.ts";
 import { listParkedTaskMetadata } from "../worktree/parked_task_metadata.ts";
@@ -23,10 +26,17 @@ export interface CarriedEffort {
   readonly revision: string;
 }
 
+/** Where a task record says its task started. */
+type StartPoint = NonNullable<StoredTaskMetadata["created_from"]>;
+
 /** One other effort's recorded revisions, keyed by its branch. */
 interface RecordedEffort {
   effort: string;
   readonly revisions: Set<string>;
+  /** Its registered checkout, whose task record names where it started. */
+  path?: string;
+  /** Where its parked task record says it started. */
+  startedFrom?: StartPoint;
 }
 
 const COMMIT_HEADER = /^commit ([0-9a-f]{40}|[0-9a-f]{64})$/;
@@ -63,7 +73,8 @@ export async function landedCommits(
  * registered checkout's head, its submitted commit, a parked head, the tip
  * of a parked or task branch, or the commit the repair's task record says it
  * started from on another local branch. The repair's own branch and the
- * disposable integration copies are never another effort.
+ * disposable integration copies are never another effort, and a task started
+ * from the repair carries no work of its own until it moves.
  */
 export async function carriedEfforts(
   root: string,
@@ -96,20 +107,21 @@ export async function carriedEfforts(
     const entry = record(registration.branch);
     entry?.revisions.add(registration.head);
     if (entry === undefined || registration.prunable) continue;
+    entry.path = registration.path;
     const read = await readSubmission(registration.path);
     if (read.status !== "submitted") continue;
     entry.effort = read.submission.effort_id;
     entry.revisions.add(read.submission.head);
   }
   for (const parked of await parkedTasks(root)) {
-    record(parked.branch, parked.id)?.revisions.add(parked.head);
+    const entry = record(parked.branch, parked.id);
+    entry?.revisions.add(parked.head);
+    const start = parked.task.created_from;
+    if (entry !== undefined && start !== undefined) entry.startedFrom = start;
   }
   // The task record keeps the start point as given: a full branch ref, a
   // local branch name, or a tag or commit, which names no effort.
-  const task = await inspectTaskMetadata(repair.worktree);
-  const origin = task.kind === "recorded"
-    ? task.metadata.created_from
-    : undefined;
+  const origin = await taskStart(repair.worktree);
   const originBranch = origin === undefined
     ? undefined
     : origin.ref.startsWith("refs/heads/")
@@ -126,13 +138,31 @@ export async function carriedEfforts(
     }
   }
   const order = new Map(landed.map(({ commit }, index) => [commit, index]));
+  const repairRefs = [repair.branch, `refs/heads/${repair.branch}`];
   const carried: CarriedEffort[] = [];
-  for (const [branch, { effort, revisions }] of efforts) {
-    const revision = [...revisions].filter((candidate) => order.has(candidate))
+  for (const [branch, entry] of efforts) {
+    const inside = [...entry.revisions].filter((rev) => order.has(rev));
+    if (inside.length === 0) continue;
+    // A task started from the repair holds only the repair's commits until
+    // it moves from its start point.
+    const start = entry.startedFrom ??
+      (entry.path === undefined ? undefined : await taskStart(entry.path));
+    const unmoved = start !== undefined && repairRefs.includes(start.ref)
+      ? start.commit
+      : undefined;
+    const revision = inside.filter((rev) => rev !== unmoved)
       .sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0))[0];
-    if (revision !== undefined) carried.push({ effort, branch, revision });
+    if (revision !== undefined) {
+      carried.push({ effort: entry.effort, branch, revision });
+    }
   }
   return carried.sort((a, b) => a.branch.localeCompare(b.branch));
+}
+
+/** Where a checkout's task record says it started, when it records that. */
+async function taskStart(path: string): Promise<StartPoint | undefined> {
+  const task = await inspectTaskMetadata(path);
+  return task.kind === "recorded" ? task.metadata.created_from : undefined;
 }
 
 /** The refusal naming each other effort whose unlanded work the repair contains. */

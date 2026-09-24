@@ -497,6 +497,10 @@ Deno.test("emergency serves the plan when a sibling builds on the repair and unr
       await startTask(dir, "follow-up", "agent/repair"),
       "follow-up.txt",
     );
+    // A sibling started from the repair that has not moved holds only the
+    // repair's commits, and still does once the repair moves on.
+    await startTask(dir, "fresh", "agent/repair");
+    await commitFile(repair, "hotfix-test.txt");
 
     const preview = await requestEmergency(repair);
     assertEquals(
@@ -570,6 +574,72 @@ const CARRIED_RECORD_SOURCES: Readonly<
       created_from: { ref: "refs/heads/feature", commit: carried },
     });
     return "feature";
+  },
+  "a task started from the repair that has not moved": async (
+    dir,
+    carried,
+  ) => {
+    const path = worktreePath(dir, "feature");
+    await git(
+      dir,
+      "worktree",
+      "add",
+      "-q",
+      "-b",
+      "agent/feature",
+      path,
+      carried,
+    );
+    await writeStoredTaskMetadata(path, {
+      schema_version: TASK_METADATA_SCHEMA_VERSION,
+      title: "Feature",
+      created_from: { ref: "agent/repair", commit: carried },
+    });
+    return undefined;
+  },
+  "a parked task started from the repair that has not moved": async (
+    dir,
+    carried,
+  ) => {
+    await git(dir, "branch", "agent/feature", carried);
+    await writeParkedTaskMetadata(dir, {
+      schema_version: PARKED_TASK_METADATA_SCHEMA_VERSION,
+      id: "feature",
+      branch: "agent/feature",
+      head: carried,
+      parked_at: wallTimeIso(SYSTEM_CLOCK.wallNow()),
+      task: {
+        schema_version: TASK_METADATA_SCHEMA_VERSION,
+        title: "Feature",
+        created_from: { ref: "agent/repair", commit: carried },
+      },
+    });
+    return undefined;
+  },
+  "a task started from the repair whose own commit it merged": async (
+    dir,
+    carried,
+  ) => {
+    const path = worktreePath(dir, "feature");
+    await git(
+      dir,
+      "worktree",
+      "add",
+      "-q",
+      "-b",
+      "agent/feature",
+      path,
+      carried,
+    );
+    await writeStoredTaskMetadata(path, {
+      schema_version: TASK_METADATA_SCHEMA_VERSION,
+      title: "Feature",
+      created_from: {
+        ref: "refs/heads/agent/repair",
+        commit: await gitOut(dir, "rev-parse", "main"),
+      },
+    });
+    return "agent/feature";
   },
   "the repair's task record of a start commit on no branch": async (
     dir,
