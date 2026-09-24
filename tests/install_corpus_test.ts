@@ -291,10 +291,25 @@ Deno.test("the ownership comparison flags managed drift and tolerates project-ow
   );
   assert(adopted !== config, "the modelled upgrade recorded adoption");
   const upgraded = modelled(snapshot, { [CONFIG_REL]: adopted });
+  // Model the fresh side: setup by this build records this build as its
+  // setup release, whichever release captured the fixture.
+  const fresh = config.replace(
+    /^(\s*setup_version = )"[^"]*"$/mu,
+    `$1"${DISCERN_VERSION}"`,
+  );
+  assert(
+    fresh.includes(`setup_version = "${DISCERN_VERSION}"`),
+    "the modelled fresh install records this build's setup release",
+  );
   const problemsWith = (
     edits: Readonly<Record<string, string | undefined>>,
   ): string[] =>
-    convergenceProblems(fixture, entries, upgraded, modelled(snapshot, edits));
+    convergenceProblems(
+      fixture,
+      entries,
+      upgraded,
+      modelled({ ...snapshot, [CONFIG_REL]: fresh }, edits),
+    );
 
   assertEquals(problemsWith({}), []);
   // Project-owned content may differ: a polished key comment, a changed seed.
@@ -302,7 +317,7 @@ Deno.test("the ownership comparison flags managed drift and tolerates project-ow
   assert(config.includes(keyComment));
   assertEquals(
     problemsWith({
-      [CONFIG_REL]: config.replace(keyComment, "# A polished key comment"),
+      [CONFIG_REL]: fresh.replace(keyComment, "# A polished key comment"),
       "discern/instructions.md": "# Rewritten seed\n",
     }),
     [],
@@ -311,9 +326,9 @@ Deno.test("the ownership comparison flags managed drift and tolerates project-ow
   const banner = "# Help:    `discern config explain project`";
   assert(config.includes(banner));
   const drifted = [
-    problemsWith({ [CONFIG_REL]: config.replace(banner, "# Help: elsewhere") }),
+    problemsWith({ [CONFIG_REL]: fresh.replace(banner, "# Help: elsewhere") }),
     problemsWith({
-      [CONFIG_REL]: config.replace('slug = "demo"', 'slug = "other"'),
+      [CONFIG_REL]: fresh.replace('slug = "demo"', 'slug = "other"'),
     }),
     problemsWith({ "AGENTS.md": "# Different agent file\n" }),
     problemsWith({ ".mcp.json": undefined }),
