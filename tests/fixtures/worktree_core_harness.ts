@@ -12,8 +12,8 @@ import {
   resolveIdentity,
   resolveWorktreeId,
 } from "../../src/engine/worktree/identity.ts";
+import { inheritMainEnvVars } from "../../src/engine/worktree/env_inheritance.ts";
 import {
-  inheritMainEnvVars,
   removeWorktreeSafely,
   WorktreeGitError,
 } from "../../src/engine/worktree/git.ts";

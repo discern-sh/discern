@@ -1573,3 +1573,37 @@ Deno.test("inheritMainEnvVars derives the placeholder from the first configured 
     );
   });
 });
+
+Deno.test("inheritMainEnvVars skips what it cannot or need not copy", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "skips");
+    await Deno.writeTextFile(
+      join(wt, "discern.toml"),
+      baseConfig('\n[worktree]\ninherit_env = ["", "FOO", "BLANK", "MISSING"]'),
+    );
+
+    // With no env file in the main checkout, there is nothing to copy.
+    const none = await runWorktreeCore(wt, ["inherit"]);
+    assertEquals(none.code, 0, none.output);
+    assertTerminalTextIncludes(
+      none.output,
+      "the main checkout has no env file (.env, .env.local) — skipping.",
+    );
+    assertEquals(await targetExists(join(wt, ".env")), false);
+
+    // A value the worktree already holds stays as it is, and a name blank or
+    // missing in the main checkout is reported and skipped.
+    await Deno.writeTextFile(join(dir, ".env"), "FOO=bar\nBLANK=\n");
+    await Deno.writeTextFile(join(wt, ".env"), "FOO=bar\n");
+    const skipped = await runWorktreeCore(wt, ["inherit"]);
+    assertEquals(skipped.code, 0, skipped.output);
+    for (const name of ["BLANK", "MISSING"]) {
+      assertTerminalTextIncludes(
+        skipped.output,
+        `${name} is missing or blank in the main checkout's env files — skipping.`,
+      );
+    }
+    assert(!skipped.output.includes("Inherited FOO"), skipped.output);
+    assertEquals(await Deno.readTextFile(join(wt, ".env")), "FOO=bar\n");
+  });
+});

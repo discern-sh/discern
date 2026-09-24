@@ -128,8 +128,8 @@ export const COMPLEXITY_HOTSPOT_BUDGETS = [
   },
   {
     file: "src/engine/worktree/git.ts",
-    maxScore: 148.68,
-    maxCyclo: 516,
+    maxScore: 147.08,
+    maxCyclo: 503,
     owner: "worktree lifecycle",
     reason:
       "Git inspection and mutation helpers cover the full worktree lifecycle in one module.",

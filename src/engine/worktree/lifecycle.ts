@@ -128,7 +128,6 @@ import {
   commitUpdateRegeneration,
   ensureWorktreeBranch,
   hasAnyCommit,
-  inheritMainEnvVars,
   inLinkedWorktree,
   integrationBranch,
   integrationDelta,
@@ -159,6 +158,7 @@ import {
   worktreeSetupComplete,
   writeWorktreeEnvVar,
 } from "./git.ts";
+import { inheritMainEnvVars } from "./env_inheritance.ts";
 import {
   deriveIdentity,
   deriveTrunkIdentity,
