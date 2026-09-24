@@ -58,7 +58,7 @@ You don't need to run any of these commands yourself. They're here so you know w
 discern done
 ```
 
-The gate only runs on committed work. If anything is uncommitted, it stops and names the files, so the Proof always describes a version that can land. If your project defines **scopes**, named areas such as `docs/`, a scope can add its own check, which the gate runs only when the change touches that scope. The project's other checks run on every change.
+The gate only runs on committed work. If anything is uncommitted, it stops and names the files, so the Proof always describes a version that can land. If your project defines **scopes**, named areas such as `docs/`, each scope can add its own check. The gate runs that check only when the change touches the scope, and runs the project's other checks on every change.
 
 A full run can take a while. If the agent's session loses track of it, the agent reads the result back with `discern progress` instead of starting again. If a check fails, the agent fixes the cause. [Fix a red gate](fix-a-red-gate.md) explains how.
 

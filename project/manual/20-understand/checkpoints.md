@@ -82,7 +82,7 @@ discern comes with checkpoints for problems that often show up in projects agent
 | The code changes but the project's map still describes the old way. | **Map drift**               | Does the map still describe how the code works?                                   |
 | The instructions every session reads keep growing.                  | **Instruction economy**     | Does each new line earn its place, or does it belong somewhere read only at need? |
 
-The built-in checkpoints that watch code changes only advise, so none of them blocks a code change. The ones that watch changes to your project's instructions, skills, map, and gate-gotchas page stop for an answer, because every later session reads those. The gate-gotchas one stays quiet until `[project].gotchas_doc` names that page. Your project chooses which checkpoints to use and can change any of them. `discern checkpoints` lists the ones that apply to yours.
+The built-in checkpoints that watch code changes only advise, so none of them blocks a code change. The ones that watch changes to your project's instructions, skills, map, and page of known gate failures stop for an answer, because every later session reads those. That last one stays quiet until `[project].gotchas_doc` names the page. Your project chooses which checkpoints to use and can change any of them. `discern checkpoints` lists the ones that apply to yours.
 
 ## The answer belongs to the change
 
