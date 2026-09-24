@@ -983,7 +983,7 @@ Deno.test("worktree prune keeps an owned merged worktree while its recorded acce
     assert(!dry.stdout.includes("owed"), dry.output);
     const kept = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(kept.code, 0, kept.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       kept.output,
       "its recorded acceptance is unsettled; run discern accept from it",
     );
