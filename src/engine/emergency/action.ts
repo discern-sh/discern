@@ -6,6 +6,11 @@ import {
   resolveStandardApprovals,
   standardApprovalLines,
 } from "../worktree/standard_approval.ts";
+import {
+  resolveVarianceInterlock,
+  serveUnmetConclusion,
+  varianceBinding,
+} from "../worktree/acceptance_checkpoints.ts";
 import { emergencyOptionError } from "./arguments.ts";
 import { prepareEmergency } from "./prepare.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
@@ -74,11 +79,15 @@ export interface EmergencyOptions {
   readonly prepare?: boolean;
   readonly preparationReceipt?: string;
   readonly met?: readonly string[];
+  /** One served question the agent answers as unmet during preparation. */
+  readonly unmet?: { readonly id: string; readonly why: string };
   readonly reason?: string;
   readonly approvalToken?: string;
   readonly confirmed?: boolean;
   readonly dryRun?: boolean;
   readonly recover?: string;
+  /** The owner's variance over each of the plan's unmet answers, by id. */
+  readonly variance?: readonly string[];
   /** The owner's approval tokens for the plan's loosened limits. */
   readonly approveStandard?: readonly string[];
   readonly signal?: AbortSignal;
@@ -92,13 +101,14 @@ function claimDisclosures(
   claim: RecordedException["data"]["claim"],
 ): Pick<
   NonNullable<AcceptData["emergency"]>,
-  "carried" | "standard_approvals"
+  "carried" | "standard_approvals" | "variances"
 > {
   return {
     ...(claim.carried === undefined ? {} : { carried: claim.carried }),
     ...(claim.standard_approvals === undefined
       ? {}
       : { standard_approvals: claim.standard_approvals }),
+    ...(claim.variances === undefined ? {} : { variances: claim.variances }),
   };
 }
 
@@ -110,8 +120,12 @@ function unconfirmedDecisions(
   options: EmergencyOptions,
 ): string[] {
   const approved = new Set(options.approveStandard ?? []);
-  return plan.standard_approvals.filter(({ token }) => !approved.has(token))
-    .map(({ proposal }) => proposal.standard);
+  const varied = new Set(options.variance ?? []);
+  return [
+    ...plan.standard_approvals.filter(({ token }) => !approved.has(token))
+      .map(({ proposal }) => proposal.standard),
+    ...plan.unmet.filter(({ id }) => !varied.has(id)).map(({ id }) => id),
+  ];
 }
 
 /** The read-only owner review: every fact the confirmation token binds, and
@@ -132,8 +146,10 @@ function emergencyPreview(
     ...plan.standard_approvals.map(({ token }) =>
       `--approve-standard ${token}`
     ),
+    ...plan.unmet.map(({ id }) => `--variance ${id}`),
   ];
   const limits = plan.standard_approvals.length;
+  const unmet = plan.unmet.length;
   return {
     verb: "accept",
     ...(options.dryRun
@@ -149,6 +165,12 @@ function emergencyPreview(
         commits: [...plan.commits],
         commits_total: plan.commits_total,
         ...(plan.carried.length === 0 ? {} : { carried: [...plan.carried] }),
+        ...(limits === 0 ? {} : {
+          standard_approvals: plan.standard_approvals.map(({ proposal }) =>
+            proposal
+          ),
+        }),
+        ...(unmet === 0 ? {} : { variances: plan.unmet.map(varianceBinding) }),
         confirmation: confirmation.token,
         expires_at: confirmation.expires,
         outcome: "preview",
@@ -179,6 +201,15 @@ function emergencyPreview(
             : `${limits} standard limits under their recorded proposals, each needing`
         } the owner's approval:\n\n${
           standardApprovalLines(plan.standard_approvals)
+        }`,
+      ]),
+      ...(unmet === 0 ? [] : [
+        `It lands ${
+          unmet === 1
+            ? "an unmet checkpoint answer, which needs"
+            : `${unmet} unmet checkpoint answers, each needing`
+        } the owner's variance:\n\n${
+          plan.unmet.map(serveUnmetConclusion).join("\n\n")
         }`,
       ]),
       plan.exceptions.map((entry) =>
@@ -213,7 +244,7 @@ export async function emergencyResult(
     result.hints = hintTexts([
       fire(HINTS["completion-pending"], {
         action: options.prepare
-          ? "Follow the preparation result. Repeat accept emergency --prepare with --met only for satisfied served questions; then request the owner-review plan with its preparation receipt."
+          ? "Follow the preparation result. Repeat accept emergency --prepare with --met for each satisfied served question and --unmet with --why for one that isn't; then request the owner-review plan with its preparation receipt."
           : result.error === AWAITING_CONSENT_SLUG
           ? "Review the displayed emergency plan with the owner. After their fresh explicit approval, repeat accept emergency with the displayed confirmation token and --confirmed."
           : result.data?.emergency?.outcome === "not-landed"
@@ -237,6 +268,7 @@ async function runEmergencyResult(
       return await prepareEmergency(ctx, {
         reason: options.reason ?? "",
         met: options.met ?? [],
+        ...(options.unmet === undefined ? {} : { unmet: options.unmet }),
         dryRun: options.dryRun ?? false,
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       });
@@ -298,12 +330,24 @@ async function prepareAndIntegrate(
     confirmed: options.confirmed === true,
     names: options.approveStandard ?? [],
   });
-  if (standards.kind === "invalid") {
+  const variances = resolveVarianceInterlock(
+    { stale: [], unmet: [...plan.unmet], met: [], drops: [] },
+    {
+      confirmed: options.confirmed === true,
+      varianceIds: options.variance ?? [],
+    },
+  );
+  const invalid = standards.kind === "invalid"
+    ? standards.message
+    : variances.kind === "invalid-variances"
+    ? variances.message
+    : undefined;
+  if (invalid !== undefined) {
     return {
       ok: false,
       verb: "accept",
       error: "invalid_value",
-      message: standards.message,
+      message: invalid,
     };
   }
   const now = SYSTEM_CLOCK.wallNow();
@@ -314,7 +358,7 @@ async function prepareAndIntegrate(
   if (
     options.dryRun || !options.confirmed ||
     options.approvalToken === undefined || !current ||
-    standards.kind !== "approved"
+    standards.kind !== "approved" || variances.kind !== "authorized"
   ) {
     return emergencyPreview(
       plan,
@@ -362,6 +406,9 @@ async function prepareAndIntegrate(
         ...(standards.proposals.length === 0
           ? {}
           : { standard_approvals: standards.proposals }),
+        ...(variances.variances.length === 0
+          ? {}
+          : { variances: variances.variances }),
         ...(plan.review === undefined ? {} : { review: plan.review }),
       },
       executor: actor,
@@ -412,7 +459,7 @@ async function prepareAndIntegrate(
       target: plan.candidate.head,
       effortClaim: false,
       consent: { source: "conversation" },
-      variances: [],
+      variances: variances.variances,
       standardProposals: standards.proposals,
     });
     if (transition.kind === "authority-changed") {

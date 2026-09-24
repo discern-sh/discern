@@ -26517,6 +26517,13 @@
                         ]
                       }
                     },
+                    "variances": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/DiscernAuthorizedVariance"
+                      }
+                    },
                     "confirmation": {
                       "type": "string"
                     },
@@ -31822,6 +31829,31 @@
       ],
       "description": "The served decision moment of a retained integration composition: the receipt a continuation must name, the decision kind that continues it, and the checkpoint ids awaiting that decision."
     },
+    "DiscernAuthorizedVariance": {
+      "title": "DiscernAuthorizedVariance",
+      "type": "object",
+      "properties": {
+        "checkpoint": {
+          "type": "string"
+        },
+        "definition_hash": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "checkpoint",
+        "definition_hash",
+        "subject",
+        "why"
+      ],
+      "description": "Owner authorization to land one declared-unmet checkpoint, bound to the exact declaration (checkpoint, definition hash, subject fingerprint, rationale) and the commit it landed with. Never a future policy."
+    },
     "DiscernLandingOutcome": {
       "title": "DiscernLandingOutcome",
       "type": "object",
@@ -31881,31 +31913,6 @@
         "status"
       ],
       "description": "One attempted landing in an acceptance call: the submission it names, whether it was the selected one, its broad terminal state, and the exact commit that reached the trunk when one did."
-    },
-    "DiscernAuthorizedVariance": {
-      "title": "DiscernAuthorizedVariance",
-      "type": "object",
-      "properties": {
-        "checkpoint": {
-          "type": "string"
-        },
-        "definition_hash": {
-          "type": "string"
-        },
-        "subject": {
-          "type": "string"
-        },
-        "why": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "checkpoint",
-        "definition_hash",
-        "subject",
-        "why"
-      ],
-      "description": "Owner authorization to land one declared-unmet checkpoint, bound to the exact declaration (checkpoint, definition hash, subject fingerprint, rationale) and the commit it landed with. Never a future policy."
     },
     "DiscernDoctorMcpToolResult": {
       "title": "DiscernDoctorMcpToolResult",

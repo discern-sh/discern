@@ -37,6 +37,11 @@ import {
 import { observeCandidateValidation } from "../validation/candidate_observation.ts";
 import { requirementSetIdentity } from "../validation/catalog.ts";
 import { inspectCheckpointObligations } from "../checkpoints/inspection.ts";
+import {
+  inspectAcceptanceCheckpoints,
+  type StandingUnmetConclusion,
+  varianceBinding,
+} from "../worktree/acceptance_checkpoints.ts";
 import { configuredValidation } from "../validation/configuration.ts";
 import { classifyScopeImpact } from "../scopes/scopes.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
@@ -73,6 +78,9 @@ export interface EmergencyPlan {
   /** Each limit the repair loosens under its recorded proposal, with the
    * token of the owner's exact approval. */
   readonly standard_approvals: readonly StandardLimitApprovalRequestData[];
+  /** Declared-unmet checkpoint answers, each awaiting the owner's variance;
+   * only a plan read through a preparation receipt carries any. */
+  readonly unmet: readonly StandingUnmetConclusion[];
   readonly review?: CompletionArtifact;
 }
 
@@ -285,6 +293,7 @@ export async function observeEmergencySubject(
         a.standard.localeCompare(b.standard)
       ),
     ),
+    unmet: [],
   };
 }
 
@@ -323,16 +332,26 @@ export async function planEmergency(
 ): Promise<EmergencyPlan> {
   const plan = await observeEmergencySubject(ctx, reason);
   if (preparationReceipt !== undefined) {
-    return {
-      ...plan,
-      review: await readEmergencyPreparation(
-        ctx.cwd,
-        ctx.config,
-        plan.candidate_id,
-        plan.candidate,
-        preparationReceipt,
-      ),
-    };
+    const review = await readEmergencyPreparation(
+      ctx.cwd,
+      ctx.config,
+      plan.candidate_id,
+      plan.candidate,
+      preparationReceipt,
+    );
+    // The receipt matched the current declarations, so each standing unmet
+    // answer is exactly the judgment the owner reviews as a variance.
+    const checkpoints = await inspectAcceptanceCheckpoints(
+      ctx.cwd,
+      ctx.config,
+      { predecessor: plan.candidate.predecessor },
+    );
+    if (checkpoints.stale.length > 0 || checkpoints.drops.length > 0) {
+      throw new Error(
+        "Checkpoint declarations changed after preparation. Prepare the current repair again.",
+      );
+    }
+    return { ...plan, review, unmet: checkpoints.unmet };
   }
   const checkpoints = await inspectCheckpointObligations(
     ctx.cwd,
@@ -350,7 +369,7 @@ export async function planEmergency(
     )
   ) {
     throw new Error(
-      "Checkpoint judgment or its evidence is outstanding. Run accept emergency --prepare --reason <text> to settle checkpoint triggers and answer the served questions. Emergency integration cannot supply a judgment or variance.",
+      "Checkpoint judgment or its evidence is outstanding. Run accept emergency --prepare --reason <text> to settle checkpoint triggers and answer the served questions. The plan then asks the owner to approve each unmet answer as a variance.",
     );
   }
   return plan;
@@ -374,6 +393,7 @@ export async function emergencyToken(
     exceptions: plan.exceptions,
     carried: plan.carried,
     standard_approvals: plan.standard_approvals,
+    variances: plan.unmet.map(varianceBinding),
     review: plan.review,
   }));
   return `${expires}.${digest}`;

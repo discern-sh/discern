@@ -42,13 +42,9 @@ const CONFIG_CHECK = [
 const LOOSENED_HOTSPOTS =
   "The repair loosens, redefines, or deletes a standard without a current limit proposal: `hotspots`.";
 
-/** The refusal for an owner decision the emergency exchange cannot carry. */
-const ORDINARY_DECISIONS_ONLY =
-  "Emergency confirmation cannot approve a checkpoint variance.";
-
 /** The refusal for an owner decision passed outside the confirmation. */
 const CONFIRMATION_DECISIONS_ONLY =
-  "The owner's limit approvals belong to the emergency confirmation, beside --confirmed and --approval-token. Preparation and recovery take none.";
+  "The owner's variances and limit approvals belong to the emergency confirmation, beside --confirmed and --approval-token. Preparation and recovery take none.";
 
 /** Run `accept emergency` and return the refusal message. */
 async function refusal(cwd: string, ...args: string[]): Promise<string> {
@@ -320,60 +316,12 @@ Deno.test("an emergency lands a recorded limit proposal only with the owner's ap
   });
 });
 
-/** The owner decisions only ordinary acceptance can make, as each surface
- * spells them. */
-const ORDINARY_DECISIONS = [
+/** The owner's per-item emergency decisions, as each surface spells them. */
+const CONFIRMATION_DECISIONS = [
   {
     cli: ["--variance", "release-notes"],
     mcp: { variance: ["release-notes"] },
   },
-] as const;
-
-Deno.test("emergency confirmation refuses a checkpoint variance on every surface", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(dir, CONFIG_CHECK);
-    await gitInit(dir);
-    const wt = await addWorktree(dir, "repair");
-    const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
-    assert(tool !== undefined);
-    for (const decision of ORDINARY_DECISIONS) {
-      const cli = await runAgent(wt, [
-        "accept",
-        "emergency",
-        "--reason",
-        "Restore service",
-        ...decision.cli,
-        "--confirmed",
-        "--json",
-      ]);
-      assertEquals(cli.code, 1, cli.output);
-      const envelope = decodeCliResult(cli.stdout, "accept");
-      assertEquals(envelope.error, "invalid_arguments", cli.output);
-      assertStringIncludes(envelope.message ?? "", ORDINARY_DECISIONS_ONLY);
-      const mcp = await runTool(
-        tool,
-        new WorkingRoot(wt),
-        {
-          action: "emergency",
-          reason: "Restore service",
-          confirmed: true,
-          ...decision.mcp,
-        },
-        undefined,
-        () => Promise.resolve(undefined),
-      );
-      assertEquals(mcp.structuredContent?.error, "invalid_arguments");
-      assertStringIncludes(
-        String(mcp.structuredContent?.message),
-        ORDINARY_DECISIONS_ONLY,
-      );
-    }
-  });
-});
-
-/** The owner's per-item emergency decisions, as each surface spells them. */
-const CONFIRMATION_DECISIONS = [
   {
     cli: ["--approve-standard", "limit-approval-token"],
     mcp: { approve_standard: ["limit-approval-token"] },
@@ -430,6 +378,62 @@ Deno.test("the owner's emergency decisions belong to its confirmation on every s
           CONFIRMATION_DECISIONS_ONLY,
         );
       }
+    }
+  });
+});
+
+/** Answers and receipts an emergency call can't take, each with its
+ * refusal, as each surface spells them. */
+const MISPLACED_ANSWERS = [
+  {
+    cli: ["--unmet", "release-notes", "--why", "The notes trail the fix."],
+    mcp: {
+      unmet: { id: "release-notes", why: "The notes trail the fix." },
+    },
+    refusal:
+      "Checkpoint declarations require accept emergency --prepare. They cannot accompany integration or recovery.",
+  },
+  {
+    cli: ["--composition-receipt", "composition"],
+    mcp: { composition_receipt: "composition" },
+    refusal:
+      "--composition-receipt (MCP: composition_receipt) answers an ordinary landing's question about combined code. An emergency composes nothing, so remove it.",
+  },
+] as const;
+
+Deno.test("an emergency plan refuses a checkpoint answer or composition receipt on every surface", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, CONFIG_CHECK);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "repair");
+    const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
+    assert(tool !== undefined);
+    for (const misplaced of MISPLACED_ANSWERS) {
+      const cli = await runAgent(wt, [
+        "accept",
+        "emergency",
+        "--reason",
+        "Restore service",
+        ...misplaced.cli,
+        "--json",
+      ]);
+      assertEquals(cli.code, 1, cli.output);
+      const envelope = decodeCliResult(cli.stdout, "accept");
+      assertEquals(envelope.error, "invalid_arguments", cli.output);
+      assertStringIncludes(envelope.message ?? "", misplaced.refusal);
+      const mcp = await runTool(
+        tool,
+        new WorkingRoot(wt),
+        { action: "emergency", reason: "Restore service", ...misplaced.mcp },
+        undefined,
+        () => Promise.resolve(undefined),
+      );
+      assertEquals(mcp.structuredContent?.error, "invalid_arguments");
+      assertStringIncludes(
+        String(mcp.structuredContent?.message),
+        misplaced.refusal,
+      );
     }
   });
 });

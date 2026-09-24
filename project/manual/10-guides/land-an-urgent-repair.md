@@ -40,7 +40,7 @@ The agent runs `discern accept emergency` with a reason. This first call changes
 
 A fix that breaks one of your project's **standards**, such as a limit on duplicated code, lands with that standard among the skipped checks, and the limit stays as it was. If you agree the limit itself should change, the agent records the new limit and its reason first. The plan then shows the old and new limit, and asks you to approve that change on its own, as an ordinary landing would. A fix can't redefine or delete a standard this way.
 
-Your project may have **checkpoints**, review questions for certain kinds of change. If one applies to the fix, the agent answers it first, in a separate preparation step. An unanswered or unmet question still blocks the emergency route. Urgency doesn't remove a judgment your project asked for.
+Your project may have **checkpoints**, review questions for certain kinds of change. If one applies to the fix, the agent answers it first, in a separate preparation step. Urgency doesn't remove a judgment your project asked for, so an unanswered question still blocks the emergency route. If the agent answers that the fix doesn't meet one, the plan shows the question and the agent's reasons, and landing needs your approval of that exception too, as an ordinary landing would.
 
 ## Decide
 
@@ -50,7 +50,7 @@ To approve, say so plainly:
 
 > Approved. Land it as an emergency with that reason.
 
-The agent runs the command again with your confirmation and the plan's approval token, plus a separate token for each limit change you approved. The token expires after 15 minutes. It also stops working if anything in the plan changes, such as the fix, `main`, or the reason. A changed plan comes back to you for a new decision.
+The agent runs the command again with your confirmation and the plan's approval token, plus a separate token for each limit change you approved, and the name of each unmet checkpoint you accepted. The token expires after 15 minutes. It also stops working if anything in the plan changes, such as the fix, `main`, or the reason. A changed plan comes back to you for a new decision.
 
 ## Read what landed
 

@@ -61,11 +61,10 @@ export async function readEmergencyPreparation(
   }
   if (
     (review.checkpoints?.drops?.length ?? 0) > 0 ||
-    (review.checkpoints?.declared_unmet.length ?? 0) > 0 ||
     review.proposals.length > 0
   ) {
     throw new Error(
-      "Emergency preparation cannot approve checkpoint variances, missing evidence, or standard proposals.",
+      "Emergency preparation carries no unreadable checkpoint evidence or standard proposals. Prepare the current repair again.",
     );
   }
   const assessment = await assessCandidateReview(

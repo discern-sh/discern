@@ -759,6 +759,13 @@ export type DiscernIntegrationJudgment = {
   awaiting: Array<string>;
 };
 
+export type DiscernAuthorizedVariance = {
+  checkpoint: string;
+  definition_hash: string;
+  subject: string;
+  why: string;
+};
+
 export type DiscernLandingOutcome = {
   effort: string;
   branch: string;
@@ -773,13 +780,6 @@ export type DiscernLandingOutcome = {
   };
   reason?: string;
   proof_line?: string;
-};
-
-export type DiscernAuthorizedVariance = {
-  checkpoint: string;
-  definition_hash: string;
-  subject: string;
-  why: string;
 };
 
 export type DiscernRootResult = DiscernResultState & {
@@ -6422,6 +6422,7 @@ export type DiscernAcceptResult = DiscernResultState & {
         reason: string;
         evidence_paths: Array<string>;
       }>;
+      variances?: Array<DiscernAuthorizedVariance>;
       confirmation?: string;
       preparation?: string;
       expires_at?: number;

@@ -1171,8 +1171,10 @@ export const TOOLS: McpTool[] = orderTools([
           "The required rationale: one paragraph, 1-500 characters.",
         ),
       }).optional().describe(
-        "Declare ONE served integration checkpoint question not satisfied. " +
-          "The retained composition is still proved; landing then needs the " +
+        "Declare ONE served checkpoint question not satisfied: the " +
+          "continuation of a landing whose combined result awaits your " +
+          "judgment, where the retained composition is still proved, or " +
+          "emergency preparation with prepare: true. Landing then needs the " +
           "owner's variance decision.",
       ),
       composition_receipt: z.string().optional().describe(
@@ -1199,8 +1201,9 @@ export const TOOLS: McpTool[] = orderTools([
         "The owner's authorization to land each named declared-unmet " +
           "checkpoint without changing it (requires confirmed). The ids " +
           "must equal the current declared-unmet set, id for id — the " +
-          "awaiting_variance refusal serves it with each question and " +
-          "rationale — and recorded grants never authorize a variance.",
+          "awaiting_variance refusal or emergency preview serves it with " +
+          "each question and rationale — and recorded grants never " +
+          "authorize a variance.",
       ),
       approve_standard: z.array(z.string()).optional().describe(
         "The owner's exact approval tokens for the standard limit proposals " +
@@ -1229,23 +1232,10 @@ export const TOOLS: McpTool[] = orderTools([
         preparationReceipt: args.preparation_receipt,
         approvalToken: args.approval_token,
         approveStandard: args.approve_standard,
+        compositionReceipt: args.composition_receipt,
         dryRun: args.dry_run === true,
       });
       if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
-      if (
-        parsed.value.emergency !== undefined &&
-        (args.unmet !== undefined || args.composition_receipt !== undefined)
-      ) {
-        return Promise.resolve(
-          {
-            ok: false,
-            verb: "accept",
-            error: "invalid_arguments",
-            message:
-              "unmet and composition_receipt answer an ordinary landing's served integration question; emergency preparation records met conclusions only.",
-          } satisfies DiscernResult,
-        );
-      }
       return acceptToolResult(root, {
         queueOnly: parsed.value.queueOnly === true,
         ...(parsed.value.emergency === undefined

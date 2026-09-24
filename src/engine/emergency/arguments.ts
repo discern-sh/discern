@@ -23,6 +23,9 @@ type OwnerDecisionFields = {
     | undefined;
 };
 
+/** The ordinary landing's composition receipt, which no emergency takes. */
+type CompositionFields = { readonly compositionReceipt?: string | undefined };
+
 /** Require the explicit action before interpreting emergency fields; ordinary consent stays separate. */
 export function emergencyArguments(
   action: string | undefined,
@@ -38,9 +41,11 @@ export function emergencyArguments(
           | "prepare"
           | "preparationReceipt"
           | "met"
+          | "unmet"
       ]?: EmergencyOptions[K] | undefined;
     }
-    & OwnerDecisionFields,
+    & OwnerDecisionFields
+    & CompositionFields,
 ): EmergencyArguments {
   let message: string | undefined;
   if (
@@ -55,17 +60,17 @@ export function emergencyArguments(
       fields.recover !== undefined || fields.prepare !== undefined ||
       fields.preparationReceipt !== undefined)
   ) {
-    // `met` stays out of this refusal: an ordinary landing accepts it as the
-    // integration-judgment continuation, while emergency preparation keeps
-    // its own pairing rule below.
+    // `met` and `unmet` stay out of this refusal: an ordinary landing accepts
+    // them as the integration-judgment continuation, while emergency
+    // preparation keeps its own pairing rule below.
     message =
       "Emergency fields require the explicit accept emergency action (MCP action: emergency). Prepare that plan before requesting approval.";
   }
   if (action === EMERGENCY_ACCEPT_ACTION) {
     message ??= emergencyOptionError(fields);
-    if ((fields.variance?.length ?? 0) > 0) {
+    if (fields.compositionReceipt !== undefined) {
       message ??=
-        "Emergency confirmation cannot approve a checkpoint variance. Remove --variance (MCP: variance), then request the emergency plan again. Only ordinary acceptance decides it.";
+        "--composition-receipt (MCP: composition_receipt) answers an ordinary landing's question about combined code. An emergency composes nothing, so remove it.";
     }
   }
   if (message !== undefined) {
@@ -91,11 +96,15 @@ export function emergencyArguments(
             ? {}
             : { preparationReceipt: fields.preparationReceipt }),
           ...(fields.met === undefined ? {} : { met: fields.met }),
+          ...(fields.unmet === undefined ? {} : { unmet: fields.unmet }),
           ...(fields.reason === undefined ? {} : { reason: fields.reason }),
           ...(fields.approvalToken === undefined
             ? {}
             : { approvalToken: fields.approvalToken }),
           ...(fields.recover === undefined ? {} : { recover: fields.recover }),
+          ...(fields.variance === undefined
+            ? {}
+            : { variance: fields.variance }),
           ...(fields.approveStandard === undefined
             ? {}
             : { approveStandard: fields.approveStandard }),
@@ -107,38 +116,29 @@ export function emergencyArguments(
   };
 }
 
-/** How the ordinary accept declaration flags resolved. */
+/** How the CLI's --unmet/--why pair resolved. */
 type AcceptDeclarationArguments =
   | { readonly kind: "ok"; readonly unmet?: { id: string; why: string } }
   | { readonly kind: "refusal"; readonly result: DiscernResult<AcceptData> };
 
-/** Validate the CLI's --unmet/--why pairing and their exclusion from the
- * emergency exchange; emergency preparation records met conclusions only. */
+/** Pair the CLI's --unmet with its --why rationale; ordinary and emergency
+ * answers share the pair, and each route decides where it applies. */
 export function acceptDeclarationArguments(
-  emergency: boolean,
   unmet: string | undefined,
   why: string | undefined,
-  compositionReceipt?: string,
 ): AcceptDeclarationArguments {
-  const refuse = (message: string): AcceptDeclarationArguments => ({
-    kind: "refusal",
-    result: { ok: false, verb: "accept", error: "invalid_arguments", message },
-  });
-  if (
-    emergency &&
-    (unmet !== undefined || why !== undefined ||
-      compositionReceipt !== undefined)
-  ) {
-    return refuse(
-      "--unmet, --why, and --composition-receipt answer an ordinary landing's served integration question; emergency preparation records met conclusions only.",
-    );
-  }
   if ((unmet === undefined) !== (why === undefined)) {
-    return refuse(
-      unmet === undefined
-        ? "--why belongs to --unmet <id>; pass both or neither."
-        : '--unmet <id> requires its rationale: pass --why "<rationale>".',
-    );
+    return {
+      kind: "refusal",
+      result: {
+        ok: false,
+        verb: "accept",
+        error: "invalid_arguments",
+        message: unmet === undefined
+          ? "--why belongs to --unmet <id>; pass both or neither."
+          : '--unmet <id> requires its rationale: pass --why "<rationale>".',
+      },
+    };
   }
   return unmet !== undefined && why !== undefined
     ? { kind: "ok", unmet: { id: unmet, why } }
@@ -180,16 +180,19 @@ export function emergencyOptionError(options: {
   readonly prepare?: boolean | undefined;
   readonly preparationReceipt?: string | undefined;
   readonly met?: readonly string[] | undefined;
+  readonly unmet?: { readonly id: string; readonly why: string } | undefined;
   readonly confirmed?: boolean | undefined;
   readonly approvalToken?: string | undefined;
   readonly recover?: string | undefined;
+  readonly variance?: readonly string[] | undefined;
   readonly approveStandard?: readonly string[] | undefined;
 }): string | undefined {
   if (
     (options.prepare || options.recover !== undefined) &&
-    (options.approveStandard?.length ?? 0) > 0
+    ((options.variance?.length ?? 0) > 0 ||
+      (options.approveStandard?.length ?? 0) > 0)
   ) {
-    return "The owner's limit approvals belong to the emergency confirmation, beside --confirmed and --approval-token. Preparation and recovery take none.";
+    return "The owner's variances and limit approvals belong to the emergency confirmation, beside --confirmed and --approval-token. Preparation and recovery take none.";
   }
   if (
     options.prepare &&
@@ -198,7 +201,10 @@ export function emergencyOptionError(options: {
   ) {
     return "Emergency preparation cannot be combined with a receipt, confirmation, or transition recovery. Prepare first, then review a separate integration plan.";
   }
-  if (!options.prepare && options.met !== undefined) {
+  if (
+    !options.prepare &&
+    (options.met !== undefined || options.unmet !== undefined)
+  ) {
     return "Checkpoint declarations require accept emergency --prepare. They cannot accompany integration or recovery.";
   }
   if (

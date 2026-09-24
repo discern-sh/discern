@@ -452,7 +452,7 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 | `--prepare`             | boolean              |         | Emergency only: answer checkpoint questions before an emergency landing. discern runs the checkpoint triggers and keeps the evidence for review, but runs no…   |
 | `--preparation-receipt` | `<receipt:string>`   |         | Emergency only: the receipt `--prepare` returned for this repair and trunk.                                                                                     |
 | `--met`                 | `<id:string>`        |         | Answer a checkpoint question as met (repeatable): a question about the combined code, with `--composition-receipt`, or an emergency question, with…             |
-| `--unmet`               | `<id:string>`        |         | Answer one checkpoint question about the combined code as unmet, with `--why` and `--composition-receipt`. discern still checks the combined code; landing…     |
+| `--unmet`               | `<id:string>`        |         | Answer one checkpoint question as unmet, with `--why`: a question about the combined code, with `--composition-receipt`, or an emergency question, with…        |
 | `--why`                 | `<rationale:string>` |         | Why the question isn't met, for `--unmet`, in one paragraph.                                                                                                    |
 | `--composition-receipt` | `<receipt:string>`   |         | The receipt that came with a question about the combined code. Pass it with `--met`, `--unmet`, or `--variance` so your answer applies to that exact…           |
 | `--reason`              | `<text:string>`      |         | Emergency only: why the repair must land before its checks pass. The owner reviews it, and the approval token is tied to it.                                    |
@@ -621,23 +621,23 @@ Same-major releases may update documentation, add tools, resources, and optional
 
 **`discern_accept`** — Accept or queue the worktree
 
-| Input                 | Type       | Required | Description                                                                                                                                                             |
-| --------------------- | ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `target`              | `string`   |          | Select the effort by id, path, or branch, from any checkout. Queue mode records its current proven revision; ordinary acceptance starts landing under applicable…       |
-| `action`              | `enum`     |          | Omit to submit and start landing. Select queue to record the current proven revision and return without starting checks or landing; it reuses recorded authority and…   |
-| `reason`              | `string`   |          | Emergency reason presented in the exact owner review.                                                                                                                   |
-| `prepare`             | `boolean`  |          | Emergency only: run checkpoint triggers, serve or record agent judgments, and retain exact review evidence. Runs no validation jobs or integration.                     |
-| `preparation_receipt` | `string`   |          | Emergency preparation receipt for this exact repair and trunk; it conveys no owner approval.                                                                            |
-| `met`                 | `string[]` |          | Satisfied served checkpoint questions (repeatable): the continuation of a landing whose combined result awaits your judgment, or emergency preparation with prepare:…   |
-| `unmet`               | `object`   |          | Declare ONE served integration checkpoint question not satisfied. The retained composition is still proved; landing then needs the owner's variance decision.           |
-| `composition_receipt` | `string`   |          | The served composition receipt an answer or resumed variance decision binds to; the judgment refusal serves it (also in data.integration_judgment.composition). A…      |
-| `approval_token`      | `string`   |          | The owner's currently approved emergency preview token. Requires confirmed; changed subjects need a new review.                                                         |
-| `recover`             | `string`   |          | Emergency landing id to reconcile without a new transition or new approval.                                                                                             |
-| `dry_run`             | `boolean`  |          | Preview the landing plan and the queue; touch nothing (default false).                                                                                                  |
-| `confirmed`           | `boolean`  |          | Attestation that the owner has approved this landing in the current conversation. Set it only then. Recorded standing and effort grants are checked directly; do not…   |
-| `variance`            | `string[]` |          | The owner's authorization to land each named declared-unmet checkpoint without changing it (requires confirmed). The ids must equal the current declared-unmet set, id… |
-| `approve_standard`    | `string[]` |          | The owner's exact approval tokens for the standard limit proposals carried by the current Proof or emergency plan (requires confirmed). Use the tokens served by the…   |
-| `path`                | `string`   |          | Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a…         |
+| Input                 | Type       | Required | Description                                                                                                                                                              |
+| --------------------- | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `target`              | `string`   |          | Select the effort by id, path, or branch, from any checkout. Queue mode records its current proven revision; ordinary acceptance starts landing under applicable…        |
+| `action`              | `enum`     |          | Omit to submit and start landing. Select queue to record the current proven revision and return without starting checks or landing; it reuses recorded authority and…    |
+| `reason`              | `string`   |          | Emergency reason presented in the exact owner review.                                                                                                                    |
+| `prepare`             | `boolean`  |          | Emergency only: run checkpoint triggers, serve or record agent judgments, and retain exact review evidence. Runs no validation jobs or integration.                      |
+| `preparation_receipt` | `string`   |          | Emergency preparation receipt for this exact repair and trunk; it conveys no owner approval.                                                                             |
+| `met`                 | `string[]` |          | Satisfied served checkpoint questions (repeatable): the continuation of a landing whose combined result awaits your judgment, or emergency preparation with prepare:…    |
+| `unmet`               | `object`   |          | Declare ONE served checkpoint question not satisfied: the continuation of a landing whose combined result awaits your judgment, where the retained composition is still… |
+| `composition_receipt` | `string`   |          | The served composition receipt an answer or resumed variance decision binds to; the judgment refusal serves it (also in data.integration_judgment.composition). A…       |
+| `approval_token`      | `string`   |          | The owner's currently approved emergency preview token. Requires confirmed; changed subjects need a new review.                                                          |
+| `recover`             | `string`   |          | Emergency landing id to reconcile without a new transition or new approval.                                                                                              |
+| `dry_run`             | `boolean`  |          | Preview the landing plan and the queue; touch nothing (default false).                                                                                                   |
+| `confirmed`           | `boolean`  |          | Attestation that the owner has approved this landing in the current conversation. Set it only then. Recorded standing and effort grants are checked directly; do not…    |
+| `variance`            | `string[]` |          | The owner's authorization to land each named declared-unmet checkpoint without changing it (requires confirmed). The ids must equal the current declared-unmet set, id…  |
+| `approve_standard`    | `string[]` |          | The owner's exact approval tokens for the standard limit proposals carried by the current Proof or emergency plan (requires confirmed). Use the tokens served by the…    |
+| `path`                | `string`   |          | Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a…          |
 
 **`discern_map`** — Read the project map
 
@@ -897,8 +897,8 @@ A completion policy is the semantic authority for when `ok: true` is allowed: wh
 | `DiscernHelpCommand`         | `path`, `description`, `aliases`, `hidden`, `args`, `usage`, `options`, `children`                                                                                      |
 | `DiscernSubmissionRow`       | `effort`, `branch`, `path`, `head`, `submitted_at`, `authority`, `authority_source`, `granted_at`, `position`, `readiness`, `reason`, `integration`, `operation_handle` |
 | `DiscernIntegrationJudgment` | `composition`, `decision`, `awaiting`                                                                                                                                   |
-| `DiscernLandingOutcome`      | `effort`, `branch`, `head`, `selected`, `status`, `landed_commit`, `integrated`, `consent`, `reason`, `proof_line`                                                      |
 | `DiscernAuthorizedVariance`  | `checkpoint`, `definition_hash`, `subject`, `why`                                                                                                                       |
+| `DiscernLandingOutcome`      | `effort`, `branch`, `head`, `selected`, `status`, `landed_commit`, `integrated`, `consent`, `reason`, `proof_line`                                                      |
 
 ### Open vocabularies (member arrays at the schema root)
 

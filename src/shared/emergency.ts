@@ -28,9 +28,13 @@ export const EmergencyDataSchema = z.strictObject({
   /** Other tasks' unlanded work among those commits, each named by its task,
    * branch, and newest revision the repair holds. */
   carried: ExceptionClaimSchema.shape.carried,
-  /** The loosened standard limits the owner approved with the exception.
-   * A preview serves their pending tokens in `standard_approvals_required`. */
+  /** The loosened standard limits the emergency lands with, as their
+   * recorded proposals. A preview serves each one's approval token in
+   * `standard_approvals_required`. */
   standard_approvals: ExceptionClaimSchema.shape.standard_approvals,
+  /** The declared-unmet checkpoint answers the emergency lands with, each
+   * needing the owner's `--variance` at confirmation. */
+  variances: ExceptionClaimSchema.shape.variances,
   confirmation: z.string().optional(),
   preparation: z.string().optional(),
   expires_at: z.number().optional(),

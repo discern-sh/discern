@@ -92,7 +92,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     assertEquals(unprepared.code, 1, unprepared.output);
     assertTerminalTextIncludes(
       decodeCliResult(unprepared.stdout, "accept").message ?? "",
-      "Checkpoint judgment or its evidence is outstanding. Run accept emergency --prepare --reason <text> to settle checkpoint triggers and answer the served questions. Emergency integration cannot supply a judgment or variance.",
+      "Checkpoint judgment or its evidence is outstanding. Run accept emergency --prepare --reason <text> to settle checkpoint triggers and answer the served questions. The plan then asks the owner to approve each unmet answer as a variance.",
     );
 
     // A dry-run names exactly what preparation will and will not do.
@@ -123,12 +123,12 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     assertStringIncludes(servedEnvelope.message ?? "", "Changed:");
     assertStringIncludes(
       servedEnvelope.message ?? "",
-      "Answer only satisfied questions with accept emergency --prepare --reason <text> --met <id> (repeatable). An unmet question remains a stop for emergency integration. No validation or integration ran.",
+      'Answer each served question with accept emergency --prepare --reason <text>: --met <id> (repeatable) for a satisfied one, or --unmet <id> --why "<rationale>" for one that isn\'t, one per call. The owner decides each unmet answer as a variance in the plan. No validation or integration ran.',
     );
     assert(
       (servedEnvelope.hints ?? []).some((hint) =>
         hint.includes(
-          "Follow the preparation result. Repeat accept emergency --prepare with --met only for satisfied served questions; then request the owner-review plan with its preparation receipt.",
+          "Follow the preparation result. Repeat accept emergency --prepare with --met for each satisfied served question and --unmet with --why for one that isn't; then request the owner-review plan with its preparation receipt.",
         )
       ),
       served.output,
@@ -151,9 +151,10 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       "'bogus' is not a checkpoint awaiting a conclusion here;",
     );
 
-    // A declared-unmet question blocks preparation without granting anything.
-    // (Declared through the ordinary done flow, which also records the
-    // candidate — the same durable identity preparation binds to.)
+    // A declared-unmet answer completes preparation and grants nothing: the
+    // plan leaves it to the owner as a variance. (Declared through the
+    // ordinary done flow, which also records the candidate — the same
+    // durable identity preparation binds to.)
     const declaredUnmet = await runAgent(wt, [
       "done",
       "--unmet",
@@ -163,13 +164,11 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       "--json",
     ]);
     assertEquals(declaredUnmet.code, 1, declaredUnmet.output);
-    const blocked = await emergency(wt, "--prepare", "--reason", reason);
-    assertEquals(blocked.code, 1, blocked.output);
-    const blockedEnvelope = decodeCliResult(blocked.stdout, "accept");
-    assertEquals(blockedEnvelope.error, "precondition_failed");
-    assertStringIncludes(
-      blockedEnvelope.message ?? "",
-      "Checkpoint evidence or an unmet question still blocks emergency integration. Resolve the recorded condition; preparation cannot grant a variance or weaken policy.",
+    const unmetPrepared = await emergency(wt, "--prepare", "--reason", reason);
+    assertEquals(unmetPrepared.code, 0, unmetPrepared.output);
+    assertTerminalTextIncludes(
+      decodeCliResult(unmetPrepared.stdout, "accept").message ?? "",
+      "for the exact owner-review plan, which asks the owner to approve each unmet answer as a variance. This receipt grants no landing authority.",
     );
 
     // A recorded met conclusion completes preparation with a receipt.
@@ -308,6 +307,125 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       record.record.data.claim.review?.path,
       "environment/emergency-review.json",
     );
+    assertEquals(
+      await gitOut(dir, "rev-parse", "main"),
+      record.record.data.target,
+    );
+  });
+});
+
+Deno.test("an unmet emergency answer lands only under the owner's exact variance", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, CONFIG_CHECKPOINT);
+    await writeExecutable(
+      join(dir, "check.sh"),
+      ["#!/usr/bin/env sh", "test ! -e taboo.txt", ""].join("\n"),
+    );
+    await gitInit(dir);
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
+    const wt = await addWorktree(dir, "repair");
+    await Deno.mkdir(join(wt, "api"), { recursive: true });
+    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "changed api\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "fix: api repair", "--no-gpg-sign");
+    const reason = "Restore the broken API path";
+    const why = "The docs trail the fix; the follow-up task updates them.";
+
+    // Preparation records the agent's unmet answer beside its receipt.
+    const served = await emergency(wt, "--prepare", "--reason", reason);
+    assertEquals(served.code, 1, served.output);
+    const prepared = await emergency(
+      wt,
+      "--prepare",
+      "--reason",
+      reason,
+      "--unmet",
+      "api-review",
+      "--why",
+      why,
+    );
+    assertEquals(prepared.code, 0, prepared.output);
+    const receipt = emergencyData(prepared.stdout).preparation;
+    assert(receipt !== undefined, prepared.output);
+    const plan = (...args: string[]) =>
+      emergency(
+        wt,
+        "--reason",
+        reason,
+        "--preparation-receipt",
+        receipt,
+        ...args,
+      );
+
+    // The plan serves the question and rationale, and names the variance
+    // its confirmation must carry.
+    const preview = await plan();
+    assertEquals(preview.code, 1, preview.output);
+    const previewEnvelope = decodeCliResult(preview.stdout, "accept");
+    assertEquals(previewEnvelope.error, "awaiting_consent");
+    assertStringIncludes(
+      previewEnvelope.message ?? "",
+      "It lands an unmet checkpoint answer, which needs the owner's variance:",
+    );
+    assertStringIncludes(
+      previewEnvelope.message ?? "",
+      `Question: ${QUESTION}`,
+    );
+    assertStringIncludes(previewEnvelope.message ?? "", why);
+    assertStringIncludes(
+      previewEnvelope.message ?? "",
+      "--variance api-review.",
+    );
+    const variances = emergencyData(preview.stdout).variances;
+    assertEquals(
+      variances?.map((variance) => [variance.checkpoint, variance.why]),
+      [["api-review", why]],
+    );
+    const token = emergencyData(preview.stdout).confirmation;
+    assert(token !== undefined, preview.output);
+
+    // A confirmation without the variance serves the plan again, and a
+    // variance for anything else is an error.
+    const unvaried = await plan("--confirmed", "--approval-token", token);
+    assertEquals(unvaried.code, 1, unvaried.output);
+    assertTerminalTextIncludes(
+      decodeCliResult(unvaried.stdout, "accept").message ?? "",
+      "missing: `api-review`.",
+    );
+    const other = await plan(
+      "--confirmed",
+      "--approval-token",
+      token,
+      "--variance",
+      "docs-review",
+    );
+    assertEquals(other.code, 1, other.output);
+    assertEquals(
+      decodeCliResult(other.stdout, "accept").error,
+      "invalid_value",
+      other.output,
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+
+    // The owner's exact variance lands the repair and records it.
+    const landed = await plan(
+      "--confirmed",
+      "--approval-token",
+      token,
+      "--variance",
+      "api-review",
+    );
+    assertEquals(landed.code, 0, landed.output);
+    const landedEmergency = emergencyData(landed.stdout);
+    assertEquals(landedEmergency.variances, variances);
+    assert(landedEmergency.landing_id !== undefined);
+    const record = await readCompletionRecord(dir, {
+      kind: "exception",
+      id: landedEmergency.landing_id,
+    });
+    assert(record.kind === "recorded" && record.record.kind === "exception");
+    assertEquals(record.record.data.claim.variances, variances);
     assertEquals(
       await gitOut(dir, "rev-parse", "main"),
       record.record.data.target,

@@ -272,7 +272,7 @@
             }
           },
           "unmet": {
-            "description": "Declare ONE served integration checkpoint question not satisfied. The retained composition is still proved; landing then needs the owner's variance decision.",
+            "description": "Declare ONE served checkpoint question not satisfied: the continuation of a landing whose combined result awaits your judgment, where the retained composition is still proved, or emergency preparation with prepare: true. Landing then needs the owner's variance decision.",
             "type": "object",
             "properties": {
               "id": {
@@ -311,7 +311,7 @@
             "type": "boolean"
           },
           "variance": {
-            "description": "The owner's authorization to land each named declared-unmet checkpoint without changing it (requires confirmed). The ids must equal the current declared-unmet set, id for id — the awaiting_variance refusal serves it with each question and rationale — and recorded grants never authorize a variance.",
+            "description": "The owner's authorization to land each named declared-unmet checkpoint without changing it (requires confirmed). The ids must equal the current declared-unmet set, id for id — the awaiting_variance refusal or emergency preview serves it with each question and rationale — and recorded grants never authorize a variance.",
             "type": "array",
             "items": {
               "type": "string"

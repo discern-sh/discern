@@ -20,6 +20,7 @@ export async function prepareEmergency(
   options: {
     reason: string;
     met: readonly string[];
+    unmet?: { id: string; why: string };
     dryRun: boolean;
     signal?: AbortSignal;
   },
@@ -40,7 +41,10 @@ export async function prepareEmergency(
     const outcome = await runCheckpointPreflight(
       ctx.cwd,
       ctx.config,
-      { met: options.met },
+      {
+        met: options.met,
+        ...(options.unmet === undefined ? {} : { unmet: options.unmet }),
+      },
       undefined,
       options.signal,
       before.candidate.predecessor,
@@ -83,17 +87,17 @@ export async function prepareEmergency(
         error: "awaiting_declaration",
         data,
         message:
-          `${questions}\n\nAnswer only satisfied questions with accept emergency --prepare --reason <text> --met <id> (repeatable). An unmet question remains a stop for emergency integration. No validation or integration ran.`,
+          `${questions}\n\nAnswer each served question with accept emergency --prepare --reason <text>: --met <id> (repeatable) for a satisfied one, or --unmet <id> --why "<rationale>" for one that isn't, one per call. The owner decides each unmet answer as a variance in the plan. No validation or integration ran.`,
       };
     }
-    if (preflight.drops.length > 0 || preflight.declaredUnmet.length > 0) {
+    if (preflight.drops.length > 0) {
       return {
         ok: false,
         verb: "accept",
         error: "precondition_failed",
         data,
         message:
-          "Checkpoint evidence or an unmet question still blocks emergency integration. Resolve the recorded condition; preparation cannot grant a variance or weaken policy.",
+          "Checkpoint evidence could not be read, and unread evidence still blocks emergency integration. Resolve the recorded condition, then prepare again.",
       };
     }
     const artifact = await recordCandidateReview(
@@ -117,7 +121,11 @@ export async function prepareEmergency(
         emergency: { outcome: "prepared", preparation: preparationReceipt },
       },
       message:
-        `Checkpoint preparation is complete. No validation jobs, passing Proof, or integration were produced. Run accept emergency --reason <text> --preparation-receipt ${preparationReceipt} for the exact owner-review plan. This receipt grants no landing authority.`,
+        `Checkpoint preparation is complete. No validation jobs, passing Proof, or integration were produced. Run accept emergency --reason <text> --preparation-receipt ${preparationReceipt} for the exact owner-review plan${
+          preflight.declaredUnmet.length === 0
+            ? ""
+            : ", which asks the owner to approve each unmet answer as a variance"
+        }. This receipt grants no landing authority.`,
     };
   }, options.signal);
 }

@@ -6627,7 +6627,7 @@
           "spellings": [
             "--unmet"
           ],
-          "description": "Answer one checkpoint question about the combined code as unmet, with `--why` and `--composition-receipt`. discern still checks the combined code; landing then needs the owner's variance.",
+          "description": "Answer one checkpoint question as unmet, with `--why`: a question about the combined code, with `--composition-receipt`, or an emergency question, with `accept emergency --prepare`. Landing then needs the owner's variance.",
           "type_definition": "<id:string>",
           "arity": 1,
           "value_types": [

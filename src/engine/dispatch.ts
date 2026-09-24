@@ -922,7 +922,7 @@ export function attachEngineCommands(
     )
     .option(
       "--unmet <id:string>",
-      "Answer one checkpoint question about the combined code as unmet, with `--why` and `--composition-receipt`. discern still checks the combined code; landing then needs the owner's variance.",
+      "Answer one checkpoint question as unmet, with `--why`: a question about the combined code, with `--composition-receipt`, or an emergency question, with `accept emergency --prepare`. Landing then needs the owner's variance.",
     )
     .option(
       "--why <rationale:string>",
@@ -966,20 +966,15 @@ export function attachEngineCommands(
           acceptRequestFields,
           emergencyArguments,
         } = await loadModule(() => import("./emergency/arguments.ts"));
-        const parsed = emergencyArguments(
-          typeof action === "string" ? action : undefined,
-          o,
-        );
-        if (parsed.kind === "refusal") throw new CliRefusal(parsed.result);
-        const declarations = acceptDeclarationArguments(
-          parsed.value.emergency !== undefined,
-          o.unmet,
-          o.why,
-          o.compositionReceipt,
-        );
+        const declarations = acceptDeclarationArguments(o.unmet, o.why);
         if (declarations.kind === "refusal") {
           throw new CliRefusal(declarations.result);
         }
+        const parsed = emergencyArguments(
+          typeof action === "string" ? action : undefined,
+          { ...o, unmet: declarations.unmet },
+        );
+        if (parsed.kind === "refusal") throw new CliRefusal(parsed.result);
         const json = jsonFrom(o);
         return await runWorktreeOp(
           async (ctx) => {

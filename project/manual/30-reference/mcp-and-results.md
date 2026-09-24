@@ -163,9 +163,10 @@ When the trunk moved after the task's Proof, the call combines the change with t
 
 #### Emergency integration
 
-If checkpoint questions block an emergency plan, your agent first calls `discern_accept` with `action: "emergency"`, `prepare: true`, and the `reason`. Preparation runs the checkpoint triggers and serves their questions, without running validation jobs. The agent records the questions it judges satisfied through `met`, an array of checkpoint ids, and gets back a `preparation` receipt. That receipt goes in `preparation_receipt` on the later preview and on the confirmed call.
+If checkpoint questions block an emergency plan, your agent first calls `discern_accept` with `action: "emergency"`, `prepare: true`, and the `reason`. Preparation runs the checkpoint triggers and serves their questions, without running validation jobs. The agent records the questions it judges satisfied through `met`, an array of checkpoint ids, or one it judges unmet through `unmet` with its rationale, and gets back a `preparation` receipt. That receipt goes in `preparation_receipt` on the later preview and on the confirmed call.
 
-- A changed revision or declaration needs fresh preparation, and an unmet question still blocks emergency integration.
+- A changed revision or declaration needs fresh preparation.
+- An unmet answer lands only under your variance: the preview serves each one in `data.emergency.variances`, and the confirmed call names each checkpoint in `variance`.
 - `dry_run: true` previews preparation without running triggers or recording answers.
 - Preparation can't be combined with confirmation, or with transition recovery.
 
