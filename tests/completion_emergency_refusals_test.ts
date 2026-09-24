@@ -254,6 +254,14 @@ Deno.test("an emergency lands a recorded limit proposal only with the owner's ap
       envelope.message ?? "",
       `--approve-standard ${approval}`,
     );
+    assert(
+      (envelope.hints ?? []).some((hint) =>
+        hint.includes(
+          "repeat accept emergency with every flag the plan's closing instruction lists, including --confirmed and its approval token.",
+        )
+      ),
+      preview.output,
+    );
 
     // A confirmation without the limit's approval serves the plan again.
     const unapproved = await emergency(

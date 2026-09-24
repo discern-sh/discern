@@ -246,7 +246,7 @@ export async function emergencyResult(
         action: options.prepare
           ? "Follow the preparation result. Repeat accept emergency --prepare with --met for each satisfied served question and --unmet with --why for one that isn't; then request the owner-review plan with its preparation receipt."
           : result.error === AWAITING_CONSENT_SLUG
-          ? "Review the displayed emergency plan with the owner. After their fresh explicit approval, repeat accept emergency with the displayed confirmation token and --confirmed."
+          ? "Review the displayed emergency plan with the owner. After their fresh explicit approval, repeat accept emergency with every flag the plan's closing instruction lists, including --confirmed and its approval token."
           : result.data?.emergency?.outcome === "not-landed"
           ? "No integration occurred. Return to the repair worktree and prepare a new emergency plan for fresh owner review."
           : result.data?.emergency?.landing_id === undefined
