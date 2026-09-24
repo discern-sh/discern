@@ -1759,10 +1759,22 @@ const statusIdentityShape = {
   seed: z.number().int().nonnegative(),
 } satisfies Record<WorktreeIdentityField, z.ZodType>;
 
+/** A read of checkout-local state that discern could not complete. */
+const statusReadFailureSchema = z.strictObject({
+  /** The configured `[worktree].env_files` entry that could not be read,
+   * relative to the checkout. */
+  file: z.string(),
+  reason: z.string(),
+});
+
 /** This checkout's derived identity + resources recorded in its `.env`. */
 const statusWorktreeSchema = z.strictObject({
   ...statusIdentityShape,
+  /** Empty while `read_failure` is present: the handles are unknown. */
   resources: z.record(z.string(), z.string()),
+  /** Present when a configured env file exists but cannot be read. Any value
+   * it records is unknown, so the identity fields carry derived values. */
+  read_failure: statusReadFailureSchema.optional(),
 });
 export type StatusWorktree = z.infer<typeof statusWorktreeSchema>;
 
@@ -1882,6 +1894,10 @@ const statusFleetEntrySchema = z.strictObject({
   git_unavailable: z.boolean().optional(),
   /** The command and diagnostic behind `git_unavailable`. */
   git_failure: statusFleetGitFailureSchema.optional(),
+  /** Present when a configured env file exists but cannot be read. Values it
+   * records are unknown: `id` and `port` carry derived values and `resources`
+   * is absent. */
+  read_failure: statusReadFailureSchema.optional(),
   id: z.string().optional(),
   port: z.number().optional(),
   /** Resource handles recorded in this checkout's configured env files. */

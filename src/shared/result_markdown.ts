@@ -41,6 +41,10 @@ import {
   submissionRowLine,
 } from "./result_markdown_queue.ts";
 import { notApplicableCountLabel } from "./setup_assurance.ts";
+import {
+  readFailureFact,
+  statusFleetRowFact,
+} from "./result_markdown_fleet.ts";
 import { skillsListLines } from "./skills_list_presentation.ts";
 import {
   CompletionAssuranceSchema,
@@ -1816,18 +1820,9 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
           number(git.behind_trunk) ?? "unknown"
         } behind ${code(trunk)}`
     }.`;
-  const fleetFacts = fleet.slice(0, MAX_LIST_ITEMS).map((entry) => {
-    const rowBranch = text(entry.branch) ?? "unknown branch";
-    if (boolean(entry.git_unavailable) === true) {
-      return `${code(rowBranch)}: Git state unavailable.`;
-    }
-    const rowProof = object(entry.gate_proof);
-    return `${code(rowBranch)}: ${
-      boolean(entry.clean) === true ? "clean" : "dirty"
-    }, ${number(entry.ahead) ?? "unknown"} ahead, ${
-      number(entry.behind) ?? "unknown"
-    } behind, Proof ${code(text(rowProof?.status) ?? "unknown")}.`;
-  });
+  const fleetFacts = fleet.slice(0, MAX_LIST_ITEMS).map((entry) =>
+    statusFleetRowFact(entry)
+  );
   const fleetDropFacts = fleet.slice(0, MAX_LIST_ITEMS).flatMap((entry) => {
     const branch = text(entry.branch) ?? "unknown branch";
     const proof = object(entry.gate_proof);
@@ -1843,6 +1838,7 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
       ...emergencyValidationFacts(data),
       landedExceptionFact(data),
       text(data.root) === undefined ? undefined : `Root: ${code(data.root)}.`,
+      readFailureFact(worktree?.read_failure),
       git === undefined
         ? undefined
         : `Changed files: ${number(git.changed_files) ?? 0}.`,

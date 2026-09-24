@@ -1140,6 +1140,50 @@ Deno.test("bounded-list overflow lines agree with their counts", () => {
   assertStringIncludes(statusWith(8), "2 additional fleet rows omitted.");
 });
 
+Deno.test("status Markdown names each checkout-local read that failed", () => {
+  const envFailure = { file: ".env.local", reason: "Permission denied" };
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "status",
+      data: {
+        location: "main",
+        project: "example",
+        worktree: {
+          id: "main",
+          branch: "main",
+          site: "example-main",
+          port: 18146,
+          db: "example_main",
+          seed: 1,
+          resources: {},
+          read_failure: envFailure,
+        },
+        fleet: [{
+          path: "/workspace/project.worktrees/env-row",
+          is_main: false,
+          is_current: false,
+          branch: "agent/env-row",
+          clean: true,
+          changed_files: 0,
+          ahead: 0,
+          behind: 0,
+          read_failure: envFailure,
+        }],
+      },
+    },
+    resultPresenterForVerb("status"),
+  );
+  assertStringIncludes(
+    rendered,
+    "- Env file `.env.local` is unreadable: `Permission denied`.",
+  );
+  assertStringIncludes(
+    rendered,
+    "`agent/env-row`: clean, 0 ahead, 0 behind, Proof `unknown`. Env file `.env.local` is unreadable: `Permission denied`.",
+  );
+});
+
 Deno.test("overflow sentences render only through the shared omitted() helper", async () => {
   const source = await Deno.readTextFile("src/shared/result_markdown.ts");
   const occurrences = source.match(/omitted(?!\()/g) ?? [];

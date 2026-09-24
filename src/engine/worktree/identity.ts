@@ -10,7 +10,8 @@
  *      the target is the process's own workroot: the override declares what
  *      THIS process's worktree is, never what some other inspected path is.
  *   2. `DISCERN_WORKTREE_ID` recorded in the target's `[worktree].env_files`
- *      (last listed wins), when valid.
+ *      (last listed wins), when valid. An unreadable env file refuses rather
+ *      than falling through, since it could hold the winning override.
  *   3. Git's linked-worktree admin-directory basename.
  *
  * LOAD-BEARING (Risk R1): a worktree's port, site tail hash, and db name derive
@@ -34,7 +35,9 @@ import {
 } from "../../shared/fs_presence.ts";
 import {
   DEFAULT_ENV_FILES,
-  readEnvValueAcross,
+  envFileUnreadableMessage,
+  readEnvFilesAt,
+  readEnvValueFromFiles,
   stripQuotes,
 } from "./env_file.ts";
 import {
@@ -594,17 +597,32 @@ async function canonicalizeTarget(path: string): Promise<string> {
 /** Read a `DISCERN_WORKTREE_ID` override recorded in the target's env files —
  * the same `[worktree].env_files` set (and last-listed-wins precedence) every
  * other env read uses, so `discern identity` and `discern status` can never
- * disagree about which file holds the override. */
+ * disagree about which file holds the override. An unreadable file refuses: it
+ * could hold the winning override. */
 async function readDotenvId(
   target: string,
   files: readonly string[],
 ): Promise<string | undefined> {
-  const value = await readEnvValueAcross(
-    target,
-    files,
+  const read = await readEnvFilesAt(target, files);
+  if (read.state === "unreadable") {
+    throw new IdentityError(envFileUnreadableMessage(read));
+  }
+  const value = readEnvValueFromFiles(
+    read.texts,
     DISCERN_ENVIRONMENT_VARIABLES.worktreeId,
   );
   return value === undefined ? undefined : stripQuotes(value.trim());
+}
+
+/**
+ * The same settings without the recorded env-file override, for an observer
+ * that reports an unreadable env file instead of refusing: the id then comes
+ * from the process override or Git metadata.
+ */
+export function withoutRecordedOverride(
+  settings: IdentitySettings,
+): IdentitySettings {
+  return { ...settings, envFiles: [] };
 }
 
 /** Resolve a possibly-relative git-common-dir against a base, then canonicalize. */
@@ -688,7 +706,8 @@ async function metadataIdFromGit(path: string): Promise<string> {
 /**
  * Resolve only the worktree id (the basis for every derived value), applying the
  * three-source precedence and the slug-collision `wt-` prefix. `target` defaults
- * to the cwd.
+ * to the cwd. An unreadable configured env file throws an `IdentityError`
+ * naming it.
  */
 export async function resolveWorktreeId(
   settings: IdentitySettings,
@@ -738,14 +757,16 @@ function escapeRe(s: string): string {
 
 /**
  * Resolve the full identity for a target worktree (default: the cwd), loading
- * project settings from `root` and applying all three id sources. This is the
- * high-level entry the lifecycle/token layers use.
+ * project settings from `root` unless the caller already holds them, and
+ * applying all three id sources. This is the high-level entry the
+ * lifecycle/token layers use.
  */
 export async function resolveIdentity(
   root: string,
   target: string = Deno.cwd(),
+  held?: IdentitySettings,
 ): Promise<WorktreeIdentity> {
-  const settings = await loadIdentitySettings(root);
+  const settings = held ?? await loadIdentitySettings(root);
   const canonical = await canonicalizeTarget(target);
   const dirs = await gitCheckoutDirs(canonical);
   if (dirs !== undefined && dirs.gitDir === dirs.commonGitDir) {

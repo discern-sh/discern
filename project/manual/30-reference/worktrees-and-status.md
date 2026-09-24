@@ -178,6 +178,8 @@ Dirty, behind, and missing-Proof states are observations, so status can still re
 
 Each sampled fleet row carries the recovery facts available for it: Git registration, branch reachability, whether the folder exists, cleanliness, divergence, the setup-ready marker, the journal, and the repair classification. A failed Git read keeps the command and its diagnostic. A fact discern couldn't read stays absent, or is marked unavailable.
 
+`read_failure` marks a checkout whose env file discern can't read, and makes that checkout unreadable. `file` names the env file, and `reason` says why. The row still shows its derived id and port, and leaves out `resources`. The current checkout's `worktree` block carries the same field, with empty `resources`.
+
 A readable row also carries its activity, one `gate_proof`, and its `landing_authority`.
 
 - **`landing_authority`** holds the current decision, up to six example paths with authored files first, the uncovered totals, and the scopes. This summary grants nothing beyond the underlying recorded permission.
@@ -269,7 +271,7 @@ A task's display title and optional brief are for people, and are separate from 
 
 An entry can be any portable project-relative filename; it doesn't need an `.env` name. discern removes any leading `./`, and refuses two entries that name the same path when case is ignored.
 
-A read can follow a symbolic link whose target stays inside the project. A missing or stale checkout, a missing file, or a link that leaves the project counts as an absent env file. A file that exists but can't be read stops the read with an error. Before a write, discern refuses any path with a symbolic link in it, rather than change the link's target. Configure the target path directly, or replace the link with a regular file.
+A read can follow a symbolic link whose target stays inside the project. A missing or stale checkout, a missing file, or a link that leaves the project counts as an absent env file. A listed file that exists but that discern can't read, such as a file without read permission or a folder at that path, could override any value. So identity commands, inheritance, and env writes stop and name that file. Status still runs, and marks that checkout unreadable, with its derived id and port. Before a write, discern refuses any path with a symbolic link in it, rather than change the link's target. Configure the target path directly, or replace the link with a regular file.
 
 discern marks the values it writes with a "Worktree values" comment, and creates a new env file with mode `0600`.
 
@@ -279,7 +281,7 @@ discern marks the values it writes with a "Worktree values" comment, and creates
 - the worktree's value is replaced when it's empty, or when it equals the default in `<first env file>.example`;
 - any other worktree value is left alone, as worktree-specific.
 
-When the worktree has no env file yet, inheritance creates the first listed one. When the main checkout has no readable env file, inheritance warns and copies nothing.
+When the worktree has no env file yet, inheritance creates the first listed one. When the main checkout has no env file, inheritance warns and copies nothing.
 
 The configured env files can carry the values listed in [Environment variables](environment-variables.md#worktree-environment).
 

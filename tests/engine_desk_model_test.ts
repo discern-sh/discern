@@ -685,6 +685,14 @@ const ACTION_CASES: ReadonlyArray<{
     enabled: ["recovery", "drop"],
   },
   {
+    name: "unreadable env file",
+    decision: () =>
+      decide({
+        read_failure: { file: ".env.local", reason: "Permission denied" },
+      }),
+    enabled: ["recovery", "jump", "drop"],
+  },
+  {
     name: "repairable setup",
     decision: () =>
       decide({
@@ -883,6 +891,74 @@ Deno.test("every action is offered once with closed metadata and concrete availa
     Object.keys(DESK_ACTION_REGISTRY).sort(),
     [...DESK_ACTIONS].sort(),
     "a new action must add label and group metadata",
+  );
+});
+
+Deno.test("each unreadable subject names what discern could not read", () => {
+  const cases: ReadonlyArray<{
+    name: string;
+    over: Partial<StatusFleetEntry>;
+    headline: string;
+    attention: string;
+    finalChecks: string;
+    failure: string;
+    nextStep: string;
+  }> = [
+    {
+      name: "Git state",
+      over: {
+        git_unavailable: true,
+        git_failure: { command: "git status", reason: "index unreadable" },
+        clean: undefined,
+        changed_files: undefined,
+        ahead: undefined,
+        behind: undefined,
+      },
+      headline: "Git state unreadable",
+      attention: "Git could not read this checkout.",
+      finalChecks: "Git state is unreadable. Repair Git before final checks.",
+      failure: "index unreadable",
+      nextStep: "Run discern doctor.",
+    },
+    {
+      name: "an env file",
+      over: { read_failure: { file: ".env.local", reason: "denied" } },
+      headline: "Env file unreadable",
+      attention:
+        "discern could not read the env file `.env.local` in this checkout.",
+      finalChecks:
+        "The env file .env.local is unreadable. Make it readable before final checks.",
+      failure: "denied",
+      nextStep: "Make .env.local a readable file, then run discern status.",
+    },
+  ];
+  for (const testCase of cases) {
+    const row = presentFleetRow(entry(testCase.over), {
+      trunk: TRUNK,
+      nowMs: NOW,
+    });
+    assertEquals(row.kind, "unreadable", testCase.name);
+    assertStringIncludes(row.attention ?? "", testCase.attention);
+    const decision = decide(testCase.over);
+    assertEquals(decision.headline, testCase.headline, testCase.name);
+    const done = offer(decision, "done");
+    assert(done.availability === "disabled", testCase.name);
+    assertEquals(done.reason, testCase.finalChecks, testCase.name);
+    assertEquals(decision.recovery?.failure, testCase.failure, testCase.name);
+    assertEquals(decision.recovery?.nextStep, testCase.nextStep);
+  }
+});
+
+Deno.test("cleanup never claims no resources when their record is unreadable", () => {
+  const known = offer(decide({ resources: {} }), "drop").consequence;
+  assert(known.changes.includes("No external resources are recorded"));
+  const unknown = offer(
+    decide({ read_failure: { file: ".env.local", reason: "denied" } }),
+    "drop",
+  ).consequence;
+  assert(
+    unknown.changes.includes("Recorded resource handles cannot be read"),
+    JSON.stringify(unknown.changes),
   );
 });
 

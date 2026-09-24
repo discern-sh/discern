@@ -30,6 +30,10 @@ import {
   presentFleetRow,
   relativeAge,
 } from "../status/tty.ts";
+import {
+  type UnreadableSubject,
+  unreadableSubject,
+} from "../status/recovery_presentation.ts";
 import { taskLabel, type WorktreeTaskLabel } from "../worktree/task_label.ts";
 import {
   isPositiveGitCount,
@@ -125,7 +129,8 @@ interface DeskActionLabelContext {
   readonly proofRecorded: boolean;
   readonly changedFiles?: number;
   readonly ahead?: number | "unknown";
-  readonly resources: readonly string[];
+  /** Absent when the env files recording the handles cannot be read. */
+  readonly resources?: readonly string[];
 }
 
 export interface DeskActionMetadata {
@@ -510,6 +515,12 @@ function collisionDetails(collisions: readonly DeskCollision[]): DeskDetail[] {
   });
 }
 
+/** The headline for each part of a checkout the desk could not read. */
+const UNREADABLE_HEADLINES = {
+  git: "Git state unreadable",
+  "env-file": "Env file unreadable",
+} as const satisfies Record<UnreadableSubject["kind"], string>;
+
 /** Choose the short headline for the already-classified decision. */
 function headlineFor(
   statusKind: FleetRowStatusKind,
@@ -526,7 +537,7 @@ function headlineFor(
     case "setup-incomplete":
       return "Setup needs recovery";
     case "unreadable":
-      return "Git state unreadable";
+      return UNREADABLE_HEADLINES[unreadableSubject(entry).kind];
     case "failed": {
       const action = entry.last_action;
       if (action?.outcome === "partial") {
@@ -861,7 +872,7 @@ export const DESK_ACTION_REGISTRY = {
     },
     availability: (facts: DeskActionFacts): string | undefined => {
       if (isUnhealthy(facts.entry)) {
-        return "Git state is not healthy enough to update. Follow the task's recovery steps first.";
+        return "The task is not healthy enough to update. Follow its recovery steps first.";
       }
       if (facts.entry.behind === UNKNOWN_GIT_COUNT) {
         return `Git divergence from ${facts.trunk} is unknown.`;
@@ -1163,7 +1174,9 @@ function actionOffers(
         ? {}
         : { changedFiles: facts.entry.changed_files }),
       ...(facts.entry.ahead === undefined ? {} : { ahead: facts.entry.ahead }),
-      resources: Object.values(facts.entry.resources ?? {}),
+      ...(facts.entry.resources === undefined
+        ? {}
+        : { resources: Object.values(facts.entry.resources) }),
       ...(facts.entry.contained_in === undefined
         ? {}
         : { containedIn: facts.entry.contained_in }),

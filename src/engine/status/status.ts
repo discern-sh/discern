@@ -126,6 +126,7 @@ import {
   loadIdentitySettings,
   resolveIdentity,
   resolveWorktreeId,
+  withoutRecordedOverride,
 } from "../worktree/identity.ts";
 import {
   fallbackTaskMetadataData,
@@ -139,7 +140,11 @@ import {
   containmentIdleCheck,
   scanContainedWorktrees,
 } from "../worktree/containment.ts";
-import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
+import {
+  readEnvFilesAt,
+  readEnvValueFromFiles,
+  stripQuotes,
+} from "../worktree/env_file.ts";
 import { makeOut } from "../output.ts";
 import { inspectGateProof } from "../gate/proof.ts";
 import {
@@ -171,6 +176,7 @@ import {
   STALE_WORKTREE_DAYS,
 } from "./tty.ts";
 import { fleetFilesystem, fleetSetupEvidence } from "./recovery.ts";
+import { degradedFleetKind } from "./recovery_presentation.ts";
 import { applyLogbookActivity } from "./recent.ts";
 import { parkedTaskEvidence, recentCompletedTasks } from "./recent.ts";
 import {
@@ -728,14 +734,22 @@ export async function statusResult(
 }
 
 /** Resolve a checkout's identity block, degrading to null if identity can't be
- * resolved (e.g. an empty slug) rather than crashing the read-only verb. */
+ * resolved (e.g. an empty slug) rather than crashing the read-only verb. An
+ * unreadable env file leaves every value it records unknown: the block then
+ * carries the derived identity, no resource handles, and the read failure. */
 async function buildCheckoutIdentityBlock(
   root: string,
   cfg: DiscernConfig,
 ): Promise<StatusWorktree | null> {
+  const env = await readEnvFilesAt(root, cfg.worktree.env_files);
   let identity;
   try {
-    identity = await resolveIdentity(root, root);
+    const settings = await loadIdentitySettings(root);
+    identity = await resolveIdentity(
+      root,
+      root,
+      env.state === "unreadable" ? withoutRecordedOverride(settings) : settings,
+    );
   } catch (e) {
     if (e instanceof IdentityError) {
       return null;
@@ -749,28 +763,23 @@ async function buildCheckoutIdentityBlock(
     port: identity.port,
     db: identity.db,
     seed: identity.seed,
-    resources: await readWorktreeResources(root, cfg),
+    resources: env.state === "read" ? recordedResources(env.texts, cfg) : {},
+    ...(env.state === "unreadable"
+      ? { read_failure: { file: env.file, reason: env.reason } }
+      : {}),
   };
 }
 
-/** The resource handles ACTUALLY recorded in this worktree's env files (what was
+/** The resource handles ACTUALLY recorded in a checkout's env files (what was
  * provisioned), not the derived set — a resource not yet created has no env
- * entry and is honestly absent. Reads only; never creates a file or a resource. */
-async function readWorktreeResources(
-  root: string,
+ * entry and is honestly absent. Pure over the already-read env texts. */
+function recordedResources(
+  texts: readonly string[],
   cfg: DiscernConfig,
-): Promise<Record<string, string>> {
+): Record<string, string> {
   const out: Record<string, string> = {};
-  const specs = readResourceSpecs(cfg);
-  if (specs.length === 0) {
-    return out;
-  }
-  for (const spec of specs) {
-    const raw = await readEnvValueAcross(
-      root,
-      cfg.worktree.env_files,
-      resourceEnvName(spec.name),
-    );
+  for (const spec of readResourceSpecs(cfg)) {
+    const raw = readEnvValueFromFiles(texts, resourceEnvName(spec.name));
     const value = raw === undefined ? undefined : stripQuotes(raw.trim());
     if (value !== undefined && value !== "") {
       out[spec.name] = value;
@@ -821,11 +830,17 @@ async function fleetEntryFor(
       entry.git_failure = row.gitFailure;
     }
   }
+  const env = await readEnvFilesAt(row.path, cfg.worktree.env_files);
+  if (env.state === "unreadable") {
+    entry.read_failure = { file: env.file, reason: env.reason };
+  }
   const configPresent = row.isMain ||
     (await installedConfigRel(row.path)) !== undefined;
   if (!row.isMain) {
     if (!configPresent) entry.broken = true;
-    entry.resources = await readWorktreeResources(row.path, cfg);
+    if (env.state === "read") {
+      entry.resources = recordedResources(env.texts, cfg);
+    }
     entry.setup = await fleetSetupEvidence(
       row,
       here,
@@ -855,18 +870,16 @@ async function fleetEntryFor(
       entry.landing_authority = authority;
     }
   }
-  const files = cfg.worktree.env_files;
-  const recordedId = await readEnvValueAcross(
-    row.path,
-    files,
+  const texts = env.state === "read" ? env.texts : [];
+  const recordedId = readEnvValueFromFiles(
+    texts,
     DISCERN_ENVIRONMENT_VARIABLES.worktreeId,
   );
   if (recordedId !== undefined && recordedId.trim() !== "") {
     entry.id = stripQuotes(recordedId.trim());
   }
-  const recordedPort = await readEnvValueAcross(
-    row.path,
-    files,
+  const recordedPort = readEnvValueFromFiles(
+    texts,
     DISCERN_ENVIRONMENT_VARIABLES.worktreePort,
   );
   if (recordedPort !== undefined && /^\d+$/.test(recordedPort.trim())) {
@@ -874,10 +887,14 @@ async function fleetEntryFor(
   }
   // Derivation fallback: identity is structured state, not filesystem shape — a
   // worktree with no env file still has an id (and, with
-  // [worktree].export_port on, a deterministic port).
+  // [worktree].export_port on, a deterministic port). An unreadable env file
+  // could hold the winning override, so the id derives from the other sources.
   if (!row.isMain && settings !== undefined) {
     if (entry.id === undefined || entry.port === undefined) {
-      const id = await resolveWorktreeId(settings, row.path).catch(() => {
+      const sources = env.state === "unreadable"
+        ? withoutRecordedOverride(settings)
+        : settings;
+      const id = await resolveWorktreeId(sources, row.path).catch(() => {
         // discern-best-effort: status-worktree-id-fallback
         return undefined;
       });
@@ -1240,10 +1257,12 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           }),
         );
       }
-      // Unreadable members: git could not run inside the checkout, so its work
-      // state is unknown. Keep diagnosis ahead of any cleanup decision.
+      // Unreadable members: discern could not read the checkout's Git state or
+      // its own files, so its work or recorded values are unknown. The row
+      // classifier decides membership, so hint and row label always agree.
+      // Keep diagnosis ahead of any cleanup decision.
       const unreadable = others.filter((e) =>
-        e.git_unavailable === true && e.broken !== true
+        degradedFleetKind(e) === "unreadable"
       );
       if (unreadable.length > 0) {
         hints.push(

@@ -54,10 +54,11 @@ import {
   splitNulRecords,
 } from "../../shared/git_paths.ts";
 import {
+  type EnvFilesRead,
+  type EnvFileUnreadable,
+  envFileUnreadableMessage,
   formatEnvValue,
-  readEnvFileAt,
   readEnvFilesAt,
-  readEnvValueAcross,
   readEnvValueFromFiles,
   stripQuotes,
   writeEnvVar,
@@ -4100,16 +4101,6 @@ export async function sweepOrphanWorktrees(
   return { removed, kept: scan.kept, failed };
 }
 
-/** Read the raw value (everything after the first `=`) for `key` in a `.env`-style file. */
-function readEnvValue(text: string, key: string): string {
-  for (const line of text.split("\n")) {
-    if (line.startsWith(`${key}=`)) {
-      return line.slice(key.length + 1);
-    }
-  }
-  return "";
-}
-
 /** Options for {@link inheritMainEnvVars}. */
 export interface InheritEnvOptions {
   /** The worktree root (the env files being patched live here). */
@@ -4123,6 +4114,15 @@ export interface InheritEnvOptions {
   log: Logger;
 }
 
+/** Refuse an env read that met an unreadable file, naming that file. */
+function assertEnvReadable(
+  read: EnvFilesRead,
+): asserts read is Exclude<EnvFilesRead, EnvFileUnreadable> {
+  if (read.state === "unreadable") {
+    throw new WorktreeGitError(envFileUnreadableMessage(read));
+  }
+}
+
 /**
  * Copy selected env vars from the main checkout's env files into the current
  * worktree's, so the worktree's app can boot with the same secrets. Reads every
@@ -4133,9 +4133,9 @@ export interface InheritEnvOptions {
  * arrive. Per-var safe-copy policy: skip when main is blank; replace when the
  * worktree value is empty or equals the first configured env file's `.example`
  * default; otherwise leave a customised value alone. Idempotent. An empty
- * `vars` list, or a main checkout
- * with no readable env file, is a warned no-op. A missing main checkout or a
- * refused env write throws `WorktreeGitError`.
+ * `vars` list, or a main checkout with no env file, is a warned no-op. A
+ * missing main checkout, an unreadable env file on either side, or a refused
+ * env write throws `WorktreeGitError`.
  */
 export async function inheritMainEnvVars(
   opts: InheritEnvOptions,
@@ -4152,8 +4152,9 @@ export async function inheritMainEnvVars(
         "Run `git worktree repair`, then re-run `discern worktree setup`.",
     );
   }
-  const mainEnvFiles = await readEnvFilesAt(mainRepo, files);
-  if (mainEnvFiles.length === 0) {
+  const mainEnv = await readEnvFilesAt(mainRepo, files);
+  assertEnvReadable(mainEnv);
+  if (mainEnv.texts.length === 0) {
     log.warn(
       `Worktree environment inheritance: the main checkout has no env file (${
         files.join(", ")
@@ -4161,15 +4162,17 @@ export async function inheritMainEnvVars(
     );
     return;
   }
-  const exampleText = files[0] === undefined
-    ? ""
-    : await readEnvFileAt(mainRepo, `${files[0]}.example`) ?? "";
+  const example = await readEnvFilesAt(
+    mainRepo,
+    files.slice(0, 1).map((file) => `${file}.example`),
+  );
+  assertEnvReadable(example);
 
   for (const varName of opts.vars) {
     if (varName === "") {
       continue;
     }
-    const mainRaw = readEnvValueFromFiles(mainEnvFiles, varName);
+    const mainRaw = readEnvValueFromFiles(mainEnv.texts, varName);
     const mainValue = stripQuotes(mainRaw ?? "");
     if (mainValue === "") {
       log.warn(
@@ -4177,10 +4180,14 @@ export async function inheritMainEnvVars(
       );
       continue;
     }
+    const worktreeEnv = await readEnvFilesAt(opts.worktreeRoot, files);
+    assertEnvReadable(worktreeEnv);
     const worktreeValue = stripQuotes(
-      await readEnvValueAcross(opts.worktreeRoot, files, varName) ?? "",
+      readEnvValueFromFiles(worktreeEnv.texts, varName) ?? "",
     );
-    const exampleValue = stripQuotes(readEnvValue(exampleText, varName));
+    const exampleValue = stripQuotes(
+      readEnvValueFromFiles(example.texts, varName) ?? "",
+    );
 
     if (worktreeValue === mainValue) {
       continue; // already inherited

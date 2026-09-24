@@ -15,9 +15,14 @@
  * declared secret must actually arrive in a fresh worktree), while the port and
  * resource recorders only ever update files that exist — a project with no env
  * file discovers identity via `discern identity` instead.
+ *
+ * A read has three outcomes: absent, the file's text, or unreadable. A file
+ * that exists but cannot be read makes every value the set supplies unknown,
+ * since it could hold the winning definition of any key; each caller decides
+ * whether that refuses or degrades, and none reads it as absence.
  */
 
-import { dirname } from "@std/path";
+import { dirname, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import {
   isManagedValuesMarker,
@@ -88,34 +93,76 @@ export function upsertEnvLine(
   ].join("\n");
 }
 
+/** A configured env file that exists but cannot be read. */
+export interface EnvFileUnreadable {
+  readonly state: "unreadable";
+  /** The configured entry, relative to the checkout root. */
+  readonly file: string;
+  /** The entry's absolute location under the checkout root. */
+  readonly path: string;
+  /** The operating system's account of the failed read. */
+  readonly reason: string;
+}
+
+/** One env-file read: absent, the file's text, or unreadable. */
+export type EnvFileRead =
+  | { readonly state: "absent" }
+  | { readonly state: "text"; readonly text: string }
+  | EnvFileUnreadable;
+
+/** The configured env files' texts in precedence order, or the first file
+ * that exists but cannot be read. */
+export type EnvFilesRead =
+  | { readonly state: "read"; readonly texts: readonly string[] }
+  | EnvFileUnreadable;
+
 /**
- * Read one env-style file under `root`. Missing, stale, unreadable, or escaping
- * paths return undefined; a contained symbolic link remains readable.
+ * Read one env-style file under `root`. A missing file, a missing or stale
+ * checkout, and a path that leaves the project are absent; a contained
+ * symbolic link remains readable. Every other failure is unreadable, with the
+ * operating system's reason.
  */
 export async function readEnvFileAt(
   root: string,
   file: string,
-): Promise<string | undefined> {
-  const path = await resolveContainedProjectReadPath(root, file);
-  if (path === undefined) {
-    return undefined;
+): Promise<EnvFileRead> {
+  try {
+    const path = await resolveContainedProjectReadPath(root, file);
+    const text = path === undefined ? undefined : await readTextIfExists(path);
+    return text === undefined ? { state: "absent" } : { state: "text", text };
+  } catch (error) {
+    return {
+      state: "unreadable",
+      file,
+      path: join(root, file),
+      reason: error instanceof Error ? error.message : String(error),
+    };
   }
-  return await readTextIfExists(path);
 }
 
-/** Read the configured env files once, preserving their precedence order. */
+/** Read the configured env files once, preserving their precedence order. One
+ * unreadable file makes the set unreadable. */
 export async function readEnvFilesAt(
   root: string,
   files: readonly string[],
-): Promise<string[]> {
-  const readable: string[] = [];
+): Promise<EnvFilesRead> {
+  const texts: string[] = [];
   for (const file of files) {
-    const text = await readEnvFileAt(root, file);
-    if (text !== undefined) {
-      readable.push(text);
+    const read = await readEnvFileAt(root, file);
+    if (read.state === "unreadable") {
+      return read;
+    }
+    if (read.state === "text") {
+      texts.push(read.text);
     }
   }
-  return readable;
+  return { state: "read", texts };
+}
+
+/** The refusal for a configured env file discern cannot read. */
+export function envFileUnreadableMessage(read: EnvFileUnreadable): string {
+  return `discern could not read the env file ${read.path}: ${read.reason}. ` +
+    "Make that path a readable file, then run the command again.";
 }
 
 /**
@@ -177,24 +224,12 @@ export function readEnvValueFromFiles(
 }
 
 /**
- * The value of `key` across `files` under `root` — the LAST listed file that
- * defines it wins (the dotenv override convention). Undefined when no readable
- * file defines it. Raw value; the caller strips quotes if it cares.
- */
-export async function readEnvValueAcross(
-  root: string,
-  files: readonly string[],
-  key: string,
-): Promise<string | undefined> {
-  return readEnvValueFromFiles(await readEnvFilesAt(root, files), key);
-}
-
-/**
  * Upsert `KEY=value` into the worktree's env files: update the LAST listed file
  * that already defines the key, else append to the FIRST existing listed file —
  * or, with `opts.create`, create that first file. Returns true when written,
  * false when no listed file exists and creation was not asked for (the value
  * stays discoverable via `discern identity`). The caller decides what to log.
+ * An unreadable listed file refuses: it could hold the definition to update.
  */
 export async function writeEnvVar(
   worktreeRoot: string,
@@ -204,33 +239,33 @@ export async function writeEnvVar(
   opts: { create?: boolean; env?: EnvReader } = {},
   env: EnvReader = opts.env ?? Deno.env,
 ): Promise<boolean> {
+  const texts = new Map<string, string>();
+  for (const file of files) {
+    const read = await readEnvFileAt(worktreeRoot, file);
+    if (read.state === "unreadable") {
+      throw new Error(envFileUnreadableMessage(read));
+    }
+    if (read.state === "text") {
+      texts.set(file, read.text);
+    }
+  }
   // Prefer updating where the key already lives (last definition wins on read,
   // so that is the definition to move).
-  let target: string | undefined;
+  let target = files.findLast((file) =>
+    envTextDefines(texts.get(file) ?? "", key)
+  );
   let creating = false;
-  for (const file of files) {
-    const text = await readEnvFileAt(worktreeRoot, file);
-    if (text !== undefined && envTextDefines(text, key)) {
-      target = file;
-    }
-  }
   // Else the first existing file; else (create) the first listed file.
+  target ??= files.find((file) => texts.has(file));
   if (target === undefined) {
-    for (const file of files) {
-      if (await readEnvFileAt(worktreeRoot, file) !== undefined) {
-        target = file;
-        break;
-      }
-    }
-  }
-  if (target === undefined) {
-    if (!(opts.create ?? false) || files.length === 0) {
+    const first = files[0];
+    if (!(opts.create ?? false) || first === undefined) {
       return false;
     }
-    target = files[0] as string;
+    target = first;
     creating = true;
   }
-  const text = await readEnvFileAt(worktreeRoot, target) ?? "";
+  const text = texts.get(target) ?? "";
   let path = await resolveContainedProjectWritePath(
     worktreeRoot,
     target,

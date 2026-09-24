@@ -1980,11 +1980,11 @@ Interactive example:
 
 Rendered example:
 
-> 5 worktrees have unreadable Git state: damaged, missing, unreadable, … (+2 more). Unsaved work is unverifiable. In the desk, select each task and choose Show recovery steps.
+> 5 worktrees have unreadable state: damaged, missing, unreadable, … (+2 more). Their uncommitted work or recorded env values are unverifiable. In the desk, select each task and choose Show recovery steps.
 
 Interactive example:
 
-> Investigate 5 worktrees whose Git state cannot be read: damaged, missing, unreadable, … (+2 more). In the desk, select each task and choose Show recovery steps.
+> Investigate 5 worktrees whose state cannot be read: damaged, missing, unreadable, … (+2 more). In the desk, select each task and choose Show recovery steps.
 
 ## `status-full-structured-detail`
 

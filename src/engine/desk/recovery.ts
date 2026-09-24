@@ -1,6 +1,10 @@
 /** Pure degraded-task evidence and distinct cleanup consequence accounts. */
 
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
+import {
+  degradedFleetKind,
+  unreadableSubject,
+} from "../status/recovery_presentation.ts";
 import type { DeskActionFacts, DeskConsequence } from "./model.ts";
 
 /** Typed evidence for a degraded task's read-only recovery view. */
@@ -14,11 +18,10 @@ export interface DeskRecoveryFact {
   readonly repairCommand: string;
 }
 
-/** Whether the checkout cannot safely support ordinary Desk actions. */
+/** Whether the checkout cannot safely support ordinary Desk actions: exactly
+ * the degraded states the status row classifier reports. */
 export function isUnhealthy(entry: StatusFleetEntry): boolean {
-  return entry.broken === true || entry.git_unavailable === true ||
-    entry.setup?.state === "incomplete" ||
-    entry.setup?.state === "unavailable";
+  return degradedFleetKind(entry) !== undefined;
 }
 
 /** Prefer the recovery refusal while retaining an action's healthy-state result. */
@@ -40,15 +43,22 @@ export function retrySetupAvailability(
       "This setup state has no safe automatic repair.";
 }
 
-/** Retain the setup/Git distinction in final-check refusal copy. */
+/** Name the degraded state that blocks final checks in their refusal copy. */
 export function finalChecksAvailability(
   entry: StatusFleetEntry,
   availableWhenHealthy: string | undefined,
 ): string | undefined {
   if (!isUnhealthy(entry)) return availableWhenHealthy;
-  return entry.broken === true
-    ? "Setup is incomplete. Finish or repair setup before final checks."
-    : "Git state is unreadable. Repair Git before final checks.";
+  if (degradedFleetKind(entry) !== "unreadable") {
+    return "Setup is incomplete. Finish or repair setup before final checks.";
+  }
+  const subject = unreadableSubject(entry);
+  switch (subject.kind) {
+    case "git":
+      return "Git state is unreadable. Repair Git before final checks.";
+    case "env-file":
+      return `The env file ${subject.file} is unreadable. Make it readable before final checks.`;
+  }
 }
 
 /** Reclaim requires both exact containment and a verifiable checkout. */
@@ -71,7 +81,10 @@ export function recoveryFact(
   const setup = entry.setup;
   const repair = setup?.repair;
   const gitFailure = entry.git_failure;
-  const failure = gitFailure?.reason ?? repair?.reason ??
+  const subject = unreadableSubject(entry);
+  const envFile = subject.kind === "env-file" ? subject.file : undefined;
+  const failure = gitFailure?.reason ?? entry.read_failure?.reason ??
+    repair?.reason ??
     (entry.broken === true
       ? "The checkout does not contain a readable discern.toml."
       : "The checkout did not reach a verifiable setup-ready state.");
@@ -106,15 +119,24 @@ export function recoveryFact(
     ...(setup?.journal?.status === "unavailable"
       ? [`Setup journal: ${setup.journal.reason ?? "unavailable"}`]
       : []),
+    ...(envFile === undefined
+      ? []
+      : [`Env file ${envFile}: the values it records are unknown`]),
   ];
-  const repairCommand = repair?.command ?? "discern doctor";
+  // An unreadable env file blocks every identity-resolving command, so its
+  // manual repair comes before any setup retry.
+  const repairCommand = envFile !== undefined
+    ? "discern status"
+    : repair?.command ?? "discern doctor";
   return {
     failure,
     ...(gitFailure === undefined ? {} : { failedCommand: gitFailure.command }),
     verified,
     unavailable,
-    nextStep: repair?.reason ?? `Run ${repairCommand}.`,
-    repair: repair?.kind ?? "manual",
+    nextStep: envFile !== undefined
+      ? `Make ${envFile} a readable file, then run ${repairCommand}.`
+      : repair?.reason ?? `Run ${repairCommand}.`,
+    repair: envFile !== undefined ? "manual" : repair?.kind ?? "manual",
     repairCommand,
   };
 }
@@ -129,7 +151,18 @@ interface CleanupContext {
   readonly proofRecorded: boolean;
   readonly changedFiles?: number;
   readonly ahead?: number | "unknown";
-  readonly resources: readonly string[];
+  /** Absent when the env files recording the handles cannot be read. */
+  readonly resources?: readonly string[];
+}
+
+/** The resource change a cleanup makes; `none` words the empty record. */
+function resourceChange(context: CleanupContext, none: string): string {
+  if (context.resources === undefined) {
+    return "Recorded resource handles cannot be read";
+  }
+  return context.resources.length === 0
+    ? none
+    : `Destroy resources: ${context.resources.join(", ")}`;
 }
 
 /** Structured artifact account for containment-preserving Reclaim. */
@@ -143,9 +176,7 @@ export function reclaimConsequence(
       "Commits carried by the containing branch",
     ],
     changes: [
-      context.resources.length === 0
-        ? "No external resources are recorded"
-        : `Destroy resources: ${context.resources.join(", ")}`,
+      resourceChange(context, "No external resources are recorded"),
     ],
     removes: [
       "Task checkout",
@@ -168,9 +199,10 @@ export function parkConsequence(context: CleanupContext): DeskConsequence {
       "Committed work, including work not on the trunk",
     ],
     changes: [
-      context.resources.length === 0
-        ? "Record that no external resources need cleanup"
-        : `Destroy resources: ${context.resources.join(", ")}`,
+      resourceChange(
+        context,
+        "Record that no external resources need cleanup",
+      ),
     ],
     removes: [
       "Task checkout",
@@ -186,9 +218,7 @@ export function dropConsequence(context: CleanupContext): DeskConsequence {
   return {
     keeps: ["Trunk and other tasks"],
     changes: [
-      context.resources.length === 0
-        ? "No external resources are recorded"
-        : `Destroy resources: ${context.resources.join(", ")}`,
+      resourceChange(context, "No external resources are recorded"),
     ],
     removes: [
       "Task checkout",

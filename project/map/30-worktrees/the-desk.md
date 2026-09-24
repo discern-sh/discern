@@ -75,7 +75,7 @@ Grant and revoke remain human-only actions inside `discern desk`. The grant acti
 
 ## Recover a degraded task or main checkout
 
-Recovery detail preserves independent observations instead of reducing a task to one broken state. It shows the exact failed Git or setup observation, worktree registration, branch reachability, filesystem presence, checkout and task identity, setup marker and journal, resource identities, recent lifecycle failure, and every fact that could not be read. The bounded recovery reader presents the failure, retry classification, and next command ([ADR 0358](../_adr/0358-recovery-observes-before-repair-and-park-preserves-the-branch.md)).
+Recovery detail preserves independent observations instead of reducing a task to one broken state. It shows the exact failed Git, env-file, or setup observation, worktree registration, branch reachability, filesystem presence, checkout and task identity, setup marker and journal, resource identities, recent lifecycle failure, and every fact that could not be read. The bounded recovery reader presents the failure, retry classification, and next command ([ADR 0358](../_adr/0358-recovery-observes-before-repair-and-park-preserves-the-branch.md)).
 
 `Retry setup` appears only when the setup journal makes automatic replay safe. Completed setup-step identities stay skipped. A running one-shot step, a missing journal beside configured one-shot steps, or unreadable setup evidence keeps Retry disabled and shows the exact owner-confirmed setup recovery or doctor command.
 

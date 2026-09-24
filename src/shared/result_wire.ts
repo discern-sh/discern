@@ -250,6 +250,7 @@ const STATUS_ORIENTATION_FLEET_FIELDS = [
   "contained_in",
   "git_unavailable",
   "git_failure",
+  "read_failure",
   "id",
   "port",
   "broken",

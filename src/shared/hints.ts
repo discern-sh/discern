@@ -1132,7 +1132,8 @@ export const HINTS = {
       `takes the next free number.`,
   }),
 
-  /** One bounded summary for every fleet member whose git state is unreadable. */
+  /** One bounded summary for every fleet member whose Git state or own files
+   * are unreadable. */
   "status-fleet-member-unreadable": defineHint<{
     total: number;
     names: readonly string[];
@@ -1148,16 +1149,14 @@ export const HINTS = {
     template: ({ total, names }): string => {
       return `${total} worktree${total === 1 ? "" : "s"} ${
         total === 1 ? "has" : "have"
-      } unreadable Git state: ${
-        boundedNameSummary(total, names)
-      }. Unsaved work is unverifiable. In the desk, select ${
+      } unreadable state: ${boundedNameSummary(total, names)}. ${
+        total === 1 ? "Its" : "Their"
+      } uncommitted work or recorded env values are unverifiable. In the desk, select ${
         total === 1 ? "the task" : "each task"
       } and choose Show recovery steps.`;
     },
     interactiveTemplate: ({ total, names }): string =>
-      `Investigate ${total} worktree${
-        total === 1 ? "" : "s"
-      } whose Git state ` +
+      `Investigate ${total} worktree${total === 1 ? "" : "s"} whose state ` +
       `cannot be read: ${
         boundedNameSummary(total, names)
       }. In the desk, select ${

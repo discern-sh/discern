@@ -37,6 +37,7 @@ import type {
 } from "../../shared/result_schemas.ts";
 import {
   type TerminalContext,
+  type TerminalLine,
   terminalLine,
   terminalMultiline,
 } from "../../lib/terminal.ts";
@@ -496,7 +497,7 @@ function attentionFor(
   trunk: string,
   nowMs: number,
 ): string | undefined {
-  const degraded = degradedFleetAttention(kind);
+  const degraded = degradedFleetAttention(kind, entry);
   if (degraded !== undefined) return degraded;
   switch (kind) {
     case "failed": {
@@ -1163,6 +1164,9 @@ function localEntry(data: StatusData): StatusFleetEntry | undefined {
     }),
     ...(data.worktree?.id === undefined ? {} : { id: data.worktree.id }),
     ...(data.worktree?.port === undefined ? {} : { port: data.worktree.port }),
+    ...(data.worktree?.read_failure === undefined
+      ? {}
+      : { read_failure: data.worktree.read_failure }),
     ...(data.gate_proof === undefined ? {} : { gate_proof: data.gate_proof }),
     ...(data.gate_proof?.status === "honored"
       ? {
@@ -1186,6 +1190,16 @@ function trunkOf(data: StatusData): string {
   return data.git?.trunk ?? "trunk";
 }
 
+/** The count naming what a checkout's own reads could not reach, if any. */
+function unreadableCount(
+  failure: StatusFleetEntry["read_failure"],
+): Array<{ label: TerminalLine; value: TerminalLine }> {
+  return failure === undefined ? [] : [{
+    label: terminalLine("Unreadable"),
+    value: terminalLine(failure.file),
+  }];
+}
+
 /** Show the main checkout once, directly under the report heading. */
 function mainCheckoutLine(
   data: StatusData,
@@ -1205,8 +1219,13 @@ function mainCheckoutLine(
     git.behind_trunk === null ? undefined : git.behind_trunk,
   );
   const branch = git.branch === "" ? "(detached)" : git.branch;
+  const readFailure = data.worktree?.read_failure;
   return c.presenter.present(renderResultSummaryCli, {
-    state: git.clean ? "unchanged" : "changed",
+    state: readFailure !== undefined
+      ? "failed"
+      : git.clean
+      ? "unchanged"
+      : "changed",
     fact: terminalLine(
       git.clean
         ? `Main checkout ${branch} is clean and current.`
@@ -1216,6 +1235,7 @@ function mainCheckoutLine(
       ...(counts === ""
         ? []
         : [{ label: terminalLine("Drift"), value: terminalLine(counts) }]),
+      ...unreadableCount(readFailure),
     ],
     maxWidth: width,
   });
@@ -1236,7 +1256,7 @@ function surveyedMainCheckout(
   const counts = divergence(entry.ahead, entry.behind);
   const activity = relativeAge(entry.last_activity, nowMs);
   return [c.presenter.present(renderResultSummaryCli, {
-    state: entry.git_unavailable === true
+    state: degradedFleetKind(entry) !== undefined
       ? "failed"
       : entry.clean === true
       ? "unchanged"
@@ -1247,6 +1267,7 @@ function surveyedMainCheckout(
       ...(counts === ""
         ? []
         : [{ label: terminalLine("Drift"), value: terminalLine(counts) }]),
+      ...unreadableCount(entry.read_failure),
       ...(activity === "—" ? [] : [{
         label: terminalLine("Activity"),
         value: terminalLine(activity),
@@ -1307,11 +1328,14 @@ function renderLocalEnvironment(
 ): StatusComponent[] {
   if (data.worktree !== null) {
     const resources = Object.entries(data.worktree.resources);
+    const readFailure = data.worktree.read_failure;
     return [c.presenter.present(renderResultSummaryCli, {
-      state: "unchanged",
+      state: readFailure === undefined ? "unchanged" : "failed",
       fact: terminalLine(
         data.location === "main"
           ? `${data.worktree.id} is the trunk checkout identity.`
+          : readFailure !== undefined
+          ? `${data.worktree.id} is this worktree's derived identity.`
           : `${data.worktree.id} has a provisioned local environment.`,
       ),
       counts: [
@@ -1329,6 +1353,7 @@ function renderLocalEnvironment(
             resources.map(([name, value]) => `${name}=${value}`).join(", "),
           ),
         }]),
+        ...unreadableCount(readFailure),
       ],
       maxWidth: width,
     })];
