@@ -59,11 +59,6 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
     reason: "the product manual carries the canonical command and one fallback",
   },
   {
-    path: "project/manual/30-reference/cli-reference.md",
-    counts: { "current-repository": 2 },
-    reason: "codegen projects repository source links into the CLI reference",
-  },
-  {
     path: "project/manual/30-reference/environment-variables.md",
     counts: { "current-repository": 1 },
     reason: "codegen projects the installer repository default",

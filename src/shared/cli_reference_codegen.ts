@@ -22,7 +22,6 @@
 import { COMMAND_GROUPS } from "../cli_help.ts";
 import { EnumType } from "@cliffy/command";
 import { renderMarkdownHtml } from "../lib/markdown.ts";
-import { repositoryBlobUrl } from "./brand.ts";
 import { renderExitStatusTable } from "./exit_codes.ts";
 
 /** One positional argument a command declares. */
@@ -387,12 +386,6 @@ export function renderCliReferenceModel(
       "If the rich reader cannot start because ANSI control is unavailable or the terminal is too small, discern uses the sequential picker. An internally rendered document then waits at the exact prompt `Press Enter to continue.` and the next picker restores the remembered document selection. `--pager` selects this sequential flow and hands each document to `$PAGER`, or `less -R` when `$PAGER` is unset, when the pager succeeds.",
       "",
       "A direct `discern docs <target>` renders and exits without waiting. Bare `discern docs` off a terminal prints the table of contents and never requests input. `--list`, `--json`, and `--raw` never enter the reader; `--search` prints matches. Export writes or returns one Markdown stream, except `--export select` can request a selection on an interactive terminal.",
-      "",
-      `The implementation and real-terminal contract are public in [\`src/commands/docs.ts\`](${
-        repositoryBlobUrl("src/commands/docs.ts")
-      }) and [\`tests/docs_test.ts\`](${
-        repositoryBlobUrl("tests/docs_test.ts")
-      }).`,
       "",
       "## Exit behavior",
       "",
