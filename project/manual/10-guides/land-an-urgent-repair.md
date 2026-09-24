@@ -26,7 +26,7 @@ Only you can choose this route, and you choose it fresh each time. No request fr
 
 ## Before you start
 
-The fix is committed in its own **worktree**, a separate copy of the project on its own branch. It includes the latest `main`, and no other task's unlanded work. Your agent has run what it could in the time, such as a focused test or `discern prepare`.
+The fix is committed in its own **worktree**, a separate copy of the project on its own branch. It includes the latest `main`. Ideally it holds nothing else: any other task's unlanded work in it lands with the fix, also unchecked, and the plan names that task. Your agent has run what it could in the time, such as a focused test or `discern prepare`.
 
 The usual path, `discern done`, produces **Proof**: discern's record of which checks passed on exactly which commit. When there's time, use it. Take the emergency route only when waiting for the checks costs more than landing without them. Calling something urgent doesn't give your agent permission to skip anything.
 
@@ -36,7 +36,7 @@ Tell your agent:
 
 > Land the outage fix now as an emergency. Show me which checks it would skip and why, and wait for my approval before doing anything.
 
-The agent runs `discern accept emergency` with a reason. This first call changes nothing. It shows the fix, each commit it would add to `main`, the `main` commit it would land on, your reason, and every check that failed, didn't run, or has results too old to count. If `main` has moved on, the agent updates the fix first and asks for a new plan.
+The agent runs `discern accept emergency` with a reason. This first call changes nothing. It shows the fix, each commit it would add to `main`, any other task whose unlanded work comes with it, the `main` commit it would land on, your reason, and every check that failed, didn't run, or has results too old to count. If `main` has moved on, the agent updates the fix first and asks for a new plan.
 
 Your project may have **checkpoints**, review questions for certain kinds of change. If one applies to the fix, the agent answers it first, in a separate preparation step. An unanswered or unmet question still blocks the emergency route. Urgency doesn't remove a judgment your project asked for.
 

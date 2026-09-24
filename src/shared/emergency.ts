@@ -25,6 +25,9 @@ export const EmergencyDataSchema = z.strictObject({
   commits: z.array(z.strictObject({ commit: z.string(), subject: z.string() }))
     .optional(),
   commits_total: z.number().optional(),
+  /** Other tasks' unlanded work among those commits, each named by its task,
+   * branch, and newest revision the repair holds. */
+  carried: ExceptionClaimSchema.shape.carried,
   confirmation: z.string().optional(),
   preparation: z.string().optional(),
   expires_at: z.number().optional(),

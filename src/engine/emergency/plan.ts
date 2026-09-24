@@ -33,8 +33,8 @@ import { classifyScopeImpact } from "../scopes/scopes.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { type EmergencyExceptions, emergencyExceptions } from "./evidence.ts";
 import {
+  type CarriedEffort,
   carriedEfforts,
-  carriedEffortsRefusal,
   type LandedCommit,
   landedCommits,
 } from "./carried_work.ts";
@@ -59,6 +59,8 @@ export interface EmergencyPlan {
   readonly commits: readonly LandedCommit[];
   /** How many commits the repair lands beyond actual trunk. */
   readonly commits_total: number;
+  /** Other tasks' unlanded work among those commits. */
+  readonly carried: readonly CarriedEffort[];
   readonly review?: CompletionArtifact;
 }
 
@@ -69,7 +71,7 @@ export function emergencyId(digest: string): string {
   }-a${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
 }
 
-/** Emergency integration accepts one source containing actual trunk and no other effort's recorded unlanded work; update resolves a differing base before review. */
+/** Emergency integration lands one source containing actual trunk, naming every other task's recorded unlanded work it carries; update resolves a differing base before review. */
 export async function observeEmergencySubject(
   ctx: LifecycleContext,
   reason: string,
@@ -178,7 +180,6 @@ export async function observeEmergencySubject(
     (await loadIdentitySettings(root)).branchPrefix,
     landed,
   );
-  if (carried.length) throw new Error(carriedEffortsRefusal(carried));
   const policy = await predecessorPolicyIdentity(root, trunkHead);
   const provisional: Candidate = {
     sources: [source],
@@ -266,6 +267,7 @@ export async function observeEmergencySubject(
     exceptions,
     commits: landed.slice(0, EMERGENCY_COMMIT_CAP),
     commits_total: landed.length,
+    carried,
   };
 }
 
@@ -326,6 +328,7 @@ export async function emergencyToken(
     },
     reason: plan.reason,
     exceptions: plan.exceptions,
+    carried: plan.carried,
     review: plan.review,
   }));
   return `${expires}.${digest}`;

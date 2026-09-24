@@ -1,7 +1,7 @@
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import { candidateAuthor } from "../completion/candidate.ts";
 import { displayBranch, plural } from "../../shared/result_markdown_values.ts";
-import { landedCommitLines } from "./carried_work.ts";
+import { carriedEffortLines, landedCommitLines } from "./carried_work.ts";
 import { emergencyOptionError } from "./arguments.ts";
 import { prepareEmergency } from "./prepare.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
@@ -79,6 +79,14 @@ export interface EmergencyOptions {
 }
 
 type RecordedException = Extract<CompletionRecord, { kind: "exception" }>;
+
+/** The owner-reviewed facts a claim carries beyond its skipped checks, as
+ * every emergency result reports them. */
+function claimDisclosures(
+  claim: RecordedException["data"]["claim"],
+): Pick<NonNullable<AcceptData["emergency"]>, "carried"> {
+  return claim.carried === undefined ? {} : { carried: claim.carried };
+}
 
 const boundary =
   "This authorizes only the displayed local emergency integration. No passing Proof, ordinary grant, remote push, deployment, or change to external branch protections is implied.";
@@ -194,6 +202,7 @@ async function prepareAndIntegrate(
       exceptions: plan.exceptions,
       commits: [...plan.commits],
       commits_total: plan.commits_total,
+      ...(plan.carried.length === 0 ? {} : { carried: [...plan.carried] }),
       confirmation,
       expires_at: expires,
       outcome: "preview",
@@ -210,23 +219,30 @@ async function prepareAndIntegrate(
         ? { ok: true as const, dry_run: true }
         : { ok: false as const, error: AWAITING_CONSENT_SLUG }),
       data: preview,
-      message: `Emergency plan for ${
-        markdownCodeSpan(displayBranch(candidateAuthor(plan.candidate).branch))
-      }: land ${
-        plural(plan.commits_total, "commit")
-      } on ${plan.trunk} now, skipping ${
-        plural(plan.exceptions.length, "check")
-      }. Reason: ${plan.reason}\n\n${
-        landedCommitLines(plan.commits, plan.commits_total, plan.candidate)
-      }\n\n${
+      message: [
+        `Emergency plan for ${
+          markdownCodeSpan(
+            displayBranch(candidateAuthor(plan.candidate).branch),
+          )
+        }: land ${
+          plural(plan.commits_total, "commit")
+        } on ${plan.trunk} now, skipping ${
+          plural(plan.exceptions.length, "check")
+        }. Reason: ${plan.reason}`,
+        landedCommitLines(plan.commits, plan.commits_total, plan.candidate),
+        ...(plan.carried.length === 0
+          ? []
+          : [carriedEffortLines(plan.carried)]),
         plan.exceptions.map((entry) =>
           `${entry.state}: ${entry.requirement.kind} ${entry.requirement.id}`
-        ).join("\n")
-      }\n\n${boundary}\n\nReview this plan with the owner. After fresh explicit approval, repeat accept emergency with the same --reason, ${
-        options.preparationReceipt === undefined
-          ? ""
-          : `--preparation-receipt ${options.preparationReceipt}, `
-      }--confirmed, and --approval-token ${confirmation}. The confirmation expires in 15 minutes; changed subjects require another review.`,
+        ).join("\n"),
+        boundary,
+        `Review this plan with the owner. After fresh explicit approval, repeat accept emergency with the same --reason, ${
+          options.preparationReceipt === undefined
+            ? ""
+            : `--preparation-receipt ${options.preparationReceipt}, `
+        }--confirmed, and --approval-token ${confirmation}. The confirmation expires in 15 minutes; changed subjects require another review.`,
+      ].join("\n\n"),
     };
   }
   const approvedToken = options.approvalToken;
@@ -262,6 +278,7 @@ async function prepareAndIntegrate(
         policy: plan.candidate.policy,
         reason: plan.reason,
         exceptions: plan.exceptions,
+        ...(plan.carried.length === 0 ? {} : { carried: [...plan.carried] }),
         ...(plan.review === undefined ? {} : { review: plan.review }),
       },
       executor: actor,
@@ -366,6 +383,7 @@ function notLandedResult(
         candidate_id: record.data.claim.candidate_id,
         reason: record.data.claim.reason,
         exceptions: record.data.claim.exceptions,
+        ...claimDisclosures(record.data.claim),
         outcome: "not-landed",
       },
     },
@@ -504,6 +522,7 @@ async function recoverEmergency(
           landing_id: record.id,
           reason: record.data.claim.reason,
           exceptions: record.data.claim.exceptions,
+          ...claimDisclosures(record.data.claim),
         },
       },
       message:
@@ -582,6 +601,7 @@ async function recoverEmergency(
           candidate_id: current.data.claim.candidate_id,
           reason: current.data.claim.reason,
           exceptions: current.data.claim.exceptions,
+          ...claimDisclosures(current.data.claim),
           outcome: "not-landed",
         },
       },
@@ -646,6 +666,7 @@ async function emergencyOutcome(
         candidate_id: claim.candidate_id,
         reason: claim.reason,
         exceptions: claim.exceptions,
+        ...claimDisclosures(claim),
         outcome: "landed",
         note: record.data.note,
         cleanup,

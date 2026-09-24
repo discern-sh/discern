@@ -6401,6 +6401,11 @@ export type DiscernAcceptResult = DiscernResultState & {
         subject: string;
       }>;
       commits_total?: number;
+      carried?: Array<{
+        effort: string;
+        branch: string;
+        revision: string;
+      }>;
       confirmation?: string;
       preparation?: string;
       expires_at?: number;

@@ -9,6 +9,15 @@ import {
   SourceRevisionSchema,
 } from "./identity.ts";
 import { ArtifactSchema, RequirementSchema } from "./evidence.ts";
+
+/** Another task's unlanded revision that the repair carries onto the trunk. */
+export const CarriedEffortSchema = z.strictObject({
+  effort: z.string().min(1),
+  branch: z.string().min(1),
+  /** The newest of its recorded revisions inside the repair. */
+  revision: ObjectIdSchema,
+});
+
 /** Fresh exact emergency authority is permanently distinct from passing Proof. */
 export const ExceptionClaimSchema = z.strictObject({
   kind: z.literal("exception"),
@@ -26,6 +35,9 @@ export const ExceptionClaimSchema = z.strictObject({
     state: decisionVocabulary("x-discern-exception-states"),
     evidence_id: RecordIdSchema.nullable(),
   })).min(1),
+  /** Other tasks' unlanded work the owner saw the repair carry; absent when
+   * it carried none. */
+  carried: z.array(CarriedEffortSchema).min(1).optional(),
 }).refine(
   (claim) =>
     claim.review === undefined ||

@@ -1,4 +1,5 @@
 /** What an emergency lands beyond actual trunk, and whose recorded work is among it. */
+import type { z } from "@zod/zod";
 import { INTEGRATION_BRANCH_NAMESPACE } from "../../shared/git_conventions.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
@@ -12,6 +13,7 @@ import { listRegisteredWorktrees } from "../worktree/git.ts";
 import { listParkedTaskMetadata } from "../worktree/parked_task_metadata.ts";
 import { readSubmission } from "../worktree/submission.ts";
 import { inspectTaskMetadata } from "../worktree/task_metadata.ts";
+import type { CarriedEffortSchema } from "../completion/exception_claim.ts";
 
 /** One commit the repair lands beyond actual trunk. */
 export interface LandedCommit {
@@ -20,12 +22,7 @@ export interface LandedCommit {
 }
 
 /** Another effort whose recorded unlanded revision lands with the repair. */
-export interface CarriedEffort {
-  readonly effort: string;
-  readonly branch: string;
-  /** The newest of its recorded revisions inside the repair. */
-  readonly revision: string;
-}
+export type CarriedEffort = z.infer<typeof CarriedEffortSchema>;
 
 /** Where a task record says its task started. */
 type StartPoint = NonNullable<StoredTaskMetadata["created_from"]>;
@@ -187,18 +184,18 @@ async function taskStart(path: string): Promise<StartPoint | undefined> {
   return task.kind === "recorded" ? task.metadata.created_from : undefined;
 }
 
-/** The refusal naming each other effort whose unlanded work the repair contains. */
-export function carriedEffortsRefusal(
-  carried: readonly CarriedEffort[],
-): string {
-  const named = carried.map(({ effort, branch, revision }) =>
-    `${markdownCodeSpan(effort)} on branch ${markdownCodeSpan(branch)} at ${
-      markdownCodeSpan(short(revision))
-    }`
-  ).join("; ");
-  return `The repair contains unlanded work from ${
-    carried.length === 1 ? "another effort" : "other efforts"
-  }: ${named}. An emergency landing issues no Proof, so it lands only the repair's own work on actual trunk. Prepare a repair against actual trunk without that work, then prepare a new emergency plan.`;
+/** The review lines naming each other task whose unlanded work lands with the repair. */
+export function carriedEffortLines(carried: readonly CarriedEffort[]): string {
+  return [
+    `It also lands unlanded work from ${
+      carried.length === 1 ? "another task" : `${carried.length} other tasks`
+    }:`,
+    ...carried.map(({ effort, branch, revision }) =>
+      `${markdownCodeSpan(effort)} on branch ${markdownCodeSpan(branch)} at ${
+        markdownCodeSpan(short(revision))
+      }`
+    ),
+  ].join("\n");
 }
 
 /** Parked task records; an unreadable record refuses the plan. */

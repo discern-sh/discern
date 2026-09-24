@@ -219,6 +219,9 @@ Deno.test("emergency serves an exact confirmation, excludes recorded grants, and
     assertEquals(record.record.data.note, "published");
     assertEquals(record.record.data.target, repairHead);
     assertEquals(record.record.data.claim.reason, reason);
+    // A repair that carries no other task's work records no disclosure field,
+    // so its claim keeps the bytes an earlier discern wrote.
+    assertEquals(Object.hasOwn(record.record.data.claim, "carried"), false);
 
     // The exception note reached the landed commit under the shared notes ref.
     const note = await gitOut(
@@ -487,7 +490,7 @@ const CARRYING_ROUTES: Readonly<
 for (const [route, carry] of Object.entries(CARRYING_ROUTES)) {
   for (const [kind, recorded] of Object.entries(OTHER_EFFORT_RECORDS)) {
     if (recorded.routes?.includes(route) === false) continue;
-    Deno.test(`emergency refuses a source containing another recorded unlanded effort: ${route} a ${kind}`, async () => {
+    Deno.test(`the emergency plan names another task's unlanded work it carries: ${route} a ${kind}`, async () => {
       await withTempDir(async (dir) => {
         await checkedProject(dir);
         const trunkBefore = await gitOut(dir, "rev-parse", "main");
@@ -497,16 +500,17 @@ for (const [route, carry] of Object.entries(CARRYING_ROUTES)) {
         const repair = await carry(dir);
         await recorded.after?.(other);
 
-        const refusal = decodeCliResult(
-          await requestEmergency(repair),
-          "accept",
-        );
-        assertEquals(refusal.error, "precondition_failed", refusal.message);
+        const preview = await requestEmergency(repair);
+        const envelope = decodeCliResult(preview, "accept");
+        assertEquals(envelope.error, "awaiting_consent", envelope.message);
+        assertEquals(emergencyData(preview).carried, [
+          { effort: "feature", branch: "agent/feature", revision: carried },
+        ]);
         assertStringIncludes(
-          refusal.message ?? "",
-          `The repair contains unlanded work from another effort: \`feature\` on branch \`agent/feature\` at \`${
+          envelope.message ?? "",
+          `It also lands unlanded work from another task:\n\`feature\` on branch \`agent/feature\` at \`${
             carried.slice(0, 12)
-          }\`.`,
+          }\``,
         );
         assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
         assertEquals(await exceptionRecords(dir), []);
@@ -515,7 +519,7 @@ for (const [route, carry] of Object.entries(CARRYING_ROUTES)) {
   }
 }
 
-Deno.test("emergency serves the plan when a sibling builds on the repair and unrelated work waits unlanded", async () => {
+Deno.test("emergency names no carried work when a sibling builds on the repair and unrelated work waits unlanded", async () => {
   await withTempDir(async (dir) => {
     await checkedProject(dir);
     const trunkBefore = await gitOut(dir, "rev-parse", "main");
@@ -541,8 +545,59 @@ Deno.test("emergency serves the plan when a sibling builds on the repair and unr
       preview,
     );
     assertEquals(emergencyData(preview).outcome, "preview");
+    assertEquals(emergencyData(preview).carried, undefined);
     assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
     assertEquals(await exceptionRecords(dir), []);
+  });
+});
+
+Deno.test("an approved emergency lands the carried work it named and records it with the exception", async () => {
+  await withTempDir(async (dir) => {
+    await checkedProject(dir);
+    const carried = await commitFile(
+      await addWorktree(dir, "feature"),
+      "feature.txt",
+    );
+    const repair = await startTask(dir, "repair", "agent/feature");
+    const repairHead = await commitFile(repair, "hotfix.txt");
+    const token = emergencyData(await requestEmergency(repair)).confirmation;
+    assert(token !== undefined);
+
+    const landed = await runAgent(repair, [
+      "accept",
+      "emergency",
+      "--reason",
+      "Restore service",
+      "--confirmed",
+      "--approval-token",
+      token,
+      "--json",
+    ]);
+    assertEquals(landed.code, 0, landed.output);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), repairHead);
+    const expected = [
+      { effort: "feature", branch: "agent/feature", revision: carried },
+    ];
+    const result = emergencyData(landed.stdout);
+    assertEquals(result.carried, expected);
+    assert(result.landing_id !== undefined);
+    const record = await readCompletionRecord(dir, {
+      kind: "exception",
+      id: result.landing_id,
+    });
+    assert(record.kind === "recorded" && record.record.kind === "exception");
+    assertEquals(record.record.data.claim.carried, expected);
+    const note = decodeWith(
+      DSSE_ENVELOPE_SCHEMA,
+      await gitOut(dir, "notes", "--ref=discern", "show", repairHead),
+    );
+    assertEquals(
+      decodeWith(
+        EmergencyNotePayloadSchema,
+        new TextDecoder().decode(decodeBase64(note.payload)),
+      ).claim.carried,
+      expected,
+    );
   });
 });
 

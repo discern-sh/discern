@@ -48,15 +48,17 @@ export const ON_DISK_FORMATS = {
     id: "completion-record",
     location: { kind: "git-admin", keys: ["completionRecords"] },
     version: 1,
-    // Reviewed 2026-09-16: the reader migrates singular-source candidates
+    // Reviewed 2026-09-24: the reader migrates singular-source candidates
     // in memory. Attempt journal handles and latest renewals are optional, and
-    // stored longer expiries are bounded at the ownership boundary. Every
+    // stored longer expiries are bounded at the ownership boundary. An
+    // exception claim's owner-reviewed disclosures are optional and omitted
+    // when empty, so a claim without them keeps its version-1 bytes. Every
     // version-1 record therefore remains readable.
     schemaContract: {
       module: "src/engine/completion/records.ts",
       export: "CompletionRecordSchema",
       sha256:
-        "4f28d25334b9e592f3a792a5ec349f789f7e5f8e85190793165919888e5f7590",
+        "9089a2ef9f5fe1148fec52ea8fbea83158b1a2a72faea418bb6af33af112aa4c",
     },
     versionField: "version",
     reader: "src/engine/completion/store.ts#readCompletionRecord",
