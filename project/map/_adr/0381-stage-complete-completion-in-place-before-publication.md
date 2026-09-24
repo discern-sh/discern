@@ -1,6 +1,6 @@
 # ADR 0381: Stage complete completion in place before publication
 
-**Status**: accepted
+**Status**: accepted. A current Proof note carries no separate authority field: the landing's consent, variances, and approved standard limits travel in its `acceptance` block, and a note is stale only when it lacks `proof.completion`.
 
 ## Context
 

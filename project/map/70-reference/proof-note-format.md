@@ -24,7 +24,7 @@ A landing writes one JSON Dead Simple Signing Envelope (DSSE) under `refs/notes/
 }
 ```
 
-The Base64 payload decodes to the versioned JSON claim. Its `proof.completion` records the immutable candidate, committed source, composition procedure, complete validation evidence and executors. Accepted notes also retain the authority bound to that source and procedure. The [published schema](../../../schema/discern-proof-note.schema.json) is the field authority; a prelaunch payload without complete evidence is stale and cannot establish current authority.
+The Base64 payload decodes to the versioned JSON claim. Its `proof.completion` records the immutable candidate, committed source, composition procedure, complete validation evidence and executors. A note an accepted landing writes also carries the `acceptance` block described below. The [published schema](../../../schema/discern-proof-note.schema.json) is the field authority; a prelaunch payload without complete evidence is stale and cannot establish current authority.
 
 ## Contract
 
