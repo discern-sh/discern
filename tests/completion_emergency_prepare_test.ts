@@ -333,8 +333,6 @@ Deno.test("an unmet emergency answer lands only under the owner's exact variance
     const why = "The docs trail the fix; the follow-up task updates them.";
 
     // Preparation records the agent's unmet answer beside its receipt.
-    const served = await emergency(wt, "--prepare", "--reason", reason);
-    assertEquals(served.code, 1, served.output);
     const prepared = await emergency(
       wt,
       "--prepare",

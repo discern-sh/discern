@@ -551,56 +551,6 @@ Deno.test("emergency names no carried work when a sibling builds on the repair a
   });
 });
 
-Deno.test("an approved emergency lands the carried work it named and records it with the exception", async () => {
-  await withTempDir(async (dir) => {
-    await checkedProject(dir);
-    const carried = await commitFile(
-      await addWorktree(dir, "feature"),
-      "feature.txt",
-    );
-    const repair = await startTask(dir, "repair", "agent/feature");
-    const repairHead = await commitFile(repair, "hotfix.txt");
-    const token = emergencyData(await requestEmergency(repair)).confirmation;
-    assert(token !== undefined);
-
-    const landed = await runAgent(repair, [
-      "accept",
-      "emergency",
-      "--reason",
-      "Restore service",
-      "--confirmed",
-      "--approval-token",
-      token,
-      "--json",
-    ]);
-    assertEquals(landed.code, 0, landed.output);
-    assertEquals(await gitOut(dir, "rev-parse", "main"), repairHead);
-    const expected = [
-      { effort: "feature", branch: "agent/feature", revision: carried },
-    ];
-    const result = emergencyData(landed.stdout);
-    assertEquals(result.carried, expected);
-    assert(result.landing_id !== undefined);
-    const record = await readCompletionRecord(dir, {
-      kind: "exception",
-      id: result.landing_id,
-    });
-    assert(record.kind === "recorded" && record.record.kind === "exception");
-    assertEquals(record.record.data.claim.carried, expected);
-    const note = decodeWith(
-      DSSE_ENVELOPE_SCHEMA,
-      await gitOut(dir, "notes", "--ref=discern", "show", repairHead),
-    );
-    assertEquals(
-      decodeWith(
-        EmergencyNotePayloadSchema,
-        new TextDecoder().decode(decodeBase64(note.payload)),
-      ).claim.carried,
-      expected,
-    );
-  });
-});
-
 /** Each record source alone: the repair `agent/repair` holds the commit
  * `carried`; `arrange` records it through one more source and returns the
  * branch the plan names as effort `feature`, or undefined for none. */

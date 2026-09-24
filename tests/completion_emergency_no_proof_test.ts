@@ -1,14 +1,19 @@
 /**
  * An emergency landing never supplies Proof, whatever the owner approves with
  * it. Carried work, a looser standard limit, and a variance over an unmet
- * checkpoint all land as one exception record and one exception note: no
- * Proof record, Proof note, or proof line exists for the landed commit, and
- * status reads the trunk tip as a landed exception.
+ * checkpoint all land as one exception record and one exception note, each
+ * keeping every decision as the owner reviewed it: no Proof record, Proof
+ * note, or proof line exists for the landed commit, and status reads the
+ * trunk tip as a landed exception.
  */
 
 import { join } from "@std/path";
 import { assert, assertEquals } from "@std/assert";
+import { decodeBase64 } from "@std/encoding/base64";
+import { z } from "@zod/zod";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { EmergencyNotePayloadSchema } from "../src/shared/emergency_note.ts";
+import { readCompletionRecord } from "../src/engine/completion/store.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import { readProofNoteAt } from "../src/engine/gate/proof_notes.ts";
 import {
@@ -21,7 +26,11 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 import { emergencyData } from "./completion_emergency_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -48,6 +57,8 @@ const CONFIG = [
   'question = "A changed API surface is described in its docs before it lands."',
   "",
 ].join("\n");
+
+const DSSE_ENVELOPE_SCHEMA = z.object({ payload: z.string() }).passthrough();
 
 /** Commit every change in a checkout. */
 async function commitAll(checkout: string, message: string): Promise<void> {
@@ -118,6 +129,7 @@ Deno.test("an emergency landing supplies no Proof, whatever the owner approves w
     assert(receipt !== undefined, prepared.output);
 
     // The plan carries every kind of owner decision at once.
+    const carried = await gitOut(feature, "rev-parse", "HEAD");
     const preview = await emergency("--preparation-receipt", receipt);
     assertEquals(preview.code, 1, preview.output);
     const planned = decodeCliResult(preview.stdout, "accept");
@@ -138,11 +150,43 @@ Deno.test("an emergency landing supplies no Proof, whatever the owner approves w
     );
     assertEquals(landed.code, 0, landed.output);
     const head = await gitOut(dir, "rev-parse", "main");
+    const reviewed = emergencyData(preview.stdout);
     const recorded = emergencyData(landed.stdout);
     assertEquals(recorded.outcome, "landed");
-    assertEquals(recorded.carried?.length, 1);
+    assertEquals(recorded.carried, [
+      { effort: "feature", branch: "agent/feature", revision: carried },
+    ]);
     assertEquals(recorded.standard_approvals?.length, 1);
     assertEquals(recorded.variances?.length, 1);
+
+    // The exception record keeps each decision as the owner reviewed it, and
+    // its note carries the same claim.
+    for (
+      const field of ["carried", "standard_approvals", "variances"] as const
+    ) {
+      assertEquals(recorded[field], reviewed[field], field);
+    }
+    assert(recorded.landing_id !== undefined);
+    const record = await readCompletionRecord(dir, {
+      kind: "exception",
+      id: recorded.landing_id,
+    });
+    assert(record.kind === "recorded" && record.record.kind === "exception");
+    const claim = record.record.data.claim;
+    assertEquals(claim.carried, recorded.carried);
+    assertEquals(claim.standard_approvals, recorded.standard_approvals);
+    assertEquals(claim.variances, recorded.variances);
+    const note = decodeWith(
+      DSSE_ENVELOPE_SCHEMA,
+      await gitOut(dir, "notes", "--ref=discern", "show", head),
+    );
+    assertEquals(
+      decodeWith(
+        EmergencyNotePayloadSchema,
+        new TextDecoder().decode(decodeBase64(note.payload)),
+      ).claim,
+      claim,
+    );
 
     // Nothing reads the landing as Proof: no Proof record, no proof line,
     // and the landed commit's note is an exception.

@@ -334,54 +334,6 @@ const UNDECIDED_CALLS = [
   { cli: ["--recover", "landing-id"], mcp: { recover: "landing-id" } },
 ] as const;
 
-Deno.test("the owner's emergency decisions belong to its confirmation on every surface", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(dir, CONFIG_CHECK);
-    await gitInit(dir);
-    const wt = await addWorktree(dir, "repair");
-    const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
-    assert(tool !== undefined);
-    for (const decision of CONFIRMATION_DECISIONS) {
-      for (const call of UNDECIDED_CALLS) {
-        const cli = await runAgent(wt, [
-          "accept",
-          "emergency",
-          "--reason",
-          "Restore service",
-          ...call.cli,
-          ...decision.cli,
-          "--json",
-        ]);
-        assertEquals(cli.code, 1, cli.output);
-        const envelope = decodeCliResult(cli.stdout, "accept");
-        assertEquals(envelope.error, "invalid_arguments", cli.output);
-        assertStringIncludes(
-          envelope.message ?? "",
-          CONFIRMATION_DECISIONS_ONLY,
-        );
-        const mcp = await runTool(
-          tool,
-          new WorkingRoot(wt),
-          {
-            action: "emergency",
-            reason: "Restore service",
-            ...call.mcp,
-            ...decision.mcp,
-          },
-          undefined,
-          () => Promise.resolve(undefined),
-        );
-        assertEquals(mcp.structuredContent?.error, "invalid_arguments");
-        assertStringIncludes(
-          String(mcp.structuredContent?.message),
-          CONFIRMATION_DECISIONS_ONLY,
-        );
-      }
-    }
-  });
-});
-
 /** Answers and receipts an emergency call can't take, each with its
  * refusal, as each surface spells them. */
 const MISPLACED_ANSWERS = [
@@ -401,37 +353,61 @@ const MISPLACED_ANSWERS = [
   },
 ] as const;
 
-Deno.test("an emergency plan refuses a checkpoint answer or composition receipt on every surface", async () => {
+/** Refuse one misplaced emergency argument set on the CLI and over MCP. */
+async function refuseOnEverySurface(
+  wt: string,
+  cli: readonly string[],
+  mcp: Readonly<Record<string, unknown>>,
+  expected: string,
+): Promise<void> {
+  const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
+  assert(tool !== undefined);
+  const run = await runAgent(wt, [
+    "accept",
+    "emergency",
+    "--reason",
+    "Restore service",
+    ...cli,
+    "--json",
+  ]);
+  assertEquals(run.code, 1, run.output);
+  const envelope = decodeCliResult(run.stdout, "accept");
+  assertEquals(envelope.error, "invalid_arguments", run.output);
+  assertStringIncludes(envelope.message ?? "", expected);
+  const result = await runTool(
+    tool,
+    new WorkingRoot(wt),
+    { action: "emergency", reason: "Restore service", ...mcp },
+    undefined,
+    () => Promise.resolve(undefined),
+  );
+  assertEquals(result.structuredContent?.error, "invalid_arguments");
+  assertStringIncludes(String(result.structuredContent?.message), expected);
+}
+
+Deno.test("the emergency argument contract refuses misplaced decisions and answers on every surface", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG_CHECK);
     await gitInit(dir);
     const wt = await addWorktree(dir, "repair");
-    const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
-    assert(tool !== undefined);
+    // The owner's decisions belong to the confirmation alone.
+    for (const decision of CONFIRMATION_DECISIONS) {
+      for (const call of UNDECIDED_CALLS) {
+        await refuseOnEverySurface(
+          wt,
+          [...call.cli, ...decision.cli],
+          { ...call.mcp, ...decision.mcp },
+          CONFIRMATION_DECISIONS_ONLY,
+        );
+      }
+    }
+    // Checkpoint answers belong to preparation, and no emergency composes.
     for (const misplaced of MISPLACED_ANSWERS) {
-      const cli = await runAgent(wt, [
-        "accept",
-        "emergency",
-        "--reason",
-        "Restore service",
-        ...misplaced.cli,
-        "--json",
-      ]);
-      assertEquals(cli.code, 1, cli.output);
-      const envelope = decodeCliResult(cli.stdout, "accept");
-      assertEquals(envelope.error, "invalid_arguments", cli.output);
-      assertStringIncludes(envelope.message ?? "", misplaced.refusal);
-      const mcp = await runTool(
-        tool,
-        new WorkingRoot(wt),
-        { action: "emergency", reason: "Restore service", ...misplaced.mcp },
-        undefined,
-        () => Promise.resolve(undefined),
-      );
-      assertEquals(mcp.structuredContent?.error, "invalid_arguments");
-      assertStringIncludes(
-        String(mcp.structuredContent?.message),
+      await refuseOnEverySurface(
+        wt,
+        misplaced.cli,
+        misplaced.mcp,
         misplaced.refusal,
       );
     }

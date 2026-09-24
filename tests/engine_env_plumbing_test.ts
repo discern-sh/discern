@@ -229,6 +229,63 @@ Deno.test("env reads ignore a symbolic link whose target leaves the project", as
   });
 });
 
+/** Each way a configured env file can exist yet refuse its read. */
+const UNREADABLE_ENV_ENTRIES = [
+  {
+    name: "a mode-000 file",
+    usesPermissionBits: true,
+    plant: async (path: string): Promise<void> => {
+      await Deno.writeTextFile(path, "DISCERN_WORKTREE_ID=hidden-override\n");
+      await Deno.chmod(path, 0o000);
+    },
+  },
+  {
+    name: "a directory at the env-file path",
+    usesPermissionBits: false,
+    plant: async (path: string): Promise<void> => {
+      await Deno.mkdir(path);
+    },
+  },
+] as const;
+
+Deno.test("every way an env file can refuse its read reads as unreadable", async (t) => {
+  // Each read site classifies through readEnvFileAt, so the engine cases
+  // below plant only the directory, which refuses every user on every OS.
+  for (const entry of UNREADABLE_ENV_ENTRIES) {
+    await t.step(entry.name, async (step) => {
+      if (entry.usesPermissionBits && Deno.build.os === "windows") {
+        await step.step({
+          name: "mode 0o000 cannot refuse a read on Windows",
+          ignore: true,
+          fn: () => {},
+        });
+        return;
+      }
+      await withTempDir(async (root) => {
+        const path = join(root, ".env.local");
+        await entry.plant(path);
+        const refused = await Deno.readTextFile(path).then(
+          () => false,
+          () => true,
+        );
+        if (!refused) {
+          await step.step({
+            name:
+              "the current user reads mode-0o000 files, so the refusal cannot be simulated",
+            ignore: true,
+            fn: () => {},
+          });
+          return;
+        }
+        const read = await readEnvFileAt(root, ".env.local");
+        assert(read.state === "unreadable", JSON.stringify(read));
+        assertEquals(read.file, ".env.local");
+        assertEquals(read.path, path);
+      });
+    });
+  }
+});
+
 Deno.test("env reads keep absent, text, and unreadable files distinct", async () => {
   await withTempDir(async (root) => {
     await Deno.writeTextFile(join(root, ".env"), "APP_KEY=base\n");
@@ -277,27 +334,6 @@ const PORT_CONFIG =
 const RESOURCE_CONFIG = `${PORT_CONFIG}\n[worktree.resources.cache]\n` +
   'create = "true"\ndestroy = "true"\n';
 
-/** Each way a configured env file can exist yet refuse its read. */
-const UNREADABLE_ENV_ENTRIES = [
-  {
-    name: "a mode-000 file",
-    usesPermissionBits: true,
-    plant: async (path: string): Promise<void> => {
-      await Deno.writeTextFile(path, "DISCERN_WORKTREE_ID=hidden-override\n");
-      await Deno.chmod(path, 0o000);
-    },
-  },
-  {
-    name: "a directory at the env-file path",
-    usesPermissionBits: false,
-    plant: async (path: string): Promise<void> => {
-      await Deno.mkdir(path);
-    },
-  },
-] as const;
-
-type UnreadableEnvEntry = (typeof UNREADABLE_ENV_ENTRIES)[number];
-
 /** Which checkouts carry the unreadable file, under which config. */
 interface UnreadableEnvPlacement {
   readonly name: string;
@@ -324,36 +360,25 @@ const UNREADABLE_ENV_PLACEMENTS: readonly UnreadableEnvPlacement[] = [
   },
 ];
 
-/** Build a project whose placed checkouts carry an unreadable env file.
- * `refused` is false when this user can still read the planted entry (root
- * ignores permission bits), so the case cannot be simulated here. */
+/** Build a project whose placed checkouts carry an unreadable env file: a
+ * directory at its path, which refuses the read for every user. */
 async function unreadableEnvProject(
   dir: string,
-  entry: UnreadableEnvEntry,
   placement: UnreadableEnvPlacement,
-): Promise<{ worktree: string; refused: boolean }> {
+): Promise<string> {
   await scaffoldEngine(dir);
   await writeConfig(dir, placement.config);
   await gitInit(dir);
   const worktree = await addWorktree(dir, "env-unreadable");
-  let refused = true;
   const roots = [
     ...(placement.main ? [dir] : []),
     ...(placement.worktree ? [worktree] : []),
   ];
   for (const root of roots) {
     await Deno.writeTextFile(join(root, ".env"), OVERRIDABLE_RECORD);
-    const path = join(root, UNREADABLE_ENV_FILE);
-    await entry.plant(path);
-    let refusal: unknown;
-    try {
-      await Deno.readTextFile(path);
-    } catch (error) {
-      refusal = error;
-    }
-    refused &&= refusal !== undefined;
+    await Deno.mkdir(join(root, UNREADABLE_ENV_FILE));
   }
-  return { worktree, refused };
+  return worktree;
 }
 
 type StatusFleetRow = NonNullable<StatusWireData["fleet"]>[number];
@@ -382,102 +407,74 @@ function fleetRow(
 }
 
 Deno.test("an unreadable env file marks its checkout in every status view", async (t) => {
-  for (const entry of UNREADABLE_ENV_ENTRIES) {
-    for (const placement of UNREADABLE_ENV_PLACEMENTS) {
-      await t.step(`${entry.name} ${placement.name}`, async (step) => {
-        if (entry.usesPermissionBits && Deno.build.os === "windows") {
-          await step.step({
-            name: "mode 0o000 cannot refuse a read on Windows",
-            ignore: true,
-            fn: () => {},
-          });
-          return;
+  for (const placement of UNREADABLE_ENV_PLACEMENTS) {
+    await t.step(placement.name, async () => {
+      await withTempDir(async (dir) => {
+        const worktree = await unreadableEnvProject(dir, placement);
+        const id = basename(worktree);
+        const [fromMain, fromWorktree, fromAll] = await Promise.all([
+          statusView(dir, ["--verbose"]),
+          statusView(worktree, []),
+          statusView(worktree, ["--all"]),
+        ]);
+
+        // The main checkout's own block and its fleet row. A main row never
+        // takes an id from its env files, so the override stays out.
+        const mainMark = placement.main ? UNREADABLE_ENV_FILE : undefined;
+        assertEquals(fromMain.data.worktree?.read_failure?.file, mainMark);
+        assertEquals(fromMain.data.worktree?.id, "main");
+        assertEquals(fromMain.data.worktree?.resources, {});
+        for (const view of [fromMain, fromAll]) {
+          const row = fleetRow(view.data, (candidate) => candidate.is_main);
+          assertEquals(row.read_failure?.file, mainMark);
+          assertEquals(row.id, undefined);
         }
-        await withTempDir(async (dir) => {
-          const { worktree, refused } = await unreadableEnvProject(
-            dir,
-            entry,
-            placement,
-          );
-          if (!refused) {
-            await step.step({
-              name:
-                "the current user reads mode-0o000 files, so the refusal cannot be simulated",
-              ignore: true,
-              fn: () => {},
-            });
-            return;
-          }
-          const id = basename(worktree);
-          const [fromMain, fromWorktree, fromAll] = await Promise.all([
-            statusView(dir, ["--verbose"]),
-            statusView(worktree, []),
-            statusView(worktree, ["--all"]),
-          ]);
 
-          // The main checkout's own block and its fleet row. A main row never
-          // takes an id from its env files, so the override stays out.
-          const mainMark = placement.main ? UNREADABLE_ENV_FILE : undefined;
-          assertEquals(fromMain.data.worktree?.read_failure?.file, mainMark);
-          assertEquals(fromMain.data.worktree?.id, "main");
-          assertEquals(fromMain.data.worktree?.resources, {});
-          for (const view of [fromMain, fromAll]) {
-            const row = fleetRow(view.data, (candidate) => candidate.is_main);
-            assertEquals(row.read_failure?.file, mainMark);
-            assertEquals(row.id, undefined);
-          }
-
-          // The worktree's local blocks and fleet rows keep their derived
-          // id and port; the recorded override and handle stay unknown.
-          const worktreeMark = placement.worktree
-            ? UNREADABLE_ENV_FILE
-            : undefined;
-          for (const view of [fromWorktree, fromAll]) {
-            const block = view.data.worktree;
-            assertEquals(block?.read_failure?.file, worktreeMark);
-            assertEquals(block?.id, id);
-            assertEquals(block?.port, portForId(id));
-            assertEquals(block?.resources, {});
-          }
-          for (const view of [fromMain, fromAll]) {
-            const row = fleetRow(view.data, (candidate) => !candidate.is_main);
-            assertEquals(row.read_failure?.file, worktreeMark);
-            assertEquals(row.id, id);
-            assertEquals(row.port, portForId(id));
-          }
-          const fullRow = fleetRow(
-            fromMain.data,
-            (candidate) => !candidate.is_main,
-          );
-          assertEquals(
-            fullRow.resources,
-            placement.worktree ? undefined : {},
-          );
-          const unreadableHint = [HINTS["status-fleet-member-unreadable"], {
-            total: 1,
-            names: [id],
-          }] as const;
-          if (placement.worktree) {
-            assertHasHint(fromMain, ...unreadableHint);
-          } else {
-            assertLacksHint(fromMain, ...unreadableHint);
-          }
-        });
+        // The worktree's local blocks and fleet rows keep their derived
+        // id and port; the recorded override and handle stay unknown.
+        const worktreeMark = placement.worktree
+          ? UNREADABLE_ENV_FILE
+          : undefined;
+        for (const view of [fromWorktree, fromAll]) {
+          const block = view.data.worktree;
+          assertEquals(block?.read_failure?.file, worktreeMark);
+          assertEquals(block?.id, id);
+          assertEquals(block?.port, portForId(id));
+          assertEquals(block?.resources, {});
+        }
+        for (const view of [fromMain, fromAll]) {
+          const row = fleetRow(view.data, (candidate) => !candidate.is_main);
+          assertEquals(row.read_failure?.file, worktreeMark);
+          assertEquals(row.id, id);
+          assertEquals(row.port, portForId(id));
+        }
+        const fullRow = fleetRow(
+          fromMain.data,
+          (candidate) => !candidate.is_main,
+        );
+        assertEquals(
+          fullRow.resources,
+          placement.worktree ? undefined : {},
+        );
+        const unreadableHint = [HINTS["status-fleet-member-unreadable"], {
+          total: 1,
+          names: [id],
+        }] as const;
+        if (placement.worktree) {
+          assertHasHint(fromMain, ...unreadableHint);
+        } else {
+          assertLacksHint(fromMain, ...unreadableHint);
+        }
       });
-    }
+    });
   }
 });
 
 Deno.test("the dashboard marks an unreadable env file where it sits", async () => {
   await withTempDir(async (dir) => {
-    const directory = UNREADABLE_ENV_ENTRIES[1];
     const everywhere = UNREADABLE_ENV_PLACEMENTS[2];
-    assert(directory !== undefined && everywhere !== undefined);
-    const { worktree } = await unreadableEnvProject(
-      dir,
-      directory,
-      everywhere,
-    );
+    assert(everywhere !== undefined);
+    const worktree = await unreadableEnvProject(dir, everywhere);
 
     const fleet = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(fleet.code, 0, fleet.output);
@@ -524,51 +521,31 @@ Deno.test("identity and env inheritance refuse an unreadable env file by name", 
       error: "precondition_failed",
     },
   ] as const;
-  for (const entry of UNREADABLE_ENV_ENTRIES) {
-    for (const testCase of cases) {
-      await t.step(`${entry.name}: ${testCase.name}`, async (step) => {
-        if (entry.usesPermissionBits && Deno.build.os === "windows") {
-          await step.step({
-            name: "mode 0o000 cannot refuse a read on Windows",
-            ignore: true,
-            fn: () => {},
-          });
-          return;
+  for (const testCase of cases) {
+    await t.step(testCase.name, async () => {
+      await withTempDir(async (dir) => {
+        assert(testCase.placement !== undefined);
+        const worktree = await unreadableEnvProject(
+          dir,
+          testCase.placement,
+        );
+        const unreadable = join(
+          await Deno.realPath(testCase.placement.main ? dir : worktree),
+          UNREADABLE_ENV_FILE,
+        );
+        for (const command of testCase.commands) {
+          const run = await runAgent(worktree, [...command]);
+          assertEquals(run.code, 1, run.output);
+          const refusal = decodeCliResult(
+            run.stdout,
+            command.filter((word) => word !== "--json").join(" "),
+          );
+          assertEquals(refusal.ok, false, run.stdout);
+          assertEquals(refusal.error, testCase.error, run.stdout);
+          assertStringIncludes(refusal.message ?? "", unreadable);
         }
-        await withTempDir(async (dir) => {
-          assert(testCase.placement !== undefined);
-          const { worktree, refused } = await unreadableEnvProject(
-            dir,
-            entry,
-            testCase.placement,
-          );
-          if (!refused) {
-            await step.step({
-              name:
-                "the current user reads mode-0o000 files, so the refusal cannot be simulated",
-              ignore: true,
-              fn: () => {},
-            });
-            return;
-          }
-          const unreadable = join(
-            await Deno.realPath(testCase.placement.main ? dir : worktree),
-            UNREADABLE_ENV_FILE,
-          );
-          for (const command of testCase.commands) {
-            const run = await runAgent(worktree, [...command]);
-            assertEquals(run.code, 1, run.output);
-            const refusal = decodeCliResult(
-              run.stdout,
-              command.filter((word) => word !== "--json").join(" "),
-            );
-            assertEquals(refusal.ok, false, run.stdout);
-            assertEquals(refusal.error, testCase.error, run.stdout);
-            assertStringIncludes(refusal.message ?? "", unreadable);
-          }
-        });
       });
-    }
+    });
   }
 });
 
