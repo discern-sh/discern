@@ -201,7 +201,7 @@ A file that belongs to your project, even when discern created its first copy. `
 
 ### Proof
 
-discern's record of which of your project's checks passed, on exactly which commit. `discern done` records it when every check passes on the latest commit in the task's worktree, with nothing left uncommitted. It holds the check results, the [standards](#standard) that held, and your agent's checkpoint answers. The Proof line sums it up, and `discern status --verbose` shows the full record. Any later edit makes the Proof stale, and so does a changed checkpoint answer or limit proposal. The new version then needs its own `discern done`. A newer trunk doesn't make Proof stale. A check whose inputs haven't changed can reuse its earlier result. Proof shows what passed, and it never gives a change [landing authority](#landing-authority). See [how to read a Proof](../20-understand/proof.md).
+discern's record of which of your project's checks passed, on exactly which commit. `discern done` records it when every check passes on the latest commit in the task's worktree, with nothing left uncommitted. It holds the check results, the [standards](#standard) that held, and your agent's checkpoint answers. The Proof line sums it up, and `discern status --verbose` shows the full record. Any later edit makes the Proof stale, and so does a changed checkpoint answer, a changed limit proposal, or a later failing run on the same commit. The new version then needs its own `discern done`. A newer trunk doesn't make Proof stale. A check whose inputs haven't changed can reuse its earlier result. Proof shows what passed, and it never gives a change [landing authority](#landing-authority). See [how to read a Proof](../20-understand/proof.md).
 
 ### Proof note
 
