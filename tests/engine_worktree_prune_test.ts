@@ -964,6 +964,41 @@ Deno.test("worktree prune --dry-run lists what the real run removes, and acts on
   });
 });
 
+Deno.test("worktree prune keeps an owned merged worktree while its recorded acceptance is unsettled", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await ownedWorktree(dir, "owed");
+    await Deno.writeTextFile(join(worktree, "o.txt"), "o\n");
+    await git(worktree, "add", "-A");
+    await git(worktree, "commit", "-q", "-m", "o", "--no-gpg-sign");
+    await git(dir, "merge", "--no-ff", "-m", "merge owed", "agent/owed");
+    // The acceptance journal is the only retry vehicle for what a landing
+    // still owes, and it lives in this checkout's Git administration.
+    const journal = await gitAdminStatePath(worktree, "acceptanceTransaction");
+    assert(journal !== undefined);
+    await Deno.mkdir(dirname(journal), { recursive: true });
+    await Deno.writeTextFile(journal, "{}\n");
+
+    const dry = await runAgent(dir, ["worktree", "prune", "--dry-run"]);
+    assertEquals(dry.code, 0, dry.output);
+    assert(!dry.stdout.includes("owed"), dry.output);
+    const kept = await runAgent(dir, ["worktree", "prune", "--yes"]);
+    assertEquals(kept.code, 0, kept.output);
+    assertStringIncludes(
+      kept.output,
+      "its recorded acceptance is unsettled; run discern accept from it",
+    );
+    assert(await targetExists(worktree), kept.output);
+    assert((await branchList(dir)).includes("agent/owed"));
+
+    // Once the acceptance settles, the same checkout is an ordinary
+    // candidate again.
+    await Deno.remove(journal);
+    const removed = await runAgent(dir, ["worktree", "prune", "--yes"]);
+    assertEquals(removed.code, 0, removed.output);
+    assertEquals(await targetExists(worktree), false, removed.output);
+  });
+});
+
 Deno.test("worktree prune --dry-run reports stale metadata and apply prunes that entry", async () => {
   await withTempDir(async (dir) => {
     const wt = await ownedWorktree(dir, "stale-meta");

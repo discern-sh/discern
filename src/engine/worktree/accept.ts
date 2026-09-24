@@ -821,8 +821,8 @@ async function settleRecoveredLanding(
   const { transaction } = interrupted;
   const mainRepo = transaction.main_repo;
   if (!proofNoteOwed(progress.proofNote?.write)) {
-    // Retired before cleanup, so a cleanup that stops partway leaves nothing
-    // that would send the next acceptance into recovery again.
+    // Retired before cleanup: a cleanup that stops partway routes to
+    // `discern worktree prune`, which keeps a checkout whose journal stands.
     if (
       !(await clearCompletedAcceptanceJournal(effort.path, transaction.target))
     ) {

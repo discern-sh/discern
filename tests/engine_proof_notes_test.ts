@@ -29,6 +29,7 @@ import {
   writeProofNote,
 } from "../src/engine/gate/proof_notes.ts";
 import { inspectGateProof } from "../src/engine/gate/proof.ts";
+import { readySentinelPath } from "../src/engine/worktree/git.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
@@ -1545,6 +1546,14 @@ Deno.test("a post-landing note identity failure keeps the checkout until the ret
     await gitInit(dir);
     const owed = await landWithoutNoteIdentity(dir, "missing-identity");
     const retryFrom = await assertOwedNoteKept(dir, owed, owed.accepted);
+
+    // Pool housekeeping keeps an owned checkout whose note is owed.
+    const ready = await readySentinelPath(owed.worktree);
+    assert(ready !== undefined);
+    await Deno.writeTextFile(ready, "");
+    const pruned = await runAgent(dir, ["worktree", "prune", "--yes"]);
+    assertEquals(pruned.code, 0, pruned.output);
+    assert(await targetExists(owed.worktree), pruned.output);
 
     // A retry that still cannot write the note keeps its own retry.
     const stillOwed = await runAgent(retryFrom, ["accept", "--json"], {

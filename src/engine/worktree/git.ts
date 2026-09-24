@@ -3082,7 +3082,8 @@ function shortBranchName(ref: string): string {
 
 /**
  * Why a linked worktree must be KEPT rather than removed — empty means it is
- * removable (clean, with its branch or detached HEAD fully merged). The single
+ * removable (clean, with its branch or detached HEAD fully merged, and no
+ * recorded acceptance left to settle). The single
  * eligibility predicate for worktree removal: the prune scan classifies with
  * it, and {@link worktreeRemovalCandidateChanged} re-runs it per candidate at apply
  * time, so the two can never drift apart.
@@ -3123,6 +3124,18 @@ async function worktreeKeepReasons(
   } else if (statusRun.stdout.trim() !== "") {
     const count = parsePorcelainZ(statusRun.stdout).length;
     keepReasons.push(`dirty ${count} status entries`);
+  }
+
+  // A recorded acceptance lives in this checkout's Git administration and is
+  // the only retry vehicle for what its landing still owes, such as an
+  // unrecorded Proof note, so removing the checkout would destroy it.
+  const journal = await gitAdminStatePath(rec.path, "acceptanceTransaction");
+  if (journal === undefined) {
+    keepReasons.push("acceptance state unreadable");
+  } else if (await pathExists(journal)) {
+    keepReasons.push(
+      "its recorded acceptance is unsettled; run discern accept from it",
+    );
   }
   return keepReasons;
 }
