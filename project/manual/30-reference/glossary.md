@@ -197,7 +197,7 @@ A procedure your project provides for its agents and maintainers to run. Each sc
 
 ### Project-owned file
 
-A file that belongs to your project, even when discern created its first copy. `discern upgrade` never overwrites it. Examples include your [map](#map) pages, instruction source, skills, project scripts, and list of deferred work, in the [namespace](#namespace) or wherever your configuration puts them. `discern.toml` isn't one: it's a [shared file](#shared-file).
+A file that belongs to your project, even when discern created its first copy. `discern upgrade` never overwrites it, apart from the marked list of Architecture Decision Records in the map's `_adr/README.md`. `discern refresh` and `discern upgrade` rewrite that list from the record files, and the rest of the file stays yours. Examples include your [map](#map) pages, instruction source, skills, project scripts, and list of deferred work, in the [namespace](#namespace) or wherever your configuration puts them. `discern.toml` isn't one: it's a [shared file](#shared-file).
 
 ### Proof
 
