@@ -71,18 +71,25 @@ export type GlossaryPlainRendering =
     phrase: string;
     /**
      * How the register guard matches the term in plain prose. Omitted: the
-     * entry's own match phrases (`matches ?? [term]`), word-bounded and
+     * entry's match phrases ({@link glossaryMatchPhrases}), word-bounded and
      * case-insensitive. A regex source narrows or widens that (an
      * inflection family, a plural-only ban for a term whose singular is
      * ordinary English). `false`: the term reads as ordinary English too
-     * often to police mechanically — the translation still stands, and
-     * review owns it.
+     * often to match mechanically — the translation still stands, review
+     * owns it, and the manual's glossary cards fire only on the entry's
+     * explicit multi-word `matches`.
      */
     match?: string | false;
   }
   | {
     /** Why the term stays untranslated: it is already plain English. */
     keep: string;
+    /**
+     * `false`: the kept word also reads as ordinary English too often to
+     * match mechanically, so the manual's glossary cards fire only on the
+     * entry's explicit multi-word `matches`, never on the word itself.
+     */
+    match?: false;
   };
 
 /** How the term is cased when it names the product concept in running prose. */
@@ -100,8 +107,10 @@ export interface GlossaryEntry {
    */
   summary?: string;
   /**
-   * Phrases whose prose mentions receive a hover card. Defaults to the term;
-   * an empty list opts the entry out of automatic matching.
+   * Phrases whose prose mentions receive a hover card. Defaults to the term,
+   * unless the plain rendering marks it as ordinary English (`match: false`);
+   * an empty list opts the entry out of automatic matching. An ordinary
+   * English entry's phrases name the product sense in more than one word.
    */
   matches?: readonly string[];
   /**
@@ -175,6 +184,26 @@ export function runningProseCaseRules(
     });
   }
   return rules;
+}
+
+/**
+ * Whether the term also reads as ordinary English too often to match
+ * mechanically, which its plain rendering records as `match: false`.
+ */
+export function readsAsOrdinaryEnglish(
+  entry: Pick<GlossaryEntry, "plain">,
+): boolean {
+  return entry.plain.match === false;
+}
+
+/**
+ * The phrases that name the entry in prose: its explicit `matches`, or else
+ * the term itself, unless the term reads as ordinary English.
+ */
+export function glossaryMatchPhrases(
+  entry: Pick<GlossaryEntry, "term" | "matches" | "plain">,
+): readonly string[] {
+  return entry.matches ?? (readsAsOrdinaryEnglish(entry) ? [] : [entry.term]);
 }
 
 /** The authored summary, or the definition's first sentence by default. */
@@ -287,7 +316,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       phrase: "the question the agent judges",
       match: false,
     },
-    matches: ["question", "questions"],
+    matches: ["checkpoint question", "checkpoint questions"],
     retired: [
       {
         // The launch-era working name for the judgment prose. Singular only:
@@ -466,7 +495,10 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Effort",
     runningCase: "lowercase",
-    plain: { keep: "an everyday English word for one piece of work" },
+    plain: {
+      keep: "an everyday English word for one piece of work",
+      match: false,
+    },
     definition:
       "One task, carried from its first edit through review until it lands. A [worktree](#worktree), its branch, and its [submission](#submission) all belong to one effort. discern's results give each effort's id and branch, and its messages name the branch. An effort keeps the same worktree through review fixes and later sessions. The landing queue lists efforts by their submissions, and `discern accept` lands the selected effort's submission on the [trunk](#trunk). An effort can land more than once. If its branch has newer commits when a landing finishes, the worktree stays, and a later submission lands them.",
     retired: [{
@@ -678,6 +710,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: {
       keep:
         "an everyday word for a way of working; kept as the product says it",
+      match: false,
     },
     // "practice" also reads as ordinary English ("best practices"); the
     // canonical sense is the definite form product surfaces use.
@@ -851,6 +884,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: {
       keep:
         "discern's own plain-English verb name; the register uses tidy and tidying freely",
+      match: false,
     },
     matches: ["discern tidy"],
     definition:
@@ -862,6 +896,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: {
       keep:
         "an everyday word for a short piece of practical advice; kept as the product says it",
+      match: false,
     },
     // "tip" is also a branch tip and ordinary English across the manual.
     matches: ["desk tip"],
@@ -874,6 +909,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: {
       keep:
         "an everyday word; the concept is explained in place and `discern update` stays quoted",
+      match: false,
     },
     // "update" is also an ordinary editing instruction throughout the manual.
     matches: ["discern update"],

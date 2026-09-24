@@ -245,13 +245,16 @@ export const GLOSSARY_ENTRY_FIELDS = {
   retired: { edit: "nested" },
 } as const satisfies Record<keyof GlossaryEntry, FieldSpec>;
 
+/** Both plain-rendering variants' `match`: one matcher contract. */
+const GLOSSARY_PLAIN_MATCH_FIELD = {
+  edit: "locked",
+  reason: "a matcher override — edit beside the pattern it tunes",
+} as const satisfies FieldSpec;
+
 /** The translated variant of a term's plain rendering. */
 export const GLOSSARY_PLAIN_PHRASE_FIELDS = {
   phrase: { edit: "prose", register: "plain" },
-  match: {
-    edit: "locked",
-    reason: "a matcher override — edit beside the pattern it tunes",
-  },
+  match: GLOSSARY_PLAIN_MATCH_FIELD,
 } as const satisfies Record<
   keyof Extract<GlossaryPlainRendering, { phrase: string }>,
   FieldSpec
@@ -260,6 +263,7 @@ export const GLOSSARY_PLAIN_PHRASE_FIELDS = {
 /** The kept-as-is variant of a term's plain rendering. */
 export const GLOSSARY_PLAIN_KEEP_FIELDS = {
   keep: { edit: "prose", register: "plain" },
+  match: GLOSSARY_PLAIN_MATCH_FIELD,
 } as const satisfies Record<
   keyof Extract<GlossaryPlainRendering, { keep: string }>,
   FieldSpec
@@ -322,7 +326,7 @@ export const PLAIN_TWIN: Readonly<Record<string, string>> = {
 
 type FieldMap = Readonly<Record<string, FieldSpec>>;
 
-/** The merged plain-rendering map (the union's variants share no keys). */
+/** The merged plain-rendering map; the variants share only `match`. */
 const GLOSSARY_PLAIN_FIELDS: FieldMap = {
   ...GLOSSARY_PLAIN_PHRASE_FIELDS,
   ...GLOSSARY_PLAIN_KEEP_FIELDS,

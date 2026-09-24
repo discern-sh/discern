@@ -32,7 +32,11 @@
 import { join } from "@std/path";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
-import { GLOSSARY, phrasePatternSource } from "./glossary_registry.ts";
+import {
+  GLOSSARY,
+  glossaryMatchPhrases,
+  phrasePatternSource,
+} from "./glossary_registry.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { CLAIMS, type ClaimSlug } from "./brand/claims.ts";
 import { annotateProse } from "./canon_editor/annotation.ts";
@@ -2356,7 +2360,7 @@ export interface PlainPolicedTerm {
 /**
  * Every matcher the plain-register guard applies: translated glossary terms
  * (each entry's own `plain` rendering, default matcher derived from its
- * `matches` phrases) plus the general-jargon table. `keep` and `match: false`
+ * match phrases) plus the general-jargon table. `keep` and `match: false`
  * entries police nothing.
  */
 export function plainPolicedTerms(): PlainPolicedTerm[] {
@@ -2366,7 +2370,7 @@ export function plainPolicedTerms(): PlainPolicedTerm[] {
     if ("keep" in rendering) continue;
     if (rendering.match === false) continue;
     const source = rendering.match ??
-      (entry.matches ?? [entry.term])
+      glossaryMatchPhrases(entry)
         .map((phrase) => phrasePatternSource(phrase))
         .join("|");
     out.push({

@@ -42,7 +42,11 @@ import {
   MANUAL_SECTION_REGISTRY,
 } from "../src/shared/manual.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
-import { GLOSSARY, glossarySummary } from "../scripts/glossary_registry.ts";
+import {
+  GLOSSARY,
+  glossarySummary,
+  readsAsOrdinaryEnglish,
+} from "../scripts/glossary_registry.ts";
 import {
   DISCERN_INSTALL_ROUTE,
   DISCERN_REPOSITORY_URL,
@@ -707,6 +711,13 @@ Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are exp
   assertEquals(matchesFor("Proof"), ["proof line"]);
   assertEquals(matchesFor("Proof note"), ["Proof note"]);
   assertEquals(matchesFor("Update"), ["discern update"]);
+  assertEquals(matchesFor("Question"), [
+    "checkpoint questions",
+    "checkpoint question",
+  ]);
+  // A term marked as ordinary English has no default match.
+  assertEquals(matchesFor("Declaration"), []);
+  assertEquals(matchesFor("Effort"), []);
 
   assertEquals(
     glossaryMentions([
@@ -758,14 +769,92 @@ Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are exp
     Error,
     "belongs to both First and Second",
   );
+  // `match: false` holds on either plain variant: no default match, and an
+  // explicit match must be a multi-word product phrase.
+  assertEquals(
+    glossaryMentions([
+      {
+        term: "Effort",
+        runningCase: "lowercase",
+        definition: "One task.",
+        plain: { keep: "fixture", match: false },
+      },
+      {
+        term: "Declaration",
+        runningCase: "lowercase",
+        definition: "An answer.",
+        plain: { phrase: "fixture", match: false },
+      },
+    ]),
+    [],
+  );
+  assertThrows(
+    () =>
+      glossaryMentions([
+        {
+          term: "Question",
+          runningCase: "lowercase",
+          definition: "A question.",
+          matches: ["checkpoint question", "questions"],
+          plain: { phrase: "fixture", match: false },
+        },
+      ]),
+    Error,
+    "questions is an everyday word",
+  );
 });
+
+/** The terms whose summary cards rendered prose opens, in order. */
+function cardTerms(html: string): string[] {
+  return [...html.matchAll(/aria-label="([^"]*) summary"/gu)].map((match) =>
+    match[1] ?? ""
+  );
+}
 
 Deno.test("bare common words stay plain while code-form matches link", async () => {
   const site = await loadDocsSite();
   const render = createGlossaryProseRenderer(site);
   assertEquals(
-    render("accept the suggestion and update the docs"),
-    "accept the suggestion and update the docs",
+    render("accept the suggestion, update the docs, and note the patterns"),
+    "accept the suggestion, update the docs, and note the patterns",
+  );
+
+  // Every term the registry marks as ordinary English stays plain as the
+  // everyday word, and only its product phrase opens the card.
+  const ordinary = GLOSSARY.filter(readsAsOrdinaryEnglish);
+  for (const term of ["Declaration", "Effort", "Proof", "Question"]) {
+    assert(
+      ordinary.some((entry) => entry.term === term),
+      `${term} reads as ordinary English`,
+    );
+  }
+  for (const { term } of ordinary) {
+    const word = term.toLowerCase();
+    assertEquals(
+      cardTerms(
+        createGlossaryProseRenderer(site)(
+          `${term} matters. We weigh each ${word} and more ${word}s here.`,
+        ),
+      ),
+      [],
+      `${term} opened a card on the everyday word`,
+    );
+  }
+  assertEquals(
+    cardTerms(
+      createGlossaryProseRenderer(site)(
+        "You answer the questions only you can answer, and more of its effort goes into the work.",
+      ),
+    ),
+    [],
+  );
+  assertEquals(
+    cardTerms(
+      createGlossaryProseRenderer(site)(
+        "The agent answered a checkpoint question.",
+      ),
+    ),
+    ["Question"],
   );
 
   const dom = new JSDOM(

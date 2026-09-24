@@ -47,7 +47,9 @@ import {
 import {
   GLOSSARY,
   type GlossaryEntry,
+  glossaryMatchPhrases,
   glossarySummary,
+  readsAsOrdinaryEnglish,
 } from "../scripts/glossary_registry.ts";
 import { repositoryBlobUrl, repositoryTreeUrl } from "../src/shared/brand.ts";
 import type { TocItem } from "./document_toc.ts";
@@ -667,16 +669,27 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Resolve and validate the prose phrases owned by glossary entries. */
+/**
+ * Resolve and validate the prose phrases owned by glossary entries. A term
+ * that reads as ordinary English matches only multi-word product phrases, so
+ * its everyday word never opens a card.
+ */
 export function glossaryMentions(
   glossary: readonly GlossaryEntry[] = GLOSSARY,
 ): GlossaryMention[] {
   const mentions: GlossaryMention[] = [];
   const owners = new Map<string, string>();
   for (const entry of glossary) {
-    for (const text of entry.matches ?? [entry.term]) {
+    for (const text of glossaryMatchPhrases(entry)) {
       if (text.trim().length === 0) {
         throw new Error(`docs: glossary mention is empty for ${entry.term}`);
+      }
+      if (
+        readsAsOrdinaryEnglish(entry) && text.trim().split(/\s+/u).length < 2
+      ) {
+        throw new Error(
+          `docs: glossary mention ${text} is an everyday word; ${entry.term} reads as ordinary English, so match a multi-word product phrase or nothing`,
+        );
       }
       const key = text.toLowerCase();
       const prior = owners.get(key);
