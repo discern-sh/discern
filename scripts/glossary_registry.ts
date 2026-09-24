@@ -661,7 +661,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Namespace",
     runningCase: "lowercase",
     plain: {
-      phrase: "a clearly separated naming area",
+      phrase: "the folder for the project's own Discern files",
       match: String.raw`\bnamespaces?\b`,
     },
     definition:
@@ -722,7 +722,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Project script",
     runningCase: "lowercase",
     plain: {
-      phrase: "the project's own runnable instruction",
+      phrase: "a runnable procedure the project provides",
       match: String.raw`\bproject\s+scripts?\b`,
     },
     definition:
