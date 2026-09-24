@@ -13,6 +13,7 @@ import {
   verbEventSchema,
 } from "../src/engine/logbook/schema.ts";
 import { MCP_RESULT_CONTRACTS } from "../src/shared/result_contracts.ts";
+import { COMPLETION_TIMING_CATEGORIES } from "../src/engine/completion/protocol.ts";
 import {
   CHECKPOINT_MODES,
   CHECKPOINT_OBLIGATION_STATES,
@@ -106,6 +107,26 @@ function missingCodeMembers(
     !document.includes(`\`${member}\``)
   );
 }
+
+Deno.test("the progress timings row names exactly the recorded timing categories", () => {
+  const row = mcpReference.split("\n").find((line) =>
+    line.startsWith("| `data.timings`")
+  );
+  assert(row !== undefined, "the progress reference documents data.timings");
+  assertEquals(missingCodeMembers(row, COMPLETION_TIMING_CATEGORIES), []);
+  const documented = [...row.matchAll(/`([a-z]+(?:-[a-z]+)+|[a-z]+)`/g)]
+    .map((match) => match[1] ?? "")
+    .filter((word) =>
+      !["interval_id", "category", "started_at", "finished_at"].includes(word)
+    );
+  assertEquals(
+    documented.filter((word) =>
+      !(COMPLETION_TIMING_CATEGORIES as readonly string[]).includes(word)
+    ),
+    [],
+    "the row names a timing category discern doesn't record",
+  );
+});
 
 Deno.test("the public MCP tools table is total over the result-contract registry", () => {
   const documented = [
