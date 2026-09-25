@@ -32,7 +32,7 @@ Everything agent-specific lives in one typed record per agent in `src/lib/provid
 | Field               | Meaning                                                                                                                                  | Absent ⇒                                 |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
 | `name`              | The registry key (an `AGENT_NAMES` entry)                                                                                                | (required)                               |
-| `label`             | Display label, owned by the identity catalogue                                                                                           | (required)                               |
+| `label`             | Display label, owned by the identity catalog                                                                                             | (required)                               |
 | `brand`             | First-party logo SVGs for the site's integrations surfaces                                                                               | (required)                               |
 | `binaries`          | Terminal-agent executable name(s) for PATH auto-detect — **match-any** (ADR 0069)                                                        | (required)                               |
 | `setupPresence`     | Setup-only installation evidence (editor binaries, app locations) beyond the terminal agent                                              | (required)                               |
@@ -305,7 +305,7 @@ The derived layer needs no verification pass: it is read from the code below at 
 **Code**
 
 - `src/lib/providers.ts` — the typed provider registry: `PROVIDERS`, `DISCERN_MCP_SERVER`, `atImportPointer`, the MCP adapters (`registerClaudeCodeMcp`, `registerGeminiMcp`, `registerCodexProjectConfig`, `registerCursorMcp`, `registerCopilotMcp`, sharing the `registerStdioMcpJson` writer), the Codex worktree-app and rules adapters, and the registry-derived aggregators.
-- `src/shared/agent_catalogue.ts` — the identity catalogue `AGENT_NAMES`, labels, and instructions paths derive from.
+- `src/shared/agent_catalogue.ts` — the identity catalog `AGENT_NAMES`, labels, and instructions paths derive from.
 - `src/shared/config_schema.ts` — `DEFAULT_AGENTS`, `resolveConfiguredAgents`.
 - `src/shared/mcp_timeout_policy.ts` — the per-agent call-duration policy and capability flags.
 - `src/lib/skills.ts` — per-agent skills materialization + `checkSkillsCurrent`.

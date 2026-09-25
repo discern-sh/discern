@@ -180,6 +180,7 @@ const MOVE_CONTRACTS = {
 } as const satisfies Record<BannedMoveId, MoveContract>;
 
 const ERROR_RULE_FIXTURES = {
+  AmericanSpelling: "The agent summarised the behaviour of each run.",
   Announcement: "We're excited to announce the release.",
   Exclamation: "The Gate passed!",
   FaultDodging: "An error was encountered during setup.",

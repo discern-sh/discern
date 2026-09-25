@@ -8,7 +8,7 @@ metadata:
 
 # Set the standard
 
-Standards are **numbers that can never get worse**: each is a **floor that may only rise** or a **ceiling that may only fall**, compared against `main` so no branch can ever loosen it. A standard is not a target and not a nag — it is a _no-backsliding guarantee_: whatever quality the number represents, the project can only keep or improve it from here. This skill is the judgement around the feature: which numbers deserve one, how to wire it, where to set the limit, and what to do — and never do — when one fires.
+Standards are **numbers that can never get worse**: each is a **floor that may only rise** or a **ceiling that may only fall**, compared against `main` so no branch can ever loosen it. A standard is not a target and not a nag — it is a _no-backsliding guarantee_: whatever quality the number represents, the project can only keep or improve it from here. This skill is the judgment around the feature: which numbers deserve one, how to wire it, where to set the limit, and what to do — and never do — when one fires.
 
 Driving a legacy pattern out of the codebase entirely? That migration mode — the same standard machinery pointed at a pattern's count, ending in a permanent ban — is [outlaw-a-pattern.md](outlaw-a-pattern.md) in this skill.
 

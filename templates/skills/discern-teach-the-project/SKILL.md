@@ -10,7 +10,7 @@ metadata:
 
 Sessions end; what they learned usually ends with them. The correction the user gave you, the procedure you derived the hard way, the decision you both reached — unless it's written into the project, the next session rediscovers it from scratch, or worse, guesses differently. discern gives a project several surfaces built to carry knowledge forward, and **later agent sessions can discover the recorded knowledge through the project, whichever supported coding tool they use**. That is how a project gets smarter over time instead of merely older.
 
-The judgement this skill holds is _routing_: each fact needs one authority, with links from the places a future task will look.
+The judgment this skill holds is _routing_: each fact needs one authority, with links from the places a future task will look.
 
 ---
 
@@ -40,7 +40,7 @@ Pick the **smallest surface that owns each fact**. A lesson can need several lin
 | The lesson is…                                                                    | Its home                                                                                                   | Why there                                                                                       |
 | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | A standing rule every session must follow ("always X here", "never Y")            | **An instruction line** — the project instruction source ({{instruction_sources}}), compiled into every agent's file | Always in context, so it's never missed — and always _paying_ context, so it must earn its line |
-| A repeatable, multi-step procedure needing judgement                              | **An authored skill** — a `SKILL.md` under `{{skills_dir}}`                                                | Discoverable when the task matches; costs context only when used                                |
+| A repeatable, multi-step procedure needing judgment                              | **An authored skill** — a `SKILL.md` under `{{skills_dir}}`                                                | Discoverable when the task matches; costs context only when used                                |
 | A review judgment a diff makes relevant ("when X changes, weigh Y before landing") | **A checkpoint** — a `[checkpoints.<id>]` entry (the `discern-place-a-checkpoint` skill walks the authoring) | Served at the gate the moment a matching change completes; costs nothing until then             |
 | A deterministic action — a command sequence you'd otherwise re-derive             | **A project script** — an executable in `{{scripts_dir}}` (run it with `discern scripts <name>`)            | A script executes exactly; prose about commands drifts                                          |
 | Durable context — how a subsystem works, what's true and why it's shaped this way | **A map page** — under `{{map_dir}}` (follow the map maintenance guide)          | Read on demand; the reference the other surfaces can point at                                   |
@@ -55,7 +55,7 @@ Use the map as the reference connecting these surfaces. Link the relevant check,
 ## 4. Author it to that surface's own bar
 
 - **An instruction line** is one or two sentences, imperative, with the _why_ in half a sentence when it isn't obvious — written for an agent who will read it in every session, forever. If it needs a paragraph, it's probably a doc plus a one-line pointer.
-- **An authored skill** must be a genuine multi-step playbook — trigger-rich `description` frontmatter (that's what matching runs on), concrete steps with the judgement points called out, and a falsifiable "done when". A single deterministic action is not a skill; make it a project script.
+- **An authored skill** must be a genuine multi-step playbook — trigger-rich `description` frontmatter (that's what matching runs on), concrete steps with the judgment points called out, and a falsifiable "done when". A single deterministic action is not a skill; make it a project script.
 - **A project script** is an executable with an optional `# desc:` line, exiting non-zero on failure, silent about things it didn't do.
 - **Map pages** explain the current project with evidence, following its existing tree. Use `discern docs maintain-project-map` for the maintenance method. Concrete open work belongs in `{{todo_path}}`.
 - **ADRs** follow the project’s ADR guide and the `discern-write-adr` skill.

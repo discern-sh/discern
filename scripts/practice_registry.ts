@@ -439,7 +439,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     obligation:
       "A bug is fixed at its class, with a proven cause and a permanent guard, so it cannot return unnoticed.",
     body:
-      "The cure-a-bug skill requires the cause proven, the fix applied to every member of the class, and a guard driven from the class's single source left in the gate, so a future member enrols the moment it exists.",
+      "The cure-a-bug skill requires the cause proven, the fix applied to every member of the class, and a guard driven from the class's single source left in the gate, so a future member enrolls the moment it exists.",
     arc: "craft",
     upheld: {
       taught: ["skill:discern-cure-a-bug"],
@@ -460,7 +460,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     obligation:
       "Every shared fact has one authority; copies are generated from it, and a declared copy that drifts fails the gate.",
     body:
-      "The write-it-once skill carries the discipline discern builds itself with: one authority per fact with bound consumers, guards that enrol future members, effects planned before they run. Generated artifacts regenerate from their sources, and the gate fails a copy that drifted.",
+      "The write-it-once skill carries the discipline discern builds itself with: one authority per fact with bound consumers, guards that enroll future members, effects planned before they run. Generated artifacts regenerate from their sources, and the gate fails a copy that drifted.",
     arc: "craft",
     upheld: {
       enforced: ["config:generated"],
@@ -963,7 +963,7 @@ export function renderPracticeCanonDoc(): string {
     "",
     "## Coding-agent outcome index",
     "",
-    "Each Agent Benefit Canon outcome points back to the tenets or properties that produce it. A new outcome enters this index from the Agent Benefit Canon and fails the enrolment guard until the practice claims it or records why it does not follow from the practice.",
+    "Each Agent Benefit Canon outcome points back to the tenets or properties that produce it. A new outcome enters this index from the Agent Benefit Canon and fails the enrollment guard until the practice claims it or records why it does not follow from the practice.",
     "",
   );
   for (const { entry } of agentBenefitEntries) {

@@ -10,7 +10,7 @@ metadata:
 
 A checkpoint is a change-triggered judgment stop: a deterministic **trigger** chooses the moment a diff makes a question relevant, and a written **question** puts that question to the agent at `discern done`, before any gate job runs. The agent records the conclusion — met, or unmet with a short rationale — and the record travels with the Proof as agent judgment, kept apart from machine-verified results. discern never verifies the conclusion's truth and never calls a model: the trigger is mechanical, the judgment is the agent's, and the record is what the owner reviews.
 
-This skill is the judgement around the feature: whether a rule belongs here at all, how to choose the trigger and mode, how to write a question an agent can answer truthfully, and what to do with the record once real efforts have met it.
+This skill is the judgment around the feature: whether a rule belongs here at all, how to choose the trigger and mode, how to write a question an agent can answer truthfully, and what to do with the record once real efforts have met it.
 
 ---
 

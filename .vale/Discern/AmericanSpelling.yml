@@ -1,0 +1,67 @@
+# British spellings in authored prose (voice skill: mechanics — American
+# English throughout). A spelling has no legitimate prose exception, so it
+# blocks the gate; a quoted identifier or wire value belongs in a code span,
+# which Vale never lints. Forms that American English also accepts
+# (`cancelled`, `dialogue`, `towards`) and ambiguous ones (`analyses` is also
+# the plural noun) stay out of the list.
+extends: substitution
+message: "Use American spelling: '%s' instead of '%s'."
+ignorecase: true
+level: error
+action:
+  name: replace
+swap:
+  analys(?:e|ed|ing): analyze
+  summaris(?:e|ed|es|ing): summarize
+  recognis(?:e|ed|es|ing|able): recognize
+  organis(?:e|ed|es|ing): organize
+  organisations?: organization
+  prioritis(?:e|ed|es|ing): prioritize
+  customis(?:e|ed|es|ing): customize
+  customisations?: customization
+  optimis(?:e|ed|es|ing): optimize
+  optimisations?: optimization
+  authoris(?:e|ed|es|ing): authorize
+  authorisations?: authorization
+  initialis(?:e|ed|es|ing): initialize
+  normalis(?:e|ed|es|ing): normalize
+  serialis(?:e|ed|es|ing): serialize
+  finalis(?:e|ed|es|ing): finalize
+  categoris(?:e|ed|es|ing): categorize
+  minimis(?:e|ed|es|ing): minimize
+  maximis(?:e|ed|es|ing): maximize
+  utilis(?:e|ed|es|ing): use
+  realis(?:e|ed|es|ing): realize
+  emphasis(?:e|ed|es|ing): emphasize
+  apologis(?:e|ed|es|ing): apologize
+  behaviours?: behavior
+  colours?: color
+  coloured: colored
+  colouring: coloring
+  favour(?:s|ed|ing)?: favor
+  favourites?: favorite
+  honours?: honor
+  flavours?: flavor
+  neighbours?: neighbor
+  centres?: center
+  centred: centered
+  licence: license
+  catalogues?: catalog
+  modell(?:ed|ing): modeled
+  labell(?:ed|ing): labeled
+  travell(?:ed|ing): traveled
+  fulfils?: fulfill
+  fulfilment: fulfillment
+  judgement: judgment
+  acknowledgement: acknowledgment
+  artefacts?: artifact
+  focuss(?:ed|ing): focused
+  orientated: oriented
+  whilst: while
+  amongst: among
+  grey: gray
+  programmes?: program
+  defence: defense
+  practis(?:e|ed|es|ing): practice
+  enrols?: enroll
+  enrolments?: enrollment

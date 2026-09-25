@@ -1,6 +1,6 @@
 # Discern — the house-voice tripwire
 
-This style detects wording patterns from the voice canon (`BANNED_WORDS` and `BANNED_MOVES` in `scripts/brand/voice.ts`, rendered into the voice skills). It covers phrases, contrasts, self-narration, recap headings, em-dash usage, and trailing modifiers. A match can identify a blocking defect or a question for the writer.
+This style detects wording patterns from the voice canon (`BANNED_WORDS` and `BANNED_MOVES` in `scripts/brand/voice.ts`, rendered into the voice skills). It covers phrases, contrasts, self-narration, recap headings, em-dash usage, trailing modifiers, and American spelling. `tests/us_spelling_guard_test.ts` applies the spelling rule's word list to the shipped copy Vale does not lint: source strings, templates, instruction sources, and skills. A match can identify a blocking defect or a question for the writer.
 
 - **The canon states the policy; the style detects the pattern.** `tests/voice_vale_parity_test.ts` proves that each declared phrase has a working detector and that quoted code examples remain legal. Semantic judgments stay with the writer: a page can pass the mechanical checks and still need revision.
 - **The shared selector decides what blocks.** `selectProseGateAlerts` in `scripts/prose_lib.ts` keeps error-severity findings and other Discern alerts blocking, except the exact advisory rules named by `EDITORIAL_PROSE_RULES`. Unlisted house and register rules retain their enforcement. Severity alone does not make a Discern warning advisory.

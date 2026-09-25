@@ -31,13 +31,13 @@ A deterministic rule checks a concrete fact, such as whether tests are configure
 
 ## Presentation authority
 
-The catalogue, evaluation, order, score, reviews, findings, and next action remain facts; the renderer maps them to package Components and adds no judgment. One terminal snapshot per invocation caps the report at 104 columns; safe text escapes untrusted controls.
+The catalog, evaluation, order, score, reviews, findings, and next action remain facts; the renderer maps them to package Components and adds no judgment. One terminal snapshot per invocation caps the report at 104 columns; safe text escapes untrusted controls.
 
 ## Findings from the logbook
 
 The `From the Logbook` group carries recorded conditions that may need an owner decision. Every item retains its detector id, plain-count evidence, ranking strength, and recommended next step. A proposed instructions line, config change, class guard, or standards stanza remains a proposal for you to decide ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
-This group is separate from the static catalogue. It changes no category score, weak-rule count, qualitative review, `ok`, or `--min-score` result. Inline detectors read at most the newest 200 logbook events here; longer analyses stay under `discern patterns`. Findings are strongest-first and disappear when the recent window is quiet, setup is unfinished, or recording is off.
+This group is separate from the static catalog. It changes no category score, weak-rule count, qualitative review, `ok`, or `--min-score` result. Inline detectors read at most the newest 200 logbook events here; longer analyses stay under `discern patterns`. Findings are strongest-first and disappear when the recent window is quiet, setup is unfinished, or recording is off.
 
 ## The checkpoint loop
 

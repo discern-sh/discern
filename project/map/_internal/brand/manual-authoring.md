@@ -197,7 +197,7 @@ These pairs come from the reference pages. Reuse the move, in your own words.
 
 Reject a draft that turns into any of these:
 
-- **feature catalogue:** a list of mechanisms instead of one promise to the reader;
+- **feature catalog:** a list of mechanisms instead of one promise to the reader;
 - **mechanism-first opening:** a command, subsystem, schema, or internal object before the reader has a reason to care;
 - **abstract actor:** "the project carries", "evidence establishes", or "the practice consists of" where a person or discern does the work;
 - **hedge stack:** "can help", "may be able to", or "is designed to" around behavior that is certain;

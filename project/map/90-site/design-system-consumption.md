@@ -48,13 +48,13 @@ The [human release page](releases.md#the-human-page) is rendered at request time
 
 [`site/marketing_pages.ts`](../../../site/marketing_pages.ts) enrolls every marketing composition in public prose checks, and its published members in building, serving, route discovery, and runtime checks. Each member names its output, authored source, register, negotiation policy, prose policy, and publication state. A guarded page joins [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts), the site scope, and the site prose standards through that registration. The homepage uses the brand register; `/agents` uses the public agent register.
 
-The projection keeps the authored blocks a visitor reads and removes markup, attributes, code, artefact data, and repeated rendered copies. It stages each page under its declared register so the generated brand rules apply. `deno task site:prose-check` blocks Vale errors. `deno task site:prose` emits the alert numerator and exact word denominator consumed by `[standards.site_prose]`; `deno task site:reading-grade` reads the same projection for `[standards.site_reading_grade]`.
+The projection keeps the authored blocks a visitor reads and removes markup, attributes, code, artifact data, and repeated rendered copies. It stages each page under its declared register so the generated brand rules apply. `deno task site:prose-check` blocks Vale errors. `deno task site:prose` emits the alert numerator and exact word denominator consumed by `[standards.site_prose]`; `deno task site:reading-grade` reads the same projection for `[standards.site_reading_grade]`.
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. The discern site does not mount `/style-guide/` in development or production.
 
-## Development-only artefact specimens
+## Development-only artifact specimens
 
-[`site/ui/pages/SpecimensPage.tsx`](../../../site/ui/pages/SpecimensPage.tsx) composes the complete delegation, commissioning, Standard, and Proof artefacts from the published design-system primitives. [`site/page-src/specimens.css`](../../../site/page-src/specimens.css) owns their editorial layout without targeting package-owned `.discern-*` selectors. Each artefact renders inside fixed light and dark token roots, side by side where space permits, so the owner can review both themes in the same document. This sheet is the retained source for full artefacts removed or simplified on the homepage.
+[`site/ui/pages/SpecimensPage.tsx`](../../../site/ui/pages/SpecimensPage.tsx) composes the complete delegation, commissioning, Standard, and Proof artifacts from the published design-system primitives. [`site/page-src/specimens.css`](../../../site/page-src/specimens.css) owns their editorial layout without targeting package-owned `.discern-*` selectors. Each artifact renders inside fixed light and dark token roots, side by side where space permits, so the owner can review both themes in the same document. This sheet is the retained source for full artifacts removed or simplified on the homepage.
 
 [`site/specimens.ts`](../../../site/specimens.ts) builds the normal static design-system assets and serves the specimen document plus its composition CSS directly from source on the worktree's local port:
 
