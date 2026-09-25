@@ -36,9 +36,9 @@ aliases:
 
 # Proof and checkpoint formats
 
-Look up the exact formats behind Proof and checkpoints: the Proof note discern attaches to each landed commit, the Proof marker in each worktree (the separate copy of the project where one task happens), the states a checkpoint question moves through, and the protocol a checkpoint's `when` command follows. You need these to inspect stored evidence yourself, or to build a tool on it.
+Months after a change lands, you can still look up what was checked for it, because discern stores its **Proof**, the record of which of your project's commands passed on one exact commit, on the landed commit itself. This page gives the exact formats behind that record and behind checkpoints: the Proof note on each landed commit, the Proof marker in each worktree (the separate copy of the project where one task happens), the states a checkpoint question moves through, and the input a checkpoint's `when` command receives. Use it to inspect stored evidence yourself, or to build a tool on it.
 
-To decide what a Proof means for a change you're reviewing, start with [Proof](../10-understand/proof.md).
+Say your agent's recipe search change has just landed on `main`, after it answered the project's `search-empty-state` checkpoint question. The sections below follow that change's records. To decide what a Proof means for a change you're reviewing, start with [Proof](../10-understand/proof.md).
 
 | Find                                        | Go to                                                                   |
 | ------------------------------------------- | ----------------------------------------------------------------------- |
@@ -51,7 +51,7 @@ To decide what a Proof means for a change you're reviewing, start with [Proof](.
 
 ## Proof notes
 
-When a change lands, discern attaches its Proof to the landed commit as a **Proof note**, under `refs/notes/discern`. Both values of `[repository].proof_notes_mode` record notes locally: `"local"`, the default, and `"fetch"`. There's no setting that turns notes off. A note stays after the task's worktree is gone, and adds no commit to the trunk.
+When a change lands, discern attaches its Proof to the landed commit as a **Proof note**, under `refs/notes/discern`, so the record stays after the task's worktree is gone and adds no commit to the trunk. Both values of `[repository].proof_notes_mode` record notes locally: `"local"`, the default, and `"fetch"`. There's no setting that turns notes off.
 
 Read the note history with:
 
@@ -59,21 +59,23 @@ Read the note history with:
 git log --notes=discern
 ```
 
-Read one note with:
+Read the note on a single commit, such as the recipe search change, with:
 
 ```sh
 git notes --ref=discern show <commit>
 ```
 
-`discern status` reports a valid local or fetched note on the trunk tip as `data.landed_proof`: the commit, the source ref, and the Proof. A note on the trunk tip that's missing `proof.completion` is reported as `data.landed_proof_stale`. A note in an unknown format is reported as `data.landed_proof_unsupported`. An emergency landing's record appears as `data.landed_exception` instead.
+Git shows the note's JSON envelope with its payload in Base64, so use `discern status --verbose` to read the rendered Proof.
+
+Full structured status, `discern status --verbose --json`, reports a valid local or fetched note on the trunk tip as `data.landed_proof`: the commit, the source ref, and the Proof. `data.landed_proof` means the note is readable and bound to its commit, and no more, because discern checks no signature or issuer identity. A note in an unknown format appears there as `data.landed_proof_unsupported`. The default structured view leaves both out as landing history, but it keeps the other trunk-tip reports: a note that's missing `proof.completion` appears as `data.landed_proof_stale`, and an emergency landing's record appears as `data.landed_exception` instead.
 
 ### The durable format
 
-A note keeps the structured evidence separate from how it's presented, inside a version 1 envelope compatible with the Dead Simple Signing Envelope (DSSE). It holds no runtime telemetry. `signatures: []` means the record is unsigned: discern doesn't sign notes, or verify signatures. The [format and reading rules](#proof-note-format) below define the fields that make a note usable evidence, and how readers treat a record they can't use.
+A note keeps the structured evidence separate from how it's presented, inside a version 1 envelope compatible with the Dead Simple Signing Envelope (DSSE), and holds no runtime telemetry. `signatures: []` means the record is unsigned: discern doesn't sign notes, or verify signatures. The [format and reading rules](#proof-note-format) below define the fields that make a note usable evidence, and how readers treat a record they can't use.
 
 ### Replay keeps the first presentation
 
-A note's identity is its subject commit, its stable machine-readable Proof claim, and its acceptance evidence. Writing the note again with a changed Proof line, Markdown, or timing returns `already_present`, and leaves the existing note unchanged. A different claim or different acceptance evidence for the same commit is a conflict, and returns `record_failed` ([ADR 0333](https://discern.sh/docs/decisions/0333-proof-note-replay-uses-stable-claim-identity)).
+A note's identity is its subject commit, its stable machine-readable Proof claim, and its acceptance evidence. Writing the note again with a changed Proof line, Markdown, or timing returns `already_present`, and leaves the existing note unchanged. A different claim or different acceptance evidence for the same commit is a conflict: it returns `record_failed`, and the existing note stays as a publication conflict, so inspect the write result in `data.proof_note.write` before you retry ([ADR 0333](https://discern.sh/docs/decisions/0333-proof-note-replay-uses-stable-claim-identity)).
 
 A note write reports `recorded`, `already_present`, `record_failed`, or `missing_proof`. `record_failed` also covers a commit that already has a stale note, a note in an unknown format, or an emergency exception record, which Proof never replaces.
 
@@ -81,20 +83,20 @@ A note write reports `recorded`, `already_present`, `record_failed`, or `missing
 
 discern writes the notes commit as `discern <done@discern.sh>`, both author and committer. With a non-empty `DISCERN_NO_ATTRIBUTION`, it uses the repository's Git identity instead, and still records the Proof.
 
-If writing the note fails, the landing still stands. The acceptance result reports the write in `data.proof_note.write`, with its status and reason, and marks the note step failed with a `proof-recording-unavailable` advisory. discern keeps the task's worktree, its branch, and its acceptance journal, which holds the consent, variances, proposals, and Proof pointer. The result's first sentence names the retry: fix the reported problem, then run `discern accept` from that worktree. The retry records the note without repeating the landing or spending its authority again, even when other changes have landed since. Then it cleans up the worktree the way a landing does. If no complete Proof remains to record, the result says so, and the landing stands without a note.
+If writing the note fails, the landing still stands. The acceptance result reports the write in `data.proof_note.write`, with its status and reason, and marks the note step failed with a `proof-recording-unavailable` advisory. discern keeps the task's worktree, its branch, and its acceptance journal, which holds the consent, variances, proposals, and Proof pointer, so the note can still be written. The result's first sentence names the retry: fix the reported problem, then run `discern accept` from that worktree. The retry records the note without repeating the landing or spending its authority again, even when other changes have landed since, then cleans up the worktree the way a landing does. If no complete Proof remains to record, the result says so, and the landing stands without a note.
 
 Setup results report `data.proof_note.write` and `data.proof_note.fetch`. If the setup note fails, `discern setup accept` keeps the `discern-setup` branch and the Proof it writes the note from. Check out that branch and run `discern setup accept` again to record the note.
 
 ### Carry notes between clones
 
-Recording notes locally changes nothing about your remotes. To carry Proof notes between clones, set:
+Recording notes locally changes nothing about your remotes, and a note covers only the ref you read, so another clone sees the recipe search note only once you share it. To carry Proof notes between clones, set:
 
 ```toml
 [repository]
 proof_notes_mode = "fetch"
 ```
 
-`discern refresh`, or the next lifecycle reconciliation, then adds this fetch mapping, once per remote:
+`discern refresh`, or the next lifecycle reconciliation, then adds this fetch mapping, once per remote, and leaves every other mapping untouched:
 
 ```text
 +refs/notes/discern*:refs/discern/remotes/<remote>/notes*
@@ -104,13 +106,13 @@ The trailing `*` keeps an ordinary fetch working when the remote has no notes. G
 
 The mapping reserves the `refs/notes/discern*` prefix, so matching sibling refs get matching suffixes under the tracking path. Readers use every tracking ref under `refs/discern/remotes/` whose name ends in `/notes`. Normally that's `refs/discern/remotes/<remote>/notes`.
 
-An ordinary `git fetch` updates the tracking copy. discern never configures `remote.<name>.push`, never changes a plain `git push`, and never starts a network request. After a landing in fetch mode, discern suggests the command that publishes your notes, naming `origin` when you have it:
+An ordinary `git fetch` updates the tracking copy. It also keeps a stale tracking note after the remote deletes one, so run `git fetch --prune <remote>` to remove refs the remote no longer has. discern never configures `remote.<name>.push`, never changes a plain `git push`, and never starts a network request, so publishing stays your explicit step. After a landing in fetch mode, discern suggests the command that publishes your notes, naming `origin` when you have it:
 
 ```sh
 git push <remote> refs/notes/discern
 ```
 
-Before it writes a note, acceptance merges the fetched `refs/discern/remotes/*/notes` histories. A push can still be rejected if someone published in the meantime. Recover with:
+Before it writes a note, acceptance merges the fetched `refs/discern/remotes/*/notes` histories. A push can still be rejected if someone published in the meantime; recover with:
 
 ```sh
 git fetch <remote>
@@ -119,15 +121,6 @@ git push <remote> refs/notes/discern
 ```
 
 Switching `proof_notes_mode` back to `"local"`, or removing a remote, removes discern's mappings. GitHub stores the notes ref but doesn't display it; Git's own commands and discern read it.
-
-### Limits to know
-
-- A note covers only the ref you read. Publishing to a remote stays your explicit step.
-- `data.landed_proof` means the note is readable and bound to its commit. This check verifies no signature or issuer identity.
-- Reading the note directly in Git shows a Base64 payload. Use `discern status --verbose` for the rendered Proof.
-- A normal fetch keeps a stale tracking note after the remote deletes it. Run `git fetch --prune <remote>` to remove refs the remote no longer has.
-- Refresh reconciles the exact mapping discern owns, and leaves every other mapping untouched.
-- A note with a different claim on the same commit stays as a publication conflict. Inspect the write result in `data.proof_note.write` before you retry.
 
 ## Proof note format
 
@@ -141,23 +134,30 @@ A Proof note is a JSON Dead Simple Signing Envelope (DSSE). The [published schem
 }
 ```
 
-The Base64 payload decodes to a UTF-8 JSON claim. This layout shortens the nested evidence; the schema defines the complete objects:
+The Base64 payload decodes to a UTF-8 JSON claim. Here is the claim in the recipe search note, with the nested evidence and presentation shortened; the schema defines the complete objects:
 
 ```json
 {
-  "subject": { "commit": "<full commit id>" },
+  "subject": { "commit": "7e53aed63bb879fae1cf8132b588ff1d7714252d" },
   "proof": {
     "completion": { "...": "complete candidate and evidence receipts" },
-    "branch": "…",
-    "trunk": "…",
-    "head": "…",
-    "files_total": 1,
-    "insertions": 1,
-    "deletions": 0
+    "branch": "agent/recipe-search-0a7563",
+    "trunk": "main",
+    "head": "7e53aed63bb8",
+    "files_total": 2,
+    "insertions": 18,
+    "deletions": 1
   },
-  "presentation": { "line": "…", "markdown": "…" }
+  "presentation": { "line": "…", "markdown": "…" },
+  "acceptance": {
+    "consent": { "source": "conversation" },
+    "variances": [],
+    "standard_proposals": []
+  }
 }
 ```
+
+The `acceptance` block records that you approved this landing in the conversation, with no variances or limit changes.
 
 ### Contract
 
@@ -228,11 +228,11 @@ discern neither signs nor verifies today. A later profile would choose the algor
 7. Treat proposal fields as landing evidence only when both the Proof claim and the acceptance evidence carry the approved records.
 8. Require complete candidate evidence. A note missing `proof.completion` reads as stale, and a note missing other required fields reads as no note at all.
 
-`data.landed_proof` means the note is readable and bound to its commit, and no more: this path performs no cryptographic verification. The writer never records report-only evidence as landing Proof, but the reader still accepts a well-formed report-mode note as readable.
+Reading a note performs no cryptographic verification. The writer never records report-only evidence as landing Proof, but the reader still accepts a well-formed report-mode note as readable.
 
 ## The worktree's Proof marker
 
-Each worktree keeps a local marker that links its clean committed source to the exact candidate and complete evidence of its last completion. It lets discern reuse that evidence while those facts stay current.
+Each worktree keeps a local marker that links its clean committed source to the exact candidate and complete evidence of its last completion, so discern can reuse that evidence while those facts stay current.
 
 Find the marker's path with:
 
@@ -271,17 +271,17 @@ The authored `head` and the Proof's `head` name the same commit, because complet
 - A text marker without a version counts as missing evidence, and needs a fresh `discern done`.
 - A marker with a version newer than 1 is kept, and reports that discern must be updated before it can use or replace the marker.
 
-The marker lives in the worktree, and disappears with it. After landing, the [Proof note](#proof-notes) keeps the evidence on the landed commit.
+The marker lives in the worktree, and disappears with it, which is why the recipe search change's evidence now lives in its [Proof note](#proof-notes) on the landed commit.
 
 ## Checkpoint state and declarations
 
-A [checkpoint](glossary.md#checkpoint) pairs a deterministic trigger with a question your agent judges. For completion, discern reads the governing definitions from `[checkpoints]` at the candidate's expected predecessor: the trunk's current tip. A CI report uses the comparison policy it declares. That commit is the **policy identity**, which every report and Proof names.
+A [checkpoint](glossary.md#checkpoint) pairs a deterministic trigger with a question your agent judges. The recipe app's `search-empty-state` checkpoint watches `src/**` and asks whether a search that matches nothing says so and offers a way back to the full list. For completion, discern reads the governing definitions from `[checkpoints]` at the candidate's expected predecessor: the trunk's current tip. A CI report uses the comparison policy it declares. That commit is the **policy identity**, which every report and Proof names.
 
-A `stop` checkpoint pauses `discern done` until your agent records a conclusion. An `advise` checkpoint shows the question without blocking.
+A `stop` checkpoint, like `search-empty-state`, pauses `discern done` until your agent records a conclusion. An `advise` checkpoint shows the question without blocking.
 
 ### Open question states
 
-A `stop` checkpoint that fires opens an **[open question](glossary.md#open-question)** for the effort. It's the record a declaration binds to, and it holds the hash of the resolved definition and the fingerprint of the matched content, called the subject.
+A `stop` checkpoint that fires opens an **[open question](glossary.md#open-question)** for the effort: the record a declaration binds to, holding the hash of the resolved definition and the fingerprint of the matched content, called the subject. When the recipe search change touched `src/recipes.ts`, that's what `search-empty-state` opened.
 
 | State                  | Meaning                                                                          | Resolved by                                             |
 | ---------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------- |
@@ -316,17 +316,17 @@ Each governing checkpoint has an `obligation`, which says whether completion nee
 
 ### Declarations at the gate
 
-`discern done --met <id>` records a declared-met conclusion, and can be repeated. `discern done --unmet <id> --why "<rationale>"` records a declared-unmet conclusion, one per invocation, with a required rationale of 1–500 characters in one paragraph.
+`discern done --met <id>` records a declared-met conclusion, and can be repeated. `discern done --unmet <id> --why "<rationale>"` records a declared-unmet conclusion, one per invocation, with a required rationale of 1–500 characters in one paragraph. For the recipe search change, your agent ran `discern done --met search-empty-state`, which recorded its answer and ran the gate in the same run.
 
-discern checks every declaration in the invocation before it writes anything. If one id or rationale is invalid, it records nothing and runs nothing. Otherwise it records every conclusion, then goes on into the gate in the same run. `discern done` still refuses while any `stop` question waits for a conclusion, or has reopened.
+discern checks every declaration in the invocation before it writes anything, so if one id or rationale is invalid, it records nothing and runs nothing. Otherwise it records every conclusion, then goes on into the gate in the same run. `discern done` still refuses while any `stop` question waits for a conclusion, or has reopened.
 
-Recording a conclusion is the agent's own act, so every surface labels it **[declared met](glossary.md#declared-met)** or **[declared unmet](glossary.md#declared-unmet)**: a recorded judgment, distinct from machine-checked results. The Proof carries declared conclusions separately, and changed declaration evidence makes a recorded Proof stale, even at an unchanged `HEAD`.
+Recording a conclusion is the agent's own act, so every surface labels it **[declared met](glossary.md#declared-met)** or **[declared unmet](glossary.md#declared-unmet)**: a recorded judgment, distinct from machine-checked results. discern has no AI model of its own to judge the answer, so the Proof carries declared conclusions separately, and changed declaration evidence makes a recorded Proof stale, even at an unchanged `HEAD`.
 
 When a landing composes your change with a newer trunk and the combined code serves a checkpoint question, your agent answers it with `discern accept --met`, or `--unmet` with `--why`, naming the composition receipt it was served with `--composition-receipt`.
 
 ### Variance at acceptance
 
-A **variance** is your permission to land a change despite an unmet checkpoint. A current declared-unmet conclusion makes `discern accept` refuse until you authorize each named variance, in the current conversation: `discern accept --confirmed --variance <id>`, which can be repeated. The set of ids must equal the declared-unmet set. Recorded standing and effort grants cover no variance. Each authorization binds to the exact declaration, meaning the checkpoint id, definition hash, subject fingerprint, and rationale, and to the landed commit.
+A **variance** is your permission to land a change despite an unmet checkpoint. Had your agent declared `search-empty-state` unmet, `discern accept` would refuse until you authorized that variance in the current conversation: `discern accept --confirmed --variance <id>`, which can be repeated. The set of ids must equal the declared-unmet set, and recorded standing and effort grants cover no variance, so only you can approve one. Each authorization binds to the exact declaration, meaning the checkpoint id, definition hash, subject fingerprint, and rationale, and to the landed commit.
 
 ### Read surfaces
 
@@ -338,31 +338,34 @@ The [CLI reference](cli-reference.md#discern-checkpoints) covers the command, th
 
 ## Checkpoint `when` protocol
 
-A checkpoint whose structural trigger holds can hand its final firing decision to a command: `when = "<command>"`. During an actual strict or CI run, discern writes one temporary UTF-8 JSON file for the command, and gives its absolute path in `DISCERN_CHECKPOINT_INPUT`. Version 1 has this shape:
+A checkpoint whose structural trigger holds can hand its final firing decision to a command: `when = "<command>"`. During an actual strict or CI run, discern writes one temporary UTF-8 JSON file for the command, and gives its absolute path in `DISCERN_CHECKPOINT_INPUT`. If `search-empty-state` used a `when` command, discern would hand it this version 1 input for the recipe search change:
 
 ```json
 {
   "version": 1,
-  "checkpoint": { "id": "example", "mode": "stop" },
-  "policy_commit": "<governing policy commit id>",
+  "checkpoint": { "id": "search-empty-state", "mode": "stop" },
+  "policy_commit": "bda7dc3e91c142f321d7a85af49d836a7de95315",
   "changed_files": [
     {
-      "path": "src/example.ts",
+      "path": "src/recipes.ts",
       "kind": "modified",
-      "insertions": 4,
-      "deletions": 1,
+      "insertions": 9,
+      "deletions": 0,
       "binary": false
     }
   ],
-  "history": { "count": 2, "fingerprint": "<ordered-history hash>" }
+  "history": {
+    "count": 1,
+    "fingerprint": "942e797e7610e998f2b17184cac930ed90d17bc615657c4e9bd2fa0c91da1461"
+  }
 }
 ```
 
-- **`changed_files`** is sorted by path, and holds the final changed files after structural narrowing. Each `kind` is `added`, `modified`, or `deleted`. Line counts are non-negative integers, and `binary` is always a known Boolean.
+- **`changed_files`** is sorted by path, and holds the final changed files after structural narrowing, which is why the change's test file, outside `src/**`, doesn't appear. Each `kind` is `added`, `modified`, or `deleted`. Line counts are non-negative integers, and `binary` is always a known Boolean.
 - **`history`** is optional. When present, it describes the ordered list of commits from the governing policy commit to the revision being evaluated.
 - The file holds no raw file content, environment dump, question, rationale, or secret.
 
-The input file has mode `0600`, and exists only while its command runs. The command gets a fixed wall-clock budget of 10 seconds, and discern keeps at most 256 KiB of its output. discern removes the file after a fire, a pass, an invalid exit, a timeout, a cancellation, a spawn failure, or an input failure, and finishes that cleanup before an interrupt can be re-raised. `discern checkpoints`, `status`, `prepare`, and dry runs create no input file, and run no `when` command.
+The input file has mode `0600`, and exists only while its command runs, so a `when` command that wants it afterwards has to copy it. The command gets a fixed wall-clock budget of 10 seconds, and discern keeps at most 256 KiB of its output. discern removes the file after a fire, a pass, an invalid exit, a timeout, a cancellation, a spawn failure, or an input failure, and finishes that cleanup before an interrupt can be re-raised. `discern checkpoints`, `status`, `prepare`, and dry runs create no input file, and run no `when` command.
 
 Exit `0` fires the checkpoint, and exit `10` passes it. Anything else is indeterminate, with a typed reason:
 
@@ -376,8 +379,8 @@ Exit `0` fires the checkpoint, and exit `10` passes it. Anything else is indeter
 | The output went past 256 KiB           | `when_output_limit`         |
 | discern couldn't remove the input file | `when_input_cleanup_failed` |
 
-When the structural trigger holds, an indeterminate `stop` checkpoint serves its question against the complete structural matched set, and records the typed uncertainty. An indeterminate `advise` checkpoint stays non-blocking, and reports it. A Proof that carries an indeterminate `stop` can't be reused, and acceptance then needs your confirmation in the current conversation; a recorded grant doesn't cover it.
+When the structural trigger holds, an indeterminate `stop` checkpoint serves its question against the complete structural matched set, and records the typed uncertainty. An indeterminate `advise` checkpoint stays non-blocking, and reports it. A Proof that carries an indeterminate `stop` can't be reused, and acceptance then needs your confirmation in the current conversation, which a recorded grant doesn't cover.
 
 After a decisive fire, `DISCERN_MATCH <path>` lines in the output can narrow the matched set, but can't add a path that isn't in `changed_files`. Without a valid declared match, the checkpoint keeps the structural matched set.
 
-The governing policy commit supplies the command's text. During strict completion, that's the candidate's expected predecessor. The command runs in the candidate worktree, where its scripts, dependencies, configuration, and interpreter resolve. Those dependencies aren't frozen along with the policy's command text.
+The governing policy commit supplies the command's text: during strict completion, that's the candidate's expected predecessor. The command runs in the candidate worktree, where its scripts, dependencies, configuration, and interpreter resolve, so a branch can change what the command runs even though it can't change the command's text.
