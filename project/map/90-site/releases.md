@@ -7,7 +7,7 @@ aliases:
 
 # Release records and comparison
 
-The release site answers from authored Markdown records and a validated publication snapshot. [ADR 0400](../_adr/0400-release-records-drive-offline-release-awareness.md) governs the programme, including later CLI, desk, reminder, adoption, and installer work.
+The release site answers from authored Markdown records and a validated publication snapshot. [ADR 0400](../_adr/0400-release-records-drive-offline-release-awareness.md) governs the program, including later CLI, desk, reminder, adoption, and installer work.
 
 ## Start at the authority
 
@@ -41,9 +41,9 @@ Comparison URLs receive truthful state-specific titles and descriptions, with th
 
 ## Visual and accessibility review
 
-Use the real handler with the synthetic catalogue in [`tests/release_page_fixtures.ts`](../../../tests/release_page_fixtures.ts) to inspect published states before the first stable release. Never manufacture publication input in the live catalogue. Compare an index, current version, one and several intervening releases, an ahead build, a prerelease, encoded build metadata, prerelease-only history, empty history, and malformed or repeated input.
+Use the real handler with the synthetic catalog in [`tests/release_page_fixtures.ts`](../../../tests/release_page_fixtures.ts) to inspect published states before the first stable release. Never manufacture publication input in the live catalog. Compare an index, current version, one and several intervening releases, an ahead build, a prerelease, encoded build metadata, prerelease-only history, empty history, and malformed or repeated input.
 
-[`tests/site_releases_test.ts`](../../../tests/site_releases_test.ts) checks landmarks, heading hierarchy, version anchors, inherited names, dates, publication classes, update eligibility, selectable commands, and every normalized status. It also enrolls the actual catalogue and checks query metadata, error semantics, HEAD, and negotiated text. Static content and accessibility are checked before any page JavaScript runs.
+[`tests/site_releases_test.ts`](../../../tests/site_releases_test.ts) checks landmarks, heading hierarchy, version anchors, inherited names, dates, publication classes, update eligibility, selectable commands, and every normalized status. It also enrolls the actual catalog and checks query metadata, error semantics, HEAD, and negotiated text. Static content and accessibility are checked before any page JavaScript runs.
 
 [`tests/site_releases_browser_test.ts`](../../../tests/site_releases_browser_test.ts) uses the repository's Chromium test runner with responses from the production handler. One shared fixture covers desktop, narrow-screen dark mode, and a 320-pixel no-JavaScript journey. It checks document overflow, command wrapping, keyboard skip navigation, theme switching, and rendered contrast. Review screenshots separately when judging visual changes.
 
@@ -53,7 +53,7 @@ A local build with no publication observation labels records as candidates. An a
 
 The release workflow reads paginated GitHub release and asset observations. [`release_publication.ts`](../../../scripts/release_publication.ts) validates publication flags, assets, retained records, immutable names, and ancestry. The selected release must match the package and tag. [`release_plan.ts`](../../../scripts/release_plan.ts) selects its body/title and GitHub flags before publication. A maintenance release may leave latest unchanged; a prerelease cannot become latest.
 
-Publication and deployment serialize across tags. Source must descend from every published release tag and retain its records. An older tag rerun or a maintenance branch missing current source is refused before it can replace the catalogue. Recover by composing current release source and preparing a new eligible tag; do not move a published tag.
+Publication and deployment serialize across tags. Source must descend from every published release tag and retain its records. An older tag rerun or a maintenance branch missing current source is refused before it can replace the catalog. Recover by composing current release source and preparing a new eligible tag; do not move a published tag.
 
 The [site staging command](../../../scripts/site_deployment.ts) uses the publication validator in [`release_site.ts`](../../../scripts/release_site.ts) to require published assets before writing `site/release-publication.json`. This ephemeral generated input is included in the uploaded source and read again by the remote build. It stays untracked and ignored in the repository; the staged upload must include it explicitly. The normal build writes the ignored `site/pages/release-catalogue.json`; the handler reads that snapshot on release requests, so a watched rebuild exposes newly added records. Keep publication input out of local work and commits. The tests enforce that boundary.
 

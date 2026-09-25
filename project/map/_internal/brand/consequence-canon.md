@@ -10,7 +10,7 @@ _discern's internal account of what changes once the benefits hold. The [Human B
 
 - Take the headline at headline altitude and the consequence at body altitude. The brand decision record on the owner and the agents licenses identity words and aspiration in a headline while body copy carries mechanism words and survives a hostile literal reading; the two fields are that split, so a page lifts the headline and supports it with the consequence.
 - Trust the consequence as far as the claims it cites, and no further. It inherits their evidence classes, their forbidden inferences, and the guards behind them, so a structural consequence is one the Gate defends.
-- Trust the predicted behavior no further than its own class. It uses the ledger's market classes only; a hypothesis is labelled as one on this page and never reaches a fact line or a headline row. A behavior several entries share is recorded once under Shared hypotheses and cited by id.
+- Trust the predicted behavior no further than its own class. It uses the ledger's market classes only; a hypothesis is labeled as one on this page and never reaches a fact line or a headline row. A behavior several entries share is recorded once under Shared hypotheses and cited by id.
 - Read the boundary before lifting a line. It names the nearest forbidden inference in the words the ledger and the boundary canon already use, so a headline never outgrows its claim.
 - Use this canon to decide what a page argues over time; use the benefit canons for the value of one mechanism and the demand canon for the struggle a page opens on.
 
@@ -185,7 +185,7 @@ _discern's internal account of what changes once the benefits hold. The [Human B
 
 ### Every bug you fix is a bug you never fix again
 
-- **Consequence:** A cure covers the class: the cause proven, every current member fixed, and a guard driven from the class's single source left in the Gate, so a future member enrols the moment it exists. Guards only accumulate, a third ratchet beside quality and knowledge.
+- **Consequence:** A cure covers the class: the cause proven, every current member fixed, and a guard driven from the class's single source left in the Gate, so a future member enrolls the moment it exists. Guards only accumulate, a third ratchet beside quality and knowledge.
 - **Then:** The same diagnosis is paid for once, and confidence in old fixes stops decaying.
 - **Evidence:** observational — Forcing-function guards hold this repository's closed sets, and every structural public claim names the test that holds it. (recorded 2026-09-04)
 - **Segments:** experienced engineers, new consequential builders
@@ -341,7 +341,7 @@ _discern's internal account of what changes once the benefits hold. The [Human B
 - **Consequence:** A forcing-function guard fails the moment a new member lacks its projection, and a hint or gotcha arrives inside the result that made it relevant. Recall leaves the critical path for everything the project has encoded.
 - **Then:** Larger changes fit one context window, and a model with less memory can carry work that once needed a stronger model's.
 - **Evidence:** hypothesis — Nothing measures the context saved or the model floor; the shared hypothesis records the belief once. (recorded 2026-09-04) · shared hypothesis [`capable-operators-at-lower-cost`](#capable-operators-at-lower-cost)
-- **Rests on:** Let new members enrol themselves · Recover from a truthful refusal · Load only the context needed.
+- **Rests on:** Let new members enroll themselves · Recover from a truthful refusal · Load only the context needed.
 - **Claims:** [`agent-as-operator`](claims-and-evidence.md#agent-as-operator--discern-is-designed-around-the-coding-agent-as-operator) · [`map-mechanically-checked`](claims-and-evidence.md#map-mechanically-checked--the-map-is-mechanically-checked)
 - **Boundary:** A guard proves declared structural completeness; whether the prose or behavior is the right product decision stays with review.
 

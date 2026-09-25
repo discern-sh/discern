@@ -325,7 +325,7 @@ export const QUESTIONS: readonly Question[] = [
       "and how to recover or clean up when the workflow can fail? Could a fresh agent " +
       "execute it without inventing the missing half?",
     teach:
-      "A good skill packages judgement, not just reminders. Give it a sharp trigger, " +
+      "A good skill packages judgment, not just reminders. Give it a sharp trigger, " +
       "progressively disclose only the needed references, make effects and stop " +
       "conditions explicit, and end with observable Proof that the task succeeded.",
   },

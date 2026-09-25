@@ -594,7 +594,7 @@ The page has already established desire and belief.
 ### Structure
 
 ```text
-<One surprising or recognisable observation.>
+<One surprising or recognizable observation.>
 
 <One changed possibility.>
 
@@ -717,7 +717,7 @@ Possible public line:
 - Do not use the audience signature on every page.
 - Do not stack several headline-inventory lines in one viewport.
 - Do not use a Proof block before the page creates desire.
-- Do not force every capability into a recognisable-moment formula.
+- Do not force every capability into a recognizable-moment formula.
 - Do not split every paragraph into engineer and new-builder variants.
 - Do not make every heading a two-part aphorism.
 - Do not use artifacts as decoration; each should support a claim.

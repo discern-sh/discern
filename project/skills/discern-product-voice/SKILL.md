@@ -20,7 +20,7 @@ The product voice is:
 
 It is calm, canonical, bounded, and useful under pressure.
 
-Plain words and short sentences are part of exactness. A reader can't act on a fact they have to decode.
+Being understood is part of exactness: use the most precise word the reader already knows, in sentences they can follow on first reading. A reader can't act on a fact they have to decode.
 
 The product never uses personality to conceal uncertainty, state, authority, or consequences.
 
@@ -221,9 +221,10 @@ Review sentences around the machine state `honored` so they read naturally; in h
 ## Sentence design
 
 - Prefer active voice when the actor or system action matters.
-- Give every sentence an actor: the person, the agent, or discern. Don't let an abstraction such as "the practice" or "evidence" do the work.
+- Make clear who acts: the person, the agent, or discern. Don't let an abstraction such as "the practice" or "evidence" do the work, or let an object act for a person.
 - Prefer verbs to abstract nouns: "you said yes" instead of "consent was attested".
-- Keep sentences short. In documentation, aim for 10 to 14 words on average and split any sentence over 25 words.
+- Use the most precise word the reader already knows: "tests" or "linter" when that's what ran, instead of a vaguer "checks". Give the plain category first where a newer reader might stall: "code-quality tools, such as the linter".
+- Keep status lines, errors, hints, and tips to short sentences, one state or action each. In documentation, let a sentence carry one line of reasoning: split it where it makes two separate claims, and never between a cause and its effect.
 - Keep one action per sentence in high-stakes instructions.
 - Put commands in code formatting.
 - Keep path, branch, and identifier spellings exact.
@@ -299,14 +300,17 @@ State:
 ### Documentation
 
 - what the reader gets first, in the reader's terms;
-- plain words and short sentences a reader can follow on first reading;
-- a clear actor in every sentence: you, your agent, or discern;
-- one example carried through the page;
+- the most precise words the reader already knows, in sentences that connect their reasoning;
+- the worry a feature answers, named as a fact, then the mechanism that answers it;
+- a clear actor at every step: you, your agent, or discern;
+- one example, set as a scene and followed to its outcome;
 - each term defined in the sentence where it first appears, then used consistently;
-- literal headings that state what the section answers or does;
+- literal headings that state what the section answers or does, carrying the concept's term;
 - canonical nouns;
 - the real artifact shown, then explained;
-- mechanism and boundary, with each limit stated once where it matters;
+- each limit stated once, inside the step where it changes a decision;
+- strong claims made exact instead of hedged;
+- requests written as the reader's intent;
 - examples that match live commands;
 - example values with personality: `ada`, `apollo-11`, `margaret@hamilton.example` — never `foo` or `user1`;
 - explicit links to deeper reference;
@@ -326,7 +330,7 @@ The public manual follows `project/map/_internal/brand/manual-authoring.md`, whi
 | Destructive action      | Explicit, sober, confirmation-oriented               |
 | Consent or authority    | Precise, human, consequence-aware                    |
 | Setup narration         | Warm, transparent, stage-level                       |
-| Teaching documentation  | Plain, warm, direct; the reader's gain first         |
+| Teaching documentation  | Precise, warm, connected; the reader's gain first    |
 | Reference documentation | Dense only where precision requires it               |
 | Advisory analysis       | Evidence-led, non-judgmental, careful with inference |
 | Successful handoff      | Calm confidence; state what remains for the human    |
@@ -380,9 +384,17 @@ Better:
 
 > What helps that exchange keep working as the project grows is a shared account of how the project works, what it values, and what needs checking before a change is complete.
 
-### Plain documentation: stronger
+### Concrete documentation: stronger
 
-> discern gives each part of the job a clear owner. You decide what to build and what ships. Your agent does the work. The project remembers what the next task needs to know.
+> Every agent session loads the project's instructions, so an agent that picks up a half-finished feature already knows the conventions and what has to pass before the change counts as done.
+
+### Vague documentation: reject
+
+> The gate checks your work before it lands.
+
+### Precise documentation: stronger
+
+> The gate runs your project's own commands, such as its linter and tests, on the committed change, and discern records which of them passed.
 
 ### Performative consent: reject
 
@@ -413,7 +425,7 @@ Reject copy that:
 
 Avoid these patterns by default. The entries describe narrow exceptions, not reasons to add the pattern. Review a flagged sentence for a clearer direct explanation before retaining it. Selected detectors prompt editorial review; blocking findings still require correction.
 
-1. **Contrast-frames:** Avoid contrast framing such as “not X, but Y” or “X, not Y.” State what happens and what the reader does next. Keep a contrast only when it corrects a likely misunderstanding with a practical consequence that a direct explanation would leave unclear. Do not invent a mistaken belief for the reader or use a contrast to praise the preferred choice. Repeat a necessary distinction in a lookup entry only when readers need it there.
+1. **Contrast-frames:** Avoid contrast framing such as “not X, but Y” or “X, not Y.” State what happens and what the reader does next. Keep a contrast only when it corrects a likely misunderstanding with a practical consequence that a direct explanation would leave unclear. Do not invent a mistaken belief for the reader or use a contrast to praise the preferred choice. Repeat a necessary distinction in a lookup entry only when readers need it there. Naming the real alternative a design choice avoids, with “instead of” or “rather than”, is a direct explanation: keep it when a simpler tool or the reader's current habit would take that path.
 2. **Empty mirrored clauses:** Short mirrored clauses fail when symmetry is doing all the work ("Agents forget. The repo remembers."). A compact contrast may stay when each half names a specific, defensible product truth ("Agents come and go. The practice stays."). Use it sparingly, then make the mechanism literal.
 3. **Self-narration:** Announcing importance instead of stating the point: "this is the crux," "here's the key insight," and the colon-pivot opener that pre-announces its own sentence. Say the point; the reader decides what's crucial.
 4. **Attitude fragments:** Fragments that strike a pose rather than state a spec ("Not vibes. A verdict."). Spec fragments listing facts are legal: "Any stack. Any coding agent. No API key."
@@ -449,11 +461,12 @@ Each entry explains the failure to avoid and the reason for it. Context-sensitiv
 
 ## Enforcement
 
-Vale detects the mechanical subset of these rules in the linted map and manual. New or rewritten pages must have zero blocking findings. Review editorial alerts as opportunities to improve the sentence, not invitations to justify it. Try a direct explanation first; retain a flagged construction only when it carries necessary meaning. Counted introductions and scope intensifiers remain blocking. The shared `EDITORIAL_PROSE_RULES` policy in `scripts/prose_lib.ts` names the selected advisory rules; other blocking rules remain enforced. Re-check map pages with `discern scripts prose-page <page…>` and use `scripts/manual_prose_check.ts --review` for manual pages. Review the full alerts as well as the blocking result. The `manual_reading_grade` standard holds the manual's reading grade as a falling ceiling; aim new and rewritten teaching pages at grade 7.5 or lower, and use `scripts/manual_reading_grade.ts --pages` to see each page's grade. A passing check does not replace editorial judgment.
+Vale detects the mechanical subset of these rules in the linted map and manual. New or rewritten pages must have zero blocking findings. Review editorial alerts as opportunities to improve the sentence, not invitations to justify it. Try a direct explanation first; retain a flagged construction only when it carries necessary meaning. Counted introductions and scope intensifiers remain blocking. The shared `EDITORIAL_PROSE_RULES` policy in `scripts/prose_lib.ts` names the selected advisory rules; other blocking rules remain enforced. Re-check map pages with `discern scripts prose-page <page…>` and use `scripts/manual_prose_check.ts --review` for manual pages. Review the full alerts as well as the blocking result. The `manual_reading_grade` standard holds the manual's reading grade as a falling ceiling, and `scripts/manual_reading_grade.ts --pages` lists each page's grade to find the hardest pages. The grade measures sentence and word length, so connected reasoning raises it: never split a line of reasoning to lower it. `tests/us_spelling_guard_test.ts` holds shipped strings, templates, instruction sources, and skills to the house Vale rule's American spellings. A passing check does not replace editorial judgment.
 
 ## Mechanics
 
-- American English spelling throughout: color, behavior, -ize.
+- American English spelling throughout: color, behavior, catalog, judgment, -ize.
+- Quotation marks around anything a person says to their agent, including a request set off as a block quote.
 - Sentence case for headings, titles, buttons, and labels.
 - Serial comma.
 - Numerals for numbers in technical contexts (3 retries, 80ms), even under ten.

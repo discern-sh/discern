@@ -748,7 +748,7 @@ function renderFooter(
     out.raw(`${
       presenter.present(renderCommandCli, {
         command: terminalLine("discern improvement --category <name>"),
-        explanation: terminalLine("Focus the report on one catalogue area."),
+        explanation: terminalLine("Focus the report on one catalog area."),
         maxWidth: width,
       })
     }\n`);

@@ -51,7 +51,7 @@ The selected-entry rail includes **Brief an agent**. The panel accepts a short d
 
 **Copy brief** copies the visible preview. When clipboard access fails, the preview stays focused and selected with a manual-copy instruction. Composition happens in the browser from the entry data Canon Editor already loaded. The action has no dispatch, worktree, file-write, guard, gate, Git, or remote-request route.
 
-## Enrolment
+## Enrollment
 
 The guard net Canon Editor serves also holds the editor itself. `PROSE_REGISTRY_NAMES` owns the supported registry names, and the parity guard in `tests/canon_editor_parity_test.ts`, registered with each prose registry in [canonical sets](canonical-sets.md), pins annotated renders to their committed pages, requires every page to declare a corpus and prose policy, requires every canon entry to surface an annotated span, and holds the syntax enumeration equal to the evaluated registries. The field maps in `scripts/canon_editor/fields.ts` compile `satisfies` clauses over the registry interfaces, so a new registry field breaks the editor's typecheck until the field is classified. Closed live lists must declare picker write-back, and picker sources stay in two-way parity with their builders. The server guard enumerates those entries and fields through the HTTP projection and requires every locked leaf to carry a reason. `tests/canon_editor_isolation_test.ts` discovers the editor suites through the Git-derived source universe and reruns them without write authority over the checkout; a new suite enrolls automatically, and a live-tree write fails by permission under the parallel runner.
 

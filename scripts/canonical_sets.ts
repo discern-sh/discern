@@ -217,7 +217,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       },
       featureCanon: {
         absent:
-          "The release-awareness programme owns the later CLI feature enrollment.",
+          "The release-awareness program owns the later CLI feature enrollment.",
       },
     },
     members: async () =>
@@ -3501,7 +3501,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "contributor-agreement-gist-files",
     title: "Contributor License Agreement Gist files",
     what:
-      "The exact repository sources mirrored into the hosted CLA Assistant Gist: the individual agreement and its generated required acknowledgement.",
+      "The exact repository sources mirrored into the hosted CLA Assistant Gist: the individual agreement and its generated required acknowledgment.",
     source: {
       kind: "module",
       module: "scripts/contributor_agreement.ts",
@@ -3795,7 +3795,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "canary-tests",
     title: "Canary test membership",
     what:
-      "The recorded judgments behind the canary check job: extras promoted on recorded failure evidence and refusals with their cost measurements, layered over the guard- and enrolment-name convention.",
+      "The recorded judgments behind the canary check job: extras promoted on recorded failure evidence and refusals with their cost measurements, layered over the guard- and enrollment-name convention.",
     source: {
       kind: "module",
       module: "scripts/canary_registry.ts",
@@ -4298,6 +4298,8 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
     "applies a byte-level rule across authored text for raw control bytes that Portable Operating System Interface (POSIX) tools read as binary",
   "tests/adr_vocab_guard_test.ts":
     "applies a vocabulary rule across shipped strings for internal decision citations",
+  "tests/us_spelling_guard_test.ts":
+    "applies the house Vale rule's American-spelling word list across shipped strings, templates, instruction sources, and skills rather than guarding a closed member set",
   "tests/engine_tree_drift_test.ts":
     "checks the Gate's strand-detection pipeline invariant behaviorally",
   "tests/upgrade_git_guard_test.ts":

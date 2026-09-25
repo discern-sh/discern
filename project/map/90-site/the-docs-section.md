@@ -20,7 +20,7 @@ aliases:
 | `/docs` and `/docs/<section>/<page>` | [`buildManualProjection`](../../../src/lib/manual.ts) over `project/manual/` | Current tutorials, guides, explanations, reference, and troubleshooting.                      |
 | `/docs/index.json`                   | Every published manual page                                                  | Manual-only local search.                                                                     |
 | `/map`                               | The configured Map filtered by [`isPublicMapEntry`](../../../site/docs.tsx)  | A live, inspectable internal-use account—not product documentation or independent validation. |
-| `/docs/decisions` and its records    | Published `_adr/` records                                                    | Labelled project history.                                                                     |
+| `/docs/decisions` and its records    | Published `_adr/` records                                                    | Labeled project history.                                                                      |
 
 Manual and decision routes, plus the map root, have pristine `.md` editions and text-client negotiation. The sitemap derives from the same admitted route sets. `/llms.txt` and `/llms-full.txt` list the manual and exclude the map; decisions remain outside ordinary manual search and navigation.
 

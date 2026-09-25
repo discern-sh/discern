@@ -2282,7 +2282,7 @@ const sequenceAnomaly: Detector = {
 
 const identityGap: Detector = {
   id: "identity-gap",
-  title: "Drivers the catalogue can't name",
+  title: "Drivers the catalog can't name",
   family: "behavior",
   scope: "project",
   tier: "batch",
@@ -2329,7 +2329,7 @@ const identityGap: Detector = {
         summary: "Some MCP runs could not be attributed to a known client.",
         observed: `\`${name}\` drove ${formatHumanNumber(count)} of ${
           formatHumanNumber(bearing.length)
-        } identity-bearing runs but matches nothing in the identity catalogue.`,
+        } identity-bearing runs but matches nothing in the identity catalog.`,
         evidence: { runs: count, identity_bearing_runs: bearing.length },
         strength: count,
       });

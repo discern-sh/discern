@@ -73,7 +73,7 @@ The same rule permits a role's first aggregate. The baseline must have no regist
 ## Where the policy is written down
 
 - Every published member on one page: the generated [public contract digest](../_internal/public-contract-digest.md), rendered from the committed artifacts by `deno task codegen`.
-- The programme that closed the contract before the first tag: [ADR 0410](../_adr/0410-the-public-contract-programme-closes-before-the-first-tag.md).
+- The program that closed the contract before the first tag: [ADR 0410](../_adr/0410-the-public-contract-programme-closes-before-the-first-tag.md).
 - The rationale: [ADR 0409](../_adr/0409-public-contracts-split-durable-enforcement-from-session-judgment.md), amending [ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md) (identity and majors) and [ADR 0390](../_adr/0390-public-contracts-preserve-behavior-and-independent-format-versions.md) (documentation and private formats).
 - The public promise: the manual's [compatibility page](https://discern.sh/docs/reference/compatibility) (`project/manual/30-reference/compatibility.md`).
 - The runtime side of the vocabularies: [Result contracts and protocol adapters](../50-engine-internals/the-result-envelope.md#runtime-schemas-and-enrollment).

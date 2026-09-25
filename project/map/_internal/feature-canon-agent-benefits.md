@@ -196,7 +196,7 @@ A coding agent can invoke focused project procedures that carry quality discipli
 - **Direct product basis:** Skills · Materialization · A curated bundled set · Cure a bug · Set the standard · Place a checkpoint · Clear the decks · Delegate work · Await the fleet · Teach the project · Write an ADR · Write it once.
 - **Public claims:** `shaped-delegation`.
 
-### Let new members enrol themselves
+### Let new members enroll themselves
 
 - **Agent value:** A coding agent adding to a closed product set is forced toward every required projection and guard instead of relying on memory to update copied lists.
 - **Why it follows:** Forcing functions derive satellites from canonical sets, and structural tests fail when a new member lacks a required handler, document, schema, or coverage account.

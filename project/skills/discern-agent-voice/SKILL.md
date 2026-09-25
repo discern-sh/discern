@@ -367,7 +367,8 @@ Avoid marketing headlines without explanatory context.
 
 ## Mechanics
 
-- American English spelling throughout: color, behavior, -ize.
+- American English spelling throughout: color, behavior, catalog, judgment, -ize.
+- Quotation marks around anything a person says to their agent, including a request set off as a block quote.
 - Sentence case for headings, titles, buttons, and labels.
 - Serial comma.
 - Numerals for numbers in technical contexts (3 retries, 80ms), even under ten.

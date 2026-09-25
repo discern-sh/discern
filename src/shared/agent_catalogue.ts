@@ -245,7 +245,7 @@ function nativeAgentNames(): readonly [
     e.nativeName
   );
   if (names.length === 0) {
-    throw new Error("the agent catalogue must declare a native provider");
+    throw new Error("the agent catalog must declare a native provider");
   }
   return names as [NativeAgentName, ...NativeAgentName[]];
 }
@@ -260,7 +260,7 @@ export function agentLabelForNative(name: NativeAgentName): string {
       return identity.label;
     }
   }
-  throw new Error(`missing agent-catalogue entry for native provider ${name}`);
+  throw new Error(`missing agent-catalog entry for native provider ${name}`);
 }
 
 /** The catalogue-owned compiled-instruction path for one native provider. */
@@ -274,6 +274,6 @@ export function instructionPathForNative(name: NativeAgentName): string {
     }
   }
   throw new Error(
-    `missing agent-catalogue instruction path for native provider ${name}`,
+    `missing agent-catalog instruction path for native provider ${name}`,
   );
 }

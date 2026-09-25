@@ -4128,7 +4128,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
       },
       {
         id: "let-new-members-enrol-themselves",
-        title: "Let new members enrol themselves",
+        title: "Let new members enroll themselves",
         value:
           "A coding agent adding to a closed product set is forced toward every required projection and guard instead of relying on memory to update copied lists.",
         whyItFollows:

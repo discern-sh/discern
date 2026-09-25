@@ -146,13 +146,13 @@ A bug is one member of a pattern, and fixing the member leaves the pattern alive
 
 > A bug is fixed at its class, with a proven cause and a permanent guard, so it cannot return unnoticed.
 
-The cure-a-bug skill requires the cause proven, the fix applied to every member of the class, and a guard driven from the class's single source left in the gate, so a future member enrols the moment it exists.
+The cure-a-bug skill requires the cause proven, the fix applied to every member of the class, and a guard driven from the class's single source left in the gate, so a future member enrolls the moment it exists.
 
 - **Arc:** craft
 - **Upheld:** taught by `discern-cure-a-bug`
 - **Mechanisms:** Cure a bug · Forcing-function parity.
 - **Human value:** Keep the gains the project earns.
-- **Agent outcomes:** Invoke curated project procedures · Let new members enrol themselves.
+- **Agent outcomes:** Invoke curated project procedures · Let new members enroll themselves.
 - **Maintains:** its checks.
 
 ### 10. Write it once
@@ -161,13 +161,13 @@ A fact kept in two places will disagree with itself, and the only question is wh
 
 > Every shared fact has one authority; copies are generated from it, and a declared copy that drifts fails the gate.
 
-The write-it-once skill carries the discipline discern builds itself with: one authority per fact with bound consumers, guards that enrol future members, effects planned before they run. Generated artifacts regenerate from their sources, and the gate fails a copy that drifted.
+The write-it-once skill carries the discipline discern builds itself with: one authority per fact with bound consumers, guards that enroll future members, effects planned before they run. Generated artifacts regenerate from their sources, and the gate fails a copy that drifted.
 
 - **Arc:** craft
 - **Upheld:** enforced via `[generated]` · taught by `discern-write-it-once`
 - **Mechanisms:** Write it once · Generated artifact declarations · The closed set of closed sets.
 - **Human value:** Keep project knowledge available.
-- **Agent outcomes:** Let new members enrol themselves.
+- **Agent outcomes:** Let new members enroll themselves.
 - **Maintains:** its checks.
 
 ### 11. No dead ends
@@ -258,7 +258,7 @@ The project holds its instructions, its working conditions, its checks, its evid
 
 ## Coding-agent outcome index
 
-Each Agent Benefit Canon outcome points back to the tenets or properties that produce it. A new outcome enters this index from the Agent Benefit Canon and fails the enrolment guard until the practice claims it or records why it does not follow from the practice.
+Each Agent Benefit Canon outcome points back to the tenets or properties that produce it. A new outcome enters this index from the Agent Benefit Canon and fails the enrollment guard until the practice claims it or records why it does not follow from the practice.
 
 - **Orient from one bounded result** — 1. Arrive knowing · 11. No dead ends
 - **Recover from a truthful refusal** — 11. No dead ends
@@ -278,7 +278,7 @@ Each Agent Benefit Canon outcome points back to the tenets or properties that pr
 - **Inherit current agent instructions** — 1. Arrive knowing
 - **Recover the project mental model** — 1. Arrive knowing · 8. The project remembers · Property: Ordinary files, yours
 - **Invoke curated project procedures** — 1. Arrive knowing · 8. The project remembers · 9. Cure the class
-- **Let new members enrol themselves** — 9. Cure the class · 10. Write it once
+- **Let new members enroll themselves** — 9. Cure the class · 10. Write it once
 - **Diagnose workflow friction locally** — 5. Keep every gain · Property: Local
 - **Operate without a hidden model** — Property: No model inside
 - **Operate as the primary user** — 11. No dead ends

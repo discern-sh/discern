@@ -6,7 +6,7 @@ aliases:
 
 # Managed adoption
 
-`meta.managed_version` answers which discern release last successfully adopted the project's managed material. Start with the [shared classifier](../../../src/shared/managed_version.ts), then the [transaction and evidence decision](../_adr/0401-managed-adoption-keeps-currency-and-proof-separate.md). The programme authority is [ADR 0400](../_adr/0400-release-records-drive-offline-release-awareness.md).
+`meta.managed_version` answers which discern release last successfully adopted the project's managed material. Start with the [shared classifier](../../../src/shared/managed_version.ts), then the [transaction and evidence decision](../_adr/0401-managed-adoption-keeps-currency-and-proof-separate.md). The program authority is [ADR 0400](../_adr/0400-release-records-drive-offline-release-awareness.md).
 
 ## Boundaries
 
