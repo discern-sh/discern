@@ -189,7 +189,7 @@ None of these options grants landing authority, and none changes which checkout 
 
 #### Acceptance options
 
-For an ordinary acceptance, your agent leaves out `action`. From the effort's worktree, the call records the effort's submission, meaning the exact `HEAD` and its Proof, and lands it once discern verifies the landing authority. Without authority, it refuses without changing anything: the submission waits in the landing queue for you, and the agent relays the Proof line.
+For an ordinary acceptance, your agent leaves out `action`. From the [effort](glossary.md#effort)'s worktree, the call records the effort's submission, meaning the exact `HEAD` and its Proof, and lands it once discern verifies the landing authority. Without authority, it refuses without changing anything: the submission waits in the landing queue for you, and the agent relays the Proof line.
 
 - **`target`** selects a task by id, path, branch, or full local ref. A call from the main checkout must name one. With `target`, ordinary acceptance starts a walk: it lands the selected submission first, then other authorized submissions in queue order, and stops at the first refusal. `data.landings` records each attempt.
 - **Consent** covers only the submitted commit. `confirmed: true` records consent you gave in the current conversation, and `variance` and `approve_standard` each require it.

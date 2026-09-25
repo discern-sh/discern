@@ -178,7 +178,7 @@ Neither structured mode includes rendered Proof pages, which only terminal `--ve
 
 MCP `content` and `discern status --markdown` give an authored summary of the same state. Its Owner attention section keeps decisions for you apart from the reading agent's next action.
 
-Every task in the fleet is a separate effort, even when it's idle or clean, and its row grants no permission to take over its worktree. A clean sibling stays occupied until its owner lands or discards it, so an idle-looking recipe search worktree still belongs to that task, and no other agent should take it over. Its maintenance state appears under Owner attention.
+Every task in the fleet is a separate [effort](glossary.md#effort), even when it's idle or clean, and its row grants no permission to take over its worktree. A clean sibling stays occupied until its owner lands or discards it, so an idle-looking recipe search worktree still belongs to that task, and no other agent should take it over. Its maintenance state appears under Owner attention.
 
 #### Git and Proof states
 

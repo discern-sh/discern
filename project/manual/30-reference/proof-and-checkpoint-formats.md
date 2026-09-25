@@ -281,7 +281,7 @@ A `stop` checkpoint, like `search-empty-state`, pauses `discern done` until your
 
 ### Open question states
 
-A `stop` checkpoint that fires opens an **[open question](glossary.md#open-question)** for the effort: the record a declaration binds to, holding the hash of the resolved definition and the fingerprint of the matched content, called the subject. When the recipe search change touched `src/recipes.ts`, that's what `search-empty-state` opened.
+A `stop` checkpoint that fires opens an **[open question](glossary.md#open-question)** for the [effort](glossary.md#effort), the task the change belongs to. The open question is the record a declaration binds to, holding the hash of the resolved definition and the fingerprint of the matched content, called the subject. When the recipe search change touched `src/recipes.ts`, that's what `search-empty-state` opened.
 
 | State                  | Meaning                                                                          | Resolved by                                             |
 | ---------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------- |
