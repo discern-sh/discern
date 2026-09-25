@@ -51,7 +51,7 @@ These moves connect a worktree to other work:
 | **Build on work in progress** | Starts a task from another task's branch, or merges that branch into one. | A task that writes help pages for search starts from the search branch. |
 | **Land**                      | Checks the Proof and permission, then moves the trunk to what passed.     | `main` gets the search you approved.                                    |
 
-You don't need to run these yourself. Your agent runs `discern update`, `discern start --from` or `discern update --from`, and `discern accept`, and each result tells it what to do next. When an update brings in new work, for example, discern lists the files both sides changed, so the agent knows what to re-read.
+You don't need to run these yourself. Your agent runs `discern update`, `discern start --from` or `discern update --from`, and `discern accept`, and each result tells it what to do next.
 
 When one task needs another's work, the agent can [wait for it](../20-guides/wait-for-another-task.md), so you don't have to tell it when the other task is ready.
 
