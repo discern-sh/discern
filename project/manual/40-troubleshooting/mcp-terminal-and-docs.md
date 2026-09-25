@@ -97,7 +97,7 @@ When the agent runs `discern done` again after a stopped run, commands that didn
 
 `discern progress <handle>` returns the run's saved result, with every failure and the command that reproduces it. discern keeps these for up to 7 days. When there are many runs, it drops the oldest finished ones sooner.
 
-Each command's full output is in a file the result names as `output_path`, which you can open in any editor. These files are in your system's temp directory, with names such as `discern-job-recipes-recipe-search-ec0b65-1415354c3920ea7.log` that start `discern-job-` or `discern-diag-`, and discern keeps them for 24 hours. [Files named `discern-…` in the temp directory](crashes-and-local-state.md#files-named-discern--in-the-temp-directory) lists every kind.
+Each command's full output is in a file the result names as `output_path`, which you can open in any editor. These files are in your system's temp directory, with names starting `discern-job-` or `discern-diag-`, and discern keeps them for 24 hours. [Files named `discern-…` in the temp directory](crashes-and-local-state.md#files-named-discern--in-the-temp-directory) lists every kind.
 
 Running the command again to see its output costs another run, and it can change the state you were trying to read.
 
