@@ -1,7 +1,7 @@
 ---
 id: guide-connect-a-coding-agent
 title: "Connect a coding agent"
-description: "Add a coding tool to your project, and its sessions start with the same instructions and skills, and finish through the same gate, as the tools you already use."
+description: "Add a coding tool to your project, and it starts with the same instructions and skills as your other tools, and its changes face the same tests and linters."
 order: 130
 publish: true
 kind: guide
