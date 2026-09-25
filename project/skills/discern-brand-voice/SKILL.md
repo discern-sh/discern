@@ -381,7 +381,7 @@ One conspicuous verbal device in a hero or section is usually enough.
 
 Avoid these patterns by default. The entries describe narrow exceptions, not reasons to add the pattern. Review a flagged sentence for a clearer direct explanation before retaining it. Selected detectors prompt editorial review; blocking findings still require correction.
 
-1. **Contrast-frames:** Avoid contrast framing such as “not X, but Y” or “X, not Y.” State what happens and what the reader does next. Keep a contrast only when it corrects a likely misunderstanding with a practical consequence that a direct explanation would leave unclear. Do not invent a mistaken belief for the reader or use a contrast to praise the preferred choice. Repeat a necessary distinction in a lookup entry only when readers need it there.
+1. **Contrast-frames:** Avoid contrast framing such as “not X, but Y” or “X, not Y.” State what happens and what the reader does next. Keep a contrast only when it corrects a likely misunderstanding with a practical consequence that a direct explanation would leave unclear. Do not invent a mistaken belief for the reader or use a contrast to praise the preferred choice. Repeat a necessary distinction in a lookup entry only when readers need it there. Naming the real alternative a design choice avoids, with “instead of” or “rather than”, is a direct explanation: keep it when a simpler tool or the reader's current habit would take that path.
 2. **Empty mirrored clauses:** Short mirrored clauses fail when symmetry is doing all the work ("Agents forget. The repo remembers."). A compact contrast may stay when each half names a specific, defensible product truth ("Agents come and go. The practice stays."). Use it sparingly, then make the mechanism literal.
 3. **Self-narration:** Announcing importance instead of stating the point: "this is the crux," "here's the key insight," and the colon-pivot opener that pre-announces its own sentence. Say the point; the reader decides what's crucial.
 4. **Attitude fragments:** Fragments that strike a pose rather than state a spec ("Not vibes. A verdict."). Spec fragments listing facts are legal: "Any stack. Any coding agent. No API key."
@@ -523,7 +523,8 @@ Avoid repeated generic labels such as “Explore,” “Discover,” and “Lear
 
 ## Mechanics
 
-- American English spelling throughout: color, behavior, -ize.
+- American English spelling throughout: color, behavior, catalog, judgment, -ize.
+- Quotation marks around anything a person says to their agent, including a request set off as a block quote.
 - Sentence case for headings, titles, buttons, and labels.
 - Serial comma.
 - Numerals for numbers in technical contexts (3 retries, 80ms), even under ten.
