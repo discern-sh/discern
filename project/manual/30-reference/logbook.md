@@ -198,13 +198,13 @@ A historical report never changes the archive, and its own event goes to the act
 
 ### What a line contains
 
-Each line is one JSON object of names and numbers, never code, prompts, command output, or file contents. The recipe search branch's third refused `discern done` added this line, shown here across several lines for reading:
+Each line is one JSON object of names and numbers, never code, prompts, command output, or file contents. The recipe search branch's third refused `discern done` added this line, shown here across several lines for reading, with the version that wrote it left as a placeholder:
 
 ```json
 {
   "schema": 1,
   "at": "2026-09-25T01:36:09.342Z",
-  "writer": "1.1.0",
+  "writer": "<discern version>",
   "kind": "verb",
   "invocation": "ece48d9e-83bb-4181-8267-81c5266f4fef",
   "verb": "done",
@@ -257,7 +257,7 @@ An invocation's `surface` is `cli` or `mcp`. Its `outcome` is `ok`, `failed`, `p
 | `at`            | An ISO 8601 UTC timestamp.                                                                                                                         |
 | `kind`          | `"begin"`, `"verb"`, or a rarer event kind.                                                                                                        |
 | `invocation`    | The opaque id that joins a start and its completion.                                                                                               |
-| `writer`        | The discern version that wrote the line, such as `"1.1.0"`.                                                                                        |
+| `writer`        | The discern version that wrote the line, such as `"1.0.0"`.                                                                                        |
 | `verb`          | The command, such as `"done"`.                                                                                                                     |
 | `surface`       | `"cli"` or `"mcp"`.                                                                                                                                |
 | `driver`        | Session, mode, CI, the spawning invocation, and possible agent signals.                                                                            |
