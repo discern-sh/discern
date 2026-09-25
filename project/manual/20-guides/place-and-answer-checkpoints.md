@@ -120,7 +120,7 @@ A met answer is the agent's judgment. discern makes sure the question gets an an
 
 ### A later edit reopens the question
 
-The answer covers the delete flow as the agent saw it. If the agent changes those files again, the question reopens and the agent judges the new version. A changed answer or reason also makes the Proof stale, even without a new commit, so the agent runs `discern done` again for fresh Proof.
+The answer covers the delete flow as the agent saw it. If the agent changes those files again, the question reopens and the agent judges the new version. Any new commit makes the Proof stale, and so does a changed answer or reason, even on the same commit, so the agent runs `discern done` again for fresh Proof.
 
 ## Decide on an unmet answer
 
