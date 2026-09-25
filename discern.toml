@@ -1232,7 +1232,7 @@
 [standards.manual_reading_grade]
   metric = "manual_reading_grade"
   direction = "down"
-  limit = 9.39
+  limit = 8.09
   margin = 0.2
   run = "deno run --allow-read scripts/manual_reading_grade.ts"
   inputs = [
