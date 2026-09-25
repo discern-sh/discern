@@ -72,14 +72,14 @@ You don't need to crash discern again to make a useful report. If the same comma
 
 discern writes a few kinds of file to your system's temp directory. You don't need to clean them up.
 
-| Name starts with            | What it holds                                                                                                     |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `discern-job-`              | The full output of one check. A result names it as `output_path`.                                                 |
-| `discern-diag-`             | The full text of a failure message that the result shortened.                                                     |
-| `discern-crash-`            | A crash report that discern couldn't save in the repository.                                                      |
-| `discern-checkpoint-input-` | Input for the command that decides whether a checkpoint question applies. It exists only while that command runs. |
-| `discern-self-`             | A leftover folder discern uses when it runs outside a repository.                                                 |
-| `discern-test-`             | A leftover folder from discern's own tests.                                                                       |
+| Name starts with            | What it holds                                                                                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern-job-`              | The full output of one check. A result names it as `output_path`.                                                                                 |
+| `discern-diag-`             | The full text of a failure message that the result shortened.                                                                                     |
+| `discern-crash-`            | A crash report that discern couldn't save in the repository.                                                                                      |
+| `discern-checkpoint-input-` | Input for the command that decides whether one of your project's review questions, a checkpoint, applies. It exists only while that command runs. |
+| `discern-self-`             | A leftover folder discern uses when it runs outside a repository.                                                                                 |
+| `discern-test-`             | A leftover folder from discern's own tests.                                                                                                       |
 
 These files expire after 24 hours. `discern done`, `discern prepare`, and `discern test` remove expired ones as they run, at most once an hour and a batch at a time, so a file can stay a little longer.
 
@@ -87,7 +87,7 @@ If you need a command's output for an investigation, copy it before it expires, 
 
 ## The `.git/discern` directory
 
-Leave this directory in place, because discern keeps its working records here: Proof (its record of which commands passed), landing permissions you gave in advance, recovery records for interrupted runs and landings, the logbook, the list of services such as test databases that each worktree set up, and crash reports. Deleting it can remove what a task needs to finish or recover.
+Leave this directory in place, because discern keeps its working records here: Proof (its record of which commands passed), landing permissions you gave in advance, recovery records for interrupted runs and landings, the logbook of what discern's commands did, the list of services such as test databases that each worktree set up, and crash reports. Deleting it can remove what a task needs to finish or recover.
 
 In a task's worktree, `.git` is usually a small file, not a folder, that points to Git's storage in your main checkout. Every worktree shares some of discern's records, and others belong to one worktree. The [runtime state reference](../30-reference/files-and-ownership.md#runtime-state-inside-git) lists which is which.
 

@@ -105,7 +105,7 @@ If the result names a section your discern doesn't recognize, check for a typo f
 
 Setup keeps its progress, so a new session carries on where the last one stopped. When you ask your agent to resume setup in the recipe app, it runs `discern setup`, which works out whether setup is not started, in progress, or done, and names the next command. Resuming with `discern setup begin` shows the setup instructions again and skips the steps already finished.
 
-**The result of `discern setup done` got lost.** Your agent runs it again. If the setup commit hasn't changed since it passed, discern returns the saved Proof without running the checks again:
+**The result of `discern setup done` got lost.** Your agent runs it again. If the setup commit hasn't changed since it passed, discern returns the saved **Proof**, its record of which commands passed on that commit, without running the checks again:
 
 ```text
 This exact clean commit already has current Proof; no write, worktree probe, or gate job ran.
@@ -115,7 +115,7 @@ If anything changed, the checks run again. If there are uncommitted changes, dis
 
 ## A worktree setup step may have finished
 
-When discern creates a worktree, it runs your project's setup steps, such as loading sample recipes into a test database. If a step stopped partway, discern can't always tell whether it finished: the result names the step, says it's `recorded as running`, and says discern `cannot prove whether its arbitrary shell command completed`.
+When discern creates a **worktree**, a separate copy of the project for one task, it runs your project's setup steps, such as loading sample recipes into a test database. If a step stopped partway, discern can't always tell whether it finished: the result names the step, says it's `recorded as running`, and says discern `cannot prove whether its arbitrary shell command completed`.
 
 Running the step again could repeat its effect, such as loading the same recipes twice, so discern waits for a person to decide. Your agent checks the effect, such as whether the test database already has the recipes, and tells you what it found. Once you've decided, it runs one of these with the step id from the result:
 
@@ -128,7 +128,7 @@ The first records that the step finished, and the second runs it again. `--confi
 
 ## Setup can't prove or land
 
-`discern setup done` checks the setup and runs the full **gate**, your project's own commands such as its tests and linter. It runs the gate both in your project folder and in a fresh **worktree**, a separate copy of the project like the ones future tasks use. If it fails, start with the first problem in the result, whether that's unfinished instructions, uncommitted files, or a failed test. Your agent fixes it and runs `discern setup done` again.
+`discern setup done` checks the setup and runs the full **gate**, your project's own commands such as its tests and linter. It runs the gate both in your project folder and in a fresh worktree like the ones future tasks use. If it fails, start with the first problem in the result, whether that's unfinished instructions, uncommitted files, or a failed test. Your agent fixes it and runs `discern setup done` again.
 
 If a test passes in your main checkout but fails in the fresh copy, the copy is missing something. The result names the failing command, and your agent adds what's missing to the right setting:
 
@@ -138,7 +138,7 @@ If a test passes in your main checkout but fails in the fresh copy, the copy is 
 | Preparation for each new worktree                              | `[worktree.setup]`     |
 | A separate service for each worktree, such as a test database  | `[worktree.resources]` |
 
-When setup passes, discern records **Proof**, its record of which commands passed on which commit, and your agent brings setup back for your review. Landing it is your decision: when you say so, the agent runs `discern setup accept`. If setup was reported **unproven**, acceptance refuses until `discern setup done` passes. Running `discern setup accept` again after setup has landed changes nothing, and says so.
+When setup passes, discern records its Proof, and your agent brings setup back for your review. Landing it is your decision: when you say so, the agent runs `discern setup accept`. If setup was reported **unproven**, acceptance refuses until `discern setup done` passes. Running `discern setup accept` again after setup has landed changes nothing, and says so.
 
 ## `discern doctor` reports a failed check
 
