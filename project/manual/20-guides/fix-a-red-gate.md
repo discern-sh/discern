@@ -16,7 +16,7 @@ aliases:
 
 # Fix a red gate
 
-When a test or linter fails, your agent gets the failing command, its output, and a command that reproduces that failure on its own. So it goes straight to the cause, and you don't need to read a long test log to help.
+When a test or linter fails, your agent gets the failing command, its output, and a command that reproduces that failure on its own, so it goes straight to the cause, and you don't need to read a long test log to help.
 
 The **gate** runs your project's own commands, such as its formatter, linter, type checker, and test suite, and a change counts as finished only when every one of them passes. It's **red** when one fails, so discern can't yet record **Proof**, its record of which of your project's commands passed on exactly which commit.
 
@@ -81,7 +81,7 @@ While fixing, your agent runs the smallest relevant test, so each attempt gets q
 
 <!-- discern-workflow:command -->
 
-**Run in:** the task's worktree, where your agent made the fix.
+**Run in:** the task's worktree, the separate copy of the project where your agent made the fix.
 
 ```sh
 discern prepare
