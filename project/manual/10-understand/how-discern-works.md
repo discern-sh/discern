@@ -46,7 +46,7 @@ Say you ask your agent:
 
 **Your agent gets its own copy of the project.** It makes the change in a **worktree**, a separate copy of the project on its own branch, so your shared branch, the **trunk** (usually `main`), stays untouched while it works.
 
-**It builds the search box and a test for it,** fixing whatever the linter, type checker, or tests flag along the way.
+**It builds the search box and a test for it,** fixing whatever the tests or the project's code-quality tools, such as its linter and type checker, flag along the way.
 
 **It runs the gate.** Once the final version is committed, your agent runs the **gate**, which runs your project's own commands, such as its formatter, linter, type checker, and test suite. The change counts as finished only when every one of them passes. A pass produces **Proof**, discern's record of which commands passed on exactly which commit, and your agent ends its report with a one-line summary:
 
@@ -54,7 +54,7 @@ Say you ask your agent:
 
 **You review.** Proof tells you the tests passed on that commit, but not whether search feels right, so you try it on your phone. Say a search for something you haven't saved leaves the page blank. You ask for a short message instead, and your agent adds it in the same worktree and runs the gate again, because Proof covers one exact commit, and any later edit makes it stale. [Proof](proof.md) explains how to read the line, and what it leaves for you to judge.
 
-**The change lands.** When you're satisfied, you say "land it". discern checks that the Proof is current and that your permission covers the change, then moves the trunk to it. A passing gate never grants that permission: you can approve each change yourself, or pre-approve routine work within limits you set. Landing isn't releasing, either. Getting the change to your users stays with your own release process.
+**The change lands.** When you're satisfied, you say "land it". discern checks that the Proof is current and that your permission covers the change, then moves the trunk to it. A passing gate never grants that permission: you can approve each change yourself, or pre-approve routine work within limits you set. Releasing it to your users stays a separate step in your own release process.
 
 ## Your project gets better, not just bigger
 
@@ -68,7 +68,7 @@ Those rules don't belong to one coding agent. discern writes the same project in
 
 ## Built for your agent to operate
 
-Most developer tools are designed for people at a keyboard. discern treats your coding agent as its main user:
+Most developer tools are designed for people at a keyboard. discern treats your coding agent as its main user.
 
 - Every result is short and names the next step, so your agent doesn't have to work out where it is.
 - When a test fails, the result names the failing job, shows the first error from its output, and gives the command that reruns that job on its own.

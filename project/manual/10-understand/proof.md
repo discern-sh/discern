@@ -20,7 +20,7 @@ aliases:
 
 # Proof
 
-When your agent says a change is finished, Proof shows you what that means: which of your project's commands passed, such as its tests and linter, on the exact commit you're reviewing.
+When your agent says a change is finished, Proof shows you what that means: which of your project's commands passed, such as its tests and code-quality tools, on the exact commit you're reviewing.
 
 You don't have to take the agent's word for it, or dig through the conversation to see what it ran. Your review can go straight to the questions only you can answer: does the feature work the way you wanted, and does it belong in your project?
 
