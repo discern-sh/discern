@@ -43,11 +43,11 @@ aliases:
 
 # MCP and results
 
-Look up what your agent can ask discern to do over the Model Context Protocol (MCP), and what comes back. This page lists the result formats, every tool and its inputs, the fields of each result, the exit codes, and the published schemas. Each tool's effect contract says whether it changes anything, and where your approval is required.
+Your agent drives discern through the Model Context Protocol (MCP), the standard way a coding agent calls a tool directly, and through the same commands on the command line. This page is the contract behind both: every tool and the inputs it accepts, the fields of each result, the exit codes, and the published schemas. Each tool's effect contract says whether it changes anything and where your approval is required, so you can see what your agent can do on its own.
 
-A few terms recur: the **gate** is the project's final quality check, **Proof** records what it established for one exact commit, and the **trunk** is the project's shared branch. A **worktree** is the separate copy of the project where one task happens. **Checkpoints** ask for judgment, **grants** record your permission to land changes, and a **variance** is your permission to land despite an unmet checkpoint.
+A few terms recur. The **gate** runs your project's own commands, such as its formatter, linter, and tests, and **Proof** records which of them passed on one exact commit. The **trunk** is the project's shared branch, and a **worktree** is the separate copy of the project where one task happens. **Checkpoints** are review questions your agent answers when a change matches their trigger, **grants** record your permission to land changes, and a **variance** is your permission to land despite an unmet checkpoint.
 
-Tools that work on a project need a configured project; `discern_docs` reads the bundled manual without one. To connect an agent, follow [Connect a coding agent](../20-guides/connect-a-coding-agent.md).
+Tools that work on a project need a configured project, while `discern_docs` reads the bundled manual without one. To connect an agent, follow [Connect a coding agent](../20-guides/connect-a-coding-agent.md).
 
 | Find                                           | Go to                                                                                             |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -72,15 +72,51 @@ Every format describes the same operation and the same verdict.
 | MCP tool              | Authored Markdown in `content`, the compact envelope in `structuredContent`, and `isError`. |
 | MCP resource          | A live compact payload, or a requested Markdown document, without an envelope.              |
 
-Choose by the task and whoever reads the result. Markdown gives prioritized prose for reading and quoting. JSON gives exact fields for selecting, validating, scripting, and lasting integrations. People and agents can use either.
+Choose by the task and whoever reads the result: Markdown gives prioritized prose for reading and quoting, and JSON gives exact fields for selecting, validating, scripting, and lasting integrations. People and agents can use either.
 
-MCP carries both, because hosts expose channels differently. `content[0].text` and `structuredContent` each explain the current state and the next action; they complement each other rather than repeat the same JSON.
+Say your agent runs `discern done` in the recipe search worktree before it has committed its change. With `--markdown`, the refusal reads:
 
-Every surface keeps one completion verdict. `ok: true` means every outcome the command's completion policy requires holds. An optional degradation stays successful only as a typed `advisories[]` item, with a kind, evidence, and a next action. A required failure late in a run keeps `ok: false`, even when its steps or data show earlier effects. MCP `isError` is always the opposite of `structuredContent.ok`. Renderers choose and arrange facts, but never reinterpret success ([ADR 0349](https://discern.sh/docs/decisions/0349-top-level-success-follows-completion-policies)).
+```md
+# `discern done`
+
+## Current state
+
+Completion requires a clean, committed tree — uncommitted: src/recipes.ts. No candidate was selected and no producer ran.
+
+## Next action
+
+Run `discern prepare`, review and commit the intended changes, then run `discern done`. For diagnostics before committing, use `discern test` or `discern done --standalone`; standalone results are transient.
+```
+
+With `--json`, shown here across several lines, the same refusal carries its exact fields:
+
+```json
+{
+  "ok": false,
+  "verb": "done",
+  "data": {
+    "failed_stage": null,
+    "scopes_changed": [],
+    "gate_ran": false,
+    "producer_executions": {}
+  },
+  "hints": [
+    "Run `discern prepare`, review and commit the intended changes, then run `discern done`. For diagnostics before committing, use `discern test` or `discern done --standalone`; standalone results are transient."
+  ],
+  "error": "dirty_worktree",
+  "message": "Completion requires a clean, committed tree — uncommitted: src/recipes.ts. No candidate was selected and no producer ran."
+}
+```
+
+Both runs exit `1`. Over MCP, your agent gets the Markdown in `content` and the JSON in `structuredContent`.
+
+MCP carries both because hosts expose channels differently. `content[0].text` and `structuredContent` each explain the current state and the next action, and they complement each other instead of repeating the same JSON.
+
+Every surface keeps one completion verdict, which [the `DiscernResult` envelope](#the-discernresult-envelope) defines: MCP `isError` is always the opposite of `structuredContent.ok`, and renderers choose and arrange facts but never reinterpret success.
 
 `--markdown`, `--json`, and `--render` can't be combined. Each leaves out the surrounding terminal decoration and the narration of subprocesses. `--render` is a convenience: it passes the authored Markdown through discern's terminal renderer. It never prompts or pages, follows the terminal's width, theme, color, and character support, and writes no control sequences when redirected. JSON and Markdown stay the main result formats.
 
-An authored Markdown presentation selects facts from the result's registered contract; it doesn't dump every JSON field. When present, its sections come in this order: current state, bounded evidence, authority and boundaries, owner attention, other actions, then the next action. Owner attention holds the decisions reserved for you. When several actions matter, the secondary ones come first, and the immediate next action closes the document. Supporting payloads where whitespace matters keep their exact content in the evidence section, including leading and trailing spaces. They include requested map or manual pages, setup instructions, diagnostic output, and terminal art.
+An authored Markdown presentation selects facts from the result's registered contract instead of dumping every JSON field. When present, its sections come in this order: current state, bounded evidence, authority and boundaries, owner attention, other actions, then the next action, which is why the recipe search refusal ends on what to run. Owner attention holds the decisions reserved for you. When several actions matter, the secondary ones come first, and the immediate next action closes the document. Supporting payloads where whitespace matters keep their exact content in the evidence section, including leading and trailing spaces. They include requested map or manual pages, setup instructions, diagnostic output, and terminal art.
 
 `status` has its own size limit. Its default CLI JSON, MCP `structuredContent`, and live resource are bounded orientation views, with true counts of what they left out. `discern status --verbose --json`, or `discern_status` with `verbose: true`, selects full structured status. Both default surfaces name that route in `hints`, and [Worktrees and status](worktrees-and-status.md) defines the fields and caps.
 
@@ -90,7 +126,7 @@ Default doctor JSON and `discern_doctor` return the environment and the actionab
 
 ## Model Context Protocol tools and result contracts
 
-MCP lets a coding agent call discern directly. The tools below use the same result contracts as the CLI. Use their structured fields for integrations, and their Markdown for reading or relaying an outcome.
+The tools below return the same result contracts as the CLI, so use their structured fields for integrations, and their Markdown for reading or relaying an outcome.
 
 ### Model Context Protocol tools
 
@@ -116,7 +152,7 @@ MCP lets a coding agent call discern directly. The tools below use the same resu
 | `discern_improvement` | Rank the next improvement, and return the health audit behind it.                                                                                                                                                                                                | Read-only and idempotent.                                                                           |
 | `discern_checkpoints` | Report the governing checkpoints, their strict obligations, open-question declaration state, and structural evidence.                                                                                                                                            | Read-only and idempotent.                                                                           |
 
-Each tool's input object is strict, so it rejects keys it doesn't declare, instead of dropping them. These are the accepted keys. Only `discern_standards` requires one, `action`.
+Each tool's input object is strict, so it refuses a key it doesn't declare instead of dropping it. These are the accepted keys, and only `discern_standards` requires one, `action`.
 
 | Tool                  | Accepted input keys                                                                                                                                                                                |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -142,7 +178,7 @@ Each tool's input object is strict, so it rejects keys it doesn't declare, inste
 
 #### Completion options
 
-An ordinary completion needs a clean, committed tree, and proves its `HEAD`.
+An ordinary completion needs a clean, committed tree, as the recipe search refusal shows, and proves its `HEAD`.
 
 - **`standalone: true`** gives transient diagnostics, including on a dirty tree, without Proof.
 - **`policy_base`** takes a fetched comparison ref, only together with `ci: true` and `standalone: true`, for a hosted report.
@@ -153,13 +189,13 @@ None of these options grants landing authority, and none changes which checkout 
 
 #### Acceptance options
 
-For an ordinary acceptance, your agent leaves out `action`. From the effort's worktree, the call records the effort's submission, meaning the exact `HEAD` and its Proof, and lands it when the authority checks out. Without authority, it refuses without changing anything, the submission waits in the landing queue for you, and the agent relays the Proof line.
+For an ordinary acceptance, your agent leaves out `action`. From the effort's worktree, the call records the effort's submission, meaning the exact `HEAD` and its Proof, and lands it once discern verifies the landing authority. Without authority, it refuses without changing anything: the submission waits in the landing queue for you, and the agent relays the Proof line.
 
 - **`target`** selects a task by id, path, branch, or full local ref. A call from the main checkout must name one. With `target`, ordinary acceptance starts a walk: it lands the selected submission first, then other authorized submissions in queue order, and stops at the first refusal. `data.landings` records each attempt.
 - **Consent** covers only the submitted commit. `confirmed: true` records consent you gave in the current conversation, and `variance` and `approve_standard` each require it.
 - **`dry_run: true`** shows the landing queue and the selected task's verdict, and changes nothing.
 
-When the trunk moved after the task's Proof, the call combines the change with the new trunk in an integration worktree, checks the combined code, and lands the exact result that passed. A conflict or a failed combined check goes back to the task's author. A checkpoint question about the combined result keeps the composition. Your agent answers it with `met`, or `unmet` with a rationale, on a follow-up call, and the same landing continues. The refusal serves a `composition_receipt`, which the answer, and any variance decision over the combined result, must name. So a decision can't drift onto a composition it wasn't served for.
+When the trunk moved after the task's Proof, the call combines the change with the new trunk in an integration worktree, checks the combined code, and lands the exact result that passed, instead of landing your change on top of code its checks never saw. A conflict or a failed combined check goes back to the task's author. When a checkpoint question fires on the combined result, discern keeps the composition. Your agent answers the question on a follow-up call, with `met`, or `unmet` and a rationale, and the same landing continues. The refusal serves a `composition_receipt`, which the answer, and any variance decision over the combined result, must name, so a decision can't drift onto a composition it wasn't served for.
 
 #### Emergency integration
 
@@ -170,7 +206,7 @@ If checkpoint questions block an emergency plan, your agent first calls `discern
 - `dry_run: true` previews preparation without running triggers or recording answers.
 - Preparation can't be combined with confirmation, or with transition recovery.
 
-For the emergency itself, your agent calls `discern_accept` with `action: "emergency"` and a `reason`. You review the displayed trunk, the repair revision, each commit it lands, the reason, and the checks that failed, never ran, or have out-of-date evidence. Then your agent supplies `confirmed` and the plan's `approval_token`. The token expires after 15 minutes, and a changed plan needs fresh approval. discern builds the repair on the actual trunk, and composes no other queued work into it. When the repair already contains another task's unlanded work, `data.emergency.carried` names each such task, its branch, and its newest revision in the repair. Approving the plan lands that work too. Checkpoint judgments still come first. A loosened standard limit lands only under its recorded proposal. The preview serves each one in `data.standard_approvals_required`, and the confirmed call passes each token you approved in `approve_standard`. A plan that redefines or deletes a standard is refused.
+For the emergency itself, your agent calls `discern_accept` with `action: "emergency"` and a `reason`. You review the displayed trunk, the repair revision, each commit it lands, the reason, and the checks that failed, never ran, or have out-of-date evidence. Then your agent supplies `confirmed` and the plan's `approval_token`. The token expires after 15 minutes, and a changed plan needs fresh approval. discern builds the repair on the actual trunk, and composes no other queued work into it. When the repair already contains another task's unlanded work, `data.emergency.carried` names each such task, its branch, and its newest revision in the repair, because approving the plan lands that work too. Checkpoint judgments still come first. A loosened standard limit lands only under its recorded proposal: the preview serves each one in `data.standard_approvals_required`, and the confirmed call passes each token you approved in `approve_standard`. A plan that redefines or deletes a standard is refused.
 
 The exception has its own record type, and can't serve as passing Proof. This action doesn't push, deploy, or change external branch protections. `recover` resumes an interrupted emergency by its landing id.
 
@@ -180,7 +216,7 @@ Every tool that works on a project accepts an optional `path`, which selects the
 
 After a successful `discern_start`, later calls use the new worktree by default. After `discern_accept` removes that worktree, the server points back at the surviving main checkout. Tools that need finished setup return a controlled `setup_unfinished` result until setup finishes.
 
-`discern_standards` requires an `action`. `action: "measure"` accepts `names`, `force`, and `pin`. `action: "propose"` accepts an ordered `proposals` array of unique `{ name, reason }` entries, and records every limit breach at once, in one transaction. A proposal's reason is a technical justification; it isn't approval or landing authority. The scalar `discern standards propose` CLI command stays available for terminal use.
+`discern_standards` requires an `action`. `action: "measure"` accepts `names`, `force`, and `pin`. `action: "propose"` accepts an ordered `proposals` array of unique `{ name, reason }` entries, and records every limit breach at once, in one transaction. A proposal's reason is a technical justification, and it grants no approval or landing authority. The scalar `discern standards propose` CLI command stays available for terminal use.
 
 `discern_refresh` accepts `dry_run: true`. Its plan covers the agent files, materialized skills, provider integrations, the Proof note fetch configuration, the clone-local merge driver, the generated `.gitattributes` metadata, the maintained ADR index, removals, and planning errors. A preview has no `steps`, and a preview with planning errors returns `ok: false` with `partial_refresh`. A normal call applies only those targets, and reports `steps` ([ADR 0335](https://discern.sh/docs/decisions/0335-operation-policy-enrolls-faithful-previews)).
 
@@ -200,27 +236,27 @@ MCP `tools/list` returns the full definitions, and each client chooses what to l
 | Unknown MCP client                 | Unknown                         | 45 seconds                  |
 | CLI                                | No MCP client limit             | 3,300 seconds               |
 
-Cursor's strict profile keeps `discern_await` under the Agent CLI's 60-second transport limit. Gate calls can take longer, so run `discern done --markdown` in a shell there, and use `discern prepare --markdown` or `discern test --markdown` when you want those stages.
+Cursor's strict profile keeps `discern_await` under the Agent CLI's 60-second transport limit. Gate calls can take longer, so there your agent runs `discern done --markdown` in a shell, and `discern prepare --markdown` or `discern test --markdown` when it wants those stages.
 
-The long profile reserves 300 seconds for delivery and cancellation. The strict profile reserves 15 seconds against Cursor's shortest verified surface. A watch returns as soon as its condition holds. When the budget runs out first, the result has `ok: true` and `data.met: false`, with a 15-character `data.resume` handle. Continue with that handle rather than rebuilding the watch from what you observed. Handles are local to the repository, expire after 7 days, and share a 512-record cap. The CLI reports this not-yet result with exit `124`, and MCP returns a normal tool result.
+The long profile reserves 300 seconds for delivery and cancellation, and the strict profile reserves 15 seconds against Cursor's shortest verified surface. A watch returns as soon as its condition holds. When the budget runs out first, the result has `ok: true` and `data.met: false`, with a 15-character `data.resume` handle, and your agent continues with that handle instead of rebuilding the watch from what it observed. Handles are local to the repository, expire after 7 days, and share a 512-record cap. The CLI reports this not-yet result with exit `124`, and MCP returns a normal tool result.
 
 Over MCP, `timeout` can shorten a call but can't extend its profile, and `timeout: 0` checks once without waiting. The CLI's `--timeout` isn't capped. The result reports `data.requested_timeout_s` and `data.timeout_basis`.
 
 #### Progress handles and reconnect
 
-A long `done`, `test`, `standards`, or `accept` run, and every `discern await` or `discern_await` call, announces a **progress handle** as its first progress fact, in the form `R1-XXXX-XXXX-XX`, with the command that reads it back. The same facts reach a live terminal, MCP `notifications/progress` messages when the client supplies a progress token, and a journal under the repository's Git administration. A `--json` or `--markdown` run prints nothing while it runs; its result envelope is its whole output.
+A long `done`, `test`, `standards`, or `accept` run, and every `discern await` or `discern_await` call, announces a **progress handle** as its first progress fact, in the form `R1-XXXX-XXXX-XX`, with the command that reads it back. So when a call is lost, your agent reads the run back instead of starting it again. The same facts reach a live terminal, MCP `notifications/progress` messages when the client supplies a progress token, and a journal under the repository's Git administration. A `--json` or `--markdown` run prints nothing while it runs, because its result envelope is its whole output.
 
 Runs that don't do long work announce no handle: dry runs of `done`, `standards`, and `accept`, a `done` that refuses before its gate starts, a `standards` proposal, `accept` in queue mode, and an emergency acceptance. discern also announces no handle when it can't open its journal store.
 
-An unfinished completion attempt holds a 60-second lease, which its live operation renews every 20 seconds. If another `done` reaches the same evidence while that lease is current, the result is `error: "incomplete"`, `failed_stage: null`, and `gate_ran: false`. `data.completion.pending` then holds one row for the shared attempt: its attempt id, effective expiry, progress handle when available, and next action. Read the existing operation with `discern_progress`, or `discern progress <handle>` on the command line, instead of starting another gate. A later call cancels the claim once its owner is gone or its lease has expired, then proceeds with a new, fenced attempt.
+An unfinished completion attempt holds a 60-second lease, which its live operation renews every 20 seconds. If another `done` reaches the same evidence while that lease is current, the result is `error: "incomplete"`, `failed_stage: null`, and `gate_ran: false`, and `data.completion.pending` holds one row for the shared attempt: its attempt id, effective expiry, progress handle when available, and next action. Your agent reads the existing operation with `discern_progress`, or `discern progress <handle>` on the command line, instead of starting another gate. A later call cancels the claim once its owner is gone or its lease has expired, then proceeds with a new, fenced attempt.
 
-`discern progress [handle]`, or `discern_progress` with `handle` and `path`, reads that operation back at any time, and changes nothing. With no handle, it reads the most recently started operation of the calling checkout, and refuses another checkout's operation by name. Every worktree of the repository shares one store, which keeps records for up to 7 days. When the store is full, it evicts records in this order: unreadable records, finished `await` records, other finished operations, unfinished operations whose process is gone, and last, running operations.
+`discern progress [handle]`, or `discern_progress` with `handle` and `path`, reads that operation back at any time, and changes nothing. With no handle, it reads the most recently started operation of the calling checkout, and refuses another checkout's operation by name. Every worktree of the repository shares one store, which keeps records for up to 7 days. When the store is full, discern evicts records in this order: unreadable records, finished `await` records, other finished operations, unfinished operations whose process is gone, and last, running operations.
 
-Active waits stay visible when independent checks finish. The current state explains what can't start, why it's waiting, how long it has waited, and what happens next. A wait for capacity includes the configured limit on concurrent runs and the latest observed use. A live process alone doesn't prove the work is advancing. Older records without wait facts can't supply this information.
+Active waits stay visible when independent checks finish. The current state explains what can't start, why it's waiting, how long it has waited, and what happens next, and a wait for capacity includes the configured limit on concurrent runs and the latest observed use. A live process alone doesn't prove the work is advancing. Older records without wait facts can't supply this information.
 
 When your agent returns to a checkout with an operation still running, `discern_status` includes the same current-state summary and the command that reads it back. So a queued operation stays visible through status as well as progress.
 
-An active `await` records its target, requested condition, latest observation, and continuation. If the call stops, the agent can use that continuation to keep the original watch. The agent reads the original call's progress before starting another watch. An elapsed observation window means the condition is still unmet; it doesn't mean the awaited work succeeded. Explicit cancellation ends automatic waiting.
+An active `await` records its target, requested condition, latest observation, and continuation. If the call stops, your agent reads the original call's progress and uses that continuation to keep the original watch, instead of starting another. An elapsed observation window means the condition is still unmet, and says nothing about whether the awaited work succeeded. Explicit cancellation ends automatic waiting.
 
 | Field                                            | Contract                                                                                                                                                                                                                                                |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -237,17 +273,17 @@ An active `await` records its target, requested condition, latest observation, a
 | `data.result`, `result_truncated`, `result_path` | The retained result envelope. When the envelope is too large, `data.result` keeps a reduced account, and `result_path` holds the complete one. `result_retention_error` explains a result discern couldn't keep.                                        |
 | `data.account`                                   | The sentences every surface presents, in order.                                                                                                                                                                                                         |
 
-Observers and executors differ. A reconnect read, an `await` watch, or a second session can stop, time out, or die without touching the run. The MCP call that's itself running a command isn't a separate observer: its explicit cancellation, or its transport closing, cancels the executor, and the journal records the run as `cancelled` with its facts kept.
+Observers and executors differ: a reconnect read, an `await` watch, or a second session can stop, time out, or die without touching the run. The MCP call that's itself running a command isn't a separate observer. Its explicit cancellation, or its transport closing, cancels the executor, and the journal records the run as `cancelled` with its facts kept.
 
 A read refuses, naming the condition, for a damaged or unknown handle, an empty store, another checkout's operation, an unreadable record, a record written by a newer discern, a store discern can't access, or no reachable repository.
 
 #### Producer progress lines
 
-A project's own check, such as its test or build command, can report its progress by printing lines to stdout or stderr:
+Your project's own commands, such as its test runner or build, can report progress by printing lines to stdout or stderr. Say the recipe app's test runner prints these while it runs:
 
 ```text
 DISCERN_PROGRESS {"units":{"kind":"partitions","completed":3,"total":8},"results":{"passed":120,"failed":1,"skipped":2},"elapsed_ms":45210}
-DISCERN_PROGRESS {"failure":{"name":"alpha holds","message":"expected 2, got 3","file":"tests/alpha_test.py","line":42,"reproduce":"tools/test --only 'alpha holds' --seed 7"}}
+DISCERN_PROGRESS {"failure":{"name":"clearing the search box restores every recipe","message":"expected 3 recipes, got 0","file":"tests/recipes_test.ts","line":12,"reproduce":"deno test --filter 'clearing the search box' --seed 7 tests/recipes_test.ts"}}
 ```
 
 Each line holds one JSON object, and every top-level field is optional.
@@ -258,7 +294,7 @@ Each line holds one JSON object, and every top-level field is optional.
 - **`partial: true`** marks counts that cover only part of the completed units. Once a producer reports partial counts, they stay marked partial.
 - **`failure`** names the failing test or obligation. It requires `name` and `message`, and can add `file`, `line`, and a focused `reproduce` command that carries the recorded seed and instrumentation.
 
-discern shows the counts and failures live, and keeps them for reconnect. The lines change nothing about scheduling, verdicts, or evidence. discern ignores unknown keys, ignores a whole line that doesn't validate completely or carries no recognized fact, and drops lines over 16 KiB. The protocol is the same for any language or test runner.
+discern shows the counts and the failing test live, and keeps them for reconnect, but the lines change nothing about scheduling, verdicts, or evidence: the test job's exit status still decides whether it passed. discern ignores unknown keys, ignores a whole line that doesn't validate completely or carries no recognized fact, and drops lines over 16 KiB. The protocol is the same for any language or test runner.
 
 #### Find a map or manual page
 
@@ -297,13 +333,15 @@ Map search includes pages with `publish: false`, and docs search covers the publ
 | `message`             | Evaluated failures        | An explanation of the failure or refusal.                                                                                                                     |
 | `waited_ms`           | Test-slot wait            | Milliseconds spent waiting for a configured concurrent-test slot.                                                                                             |
 
-`ok: true` means every outcome the command's completion policy requires holds. Required writes, validation, compilation, cleanup, and final checks can't fail under a successful envelope. An explicitly optional degradation stays successful only when `advisories[]` carries its permitted `kind`, non-empty `evidence`, and `next_action`. Hints don't waive required work ([ADR 0349](https://discern.sh/docs/decisions/0349-top-level-success-follows-completion-policies)).
+The recipe search refusal carries `ok`, `verb`, `data`, `hints`, `error`, and `message`, and no plan or steps, because nothing ran.
+
+`ok: true` means every outcome the command's completion policy requires holds, so required writes, validation, compilation, cleanup, and final checks can't fail under a successful envelope. An explicitly optional degradation stays successful only when `advisories[]` carries its permitted `kind`, non-empty `evidence`, and `next_action`. Hints don't waive required work ([ADR 0349](https://discern.sh/docs/decisions/0349-top-level-success-follows-completion-policies)).
 
 When diagnostics are sampled, the envelope shows a summary sample, with long messages and outputs cut short, and `diagnostic_evidence` points to the complete set.
 
-`ok` and the execution state are independent contracts. A failed gate run can carry diagnostics and completed steps beside its classified error. A required failure late in a run can carry typed data about partial effects, and recovery, because `ok: false` doesn't imply a rollback. A refusal can carry a review `plan` without claiming `dry_run: true`. Serialization leaves out undefined fields. Branch on `ok`, then `verb`, before reading `data` ([ADR 0334](https://discern.sh/docs/decisions/0334-result-envelopes-encode-valid-structural-states)).
+`ok` and the execution state are independent contracts. A failed gate run can carry diagnostics and completed steps beside its classified error. A required failure late in a run keeps `ok: false` and can carry typed data about partial effects, and recovery, because `ok: false` doesn't imply a rollback. A refusal can carry a review `plan` without claiming `dry_run: true`. Serialization leaves out undefined fields, so a caller branches on `ok`, then `verb`, before reading `data` ([ADR 0334](https://discern.sh/docs/decisions/0334-result-envelopes-encode-valid-structural-states)).
 
-A failed JSON, Markdown, or MCP result always includes a registered next action. JSON and `structuredContent` carry it in `hints`, and Markdown puts it at the end. Decisions for you sit in a separate Owner attention section, before the caller's actions. When `message` or the first `diagnostics` entry explains the fix, the hint points there. When recovery depends on a choice or a reported state, the hint names that state and the action. Consent, partial operations, unfinished setup, document lookup, and improvement thresholds use these specific instructions. So a caller never has to guess whether to retry, review, choose, or finish cleanup ([ADR 0266](https://discern.sh/docs/decisions/0266-public-failure-recovery-is-classified-by-error-family)).
+A failed JSON, Markdown, or MCP result always includes a registered next action: JSON and `structuredContent` carry it in `hints`, and Markdown puts it at the end, as the recipe search refusal does. Decisions for you sit in a separate Owner attention section, before the caller's actions. When `message` or the first `diagnostics` entry explains the fix, the hint points there. When recovery depends on a choice or a reported state, the hint names that state and the action. Consent, partial operations, unfinished setup, document lookup, and improvement thresholds use these specific instructions. So a caller never has to guess whether to retry, review, choose, or finish cleanup ([ADR 0266](https://discern.sh/docs/decisions/0266-public-failure-recovery-is-classified-by-error-family)).
 
 `setup begin` checks for the setup permission it needs before applying its plan, and ordinary acceptance checks permission separately for each landing. A result awaiting consent can still describe earlier tasks that already landed, so read its per-task outcomes before you retry. The result names the decision and the continuation command. Dry runs need no permission, because they only show the plan.
 
@@ -340,7 +378,7 @@ An explicit CI report uses `data.mode: "report"`, and reports checkpoint review 
 
 `discern_accept` with `action: "queue"` returns the reviewed `path`, `branch`, `head`, and complete `proof` pointer under `data.revision`. `data.submission` carries the observed `authority`, and its `state` is `planned` for a dry run and `queued` once recorded. A queued result includes `submission_id` and `submitted_at`, and `replaces`, when present, names the previously queued commit.
 
-Queue mode accepts `target`, `path`, and `dry_run`. It refuses landing consent, exception approvals, and integration answers; use ordinary acceptance for those separate decisions. Applying it checks the clean tree, the current Proof, and any separate checkpoint or standard decisions again. Queueing the same revision again keeps its place in the queue. A later commit, or `done`, doesn't submit newer work by itself. To start landing, your agent calls `discern_accept` with `target`; queueing schedules nothing in the background.
+Queue mode accepts `target`, `path`, and `dry_run`. It refuses landing consent, exception approvals, and integration answers, which belong to ordinary acceptance as separate decisions. Applying it checks the clean tree, the current Proof, and any separate checkpoint or standard decisions again. Queueing the same revision again keeps its place in the queue, and a later commit, or `done`, doesn't submit newer work by itself. Queueing schedules nothing in the background: to start landing, your agent calls `discern_accept` with `target`.
 
 Ordinary acceptance returns `data.queue`: the landing queue, a view derived from the submissions. Each row is one submission whose commit hasn't landed. Rows that are `pre-authorized` come first, in grant order, then rows `awaiting-owner`, in submission order. `discern status`, the desk, and a `dry_run: true` preview show the same rows in the same order, and a dry run changes nothing.
 
@@ -401,11 +439,11 @@ Patterns results always carry `data.investigations`. Each entry cites source ids
 
 #### Diagnostics
 
-Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It can also include normalized `output`, `truncated`, `output_path`, `file`, `line`, `col`, `rule`, and `fix_available`. Use `reproduce_cmd` for the smallest direct rerun, and `output_path` when the inline capture was cut short.
+Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It can also include normalized `output`, `truncated`, `output_path`, `file`, `line`, `col`, `rule`, and `fix_available`. When the recipe app's test for clearing the search box fails, the gate's diagnostic has `tool: "test"`, `message: "test failed (exit 1)"`, and `reproduce_cmd: "deno test tests/"`, the test job's own command, with the runner's output in `output`. Use `reproduce_cmd` for the smallest direct rerun discern knows, and `output_path` when the inline capture was cut short.
 
 #### Result vocabularies
 
-The published schemas mark every fixed-set result value with `x-discern-vocabulary`. An open vocabulary is published as a string, with its known members at the schema root under the same key, and grows in ordinary releases: treat a value you don't recognize as opaque. A closed vocabulary is published as an enum, and changes only with a new major version of its schema.
+The published schemas mark every fixed-set result value with `x-discern-vocabulary`. An open vocabulary is published as a string, with its known members at the schema root under the key the marker names, and grows in ordinary releases, so treat a value you don't recognize as opaque. A closed vocabulary is published as an enum, and changes only with a new major version of its schema.
 
 The closed vocabularies are step outcome, diagnostic severity, validation mode, checkpoint mode, landing-authority kind, standard proposal direction, completion evidence purpose, requirement kind, and exception state, plus the release comparison's status and publication. Completion evidence purpose appears in the Proof note schema. Every other result vocabulary is open.
 
@@ -450,7 +488,7 @@ The registered `error` slugs, published under `x-discern-error-slugs`, are: `act
 
 <!-- END GENERATED: CLI exit statuses -->
 
-In the quiet result modes, a result with `ok: false` always exits nonzero; a verb can't report exit `0` for a failed completion contract. A nonzero exit doesn't always mean `ok: false`: a `discern await --json` that reaches its budget exits `124` with `ok: true`. Predicates run with `--json` or `--markdown` always exit `0`, and their boolean is in `data`. Bare `config has` and `impact --has` stay silent, and exit `0` or `1`. `identity` and config reads are bare unless `--json` or `--markdown` asks for a result.
+In the quiet result modes, a result with `ok: false` always exits nonzero, as the recipe search refusal's exit `1` does, so a verb can't report exit `0` for a failed completion contract. A nonzero exit doesn't always mean `ok: false`: a `discern await --json` that reaches its budget exits `124` with `ok: true`. Predicates run with `--json` or `--markdown` always exit `0`, and their boolean is in `data`. Bare `config has` and `impact --has` stay silent, and exit `0` or `1`. `identity` and config reads are bare unless `--json` or `--markdown` asks for a result.
 
 ### Published schemas and types
 
