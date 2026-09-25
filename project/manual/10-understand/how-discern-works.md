@@ -71,7 +71,7 @@ Those rules don't belong to one coding agent. discern writes the same project in
 Most developer tools are designed for people at a keyboard. discern treats your coding agent as its main user.
 
 - Every result is short and names the next step, so your agent doesn't have to work out where it is.
-- When a test fails, the result names the failing job, shows the first error from its output, and gives the command that reruns that job on its own.
+- When a test fails, the result names the step that failed, shows the first error from its output, and gives the command that reruns that step on its own.
 - A fast loop runs the formatter, linter, and type checker without the test suite, so your agent fixes those errors before the full gate runs.
 - For common jobs, such as splitting big work into tasks, discern ships a skill.
 - When your agent needs documentation, a search returns the few pages that matter.

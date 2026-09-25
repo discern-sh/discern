@@ -51,7 +51,7 @@ A finding says what the report saw, the evidence for it, and a next step. In the
 >
 > Observed: `test` averages 312s per `done` — 81% of all recorded gate time across 14 of 14 considered runs. 4 of 14 comparable gates repeated one complete validation state.
 
-The first number is an observation. The test suite takes most of the time in the **gate**, the full run of your project's required commands, but the tests may be essential and already fast, and a timing alone can't say whether a test should exist. The second sentence is what makes it a finding: four times, the test suite ran again on code that hadn't changed. That's time you could avoid, so the finding's next step points your agent at a cache or a narrower scope that keeps the same coverage.
+The first number is an observation. Your test suite, the `test` **job**, takes most of the time in the **gate**, the full run of your project's required commands, but the tests may be essential and already fast, and a timing alone can't say whether a test should exist. The second sentence is what makes it a finding: four times, the test suite ran again on code that hadn't changed. That's time you could avoid, so the finding's next step points your agent at a cache or a narrower scope that keeps the same coverage.
 
 Every count comes with the total it came from, because failures in 3 of 4 tries mean something different from failures in 3 of 400. The report also labels which values it measured and which it estimated. If a run stopped early, for example, the report can estimate how long the full run would have taken, and it says so and shows the runs the estimate came from.
 
