@@ -60,7 +60,7 @@ A landing has several steps. It moves `main`, attaches the Proof to the landed c
 
 discern writes down what it's about to do before it moves `main`, and moves it in a single step. So a retry either finishes the remaining steps or undoes the attempt. It never lands the change twice, and never asks for your permission again. The code `partial_acceptance` means discern stopped after a step it can't undo, such as moving `main`. The result lists what already happened.
 
-[Recover an interrupted acceptance](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance) walks through the rest.
+[Recover an interrupted acceptance](../20-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance) walks through the rest.
 
 ## A landed task's worktree stayed behind
 
@@ -130,7 +130,7 @@ To remove a worktree you've chosen, run `discern worktree drop <worktree>` from 
 
 ## A branch or worktree was dropped by mistake
 
-Before `discern worktree drop` deletes a branch, it saves the branch's last commit and prints the name of the saved reference. Your repository keeps the newest 32 of these. [Recover a dropped branch](../10-guides/recover-an-interrupted-task.md#recover-a-dropped-branch) shows how to list them and bring the work back.
+Before `discern worktree drop` deletes a branch, it saves the branch's last commit and prints the name of the saved reference. Your repository keeps the newest 32 of these. [Recover a dropped branch](../20-guides/recover-an-interrupted-task.md#recover-a-dropped-branch) shows how to list them and bring the work back.
 
 Only committed work comes back. A forced drop deletes uncommitted, untracked, and ignored files for good. For a branch lost some other way, `git reflog` may help.
 

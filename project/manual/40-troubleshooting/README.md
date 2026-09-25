@@ -26,14 +26,14 @@ When a check fails or a command stops, give the result to your agent. Ask it to 
 | What you're seeing                                                    | Where to go                                                                |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Setup stopped, or a coding tool can't connect to discern.             | [Setup and integrations](setup-and-integrations.md)                        |
-| A build, a test, or another project check failed.                     | [Fix a red gate](../10-guides/fix-a-red-gate.md)                           |
+| A build, a test, or another project check failed.                     | [Fix a red gate](../20-guides/fix-a-red-gate.md)                           |
 | The gate won't run, or it passes but gives no Proof you can use.      | [Gate and Proof](gate-and-proof.md)                                        |
 | A standard or a checkpoint needs attention.                           | [Gate and Proof](gate-and-proof.md)                                        |
 | A task's workspace, its resources, or its cleanup look wrong.         | [Worktrees and resources](worktrees-and-resources.md)                      |
-| A session ended before the task finished.                             | [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) |
+| A session ended before the task finished.                             | [Recover an interrupted task](../20-guides/recover-an-interrupted-task.md) |
 | discern's tools disappeared, a long wait ended, or a page won't open. | [MCP, terminal, and docs](mcp-terminal-and-docs.md)                        |
 | discern crashed, or you found local files you don't recognize.        | [Crashes and local state](crashes-and-local-state.md)                      |
-| You want to upgrade or remove discern.                                | [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md)   |
+| You want to upgrade or remove discern.                                | [Maintain or remove discern](../20-guides/maintain-or-remove-discern.md)   |
 
 ## Help your agent find the cause
 
@@ -41,7 +41,7 @@ Keep the original result. It can name the failing command, where to find the ful
 
 If a session loses track of a long check, your agent can read its result back with `discern progress` instead of starting over. If a session loses track of a task, ask your agent to run `discern status` in the task's worktree, its existing copy of the project. Status only reads, and it reports what's true now. For an install problem, ask for `discern doctor`. It checks your settings, commands, and agent connections, and changes nothing.
 
-Your agent should explain what the evidence shows and what's still uncertain. You'll know the recovery worked when the tool connects, the command finishes, or the repaired change comes back with fresh [Proof](../20-understand/proof.md).
+Your agent should explain what the evidence shows and what's still uncertain. You'll know the recovery worked when the tool connects, the command finishes, or the repaired change comes back with fresh [Proof](../10-understand/proof.md).
 
 ## When the next step needs you
 

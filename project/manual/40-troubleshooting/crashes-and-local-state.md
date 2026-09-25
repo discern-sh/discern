@@ -51,7 +51,7 @@ Ask your agent:
 
 The agent runs `discern status` in the task's worktree before it tries the command again. The crash may have stopped the command partway, and status shows how far it got:
 
-- A long run may still be going. The agent [reads it back](../10-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see) instead of starting it again.
+- A long run may still be going. The agent [reads it back](../20-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see) instead of starting it again.
 - A landing may have finished before the crash. Status shows whether the change is already on `main`.
 
 Your agent calls discern's tools over the Model Context Protocol (MCP). If one of those tools crashed, the others keep working in the same session. The agent carries on once it knows what state the task is in. The task is back on track when status shows where it stands, and the command it retries finishes.
@@ -91,7 +91,7 @@ Leave this directory in place. discern keeps its working records here. They incl
 
 In a task's worktree, `.git` is usually a small file rather than a folder. It points to Git's storage in your main checkout. Every worktree shares some of discern's records, and others belong to one worktree. The [runtime state reference](../30-reference/files-and-ownership.md#runtime-state-inside-git) lists which is which.
 
-To take discern out of a project, follow [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md). `discern uninstall` refuses while any task worktree or recorded resource remains. It keeps every Git reference, including recovery references that may be the only name left for some of your commits.
+To take discern out of a project, follow [Maintain or remove discern](../20-guides/maintain-or-remove-discern.md). `discern uninstall` refuses while any task worktree or recorded resource remains. It keeps every Git reference, including recovery references that may be the only name left for some of your commits.
 
 If a worktree folder came back after discern removed it, that's a different cleanup. See [a removed path came back](worktrees-and-resources.md#removal-failed-or-a-removed-path-came-back).
 

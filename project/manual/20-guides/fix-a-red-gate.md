@@ -65,8 +65,8 @@ Most fixes stay within the task you asked for. A decision is yours when fixing t
 | What the agent found                                                    | What you decide                                                                                                                              |
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | A test expects behavior you now want to change.                         | What the behavior should be. The agent then updates the feature and the test together.                                                       |
-| The change goes over a standard, such as the app's download-size limit. | Whether the feature is worth a higher limit, once the agent has tried to reduce it. [Standards](../20-understand/standards.md) explains how. |
-| The agent answered a checkpoint question "unmet."                       | Whether to ask for a fix, or to approve that gap. Only you can approve it. [Checkpoints](../20-understand/checkpoints.md) explains how.      |
+| The change goes over a standard, such as the app's download-size limit. | Whether the feature is worth a higher limit, once the agent has tried to reduce it. [Standards](../10-understand/standards.md) explains how. |
+| The agent answered a checkpoint question "unmet."                       | Whether to ask for a fix, or to approve that gap. Only you can approve it. [Checkpoints](../10-understand/checkpoints.md) explains how.      |
 | A tool, credential, or service the check needs isn't available.         | How to provide it. Ask what stays unchecked until then.                                                                                      |
 | The proposed fix would remove or weaken a required check.               | Whether the check still serves the project, and what would replace it.                                                                       |
 

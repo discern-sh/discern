@@ -86,7 +86,7 @@ A teammate may have set up or upgraded the project with a newer discern than you
 | `schema_version_too_new`: `this project needs a newer discern — re-run the installer` | The project's configuration schema is newer than this binary.                                                              | Run the installer again to get the new version, then retry.                         |
 | `This project was last upgraded with discern <version>; this binary is <older>`       | A newer discern last updated discern's files. Yours won't overwrite them, but it can still read the project and run tests. | Run `discern releases`, install the update, and restart your coding-agent sessions. |
 
-[Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#upgrade-the-project) covers upgrading.
+[Maintain or remove discern](../20-guides/maintain-or-remove-discern.md#upgrade-the-project) covers upgrading.
 
 ## `discern.toml` can't be read
 

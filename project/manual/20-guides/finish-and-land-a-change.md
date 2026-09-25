@@ -38,7 +38,7 @@ Tell your agent what "finished" should include:
 
 > Finish the recipe search and bring it back for review. Show me how to try it, tell me what was checked and what still needs attention, and include discern's Proof. Don't land it until I say so.
 
-**Proof** is discern's record of which of your project's checks passed, on exactly which commit (a saved version of your code in Git). [Proof](../20-understand/proof.md) explains how to read it.
+**Proof** is discern's record of which of your project's checks passed, on exactly which commit (a saved version of your code in Git). [Proof](../10-understand/proof.md) explains how to read it.
 
 The last sentence keeps the landing decision with you. For routine work you'd rather not be asked about, see [Pre-approve routine work](#pre-approve-routine-work).
 
@@ -46,7 +46,7 @@ The last sentence keeps the landing decision with you. For routine work you'd ra
 
 You don't need to run any of these commands yourself. They're here so you know what's happening.
 
-**It works in its own worktree.** A worktree is a separate copy of the project with its own branch, so unfinished work stays off your shared branch, usually `main`. The agent creates one with `discern start` and keeps using it through review fixes and later sessions, until the change lands. [Worktrees and trunk](../20-understand/worktrees-and-trunk.md) explains more.
+**It works in its own worktree.** A worktree is a separate copy of the project with its own branch, so unfinished work stays off your shared branch, usually `main`. The agent creates one with `discern start` and keeps using it through review fixes and later sessions, until the change lands. [Worktrees and trunk](../10-understand/worktrees-and-trunk.md) explains more.
 
 **It gets fast feedback while it works.** `discern prepare` applies the project's fixers, such as the code formatter, then runs its quick checks, like linting and type-checking, without the full test suite. Each failure comes with its output and a command to reproduce it, so problems surface while they're cheap to fix.
 
@@ -62,7 +62,7 @@ The gate only runs on committed work. If anything is uncommitted, it stops and n
 
 A full run can take a while. If the agent's session loses track of it, the agent reads the result back with `discern progress` instead of starting again. If a check fails, the agent fixes the cause. [Fix a red gate](fix-a-red-gate.md) explains how.
 
-Your project may also have **checkpoints**: review questions that apply to certain kinds of change. When one applies, the agent answers it before the gate runs, and the answer appears in the Proof. [Checkpoints](../20-understand/checkpoints.md) explains how they work.
+Your project may also have **checkpoints**: review questions that apply to certain kinds of change. When one applies, the agent answers it before the gate runs, and the answer appears in the Proof. [Checkpoints](../10-understand/checkpoints.md) explains how they work.
 
 **It keeps up with `main`.** If other work has landed since the task started, `discern done` asks the agent to run `discern update` first. That brings in the new work and lists any files both changes touched, so the agent can re-read them. Changes can merge cleanly and still clash, such as two features that both want the same spot on screen.
 
@@ -150,4 +150,4 @@ If anything is left behind, the result's first sentence says why:
 - **The Proof note wasn't recorded.** The change has landed. discern keeps the worktree and its branch until the note is recorded. Once the reported problem is fixed, the agent runs `discern accept` from that worktree. It records the note without landing again, then removes the worktree.
 - **Cleanup didn't finish**, perhaps because another program was still using the folder, or a resource couldn't be removed. The change has landed. Once the cause is fixed, run `discern worktree prune` from your main checkout to finish.
 
-Landing isn't releasing: getting the change to your users is still up to your release process. [From green to live](../20-understand/proof.md#from-green-to-live) shows every stage. If a fix is too urgent to wait for its checks, see [Land an urgent repair](land-an-urgent-repair.md). For every command and flag, see the [CLI reference](../30-reference/cli-reference.md).
+Landing isn't releasing: getting the change to your users is still up to your release process. [From green to live](../10-understand/proof.md#from-green-to-live) shows every stage. If a fix is too urgent to wait for its checks, see [Land an urgent repair](land-an-urgent-repair.md). For every command and flag, see the [CLI reference](../30-reference/cli-reference.md).

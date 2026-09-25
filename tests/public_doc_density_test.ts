@@ -79,7 +79,7 @@ async function writeFixture(root: string): Promise<string> {
     );
   }
   await Deno.writeTextFile(
-    join(manual, "10-guides", "published.md"),
+    join(manual, "20-guides", "published.md"),
     page(
       "guide-published",
       "Published guide",
@@ -89,7 +89,7 @@ async function writeFixture(root: string): Promise<string> {
     ),
   );
   await Deno.writeTextFile(
-    join(manual, "10-guides", "withheld.md"),
+    join(manual, "20-guides", "withheld.md"),
     page(
       "guide-withheld",
       "Withheld guide",
@@ -128,7 +128,7 @@ Deno.test("density excludes withheld pages, frontmatter, code, and private Map p
     );
     assertEquals(await measurePublicDocs(dir, manual), baseline);
 
-    const guidePath = join(manual, "10-guides", "published.md");
+    const guidePath = join(manual, "20-guides", "published.md");
     const before = await Deno.readTextFile(guidePath);
     await Deno.writeTextFile(
       guidePath,

@@ -34,7 +34,7 @@ The manual root contains the central front-door authority. `DocsSite.frontDoors`
 
 A moved page keeps its old address working. It lists the old page route in `redirect_from`, and the site derives the matching `.md` redirect; declaring the `.md` route as well is rejected as a conflict. Validation resolves each old address directly to its live successor and rejects chains and generic root fallbacks.
 
-To move a page, keep its `id`, which registries and agents use to address it. Rename the file and add the old route to `redirect_from`. Then update every link to the old path, in the manual, in [`site/navigation.ts`](../../../site/navigation.ts), and in the map, and run `deno task codegen` to refresh generated links such as the glossary's. If the generated glossary still links to the old path, correct that link by hand first: the manual's link validation runs before codegen can regenerate it. `project/manual/20-understand/how-discern-works.md` is an example.
+To move a page, keep its `id`, which registries and agents use to address it. Rename the file and add the old route to `redirect_from`. Then update every link to the old path, in the manual, in [`site/navigation.ts`](../../../site/navigation.ts), and in the map, and run `deno task codegen` to refresh generated links such as the glossary's. If the generated glossary still links to the old path, correct that link by hand first: the manual's link validation runs before codegen can regenerate it. `project/manual/10-understand/how-discern-works.md` is an example.
 
 ## Reader-visible search
 

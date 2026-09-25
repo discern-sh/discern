@@ -188,7 +188,7 @@ async function main(): Promise<void> {
               ),
               phase("search", [
                 "Search: Delegate substantial work",
-                "10-guides/delegate-work.md",
+                "20-guides/delegate-work.md",
                 "Enter open/action  Esc cancel",
               ], "\r"),
               phase(

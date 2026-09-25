@@ -126,7 +126,7 @@ You don't need to know which file a lesson belongs in. Ask:
 
 > Capture the lesson from this task so future agents can use it. Update an existing source if it already belongs somewhere, and tell me where you recorded it.
 
-The `discern-teach-the-project` skill picks the smallest home that fits: a line in the project instructions, a skill, a checkpoint, a project script, a map page, or an ADR. It updates an existing home rather than adding a second one. [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) shows these choices through an example.
+The `discern-teach-the-project` skill picks the smallest home that fits: a line in the project instructions, a skill, a checkpoint, a project script, a map page, or an ADR. It updates an existing home rather than adding a second one. [Instructions, skills, and the map](../10-understand/instructions-skills-and-map.md) shows these choices through an example.
 
 Your agent may also offer to capture a lesson it noticed, at a natural pause in the work. You decide whether it's worth keeping.
 

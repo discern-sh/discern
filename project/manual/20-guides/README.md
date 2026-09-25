@@ -62,4 +62,4 @@ If discern is new to your project, start with [Install and set up discern](../00
 
 A guide explains the usual path. Each result discern returns names the next step for your project as it is right now. If something doesn't match a guide, ask your agent to explain the result and follow its recovery steps.
 
-[Understand](../20-understand/README.md) explains the ideas behind the guides. [Reference](../30-reference/README.md) has the exact commands and settings. [Troubleshooting](../40-troubleshooting/README.md) starts from the symptoms you can see.
+[Understand](../10-understand/README.md) explains the ideas behind the guides. [Reference](../30-reference/README.md) has the exact commands and settings. [Troubleshooting](../40-troubleshooting/README.md) starts from the symptoms you can see.

@@ -90,4 +90,4 @@ You also decide how much to delegate. You can approve every change before it lan
 
 discern doesn't sandbox your agent. Your agent's own permission settings govern what it can read and run. [What stays on your machine](local-control.md) explains what discern itself runs, records, and writes.
 
-To try all this on a small task, follow [Make and review your first change](../00-start/first-real-change.md). For something bigger, [Delegate substantial work](../10-guides/delegate-work.md) shows how your agent can break it into pieces.
+To try all this on a small task, follow [Make and review your first change](../00-start/first-real-change.md). For something bigger, [Delegate substantial work](../20-guides/delegate-work.md) shows how your agent can break it into pieces.

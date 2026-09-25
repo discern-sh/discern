@@ -102,8 +102,8 @@ export interface ManualSectionRegistration {
 /** The complete manual section set, in navigation order. */
 export const MANUAL_SECTION_REGISTRY: readonly ManualSectionRegistration[] = [
   { dir: "00-start", slug: "start" },
-  { dir: "10-guides", slug: "guides" },
-  { dir: "20-understand", slug: "understand" },
+  { dir: "10-understand", slug: "understand" },
+  { dir: "20-guides", slug: "guides" },
   { dir: "30-reference", slug: "reference" },
   { dir: "40-troubleshooting", slug: "troubleshooting" },
 ];

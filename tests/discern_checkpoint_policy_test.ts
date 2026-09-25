@@ -446,7 +446,7 @@ Deno.test("boundary checkpoints exclude generated subjects by default", () => {
 
 Deno.test("manual when input contains only authored pre-scoped facts", () => {
   const authored = {
-    path: "project/manual/10-guides/place-and-answer-checkpoints.md",
+    path: "project/manual/20-guides/place-and-answer-checkpoints.md",
     generated: false,
     kind: "modified" as const,
     insertions: 5,

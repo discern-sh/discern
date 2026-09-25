@@ -2,7 +2,7 @@
 
 **Status:** Binding procedure for the public manual\
 **Applies to:** `project/manual/` tutorials, guides, explanations, reference, and troubleshooting\
-**Reference pages:** `project/manual/20-understand/proof.md` (explanation), `project/manual/10-guides/finish-and-land-a-change.md` (guide), and `project/manual/20-understand/how-discern-works.md` (overview)\
+**Reference pages:** `project/manual/10-understand/proof.md` (explanation), `project/manual/20-guides/finish-and-land-a-change.md` (guide), and `project/manual/10-understand/how-discern-works.md` (overview)\
 **Change control:** An edit to this procedure or to the reference pages binds only after the owner has approved the exact new text.
 
 The manual is where people learn what discern does for them, decide to adopt it, and learn to direct their agents. It is one of discern's main marketing surfaces, and coding agents read the same pages through `discern docs` and `discern_docs`. Write for the person first: plain, warm, and exact. An agent gets the same facts from plain prose.

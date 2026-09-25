@@ -56,7 +56,7 @@ The second sentence matters. A cheerful suggestion the app can't carry out leave
 
 Read the rule the way the next agent will. Does it belong in every session, or only in some tasks? Does it keep the distinction you care about? "Make errors better" leaves the next agent to guess what you meant.
 
-Keep each rule short. Every session reads every instruction, so a long one costs every task. Put the fuller reasons in the project map, the guide your agents keep to how the project works, and link to them from the rule. [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) explains which home fits which kind of lesson.
+Keep each rule short. Every session reads every instruction, so a long one costs every task. Put the fuller reasons in the project map, the guide your agents keep to how the project works, and link to them from the rule. [Instructions, skills, and the map](../10-understand/instructions-skills-and-map.md) explains which home fits which kind of lesson.
 
 ## Check that a new session follows it
 

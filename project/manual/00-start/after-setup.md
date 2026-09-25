@@ -52,7 +52,7 @@ Most of what you'll want to read is in the `discern/` folder. These are ordinary
 
 <!-- /discern-workflow -->
 
-Setup writes the instructions, the map, and the list of saved work in every project. The other paths appear when the project starts using them. [Create and manage skills](../10-guides/create-and-manage-skills.md) covers playbooks.
+Setup writes the instructions, the map, and the list of saved work in every project. The other paths appear when the project starts using them. [Create and manage skills](../20-guides/create-and-manage-skills.md) covers playbooks.
 
 ## Files discern shares with you
 
@@ -60,7 +60,7 @@ Setup writes the instructions, the map, and the list of saved work in every proj
 
 discern adds a marked section to your `.gitignore` and `.gitattributes` files. The `.gitignore` section keeps generated and machine-local files out of Git. The `.gitattributes` section sets how Git compares and merges certain files. Your own rules stay outside discern's sections, and discern leaves them alone.
 
-Setup also connects the coding tools you chose. Their settings files gain entries that load discern's tools, run actions when a session starts, or allow particular commands. Ask your agent to point out any permission changes when you review. [Connect a coding agent](../10-guides/connect-a-coding-agent.md) covers each tool's settings and trust steps.
+Setup also connects the coding tools you chose. Their settings files gain entries that load discern's tools, run actions when a session starts, or allow particular commands. Ask your agent to point out any permission changes when you review. [Connect a coding agent](../20-guides/connect-a-coding-agent.md) covers each tool's settings and trust steps.
 
 ## Files discern regenerates
 
@@ -82,7 +82,7 @@ Set up discern once, at the root of each Git repository. If the repository holds
 
 By default, task workspaces live beside your project, in a folder named after it with `.worktrees` on the end. Each **worktree** is a separate copy of the project for one task. It stays until the change lands and discern removes it. The landing result tells your agent whether that cleanup finished.
 
-discern's local activity record, the **logbook**, lives inside Git's own storage folder, so it isn't one of your project's files. It holds metadata about discern's use, such as timings and outcomes. It leaves out code and command output. [What stays on your machine](../20-understand/local-control.md) explains what discern runs and records.
+discern's local activity record, the **logbook**, lives inside Git's own storage folder, so it isn't one of your project's files. It holds metadata about discern's use, such as timings and outcomes. It leaves out code and command output. [What stays on your machine](../10-understand/local-control.md) explains what discern runs and records.
 
 ## Before you land setup
 

@@ -26,6 +26,6 @@ You need a project, a supported coding agent, and a computer running macOS or Li
 
 ## Once you're ready to work
 
-[Finish and land a change](../10-guides/finish-and-land-a-change.md) shows the everyday loop. You describe what you want, your agent makes and checks the change, and you review what comes back. [Proof](../20-understand/proof.md) shows how to read the record of those checks.
+[Finish and land a change](../20-guides/finish-and-land-a-change.md) shows the everyday loop. You describe what you want, your agent makes and checks the change, and you review what comes back. [Proof](../10-understand/proof.md) shows how to read the record of those checks.
 
-You don't need to set up every feature before your first task. Turn to the other [guides](../10-guides/README.md) as you need them.
+You don't need to set up every feature before your first task. Turn to the other [guides](../20-guides/README.md) as you need them.

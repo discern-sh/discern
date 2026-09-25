@@ -101,7 +101,7 @@ discern checks a standing grant against the files the change touches, and anythi
 
 A **standard** is a quality limit the project holds, such as a maximum download size. Better search might push the app past it. The agent should first try to avoid the increase. If raising the limit is justified, it proposes the change, and the Proof shows the current limit, the proposed one, the measured value, and the reason.
 
-You decide whether the feature is worth it. Landing needs your approval of that exact proposal. General permission to land doesn't cover it. If you decline, the agent puts the old limit back, and the change has to fit within it. [Set and raise standards](../10-guides/set-and-raise-standards.md) covers the details.
+You decide whether the feature is worth it. Landing needs your approval of that exact proposal. General permission to land doesn't cover it. If you decline, the agent puts the old limit back, and the change has to fit within it. [Set and raise standards](../20-guides/set-and-raise-standards.md) covers the details.
 
 ## From green to live
 
@@ -116,7 +116,7 @@ A finished change passes several milestones on its way to your users:
 | **Landed**           | The commit is on the **trunk**, your project's shared branch (usually `main`).                        |
 | **Live**             | Your release process has shipped it to users. discern never does this step.                           |
 
-**Emergency landings** skip this path. When a fix can't wait for its checks, you can land it anyway, but only by making a fresh, explicit decision. discern keeps a permanent record of which checks failed, didn't run, or were out of date. That record isn't Proof. A later passing run settles the outstanding checks, and the record stays. [Land an urgent repair](../10-guides/land-an-urgent-repair.md) explains how.
+**Emergency landings** skip this path. When a fix can't wait for its checks, you can land it anyway, but only by making a fresh, explicit decision. discern keeps a permanent record of which checks failed, didn't run, or were out of date. That record isn't Proof. A later passing run settles the outstanding checks, and the record stays. [Land an urgent repair](../20-guides/land-an-urgent-repair.md) explains how.
 
 ## Proof stays with the code
 
@@ -128,6 +128,6 @@ The note lives in your local repository. discern never uploads it. Sharing notes
 
 For everyday work, ask for the changed behavior, current Proof, and any decision that's still open. If something is missing, ask what's left and how to get it. If you ask for another edit, expect new Proof for the new version.
 
-Only an ordinary `discern done` produces Proof you can land. Its `--standalone` option, for investigating, and its `--ci` option, for reporting in continuous integration, don't. [Run the gate in CI](../10-guides/run-the-gate-in-ci.md) explains the second.
+Only an ordinary `discern done` produces Proof you can land. Its `--standalone` option, for investigating, and its `--ci` option, for reporting in continuous integration, don't. [Run the gate in CI](../20-guides/run-the-gate-in-ci.md) explains the second.
 
-[Finish and land a change](../10-guides/finish-and-land-a-change.md) walks through the handoff, and [Fix a red gate](../10-guides/fix-a-red-gate.md) helps when a check fails.
+[Finish and land a change](../20-guides/finish-and-land-a-change.md) walks through the handoff, and [Fix a red gate](../20-guides/fix-a-red-gate.md) helps when a check fails.

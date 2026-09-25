@@ -381,14 +381,14 @@ async function makeDocsFixture(
       "# Hidden draft\n\nWithheld.\n",
       false,
     ),
-    "10-guides/README.md": manualFixturePage(
+    "20-guides/README.md": manualFixturePage(
       "guide-index",
       "Guides",
       "guide",
       0,
       "# Guides\n",
     ),
-    "20-understand/README.md": manualFixturePage(
+    "10-understand/README.md": manualFixturePage(
       "understand-index",
       "Understand",
       "explanation",
@@ -426,13 +426,13 @@ async function makeDocsFixture(
 
 /** Add enough exact manual matches to exercise the bounded search projection. */
 async function addSearchMatches(docs: string, count: number): Promise<void> {
-  const indexPath = join(docs, "10-guides", "README.md");
+  const indexPath = join(docs, "20-guides", "README.md");
   const links: string[] = [];
   for (let number = 1; number <= count; number += 1) {
     const slug = `search-match-${number}`;
     links.push(`- [Search match ${number}](${slug}.md)`);
     await Deno.writeTextFile(
-      join(docs, "10-guides", `${slug}.md`),
+      join(docs, "20-guides", `${slug}.md`),
       manualFixturePage(
         `guide-${slug}`,
         `Search match ${number}`,
@@ -1339,7 +1339,7 @@ Deno.test("docs <ambiguous> --json reports ambiguous with candidates", async () 
       ),
     );
     await Deno.writeTextFile(
-      join(docs, "10-guides/shared.md"),
+      join(docs, "20-guides/shared.md"),
       manualFixturePage(
         "guide-shared",
         "Shared guide",

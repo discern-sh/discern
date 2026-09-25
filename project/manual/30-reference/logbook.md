@@ -26,7 +26,7 @@ aliases:
 
 The **logbook** is discern's local record of how work goes in your project: which commands ran, how long they took, and how they ended. It never records your code, prompts, command output, or file contents, and it never leaves your machine. This page defines what the logbook records, what reads it, how to read its reports and stats, and how to archive or reset it.
 
-Recording needs to be on to collect new evidence. History you already have stays readable after recording stops. To put the findings to use, read [Learn from your project's history](../20-understand/evidence-and-improvement.md).
+Recording needs to be on to collect new evidence. History you already have stays readable after recording stops. To put the findings to use, read [Learn from your project's history](../10-understand/evidence-and-improvement.md).
 
 | Find                                  | Go to                                                         |
 | ------------------------------------- | ------------------------------------------------------------- |
@@ -107,7 +107,7 @@ discern patterns --stats
 
 An accepted change is a successful `accept`, and its size comes from the recorded change counts. The gate's streaks count consecutive `done` runs in stream order. The summed command duration includes waits for a test slot and runs that overlapped, so it's neither elapsed time nor compute time.
 
-A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](../20-understand/evidence-and-improvement.md#what-the-detectors-watch) matches them. So a cycle needs both ends on record: an accept whose start predates the logbook counts as accepted, but adds no cycle.
+A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](../10-understand/evidence-and-improvement.md#what-the-detectors-watch) matches them. So a cycle needs both ends on record: an accept whose start predates the logbook counts as accepted, but adds no cycle.
 
 For the overlap reading, a branch is in flight from its first analyzed event to its last. A pause inside that window still counts as in flight. A branch stops counting after its last event, and the trunk isn't a change.
 
@@ -253,7 +253,7 @@ An invocation's `surface` is `cli` or `mcp`. Its `outcome` is `ok`, `failed`, `p
 - **`partial`** marks an error after an effect that can't be undone.
 - **`crash`** appears only when discern hits an unexpected error. It holds the error's class name, such as `"TypeError"`, and one trimmed code location. The logbook leaves out the message and stack; a saved [crash report file](../40-troubleshooting/crashes-and-local-state.md) holds the full error text.
 - **`tip_ids`** appears only when the desk showed a tip, and carries the tip's registry id as is. The tip-adoption reader joins that id to the tip's declared commands.
-- **`consent`** feeds the landing-authority detectors described in [practice patterns](../20-understand/evidence-and-improvement.md).
+- **`consent`** feeds the landing-authority detectors described in [practice patterns](../10-understand/evidence-and-improvement.md).
 - **`checkpoints`** carries the open-question and variance lifecycle as metadata: ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times. The unmet rationale never lands here.
 
 A `begin` event carries the run's identity. Its `verb` event adds the outcome and `duration_ms`. Capped test runs add `waited_ms`, including `0`; uncapped runs and older events leave it out. Readers work out the execution time as `duration_ms - (waited_ms ?? 0)` for priors and suite health, and end-to-end statistics keep the wall time.
@@ -309,5 +309,5 @@ A tip-adoption episode compares events only when the config epoch, the discern w
 
 ### Related pages
 
-- [What stays on your machine](../20-understand/local-control.md): what discern runs, records, and writes, and what never leaves your computer.
+- [What stays on your machine](../10-understand/local-control.md): what discern runs, records, and writes, and what never leaves your computer.
 - [Files and ownership](files-and-ownership.md): where the logbook sits among discern's other local records.

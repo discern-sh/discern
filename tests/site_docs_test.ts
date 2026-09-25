@@ -243,7 +243,7 @@ Deno.test("the manual cover shows task guidance before its complete browse tree"
   assertEquals(dom.window.document.querySelector("#the-sections"), null);
   assertEquals(nav?.querySelector("[data-nav-disclosure]"), null);
   assertEquals(nav?.querySelectorAll("[hidden]").length, 0);
-  const guides = site.sections.find((section) => section.dir === "10-guides");
+  const guides = site.sections.find((section) => section.dir === "20-guides");
   assertEquals(guides?.pages[1]?.entry.slug, "finish-and-land-a-change");
   dom.window.close();
 });
@@ -664,7 +664,7 @@ Deno.test("section landings derive their leaf index from model metadata", async 
       })),
       section.dir,
     );
-    if (section.dir === "10-guides") {
+    if (section.dir === "20-guides") {
       assert(!html.includes('href="#in-this-section"'));
     }
     dom.window.close();

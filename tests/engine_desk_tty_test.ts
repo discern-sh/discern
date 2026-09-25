@@ -884,7 +884,7 @@ realPtyTest({
           {
             waitFor: [
               "Search: Delegate substantial work",
-              "10-guides/delegate-work.md",
+              "20-guides/delegate-work.md",
             ],
             chunks: [{ keys: ["enter"] }],
           },

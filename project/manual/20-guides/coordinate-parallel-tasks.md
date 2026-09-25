@@ -135,7 +135,7 @@ discern update
 
 The result lists files that both changes touched, and the agent reads those again. Edits can merge cleanly and still clash. Search might add a button that the phone layout has no room for. Trying the combined screen is how you catch that.
 
-Each task finishes with `discern done`. It runs your project's required checks, the **gate**, on the committed work. When they pass, discern records [Proof](../20-understand/proof.md) for that exact commit. The result then names the next step, and whether landing needs your decision. A pass isn't permission to land.
+Each task finishes with `discern done`. It runs your project's required checks, the **gate**, on the committed work. When they pass, discern records [Proof](../10-understand/proof.md) for that exact commit. The result then names the next step, and whether landing needs your decision. A pass isn't permission to land.
 
 ## Understand the landing queue
 
@@ -212,4 +212,4 @@ The preview is `discern worktree park <task> --dry-run`. Parking needs a clean w
 
 You can tell what each task delivers, which task it depends on, whether it's in the landing queue, and what comes back for your review. The agents handle the worktrees, the waits, the updates, and the checks. [Finish and land a change](finish-and-land-a-change.md) covers reviewing each result and following what reaches `main`.
 
-For more, [Worktrees and trunk](../20-understand/worktrees-and-trunk.md) explains the model, [Worktrees and status](../30-reference/worktrees-and-status.md) lists every field, and [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers setup or cleanup that stopped partway.
+For more, [Worktrees and trunk](../10-understand/worktrees-and-trunk.md) explains the model, [Worktrees and status](../30-reference/worktrees-and-status.md) lists every field, and [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers setup or cleanup that stopped partway.

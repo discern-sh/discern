@@ -161,7 +161,7 @@ Deno.test("readiness rendering enrolls every family and question without a secon
   assertStringIncludes(extended, "Run the project's workflow checks.");
   assertStringIncludes(
     extended,
-    "../../../manual/10-guides/finish-and-land-a-change.md",
+    "../../../manual/20-guides/finish-and-land-a-change.md",
   );
 });
 

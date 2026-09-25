@@ -43,11 +43,11 @@ Deno.test("the public manual's glossary matches the term registry", async () => 
   // that holds a concept, and none leaves it for the repository.
   for (
     const destination of [
-      "../20-understand/proof.md",
-      "../20-understand/checkpoints.md",
-      "../20-understand/standards.md",
-      "../10-guides/write-project-instructions.md",
-      "../10-guides/create-and-manage-skills.md",
+      "../10-understand/proof.md",
+      "../10-understand/checkpoints.md",
+      "../10-understand/standards.md",
+      "../20-guides/write-project-instructions.md",
+      "../20-guides/create-and-manage-skills.md",
       "files-and-ownership.md",
       "files-and-ownership.md#registered-project-paths",
       "mcp-and-results.md#progress-handles-and-reconnect",

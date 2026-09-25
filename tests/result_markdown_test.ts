@@ -675,7 +675,7 @@ Deno.test("requested documentation remains intact in the Markdown projection", (
 
 Deno.test("documentation search Markdown reports the full and returned counts", () => {
   const results = Array.from({ length: 5 }, (_, index) => ({
-    target: `10-guides/result-${index + 1}`,
+    target: `20-guides/result-${index + 1}`,
     title: `Result ${index + 1}`,
     snippet: "Matching context.",
   }));

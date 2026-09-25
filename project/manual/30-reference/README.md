@@ -17,7 +17,7 @@ aliases:
 
 Use these pages when you need an exact answer about a command, a setting, a file, or a result. They hold the complete details, so the guides can stay focused on getting work done.
 
-If you know what you want to do but not which command does it, start with the [guides](../10-guides/README.md).
+If you know what you want to do but not which command does it, start with the [guides](../20-guides/README.md).
 
 - [Glossary](glossary.md): find a plain definition of a discern term.
 
@@ -47,4 +47,4 @@ If you know what you want to do but not which command does it, start with the [g
 | The Model Context Protocol (MCP) tools discern gives your agent, their structured results, and the published schemas. | [MCP and results](mcp-and-results.md)                           |
 | What a new release may change, which parts are still evolving, and how pinned schemas keep working.                   | [Compatibility](compatibility.md)                               |
 
-The [explanations](../20-understand/README.md) help you make sense of these details. When a result failed or refused to go ahead, [Troubleshooting](../40-troubleshooting/README.md) helps you find the next step.
+The [explanations](../10-understand/README.md) help you make sense of these details. When a result failed or refused to go ahead, [Troubleshooting](../40-troubleshooting/README.md) helps you find the next step.

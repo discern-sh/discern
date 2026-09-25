@@ -52,7 +52,7 @@ aliases:
 
 Look up whether discern runs on your computer and works with your coding tool. For each tool, this page lists the files discern writes, how long one call can run, and how to confirm that a new session loaded discern.
 
-discern supports Claude Code, Codex, Gemini CLI, Cursor, and GitHub Copilot CLI. It writes integration files into your project, and each coding tool keeps its own user-level trust settings. To add a tool to an existing project, follow [Connect a coding agent](../10-guides/connect-a-coding-agent.md).
+discern supports Claude Code, Codex, Gemini CLI, Cursor, and GitHub Copilot CLI. It writes integration files into your project, and each coding tool keeps its own user-level trust settings. To add a tool to an existing project, follow [Connect a coding agent](../20-guides/connect-a-coding-agent.md).
 
 | Find                                     | Go to                                                                                                                                                                                        |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

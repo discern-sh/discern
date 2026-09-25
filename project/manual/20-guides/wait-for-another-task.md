@@ -43,7 +43,7 @@ The main choice is whether to build on checked work now, or to wait until it has
 | "Use search after it lands."            | **Landed:** search's work is on the **trunk**, your project's shared branch (usually `main`). | You want to build only on work you've accepted. |
 | "Carry on when anything lands."         | **Trunk moved:** the trunk changed after the wait began.                                      | Any new work on `main` matters, whoever did it. |
 
-Green isn't landed. A green search task is ready to build on, but its Proof doesn't give it permission to land. That decision still waits for you, or for a grant you set up earlier. [Proof](../20-understand/proof.md) explains the difference.
+Green isn't landed. A green search task is ready to build on, but its Proof doesn't give it permission to land. That decision still waits for you, or for a grant you set up earlier. [Proof](../10-understand/proof.md) explains the difference.
 
 ## What the agent runs
 

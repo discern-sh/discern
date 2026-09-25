@@ -226,7 +226,7 @@ Deno.test("a fresh published page enrols everywhere except promotion", async () 
   await withTempDir(async (dir) => {
     const manualDir = join(dir, "manual");
     await copy(REPO_AUTHORED_PATHS.manual, manualDir, { overwrite: true });
-    const sectionIndex = join(manualDir, "10-guides", "README.md");
+    const sectionIndex = join(manualDir, "20-guides", "README.md");
     const index = await Deno.readTextFile(sectionIndex);
     await Deno.writeTextFile(
       sectionIndex,
@@ -237,7 +237,7 @@ Deno.test("a fresh published page enrols everywhere except promotion", async () 
     );
     const retiredSource = "/docs/fresh-enrolment-retired";
     await Deno.writeTextFile(
-      join(manualDir, "10-guides", "fresh-enrolment.md"),
+      join(manualDir, "20-guides", "fresh-enrolment.md"),
       `---
 id: guide-fresh-enrolment
 title: "Fresh enrolment"

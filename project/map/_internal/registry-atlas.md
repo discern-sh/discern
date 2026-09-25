@@ -512,6 +512,24 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/start/first-real-change.md`
   - `/docs/start/after-setup`
   - `/docs/start/after-setup.md`
+  - `/docs/understand`
+  - `/docs/understand.md`
+  - `/docs/understand/how-discern-works`
+  - `/docs/understand/how-discern-works.md`
+  - `/docs/understand/proof`
+  - `/docs/understand/proof.md`
+  - `/docs/understand/worktrees-and-trunk`
+  - `/docs/understand/worktrees-and-trunk.md`
+  - `/docs/understand/checkpoints`
+  - `/docs/understand/checkpoints.md`
+  - `/docs/understand/standards`
+  - `/docs/understand/standards.md`
+  - `/docs/understand/instructions-skills-and-map`
+  - `/docs/understand/instructions-skills-and-map.md`
+  - `/docs/understand/evidence-and-improvement`
+  - `/docs/understand/evidence-and-improvement.md`
+  - `/docs/understand/local-control`
+  - `/docs/understand/local-control.md`
   - `/docs/guides`
   - `/docs/guides.md`
   - `/docs/guides/finish-and-land-a-change`
@@ -546,24 +564,6 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/guides/run-the-gate-in-ci.md`
   - `/docs/guides/maintain-or-remove-discern`
   - `/docs/guides/maintain-or-remove-discern.md`
-  - `/docs/understand`
-  - `/docs/understand.md`
-  - `/docs/understand/how-discern-works`
-  - `/docs/understand/how-discern-works.md`
-  - `/docs/understand/proof`
-  - `/docs/understand/proof.md`
-  - `/docs/understand/worktrees-and-trunk`
-  - `/docs/understand/worktrees-and-trunk.md`
-  - `/docs/understand/checkpoints`
-  - `/docs/understand/checkpoints.md`
-  - `/docs/understand/standards`
-  - `/docs/understand/standards.md`
-  - `/docs/understand/instructions-skills-and-map`
-  - `/docs/understand/instructions-skills-and-map.md`
-  - `/docs/understand/evidence-and-improvement`
-  - `/docs/understand/evidence-and-improvement.md`
-  - `/docs/understand/local-control`
-  - `/docs/understand/local-control.md`
   - `/docs/reference`
   - `/docs/reference.md`
   - `/docs/reference/glossary`
@@ -4262,6 +4262,15 @@ Every strictly admitted published product-manual page, identified by its stable 
   - `start-installation-and-setup`
   - `start-first-real-change`
   - `start-after-setup`
+  - `understand-index`
+  - `explanation-practice-and-roles`
+  - `explanation-proof`
+  - `explanation-worktrees-and-trunk`
+  - `explanation-checkpoints`
+  - `explanation-standards`
+  - `explanation-instructions-skills-and-map`
+  - `explanation-evidence-and-improvement`
+  - `explanation-local-control`
   - `guide-index`
   - `guide-finish-and-land-a-change`
   - `guide-land-an-urgent-repair`
@@ -4279,15 +4288,6 @@ Every strictly admitted published product-manual page, identified by its stable 
   - `guide-connect-a-coding-agent`
   - `guide-run-the-gate-in-ci`
   - `guide-maintain-or-remove-discern`
-  - `understand-index`
-  - `explanation-practice-and-roles`
-  - `explanation-proof`
-  - `explanation-worktrees-and-trunk`
-  - `explanation-checkpoints`
-  - `explanation-standards`
-  - `explanation-instructions-skills-and-map`
-  - `explanation-evidence-and-improvement`
-  - `explanation-local-control`
   - `reference-index`
   - `reference-glossary`
   - `reference-cli`
@@ -4318,8 +4318,8 @@ The complete ordered section and route families of the repository-owned product 
 - Source: `src/shared/manual.ts` — `MANUAL_SECTION_REGISTRY`
 - Members: 5
   - `00-start`
-  - `10-guides`
-  - `20-understand`
+  - `10-understand`
+  - `20-guides`
   - `30-reference`
   - `40-troubleshooting`
 - Guards: `tests/manual_curation_test.ts`, `tests/manual_doc_checkpoint_test.ts`

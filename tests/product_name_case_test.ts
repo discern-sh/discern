@@ -280,7 +280,7 @@ Deno.test("canonical casing respects Markdown structure and ordinary proof", () 
     { text: "Read [Worktrees and the trunk](page.md).", expected: [] },
     {
       text:
-        "For a closer look at the everyday relationship between you, the agent, and the project, read [Practice and roles](../20-understand/practice-and-roles.md).",
+        "For a closer look at the everyday relationship between you, the agent, and the project, read [Practice and roles](../10-understand/practice-and-roles.md).",
       expected: [],
     },
     {
@@ -290,7 +290,7 @@ Deno.test("canonical casing respects Markdown structure and ordinary proof", () 
     },
     {
       text:
-        "Status requires a discern project. Linked-worktree lifecycle fields require a Git repository with at least one commit. For a practical introduction, read [Worktrees and the trunk](../20-understand/worktrees-and-trunk.md).",
+        "Status requires a discern project. Linked-worktree lifecycle fields require a Git repository with at least one commit. For a practical introduction, read [Worktrees and the trunk](../10-understand/worktrees-and-trunk.md).",
       expected: [],
     },
     {

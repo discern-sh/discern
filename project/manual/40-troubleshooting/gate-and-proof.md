@@ -31,7 +31,7 @@ The **gate** is the set of checks your project requires before a change counts a
 
 A red result names each failing check, shows its output, and gives the command that reproduces it. If the output was long, the result shortens it and names the file with the full text as `output_path`.
 
-Say the search test fails. A good explanation from your agent sounds like "Searching by an ingredient misses recipes whose title doesn't contain it." The failure might also come from a missing tool or a broken check, so the agent reproduces it before choosing a fix. [Fix a red gate](../10-guides/fix-a-red-gate.md) walks through the full procedure.
+Say the search test fails. A good explanation from your agent sounds like "Searching by an ingredient misses recipes whose title doesn't contain it." The failure might also come from a missing tool or a broken check, so the agent reproduces it before choosing a fix. [Fix a red gate](../20-guides/fix-a-red-gate.md) walks through the full procedure.
 
 Some failures need a different first step:
 
@@ -68,7 +68,7 @@ Nothing needs fixing. The tests start by themselves when a slot frees up.
 
 discern can't tell which task holds the slot. When the run finishes, its result lists the other commands that were running when the wait began, and how long the first one's kind of command usually takes. It then says `These observations do not establish queue order or an estimated start time.` So the list is only a clue to what was using the slot.
 
-Raise the limit only if your machine can handle another run. [Share limited capacity](../10-guides/coordinate-parallel-tasks.md#share-limited-capacity) explains the setting.
+Raise the limit only if your machine can handle another run. [Share limited capacity](../20-guides/coordinate-parallel-tasks.md#share-limited-capacity) explains the setting.
 
 ## The result was cut short
 
@@ -80,7 +80,7 @@ discern progress R1-H596-N6BT-K5
 
 discern keeps these results for up to 7 days. Each check's complete output stays in the file its `output_path` names, for 24 hours. Running the gate again only to see the missing text costs a full run, and tells you nothing new.
 
-If the session that started the run is gone, the run may still be going. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see) covers that case.
+If the session that started the run is gone, the run may still be going. [Recover an interrupted task](../20-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see) covers that case.
 
 ## Files changed while the gate ran
 
@@ -104,14 +104,14 @@ A green result without Proof says why, such as `The checks passed, but this run 
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | A new commit arrived during the run. | Commit the final version, then run `discern done` again.                                                                                       |
 | The run used `--standalone`.         | That option is for investigating and never records Proof. Run `discern done` without it.                                                       |
-| The run used `--ci`.                 | It reports results in continuous integration, and its Proof can't land a change. See [Run the gate in CI](../10-guides/run-the-gate-in-ci.md). |
+| The run used `--ci`.                 | It reports results in continuous integration, and its Proof can't land a change. See [Run the gate in CI](../20-guides/run-the-gate-in-ci.md). |
 | discern couldn't write the Proof.    | Fix the reason it names, then run `discern done` again.                                                                                        |
 
 ## Proof was current and went stale
 
 Proof covers one exact version. It goes stale when the agent makes a new commit, leaves files uncommitted, or changes a checkpoint answer or a proposed limit. Say you ask for a friendlier message when no recipe matches. The old Proof checked the old message, so the agent commits the new one and runs `discern done` again. Checks that declare their inputs reuse earlier results when those inputs didn't change.
 
-A newer `main` doesn't make Proof stale. discern checks the combination when the change lands, as the next section describes. [Why Proof becomes stale](../20-understand/proof.md#why-proof-becomes-stale) explains the rule.
+A newer `main` doesn't make Proof stale. discern checks the combination when the change lands, as the next section describes. [Why Proof becomes stale](../10-understand/proof.md#why-proof-becomes-stale) explains the rule.
 
 ## `main` moved before the change landed
 
@@ -132,7 +132,7 @@ When the landing works, the result starts `Landed`, and says the change was `com
 
 A **standard** is a quality limit your project holds, such as the app's download size. First tell a worse measurement apart from one that couldn't run:
 
-- **The value went past its limit.** Your agent explains what grew and tries to fix it within the task. If the change still needs more room, it brings you the measurement and a proposed new limit. You decide. Editing the limit to pass isn't a way round that. A **grant**, permission to land that you set up in advance, doesn't cover it either. [Set and raise standards](../10-guides/set-and-raise-standards.md#respond-when-a-standard-fires) covers the steps.
+- **The value went past its limit.** Your agent explains what grew and tries to fix it within the task. If the change still needs more room, it brings you the measurement and a proposed new limit. You decide. Editing the limit to pass isn't a way round that. A **grant**, permission to land that you set up in advance, doesn't cover it either. [Set and raise standards](../20-guides/set-and-raise-standards.md#respond-when-a-standard-fires) covers the steps.
 - **`Standards limits are UNVERIFIED`.** discern couldn't read the limits on `main` to compare against. In CI this usually means a shallow clone, and the result gives the fetch command, such as `git fetch origin main:main`.
 - **The measurement command failed.** Fix the command before drawing any conclusion about the value.
 
@@ -161,6 +161,6 @@ Your agent can keep investigating and fixing within the task you asked for. It b
 - remove or weaken a check;
 - land without permission you've given.
 
-A green gate isn't permission to land. [Finish and land a change](../10-guides/finish-and-land-a-change.md) covers that step.
+A green gate isn't permission to land. [Finish and land a change](../20-guides/finish-and-land-a-change.md) covers that step.
 
 If the fix a result names doesn't work, keep the original result and the new output. Before your agent runs the full gate again, it should be able to say what changed since the last run, or what the new run will show. If it can't say either, it investigates rather than repeating the run.

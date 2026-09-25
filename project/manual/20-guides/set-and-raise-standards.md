@@ -16,7 +16,7 @@ aliases:
 
 Lock in a measured gain, such as a smaller download, and no later change can give it back without your say. Your agent sets up the measurement, and discern checks it on every change. You decide what's worth holding, and only you can approve a looser limit.
 
-A **standard** is a quality limit your project holds. A **ceiling** is a maximum, such as download size. A **floor** is a minimum, such as test coverage. [Standards](../20-understand/standards.md) explains how limits tighten over time.
+A **standard** is a quality limit your project holds. A **ceiling** is a maximum, such as download size. A **floor** is a minimum, such as test coverage. [Standards](../10-understand/standards.md) explains how limits tighten over time.
 
 ## Ask for a standard
 

@@ -31,7 +31,7 @@ When the search works, your agent commits it and runs the **gate**, the checks y
 
 > **Proof:** Gate passed for `agent/reading-list-search-4e1f2a` at `9b3c71d0e5a2` · 4 files changed (+96 −8) vs `main` · View the full Proof: `discern status --verbose`
 
-The line names the task's branch and the commit, a saved version of the code, that the checks ran on. You don't have to take the agent's word for it. A pass tells you those checks passed. Whether the search helps people find their books is still your call, so you try it, ask what the checks don't cover, and decide whether it lands. If you ask for a change, the agent runs the gate again, because the first Proof covered only the first version. [Proof](../20-understand/proof.md) explains how to read the line.
+The line names the task's branch and the commit, a saved version of the code, that the checks ran on. You don't have to take the agent's word for it. A pass tells you those checks passed. Whether the search helps people find their books is still your call, so you try it, ask what the checks don't cover, and decide whether it lands. If you ask for a change, the agent runs the gate again, because the first Proof covered only the first version. [Proof](../10-understand/proof.md) explains how to read the line.
 
 ## Your project gets better with every task
 
@@ -67,14 +67,14 @@ It helps most when you want agents to take on bigger pieces of work, and you wan
 
 ## Where the boundaries are
 
-**It runs on your machine.** discern is one program with no AI model, account, or API key of its own. It keeps a local activity record with metadata such as timings and outcomes. That record leaves out your code and command output, and you can turn it off. There's no hosted dashboard. To see your tasks at a glance, you run `discern` in your project folder to open the **desk**, an interactive view in your terminal. Your agent still uses its own provider, and your project's commands can still reach the network. [What stays on your machine](../20-understand/local-control.md) explains more.
+**It runs on your machine.** discern is one program with no AI model, account, or API key of its own. It keeps a local activity record with metadata such as timings and outcomes. That record leaves out your code and command output, and you can turn it off. There's no hosted dashboard. To see your tasks at a glance, you run `discern` in your project folder to open the **desk**, an interactive view in your terminal. Your agent still uses its own provider, and your project's commands can still reach the network. [What stays on your machine](../10-understand/local-control.md) explains more.
 
 **Nothing lands without your permission.** A passing gate doesn't give permission to land. You approve each change yourself, or pre-approve routine areas, such as documentation, and everything else still comes back to you. Landing isn't releasing, either. Getting a change to your users stays with your own release process.
 
-**Your files stay yours.** The instructions, map, and other files you and your agents write are ordinary files in your repository. If you remove discern, `discern uninstall` takes out its wiring and keeps what you wrote. discern never updates itself, so you choose when to upgrade. discern is Fair Source software, and the material it writes into your project comes under the Apache 2.0 license. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md) and [Licenses](../30-reference/licenses.md) have the details.
+**Your files stay yours.** The instructions, map, and other files you and your agents write are ordinary files in your repository. If you remove discern, `discern uninstall` takes out its wiring and keeps what you wrote. discern never updates itself, so you choose when to upgrade. discern is Fair Source software, and the material it writes into your project comes under the Apache 2.0 license. [Maintain or remove discern](../20-guides/maintain-or-remove-discern.md) and [Licenses](../30-reference/licenses.md) have the details.
 
 ## Decide
 
 If this is how you'd like your agents to work, [install and set up discern](installation-and-setup.md). After setup, the next tutorial takes you through a small change you can try yourself.
 
-For a closer look at who does what, read [How discern works](../20-understand/how-discern-works.md).
+For a closer look at who does what, read [How discern works](../10-understand/how-discern-works.md).

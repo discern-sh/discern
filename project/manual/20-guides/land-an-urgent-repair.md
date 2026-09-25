@@ -76,4 +76,4 @@ If discern won't start, it can't record an emergency landing. If you must move `
 
 The fix is on `main`, and its emergency record names what was skipped. Either a later passing run has settled those checks, or a follow-up task is fixing what they found.
 
-[From green to live](../20-understand/proof.md#from-green-to-live) shows where an emergency landing sits among the ordinary stages. The [MCP and results reference](../30-reference/mcp-and-results.md#emergency-integration) lists the exact inputs your agent uses.
+[From green to live](../10-understand/proof.md#from-green-to-live) shows where an emergency landing sits among the ordinary stages. The [MCP and results reference](../30-reference/mcp-and-results.md#emergency-integration) lists the exact inputs your agent uses.

@@ -138,7 +138,7 @@ Once the question has fired on a few tasks, ask:
 
 You might narrow the trigger, reword the question, switch it to advise, or remove it. If the concern turns out to be testable, move it into a test. Any of these changes goes through the same review as the original.
 
-discern also ships built-in checkpoints, such as questions about large deletions and drifting documentation. [Checkpoints](../20-understand/checkpoints.md) describes them, and `discern checkpoints` lists the ones your project uses.
+discern also ships built-in checkpoints, such as questions about large deletions and drifting documentation. [Checkpoints](../10-understand/checkpoints.md) describes them, and `discern checkpoints` lists the ones your project uses.
 
 ## When it's done
 

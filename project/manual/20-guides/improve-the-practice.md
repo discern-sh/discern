@@ -49,7 +49,7 @@ Every finding comes with its counts and the runs they came from. When a report s
 
 Say the tests take most of the gate's time. That alone doesn't make them wasteful, because they may be doing necessary work. The agent looks for time that could be avoided, such as a check that runs again when nothing it reads has changed. Then it reads the commands involved before recommending anything.
 
-`discern patterns --stats` adds totals such as cycle times and standards trends. Where it splits counts by coding tool, it never ranks them. [Learn from your project's history](../20-understand/evidence-and-improvement.md) explains how to read the findings, and the [logbook reference](../30-reference/logbook.md) covers what gets recorded.
+`discern patterns --stats` adds totals such as cycle times and standards trends. Where it splits counts by coding tool, it never ranks them. [Learn from your project's history](../10-understand/evidence-and-improvement.md) explains how to read the findings, and the [logbook reference](../30-reference/logbook.md) covers what gets recorded.
 
 ## Follow the finding into the work
 

@@ -88,7 +88,7 @@ Say the same code passes once and fails once. That's a reason to look at unstabl
 
 Say the recipe app's download got smaller, and you want to lock in the gain by tightening its [standard](standards.md). The gate, your project's full set of checks, already says whether a tighter limit is possible. The report adds whether the gain has held across several recent runs.
 
-If the readings went back and forth, the report suggests looking into the variation instead of tightening the limit yet. Either way, you decide. [Set and raise standards](../10-guides/set-and-raise-standards.md) explains how to lock in a gain.
+If the readings went back and forth, the report suggests looking into the variation instead of tightening the limit yet. Either way, you decide. [Set and raise standards](../20-guides/set-and-raise-standards.md) explains how to lock in a gain.
 
 ### Comparing coding agents without ranking them
 
@@ -102,6 +102,6 @@ When signals about an agent conflict, discern leaves those runs unattributed. Th
 
 Use the findings to pick one improvement: make an instruction clearer, adjust a check, or aim a checkpoint better. `discern improvement` is another starting point. It checks your setup against the practices discern recommends and suggests one next step. `discern patterns` adds the history of how the setup has worked in practice.
 
-[Improve how your agents work](../10-guides/improve-the-practice.md) takes one improvement from investigation to review. Later runs show whether it worked, and the earlier history stays in the record for comparison.
+[Improve how your agents work](../20-guides/improve-the-practice.md) takes one improvement from investigation to review. Later runs show whether it worked, and the earlier history stays in the record for comparison.
 
 [What stays on your machine](local-control.md) explains where the logbook lives and what it leaves out. [The logbook reference](../30-reference/logbook.md) lists every field and statistic, and how to turn recording off, seal, or delete the history.

@@ -53,7 +53,7 @@ These moves connect a worktree to other work:
 
 Your agent runs these with `discern update`, `discern start --from` or `discern update --from`, and `discern accept`. You don't need to run them yourself. Each result tells the agent what to do next. For example, when an update brings in new work, discern lists the files both sides changed, so the agent knows what to re-read.
 
-When one task needs another's work, the agent can [wait for it](../10-guides/wait-for-another-task.md). You don't have to tell it when the other task is ready.
+When one task needs another's work, the agent can [wait for it](../20-guides/wait-for-another-task.md). You don't have to tell it when the other task is ready.
 
 ## When other work lands first
 
@@ -61,7 +61,7 @@ Say the layout change lands while search waits for your review. That doesn't sen
 
 When search lands, discern combines it with the new `main` in a temporary copy, called an **integration worktree**. It runs the checks on the combined code and lands exactly what passed. If the two changes conflict, or the combined checks fail, nothing lands. The search agent gets the files or the failing check. It brings the new `main` into its worktree, fixes the problem, and tries again.
 
-While the agent is still working, it keeps up with `main` itself. Before it runs the checks, `discern done` asks it to bring in any work that has landed since the task started. [Finish and land a change](../10-guides/finish-and-land-a-change.md#when-other-work-lands-first) shows what this looks like when you review.
+While the agent is still working, it keeps up with `main` itself. Before it runs the checks, `discern done` asks it to bring in any work that has landed since the task started. [Finish and land a change](../20-guides/finish-and-land-a-change.md#when-other-work-lands-first) shows what this looks like when you review.
 
 ## What separate copies can't catch
 
@@ -77,8 +77,8 @@ discern isn't a sandbox around your agent. Your agent's own permission settings 
 
 ## After a change lands
 
-When search lands, discern removes its worktree, its branch, and anything set up for it. If the worktree stays, the result says why. The branch may have newer commits that haven't landed, the worktree may have uncommitted changes, its Proof note may still need recording, or cleanup may not have finished. [Finish and land a change](../10-guides/finish-and-land-a-change.md#after-it-lands) covers each case.
+When search lands, discern removes its worktree, its branch, and anything set up for it. If the worktree stays, the result says why. The branch may have newer commits that haven't landed, the worktree may have uncommitted changes, its Proof note may still need recording, or cleanup may not have finished. [Finish and land a change](../20-guides/finish-and-land-a-change.md#after-it-lands) covers each case.
 
-To set a task aside for longer, your agent can **park** it. discern removes the worktree but keeps the branch, its commits, and the task's description, so the work can pick up later. [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md#park-a-task-you-will-return-to) explains when to park. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) helps when a session or command stops partway.
+To set a task aside for longer, your agent can **park** it. discern removes the worktree but keeps the branch, its commits, and the task's description, so the work can pick up later. [Coordinate parallel tasks](../20-guides/coordinate-parallel-tasks.md#park-a-task-you-will-return-to) explains when to park. [Recover an interrupted task](../20-guides/recover-an-interrupted-task.md) helps when a session or command stops partway.
 
-To run several tasks at once, follow [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md). The [worktrees and status reference](../30-reference/worktrees-and-status.md) lists every field.
+To run several tasks at once, follow [Coordinate parallel tasks](../20-guides/coordinate-parallel-tasks.md). The [worktrees and status reference](../30-reference/worktrees-and-status.md) lists every field.

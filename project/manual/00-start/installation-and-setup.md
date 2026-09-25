@@ -121,7 +121,7 @@ Open a fresh session in your project. Coding tools load instructions and tools w
 
 When setup lands, the agent's report names the exact check for your coding tool. The new agent calls one of discern's tools, such as `discern_status`, and confirms it answers. Files on disk don't prove that a session can use them, so this step checks the running session.
 
-If the tool is missing, follow the recovery steps the report gives for your tool, or ask the agent to run `discern doctor`. [Connect a coding agent](../10-guides/connect-a-coding-agent.md) has more detail.
+If the tool is missing, follow the recovery steps the report gives for your tool, or ask the agent to run `discern doctor`. [Connect a coding agent](../20-guides/connect-a-coding-agent.md) has more detail.
 
 ## What you now have
 

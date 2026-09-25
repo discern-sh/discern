@@ -97,4 +97,4 @@ The gate also checks every link, heading anchor, and command example in the map 
 
 You can pre-approve changes that only touch the map, so they land without asking you. [Finish and land a change](finish-and-land-a-change.md#pre-approve-routine-work) explains how.
 
-To test a page, ask your agent to walk through it as a new contributor. If a reader still can't find the code or understand a constraint that matters, the page needs more work. [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) explains how the map fits with the rest.
+To test a page, ask your agent to walk through it as a new contributor. If a reader still can't find the code or understand a constraint that matters, the page needs more work. [Instructions, skills, and the map](../10-understand/instructions-skills-and-map.md) explains how the map fits with the rest.

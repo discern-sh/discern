@@ -47,7 +47,7 @@ Look up what your agent can ask discern to do over the Model Context Protocol (M
 
 A few terms recur: the **gate** is the project's final quality check, **Proof** records what it established for one exact commit, and the **trunk** is the project's shared branch. A **worktree** is the separate copy of the project where one task happens. **Checkpoints** ask for judgment, **grants** record your permission to land changes, and a **variance** is your permission to land despite an unmet checkpoint.
 
-Tools that work on a project need a configured project; `discern_docs` reads the bundled manual without one. To connect an agent, follow [Connect a coding agent](../10-guides/connect-a-coding-agent.md).
+Tools that work on a project need a configured project; `discern_docs` reads the bundled manual without one. To connect an agent, follow [Connect a coding agent](../20-guides/connect-a-coding-agent.md).
 
 | Find                                           | Go to                                                                                             |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -311,7 +311,7 @@ Setup consent isn't permission to write. A command that changes files first chec
 
 Setup pages carry the prose meant for you once. The compact `spine.owner_moments` projections keep each moment's identity, kind, phase, purpose, recommendation, option ids, wait boundary, and relay protection. Compatibility fields derive from the same moments, so the terminal, Markdown, JSON, and MCP share one authority without repeating the prose.
 
-`start`, `status`, and green `done` results can carry `data.landing_authority`: `authorized` or `conversation-required`, with its source, scopes, evidence of uncovered paths, and warnings. Compact status and done results limit the uncovered paths to six examples, authored files first, beside the uncovered totals and scopes. A grant reported by `start` is prospective. A fact that's absent stays absent. [Proof](../20-understand/proof.md) explains landing authority.
+`start`, `status`, and green `done` results can carry `data.landing_authority`: `authorized` or `conversation-required`, with its source, scopes, evidence of uncovered paths, and warnings. Compact status and done results limit the uncovered paths to six examples, authored files first, beside the uncovered totals and scopes. A grant reported by `start` is prospective. A fact that's absent stays absent. [Proof](../10-understand/proof.md) explains landing authority.
 
 `status` names the project in `data.project`. Its default structured view keeps the main fleet row and at most six other rows, chosen by attention, the current checkout, recent activity, and name. Every repeated collection is capped at six. `fleet_total` and positive `projection.omitted` counts record the exact number of entries left out, under dotted paths with zero-based array indexes. Config refusals carry `projection` too.
 
@@ -364,7 +364,7 @@ After a landing, the top-level fields carry the outcome.
 - **`data.variances`** and **`data.standard_approvals`** list what the landing carried, and **`checkpoint_drops`** keeps classified uncertainty about checkpoint enforcement.
 - **`data.scopes_changed`** names the configured scopes the landed paths matched, and **`data.proof_note`** reports the Proof note write and its fetch transport.
 
-A refusal can carry **`data.integration_judgment`**, with the composition receipt under `composition`, the `decision`, and the ids it's `awaiting`. A refusal over a proposed limit change carries **`data.standard_approvals_required`**, with the exact approval tokens. The published schema defines every optional field. For recovery, see [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance).
+A refusal can carry **`data.integration_judgment`**, with the composition receipt under `composition`, the `decision`, and the ids it's `awaiting`. A refusal over a proposed limit change carries **`data.standard_approvals_required`**, with the exact approval tokens. The published schema defines every optional field. For recovery, see [Recover an interrupted task](../20-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance).
 
 #### Setup results
 

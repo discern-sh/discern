@@ -52,7 +52,7 @@ The larger feature might be worth its extra download. Maybe it lets people save 
 
 First, your agent tries to avoid the increase. If a needed part of the feature causes it, the agent shows you the new size, the limit, the reason, and the other options. It shouldn't shrink something unrelated to make the number pass.
 
-Then you decide. You can keep the limit and change the feature. Or you can approve a new limit: your agent proposes it, and the Proof shows the current limit, the proposed one, the measured size, and the reason. Landing needs your approval of that exact proposal. A general "go ahead" doesn't cover it, and neither does any grant you set up in advance. [Set and raise standards](../10-guides/set-and-raise-standards.md) walks through the decision.
+Then you decide. You can keep the limit and change the feature. Or you can approve a new limit: your agent proposes it, and the Proof shows the current limit, the proposed one, the measured size, and the reason. Landing needs your approval of that exact proposal. A general "go ahead" doesn't cover it, and neither does any grant you set up in advance. [Set and raise standards](../20-guides/set-and-raise-standards.md) walks through the decision.
 
 ## Pick a number that holds up as the project grows
 
@@ -72,4 +72,4 @@ A smaller download doesn't make the app easier to use. High test coverage doesn'
 
 [Checkpoints](checkpoints.md) ask the questions that need judgment, and your review decides whether the result serves the people using the app.
 
-[Set and raise standards](../10-guides/set-and-raise-standards.md) shows how to add a standard or lock in a gain. The [configuration reference](../30-reference/config-reference.md#standardsname) lists the exact fields and how a measurement reports its value.
+[Set and raise standards](../20-guides/set-and-raise-standards.md) shows how to add a standard or lock in a gain. The [configuration reference](../30-reference/config-reference.md#standardsname) lists the exact fields and how a measurement reports its value.

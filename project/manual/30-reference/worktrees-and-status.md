@@ -22,7 +22,7 @@ aliases:
 
 This page answers two kinds of lookup: what `discern status` reports about each task, and which identity and environment values each worktree gets. A **worktree** is a separate copy of the project, on its own branch, where one task happens. Finished work lands on the **trunk**, your project's shared branch.
 
-Status is how you and your agent see where every task stands and what it needs next. It needs a discern project, and the worktree fields need a Git repository with at least one commit. For the ideas behind worktrees, read [Worktrees and trunk](../20-understand/worktrees-and-trunk.md).
+Status is how you and your agent see where every task stands and what it needs next. It needs a discern project, and the worktree fields need a Git repository with at least one commit. For the ideas behind worktrees, read [Worktrees and trunk](../10-understand/worktrees-and-trunk.md).
 
 | Find                                               | Go to                                                       |
 | -------------------------------------------------- | ----------------------------------------------------------- |
@@ -170,7 +170,7 @@ Every task in the fleet is a separate effort, even when it's idle or clean, and 
 
 Ahead and behind counts are non-negative integers when known. After a failed or malformed count, they're `"unknown"`. `git.behind_trunk` is `null` in the main checkout, and when the trunk branch doesn't exist locally. `git.ahead_trunk` is `null` when the trunk branch doesn't exist locally. Missing evidence can't establish that a task is ready or that its work is contained elsewhere.
 
-Proof inspection reports `honored`, `report_only`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored marker includes compact facts: the branch, the trunk, the validated commit, the diff counts, and the Proof line. Report-only evidence can't be used for landing. A valid Proof links the current clean commit to its complete evidence, and status never runs the gate to produce one. The validated commit is the worktree's own committed tip. [Proof](../20-understand/proof.md#the-exact-commit-it-covers) explains what it covers.
+Proof inspection reports `honored`, `report_only`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored marker includes compact facts: the branch, the trunk, the validated commit, the diff counts, and the Proof line. Report-only evidence can't be used for landing. A valid Proof links the current clean commit to its complete evidence, and status never runs the gate to produce one. The validated commit is the worktree's own committed tip. [Proof](../10-understand/proof.md#the-exact-commit-it-covers) explains what it covers.
 
 Dirty, behind, and missing-Proof states are observations, so status can still return `ok: true`. A status command that can't complete returns its own failure. Read a task's state separately from whether the status command succeeded.
 
@@ -202,7 +202,7 @@ Structured fleet rows leave out the older `proof_honored`, `proof`, and `proof_l
 | `recent_completed_tasks`    | Up to 8 recent successful acceptances, and the latest landed Proof. Kept in orientation mode. |
 | `reappeared_worktree_paths` | Removed worktree paths that exist again without a live Git registration.                      |
 
-A reappeared-path row carries `path`, `removed_at`, `kind`, `entries`, a bounded `contents` sample, and `cleanup_blocked_reason` when prune must keep it. A reappeared path is no longer an active fleet member. Its cleanup appears under Owner attention, and status itself cleans nothing up. Review its contents, and close any program still writing there, before you confirm a prune. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) walks through an interrupted landing.
+A reappeared-path row carries `path`, `removed_at`, `kind`, `entries`, a bounded `contents` sample, and `cleanup_blocked_reason` when prune must keep it. A reappeared path is no longer an active fleet member. Its cleanup appears under Owner attention, and status itself cleans nothing up. Review its contents, and close any program still writing there, before you confirm a prune. [Recover an interrupted task](../20-guides/recover-an-interrupted-task.md) walks through an interrupted landing.
 
 ### Session findings
 
@@ -212,7 +212,7 @@ After setup, discern can add up to 3 recent observations from the logbook to `hi
 
 In the desk, **Desk commands** includes **Check for updates**, even when there are no tasks. It opens the release notes in your browser, where you can see what's changed and whether an update is available. If the browser doesn't open, the result still shows the address. Escape returns to the live desk.
 
-A reminder may appear after 14 days. It invites you to check, and doesn't mean an update is available or that anything is wrong with your installation. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#check-release-information) explains how to check and update.
+A reminder may appear after 14 days. It invites you to check, and doesn't mean an update is available or that anything is wrong with your installation. [Maintain or remove discern](../20-guides/maintain-or-remove-discern.md#check-release-information) explains how to check and update.
 
 ## Checkout identity and environment
 

@@ -35,7 +35,7 @@ export const READINESS_ROUTES = {
     how:
       "The Gate runs the checks the project declares before recording completion, giving testable acceptance criteria a repeatable place in the work.",
     contribution: "Project checks",
-    doc: "project/manual/10-guides/finish-and-land-a-change.md",
+    doc: "project/manual/20-guides/finish-and-land-a-change.md",
     humanBenefit: "project-defined-completion",
     agentBenefit: "run-the-relevant-gate-efficiently",
   },
@@ -45,7 +45,7 @@ export const READINESS_ROUTES = {
     how:
       "A project checkpoint pairs a relevant change with a written review question and records the agent's conclusion, including any unmet condition that needs an owner decision.",
     contribution: "Declared judgment",
-    doc: "project/manual/20-understand/checkpoints.md",
+    doc: "project/manual/10-understand/checkpoints.md",
     humanBenefit: "judgment-at-the-change",
     agentBenefit: "carry-judgment-as-judgment",
   },
@@ -63,7 +63,7 @@ export const READINESS_ROUTES = {
     how:
       "The skill teaches the agent to prove the cause, find the defect class, and leave a guard that covers future instances.",
     contribution: "Taught method",
-    doc: "project/manual/10-guides/create-and-manage-skills.md",
+    doc: "project/manual/20-guides/create-and-manage-skills.md",
     humanBenefit: "remove-bug-class",
     agentBenefit: "invoke-curated-project-procedures",
   },
@@ -72,7 +72,7 @@ export const READINESS_ROUTES = {
     how:
       "The skill teaches one authority per fact, guards that include future members, and effects planned before execution; the agent applies those methods to shared data, retries, and interrupted work.",
     contribution: "Taught method",
-    doc: "project/manual/10-guides/create-and-manage-skills.md",
+    doc: "project/manual/20-guides/create-and-manage-skills.md",
     humanBenefit: "reuse-engineering-discipline",
     agentBenefit: "invoke-curated-project-procedures",
   },
@@ -81,7 +81,7 @@ export const READINESS_ROUTES = {
     how:
       "A project supplies a repeatable measurement and a defensible limit; Standards hold that limit against regressions in memory, calls, cost, or another property the measurement represents.",
     contribution: "Project checks",
-    doc: "project/manual/20-understand/standards.md",
+    doc: "project/manual/10-understand/standards.md",
     humanBenefit: "retain-measured-gains",
     agentBenefit: "retain-earned-quality",
   },
@@ -90,7 +90,7 @@ export const READINESS_ROUTES = {
     how:
       "The cleanup skill teaches the agent to find accumulated clutter, prove each removal safe, and retain a measured limit where recurring clutter can be counted.",
     contribution: "Taught method",
-    doc: "project/manual/10-guides/create-and-manage-skills.md",
+    doc: "project/manual/20-guides/create-and-manage-skills.md",
     humanBenefit: "keep-clutter-down",
     agentBenefit: "invoke-curated-project-procedures",
   },
@@ -99,7 +99,7 @@ export const READINESS_ROUTES = {
     how:
       "Decision records preserve significant choices, alternatives, and reasons in the project, with an index that later maintainers and agents can follow.",
     contribution: "Project knowledge",
-    doc: "project/manual/20-understand/instructions-skills-and-map.md",
+    doc: "project/manual/10-understand/instructions-skills-and-map.md",
     humanBenefit: "preserve-decision-reasons",
     agentBenefit: "recover-the-project-mental-model",
   },
@@ -108,7 +108,7 @@ export const READINESS_ROUTES = {
     how:
       "The Map explains boundaries and workflows with evidence, linking the relevant procedures, checks, and decisions. It preserves context for data handling, recovery, compatibility, and release work where the project needs it.",
     contribution: "Project knowledge",
-    doc: "project/manual/20-understand/instructions-skills-and-map.md",
+    doc: "project/manual/10-understand/instructions-skills-and-map.md",
     humanBenefit: "inspect-agent-understanding",
     agentBenefit: "recover-the-project-mental-model",
   },
@@ -117,7 +117,7 @@ export const READINESS_ROUTES = {
     how:
       "Project instructions carry architectural boundaries and supported-environment policies into the compiled instructions each coding agent receives.",
     contribution: "Project knowledge",
-    doc: "project/manual/10-guides/write-project-instructions.md",
+    doc: "project/manual/20-guides/write-project-instructions.md",
     humanBenefit: "teach-project-once",
     agentBenefit: "inherit-current-agent-instructions",
   },
@@ -126,7 +126,7 @@ export const READINESS_ROUTES = {
     how:
       "The delegation skill teaches complete task briefs with intended outcomes, scope, and acceptance criteria, followed by review of what returns.",
     contribution: "Taught method",
-    doc: "project/manual/10-guides/delegate-work.md",
+    doc: "project/manual/20-guides/delegate-work.md",
     humanBenefit: "shape-substantial-work",
     agentBenefit: "invoke-curated-project-procedures",
   },
@@ -135,7 +135,7 @@ export const READINESS_ROUTES = {
     how:
       "Proof binds the recorded completion evidence to the validated change, so a reviewer can compare what was established with the questions the release still raises.",
     contribution: "Completion evidence",
-    doc: "project/manual/20-understand/proof.md",
+    doc: "project/manual/10-understand/proof.md",
     humanBenefit: "evidence-for-this-change",
     agentBenefit: "prove-the-exact-tree",
   },
@@ -144,7 +144,7 @@ export const READINESS_ROUTES = {
     how:
       "Acceptance checks authority for the actual landing diff, including a combined result, and requires the owner's authorization for the current unmet checkpoint set. Waiting for a landing turn keeps the submitted revision fixed.",
     contribution: "Landing authority",
-    doc: "project/manual/10-guides/finish-and-land-a-change.md",
+    doc: "project/manual/20-guides/finish-and-land-a-change.md",
     humanBenefit: "explicit-release-decision",
     agentBenefit: "land-only-with-release-authority",
   },
@@ -191,7 +191,7 @@ export const READINESS_ROUTES = {
     how:
       "When source files change, discern points agents to the Map pages that explain them, helping each session find its way around the project and keep that shared understanding current.",
     contribution: "Advisory evidence",
-    doc: "project/manual/20-understand/instructions-skills-and-map.md",
+    doc: "project/manual/10-understand/instructions-skills-and-map.md",
     humanBenefit: "inspect-agent-understanding",
     agentBenefit: "recover-the-project-mental-model",
   },
@@ -218,7 +218,7 @@ export const READINESS_ROUTES = {
     how:
       "When other work lands first, discern combines the submitted change with the current trunk in an owned integration worktree and proves that result before landing. The resulting Proof keeps the submitted source and the tested combination distinct.",
     contribution: "Completion evidence",
-    doc: "project/manual/10-guides/finish-and-land-a-change.md",
+    doc: "project/manual/20-guides/finish-and-land-a-change.md",
     humanBenefit: "land-finished-work-as-the-project-moves",
     agentBenefit: "prove-the-exact-tree",
   },

@@ -46,7 +46,7 @@ Say you've found a good way to review a new screen. Try it with no saved article
 
 A **skill** holds a method like that. Its short description tells the agent when the skill applies, and the agent reads the full steps only when it does. So a session carries only that short description until the job needs the rest.
 
-discern ships skills for jobs such as fixing a bug so it stays fixed, splitting big work into tasks, and recording a lesson. Your project can add its own. A skill you write with the same name as a bundled one replaces it. [Create and manage skills](../10-guides/create-and-manage-skills.md) shows how.
+discern ships skills for jobs such as fixing a bug so it stays fixed, splitting big work into tasks, and recording a lesson. Your project can add its own. A skill you write with the same name as a bundled one replaces it. [Create and manage skills](../20-guides/create-and-manage-skills.md) shows how.
 
 Write a skill so it stands on its own. Say what the method needs, which choices to make, what to hand back, and when to stop and ask. "Review it like last time" sends the next session looking for a conversation it can't see.
 
@@ -60,7 +60,7 @@ You can read it too. It shows you what your agents understand about the project.
 
 That lets you correct a misunderstanding before it turns into code.
 
-The gate checks the map's mechanics, such as links, headings, and command examples. When code changes, a built-in [checkpoint](checkpoints.md), a review question discern puts to your agent, suggests which map pages to review. None of that proves a page is true. Your agent still reads the code and judges each explanation. [Maintain the project map](../10-guides/maintain-project-map.md) shows how to review a page and where new material belongs.
+The gate checks the map's mechanics, such as links, headings, and command examples. When code changes, a built-in [checkpoint](checkpoints.md), a review question discern puts to your agent, suggests which map pages to review. None of that proves a page is true. Your agent still reads the code and judges each explanation. [Maintain the project map](../20-guides/maintain-project-map.md) shows how to review a page and where new material belongs.
 
 ## Keep the reason behind a big decision
 
@@ -93,4 +93,4 @@ Your project's README and its own docs stay yours. The map lives where your proj
 
 This manual explains discern itself, and your agent can read it offline with `discern docs`. Your map explains your project. [discern's own map](https://discern.sh/map) is an example: the account its agents keep while they build discern.
 
-What lasts is what you and your agents write down. A conversation doesn't turn into project knowledge on its own. [Write project instructions](../10-guides/write-project-instructions.md) and [Create and manage skills](../10-guides/create-and-manage-skills.md) show how to turn your next lesson into something every session can use.
+What lasts is what you and your agents write down. A conversation doesn't turn into project knowledge on its own. [Write project instructions](../20-guides/write-project-instructions.md) and [Create and manage skills](../20-guides/create-and-manage-skills.md) show how to turn your next lesson into something every session can use.

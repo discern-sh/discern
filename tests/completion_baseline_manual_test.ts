@@ -113,8 +113,8 @@ Deno.test("manual links refuse external or escaping destinations and normalize c
     );
   }
   assertEquals(
-    resolveManualLink("00-start/README.md", "../10-guides/"),
-    "10-guides/README.md",
+    resolveManualLink("00-start/README.md", "../20-guides/"),
+    "20-guides/README.md",
   );
   assertEquals(
     resolveManualLink("00-start/README.md", "./next.MD"),

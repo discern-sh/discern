@@ -37,7 +37,7 @@ For any feature, say what should get better, what should stay the same, and how 
 
 Your agent checks where the project stands and creates a **worktree**, a separate copy of the project on its own branch. It makes the change there. Your shared branch, the **trunk** (usually `main`), stays as it was. The change joins the trunk only when it **lands**, after your review.
 
-When the change works, the agent commits it and runs the **gate**: the checks your project requires before a change counts as finished. The gate only runs on committed work, so its results describe a version that can land. A check might confirm that the app builds, or that a search still finds the right items. If a check fails, the agent investigates and fixes the cause before it reports back. [Fix a red gate](../10-guides/fix-a-red-gate.md) explains that path.
+When the change works, the agent commits it and runs the **gate**: the checks your project requires before a change counts as finished. The gate only runs on committed work, so its results describe a version that can land. A check might confirm that the app builds, or that a search still finds the right items. If a check fails, the agent investigates and fixes the cause before it reports back. [Fix a red gate](../20-guides/fix-a-red-gate.md) explains that path.
 
 When the agent is done, you get the new wording, a way to try this version of the app, an account of what it checked, and a **Proof line**. **Proof** is discern's record that your project's checks passed on one exact commit, a saved version of the code. It lets you match the agent's report to the version you're about to try.
 
@@ -106,8 +106,8 @@ Your improvement is on the trunk, with a record of the checks that passed on it.
 
 **Choose your next task**
 
-- **Build another improvement:** [Finish and land a change](../10-guides/finish-and-land-a-change.md) covers the everyday workflow and review feedback.
-- **Save a lesson:** [Write project instructions](../10-guides/write-project-instructions.md) shows how to carry a rule into future sessions.
-- **Understand the record:** [Proof](../20-understand/proof.md) explains what a pass means and how it stays with the code.
+- **Build another improvement:** [Finish and land a change](../20-guides/finish-and-land-a-change.md) covers the everyday workflow and review feedback.
+- **Save a lesson:** [Write project instructions](../20-guides/write-project-instructions.md) shows how to carry a rule into future sessions.
+- **Understand the record:** [Proof](../10-understand/proof.md) explains what a pass means and how it stays with the code.
 
 <!-- /discern-workflow -->

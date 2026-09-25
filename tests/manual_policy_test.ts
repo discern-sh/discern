@@ -529,7 +529,7 @@ Deno.test("the shared Manual verdict retains editorial review and blocks product
   await withTempDir(async (dir) => {
     const manualDir = join(dir, "project", "manual");
     await copy(REPO_AUTHORED_PATHS.manual, manualDir);
-    const source = join(manualDir, "10-guides", "delegate-work.md");
+    const source = join(manualDir, "20-guides", "delegate-work.md");
     const original = await Deno.readTextFile(source);
     const frontmatter = original.match(
       /^(---\r?\n[\s\S]*?\r?\n---)(?:\r?\n|$)/u,

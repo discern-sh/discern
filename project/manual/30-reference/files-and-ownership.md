@@ -286,11 +286,11 @@ It refuses, and changes nothing:
 
 In a terminal, uninstall asks you to confirm. Without terminal input, under `--plain`, in CI, or with `--json` or `--markdown`, it needs `--yes`, and otherwise refuses with `confirmation_required`. It cleans up the Git configuration first. If that fails, it removes no project files, and reports `apply_failed`.
 
-Uninstall runs only from the command line, and makes no remote change. discern never installs Git hooks, so your hooks stay as they are. Remove the installed program separately, once no other project on the computer needs it. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#remove-discern-from-the-repository) walks through the decision and the removal.
+Uninstall runs only from the command line, and makes no remote change. discern never installs Git hooks, so your hooks stay as they are. Remove the installed program separately, once no other project on the computer needs it. [Maintain or remove discern](../20-guides/maintain-or-remove-discern.md#remove-discern-from-the-repository) walks through the decision and the removal.
 
 ## See also
 
-- [Proof](../20-understand/proof.md): what passing checks establish, and why later edits make that evidence stale.
+- [Proof](../10-understand/proof.md): what passing checks establish, and why later edits make that evidence stale.
 - [Licenses](licenses.md): the authorship boundary, and what you're responsible for when you redistribute.
 - [Platforms and providers](platforms-and-providers.md): the exact files for each coding tool.
-- [What stays on your machine](../20-understand/local-control.md): what discern runs, records, and writes, and what never leaves your computer.
+- [What stays on your machine](../10-understand/local-control.md): what discern runs, records, and writes, and what never leaves your computer.

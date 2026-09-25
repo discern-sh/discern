@@ -38,7 +38,7 @@ aliases:
 
 Look up the exact formats behind Proof and checkpoints: the Proof note discern attaches to each landed commit, the Proof marker in each worktree (the separate copy of the project where one task happens), the states a checkpoint question moves through, and the protocol a checkpoint's `when` command follows. You need these to inspect stored evidence yourself, or to build a tool on it.
 
-To decide what a Proof means for a change you're reviewing, start with [Proof](../20-understand/proof.md).
+To decide what a Proof means for a change you're reviewing, start with [Proof](../10-understand/proof.md).
 
 | Find                                        | Go to                                                                   |
 | ------------------------------------------- | ----------------------------------------------------------------------- |

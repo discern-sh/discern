@@ -36,4 +36,4 @@ To answer a particular question, pick a page below.
 
 - [What stays on your machine](local-control.md): what discern runs, writes, and records on your machine, and how that differs from what your coding agent does.
 
-When you're ready to act, the [guides](../10-guides/README.md) walk you through each task. [Reference](../30-reference/README.md) has the exact fields, commands, and settings.
+When you're ready to act, the [guides](../20-guides/README.md) walk you through each task. [Reference](../30-reference/README.md) has the exact fields, commands, and settings.

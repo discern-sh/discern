@@ -2003,7 +2003,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       contentIncludes: "config reference",
       missingTarget: "config-referenc",
       search: "Delegate substantial work",
-      searchTarget: "10-guides/delegate-work",
+      searchTarget: "20-guides/delegate-work",
     });
     const index = core.index;
     assertEquals(index.result.structuredContent.data.map_dir, undefined);
@@ -2067,7 +2067,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     );
     assertEquals(
       manualPage.result.structuredContent.data.doc.content,
-      await visibleBody("10-guides/delegate-work.md"),
+      await visibleBody("20-guides/delegate-work.md"),
     );
 
     // The installed-manual journey stays deterministic from orientation through
@@ -2108,7 +2108,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     assertEquals(taskData.truncated, true);
     assertEquals(
       taskData.results[0].target,
-      "10-guides/finish-and-land-a-change",
+      "20-guides/finish-and-land-a-change",
     );
     assertEquals(taskData.results[0].page_id, "guide-finish-and-land-a-change");
     assertEquals(taskData.results[0].manual_kind, "guide");
@@ -2130,7 +2130,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     });
     assertEquals(proof.result.isError, false);
     const proofContent = proof.result.structuredContent.data.doc.content;
-    assertEquals(proofContent, await visibleBody("20-understand/proof.md"));
+    assertEquals(proofContent, await visibleBody("10-understand/proof.md"));
 
     const checkpoints = await mcp.callTool(13, "discern_docs", {
       target: "explanation-checkpoints",
@@ -2138,7 +2138,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     assertEquals(checkpoints.result.isError, false);
     assertEquals(
       checkpoints.result.structuredContent.data.doc.content,
-      await visibleBody("20-understand/checkpoints.md"),
+      await visibleBody("10-understand/checkpoints.md"),
     );
 
     const phantom = await mcp.callTool(14, "discern_docs", {

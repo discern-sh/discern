@@ -63,7 +63,7 @@ A refusal is different. It has `ok: false`, and resuming won't help. The result 
 - `No checkout holds branch <name>` means the worktree was reclaimed or removed. If a later task holds its work, the result names that task.
 - A handle with a typo, or one older than 7 days, can't resume. Start the wait again with its condition.
 
-[Handle a refusal](../10-guides/wait-for-another-task.md#handle-a-refusal) covers these in more detail.
+[Handle a refusal](../20-guides/wait-for-another-task.md#handle-a-refusal) covers these in more detail.
 
 ## A call ended with no result
 
@@ -91,7 +91,7 @@ To see where a run got to, your agent runs `discern progress` with its handle. T
 
 If your agent starts the same command while the first is still running, discern refuses and changes nothing: `Another discern operation holds the checkout boundary`. It names the running operation and its handle. Wait for that run, or stop it where it started.
 
-When the agent runs `discern done` again after a stopped run, checks that didn't finish run again. Checks that finished, and that declare their inputs, reuse their results when those inputs haven't changed. A landing that stopped partway has its own recovery: [Recover an interrupted acceptance](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance).
+When the agent runs `discern done` again after a stopped run, checks that didn't finish run again. Checks that finished, and that declare their inputs, reuse their results when those inputs haven't changed. A landing that stopped partway has its own recovery: [Recover an interrupted acceptance](../20-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance).
 
 ## You need the output of a run that already happened
 

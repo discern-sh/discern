@@ -94,7 +94,7 @@ A changed answer makes the Proof stale, even when the commit hasn't changed. The
 
 A trigger starts with a set of files, or with a **scope**: a named area of your project, such as its documentation. It can then narrow to certain kinds of change. For example, it can pick new files, lines added or removed that contain some text, a large deletion, a new binary file, or a change that touches many files. For anything those can't express, a trigger can run a short script from your project.
 
-That keeps each question to the changes where it helps. Your agent picks the details. [Place and answer checkpoints](../10-guides/place-and-answer-checkpoints.md) shows how. The [configuration reference](../30-reference/config-reference.md#checkpointsname) lists every field.
+That keeps each question to the changes where it helps. Your agent picks the details. [Place and answer checkpoints](../20-guides/place-and-answer-checkpoints.md) shows how. The [configuration reference](../30-reference/config-reference.md#checkpointsname) lists every field.
 
 ## Which checkpoints apply to a change
 
@@ -114,4 +114,4 @@ discern records how often each checkpoint fires, how often the answer is unmet, 
 
 If a machine can decide the rule, it belongs in a test or a [standard](standards.md). A rule every session needs belongs in the [project instructions](instructions-skills-and-map.md). A checkpoint is for a question that needs judgment when a certain change happens.
 
-[Place and answer checkpoints](../10-guides/place-and-answer-checkpoints.md) shows how to add or tune one. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) lists the exact states and answer fields.
+[Place and answer checkpoints](../20-guides/place-and-answer-checkpoints.md) shows how to add or tune one. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) lists the exact states and answer fields.

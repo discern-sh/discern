@@ -1214,7 +1214,7 @@ Deno.test("the interrupted-acceptance guide keeps recovery commands on their reg
   const guide = await Deno.readTextFile(
     join(
       REPO_ROOT,
-      "project/manual/10-guides/recover-an-interrupted-task.md",
+      "project/manual/20-guides/recover-an-interrupted-task.md",
     ),
   );
   const recovery = guide.slice(

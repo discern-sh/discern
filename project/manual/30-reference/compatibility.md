@@ -87,4 +87,4 @@ Don't build on these. They can change in any release:
 - this manual;
 - private file formats and locations on disk.
 
-To upgrade a project, follow [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#upgrade-the-project).
+To upgrade a project, follow [Maintain or remove discern](../20-guides/maintain-or-remove-discern.md#upgrade-the-project).

@@ -34,7 +34,7 @@ So discern adds no model calls and no model bill of its own. Your coding agent k
 
 The discern program makes no network requests. The installer downloads it, and you choose when to download an update.
 
-To check for updates, your agent runs `discern releases`, or you choose **Check for updates** in the **desk**, the interactive view that opens when you run `discern` in your project folder. That opens the release page in your browser. Your browser sends your discern version to discern.sh, so the page can say whether an update exists. You choose whether to install it. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md) shows how.
+To check for updates, your agent runs `discern releases`, or you choose **Check for updates** in the **desk**, the interactive view that opens when you run `discern` in your project folder. That opens the release page in your browser. Your browser sends your discern version to discern.sh, so the page can say whether an update exists. You choose whether to install it. [Maintain or remove discern](../20-guides/maintain-or-remove-discern.md) shows how.
 
 Other parts of your work can still connect:
 
@@ -82,4 +82,4 @@ Landing a change on your shared branch needs your permission, given for that cha
 
 The discern program never checks for updates on its own, and never replaces itself. The installer checks the published checksum before it replaces an existing copy. [Platforms and providers](../30-reference/platforms-and-providers.md) covers signing and where releases come from.
 
-If you remove discern, uninstall takes out its wiring and keeps `discern.toml`, your instructions, skills, map, and other files you wrote. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md) shows the steps. What you and your agents wrote stays yours to read and use.
+If you remove discern, uninstall takes out its wiring and keeps `discern.toml`, your instructions, skills, map, and other files you wrote. [Maintain or remove discern](../20-guides/maintain-or-remove-discern.md) shows the steps. What you and your agents wrote stays yours to read and use.
