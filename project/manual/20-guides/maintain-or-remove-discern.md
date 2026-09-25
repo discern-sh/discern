@@ -87,10 +87,10 @@ If your project needs a newer discern than you have installed, `discern upgrade`
 
 ### 2. Preview the upgrade
 
-Say you've installed discern 1.2.0 on a project that 1.1.0 last set up. `discern doctor` and `discern status` now tell your agent:
+Say you've installed discern 1.0.1 on a project that 1.0.0 last set up. `discern doctor` and `discern status` now tell your agent:
 
 ```text
-This project was last upgraded with discern 1.1.0; this binary is 1.2.0. Preview the changes with `discern upgrade --dry-run`, then run `discern upgrade`.
+This project was last upgraded with discern 1.0.0; this binary is 1.0.1. Preview the changes with `discern upgrade --dry-run`, then run `discern upgrade`.
 ```
 
 Give your agent a clear request:
@@ -116,10 +116,10 @@ If your project runs discern in CI, raise the version CI installs in the same ch
 
 ### Share an upgrade with teammates
 
-Commit the upgrade so your team gets it. `discern.toml` records the newest discern version that updated the project, as `[meta].managed_version`, and doesn't track which version each teammate has installed. So a teammate still on 1.1.0 sees:
+Commit the upgrade so your team gets it. `discern.toml` records the newest discern version that updated the project, as `[meta].managed_version`, and doesn't track which version each teammate has installed. So a teammate still on 1.0.0 sees:
 
 ```text
-This project was last upgraded with discern 1.2.0; this binary is 1.1.0. Check releases before changing discern-managed files: run `discern releases`. After installing a suitable update, restart your coding-agent sessions. Development builds may be ahead of the latest public release.
+This project was last upgraded with discern 1.0.1; this binary is 1.0.0. Check releases before changing discern-managed files: run `discern releases`. After installing a suitable update, restart your coding-agent sessions. Development builds may be ahead of the latest public release.
 ```
 
 Until they upgrade, their discern still reads the project and runs tests, but it won't run the gate or change discern's files. They run `discern releases`, install the new version, and restart their coding-agent sessions.
