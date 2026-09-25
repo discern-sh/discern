@@ -23,7 +23,7 @@ aliases:
 
 # Install and set up discern
 
-By the end of this tutorial, every coding session in your project will start from your project's own instructions, each task will get its own copy of the project, and a change will count as finished only when your project's own commands, such as its tests and linter, pass on it.
+By the end of this tutorial, every coding session in your project will start from your project's own instructions. Each task will get its own copy of the project, and a change will count as finished only when your project's own commands, such as its tests and linter, pass on it.
 
 Your agent does most of the work. You install one program, answer the questions only you can answer, and review the setup before it lands on your shared branch. The [next tutorial](first-real-change.md) then takes you through a small change you can see.
 
@@ -87,7 +87,7 @@ If the session ends before setup finishes, open a new session and ask your agent
 
 ## 4. Setup proves itself
 
-Before it calls setup complete, your agent runs `discern setup done`. discern checks the setup and runs the full gate, including once in a temporary **worktree**, a separate copy of the project created the way every future task's copy will be. A gate that passed only in your project folder would fail those tasks, so setup doesn't count as complete until the trial in the worktree passes too.
+Before it calls setup complete, your agent runs `discern setup done`. discern checks the setup and runs the full gate, both in your project folder and in a temporary **worktree**, a separate copy of the project created the way every future task's copy will be. Every future task runs in such a copy, so setup doesn't count as complete until the gate passes there too.
 
 When it passes, discern records **Proof**: a record of which of your project's commands passed on one exact commit, a saved version of the code. The agent's report ends with a line like this one, with your own branch details and counts:
 

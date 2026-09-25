@@ -94,7 +94,7 @@ When the result is right, say:
 
 Your agent asks discern to land the change, and discern checks the Proof and your permission before it adds the change to the trunk. A passing gate doesn't land anything by itself, because landing needs your permission.
 
-If another task landed while you were reviewing, that doesn't send your change back to the start: discern checks the two changes together and lands exactly what passed. If they conflict, or the combined tests fail, nothing lands and your agent gets the details to fix. If another landing is already running, yours waits its turn and then carries on by itself.
+If another task landed while you were reviewing, that doesn't send your change back to the start: discern checks the two changes together and lands exactly what passed. If they conflict, or the gate fails on the combined code, nothing lands and your agent gets the details to fix. If another landing is already running, yours waits its turn and then carries on by itself.
 
 The first sentence of the result says whether your change landed and what happened to its worktree, or, if it didn't land, what comes next:
 

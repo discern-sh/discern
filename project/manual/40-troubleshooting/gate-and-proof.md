@@ -72,7 +72,7 @@ Waiting to start tests: the project's shared test capacity is in use.
 
 Nothing needs fixing: the tests start by themselves when a slot frees up.
 
-discern can't tell which task holds the slot. When the run finishes, its result lists the other commands that were running when the wait began, and how long the first one's kind of command usually takes, then says `These observations do not establish queue order or an estimated start time.` The list is only a clue to what was using the slot.
+discern can't tell which task holds the slot. When the run finishes, its result lists the other commands that were running when the wait began, and how long the first one's kind of command usually takes. It then says `These observations do not establish queue order or an estimated start time.` The list is only a clue to what was using the slot.
 
 Raise the limit only if your machine can handle another run. [Share limited capacity](../20-guides/coordinate-parallel-tasks.md#share-limited-capacity) explains the setting.
 

@@ -27,7 +27,7 @@ Say you're building a reading-list app, and people want to find a book without s
 
 Your agent makes the change in a **worktree**, a separate copy of the project on its own branch, so your project's shared branch, the **trunk** (usually `main`), stays untouched while it works. The search joins the trunk only when it **lands**. Several agents can work at once, each in its own worktree, and if another change lands first, discern checks the two changes together before the search lands.
 
-When the search works, your agent commits it and runs the **gate**: your project's own commands, such as its build, linter, and test suite, which must all pass before a change counts as finished. If a test fails, your agent gets the failing command and its output, finds the cause, and fixes it. When everything passes, discern records **Proof**: which of those commands passed, and on which commit, a saved version of the code. Your agent ends its report with a line like this:
+When the search works, your agent commits it and runs the **gate**: your project's own commands, such as its build, linter, and test suite, which must all pass before a change counts as finished. If a test fails, your agent gets the failing command and its output, finds the cause, and fixes it. When everything passes, discern records **Proof** of which commands passed on which commit, a saved version of the code. Your agent ends its report with a line like this:
 
 > **Proof:** Gate passed for `agent/reading-list-search-4e1f2a` at `9b3c71d0e5a2` · 4 files changed (+96 −8) vs `main` · View the full Proof: `discern status --verbose`
 

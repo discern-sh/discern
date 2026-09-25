@@ -118,7 +118,7 @@ discern worktree park <task> --dry-run
 discern worktree park <task>
 ```
 
-The preview names the branch and commit it keeps, the folder and resources it removes, and the Proof and any permission you gave the task to land once green, which go with the worktree. Park refuses a worktree with uncommitted changes, one that isn't on its own task branch, one whose setup didn't finish, and one it can't read. It has no force option, because a branch can't hold uncommitted files.
+The preview names the branch and commit it keeps and the folder and resources it removes. It also names the Proof and any permission you gave the task to land once green, which go with the worktree. Park refuses a worktree with uncommitted changes, one that isn't on its own task branch, one whose setup didn't finish, and one it can't read. It has no force option, because a branch can't hold uncommitted files.
 
 To resume, choose **Resume** with the branch name from the desk's menu, or ask your agent to pick the task back up, which it does with `discern start --from <parked-branch>`. The saved title and brief come back if the branch hasn't moved, and the resumed task needs new Proof and new permission to land.
 
@@ -164,7 +164,7 @@ By default, `discern accept` and its preview list the ignored paths that changed
 
 ## A task on the desk looks wrong
 
-On the desk, select a task that shows broken or unfinished setup, a missing folder, or Git state discern can't read, then choose **Show recovery steps** to see what discern could see, what it couldn't read, and the next command to run.
+On the desk, select a task that shows broken or unfinished setup, a missing folder, or Git state discern can't read, then choose **Show recovery steps**. It shows what discern could see, what it couldn't read, and the next command to run.
 
 **Retry setup** appears when no setup step is in doubt. If a step is recorded as still running, see [A worktree setup step may have finished](setup-and-integrations.md#a-worktree-setup-step-may-have-finished).
 

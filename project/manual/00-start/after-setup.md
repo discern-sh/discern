@@ -56,7 +56,7 @@ Setup writes the instructions, the map, and the list of saved work in every proj
 
 ## Files discern shares with you
 
-`discern.toml`, at the root of your project, holds discern's settings: the commands the **gate** runs before a change counts as finished, where task workspaces go, and the other choices setup made, such as how many test runs can happen at once. You own its values, so when you upgrade, discern restores any of its own sections that are missing and refreshes its own comments, and it keeps the values you set. Your agent can explain or change any setting, and the [Config reference](../30-reference/config-reference.md) lists every key.
+`discern.toml`, at the root of your project, holds discern's settings: the commands the **gate** runs before a change counts as finished, where task workspaces go, and the other choices setup made, such as how many test runs can happen at once. You own its values, so an upgrade keeps the values you set. It restores any of discern's own sections that are missing and refreshes discern's own comments. Your agent can explain or change any setting, and the [Config reference](../30-reference/config-reference.md) lists every key.
 
 discern adds a marked section to your `.gitignore`, which keeps generated and machine-local files out of Git, and to your `.gitattributes`, which sets how Git compares and merges certain files. Your own rules stay outside discern's sections, and discern leaves them alone.
 
@@ -72,7 +72,7 @@ To change a rule, change its source, because discern rebuilds the generated file
 
 Your agent adds the rule to `discern/instructions.md`, then runs `discern refresh`, which rebuilds the file each coding tool reads. If a committed copy drifts from its source, the gate fails until your agent brings the copy back in line.
 
-discern also generates each coding tool's skill folder from the skill sources, and these folders stay out of Git. After you clone the project onto another machine, install discern there and have your agent run `discern refresh` before you open a fresh session: Git carries the instructions you wrote, and the refresh restores the local pieces.
+discern also generates each coding tool's skill folder from the skill sources, and these folders stay out of Git. After you clone the project onto another machine, install discern there and have your agent run `discern refresh` before you open a fresh session. Git carries the instructions you wrote, and the refresh restores the local pieces.
 
 ## One repository, one setup
 

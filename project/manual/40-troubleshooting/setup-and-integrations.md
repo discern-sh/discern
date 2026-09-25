@@ -128,7 +128,7 @@ The first records that the step finished, and the second runs it again. `--confi
 
 ## Setup can't prove or land
 
-`discern setup done` checks the setup and runs the full **gate**, your project's own commands such as its tests and linter, in your project folder and in a fresh **worktree**, a separate copy of the project like the ones future tasks use. If it fails, start with the first problem in the result, whether that's unfinished instructions, uncommitted files, or a failed test. Your agent fixes it and runs `discern setup done` again.
+`discern setup done` checks the setup and runs the full **gate**, your project's own commands such as its tests and linter. It runs the gate in your project folder and again in a fresh **worktree**, a separate copy of the project like the ones future tasks use. If it fails, start with the first problem in the result, whether that's unfinished instructions, uncommitted files, or a failed test. Your agent fixes it and runs `discern setup done` again.
 
 If a test passes in your main checkout but fails in the fresh copy, the copy is missing something. The result names the failing command, and your agent adds what's missing to the right setting:
 

@@ -48,10 +48,10 @@ Ask your agent in your own words. Each guide shows what your agent does with the
 
 ## Read it anywhere
 
-Search the manual at [discern.sh/docs](https://discern.sh/docs), or run `discern docs` to read it offline in your terminal: type to search, press Enter to open a page, and press `q` to close it. Your agent reads the same pages through `discern_docs`, so you and your agent work from the same text.
+Search the manual at [discern.sh/docs](https://discern.sh/docs), or run `discern docs` to read it offline in your terminal. There, type to search, press Enter to open a page, and press `q` to close it. Your agent reads the same pages through `discern_docs`, so you and your agent work from the same text.
 
 Add `.md` to the end of a page's web address to get its raw Markdown. The [CLI reference](30-reference/cli-reference.md#interactive-documentation-reader) covers the reader's other keys, opening a page directly, raw output, and paging.
 
 ## See discern at work on itself
 
-discern is built with discern. Its agents work in the same separate workspaces and hold the same kind of quality limits discern sets up for your project, and before a change lands, they run the project's formatter, linter, type checker, and tests. The [map of the codebase](https://discern.sh/map) those agents keep shows the project knowledge they work from, and the [decision records](https://discern.sh/docs/decisions) explain why the product works the way it does.
+discern is built with discern. Its agents work in the same separate workspaces and hold the same kind of quality limits discern sets up for your project. Before a change lands, they run the project's formatter, linter, type checker, and tests. The [map of the codebase](https://discern.sh/map) those agents keep shows the project knowledge they work from, and the [decision records](https://discern.sh/docs/decisions) explain why the product works the way it does.
