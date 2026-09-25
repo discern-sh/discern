@@ -1424,7 +1424,7 @@ Authored Markdown release notes, family names, and the records enrolled in every
 - Guards: `tests/releases_test.ts`
 - Artifacts: `src/lib/release_metadata.ts`, `schema/discern-releases.schema.json`
 - Glossary: not enrolled — Release records are publishing inputs, not a separate product concept.
-- Feature canon: not enrolled — The release-awareness programme owns the later CLI feature enrollment.
+- Feature canon: not enrolled — The release-awareness program owns the later CLI feature enrollment.
 
 ## `verbs` — Top-level verbs
 
@@ -5090,7 +5090,7 @@ The stack-independent gate traps seeded into every project's gotchas page. The r
 
 ## `contributor-agreement-gist-files` — Contributor License Agreement Gist files
 
-The exact repository sources mirrored into the hosted CLA Assistant Gist: the individual agreement and its generated required acknowledgement.
+The exact repository sources mirrored into the hosted CLA Assistant Gist: the individual agreement and its generated required acknowledgment.
 
 - Source: `scripts/contributor_agreement.ts` — `CLA_ASSISTANT_GIST_FILES`
 - Members: 2
@@ -5288,7 +5288,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Instruct
 
 ## `canary-tests` — Canary test membership
 
-The recorded judgments behind the canary check job: extras promoted on recorded failure evidence and refusals with their cost measurements, layered over the guard- and enrolment-name convention.
+The recorded judgments behind the canary check job: extras promoted on recorded failure evidence and refusals with their cost measurements, layered over the guard- and enrollment-name convention.
 
 - Source: `scripts/canary_registry.ts` — `CANARY_EXTRA_TEST_FILES`
 - Members: 23
@@ -5966,6 +5966,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 - `tests/result_capture_drain_parity_test.ts` — derives its universe from the module's `take*` exports and checks that both recording points drain every `result_capture` one-slot mailbox
 - `tests/control_byte_guard_test.ts` — applies a byte-level rule across authored text for raw control bytes that Portable Operating System Interface (POSIX) tools read as binary
 - `tests/adr_vocab_guard_test.ts` — applies a vocabulary rule across shipped strings for internal decision citations
+- `tests/us_spelling_guard_test.ts` — applies the house Vale rule's American-spelling word list across shipped strings, templates, instruction sources, and skills rather than guarding a closed member set
 - `tests/engine_tree_drift_test.ts` — checks the Gate's strand-detection pipeline invariant behaviorally
 - `tests/upgrade_git_guard_test.ts` — checks upgrade's clean-tree pipeline invariant to keep upgrades reversible
 - `tests/await_readiness_guard_test.ts` — applies an elapsed-time readiness rule across authored await tests
