@@ -29,7 +29,7 @@ Use this guide when the project is set up and you have time to improve how it wo
 
 The logbook lives inside your repository's `.git` folder, on your machine. It records timings, outcomes, and names, with no code or command output. A new project has little history yet, and so does one that has turned recording off.
 
-Your agent can read these reports from your main checkout. It needs a **worktree**, a separate copy of the project for one task, only once it starts making changes.
+Your agent can read these reports from your main checkout, your original project folder. It needs a **worktree**, a separate copy of the project for one task, only once it starts making changes.
 
 ## Ask where to improve
 

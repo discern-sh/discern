@@ -64,7 +64,7 @@ To find out whether a newer discern is out, ask your agent, choose **Check for u
 discern releases
 ```
 
-The **desk** is the interactive view that opens when you run `discern` in your main checkout. The release page shows what's changed and whether an upgrade is available. In a terminal, `discern releases` opens the page in your browser, and it always prints the link, so an agent can pass it to you.
+The **desk** is the interactive view that opens when you run `discern` in your main checkout, your original project folder. The release page shows what's changed and whether an upgrade is available. In a terminal, `discern releases` opens the page in your browser, and it always prints the link, so an agent can pass it to you.
 
 If you only ask for a check, your agent reports what it finds and leaves the install to you, and you can also ask it to check and install in one request. Every 14 days, `discern status`, `discern doctor`, and the desk remind you to check again.
 
