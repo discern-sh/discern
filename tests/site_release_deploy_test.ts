@@ -29,6 +29,9 @@ Deno.test("release and manual site publication share the verified publisher", as
   for (const caller of [release, manual]) {
     assertStringIncludes(caller, "uses: ./.github/workflows/site-publish.yml");
     assertStringIncludes(caller, "deployments: read");
+    // The deploy token is a production environment secret, which a caller
+    // cannot read to pass by name; inheriting delivers it to the publisher.
+    assertStringIncludes(caller, "secrets: inherit");
   }
   assertStringIncludes(manual, "workflow_dispatch:");
   assertStringIncludes(manual, "if: github.ref == 'refs/heads/main'");

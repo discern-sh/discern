@@ -285,3 +285,6 @@ jobs:
       contents: read
       deployments: read
     uses: ./.github/workflows/site-publish.yml
+    # The publisher's production job reads that environment's deploy token,
+    # which a called workflow receives only when its caller passes secrets.
+    secrets: inherit

@@ -12,3 +12,6 @@ jobs:
     # Dispatch main on demand; the publisher builds and checks the staged site.
     if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/site-publish.yml
+    # The publisher's production job reads that environment's deploy token,
+    # which a called workflow receives only when its caller passes secrets.
+    secrets: inherit
