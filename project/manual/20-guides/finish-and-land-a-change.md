@@ -130,10 +130,10 @@ Your agent passes you the Proof line and stops. When you're ready, you can:
 
 You don't have to approve every change by hand. You can pre-approve the changes you don't need to see, and everything else still comes back to you. Permission to land can come from:
 
-| Source                | How you give it                                                                                                                                                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **This conversation** | You say the change can land. Your agent records your yes with `discern accept --confirmed`.                                                                                                                                                 |
-| **A standing grant**  | Your project's configuration pre-approves named areas, such as documentation. A change that stays inside them lands without asking.                                                                                                         |
+| Source                | How you give it                                                                                                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **This conversation** | You say the change can land. Your agent records your yes with `discern accept --confirmed`.                                                                                                                                                |
+| **A standing grant**  | Your project's configuration pre-approves named areas, such as documentation. A change that stays inside them lands without asking.                                                                                                        |
 | **A one-task grant**  | Run `discern` in your main checkout (your original project folder) to open the **desk**. Select the task and choose **Pre-authorize landing once green**. discern asks `Allow <branch> to land once green without a further conversation?` |
 
 At every landing, discern checks a standing grant against the files the change touches, so a grant for documentation can't carry a code change with it. If even one file falls outside the granted areas, the change comes back to you. Your approval in conversation, or a one-task grant, covers every file in the change.
