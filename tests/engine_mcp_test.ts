@@ -1955,7 +1955,8 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     await gitInit(dir);
     const staged = join(dir, "staged-manual");
     await stageBundledManual(REPO_AUTHORED_PATHS.manual, staged);
-    const manualComment = "<!-- source note: `manual-phantom-capability` -->";
+    // A nonce no manual page could contain, so the comment is the only source.
+    const manualComment = "<!-- source note: `cerulean-narwhal-lantern` -->";
     const manualLiteral = "<!-- manual-literal-control -->";
     const configReference = join(
       staged,
@@ -1993,6 +1994,11 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       defaultMapPath(dir, "project-only.md"),
       "# Project Only\n\nNothing to do with discern.\n",
     );
+    // Search by the staged page's own title, so a retitled guide still resolves.
+    const delegateTitle = parseFrontmatter(
+      await Deno.readTextFile(join(staged, "20-guides", "delegate-work.md")),
+    ).meta.title;
+    assert(typeof delegateTitle === "string");
     await using mcp = await spawnMcp(dir, { DISCERN_DOCS_DIR: staged });
     await mcp.initialize();
 
@@ -2002,7 +2008,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       target: "config-reference",
       contentIncludes: "config reference",
       missingTarget: "config-referenc",
-      search: "Delegate substantial work",
+      search: delegateTitle,
       searchTarget: "20-guides/delegate-work",
     });
     const index = core.index;
@@ -2025,7 +2031,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       "discern_docs excludes every internal subtree",
     );
     const configContent = core.doc.result.structuredContent.data.doc.content;
-    assert(!configContent.includes("manual-phantom-capability"));
+    assert(!configContent.includes("cerulean-narwhal-lantern"));
     assertStringIncludes(configContent, manualLiteral);
 
     // A frontmatter alias resolves like a slug ("config" is a declared alias
@@ -2142,7 +2148,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     );
 
     const phantom = await mcp.callTool(14, "discern_docs", {
-      search: "manual-phantom-capability",
+      search: "cerulean-narwhal-lantern",
     });
     assertEquals(phantom.result.structuredContent.data.results, []);
     const literal = await mcp.callTool(15, "discern_docs", {

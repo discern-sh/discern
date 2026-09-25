@@ -1055,14 +1055,14 @@ Deno.test("published Markdown pages wire glossary cards into the docs shell", as
   assertStringIncludes(html, "aria-details=");
 });
 
-Deno.test("the built Worktrees page links Fleet without linking bare update", async () => {
+Deno.test("manual prose links Fleet without linking bare update", async () => {
+  // Test-owned prose, so rewriting a manual page can't remove the terms.
   const site = await loadDocsSite();
-  const worktrees = site.pages.find((page) =>
-    page.entry.slug === "worktrees-and-trunk"
+  const { html } = renderMarkdownHtml(
+    "The fleet lists every task. Run `discern update` when you update the branch.",
+    { renderProseText: createGlossaryProseRenderer(site) },
   );
-  assert(worktrees !== undefined);
-  const response = await get(worktrees.route, BROWSER);
-  const dom = new JSDOM(await response.text());
+  const dom = new JSDOM(`<!doctype html><body>${html}</body>`);
   const document = dom.window.document;
   const triggers = [...document.querySelectorAll("dfn")].map((node) =>
     node.textContent?.toLowerCase()

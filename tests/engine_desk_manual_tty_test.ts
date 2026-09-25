@@ -1,11 +1,64 @@
 /** Real foreground input ownership, shared document navigation, and Desk return. */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join, normalize } from "@std/path";
+import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { ptyOutputContains, runPtyProcess } from "./fixtures/pty_process.ts";
 import { APPLICATION_FIXTURE_ROOT } from "./fixtures/terminal_application_capture.ts";
 import { realPtyTest } from "./real_pty.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, scaffoldEngine } from "./engine_helpers.ts";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+
+/** The bundled page the Desk opens: addressed by path, never by its prose. */
+const BUNDLED_PAGE = "20-guides/delegate-work.md";
+
+/** What the bundled reader shows for that page, read from the live manual. */
+interface BundledPageView {
+  readonly title: string;
+  readonly opening: string;
+  readonly firstLinkTitle: string;
+}
+
+/**
+ * Derive the page's title, the first words of its opening paragraph, and the
+ * title of the page its first link opens, so rewriting the page's prose can't
+ * turn this navigation test red.
+ */
+async function bundledPageView(): Promise<BundledPageView> {
+  const pageTitle = async (rel: string): Promise<string> => {
+    const { meta } = parseFrontmatter(
+      await Deno.readTextFile(join(REPO_AUTHORED_PATHS.manual, rel)),
+    );
+    assert(typeof meta.title === "string", `${rel} needs a title`);
+    return meta.title;
+  };
+  const { body } = parseFrontmatter(
+    await Deno.readTextFile(join(REPO_AUTHORED_PATHS.manual, BUNDLED_PAGE)),
+  );
+  const paragraphs = body.split(/\n\s*\n/).map((block) => block.trim());
+  const opening = paragraphs.find((block) =>
+    block.length > 0 && !block.startsWith("#") && !block.startsWith("<!--")
+  );
+  assert(opening !== undefined, `${BUNDLED_PAGE} needs an opening paragraph`);
+  const firstLink = /\]\(([^)\s]+)\)/.exec(body)?.[1];
+  assert(
+    firstLink !== undefined && /^[^:#]+\.md(?:#|$)/.test(firstLink),
+    `${BUNDLED_PAGE}'s first link must open another manual page`,
+  );
+  const target = normalize(
+    join(dirname(BUNDLED_PAGE), firstLink.split("#")[0] ?? ""),
+  );
+  return {
+    title: await pageTitle(BUNDLED_PAGE),
+    opening: opening
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/[*_`]/g, "")
+      .split(/\s+/)
+      .slice(0, 3)
+      .join(" "),
+    firstLinkTitle: await pageTitle(target),
+  };
+}
 
 realPtyTest({
   name:
@@ -116,6 +169,7 @@ realPtyTest({
         "Desk commands / manual",
       );
       assert(result.keyframes.manual !== undefined);
+      const view = await bundledPageView();
       const bundled = await runPtyProcess({
         command: Deno.execPath(),
         args: [
@@ -138,28 +192,28 @@ realPtyTest({
           },
           {
             waitFor: ["DISCERN DOCS", "Enter open/action  Esc cancel"],
-            steps: [{ bytes: "Delegate substantial work" }],
+            steps: [{ bytes: view.title }],
           },
           {
             waitFor: [
-              "Search: Delegate substantial work",
-              "20-guides/delegate-work.md",
+              `Search: ${view.title}`,
+              BUNDLED_PAGE,
             ],
             steps: [{ bytes: "\r" }],
           },
           {
-            waitFor: ["A substantial idea", "Tab picker  Esc/q close"],
+            waitFor: [view.opening, "Tab picker  Esc/q close"],
             capture: {
               name: "bundled",
               when: ptyOutputContains([
-                "A substantial idea",
+                view.opening,
                 "Tab picker  Esc/q close",
               ]),
             },
             steps: [{ bytes: "]\r" }],
           },
           {
-            waitFor: ["Wait for another task", "Tab picker  Esc/q close"],
+            waitFor: [view.firstLinkTitle, "Tab picker  Esc/q close"],
             steps: [{ bytes: "q" }],
           },
           {
@@ -175,7 +229,7 @@ realPtyTest({
       assertEquals(bundled.code, 0, bundled.transcript);
       assertStringIncludes(
         bundled.keyframes.bundled ?? "",
-        "A substantial idea",
+        view.opening,
       );
     });
   },
