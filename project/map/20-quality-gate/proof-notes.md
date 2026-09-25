@@ -29,7 +29,7 @@ Read one record with:
 git notes --ref=discern show <commit>
 ```
 
-`discern status` reports a valid local or fetched trunk-tip note as `data.landed_proof`: commit, source ref, and Proof.
+Full status (`discern status --verbose`, or `verbose: true` over MCP) reports a valid local or fetched trunk-tip note as `data.landed_proof`: commit, source ref, and Proof. The default orientation view leaves landing history out.
 
 ## The durable format
 
