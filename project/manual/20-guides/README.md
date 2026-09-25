@@ -26,7 +26,7 @@ aliases:
 
 # Guides
 
-Each guide starts from something you want to get done and follows it to a result you can recognize: what to ask your agent, what your agent does with the request, and how you'll know it worked or why it stopped. The example requests show what your agent needs to hear, which is your intent in your own words, so you don't need to learn discern's commands to direct it.
+Each guide takes something you want to get done to a result you can recognize: what to ask your agent, what your agent does with the request, and how you'll know it worked or why it stopped. The example requests show that your intent, in your own words, is what your agent needs, so you don't need to learn discern's commands.
 
 If discern is new to your project, start with [Install and set up discern](../00-start/installation-and-setup.md).
 
