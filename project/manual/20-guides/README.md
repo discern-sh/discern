@@ -26,15 +26,15 @@ aliases:
 
 # Guides
 
-Each guide starts from something you want to get done. It gives you a request for your agent and shows what happens next. It also tells you how to recognize the result. You can always use your own words. The examples show how to make your intent clear.
+Each guide starts from something you want to get done and follows it to a result you can recognize: what to ask your agent, what your agent does with the request, and how you'll know it worked or why it stopped. The example requests show what your agent needs to hear, which is your intent in your own words, so you don't need to learn discern's commands to direct it.
 
 If discern is new to your project, start with [Install and set up discern](../00-start/installation-and-setup.md).
 
 ## Make and review changes
 
 - [Finish and land a change](finish-and-land-a-change.md): review a finished change, and decide whether it joins your project.
-- [Land an urgent repair](land-an-urgent-repair.md): land a fix before its checks finish, then settle them afterwards.
-- [Fix a red gate](fix-a-red-gate.md): find out why a required check failed, and let your agent fix the cause.
+- [Land an urgent repair](land-an-urgent-repair.md): land a fix now, and run its tests and other required commands straight afterwards.
+- [Fix a red gate](fix-a-red-gate.md): find out which test or other required command failed, and have your agent fix the cause.
 - [Recover an interrupted task](recover-an-interrupted-task.md): pick up after a session ends or a command stops partway.
 
 ## Give your agents more work
@@ -55,11 +55,11 @@ If discern is new to your project, start with [Install and set up discern](../00
 ## Look after your setup
 
 - [Connect a coding agent](connect-a-coding-agent.md): add another coding tool, and check that it can use discern.
-- [Run the gate in CI](run-the-gate-in-ci.md): run your project's checks on your continuous integration server.
+- [Run the gate in CI](run-the-gate-in-ci.md): run your project's required tests and tools on your continuous integration server.
 - [Maintain or remove discern](maintain-or-remove-discern.md): check, upgrade, or remove discern, and keep the work you wrote.
 
 ## When a result doesn't match the guide
 
-A guide explains the usual path. Each result discern returns names the next step for your project as it is right now. If something doesn't match a guide, ask your agent to explain the result and follow its recovery steps.
+A guide describes the usual path, and each result discern returns names the next step for your project as it stands at that moment. So when a result doesn't match a guide, go by the result: ask your agent to explain what it says happened and to follow its recovery steps.
 
-[Understand](../10-understand/README.md) explains the ideas behind the guides. [Reference](../30-reference/README.md) has the exact commands and settings. [Troubleshooting](../40-troubleshooting/README.md) starts from the symptoms you can see.
+[Understand](../10-understand/README.md) explains the ideas behind the guides, [Reference](../30-reference/README.md) has the exact commands and settings, and [Troubleshooting](../40-troubleshooting/README.md) starts from the symptoms you can see.
