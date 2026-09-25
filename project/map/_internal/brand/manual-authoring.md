@@ -2,7 +2,7 @@
 
 **Status:** Binding procedure for the public manual\
 **Applies to:** `project/manual/` tutorials, guides, explanations, reference, and troubleshooting\
-**Model pages:** chosen from the full-manual pass once the owner approves its results; until then, the [before-and-after pairs](#before-and-after) are the models\
+**Model pages:** `project/manual/00-start/first-real-change.md` (tutorial), `project/manual/20-guides/finish-and-land-a-change.md` (guide), `project/manual/10-understand/proof.md` (explanation), `project/manual/40-troubleshooting/gate-and-proof.md` (troubleshooting), and `project/manual/30-reference/proof-and-checkpoint-formats.md` (reference)\
 **Change control:** An edit to this procedure or to the model pages binds only after the owner has approved the exact new text.
 
 The manual is where people learn what discern does for them, decide to adopt it, and learn to direct their agents. It is one of discern's main marketing surfaces, and coding agents read the same pages through `discern docs` and `discern_docs`. Write for the person first: precise, warm, and connected. An agent gets the same facts, along with the reasons that tie them together.
@@ -14,6 +14,8 @@ Write in the [product voice](../../../skills/discern-product-voice/SKILL.md). Us
 ## The voice in brief
 
 Lead with what the reader gets. Use the most precise words the reader already knows, and connect the reasoning: say why each thing is so and what follows from it. Name the worry a feature answers, then show how discern answers it. Make clear who acts: you, your agent, or discern. Put the reader in one example and follow it to its outcome. Define each discern term where it first appears. Put each limit where it changes a decision, and make strong claims exact instead of hedging them. Write requests the way people talk to their agents. Show the real artifact, then say what it means. Check every claim against the live product.
+
+The model pages show all of this at work. Read them before drafting.
 
 ## Lead with what the reader gets
 
@@ -102,7 +104,7 @@ Check each "never", "only", "always", and "every" against the product, and again
 
 ### Write requests the way people talk to their agents
 
-Example requests show the reader how to direct their agent, and that they don't need discern's vocabulary to do it. Write each one as the reader's intent: what should happen, what should stay the same, and what they want back before they decide. Leave out commands, flags, and skill names, then say in the next sentence what the agent does with the request. Name a skill only as optional precision, for a reader who wants to be sure the agent uses it.
+Example requests show the reader how to direct their agent, and that they don't need discern's vocabulary to do it. Write each one as the reader's intent: what should happen, what should stay the same, and what they want back before they decide. Leave out commands, flags, skill names, and file names, then say in the next sentence what the agent does with the request. Search indexes a request like any other prose, so a request that names a file can outrank the page that explains it. Name a skill only as optional precision, for a reader who wants to be sure the agent uses it.
 
 Put anything a person says to their agent in quotation marks, whether it stands alone as a block quote or sits inside a sentence, such as "land it". The website styles every blockquote alike, so the quotation marks are what tell a request apart from output the reader will see. Keep each request short enough to type, with at most one per step.
 
@@ -218,7 +220,7 @@ Each pair shows one move. Reuse the move, in your own words.
 
 | Before                                                                                                                                                                                                    | After                                                                                                                                                                             | The move                                                 |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| "When one of your project's checks fails, your agent gets the failing check, its output, and a command that reproduces that failure on its own."                                                          | "When a test or linter fails, your agent gets the failing command, its output, and a shorter command that reproduces that failure alone."                                         | Name what the project runs.                              |
+| "When one of your project's checks fails, your agent gets the failing check, its output, and a command that reproduces that failure on its own."                                                          | "When a test or linter fails, your agent gets the failing command, its output, and the command that reruns that step on its own."                                         | Name what the project runs.                              |
 | "The **gate** is the set of checks your project requires before a change counts as finished."                                                                                                             | "The **gate** runs your project's own commands, such as its formatter, linter, type checker, and test suite, and a change counts as finished only when every one of them passes." | Define a term by what it's made of.                      |
 | "Your agent checks where the project stands and creates a **worktree**, a separate copy of the project on its own branch. It makes the change there. Your shared branch, the **trunk**, stays as it was." | "Your agent makes the change in a **worktree**, a separate copy of the project on its own branch, so your shared branch, the **trunk**, stays untouched while it works."          | Connect the reasoning.                                   |
 | "**Declared met** means your agent reached that conclusion. discern doesn't check whether it's right. discern has no AI model of its own, so it can't judge a design."                                    | "**Declared met** is your agent's conclusion. discern has no AI model of its own, so it records the answer without judging whether it's right."                                   | Keep the cause with its effect.                          |
