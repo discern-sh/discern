@@ -15,9 +15,9 @@ aliases:
 
 # The discern manual
 
-discern lets you hand coding agents substantial work without coordinating every task, explaining your project again, or working out afterwards which checks passed. Your project also gets better as the work goes on, because you can lock in each gain for the changes that follow.
+discern lets you hand coding agents substantial work, such as a whole feature, without coordinating every task yourself, explaining your project again each session, or taking an agent's word that the tests passed. Your project also gets better as the work goes on, because each gain you lock in, such as higher test coverage or a smaller download, holds for every change that follows.
 
-Your agent runs discern for you. This manual shows you how to direct the work, read what comes back, and decide what joins your project. If you're still deciding whether discern fits, start with [Evaluate discern](00-start/evaluate-discern.md).
+Your agent runs discern for you, so this manual covers your side of the work: asking for what you want, reading what comes back, and deciding what joins your project. If you're still deciding whether discern fits, start with [Evaluate discern](00-start/evaluate-discern.md).
 
 ## Start here
 
@@ -33,7 +33,7 @@ Your agent runs discern for you. This manual shows you how to direct the work, r
 
 ## Find your next task
 
-Ask your agent in your own words. These guides show what happens next and what to look for in the result.
+Ask your agent in your own words. Each guide shows what your agent does with the request and what to look for in what comes back.
 
 | What you want to do                                                 | Where to begin                                                            |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -48,10 +48,10 @@ Ask your agent in your own words. These guides show what happens next and what t
 
 ## Read it anywhere
 
-You can search this manual at [discern.sh/docs](https://discern.sh/docs). To read it offline, run `discern docs` in your terminal. Type to search, press Enter to open a page, and press `q` to close it. Your agent reads the same pages through `discern_docs`.
+Search the manual at [discern.sh/docs](https://discern.sh/docs), or run `discern docs` to read it offline in your terminal. There, type to search, press Enter to open a page, and press `q` to close it. Your agent reads the same pages through `discern_docs`, so you and your agent work from the same text.
 
 Add `.md` to the end of a page's web address to get its raw Markdown. The [CLI reference](30-reference/cli-reference.md#interactive-documentation-reader) covers the reader's other keys, opening a page directly, raw output, and paging.
 
 ## See discern at work on itself
 
-discern's own development runs on discern. It uses the same separate workspaces, checks, and quality limits it sets up for your project. The agents that build it keep a [map of the codebase](https://discern.sh/map), where you can read the project knowledge they work from. The [decision records](https://discern.sh/docs/decisions) explain why the product works the way it does.
+discern is built with discern. Its agents work in the same separate workspaces and hold the same kind of quality limits discern sets up for your project. Before a change lands, they run the project's formatter, linter, type checker, and tests. The [map of the codebase](https://discern.sh/map) those agents keep shows the project knowledge they work from, and the [decision records](https://discern.sh/docs/decisions) explain why the product works the way it does.
