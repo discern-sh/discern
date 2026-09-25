@@ -21,7 +21,7 @@ aliases:
 
 # Recover an interrupted task
 
-When a session ends partway through a task, the work doesn't end with it. The task's **worktree**, a separate copy of the project on its own branch, still holds its files, commits, and setup, and discern still has the task's **Proof**, its record of which of your project's commands passed on exactly which commit. So a new session picks up from what's recorded instead of rebuilding the task from old chat history.
+When a session ends partway through a task, the work doesn't end with it. The task's **worktree**, a separate copy of the project on its own branch, still holds its files, commits, and setup. discern still has the task's **Proof**, its record of which of your project's commands passed on exactly which commit, so a new session picks up from what's recorded instead of rebuilding the task from old chat history.
 
 discern also keeps a record of any long run or landing that stopped partway, so your agent can finish it without guessing which steps already happened.
 
@@ -106,7 +106,7 @@ If another process is running the landing, your agent lets it finish. If files, 
 
 ### When the worktree stays after landing
 
-A worktree that stays after landing can be a normal outcome. The change is already on `main`, and the result's first sentence says why the worktree stayed and names the command that finishes the job, whether that's landing newer commits, committing changes left in the worktree, recording a Proof note that couldn't be written, or finishing a cleanup another program blocked. [After it lands](finish-and-land-a-change.md#after-it-lands) walks through each case.
+A worktree that stays after landing can be a normal outcome, because the change is already on `main`. The result's first sentence says why the worktree stayed and names the command that finishes the job, whether that's landing newer commits, committing changes left in the worktree, recording a Proof note that couldn't be written, or finishing a cleanup another program blocked. [After it lands](finish-and-land-a-change.md#after-it-lands) walks through each case.
 
 A resource that couldn't be removed, such as a test database, doesn't keep the worktree. The worktree and branch go, the result names the resource, and once its cause is fixed, `discern worktree prune` removes it.
 

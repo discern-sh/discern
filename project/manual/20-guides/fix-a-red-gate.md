@@ -63,7 +63,7 @@ You can check the fix without reading code. Type a search, clear it, and see whe
 
 ## When the decision is yours
 
-Most fixes stay within the task you asked for. A decision is yours when fixing the failure would change what the project is meant to do, or what it requires. The quickest way to turn a gate green is often to loosen whatever failed, which is why the gate fails a change that loosens a **standard**, one of the measured limits your project holds: a higher limit lands only as a proposal you approve.
+Most fixes stay within the task you asked for. A decision is yours when fixing the failure would change what the project is meant to do, or what it requires. The quickest way to turn a gate green is often to loosen whatever failed, which is why the gate fails a change that loosens a **standard**, one of the measured limits your project holds. A higher limit lands only as a proposal you approve.
 
 | What your agent found                                                                | What you decide                                                                                                                                   |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
