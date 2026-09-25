@@ -56,7 +56,7 @@ The map explains how the parts fit together and links to the places that own eac
 | ------------------------------- | ----------------------------------------------------- |
 | Rules every session follows     | [Project instructions](write-project-instructions.md) |
 | Methods for particular tasks    | [Skills](create-and-manage-skills.md)                 |
-| Behavior that can be tested     | Tests and other checks                                |
+| Behavior that can be tested     | Tests and lint rules                                  |
 | Questions that need judgment    | [Checkpoints](place-and-answer-checkpoints.md)        |
 | Reasons for significant choices | ADRs                                                  |
 | Open work                       | The work ledger                                       |

@@ -70,20 +70,20 @@ Ask for a proposal you can judge:
 
 Pick the home that matches the problem:
 
-| What the evidence shows                                  | A change that fits                                                    |
-| -------------------------------------------------------- | --------------------------------------------------------------------- |
-| New sessions miss an important rule                      | Update the [project instructions](write-project-instructions.md).     |
-| A method for a kind of task needs clearer steps          | Improve a [skill](create-and-manage-skills.md).                       |
-| The map describes the wrong behavior                     | Correct the [map page](maintain-project-map.md) from the code.        |
-| A measured gain is worth keeping                         | Set or tighten a [standard](set-and-raise-standards.md).              |
-| A review question is missing or fires in the wrong place | Add or tune a [checkpoint](place-and-answer-checkpoints.md).          |
-| A check is missing, misleading, or wasting time          | Fix the check's command or configuration, and confirm what it checks. |
+| What the evidence shows                                              | A change that fits                                                  |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| New sessions miss an important rule                                  | Update the [project instructions](write-project-instructions.md).   |
+| A method for a kind of task needs clearer steps                      | Improve a [skill](create-and-manage-skills.md).                     |
+| The map describes the wrong behavior                                 | Correct the [map page](maintain-project-map.md) from the code.      |
+| A measured gain is worth keeping                                     | Set or tighten a [standard](set-and-raise-standards.md).            |
+| A review question is missing or fires in the wrong place             | Add or tune a [checkpoint](place-and-answer-checkpoints.md).        |
+| A test or other gate command is missing, misleading, or wasting time | Fix its command or configuration, and confirm what it still covers. |
 
 For the repeated test runs, the last row fits: the agent might propose caching the tests' work, or running them only when the files they cover change, and show that they still cover the same code. You can also decide the evidence is too weak, or the change costs too much. A recommendation never loosens a standard, adds a blocking rule, or lands a change on its own, because those stay your decisions.
 
 ## Try it and review it
 
-Your agent makes the change in its worktree, then checks the behavior that should improve: for a skill, a real request; for an instruction, a new session; for a new check, one example that passes and one that fails.
+Your agent makes the change in its worktree, then checks the behavior that should improve: for a skill, a real request; for an instruction, a new session; for a new test or lint rule, one example that passes and one that fails.
 
 It commits the change, runs the gate, and brings it back with **Proof**, discern's record of which commands passed on exactly which commit. Review whether the change solves the original problem at a fair cost. [Finish and land a change](finish-and-land-a-change.md) covers landing.
 
