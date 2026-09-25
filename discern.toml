@@ -1228,7 +1228,9 @@
 # Reading complexity applies to tutorials, guides, explanations, and
 # troubleshooting through the kind registry. Reference stays in product
 # voice, terminology, link, command, and exactness checks but not this grade.
-# The ceiling starts at the final migration baseline measured by this corpus.
+# The ceiling holds the grade measured after the connected-prose voice pass;
+# the sentence counter treats a terminator followed by closing quotes or
+# emphasis as a sentence end.
 [standards.manual_reading_grade]
   metric = "manual_reading_grade"
   direction = "down"
