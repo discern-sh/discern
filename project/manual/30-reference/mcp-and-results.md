@@ -43,7 +43,7 @@ aliases:
 
 # MCP and results
 
-Your agent drives discern through the Model Context Protocol (MCP), the standard way a coding agent calls a tool directly, and through the same commands on the command line. This page is the contract behind both: every tool and the inputs it accepts, the fields of each result, the exit codes, and the published schemas. Each tool's effect contract says whether it changes anything and where your approval is required, so you can see what your agent can do on its own.
+Your agent drives discern through the Model Context Protocol (MCP), an open standard that lets a coding agent call a tool directly, and through the same commands on the command line. This page is the contract behind both: every tool and the inputs it accepts, the fields of each result, the exit codes, and the published schemas. Each tool's effect contract says whether it changes anything and where your approval is required, so you can see what your agent can do on its own.
 
 A few terms recur. The **gate** runs your project's own commands, such as its formatter, linter, and tests, and **Proof** records which of them passed on one exact commit. The **trunk** is the project's shared branch, and a **worktree** is the separate copy of the project where one task happens. **Checkpoints** are review questions your agent answers when a change matches their trigger, **grants** record your permission to land changes, and a **variance** is your permission to land despite an unmet checkpoint.
 

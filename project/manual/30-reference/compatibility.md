@@ -17,7 +17,7 @@ aliases:
 
 # Compatibility
 
-When you upgrade discern within 1.x, your `discern.toml`, the Proof notes on your landed commits, and the conventions your scripts rely on stay valid. This page says what stays the same, what a release can change, and how discern's published schemas tell the two apart.
+When you upgrade discern within 1.x, your `discern.toml`, the [Proof notes](proof-and-checkpoint-formats.md#proof-notes) on your landed commits, and the conventions your scripts rely on stay valid. This page says what stays the same, what a release can change, and how discern's published schemas tell the two apart.
 
 It matters most when you build on discern's formats. Say your recipe app's CI runs a script that reads `discern status --json` and posts each task's state to your team's chat. The sections below say which parts of that output the script can depend on, what to check before an upgrade, and what to do with a value it has never seen.
 
@@ -41,7 +41,7 @@ These contracts stay valid across every 1.x release:
 
 - `discern.toml`, and the setup config document that `discern setup begin --config` reads;
 - Proof notes on landed commits;
-- the conventions your scripts rely on, such as the `DISCERN_METRIC` line a standard's command prints and the checkpoint `when` protocol;
+- the conventions your scripts rely on, such as the `DISCERN_METRIC` line a [standard](glossary.md#standard)'s command prints and the [checkpoint `when` protocol](proof-and-checkpoint-formats.md#checkpoint-when-protocol);
 - the release comparison: the release history discern publishes for other tools to read.
 
 When discern renames a setting, `discern upgrade` migrates your `discern.toml` for you. discern refuses the old spelling and names the new one.
