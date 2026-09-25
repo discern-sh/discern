@@ -226,7 +226,7 @@ discern replaces a durable record through one interruption-safe writer, so an in
 
 When you drop a worktree, discern keeps its committed tip reachable through an ordinary ref under `refs/discern/recovery/`, so Git doesn't discard the dropped task's commits. Because it's an ordinary ref, Git keeps it in its files or `reftable` storage like any other. discern keeps the newest 32 refs, and they stay local unless you configure a transport for them. `discern uninstall` leaves them in place, because a ref may be the only remaining name for commits you wrote. When you no longer need that recovery history, review each ref and delete it with `git update-ref -d <ref>` ([ADR 0271](https://discern.sh/docs/decisions/0271-destructive-drops-retain-bounded-recovery-refs)).
 
-An ordinary landing moves the trunk and creates its marker, `refs/worktree/discern/acceptance-transactions/<transaction-id>`, in the same ref transaction, so the marker exists only if the trunk moved. If a landing is interrupted, recovery reads that marker and the worktree's journal, and never replays the landing's authority:
+An ordinary landing moves the trunk, your project's shared branch, and creates its marker, `refs/worktree/discern/acceptance-transactions/<transaction-id>`, in the same ref transaction, so the marker exists only if the trunk moved. If a landing is interrupted, recovery reads that marker and the worktree's journal, and never replays the landing's authority:
 
 - if the trunk already points at the landed commit, discern finishes the landing's cleanup;
 - if the trunk was reset or moved somewhere else, recovery stops and asks you to inspect the trunk's reflog.

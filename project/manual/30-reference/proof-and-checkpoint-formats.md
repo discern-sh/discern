@@ -51,7 +51,7 @@ Say your agent's recipe search change has just landed on `main`, after it answer
 
 ## Proof notes
 
-When a change lands, discern attaches its Proof to the landed commit as a **Proof note**, under `refs/notes/discern`, so the record stays after the task's worktree is gone and adds no commit to the trunk. Both values of `[repository].proof_notes_mode` record notes locally: `"local"`, the default, and `"fetch"`. There's no setting that turns notes off.
+When a change lands, discern attaches its Proof to the landed commit as a **Proof note**, under `refs/notes/discern`, so the record stays after the task's worktree is gone and adds no commit to the trunk, your project's shared branch. Both values of `[repository].proof_notes_mode` record notes locally: `"local"`, the default, and `"fetch"`. There's no setting that turns notes off.
 
 Read the note history with:
 

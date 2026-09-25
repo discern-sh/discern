@@ -78,7 +78,7 @@ You can read the full report whenever you like, and working commands also show s
 
 The working commands inspect at most the newest 200 events, while `discern patterns` reads every retained event. `discern improvement` also reads every active event, to find checkpoints that often land with a variance. When `discern patterns` shows fewer findings than it found, `findings_total` in its result gives the full count.
 
-Every route is advisory: findings change no command outcome, exit code, failed gate stage, score, Proof identity, or acceptance decision.
+Every route is advisory: findings change no command outcome, exit code, failed [gate](glossary.md#gate) stage, score, [Proof](glossary.md#proof) identity, or acceptance decision.
 
 A finding's `summary` states the condition in plain words, and its `observed` field gives the count, the denominator, the named subject, the conditions, and material limitations. After the recipe search branch's three refusals, `discern patterns` reports:
 
