@@ -16,15 +16,15 @@ aliases:
 
 Name a review question once, and your agent answers it every time a matching change comes along. You don't have to remember to ask, and the answer arrives with the change, ready for your review.
 
-A **checkpoint** is that question plus a **trigger**: the rule that picks out the changes it applies to. Your agent proposes both, sets them up, and answers the question on each task. You decide what the question asks. When the answer is no, only you can let the change land anyway.
+A **checkpoint** is that question plus a **trigger**: the rule that picks out the changes it applies to. Your agent proposes both, sets them up, and answers the question on each task. You decide what the question asks, and when the answer is no, only you can let the change land anyway.
 
 If a checkpoint has already fired on a task, skip to [Answer a checkpoint when it fires](#answer-a-checkpoint-when-it-fires).
 
 ## Decide whether a checkpoint fits
 
-This guide follows one example: an app where people keep reading lists. You want deleting a list to be clear and hard to do by accident.
+Say people keep reading lists in your app, and you want deleting a list to be clear and hard to do by accident.
 
-A checkpoint fits a concern that needs judgment, and only on some changes. A test can confirm that Cancel leaves the list alone. It can't judge whether the dialog makes clear what will be lost. That's a question for a checkpoint.
+A checkpoint fits a concern that needs judgment on some changes. A test can confirm that Cancel leaves the list alone, but it can't judge whether the dialog makes clear what will be lost, so that question belongs in a checkpoint.
 
 | If your concern is…                              | Use                                                    |
 | ------------------------------------------------ | ------------------------------------------------------ |
@@ -35,16 +35,16 @@ A checkpoint fits a concern that needs judgment, and only on some changes. A tes
 
 Choose a mode with the agent:
 
-- **Stop:** the gate, your project's full set of checks, won't run until the agent records an answer. Use it when every matching change needs the review.
-- **Advise:** the question appears as advice and never blocks. Use it for a useful prompt whose trigger may also catch harmless changes.
+- **Stop:** the **gate**, your project's own commands, such as its linter and tests, won't run until the agent records an answer. Use it when every matching change needs the review.
+- **Advise:** the question appears as advice, blocks nothing, and needs no answer, so keep it for a useful prompt whose trigger may also catch harmless changes.
 
 ## Ask for the checkpoint
 
 Describe the concern in your own words:
 
-> Use discern-place-a-checkpoint to make agents review changes to list deletion. Ask whether people can tell what will be removed, and whether they have a fair chance to avoid deleting by accident. Suggest a trigger that catches those changes without interrupting unrelated work.
+> "Every time a change touches how lists get deleted, I want the agent making it to check that people can tell what they'll lose and can back out. Suggest how to catch those changes without interrupting other work, and show me before you add it."
 
-The agent follows the bundled `discern-place-a-checkpoint` skill. It checks whether a checkpoint is the right home, then proposes the question, the trigger, and the mode.
+Your agent uses the bundled `discern-place-a-checkpoint` skill, which checks whether a checkpoint is the right home for the concern, then proposes the question, the trigger, and the mode.
 
 ## Review the question and trigger
 
@@ -58,41 +58,51 @@ question = "Does the delete flow make clear which saved books will be removed an
 teach = "Review the wording, available choices, and recovery from a mistaken deletion."
 ```
 
-The path is an example. The agent uses the files that matter in your project, or a named scope, an area of the project your configuration already defines. With neither, the question applies to every change. Triggers can also narrow by what changed, such as a new file or a large deletion. The [configuration reference](../30-reference/config-reference.md#checkpointsname) lists every option.
+The path is an example: the agent aims the trigger at the files that matter in your project, or at a named **scope**, an area of the project your configuration already defines. With neither, the question applies to every change. Triggers can also narrow by what changed, such as a new file or a large deletion. The [configuration reference](../30-reference/config-reference.md#checkpointsname) lists every option.
 
 You don't need to choose file patterns yourself. Ask the agent for one change that would fire the question and one that wouldn't, and judge whether that line falls where you want it.
 
-Then read the question as something the agent may have to answer "no". A good question leaves room for that. "Have you been careful?" gives neither of you anything to check.
+Then read the question as one the agent may have to answer "no". "Have you been careful?" can't fail, so it gives neither of you anything to check.
 
-The optional `teach` text says what to consider. A long question can live in its own file, named with `question_file`. Keep secrets out of both. Questions and answers appear in reports and in **Proof**, discern's record of which checks passed on exactly which commit.
+The optional `teach` text says what to consider, and a long question can live in its own file, named with `question_file`. Keep secrets out of both, because questions and answers appear in reports and in **Proof**, discern's record of which commands passed on exactly which commit.
 
 ## Land it, then try it
 
 A checkpoint doesn't apply to the change that adds it. discern uses the rules committed where the task's branch started, so a change can't rewrite its own review. The agent commits the new checkpoint, runs the gate, and brings it back for you to land, as in [Finish and land a change](finish-and-land-a-change.md).
 
-Once it has landed on the **trunk**, your project's shared branch, the agent can show what's installed:
+Once it has landed on the **trunk**, your project's shared branch, new tasks face it. Each task works in its own **worktree**, a separate copy of the project, and a worktree created before the checkpoint landed keeps the old rules until the agent runs `discern update`.
+
+Next, ask the agent to try the trigger in a new task. It makes a change to the delete flow and a change elsewhere, and checks each one with:
 
 ```sh
 discern checkpoints
 ```
 
-The result lists each question, its mode, and whether the current change fires it. Each task works in its own **worktree**, a separate copy of the project. A worktree created before the checkpoint landed keeps the old rules until the agent runs `discern update`.
+The result lists each question, its mode, and whether the current change fires it. On the delete-flow change, it shows:
 
-Next, ask the agent to try the trigger in a new task. It makes a change to the delete flow and a change elsewhere, then previews the gate for each:
-
-```sh
-discern done --dry-run
+```text
+`list-deletion` (stop): would fire at done (1 matched).
 ```
 
-The preview writes nothing. For a stop checkpoint, it should show that `discern done` would wait for an answer on the delete-flow change, and not on the other one. If the question fires on almost everything, narrow the trigger before you rely on it.
+On the other change, the same line ends in `idle`. A `discern done --dry-run` preview shows the same, without writing anything. If the question fires on almost everything, narrow the trigger before you rely on it.
 
 ## Answer a checkpoint when it fires
 
-When a stop question applies, `discern done` stops before running any checks and shows the question. `discern status` and `discern prepare` show it earlier, while the agent is still working. You can ask:
+Say a later task adds a way to delete several lists at once. When the agent runs `discern done` on that change, discern runs none of your project's commands and shows the question instead:
 
-> Answer the checkpoint against the actual change. Tell me what supports your answer, and record it as unmet if the concern remains.
+```text
+This change fired one checkpoint that requires your judgment before any gate job runs:
 
-For the delete flow, a good answer might mention the list name and book count in the dialog, what Cancel does, and whether a deleted list can be restored. When the agent judges the question met, it runs:
+list-deletion — changed: `src/lists/delete.ts`
+  Question: Does the delete flow make clear which saved books will be removed and give people a reasonable way to avoid an accidental loss?
+  Teach: Review the wording, available choices, and recovery from a mistaken deletion.
+```
+
+`discern status` and `discern prepare` show the question earlier, while the agent is still working. You can ask:
+
+> "Judge the deletion question against the change as it stands. Tell me what your answer rests on, and record it as unmet if the concern is still there."
+
+A good answer might mention the list name and book count in the dialog, what Cancel does, and whether a deleted list can be restored. When the agent judges the question met, it runs:
 
 ```sh
 discern done --met list-deletion
@@ -106,35 +116,39 @@ discern done --unmet list-deletion --why "Bulk deletion takes effect immediately
 
 Either way, the gate then runs in the same call, and the answer goes into the Proof.
 
-A met answer is the agent's judgment. discern makes sure the question gets an answer. It doesn't check whether the answer is right, so ask what it's based on if you're unsure.
+A met answer is the agent's judgment. discern makes sure the question gets an answer, but it has no AI model of its own to judge whether the answer is right, so ask what it rests on if you're unsure.
 
 ### A later edit reopens the question
 
-The answer covers the content the agent looked at. If the agent changes the delete flow again, the question reopens and the agent answers it afresh. A changed answer, or a changed reason, makes the Proof stale even without a new commit. The agent runs `discern done` again to get new Proof.
+The answer covers the delete flow as the agent saw it. If the agent changes those files again, the question reopens and the agent judges the new version. Any new commit makes the Proof stale, and so does a changed answer or reason, even on the same commit, so the agent runs `discern done` again for fresh Proof.
 
 ## Decide on an unmet answer
 
-An unmet answer doesn't stop the gate, but the change can't land until you decide. The agent brings you the question, the reason, and the options. You can:
+An unmet answer is an ordinary result: the gate still runs, and landing waits for your decision. The Proof line says so:
+
+> **Proof:** Gate passed for `agent/bulk-delete-7c21e4` at `4b8e0f13a9d2` · 3 files changed (+58 −6) vs `main` · 1 declared unmet — owner variance required to land · View the full Proof: `discern status --verbose`
+
+The agent brings you the question, the reason, and the options. You can:
 
 - ask for a fix, such as a confirmation step or an undo;
 - change the plan, for example by dropping bulk deletion;
 - approve a **variance**: permission to land this change despite the unmet question.
 
-A variance covers this change only. The question stays in force for every future task. If you approve it, the agent lands with:
+A variance covers this change only, and the question stays in force for every future task. If you approve it, the agent lands with:
 
 ```sh
 discern accept --confirmed --variance list-deletion
 ```
 
-The command must name every unmet question on the change. A general "land it" doesn't approve a variance, and neither does any grant you set up in advance. Only your explicit decision does.
+The command must name every unmet question on the change. A general "land it" doesn't approve a variance, and neither does any grant you set up in advance: only your explicit decision does.
 
-## Tune it after real use
+## Tune a checkpoint after real use
 
 Once the question has fired on a few tasks, ask:
 
-> Review this checkpoint's history. Is it catching useful decisions, firing on unrelated work, or needing variances again and again? Suggest a better question or trigger if it needs one.
+> "How is the deletion question working out? Tell me whether it catches real problems, fires on unrelated work, or keeps needing my approval to land, and suggest a better question or trigger if it needs one."
 
-`discern checkpoints` shows how often each question fired, how often the answer was unmet, and how many variances you approved. `discern patterns` flags checkpoints that never fire, fire on most changes, or keep needing variances. Those counts show how the question behaves. They can't tell you whether the agent's answers were right.
+`discern checkpoints` shows how often each question fired, how often the answer was unmet, and how many variances you approved, and `discern patterns` flags checkpoints that never fire, fire on most changes, or keep needing variances. Those counts show how the question behaves, but they can't tell you whether the agent's answers were right.
 
 You might narrow the trigger, reword the question, switch it to advise, or remove it. If the concern turns out to be testable, move it into a test. Any of these changes goes through the same review as the original.
 
