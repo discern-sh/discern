@@ -94,6 +94,12 @@ Your hosting service can require the CI job to pass before a pull request merges
 
 A required CI check doesn't give discern permission to land anything. Landing still needs current Proof from the task's worktree, and your permission. [Finish and land a change](finish-and-land-a-change.md) covers that step.
 
+## Allow merge commits on your trunk
+
+Say your agent's recipe search lands while another task, saved lists, is still in progress. The saved-lists branch and your trunk each now have commits the other lacks, so discern joins them with a merge commit. That happens when the saved-lists agent runs `discern update`, or when saved lists lands, as [When other work lands first](finish-and-land-a-change.md#when-other-work-lands-first) describes. Either way, your trunk gets the merge commit.
+
+On GitHub, the branch protection rule **Require linear history** refuses any push that contains a merge commit. Pushes pass while tasks land one after another, because none of them needs a merge commit. Once tasks overlap, GitHub refuses the next push with `This branch must not contain merge commits.` Leave that rule off for your trunk. If GitHub has already refused a push, turn the rule off and push again. You don't need to rewrite any commits. Rules that block force pushes and branch deletion are compatible, because discern lands a change only by moving your trunk forward.
+
 ## When it's done
 
 Test the workflow on a throwaway branch. First push a change with a failing test, then push the fix:

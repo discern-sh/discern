@@ -33,6 +33,8 @@ The configured test producer owns instrumentation, reporting, and child cleanup.
 
 Branch protection can require a CI report. That external check grants no discern landing authority. `--ci` reports checkpoint questions without declaring them and cannot create strict landing Proof.
 
+The host's rules for `main` must allow merge commits. `discern update` merges a moved trunk into an effort branch, and `discern accept` composes one in an integration worktree, so trunk history carries merge commits ([ADR 0366](../_adr/0366-landing-is-one-exact-repository-transaction.md), [ADR 0391](../_adr/0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md)). A rule that requires linear history refuses any push that brings a merge commit onto `main`. Rules that block deletion and force pushes are compatible, because acceptance only fast-forwards the trunk. The [CI guide](../../manual/20-guides/run-the-gate-in-ci.md#allow-merge-commits-on-your-trunk) gives users the same advice.
+
 ## Standards in CI
 
 Every required standard belongs to completion. There is no measurement-deferral setting or separate PR-only measurement job. The root binary-size standard builds its representative target locally, so local Proof needs no hosted size result. That build also refuses a binary carrying the build host's paths, the guard the release smoke applies.
