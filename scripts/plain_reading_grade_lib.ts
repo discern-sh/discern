@@ -13,6 +13,7 @@
  */
 
 import { allFeatureNodes, stripCodeSpans } from "./feature_registry.ts";
+import { SENTENCE_TERMINATOR } from "./sentence_end.ts";
 
 /** Heuristic syllable count for one word (minimum 1). */
 export function syllables(word: string): number {
@@ -33,6 +34,9 @@ export interface ProseCounts {
   syllables: number;
 }
 
+/** A sentence ends at its terminator and any closing marks after it. */
+const SENTENCE_END = new RegExp(String.raw`${SENTENCE_TERMINATOR}(?:\s|$)`);
+
 /**
  * Count one passage. Code spans read as one-word names (a reader says "the
  * discern-done instruction" and moves on), so they neither shorten sentences
@@ -42,7 +46,7 @@ export function countProse(text: string): ProseCounts {
   const readable = stripCodeSpans(text).replace(/\s+/g, " ").trim();
   if (readable.length === 0) return { sentences: 0, words: 0, syllables: 0 };
   const sentences = readable
-    .split(/[.!?]+(?:\s|$)/)
+    .split(SENTENCE_END)
     .filter((part) => part.trim().length > 0).length;
   const words = readable
     .split(/\s+/)

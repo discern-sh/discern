@@ -30,6 +30,7 @@ import {
   sourcePathDefault,
 } from "../src/shared/paths_registry.ts";
 import { annotateProse, slugify } from "./canon_editor/annotation.ts";
+import { SENTENCE_TERMINATOR } from "./sentence_end.ts";
 
 /** A place a retired phrase may still legally appear, and why. */
 export interface RetiredException {
@@ -211,7 +212,9 @@ export function glossarySummary(
   entry: Pick<GlossaryEntry, "term" | "summary" | "definition">,
 ): string {
   if (entry.summary !== undefined) return entry.summary;
-  const firstSentence = entry.definition.match(/^.*?[.!?](?=\s|$)/u)?.[0];
+  const firstSentence = entry.definition.match(
+    new RegExp(String.raw`^.*?${SENTENCE_TERMINATOR}(?=\s|$)`, "u"),
+  )?.[0];
   if (firstSentence === undefined) {
     throw new Error(`glossary entry has no summary sentence: ${entry.term}`);
   }

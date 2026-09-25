@@ -35,6 +35,17 @@ Deno.test("prose counting reads code spans as names and splits sentences", () =>
   assert(counts.syllables >= counts.words, "every word has a syllable");
 });
 
+Deno.test("a sentence ends before closing quotes, brackets, and emphasis", () => {
+  for (const close of ['"', "'", "”", "’", ")", "]", "**", "_"]) {
+    for (const end of [".", "?", "!"]) {
+      const text = `Say land it${end}${close} Then wait for the result.`;
+      assertEquals(countProse(text).sentences, 2, text);
+    }
+  }
+  // A terminator inside a word or number never splits a sentence.
+  assertEquals(countProse("It takes 3.5 seconds on v1.2 here.").sentences, 1);
+});
+
 Deno.test("the grade discriminates: plain prose grades lower than dense prose", () => {
   const plain = countProse(
     "The check runs every time. It names each failure. The fix starts at the cause.",
