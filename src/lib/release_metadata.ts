@@ -3,5 +3,5 @@ import denoJson from "../../deno.json" with { type: "json" };
 
 export const RELEASE_METADATA: { version: string; codename?: string } = {
   version: denoJson.version,
-  codename: "Clearwater",
+  codename: "Treeline",
 };
