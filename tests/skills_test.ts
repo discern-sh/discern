@@ -239,7 +239,7 @@ Deno.test("delegate-work keeps dispatch consent and staged dependency contracts"
       ],
       [
         "requested worktree names remain literal and slug-first",
-        "one short programme slug — one word for the whole effort",
+        "one short program slug — one word for the whole effort",
       ],
       [
         "dependent briefs use an exact returned worktree selector",
