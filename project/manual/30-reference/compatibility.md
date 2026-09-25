@@ -105,7 +105,7 @@ These can change in any release, so don't build on them:
 - descriptive text, such as CLI help, MCP tool titles and descriptions, and schema descriptions;
 - the order in which commands, tools, and resources are listed;
 - rendered Markdown and terminal output, and hint text;
-- the text of bundled instructions and skills, though their names are fixed;
+- the text of bundled instructions and [skills](glossary.md#skill), though their names are fixed;
 - this manual;
 - private file formats and locations on disk.
 

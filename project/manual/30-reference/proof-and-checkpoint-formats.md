@@ -83,7 +83,7 @@ A note write reports `recorded`, `already_present`, `record_failed`, or `missing
 
 discern writes the notes commit as `discern <done@discern.sh>`, both author and committer. With a non-empty `DISCERN_NO_ATTRIBUTION`, it uses the repository's Git identity instead, and still records the Proof.
 
-If writing the note fails, the landing still stands. The acceptance result reports the write in `data.proof_note.write`, with its status and reason, and marks the note step failed with a `proof-recording-unavailable` advisory. discern keeps the task's worktree, its branch, and its acceptance journal, which holds the consent, variances, proposals, and Proof pointer, so the note can still be written. The result's first sentence names the retry: fix the reported problem, then run `discern accept` from that worktree. The retry records the note without repeating the landing or spending its authority again, even when other changes have landed since, then cleans up the worktree the way a landing does. If no complete Proof remains to record, the result says so, and the landing stands without a note.
+If writing the note fails, the landing still stands. The acceptance result reports the write in `data.proof_note.write`, with its status and reason, and marks the note step failed with a `proof-recording-unavailable` advisory. discern keeps the task's worktree, its branch, and its acceptance journal, which holds the consent, [variances](glossary.md#variance), proposals, and Proof pointer, so the note can still be written. The result's first sentence names the retry: fix the reported problem, then run `discern accept` from that worktree. The retry records the note without repeating the landing or spending its authority again, even when other changes have landed since, then cleans up the worktree the way a landing does. If no complete Proof remains to record, the result says so, and the landing stands without a note.
 
 Setup results report `data.proof_note.write` and `data.proof_note.fetch`. If the setup note fails, `discern setup accept` keeps the `discern-setup` branch and the Proof it writes the note from. Check out that branch and run `discern setup accept` again to record the note.
 
@@ -193,7 +193,7 @@ When `acceptance` is present, its `consent`, `variances`, and `standard_proposal
 
 - **`consent.source`** is `conversation`, `standing-grant`, or `effort-grant`. **`consent.scopes`** appears only for a standing grant, and names the scopes that covered the changed paths.
 - **Each `variances[]` member** holds `checkpoint`, `definition_hash`, `subject`, and `why`. Here `subject` is the checkpoint's subject fingerprint, a string, unlike the payload's top-level `subject` object.
-- **Each standard proposal** holds `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and a non-empty `evidence_paths`. `commit` is the immutable origin commit that changed only the configuration, `measured_commit` is its measured parent, and `bound_commit` is the current measured descendant.
+- **Each [standard](glossary.md#standard) proposal** holds `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and a non-empty `evidence_paths`. `commit` is the immutable origin commit that changed only the configuration, `measured_commit` is its measured parent, and `bound_commit` is the current measured descendant.
 
 An ordinary landing records its consent, variances, and approved `standard_proposals`. A claim that carries proposals without matching acceptance evidence stays pending, and general consent approves none of them. Setup acceptance writes its note without an `acceptance` block.
 
@@ -302,7 +302,7 @@ Once a structural trigger opens a question, a later veto from the trigger doesn'
 
 ### Strict obligation states
 
-Each governing checkpoint has an `obligation`, which says whether completion needs a conclusion before the gate jobs run:
+Each governing checkpoint has an `obligation`, which says whether completion needs a conclusion before the [gate](glossary.md#gate) jobs run:
 
 | Obligation             | Strict meaning                                                                            |
 | ---------------------- | ----------------------------------------------------------------------------------------- |

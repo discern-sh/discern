@@ -35,7 +35,7 @@ Say your agent is building recipe search in its own worktree while you work in t
 
 ## Status and session hints
 
-`discern status` reports the current state of each task and its next action. It runs no [gate](glossary.md#gate) job, test, standard measurement, or setup action, so it's cheap to run at the start of a session, or whenever you need to know what's left.
+`discern status` reports the current state of each task and its next action. It runs no [gate](glossary.md#gate) job, test, [standard](glossary.md#standard) measurement, or setup action, so it's cheap to run at the start of a session, or whenever you need to know what's left.
 
 ```sh
 discern status
@@ -178,7 +178,7 @@ Neither structured mode includes rendered Proof pages, which only terminal `--ve
 
 MCP `content` and `discern status --markdown` give an authored summary of the same state. Its Owner attention section keeps decisions for you apart from the reading agent's next action.
 
-Every task in the fleet is a separate [effort](glossary.md#effort), even when it's idle or clean, and its row grants no permission to take over its worktree. A clean sibling stays occupied until its owner lands or discards it, so an idle-looking recipe search worktree still belongs to that task, and no other agent should take it over. Its maintenance state appears under Owner attention.
+Every task in the [fleet](glossary.md#fleet) is a separate [effort](glossary.md#effort), even when it's idle or clean, and its row grants no permission to take over its worktree. A clean sibling stays occupied until its owner lands or discards it, so an idle-looking recipe search worktree still belongs to that task, and no other agent should take it over. Its maintenance state appears under Owner attention.
 
 #### Git and Proof states
 
@@ -200,7 +200,7 @@ A readable row also carries its activity, one `gate_proof`, and its `landing_aut
 - **`task`**, in full mode only, holds the display title, `title_source`, the optional brief, and the ref and commit the task started from. `title_source` is `recorded`, `identity-fallback` for a worktree without stored task metadata, or `unavailable-fallback` when discern couldn't read the record.
 - **`resources`**, in full mode only, holds the resource handles recorded in the checkout's env files.
 - **`integration`**, in full mode only, marks a landing's own integration worktree, which belongs to discern and never to an agent. Its `owner` is `live` while the landing runs, or `interrupted` once the landing's process is gone, when `discern worktree prune` reclaims it. `for_branch` names the branch the landing composes, and `awaiting_judgment` marks a copy discern keeps for a served checkpoint decision.
-- **`last_action`** is the newest completed action. **`running`** is a recent start with no matching completion. **`last_activity`** is the later of the Git time and the logbook time. Turning the logbook off removes the action fields, and Git activity stays.
+- **`last_action`** is the newest completed action. **`running`** is a recent start with no matching completion. **`last_activity`** is the later of the Git time and the [logbook](logbook.md) time. Turning the logbook off removes the action fields, and Git activity stays.
 
 Structured fleet rows leave out the older `proof_honored`, `proof`, and `proof_line` copies.
 
@@ -220,7 +220,7 @@ A reappeared-path row carries `path`, `removed_at`, `kind`, `entries`, a bounded
 
 ### Session findings
 
-After setup, discern can add up to 3 recent observations from the [logbook](logbook.md), its local record of how work goes, to `hints[]`. It inspects at most 200 events, and leaves out CI runs, previews, human activity, and other branches. Findings change no Git fact, gate result, Proof, exit code, or `ok`. Setup in progress, or a turned-off logbook, suppresses them. Run `discern patterns` for the retained evidence ([ADR 0160](https://discern.sh/docs/decisions/0160-local-logbook-advisory-readers)).
+After setup, discern can add up to 3 recent observations from the logbook, its local record of how work goes, to `hints[]`. It inspects at most 200 events, and leaves out CI runs, previews, human activity, and other branches. Findings change no Git fact, gate result, Proof, exit code, or `ok`. Setup in progress, or a turned-off logbook, suppresses them. Run `discern patterns` for the retained evidence ([ADR 0160](https://discern.sh/docs/decisions/0160-local-logbook-advisory-readers)).
 
 ## Release information
 

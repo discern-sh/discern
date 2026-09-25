@@ -210,7 +210,7 @@ After you clone the project onto a computer without discern, install discern, ru
 
 ## Claude Code integration
 
-discern gives Claude Code the shared instructions and skills, an MCP server entry, and worktree hooks. It adds no permission rules.
+discern gives Claude Code the shared instructions and [skills](glossary.md#skill), an MCP server entry, and worktree hooks. It adds no permission rules.
 
 When `[project].agents` includes Claude Code, discern writes or co-manages these project files:
 
@@ -323,7 +323,7 @@ Of the supported tools, only Claude Code exposes a worktree lifecycle hook contr
 
 Claude Code's shell keeps its working directory between calls, so one `cd` affects every later call. When a task must stay isolated, open or launch the session in its worktree.
 
-discern doesn't write Claude Code sandbox settings. In discern's recorded provider evidence, Claude Code's native sandbox is the only modeled agent sandbox that handles linked-worktree Git metadata automatically.
+discern doesn't write Claude Code sandbox settings. Of the agent sandboxes discern's provider records cover, Claude Code's native sandbox is the only one that handles linked-worktree Git metadata automatically.
 
 ## Codex integration
 

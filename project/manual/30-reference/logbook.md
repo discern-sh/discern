@@ -76,7 +76,7 @@ You can read the full report whenever you like, and working commands also show s
 | `discern improvement` | Complete project findings, in the advisory `data.history.findings` group.                                                                                                                                                 |
 | `discern patterns`    | Each detector's strongest 3 findings, or every finding with `--all`: a plain summary, then the observed evidence, up to 3 attention pointers, family blocks, standard sparklines, and an account of what lacked evidence. |
 
-The working commands inspect at most the newest 200 events, while `discern patterns` reads every retained event. `discern improvement` also reads every active event, to find checkpoints that often land with a variance. When `discern patterns` shows fewer findings than it found, `findings_total` in its result gives the full count.
+The working commands inspect at most the newest 200 events, while `discern patterns` reads every retained event. `discern improvement` also reads every active event, to find [checkpoints](glossary.md#checkpoint) that often land with a [variance](glossary.md#variance). When `discern patterns` shows fewer findings than it found, `findings_total` in its result gives the full count.
 
 Every route is advisory: findings change no command outcome, exit code, failed [gate](glossary.md#gate) stage, score, [Proof](glossary.md#proof) identity, or acceptance decision.
 
@@ -114,9 +114,9 @@ An accepted change is a successful `accept`, and its size comes from the recorde
 
 A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](../10-understand/evidence-and-improvement.md#what-the-detectors-watch) matches them. So a cycle needs both ends on record: an accept whose start predates the logbook counts as accepted, but adds no cycle.
 
-For the overlap reading, a branch is in flight from its first analyzed event to its last, including any pause inside that window. A branch stops counting after its last event, and the trunk isn't a change.
+For the overlap reading, a branch is in flight from its first analyzed event to its last, including any pause inside that window. A branch stops counting after its last event, and the [trunk](glossary.md#trunk), your project's shared branch, isn't a change.
 
-The standards trend scales each standard against its own first reading, and flips direction where needed so that improvement is always positive. That shared scale lets a coverage floor and a byte-size ceiling average into one line, and lets "most improved" compare like with like.
+The standards trend scales each [standard](glossary.md#standard) against its own first reading, and flips direction where needed so that improvement is always positive. That shared scale lets a coverage floor and a byte-size ceiling average into one line, and lets "most improved" compare like with like.
 
 The Agents section uses the same cohort boundary as the detectors. It counts identities below the reporting minimums without listing them, always states the unattributed share, and leaves automation runs out of both.
 
@@ -192,7 +192,7 @@ discern patterns --stats --logbook-file logbook-20260811T143015Z.jsonl
 
 The selector takes one listed regular-file name inside `logbook-archives/`. It rejects paths, traversal, symbolic links, directories, active month files, and names outside the archive format. Over MCP, `discern_patterns` takes the same selector as `logbook_file`.
 
-A historical report never changes the archive, and its own event goes to the active logbook when recording is on. Only patterns and stats read a sealed file: fleet activity, `status`, Proof hints, queue estimates, and work-in-flight checks always use the active logbook.
+A historical report never changes the archive, and its own event goes to the active logbook when recording is on. Only patterns and stats read a sealed file: [fleet](glossary.md#fleet) activity, `status`, Proof hints, queue estimates, and work-in-flight checks always use the active logbook.
 
 ## Event format and storage
 
@@ -295,7 +295,7 @@ An invocation's `surface` is `cli` or `mcp`. Its `outcome` is `ok`, `failed`, `p
 
 - **`partial`** marks an error after an effect that can't be undone.
 - **`crash`** appears only when discern hits an unexpected error. It holds the error's class name, such as `"TypeError"`, and one trimmed code location. The logbook leaves out the message and stack, which a saved [crash report file](../40-troubleshooting/crashes-and-local-state.md) holds in full.
-- **`tip_ids`** appears only when the desk showed a tip, and carries the tip's registry id as is. The tip-adoption reader joins that id to the tip's declared commands.
+- **`tip_ids`** appears only when the [desk](glossary.md#desk) showed a tip, and carries the tip's registry id as is. The tip-adoption reader joins that id to the tip's declared commands.
 - **`consent`** feeds the landing-authority detectors described in [practice patterns](../10-understand/evidence-and-improvement.md).
 - **`checkpoints`** carries the open-question and variance lifecycle as metadata: ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times. The unmet rationale never lands here.
 

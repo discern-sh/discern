@@ -24,11 +24,11 @@ Say you hand your recipe app's repository to a client, with discern's built-in i
 The portions discern supplies to your project are available immediately under the [Apache License, Version 2.0](https://github.com/discern-sh/discern/blob/main/LICENSES/Apache-2.0.txt). They include:
 
 - setup scaffolding;
-- built-in instructions and skills;
+- built-in instructions and [skills](glossary.md#skill);
 - generated framing;
 - the entries or marked regions discern maintains in shared configuration.
 
-Your own instructions, map pages, skills, configuration, and other authored material keep their existing terms, and so does material from coding-tool providers and other third parties.
+Your own instructions, [map](glossary.md#map) pages, skills, configuration, and other authored material keep their existing terms, and so does material from coding-tool providers and other third parties.
 
 One file can mix the two. The recipe app's `AGENTS.md` holds discern's built-in instructions beside your project's own, and the Apache-2.0 grant applies only to the portions discern supplied.
 
