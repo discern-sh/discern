@@ -196,7 +196,9 @@ function HomePage(): ReactElement {
           </>
         }
         meta="Any stack. Runs offline. No API key."
-        backdrop={<ApproachBackdrop />}
+        backdrop={
+          <ApproachBackdrop arrive drift="in" driftBeats={16} dolly grain />
+        }
         visual={
           <LogoCloud
             label="Works with the coding agents you already use"
