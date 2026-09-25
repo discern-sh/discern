@@ -204,7 +204,7 @@ Parking frees a task's worktree and resources, and keeps its branch, committed w
 
 > "Park this task so we can come back to it later. Show me the plan first, and make sure the work I want to keep is committed."
 
-The preview is `discern worktree park <task> --dry-run`, run from your main checkout. Parking needs a clean worktree on a task branch, and it also removes the task's Proof, grant, and place in the landing queue. Afterwards, `discern status` lists the branch under **Work without a worktree**. To resume, your agent runs `discern start --from <parked-branch>`, and the resumed task needs new Proof and fresh permission to land.
+The preview is `discern worktree park <task> --dry-run`, run from your main checkout. Parking needs a clean worktree on a task branch, and it also removes the task's Proof, its permission to land, and its place in the landing queue. Afterwards, `discern status` lists the branch under **Work without a worktree**. To resume, your agent runs `discern start --from <parked-branch>`, and the resumed task needs new Proof and fresh permission to land.
 
 ## You're done when
 

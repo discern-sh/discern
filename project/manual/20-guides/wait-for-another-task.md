@@ -41,7 +41,7 @@ The main choice is whether to build on checked work now, or to wait until it has
 | "Use search after it lands."            | **Landed:** search's work is on the **trunk**, your project's shared branch (usually `main`). | You want to build only on work you've accepted. |
 | "Carry on when anything lands."         | **Trunk moved:** the trunk changed after the wait began.                                      | Any new work on `main` matters, whoever did it. |
 
-Green isn't landed. A green search task is ready to build on, but its Proof doesn't give it permission to land, so that decision still waits for you, or for a grant you set up earlier. [Proof](../10-understand/proof.md) explains the difference.
+Green isn't landed. A green search task is ready to build on, but its Proof doesn't give it permission to land, so that decision still waits for you, or for permission you set up earlier. [Proof](../10-understand/proof.md) explains the difference.
 
 ## What the agent runs
 
@@ -80,7 +80,7 @@ A refusal means discern can't answer the wait as asked, and unlike an unfinished
 
 - A green wait needs a worktree that can hold current Proof. If the search worktree was reclaimed because a later task already holds its work, the result points to that later task, or suggests waiting for the landing instead.
 - A mistyped or unclear task name needs correcting, and the result asks for an exact path or branch.
-- If search has already landed and its branch is gone, a landed wait given search's exact branch name still finds it, because discern reads the Proof note it recorded on `main` when search landed.
+- If search has already landed and its branch is gone, a landed wait given search's exact branch name still finds it, because discern reads the **Proof note**, the copy of search's Proof it attached to the landed commit on `main`.
 
 You can ask:
 

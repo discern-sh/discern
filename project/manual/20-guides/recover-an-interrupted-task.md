@@ -77,7 +77,7 @@ Don't rerun the commands only to see their output. The reading keeps the result,
 
 ## Recover an interrupted acceptance
 
-A landing can stop partway. `main` may have moved to include the change before discern updated your main checkout, recorded the Proof note, or removed the worktree. So the first question is whether the change reached `main`, and discern can always answer it: before it moves `main`, it writes down what it's about to do, then moves `main` in one step that either happens completely or doesn't happen at all.
+A landing can stop partway. `main` may have moved to include the change before discern updated your main checkout, recorded the **Proof note**, the copy of the Proof it attaches to the landed commit, or removed the worktree. So the first question is whether the change reached `main`, and discern can always answer it: before it moves `main`, it writes down what it's about to do, then moves `main` in one step that either happens completely or doesn't happen at all.
 
 Ask your agent:
 

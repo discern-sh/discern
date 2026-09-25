@@ -72,7 +72,7 @@ To **land** a change is to add it to your project's shared branch, usually `main
 - **Review first.** The task passes its checks, then stops at its **Proof**, discern's record of which of your project's commands passed on exactly which commit. It waits there for you.
 - **Land when green.** You give permission in advance, so when the task's checks pass, its agent lands it without asking you.
 
-You can give that permission from the **desk**, the interactive view that opens when you run `discern` in your main checkout. A standing grant in your project's settings can also cover areas such as documentation. [Proof](../10-understand/proof.md) explains where permission to land can come from. No grant covers an unmet checkpoint, a change to a standard's limit, or an emergency landing. Those always come back to you.
+You can give that permission from the **desk**, the interactive view that opens when you run `discern` in your main checkout. A standing grant in your project's settings can also cover areas such as documentation. [Proof](../10-understand/proof.md) explains where permission to land can come from. No permission given in advance covers a change that falls short of one of your project's review questions, raises one of its measured limits, or lands in an emergency without its checks. Those always come back to you.
 
 Approving one task doesn't approve another. If the help task builds on search before search lands, landing the help task brings search's code with it, so approve it only once you're happy with both.
 
