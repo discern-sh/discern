@@ -40,7 +40,7 @@ Your agent **pins** the standard: `discern standards --pin` tightens the limit t
 | Add a small feature.  | 960 kB        | 1,000 kB | The feature fits.                               |
 | Add a larger feature. | 1,040 kB      | 1,000 kB | The standard fails, and the agent investigates. |
 
-The margin only matters when you pin. It isn't extra room at every check, so 1,040 kB still breaks a 1,000 kB ceiling.
+The margin only matters when you pin. It isn't extra room every time the gate runs, so 1,040 kB still breaks a 1,000 kB ceiling.
 
 The pin is a commit like any other, so it goes through the gate and lands the usual way. From then on, every later task has to meet the new limit, including tasks by agents that never saw the gain.
 
@@ -50,7 +50,7 @@ The larger feature might be worth its extra download, say because it lets people
 
 First, your agent tries to avoid the increase. If a needed part of the feature causes it, the agent shows you the new size, the limit, the reason, and the other options, without shrinking something unrelated to make the number pass.
 
-Then you decide. You can keep the limit and change the feature. Or you can approve a new limit: your agent proposes it, and the Proof shows the current limit, the proposed one, the measured size, and the reason. Landing needs your approval of that exact proposal, and neither a general "go ahead" nor a grant you set up in advance covers it. [Set and raise standards](../20-guides/set-and-raise-standards.md) walks through the decision.
+Then you decide. You can keep the limit and change the feature. Or you can approve a new limit: your agent proposes it, and the Proof shows the current limit, the proposed one, the measured size, and the reason. Landing needs your approval of that exact proposal, and neither a general "go ahead" nor permission you set up in advance covers it. [Set and raise standards](../20-guides/set-and-raise-standards.md) walks through the decision.
 
 ## Pick a number that holds up as the project grows
 

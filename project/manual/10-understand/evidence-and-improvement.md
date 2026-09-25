@@ -57,7 +57,7 @@ Every count comes with the total it came from, because failures in 3 of 4 tries 
 
 Each **detector**, one check the report runs over the logbook, needs enough evidence before it reports anything, so a new project has little to report, and that's a useful answer too. **Insufficient evidence** means the logbook can't tell yet. It doesn't mean there's no problem.
 
-Findings are advice. Reading them changes no settings, fails no checks, and gives no one permission to change anything: you and your agent decide what to do.
+Findings are advice. Reading them changes no settings, fails no gate run, and gives no one permission to change anything: you and your agent decide what to do.
 
 ## What the detectors watch
 
