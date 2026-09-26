@@ -53,6 +53,20 @@
     letter-spacing: -0.03em;
   }
 
+  /* Phones hold the hero backdrop still, in portrait and in landscape: the
+   * figure sits behind the copy there, and its motion would compete with
+   * reading. This is the package's motion="still" posture — every animation
+   * off, leaving the finished figure — applied where the viewport, which the
+   * prop cannot see, is phone-sized. */
+  @media (max-width: 42rem), (max-height: 30rem) and (max-width: 60rem) {
+    .homepage-backdrop *,
+    .homepage-backdrop::before,
+    .homepage-backdrop::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
   @media (max-width: 42rem) {
     .homepage-benefits-grid {
       grid-template-columns: 1fr;

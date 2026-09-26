@@ -198,7 +198,14 @@ function HomePage(): ReactElement {
         }
         meta="Any stack. Runs offline. No API key."
         backdrop={
-          <ApproachBackdrop arrive drift="in" driftBeats={16} dolly grain />
+          <ApproachBackdrop
+            className="homepage-backdrop"
+            arrive
+            drift="in"
+            driftBeats={16}
+            dolly
+            grain
+          />
         }
         visual={
           <LogoCloud
