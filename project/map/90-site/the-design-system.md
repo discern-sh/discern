@@ -15,7 +15,7 @@ discern uses one exact `@discern-sh/design-system` alias. It resolves to an immu
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.36.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.37.0"
 ```
 
 Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer Proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. The docs site's fenced-code renderer uses the same projection export. `deno.lock` records the release integrity and its transitive dependencies. Those public exports are the complete consumer application programming interface (API); source paths, registry addresses, cache internals and distribution files never appear in consumer imports. Committed local dependency overrides are rejected.
