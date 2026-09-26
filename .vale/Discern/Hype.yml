@@ -20,7 +20,6 @@ tokens:
   - supercharg(?:e[sd]?|ing)
   - game[\s.-]chang(?:er|ing)
   - unlocks?
-  - empowers?
   - vibes
   - just\s+works
   - ship\s+faster

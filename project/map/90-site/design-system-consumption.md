@@ -50,6 +50,8 @@ The [human release page](releases.md#the-human-page) is rendered at request time
 
 The projection keeps the authored blocks a visitor reads and removes markup, attributes, code, artifact data, and repeated rendered copies. It stages each page under its declared register so the generated brand rules apply. `deno task site:prose-check` blocks Vale errors. `deno task site:prose` emits the alert numerator and exact word denominator consumed by `[standards.site_prose]`; `deno task site:reading-grade` reads the same projection for `[standards.site_reading_grade]`.
 
+The owner writes most public brand copy, and the house rules stay on as a safety net that catches a slip. When the owner keeps a flagged word, that word moves into its own rule, and [`.vale.ini`](../../../.vale.ini) switches the rule off for that page's staged path alone. The homepage keeps `empower(s)` and `simply` this way, through `Discern.CampaignHype` and `Discern.CampaignFiller`. Every other hype and filler word still blocks there, and [`tests/voice_vale_parity_test.ts`](../../../tests/voice_vale_parity_test.ts) proves the exemption stays that narrow.
+
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. The discern site does not mount `/style-guide/` in development or production.
 
 ## Development-only artifact specimens

@@ -1,0 +1,10 @@
+# The filler word the homepage keeps as campaign wording. It blocks on every
+# other page exactly as Filler does: the sentence stands alone without it.
+# `.vale.ini` turns this rule off for the homepage's staged copy alone, so
+# every other Filler token still blocks there.
+extends: existence
+message: "'%s' pads the sentence: delete it; the sentence stands alone."
+ignorecase: true
+level: error
+tokens:
+  - simply

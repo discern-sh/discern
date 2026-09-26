@@ -29,6 +29,7 @@ import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { projectSiteProse } from "../scripts/site_prose_lib.ts";
 
 interface ValeAlert {
   Check?: string | undefined;
@@ -77,9 +78,11 @@ type BannedWordId = (typeof BANNED_WORDS)[number]["id"];
 type BannedMoveId = (typeof BANNED_MOVES)[number]["id"];
 
 const WORD_CONTRACTS = {
-  "padding": { checks: ["Discern.Filler", "Discern.Padding"] },
+  "padding": {
+    checks: ["Discern.Filler", "Discern.CampaignFiller", "Discern.Padding"],
+  },
   "hype-adjectives": { checks: ["Discern.Hype"] },
-  "hype-verbs": { checks: ["Discern.Hype"] },
+  "hype-verbs": { checks: ["Discern.Hype", "Discern.CampaignHype"] },
   "vendor-speak": { checks: ["Discern.VendorSpeak"] },
   "emotion-announcements": { checks: ["Discern.Announcement"] },
   "throat-clearing": { checks: ["Discern.ThroatClearing"] },
@@ -182,6 +185,8 @@ const MOVE_CONTRACTS = {
 const ERROR_RULE_FIXTURES = {
   AmericanSpelling: "The agent summarised the behaviour of each run.",
   Announcement: "We're excited to announce the release.",
+  CampaignFiller: "Simply run the command.",
+  CampaignHype: "The workflow empowers every team.",
   Exclamation: "The Gate passed!",
   FaultDodging: "An error was encountered during setup.",
   Filler: "Obviously, the command works.",
@@ -624,6 +629,46 @@ Deno.test("every error-level house rule proves its block and code-span escape", 
         ),
         `${rule} must permit a code-spanned counter-example`,
       );
+    }
+  });
+});
+
+/**
+ * The homepage's owner keeps two campaign words the house style blocks
+ * elsewhere. `.vale.ini` switches their rules off for the homepage's staged
+ * path alone; every other Hype and Filler token still blocks there, and both
+ * words still block on every other page.
+ */
+Deno.test("the homepage alone keeps its two campaign words", async () => {
+  const pages = projectSiteProse();
+  const homepage = pages.find(({ route }) => route === "/");
+  assert(homepage !== undefined);
+  const campaign =
+    "discern empowers your agents. Simply tell your agent to set it up.";
+  const house = "The setup is seamless. Obviously, it works.";
+  const elsewhere = [
+    ...pages.filter(({ route }) => route !== "/").map(({ stagePath }) =>
+      stagePath
+    ),
+    "_internal/brand/messaging.md",
+    "00-orientation/campaign.md",
+  ];
+  await withTempDir(async (dir) => {
+    await writeFixture(dir, homepage.stagePath, `${campaign}\n\n${house}`);
+    for (const rel of elsewhere) await writeFixture(dir, rel, campaign);
+    const output = await lintFixtures(dir);
+    const home = fixtureAlerts(output, homepage.stagePath);
+    for (const check of ["Discern.CampaignHype", "Discern.CampaignFiller"]) {
+      assert(!hasCheck(home, check), `the homepage keeps ${check}'s word`);
+      for (const rel of elsewhere) {
+        assert(
+          hasCheck(fixtureAlerts(output, rel), check),
+          `${check} still blocks ${rel}`,
+        );
+      }
+    }
+    for (const check of ["Discern.Hype", "Discern.Filler"]) {
+      assert(hasCheck(home, check), `${check} still blocks the homepage`);
     }
   });
 });

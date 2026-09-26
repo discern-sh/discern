@@ -1,0 +1,10 @@
+# The hype verb the homepage keeps as campaign wording. It blocks on every
+# other page exactly as Hype does: state the sourced fact that earned it, or
+# cut it. `.vale.ini` turns this rule off for the homepage's staged copy alone,
+# so every other Hype token still blocks there.
+extends: existence
+message: "'%s' is hype vocabulary: state the sourced fact that earned it, or cut it."
+ignorecase: true
+level: error
+tokens:
+  - empowers?

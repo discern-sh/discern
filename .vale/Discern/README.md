@@ -8,7 +8,7 @@ This style detects wording patterns from the voice canon (`BANNED_WORDS` and `BA
 
 `Numeration` and `Seasoning` remain blocking. Remove counted list introductions and stock singular or scope emphasis. Changing a count to digits or substituting another empty intensifier does not resolve the defect.
 
-`ContextualQualifiers` reviews `silently`, `quietly`, `deliberate(ly)`, `honest(y/ly)`, and `exactly`. `MaturedSeasoning` retains the blocking `ride(s) along` ban. `Padding` reviews its selected qualifiers; `Filler` keeps unrelated bans such as `simply` and `obviously`.
+`ContextualQualifiers` reviews `silently`, `quietly`, `deliberate(ly)`, `honest(y/ly)`, and `exactly`. `MaturedSeasoning` retains the blocking `ride(s) along` ban. `Padding` reviews its selected qualifiers; `Filler` keeps unrelated bans such as `obviously`. `CampaignHype` holds `empower(s)` and `CampaignFiller` holds `simply`: they block like `Hype` and `Filler` on every page except the homepage, whose owner keeps both words as campaign wording, and `.vale.ini` scopes that exemption to the homepage's staged path.
 
 Scope: the map's published and `_internal` tiers, plus the manual's staged product tier. `.vale.ini` exempts `_adr/` from the house style because decision records are dated documents. `_private/` stays outside the linted corpus.
 
