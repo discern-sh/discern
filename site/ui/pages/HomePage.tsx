@@ -170,6 +170,7 @@ function HomePage(): ReactElement {
     <MarketingLayout currentPath="/">
       <HeroBlock
         layout="statement"
+        style={{ paddingTop: 50, paddingBottom: 50 }}
         frame="wide"
         eyebrow={
           <Kicker className="homepage-eyebrow">
@@ -177,7 +178,7 @@ function HomePage(): ReactElement {
             {DISCERN_VERSION}
           </Kicker>
         }
-        title="Intelligence, in practice."
+        title="Intelligence In Practice."
         description={
           <p className="homepage-lede">
             discern installs a disciplined engineering practice into your
@@ -190,7 +191,7 @@ function HomePage(): ReactElement {
             <Button href="/docs/start" size="lg" trailingIcon="→">
               Get started
             </Button>
-            <Button href="#practice" size="lg" variant="ghost">
+            <Button href="#practice" size="lg" variant="secondary">
               See how it works
             </Button>
           </>
@@ -201,7 +202,7 @@ function HomePage(): ReactElement {
         }
         visual={
           <LogoCloud
-            label="Works with the coding agents you already use"
+            label="Works with your coding agent"
             align="start"
             variant="strip"
             frame="fill"
@@ -224,59 +225,67 @@ function HomePage(): ReactElement {
       <NarrativeChapter
         id="practice"
         className="homepage-chapter"
-        eyebrow="The practice"
+        // eyebrow="The practice"
         title="Two kinds of intelligence. One shared project."
         lead={
           <p>
-            An engineering practice for agent-built software, installed in your
-            project. You set the direction, your agent carries the work, and the
-            project keeps what matters between you.
+            Designed to improve the way humans and agents work together, discern
+            installs a collaborative engineering practice into any software
+            project.
           </p>
         }
         aside={
           <>
-            <span>Built on itself</span>
+            <strong>Built on itself</strong>
             <p>
-              discern has run under its own practice since day one. Every change
-              to discern is built, checked, and proven by discern.
+              discern has been created by its own workflow since day one. Every
+              change to discern's codebase has been built, validated, and proven
+              under its own gate.
             </p>
           </>
         }
         asideLabel="How discern is built"
       >
         <p>
-          You decide what quality means for your project. discern keeps that
-          judgment in the project itself, where every coding agent you use can
-          find it and put it to work.
+          <strong>You</strong>{" "}
+          decide what "quality" means for your project. discern encodes your
+          taste and judgment into the project's configuration, then teaches
+          every future agent how to put it to work.
         </p>
         <p>
-          Your agent operates discern day to day. It starts each task in its own
-          workspace, runs the checks your project declares, and brings the work
-          back with evidence that they passed. You review the result and decide
-          what ships.
-        </p>
-        <h3>For people who take their software seriously.</h3>
-        <p>
-          If you have only ever built software through an agent, discern asks
-          nothing of you beyond the decisions that are yours to make. Your agent
-          sets it up and runs it, and the discipline is in place by the time
-          people start depending on your work.
+          <strong>Your agent</strong>{" "}
+          operates discern day-to-day. discern helps them write better code,
+          work safely in parallel, and continually improve the project's quality
+          over time.
         </p>
         <p>
-          If you already direct more implementation than you can personally
-          read, discern lets your judgment reach every change without you
-          reading every line. Run more work in parallel, keep your standards
-          across models and providers, and stay the one who decides.
+          <strong>Your project</strong>{" "}
+          becomes a more reliable place for agents to work. Every change is
+          deterministically proven to meet your standards. discern gives you the
+          confidence to ship high-quality changes faster than ever.
+        </p>
+        <h3>Designed for people who ship serious software.</h3>
+        <p>
+          If you've only ever built software through a coding agent, discern is
+          easy-to-use and requires no previous coding experience. When people
+          start depending on your work, discern provides the engineering
+          discipline so you can ship it with confidence.
+        </p>
+        <p>
+          Or if you're an experienced engineer using agents to write more code
+          than you can keep up with, discern lets you scale your ambition even
+          further. Direct more work with less oversight, preserve your expertise
+          across models and providers, and run complex workstreams in parallel.
         </p>
       </NarrativeChapter>
       <FeatureBento
         frame="wide"
-        eyebrow="What discern gives you"
-        title="The right limits let more work move and finish."
+        eyebrow="Why choose discern?"
+        title="Software engineering for the agentic era."
         description={
           <p>
-            Every task gets its own workspace, every change is held to the bar
-            your project declares, and the decision to ship stays with you.
+            discern makes it possible to use coding agents to their full
+            potential, without compromising on quality or what matters to you.
           </p>
         }
         items={[
@@ -286,21 +295,23 @@ function HomePage(): ReactElement {
               <>
                 <p>
                   Most developer tools assume a person at the keyboard. discern
-                  treats your coding agent as its day-to-day operator, and most
-                  of what it does for the agent happens out of your sight.
+                  takes a different approach, by treating your coding agent as
+                  its day-to-day operator.
                 </p>
                 <p>
-                  Every session opens already briefed by your project's compiled
-                  instructions. One call reports what is true right now and the
-                  next valid step, so the agent never rebuilds the picture from
-                  a long transcript.
+                  Most of what discern does happens out of sight. It operates
+                  quietly in the background, guiding your agent to make the
+                  right decisions for your project, throughout the entire
+                  software development lifecycle.
                 </p>
                 <p>
-                  Results come back bounded, so the agent spends its context on
-                  your change rather than on the tool. A failed check returns
-                  the evidence and a command to reproduce it, and a refusal
-                  always names a way forward. The agent operates; you still
-                  decide what lands.
+                  discern teaches your agent everything they need to know about
+                  your project, at the time they need to know about it. That
+                  means they don't fill up their context window re-learning the
+                  basics. It provides precise, bounded hints, guiding your agent
+                  to take the right action. If something fails, discern tells
+                  your agent how to fix it. And every response includes a clear
+                  next step for the agent to take.
                 </p>
               </>
             ),
@@ -310,34 +321,37 @@ function HomePage(): ReactElement {
             align: "end",
           },
           {
-            title: "Give each task its own workspace.",
+            title: "Build in parallel with isolated workspaces.",
             icon: tileGlyphs.branch,
             description: (
               <p>
-                Every piece of work begins in a separate checkout on its own
-                branch. Several agents can move at once without treading on each
-                other, and nothing unfinished reaches your shared branch.
+                Every change takes place in an isolated worktree. Several agents
+                can build at once without tripping over each other. discern
+                takes care of creating, syncing, and tidying each workspace
+                automatically.
               </p>
             ),
             size: "wide",
           },
           {
-            title: "Know what passed.",
+            title: "Trust the process.",
             icon: tileGlyphs.check,
             description: (
               <p>
-                Finished work comes back with the results of your project's own
-                checks, tied to the exact change that passed them.
+                Don't just take their word for it. discern gives you and your
+                agent Proof: a deterministic guarantee that the project's checks
+                passed, tied to the exact commit they passed on.
               </p>
             ),
           },
           {
-            title: "Keep every gain.",
+            title: "Things can only get better.",
             icon: tileGlyphs.trend,
             description: (
               <p>
-                When a quality measure improves, the project keeps the new
-                level. A later change cannot lower it.
+                When a quality measure improves, your project can lock in the
+                gain. Later changes can't lower it, preventing regressions from
+                sneaking back in.
               </p>
             ),
           },
@@ -346,20 +360,23 @@ function HomePage(): ReactElement {
             icon: tileGlyphs.flag,
             description: (
               <p>
-                Passing checks makes a change ready for a decision. The decision
-                to land it stays with you.
+                discern's practice lets you stay focused on what actually
+                matters to your project. discern empowers your agents to work
+                more autonomously, but nothing gets landed or shipped without
+                your consent.
               </p>
             ),
             size: "wide",
           },
           {
-            title: "Your agent sets it up.",
+            title: "Zero-configuration setup.",
             icon: tileGlyphs.spark,
             description: (
               <p>
-                Tell your coding agent to set up discern. It studies your
-                project, wires up your real checks, asks only for the decisions
-                that are yours, and proves the setup works before it finishes.
+                Simply tell your coding agent to set up discern in your project.
+                That's it. discern guides your agent step-by-step, analyzing the
+                project and showing them how to wire up the right checks, before
+                verifying everything works.
               </p>
             ),
             size: "wide",
