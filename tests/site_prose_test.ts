@@ -2,6 +2,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join, resolve } from "@std/path";
+// @ts-types="@types/jsdom"
+import { JSDOM } from "jsdom";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { renderAgents } from "../site/ui/pages/AgentsPage.tsx";
 import { renderLanding } from "../site/ui/pages/HomePage.tsx";
@@ -55,8 +57,13 @@ Deno.test("the homepage projection measures the launch headline once", () => {
   const pages = projectSiteProse();
   const homepage = pages.find(({ route }) => route === "/");
   assert(homepage !== undefined);
+  const dom = new JSDOM(renderLanding());
+  const headline = dom.window.document.querySelector("h1")?.textContent
+    ?.trim();
+  dom.window.close();
+  assert(headline, "the homepage renders a headline");
   assertEquals(
-    homepage.prose.split("Intelligence, in practice.").length - 1,
+    homepage.prose.split(headline).length - 1,
     1,
     "the homepage headline contributes one authored prose block",
   );
