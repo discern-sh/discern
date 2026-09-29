@@ -1170,14 +1170,15 @@ const PREPARE_TEST_FAITHFULNESS_CASE = defineFaithfulnessCase(
       await prepareResult(dir),
       "prepare clean public schema",
     );
+    const unconfigured = await testResult(dir);
     expectValid(
       DatalessEnvelopeSchema,
-      await testResult(dir),
+      unconfigured,
       "test unconfigured",
     );
     expectFaithful(
       "test",
-      await testResult(dir),
+      unconfigured,
       "test unconfigured public schema",
     );
 
