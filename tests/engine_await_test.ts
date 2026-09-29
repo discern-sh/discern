@@ -24,6 +24,7 @@ import {
  */
 
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { ManualScheduler } from "./manual_scheduler.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { fakeEnv, withTempDir } from "./helpers.ts";
@@ -41,6 +42,7 @@ import {
 import { type AwaitOptions, awaitResult } from "../src/engine/await/await.ts";
 import {
   AWAIT_LONG_CALL_SECONDS,
+  AWAIT_POLL_INTERVAL_MS,
   AWAIT_STRICT_CALL_SECONDS,
   AWAIT_TIMEOUT_EXIT_CODE,
 } from "../src/engine/await/defaults.ts";
@@ -871,17 +873,39 @@ Deno.test("await uses the longest reliable call for every caller profile", async
     // A short explicit bound remains caller-owned. A zero-second probe gets the
     // profile maximum for its continuation rather than recommending zero again.
     const explicitAbort = new AbortController();
-    explicitAbort.abort();
-    const explicit = await awaitResult(
+    const scheduler = new ManualScheduler();
+    let elapsedMs = 0;
+    const explicitWait = awaitResult(
       dir,
-      { green: "agent/dep", timeoutSeconds: 30 },
+      {
+        green: "agent/dep",
+        timeoutSeconds: 30,
+        clock: { ...SYSTEM_CLOCK, monotonicNow: () => elapsedMs },
+        scheduler,
+      },
       explicitAbort.signal,
       { callProfile: "long-client" },
     );
-    assertEquals(explicit.data?.timeout_s, 30);
-    assertEquals(explicit.data?.timeout_basis, "explicit");
-    assertEquals(explicit.data?.retry_after_s, 30);
-    assertEquals(explicit.data?.retry_basis, "explicit");
+    try {
+      await waitForPendingCondition(
+        explicitWait,
+        () => scheduler.pending.size === 1,
+        "the explicit await polling fallback to be armed",
+      );
+      elapsedMs = 30_000;
+      scheduler.fire(AWAIT_POLL_INTERVAL_MS);
+      const explicit = await explicitWait;
+      assertEquals(explicit.data?.timeout_s, 30);
+      assertEquals(explicit.data?.timeout_basis, "explicit");
+      assertEquals(explicit.data?.retry_after_s, 30);
+      assertEquals(explicit.data?.retry_basis, "explicit");
+      assertEquals(explicit.data?.met, false);
+      assertEquals(explicit.data?.elapsed_ms, 30_000);
+      assertEquals(scheduler.pending.size, 0);
+    } finally {
+      explicitAbort.abort();
+      await explicitWait;
+    }
 
     const probe = await awaitResult(
       dir,
