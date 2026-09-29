@@ -99,6 +99,10 @@ async function seedRecipe(root: string): Promise<void> {
     join(root, "src", "decision.ts"),
     "export function decision(value: boolean): number {\n  if (value) return 1;\n  return 2;\n}\n",
   );
+  await Deno.writeTextFile(
+    join(root, "src", "unloaded.ts"),
+    "export const unloaded = 1;\n",
+  );
   for (const [index, value] of [true, false].entries()) {
     await Deno.writeTextFile(
       join(root, "tests", `branch_${index}_test.ts`),
@@ -331,12 +335,9 @@ Deno.test("E08 E16: one demanded instrumented suite supplies every coverage cons
         e.outcome.metrics.binary_size_bytes === 137
       ),
     );
-    // This small repository has no legacy debts. Missing registered modules
-    // remain failures, demonstrating that the recipe preserves the measured set.
-    assertEquals(
-      coverage.outcome.metrics.module_coverage_failures,
-      MODULE_COVERAGE_EXCEPTIONS.length,
-    );
+    // The unloaded executable belongs to the Git census even though the
+    // instrumented modules have full line coverage. Its floor still applies.
+    assertEquals(coverage.outcome.metrics.module_coverage_failures, 1);
     assertEquals(
       coverage.outcome.metrics.module_coverage_exceptions,
       MODULE_COVERAGE_EXCEPTIONS.length,
