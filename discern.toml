@@ -704,7 +704,7 @@
   ]
   metric = "module_coverage_exceptions"
   direction = "down"
-  limit = 10
+  limit = 0
 
 [standards.prose]
   direction = "down"
