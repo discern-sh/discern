@@ -20,7 +20,7 @@ const BOUNDARIES: Readonly<Record<string, readonly string[]>> = {
     "runWorktreeCore",
   ],
   "tests/helpers.ts": ["runCli"],
-  "tests/engine_mcp_test.ts": ["spawnMcp"],
+  "tests/mcp_client.ts": ["spawnMcp"],
   "src/engine/gate/finish.ts": ["finishResult"],
   "src/engine/worktree/lifecycle.ts": ["acceptResult", "startResult"],
 };

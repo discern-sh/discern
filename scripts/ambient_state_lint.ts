@@ -185,22 +185,6 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     reason:
       "The shared engine harness preserves the operator PATH when composing child environments.",
   },
-  "engine-mcp-call-timeout": {
-    path: "tests/engine_mcp_test.ts",
-    enclosingFunction: "<module>",
-    primitive: "env.get",
-    operation: "read the MCP response timeout test override",
-    reason:
-      "The MCP harness inherits an explicit infrastructure timeout override from the surrounding test process.",
-  },
-  "engine-mcp-readiness-timeout": {
-    path: "tests/engine_mcp_test.ts",
-    enclosingFunction: "<module>",
-    primitive: "env.get",
-    operation: "read the MCP readiness timeout test override",
-    reason:
-      "The MCP harness inherits an explicit startup allowance override from the surrounding test process.",
-  },
   "engine-setup-done-path": {
     path: "tests/engine_setup_done_test.ts",
     enclosingFunction: "withFakeAgentPath",

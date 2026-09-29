@@ -137,7 +137,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 20      | —                | —                           |
 | [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 25      | —                | —                           |
 | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                           | `tests/real_pty.ts#REAL_PTY_CONTRACTS`                                            | 8       | —                | —                           |
-| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 48      | —                | —                           |
+| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 46      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
@@ -5420,7 +5420,7 @@ The operating-system properties that justify a real pseudo-terminal test; every 
 Every direct environment or cwd read and mutation retained at a host boundary, with its stable id, exact path, enclosing function, primitive, semantic operation, and reason.
 
 - Source: `scripts/ambient_state_lint.ts` — `AMBIENT_READ_BOUNDARIES`
-- Members: 48
+- Members: 46
   - `read:canon-editor-port`
   - `read:checkpoint-input-path`
   - `read:checkpoint-invocation-root`
@@ -5436,8 +5436,6 @@ Every direct environment or cwd read and mutation retained at a host boundary, w
   - `read:engine-gate-timeout-fast-job-cwd`
   - `read:engine-gate-timeout-zero-override-cwd`
   - `read:engine-helper-path`
-  - `read:engine-mcp-call-timeout`
-  - `read:engine-mcp-readiness-timeout`
   - `read:engine-setup-done-path`
   - `read:engine-setup-page-cwd`
   - `read:gate-execute-cwd`
