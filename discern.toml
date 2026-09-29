@@ -669,7 +669,7 @@
     "deno.lock",
   ]
   direction = "up"
-  limit = 91.7
+  limit = 92.1
   margin = 0.5
 
 [standards.module_coverage]
@@ -777,7 +777,7 @@
 # an always-on test and retire this transition Standard.
 [standards.site_component_gaps]
   direction = "down"
-  limit = 51
+  limit = 45
   run = "deno task site:component-coverage"
   needs = ["jobs.build"]
   inputs = [
@@ -824,7 +824,7 @@
 # arithmetic: milliseconds, so it measures in every gate run.
 [standards.plain_reading_grade]
   direction = "down"
-  limit = 12.09
+  limit = 12.07
   margin = 0.2
   run = "deno run scripts/plain_reading_grade.ts"
   inputs = [
@@ -843,7 +843,7 @@
 # blocking budget. At zero, keep the syntax detector as an always-on guard.
 [standards.unsafe_type_assertions]
   direction = "down"
-  limit = 101
+  limit = 96
   run = "deno task cast-census"
   inputs = [
     "*.ts",
@@ -882,7 +882,7 @@
 # not spend the budget. Consolidate a named group, then pin the reduction.
 [standards.duplicated_lines]
   direction = "down"
-  limit = 5205
+  limit = 5083
   run = "deno task duplication-census"
   inputs = [
     "*.ts",
@@ -1075,7 +1075,7 @@
 # The module count cannot trade more modules for fewer calls.
 [standards.ambient_read_boundaries]
   direction = "down"
-  limit = 33
+  limit = 32
   run = "deno task ambient-boundaries"
   inputs = [
     "scripts/ambient_state_lint.ts",
@@ -1092,7 +1092,7 @@
 # both ways; this ceiling makes every added operation an owner decision.
 [standards.ambient_read_operations]
   direction = "down"
-  limit = 48
+  limit = 46
   producer = "standards.ambient_read_boundaries"
 
 # Process-environment mutation boundary standard — the explicit registry is
@@ -1204,7 +1204,7 @@
   direction = "up"
   per = "public_doc_words"
   scale = 10000
-  limit = 35.88
+  limit = 42.63
   # Deepening an existing page is legitimate growth: at the current corpus size
   # the margin keeps roughly a thousand words of room for it before a new leaf
   # is due, and re-pins leave the same headroom.
