@@ -293,7 +293,7 @@ async function mainRepo(dir: string): Promise<void> {
   await gitInit(dir);
 }
 
-Deno.test("createResources writes a ledger entry and runs create; teardown destroys + clears", async () => {
+Deno.test("resource creation records its ledger and teardown clears it idempotently", async () => {
   await withTempDir(async (dir) => {
     await mainRepo(dir);
     const wt = await addWorktree(dir, "alpha");
@@ -335,20 +335,6 @@ Deno.test("createResources writes a ledger entry and runs create; teardown destr
       0,
       "ledger entry not cleared",
     );
-  });
-});
-
-Deno.test("destroy is idempotent (a second teardown is a clean no-op)", async () => {
-  await withTempDir(async (dir) => {
-    await mainRepo(dir);
-    const wt = await addWorktree(dir, "idem");
-    const markers = join(dir, "markers");
-    await Deno.writeTextFile(join(wt, "discern.toml"), resourceConfig(markers));
-    const { settings, identity } = await identityOf(wt, wt);
-    const { common, key } = await commonAndKey(wt);
-    const ctx = await ctxFor(wt);
-    await createResources(ctx, identity, settings, common, key);
-    await destroyResources(ctx, await entriesForWorktree(common, key));
     // No entries remain; a second teardown must not throw and must stay empty.
     await destroyResources(ctx, await entriesForWorktree(common, key));
     assertEquals((await listEntries(common)).length, 0);

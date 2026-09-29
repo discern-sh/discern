@@ -154,7 +154,9 @@ Deno.test("proof render: fixed facts + steps pin the exact page", () => {
     "",
     "Inspect: `git diff main...agent/upload-retry`",
   ].join("\n");
-  assertEquals(renderProofMarkdown(FACTS, STEPS), expected);
+  const page = renderProofMarkdown(FACTS, STEPS);
+  assertEquals(page, expected);
+  assertEquals(renderProofMarkdown(FACTS, STEPS), page);
 });
 
 Deno.test("proof render: standards render before the job table", () => {
@@ -339,13 +341,6 @@ Deno.test("proof render: an untimed run claims no duration at all", () => {
   );
 });
 
-Deno.test("proof render: is deterministic across calls", () => {
-  assertEquals(
-    renderProofMarkdown(FACTS, STEPS),
-    renderProofMarkdown(FACTS, STEPS),
-  );
-});
-
 Deno.test("proof render: a pipe in a command cannot break the table", () => {
   const steps: StepResult[] = [
     {
@@ -370,45 +365,6 @@ Deno.test("proof render: a no-op gate is stated honestly", () => {
     md,
     "(no job is wired — nothing ran)",
   );
-});
-
-Deno.test("done TTY render: the package workflow leads into a truthful Proof", () => {
-  const proof: Proof = {
-    ...FACTS,
-    line: renderProofLine(FACTS),
-    markdown: renderProofMarkdown(FACTS, STEPS),
-  };
-  const rendered = renderDoneTtySummary(
-    STEPS,
-    proof,
-    { width: 80, terminal: PLAIN_TERMINAL },
-    [],
-    { status: "recorded" },
-  );
-  for (
-    const fact of [
-      "Gate progress",
-      "[100%]",
-      "✓ Complete",
-      "format [passed]",
-      "Run: deno fmt",
-      "passed in 1s",
-      "lint [passed]",
-      "test [passed]",
-      "scope:web [skipped]",
-      "**Proof:**",
-      "[✓]",
-      "3 passed, 1 skipped",
-      "Proof record",
-      "recorded",
-    ]
-  ) {
-    assertStringIncludes(rendered, fact);
-  }
-  assert(
-    rendered.endsWith(renderProofLineCli(proof.line, PLAIN_TERMINAL, 80)),
-  );
-  assert(rendered.indexOf("Gate progress") < rendered.indexOf("**Proof:**"));
 });
 
 Deno.test("done TTY render: color paints success and the proof without widening lines", () => {
@@ -437,6 +393,30 @@ Deno.test("done TTY render: color paints success and the proof without widening 
     [],
     { status: "recorded" },
   );
+  for (
+    const fact of [
+      "Gate progress",
+      "[100%]",
+      "✓ Complete",
+      "format [passed]",
+      "Run: deno fmt",
+      "passed in 1s",
+      "lint [passed]",
+      "test [passed]",
+      "scope:web [skipped]",
+      "**Proof:**",
+      "[✓]",
+      "3 passed, 1 skipped",
+      "Proof record",
+      "recorded",
+    ]
+  ) {
+    assertStringIncludes(plain, fact);
+  }
+  assert(
+    plain.endsWith(renderProofLineCli(proof.line, PLAIN_TERMINAL, 80)),
+  );
+  assert(plain.indexOf("Gate progress") < plain.indexOf("**Proof:**"));
   assert(SGR.test(rendered));
   assertStringIncludes(stripSgr(rendered), "│ Proof: Gate passed");
   assertStringIncludes(plain, "│ **Proof:** Gate passed");

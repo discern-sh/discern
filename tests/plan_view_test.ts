@@ -84,37 +84,18 @@ function plan(
 // ---------------------------------------------------------------------------
 // renderPlan — the flat per-file --dry-run listing.
 // ---------------------------------------------------------------------------
-
-Deno.test("renderPlan writes the heading to stderr and one padded row per op to stdout", async () => {
-  const p = plan([
-    op("discern.toml", "create"),
-    op(".gitignore", "append"),
-  ]);
-  const { err, out } = await capture(() =>
-    renderPlan(plainLogger(), p, "Dry run — would write:")
-  );
-  // The sink owns the heading's leading blank: a separate line write with
-  // the same physical bytes.
-  assertEquals(err, ["", "Dry run — would write:"]);
-  assertEquals(out.length, 2);
-  const [row0, row1] = out;
-  assertExists(row0);
-  assertExists(row1);
-  assertStringIncludes(row0, "create");
-  assertStringIncludes(row0, "discern.toml");
-  assertStringIncludes(row1, "append");
-  assertStringIncludes(row1, ".gitignore");
-});
-
 Deno.test("renderPlan maps every disposition to its label and renders the note suffix", async () => {
   const p = plan([
-    op("a", "create"),
+    op("discern.toml", "create"),
     op("b", "skip", { note: "seed present — left as-is" }),
     op(".claude/settings.json", "merge"),
     op(".gitignore", "append"),
     op(".gitattributes", "remove"),
   ]);
-  const { out } = await capture(() => renderPlan(plainLogger(), p, "h"));
+  const { err, out } = await capture(() =>
+    renderPlan(plainLogger(), p, "Dry run — would write:")
+  );
+  assertEquals(err, ["", "Dry run — would write:"]);
   assertEquals(out.length, 5);
   const [row0, row1, row2, row3, row4] = out;
   assertExists(row0);
@@ -123,6 +104,8 @@ Deno.test("renderPlan maps every disposition to its label and renders the note s
   assertExists(row3);
   assertExists(row4);
   assertStringIncludes(row0, "create");
+  assertStringIncludes(row0, "discern.toml");
+  assertStringIncludes(row3, ".gitignore");
   assertStringIncludes(row1, "skip");
   assertStringIncludes(row2, "merge");
   assertStringIncludes(row3, "append");
@@ -130,20 +113,12 @@ Deno.test("renderPlan maps every disposition to its label and renders the note s
   // The note is appended after an em-dash on the op that has one.
   assertStringIncludes(row1, "— seed present");
 });
-
-Deno.test("renderPlan on an empty plan prints only the heading, no rows", async () => {
-  const { err, out } = await capture(() =>
-    renderPlan(plainLogger(), plan([]), "Nothing to do")
-  );
-  assertEquals(err, ["", "Nothing to do"]);
-  assertEquals(out, []);
-});
-
 Deno.test("renderPlan makes a caller-supplied heading inert", async () => {
-  const { err } = await capture(() =>
+  const { err, out } = await capture(() =>
     renderPlan(plainLogger(), plan([]), "overlay\x1b[31m\nname")
   );
   assertEquals(err, ["", "overlay␛[31m␊name"]);
+  assertEquals(out, []);
   assertEquals(err[1]?.includes("\x1b"), false);
 });
 

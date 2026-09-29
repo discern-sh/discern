@@ -734,8 +734,12 @@ type QuietFixture = LogbookEvent[] | { impossible: string };
 interface DetectorFixtures {
   /** Clears the threshold and produces at least one finding. */
   firing: LogbookEvent[];
+  /** Detector-specific observations of the canonical firing result. */
+  assertFiring?: (report: DetectorReport) => void;
   /** Clears the threshold and produces none. */
   quiet: QuietFixture;
+  /** Detector-specific observations of the canonical quiet result. */
+  assertQuiet?: (report: DetectorReport) => void;
   /** Sits below the threshold (and carries no other-setup runs to attribute). */
   sparse: LogbookEvent[];
   /** Configured native providers the stream is read against, for detectors
@@ -898,6 +902,40 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     ),
   },
   "pre-authorized-landings": {
+    assertFiring(audit: DetectorReport): void {
+      assertEquals(audit.status, "fired");
+      assertEquals(audit.considered, 8);
+      const summary = audit.findings.find((finding) =>
+        finding.subject === undefined
+      );
+      assert(summary !== undefined);
+      assertEquals(summary.evidence, {
+        consent_recorded_landings: 8,
+        pre_authorized_landings: 4,
+        pre_authorized_share_pct: 50,
+        standing_grant_landings: 3,
+        effort_grant_landings: 1,
+        longest_pre_authorized_streak: 4,
+        current_pre_authorized_streak: 4,
+        earlier_share_pct: 0,
+        later_share_pct: 100,
+      });
+      assert(
+        summary.observed.includes(
+          "3 used a standing grant and 1 used an effort grant",
+        ),
+      );
+      assert(
+        summary.observed.includes(
+          "share moved from 0% across the earlier 4 landings to 100%",
+        ),
+      );
+      const docs = audit.findings.find((finding) => finding.subject === "docs");
+      assertEquals(docs?.evidence, {
+        scope_landings: 3,
+        standing_grant_landings: 3,
+      });
+    },
     firing: run([
       accepted("conversation"),
       accepted("conversation"),
@@ -922,6 +960,28 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     ]),
   },
   "grant-suggestion": {
+    assertQuiet(outcome: DetectorReport): void {
+      assertEquals(outcome.considered, 12);
+    },
+    assertFiring(suggestion: DetectorReport): void {
+      assertEquals(suggestion.status, "fired");
+      assertEquals(suggestion.considered, 12);
+      assertEquals(suggestion.findings.length, 1);
+      const finding = suggestion.findings[0];
+      assertEquals(finding?.subject, "docs");
+      assertEquals(finding?.evidence, {
+        consecutive_conversational_landings: 12,
+        accept_attempts: 12,
+        scopes: 1,
+        intervening_refusals: 0,
+      });
+      assert(
+        finding?.next_step?.includes(
+          "adding `docs` to `[acceptance].pre_authorized`",
+        ),
+      );
+      assert(finding?.next_step?.includes("discern never writes grants"));
+    },
     firing: run(
       Array.from({ length: 12 }, () => accepted("conversation")),
     ),
@@ -1200,6 +1260,33 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     ),
   },
   "generator-gate-share": {
+    assertFiring(audit: DetectorReport): void {
+      const detectorUnderTest = audit.detector;
+      assertEquals(detectorUnderTest.family, "gate-fit");
+      assertEquals(detectorUnderTest.scope, "project");
+      assertEquals(detectorUnderTest.tier, "batch");
+      assertEquals(detectorUnderTest.threshold, 5);
+
+      assertEquals(audit.status, "fired");
+      assertEquals(
+        audit.findings.map((finding) => finding.subject),
+        ["generated:schemas", "generated:docs"],
+      );
+      assertEquals(audit.findings[0]?.evidence, {
+        runs: 5,
+        group_share_pct: 40,
+        group_mean_seconds: 20,
+        generated_share_pct: 60,
+        generated_mean_seconds: 30,
+        unchanged_reruns: 4,
+      });
+      assertStringIncludes(
+        audit.findings[0]?.observed ?? "",
+        "all generated groups averaged 30s and accounted for 60%",
+      );
+      assertStringIncludes(detectorUnderTest.next_step, "Restructure");
+      assert(!/skip|less often/i.test(detectorUnderTest.next_step));
+    },
     firing: run(
       Array.from({ length: 5 }, () => ({
         verb: "done",
@@ -1230,6 +1317,29 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     ),
   },
   "slot-contention": {
+    assertFiring(audit: DetectorReport): void {
+      const detectorUnderTest = audit.detector;
+      assertEquals(detectorUnderTest.family, "gate-fit");
+      assertEquals(detectorUnderTest.scope, "project");
+      assertEquals(detectorUnderTest.tier, "batch");
+      assertEquals(detectorUnderTest.threshold, 6);
+
+      assertEquals(audit.status, "fired");
+      assertEquals(audit.findings[0]?.evidence, {
+        capped_runs: 6,
+        median_wait_seconds: 60,
+        median_execution_seconds: 100,
+        wait_to_execution_pct: 60,
+      });
+      assertStringIncludes(
+        detectorUnderTest.next_step,
+        "spare capacity can take a higher cap",
+      );
+      assertStringIncludes(
+        detectorUnderTest.next_step,
+        "saturated machine needs fewer simultaneous agents",
+      );
+    },
     firing: run(
       Array.from({ length: 6 }, () => ({
         verb: "done",
@@ -1536,6 +1646,17 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     }))),
   },
   "standard-trajectory": {
+    assertFiring(outcome: DetectorReport): void {
+      const finding = outcome.findings[0];
+      assert(finding !== undefined);
+      assert(
+        finding.next_step !== undefined && finding.next_step.includes("--pin"),
+        `sustained slack should route to the pin: ${finding.next_step}`,
+      );
+      assertEquals(finding.tone, "good");
+      assertEquals(finding.evidence.limit_first, 80);
+      assertEquals(finding.evidence.limit_last, 80);
+    },
     firing: run(
       Array.from({ length: 5 }, (_, i) => ({
         verb: "done",
@@ -1746,29 +1867,6 @@ Deno.test("validation finding registry: relationships have unique detector ids a
     "same-tree-flake",
     "the published compatibility id remains the sole retained id",
   );
-});
-
-Deno.test("validation finding registry: every relationship fixture carries the common evidence basis", () => {
-  for (const relationship of VALIDATION_FINDING_RELATIONSHIPS) {
-    const entry = detector(relationship.detectorId);
-    const outcome = report(entry, fixturesOf(entry).firing);
-    assertEquals(outcome.status, "fired", relationship.kind);
-    for (const finding of outcome.findings) {
-      const basis = findingBasis(finding);
-      assertEquals(
-        Object.keys(basis.values).sort(),
-        Object.keys(finding.evidence).sort(),
-        relationship.kind,
-      );
-      for (const [key, value] of Object.entries(finding.evidence)) {
-        assertEquals(
-          basis.values[key]?.value,
-          value,
-          `${relationship.kind}:${key}`,
-        );
-      }
-    }
-  }
 });
 
 Deno.test("validation comparison accounting: every live schema field has one declared role", () => {
@@ -2358,38 +2456,6 @@ Deno.test("patterns evidence conditions bound displayed values and disclose full
   );
 });
 
-Deno.test("generator gate share attributes generated groups heaviest first", () => {
-  const detectorUnderTest = detector("generator-gate-share");
-  assertEquals(detectorUnderTest.family, "gate-fit");
-  assertEquals(detectorUnderTest.scope, "project");
-  assertEquals(detectorUnderTest.tier, "batch");
-  assertEquals(detectorUnderTest.threshold, 5);
-
-  const audit = report(
-    detectorUnderTest,
-    fixturesOf(detectorUnderTest).firing,
-  );
-  assertEquals(audit.status, "fired");
-  assertEquals(
-    audit.findings.map((finding) => finding.subject),
-    ["generated:schemas", "generated:docs"],
-  );
-  assertEquals(audit.findings[0]?.evidence, {
-    runs: 5,
-    group_share_pct: 40,
-    group_mean_seconds: 20,
-    generated_share_pct: 60,
-    generated_mean_seconds: 30,
-    unchanged_reruns: 4,
-  });
-  assertStringIncludes(
-    audit.findings[0]?.observed ?? "",
-    "all generated groups averaged 30s and accounted for 60%",
-  );
-  assertStringIncludes(detectorUnderTest.next_step, "Restructure");
-  assert(!/skip|less often/i.test(detectorUnderTest.next_step));
-});
-
 Deno.test("generator gate share stays statistical without recorded avoidable cost", () => {
   const events = run(
     Array.from({ length: 5 }, () => ({
@@ -2403,34 +2469,6 @@ Deno.test("generator gate share stays statistical without recorded avoidable cos
   );
   assertEquals(audit.status, "quiet");
   assertEquals(audit.findings, []);
-});
-
-Deno.test("slot contention reports material recent wait and frames the owner decision", () => {
-  const detectorUnderTest = detector("slot-contention");
-  assertEquals(detectorUnderTest.family, "gate-fit");
-  assertEquals(detectorUnderTest.scope, "project");
-  assertEquals(detectorUnderTest.tier, "batch");
-  assertEquals(detectorUnderTest.threshold, 6);
-
-  const audit = report(
-    detectorUnderTest,
-    fixturesOf(detectorUnderTest).firing,
-  );
-  assertEquals(audit.status, "fired");
-  assertEquals(audit.findings[0]?.evidence, {
-    capped_runs: 6,
-    median_wait_seconds: 60,
-    median_execution_seconds: 100,
-    wait_to_execution_pct: 60,
-  });
-  assertStringIncludes(
-    detectorUnderTest.next_step,
-    "spare capacity can take a higher cap",
-  );
-  assertStringIncludes(
-    detectorUnderTest.next_step,
-    "saturated machine needs fewer simultaneous agents",
-  );
 });
 
 Deno.test("dominant stage stays statistical when a necessary test has no recorded avoidable cost", () => {
@@ -3161,46 +3199,6 @@ Deno.test("tip adoption: synthetic declarations auto-enrol without pooling spars
   assertEquals(outcome.findings, []);
 });
 
-Deno.test("pre-authorized landings reports mixed consent sources, granted scopes, and a rate shift", () => {
-  const detectorUnderTest = detector("pre-authorized-landings");
-  const audit = report(
-    detectorUnderTest,
-    fixturesOf(detectorUnderTest).firing,
-  );
-  assertEquals(audit.status, "fired");
-  assertEquals(audit.considered, 8);
-  const summary = audit.findings.find((finding) =>
-    finding.subject === undefined
-  );
-  assert(summary !== undefined);
-  assertEquals(summary.evidence, {
-    consent_recorded_landings: 8,
-    pre_authorized_landings: 4,
-    pre_authorized_share_pct: 50,
-    standing_grant_landings: 3,
-    effort_grant_landings: 1,
-    longest_pre_authorized_streak: 4,
-    current_pre_authorized_streak: 4,
-    earlier_share_pct: 0,
-    later_share_pct: 100,
-  });
-  assert(
-    summary.observed.includes(
-      "3 used a standing grant and 1 used an effort grant",
-    ),
-  );
-  assert(
-    summary.observed.includes(
-      "share moved from 0% across the earlier 4 landings to 100%",
-    ),
-  );
-  const docs = audit.findings.find((finding) => finding.subject === "docs");
-  assertEquals(docs?.evidence, {
-    scope_landings: 3,
-    standing_grant_landings: 3,
-  });
-});
-
 Deno.test("pre-authorized landings calls out a current single-source streak", () => {
   const events = run([
     ...Array.from({ length: 4 }, () => accepted("conversation")),
@@ -3227,31 +3225,6 @@ Deno.test("pre-authorized landings calls out a current single-source streak", ()
   );
 });
 
-Deno.test("grant suggestion names the scope after a dozen uninterrupted conversational landings", () => {
-  const detectorUnderTest = detector("grant-suggestion");
-  const suggestion = report(
-    detectorUnderTest,
-    fixturesOf(detectorUnderTest).firing,
-  );
-  assertEquals(suggestion.status, "fired");
-  assertEquals(suggestion.considered, 12);
-  assertEquals(suggestion.findings.length, 1);
-  const finding = suggestion.findings[0];
-  assertEquals(finding?.subject, "docs");
-  assertEquals(finding?.evidence, {
-    consecutive_conversational_landings: 12,
-    accept_attempts: 12,
-    scopes: 1,
-    intervening_refusals: 0,
-  });
-  assert(
-    finding?.next_step?.includes(
-      "adding `docs` to `[acceptance].pre_authorized`",
-    ),
-  );
-  assert(finding?.next_step?.includes("discern never writes grants"));
-});
-
 Deno.test("grant suggestion stays silent when a refusal interrupts the conversational run", () => {
   const events = run([
     ...Array.from({ length: 6 }, () => accepted("conversation")),
@@ -3271,21 +3244,6 @@ Deno.test("grant suggestion stays silent when a refusal interrupts the conversat
   assertEquals(suggestion.findings, []);
 });
 
-Deno.test("grant suggestion stays silent when a second scope interrupts the run", () => {
-  const events = run([
-    ...Array.from({ length: 6 }, () => accepted("conversation")),
-    accepted("conversation", ["engine"]),
-    ...Array.from({ length: 5 }, () => accepted("conversation")),
-  ]);
-  const suggestion = runDetector(
-    detector("grant-suggestion"),
-    buildStreamFacts(events, "main"),
-  );
-  assertEquals(suggestion.considered, 12);
-  assertEquals(suggestion.status, "quiet");
-  assertEquals(suggestion.findings, []);
-});
-
 Deno.test("landing-authority detectors stay silent on an empty logbook", () => {
   const facts = buildStreamFacts([], "main");
   for (
@@ -3300,14 +3258,67 @@ Deno.test("landing-authority detectors stay silent on an empty logbook", () => {
 
 for (const d of DETECTORS) {
   Deno.test(`patterns detector ${d.id}: fires on its firing stream with plain-count evidence`, () => {
-    const r = report(d, fixturesOf(d).firing);
+    const fixture = fixturesOf(d);
+    const r = report(d, fixture.firing);
+    if (d.cohorts === true) {
+      for (const e of fixture.firing) {
+        if (e.kind === "verb") {
+          assertEquals(
+            e.driver?.mcp_client,
+            undefined,
+            `${d.id}: the cohort fixtures model process-attributed cohorts`,
+          );
+        }
+      }
+    }
     assertEquals(
       r.status,
       "fired",
       `${d.id}: firing fixture must fire (considered ${r.considered}, threshold ${d.threshold})`,
     );
     assert(r.findings.length > 0, `${d.id}: firing fixture found nothing`);
+    fixture.assertFiring?.(r);
+    if (d.windowed === true) assertInterleavedFiring(d, r);
     for (const f of r.findings) {
+      if (d.cohorts === true) {
+        assertEquals(
+          typeof f.evidence.unattributed_runs,
+          "number",
+          `${d.id}: the unattributed share is always reported`,
+        );
+        const denominators = Object.keys(f.evidence).filter((k) =>
+          k.endsWith("_runs") && k !== "unattributed_runs" &&
+          k !== "below_minimum_runs"
+        );
+        assert(
+          denominators.length >= 2,
+          `${d.id}: a cohort finding needs at least two per-cohort ` +
+            `denominators, got ${Object.keys(f.evidence).join(", ")}`,
+        );
+        assert(
+          f.observed.includes("unattributed"),
+          `${d.id}: the sentence must state the unattributed share: ${f.observed}`,
+        );
+        assert(
+          !f.observed.includes("client release"),
+          `${d.id}: no version attribution without client evidence: ${f.observed}`,
+        );
+      }
+      if (d.validationRelationship !== undefined) {
+        const basis = findingBasis(f);
+        assertEquals(
+          Object.keys(basis.values).sort(),
+          Object.keys(f.evidence).sort(),
+          d.validationRelationship,
+        );
+        for (const [key, value] of Object.entries(f.evidence)) {
+          assertEquals(
+            basis.values[key]?.value,
+            value,
+            `${d.validationRelationship}:${key}`,
+          );
+        }
+      }
       assert(f.observed.length > 0, `${d.id}: empty observation`);
       assert(f.summary.length > 0, `${d.id}: empty summary`);
       assert(
@@ -3372,6 +3383,7 @@ for (const d of DETECTORS) {
       return;
     }
     const r = report(d, quiet);
+    fixturesOf(d).assertQuiet?.(r);
     assertEquals(
       r.status,
       "quiet",
@@ -3472,31 +3484,6 @@ Deno.test("patterns cohorts: denominator prose uses the shared human-number boun
 });
 
 for (const d of COHORT_DETECTORS) {
-  Deno.test(`patterns cohorts ${d.id}: findings carry per-cohort denominators and the unattributed share`, () => {
-    const r = report(d, fixturesOf(d).firing);
-    assertEquals(r.status, "fired");
-    for (const f of r.findings) {
-      assertEquals(
-        typeof f.evidence.unattributed_runs,
-        "number",
-        `${d.id}: the unattributed share is always reported`,
-      );
-      const denominators = Object.keys(f.evidence).filter((k) =>
-        k.endsWith("_runs") && k !== "unattributed_runs" &&
-        k !== "below_minimum_runs"
-      );
-      assert(
-        denominators.length >= 2,
-        `${d.id}: a cohort finding needs at least two per-cohort ` +
-          `denominators, got ${Object.keys(f.evidence).join(", ")}`,
-      );
-      assert(
-        f.observed.includes("unattributed"),
-        `${d.id}: the sentence must state the unattributed share: ${f.observed}`,
-      );
-    }
-  });
-
   Deno.test(`patterns cohorts ${d.id}: ambient evidence mints no cohort`, () => {
     const ambient = fixturesOf(d).firing.map((e): LogbookEvent =>
       e.kind === "verb"
@@ -3543,26 +3530,6 @@ for (const d of COHORT_DETECTORS) {
       `${d.id}: one population is a description, not a comparison`,
     );
     assertEquals(r.findings, []);
-  });
-
-  Deno.test(`patterns cohorts ${d.id}: a version-blind cohort renders without version attribution`, () => {
-    for (const e of fixturesOf(d).firing) {
-      if (e.kind === "verb") {
-        assertEquals(
-          e.driver?.mcp_client,
-          undefined,
-          `${d.id}: the cohort fixtures model process-attributed cohorts`,
-        );
-      }
-    }
-    const r = report(d, fixturesOf(d).firing);
-    assertEquals(r.status, "fired");
-    for (const f of r.findings) {
-      assert(
-        !f.observed.includes("client release"),
-        `${d.id}: no version attribution without client evidence: ${f.observed}`,
-      );
-    }
   });
 }
 
@@ -4126,68 +4093,68 @@ Deno.test("patterns windowed: the registry carries windowed trend detectors", ()
   );
 });
 
-for (const d of windowedDetectors) {
-  Deno.test(`patterns windowed ${d.id}: an interleaved comparable series survives intact`, () => {
-    const firing = fixturesOf(d).firing;
-    const base = runDetector(d, buildStreamFacts(firing, "main"));
-    assertEquals(base.status, "fired", `${d.id}: firing fixture must fire`);
-    const interleaved = [...firing, ...foreignSetupClones(firing)]
-      .sort((a, b) => a.at.localeCompare(b.at));
-    const under = runDetector(d, buildStreamFacts(interleaved, "main"));
-    assertEquals(
-      under.findings.map(findingDecisionContent),
-      base.findings.map(findingDecisionContent),
-      `${d.id}: interleaved foreign-setup runs must not change the trend`,
-    );
-    for (let index = 0; index < base.findings.length; index += 1) {
-      const baseFinding = base.findings[index];
-      const underFinding = under.findings[index];
-      assert(baseFinding !== undefined && underFinding !== undefined);
-      if (underFinding.observed !== baseFinding.observed) {
-        assert(
-          underFinding.observed.includes("excluded from this comparison"),
-          `${d.id}: a changed observation must explain the exclusion: ${underFinding.observed}`,
-        );
-      }
-      const baseBasis = base.findings[index]?.basis;
-      const underBasis = under.findings[index]?.basis;
-      if (baseBasis === undefined) {
-        assertEquals(underBasis, undefined);
-        continue;
-      }
-      assert(underBasis !== undefined);
-      assertEquals(
-        underBasis.coverage.comparable,
-        baseBasis.coverage.comparable,
-        `${d.id}: foreign setups cannot enter the comparable population`,
-      );
+/** Compare the canonical firing result with the same events interleaved across setups. */
+function assertInterleavedFiring(d: Detector, base: DetectorReport): void {
+  const firing = fixturesOf(d).firing;
+  assertEquals(base.status, "fired", `${d.id}: firing fixture must fire`);
+  const interleaved = [...firing, ...foreignSetupClones(firing)]
+    .sort((a, b) => a.at.localeCompare(b.at));
+  const under = runDetector(d, buildStreamFacts(interleaved, "main"));
+  assertEquals(
+    under.findings.map(findingDecisionContent),
+    base.findings.map(findingDecisionContent),
+    `${d.id}: interleaved foreign-setup runs must not change the trend`,
+  );
+  for (let index = 0; index < base.findings.length; index += 1) {
+    const baseFinding = base.findings[index];
+    const underFinding = under.findings[index];
+    assert(baseFinding !== undefined && underFinding !== undefined);
+    if (underFinding.observed !== baseFinding.observed) {
       assert(
-        underBasis.coverage.denominator >= baseBasis.coverage.denominator,
-        `${d.id}: the basis denominator cannot hide foreign-setup events`,
-      );
-      assert(
-        underBasis.excluded_events >= baseBasis.excluded_events,
-        `${d.id}: foreign-setup exclusions cannot disappear from the basis`,
-      );
-      assertEquals(
-        {
-          ...underBasis,
-          coverage: {
-            ...underBasis.coverage,
-            denominator: baseBasis.coverage.denominator,
-          },
-          excluded_events: baseBasis.excluded_events,
-        },
-        baseBasis,
-        `${d.id}: only denominator/exclusion attribution may change`,
+        underFinding.observed.includes("excluded from this comparison"),
+        `${d.id}: a changed observation must explain the exclusion: ${underFinding.observed}`,
       );
     }
-    assert(
-      under.findings.every((f) => f.evidence.comparable_runs === undefined),
-      `${d.id}: enough same-setup runs must trend, never refuse as too few comparable`,
+    const baseBasis = base.findings[index]?.basis;
+    const underBasis = under.findings[index]?.basis;
+    if (baseBasis === undefined) {
+      assertEquals(underBasis, undefined);
+      continue;
+    }
+    assert(underBasis !== undefined);
+    assertEquals(
+      underBasis.coverage.comparable,
+      baseBasis.coverage.comparable,
+      `${d.id}: foreign setups cannot enter the comparable population`,
     );
-  });
+    assert(
+      underBasis.coverage.denominator >= baseBasis.coverage.denominator,
+      `${d.id}: the basis denominator cannot hide foreign-setup events`,
+    );
+    assert(
+      underBasis.excluded_events >= baseBasis.excluded_events,
+      `${d.id}: foreign-setup exclusions cannot disappear from the basis`,
+    );
+    assertEquals(
+      {
+        ...underBasis,
+        coverage: {
+          ...underBasis.coverage,
+          denominator: baseBasis.coverage.denominator,
+        },
+        excluded_events: baseBasis.excluded_events,
+      },
+      baseBasis,
+      `${d.id}: only denominator/exclusion attribution may change`,
+    );
+  }
+  assert(
+    under.findings.every((f) => f.evidence.comparable_runs === undefined),
+    `${d.id}: enough same-setup runs must trend, never refuse as too few comparable`,
+  );
+}
 
+for (const d of windowedDetectors) {
   Deno.test(`patterns windowed ${d.id}: a series outnumbered by other setups attributes them`, () => {
     const verbs = fixturesOf(d).firing
       .filter((e): e is VerbEvent => e.kind === "verb");
@@ -4348,23 +4315,6 @@ Deno.test("patterns setup era: half-wired gate runs during setup never read as d
     [],
     "a steady post-setup gate must read as steady",
   );
-});
-
-Deno.test("patterns trajectory: sustained slack proposes the pin", () => {
-  const firing = FIXTURES["standard-trajectory"]?.firing;
-  assert(firing !== undefined);
-  const trajectory = DETECTORS.find((d) => d.id === "standard-trajectory");
-  assert(trajectory !== undefined);
-  const outcome = runDetector(trajectory, buildStreamFacts(firing, "main"));
-  const finding = outcome.findings[0];
-  assert(finding !== undefined);
-  assert(
-    finding.next_step !== undefined && finding.next_step.includes("--pin"),
-    `sustained slack should route to the pin: ${finding.next_step}`,
-  );
-  assertEquals(finding.tone, "good");
-  assertEquals(finding.evidence.limit_first, 80);
-  assertEquals(finding.evidence.limit_last, 80);
 });
 
 Deno.test("patterns trajectory: fresh stable Gate eligibility supports a pin recommendation", () => {

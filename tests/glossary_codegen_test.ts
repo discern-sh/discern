@@ -23,11 +23,27 @@ import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 Deno.test("the configured map's glossary matches the generator (run `deno task codegen`)", async () => {
   const path = `${REPO_AUTHORED_PATHS.map}/00-orientation/glossary.md`;
   const committed = await Deno.readTextFile(path);
+  const doc = renderGlossaryDoc();
   assertEquals(
     committed,
-    await canonicalGeneratedMarkdown(path, renderGlossaryDoc()),
+    await canonicalGeneratedMarkdown(path, doc),
     `${REPO_AUTHORED_PATHS.mapRel}/00-orientation/glossary.md is stale — run \`deno task codegen\``,
   );
+  let at = -1;
+  for (const { term } of sortedGlossary()) {
+    const index = doc.indexOf(`### ${term}\n`);
+    assert(index !== -1, `no heading rendered for: ${term}`);
+    assert(index > at, `entry out of alphabetical order: ${term}`);
+    at = index;
+  }
+  const frontmatter = doc.split("---\n")[1] ?? "";
+  for (const { term } of GLOSSARY) {
+    assertStringIncludes(
+      frontmatter,
+      `  - ${term.toLowerCase()}\n`,
+      `"${term}" should be a frontmatter alias so \`discern map\` search reaches the glossary`,
+    );
+  }
 });
 
 Deno.test("the public manual's glossary matches the term registry", async () => {
@@ -110,33 +126,7 @@ Deno.test("the glossary defines the Proof concept directly", () => {
   );
 });
 
-Deno.test("the rendered page alphabetizes every entry under its own heading", () => {
-  const doc = renderGlossaryDoc();
-  let at = -1;
-  for (const { term } of sortedGlossary()) {
-    const index = doc.indexOf(`### ${term}\n`);
-    assert(index !== -1, `no heading rendered for: ${term}`);
-    assert(index > at, `entry out of alphabetical order: ${term}`);
-    at = index;
-  }
-});
-
-Deno.test("a future glossary term auto-enrols in the manual heading and search aliases", () => {
-  const document = renderManualGlossaryDoc([
-    ...GLOSSARY,
-    {
-      term: "Future contract",
-      runningCase: "lowercase",
-      plain: { keep: "a synthetic reference term" },
-      definition: "A synthetic term proving future glossary enrollment.",
-    },
-  ]);
-  assertStringIncludes(document, "### Future contract");
-  const frontmatter = document.split("\n---\n")[0] ?? "";
-  assertStringIncludes(frontmatter, "  - future contract");
-});
-
-Deno.test("retired guard vocabulary never becomes a glossary search alias", () => {
+Deno.test("future glossary terms gain headings and aliases without exposing retired guard vocabulary", () => {
   const futureRetiredPhrase = "discarded future launcher";
   const glossary = [
     ...GLOSSARY,
@@ -159,6 +149,7 @@ Deno.test("retired guard vocabulary never becomes a glossary search alias", () =
       renderManualGlossaryDoc(glossary),
     ]
   ) {
+    assertStringIncludes(document, "### Future contract");
     const frontmatter = document.split("\n---\n")[0] ?? "";
     assertStringIncludes(frontmatter, "  - future contract");
     assertEquals(
@@ -191,18 +182,6 @@ Deno.test("the stage entry closes over exactly the live stage vocabulary", () =>
       entry.definition,
       `\`${stage}\``,
       `the Stage entry must name the ${stage} stage — it interpolates STAGES`,
-    );
-  }
-});
-
-Deno.test("every term is a search alias of the generated page", () => {
-  const doc = renderGlossaryDoc();
-  const frontmatter = doc.split("---\n")[1] ?? "";
-  for (const { term } of GLOSSARY) {
-    assertStringIncludes(
-      frontmatter,
-      `  - ${term.toLowerCase()}\n`,
-      `"${term}" should be a frontmatter alias so \`discern map\` search reaches the glossary`,
     );
   }
 });

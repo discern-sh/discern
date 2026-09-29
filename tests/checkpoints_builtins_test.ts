@@ -26,6 +26,7 @@ import type {
   EffortFileChange,
   ResolvedCheckpoint,
 } from "../src/engine/checkpoints/types.ts";
+import type { TriggerVeto } from "../src/shared/checkpoints.ts";
 
 // ── fixtures ────────────────────────────────────────────────────────────────
 
@@ -197,15 +198,6 @@ Deno.test("map-focus stays quiet for a touch-up, and off-map files never count t
 
 // ── instruction-economy ─────────────────────────────────────────────────────
 
-Deno.test("instruction-economy fires on one instruction-surface change", () => {
-  const outcome = evaluateStructuralTrigger(
-    resolved("instruction-economy"),
-    diff([file("agent-instructions.md")]),
-  );
-  assert(outcome.holds);
-  assertEquals(outcome.matched, ["agent-instructions.md"]);
-});
-
 Deno.test("instruction-economy enrolls every configured instruction source glob", () => {
   assertEquals(resolved("instruction-economy").selector?.globs, [
     "agent-instructions.md",
@@ -356,32 +348,6 @@ Deno.test("parallel-implementation fires when a decorated sibling grows beside a
   ]);
 });
 
-// ── new-binary-asset ────────────────────────────────────────────────────────
-
-Deno.test("new-binary-asset advises only on newly added binary files", () => {
-  const definition = resolved("new-binary-asset");
-  const added = evaluateStructuralTrigger(
-    definition,
-    diff([{ ...file("assets/reference.bin", "added"), binary: true }]),
-  );
-  assert(added.holds);
-  assertEquals(added.matched, ["assets/reference.bin"]);
-  assertEquals(
-    evaluateStructuralTrigger(
-      definition,
-      diff([{ ...file("assets/reference.bin"), binary: true }]),
-    ),
-    { holds: false, vetoedBy: "kinds" },
-  );
-  assertEquals(
-    evaluateStructuralTrigger(
-      definition,
-      diff([file("assets/reference.txt", "added")]),
-    ),
-    { holds: false, vetoedBy: "binary" },
-  );
-});
-
 Deno.test("a moved file is not a parallel implementation: a different directory is no sibling", () => {
   const outcome = evaluateStructuralTrigger(
     resolved("parallel-implementation"),
@@ -410,30 +376,7 @@ Deno.test("a rename in place is not a parallel implementation: the vanished orig
   assertEquals(outcome, { holds: false, vetoedBy: "similar_new_file" });
 });
 
-// ── effort-sprawl ───────────────────────────────────────────────────────────
-
-Deno.test("effort-sprawl advises at 25 changed files and not at 24", () => {
-  const wide = evaluateStructuralTrigger(
-    resolved("effort-sprawl"),
-    diff(sourceFiles(25)),
-  );
-  assert(wide.holds);
-  const narrower = evaluateStructuralTrigger(
-    resolved("effort-sprawl"),
-    diff(sourceFiles(24)),
-  );
-  assertEquals(narrower, { holds: false, vetoedBy: "min_changed_files" });
-});
-
 // ── map-drift ───────────────────────────────────────────────────────────────
-
-Deno.test("map-drift advises when a substantial change moved nothing in the map", () => {
-  const outcome = evaluateStructuralTrigger(
-    resolved("map-drift"),
-    diff(sourceFiles(5)),
-  );
-  assert(outcome.holds);
-});
 
 Deno.test("an unrelated map edit cannot veto map-drift", () => {
   const outcome = evaluateStructuralTrigger(
@@ -460,28 +403,24 @@ Deno.test("regenerated agent files alone stay under the map-drift threshold", ()
   assertEquals(outcome, { holds: false, vetoedBy: "min_changed_files" });
 });
 
-// ── commit-story ────────────────────────────────────────────────────────────
-
-Deno.test("commit-story advises at 15 changed files and not at 14", () => {
-  const wide = evaluateStructuralTrigger(
-    resolved("commit-story"),
-    diff(sourceFiles(15)),
-  );
-  assert(wide.holds);
-  const narrower = evaluateStructuralTrigger(
-    resolved("commit-story"),
-    diff(sourceFiles(14)),
-  );
-  assertEquals(narrower, { holds: false, vetoedBy: "min_changed_files" });
-});
-
 // ── the completeness forcing function ───────────────────────────────────────
 
 /** One firing and one quiet diff per built-in, keyed by the registry: a new
  * seed fails the table-completeness assertion below until it proves both
- * halves of its trigger here. */
+ * halves of its trigger here. Focused expectations retain exact matched paths
+ * and veto reasons, with additional quiet boundaries where needed. */
 const TRIGGER_FIXTURES: Readonly<
-  Record<string, { firing: EffortDiff; quiet: EffortDiff }>
+  Record<string, {
+    firing: EffortDiff;
+    firingMatched?: readonly string[];
+    quiet: EffortDiff;
+    quietVeto?: TriggerVeto;
+    additionalQuiet?: readonly {
+      name: string;
+      diff: EffortDiff;
+      vetoedBy: TriggerVeto;
+    }[];
+  }>
 > = {
   "map-focus": {
     firing: diff([file("guide/a.md", "added")]),
@@ -489,6 +428,7 @@ const TRIGGER_FIXTURES: Readonly<
   },
   "instruction-economy": {
     firing: diff([file("agent-instructions.md")]),
+    firingMatched: ["agent-instructions.md"],
     quiet: diff([file("src/mod0.ext")]),
   },
   "skills-playbook": {
@@ -515,11 +455,19 @@ const TRIGGER_FIXTURES: Readonly<
       ...file("assets/reference.bin", "added"),
       binary: true,
     }]),
+    firingMatched: ["assets/reference.bin"],
     quiet: diff([{ ...file("assets/reference.bin"), binary: true }]),
+    quietVeto: "kinds",
+    additionalQuiet: [{
+      name: "newly added text asset",
+      diff: diff([file("assets/reference.txt", "added")]),
+      vetoedBy: "binary",
+    }],
   },
   "effort-sprawl": {
     firing: diff(sourceFiles(25)),
     quiet: diff(sourceFiles(24)),
+    quietVeto: "min_changed_files",
   },
   "map-drift": {
     firing: diff(sourceFiles(5)),
@@ -528,6 +476,7 @@ const TRIGGER_FIXTURES: Readonly<
   "commit-story": {
     firing: diff(sourceFiles(15)),
     quiet: diff(sourceFiles(14)),
+    quietVeto: "min_changed_files",
   },
 };
 
@@ -543,16 +492,31 @@ Deno.test("every built-in proves it fires and stays quiet — a new seed fails u
   for (const def of checkpoints) {
     const fixtures = TRIGGER_FIXTURES[def.id];
     assert(fixtures !== undefined, def.id);
+    const firing = evaluateStructuralTrigger(def, fixtures.firing);
+    assert(firing.holds, `${def.id} must fire on its firing fixture`);
+    if (fixtures.firingMatched !== undefined) {
+      assertEquals(firing.matched, fixtures.firingMatched, def.id);
+    }
+    const quiet = evaluateStructuralTrigger(def, fixtures.quiet);
     assertEquals(
-      evaluateStructuralTrigger(def, fixtures.firing).holds,
-      true,
-      `${def.id} must fire on its firing fixture`,
-    );
-    assertEquals(
-      evaluateStructuralTrigger(def, fixtures.quiet).holds,
+      quiet.holds,
       false,
       `${def.id} must stay quiet on its quiet fixture`,
     );
+    if (fixtures.quietVeto !== undefined) {
+      assertEquals(
+        quiet,
+        { holds: false, vetoedBy: fixtures.quietVeto },
+        def.id,
+      );
+    }
+    for (const extra of fixtures.additionalQuiet ?? []) {
+      assertEquals(
+        evaluateStructuralTrigger(def, extra.diff),
+        { holds: false, vetoedBy: extra.vetoedBy },
+        `${def.id}: ${extra.name}`,
+      );
+    }
   }
 });
 

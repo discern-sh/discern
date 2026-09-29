@@ -277,42 +277,6 @@ Deno.test("the fresh welcome style resolver keeps --no-color and NO_COLOR plain 
   );
 });
 
-Deno.test("the fresh welcome dual-addresses both readers and writes nothing", async () => {
-  await withTempDir(async (dir) => {
-    await freshRepo(dir);
-    const r = await runAgent(dir, ["setup"]);
-    assertEquals(r.code, 0, r.output);
-    assertNoAnsi(r.stdout, "piped fresh welcome");
-    // Both readers are addressed — robust where detecting them is not (ADR 0075).
-    assertTerminalTextIncludes(r.stdout, "FOR HUMANS");
-    assertTerminalTextIncludes(r.stdout, "FOR CODING AGENTS");
-    // The agent is funnelled into the preflight, not handed the brief.
-    assertTerminalTextIncludes(r.stdout, "discern setup verify");
-    // Read-only: the welcome scaffolds nothing.
-    assert(
-      !(await targetExists(join(dir, "discern.toml"))),
-      "the welcome must write nothing — scaffolding belongs to `begin`",
-    );
-  });
-});
-
-Deno.test("the fresh welcome --json carries phase=fresh and the verify funnel", async () => {
-  await withTempDir(async (dir) => {
-    await freshRepo(dir);
-    const r = await runAgent(dir, ["setup", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const d = decodeSetupData(r.stdout);
-    assertEquals(d.phase, "fresh");
-    assertEquals(d.complete, false);
-    assertExists(d.next_action);
-    assertStringIncludes(d.next_action, "verify");
-    assert(
-      !(await targetExists(join(dir, "discern.toml"))),
-      "the welcome --json must also write nothing",
-    );
-  });
-});
-
 Deno.test("the in-progress welcome shows derived progress and reprints the current-branch journey", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
@@ -327,6 +291,11 @@ Deno.test("the in-progress welcome shows derived progress and reprints the curre
       (await runAgent(dir, ["setup", "--json"])).stdout,
     );
     assertEquals(d.phase, "in_progress");
+    assertExists(d.agent_instructions);
+    // The resume framing the human text carries ("this is YOUR job ... not a status
+    // to report back") must ride the JSON path too, not just the human one.
+    assertStringIncludes(d.agent_instructions, "YOUR job");
+    assertStringIncludes(d.agent_instructions, "discern setup done");
     assertEquals(d.next_action, "discern setup begin");
     assertExists(d.progress);
     // Derived progress: docs markers remain and only discern's seeded formatter
@@ -361,9 +330,30 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
   // begin; verify hands you the message to relay" framing rides on both paths.
   await withTempDir(async (dir) => {
     await freshRepo(dir);
-    const human = (await runAgent(dir, ["setup"])).stdout;
-    const d = decodeSetupData(
-      (await runAgent(dir, ["setup", "--json"])).stdout,
+    const humanResult = await runAgent(dir, ["setup"]);
+    assertEquals(humanResult.code, 0, humanResult.output);
+    const human = humanResult.stdout;
+    assertNoAnsi(human, "piped fresh welcome");
+    // Both readers are addressed — robust where detecting them is not (ADR 0075).
+    assertTerminalTextIncludes(human, "FOR HUMANS");
+    assertTerminalTextIncludes(human, "FOR CODING AGENTS");
+    // The agent is funnelled into the preflight, not handed the brief.
+    assertTerminalTextIncludes(human, "discern setup verify");
+    // Read-only: the welcome scaffolds nothing.
+    assert(
+      !(await targetExists(join(dir, "discern.toml"))),
+      "the welcome must write nothing — scaffolding belongs to `begin`",
+    );
+    const jsonResult = await runAgent(dir, ["setup", "--json"]);
+    assertEquals(jsonResult.code, 0, jsonResult.output);
+    const d = decodeSetupData(jsonResult.stdout);
+    assertEquals(d.phase, "fresh");
+    assertEquals(d.complete, false);
+    assertExists(d.next_action);
+    assertStringIncludes(d.next_action, "verify");
+    assert(
+      !(await targetExists(join(dir, "discern.toml"))),
+      "the welcome --json must also write nothing",
     );
     assertExists(d.agent_instructions);
     assertExists(d.human_framing);
@@ -387,23 +377,6 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
     // The footprint story rides both surfaces: one root file, one visible folder.
     assertStringIncludes(d.human_framing, "one visible `discern/` folder");
     assertStringIncludes(human, "one visible `discern/` folder");
-  });
-});
-
-Deno.test("the in-progress welcome --json carries the 'your job, not a status' agent instructions", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false });
-    await gitInit(dir);
-    await runAgent(dir, ["setup", "begin", "--confirmed"]);
-    const d = decodeSetupData(
-      (await runAgent(dir, ["setup", "--json"])).stdout,
-    );
-    assertEquals(d.phase, "in_progress");
-    assertExists(d.agent_instructions);
-    // The resume framing the human text carries ("this is YOUR job ... not a status
-    // to report back") must ride the JSON path too, not just the human one.
-    assertStringIncludes(d.agent_instructions, "YOUR job");
-    assertStringIncludes(d.agent_instructions, "discern setup done");
   });
 });
 
@@ -464,22 +437,6 @@ Deno.test("verify reports grounded findings and the consent conversation, writin
   });
 });
 
-Deno.test("verify funnels begin with --model so the configuring model is recorded as provenance", async () => {
-  // A cold run never recorded setup_model because nothing told the agent to pass
-  // --model. The funnel into begin now carries it, in both the next_action and the
-  // model confirmation the agent presents to its human.
-  await withTempDir(async (dir) => {
-    await freshRepo(dir);
-    const d = decodeSetupVerifyData(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
-    );
-    assertExists(d.instructions);
-    assertStringIncludes(d.next_action, "--model");
-    // The consent instructions instructs passing --model for best-effort provenance.
-    assertStringIncludes(d.instructions, "--model");
-  });
-});
-
 Deno.test("verify's consent instructions are identical and faithful across the human render and --json (the A9 parity guard)", async () => {
   // Running `verify --json` once led an agent to summarize and weaken the consent
   // conversation — it dropped "open warmly", reworded the model question, and guessed a
@@ -497,6 +454,8 @@ Deno.test("verify's consent instructions are identical and faithful across the h
     assertResultDataKey(res, "phase");
     const d = res.data;
     assertExists(d.instructions);
+    assertStringIncludes(d.next_action, "--model");
+    assertStringIncludes(d.instructions, "--model");
 
     // One source, two renderings: the human preflight embeds the --json prose lane
     // verbatim, so the consent conversation cannot drift between the surfaces.

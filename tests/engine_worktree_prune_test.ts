@@ -169,26 +169,17 @@ Deno.test("removeWorktreeSafely refuses a target inside the repository's Git met
   });
 });
 
-Deno.test("removeWorktreeSafely removes a real linked worktree and reconciles git", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "removable");
-
-    const r = await runWorktreeCore(dir, ["remove", wt]);
-    assertEquals(r.code, 0, r.output);
-    await assertLstatAbsent(wt);
-    assert(
-      !(await gitOut(dir, "worktree", "list", "--porcelain")).includes(wt),
-      `git metadata should be reconciled (worktree deregistered)\n${r.output}`,
-    );
-  });
-});
-
 Deno.test("removeWorktreeSafely is idempotent on an already-removed path", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "twice");
 
     const first = await runWorktreeCore(dir, ["remove", wt]);
     assertEquals(first.code, 0, first.output);
+    await assertLstatAbsent(wt);
+    assert(
+      !(await gitOut(dir, "worktree", "list", "--porcelain")).includes(wt),
+      `git metadata should be reconciled (worktree deregistered)\n${first.output}`,
+    );
     // Re-running against the now-absent path must be a clean success no-op.
     const second = await runWorktreeCore(dir, ["remove", wt]);
     assertEquals(second.code, 0, second.output);

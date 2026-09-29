@@ -28,81 +28,131 @@ import {
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
-Deno.test("every canonical project artifact declares one File ownership answer", () => {
+Deno.test("canonical project artifacts retain ownership, provenance, licensing, and reference parity", async () => {
   const entries = projectArtifactPaths(parseConfigOrThrow(""));
-  assert(entries.length > 0, "the project artifact registry must not be empty");
-  const seen = new Set<string>();
-  for (const entry of entries) {
-    const kind = declaredFileOwnership(entry);
+  // every canonical project artifact declares one File ownership answer
+  {
     assert(
-      !seen.has(entry.path),
-      `${entry.path} appears more than once in the normalized enumeration`,
+      entries.length > 0,
+      "the project artifact registry must not be empty",
     );
-    seen.add(entry.path);
-    if (kind === PROVIDER_LOCAL) {
-      assertEquals(isDiscernWriteTarget(entry), false);
+    const seen = new Set<string>();
+    for (const entry of entries) {
+      const kind = declaredFileOwnership(entry);
       assert(
-        (entry.ownership[PROVIDER_LOCAL] ?? "").trim().length > 0,
-        `${entry.path} must explain why it is provider-local`,
+        !seen.has(entry.path),
+        `${entry.path} appears more than once in the normalized enumeration`,
       );
-    } else {
-      assertEquals(isDiscernWriteTarget(entry), true);
-    }
-  }
-});
-
-Deno.test("every discern-written project artifact declares one provenance class", () => {
-  const entries = projectArtifactPaths(parseConfigOrThrow(""));
-  let classified = 0;
-  for (const entry of entries) {
-    const ownership = declaredFileOwnership(entry);
-    const artifactClass = writtenArtifactClass(entry);
-    if (ownership === "shared" || ownership === "generated") {
-      assert(
-        artifactClass !== undefined,
-        `${entry.path} is ${ownership} but has no written-artifact class`,
-      );
-      classified++;
-      if (artifactClass === "comment-incapable") {
+      seen.add(entry.path);
+      if (kind === PROVIDER_LOCAL) {
+        assertEquals(isDiscernWriteTarget(entry), false);
         assert(
-          entry.path.endsWith(".json"),
-          `${entry.path} is comment-incapable, but JSON is the only permanent exemption`,
+          (entry.ownership[PROVIDER_LOCAL] ?? "").trim().length > 0,
+          `${entry.path} must explain why it is provider-local`,
         );
+      } else {
+        assertEquals(isDiscernWriteTarget(entry), true);
       }
-      continue;
     }
-    assertEquals(
-      artifactClass,
-      undefined,
-      `${entry.path} is ${ownership} and is not continuing discern output`,
-    );
-  }
-  assert(classified > 0, "expected at least one discern-written artifact");
-});
-
-Deno.test("every registered discern-authored project payload is Apache-2.0", () => {
-  const entries = projectArtifactPaths(parseConfigOrThrow(""));
-  for (const entry of entries) {
-    const expected = declaredFileOwnership(entry) === PROVIDER_LOCAL
-      ? undefined
-      : DISCERN_PROJECT_PAYLOAD_LICENSE.identifier;
-    assertEquals(
-      discernProjectPayloadLicense(entry),
-      expected,
-      `${entry.path} has the wrong discern-authored payload license`,
-    );
   }
 
-  assertEquals(
-    discernProjectPayloadLicense({
-      id: "synthetic:future-artifact",
-      ownership: { generated: true },
-    }),
-    DISCERN_PROJECT_PAYLOAD_LICENSE.identifier,
-    "a future registered artifact must inherit the payload license without a second list",
-  );
-});
+  // every discern-written project artifact declares one provenance class
+  {
+    let classified = 0;
+    for (const entry of entries) {
+      const ownership = declaredFileOwnership(entry);
+      const artifactClass = writtenArtifactClass(entry);
+      if (ownership === "shared" || ownership === "generated") {
+        assert(
+          artifactClass !== undefined,
+          `${entry.path} is ${ownership} but has no written-artifact class`,
+        );
+        classified++;
+        if (artifactClass === "comment-incapable") {
+          assert(
+            entry.path.endsWith(".json"),
+            `${entry.path} is comment-incapable, but JSON is the only permanent exemption`,
+          );
+        }
+        continue;
+      }
+      assertEquals(
+        artifactClass,
+        undefined,
+        `${entry.path} is ${ownership} and is not continuing discern output`,
+      );
+    }
+    assert(classified > 0, "expected at least one discern-written artifact");
+  }
 
+  // every registered discern-authored project payload is Apache-2.0
+  {
+    for (const entry of entries) {
+      const expected = declaredFileOwnership(entry) === PROVIDER_LOCAL
+        ? undefined
+        : DISCERN_PROJECT_PAYLOAD_LICENSE.identifier;
+      assertEquals(
+        discernProjectPayloadLicense(entry),
+        expected,
+        `${entry.path} has the wrong discern-authored payload license`,
+      );
+    }
+
+    assertEquals(
+      discernProjectPayloadLicense({
+        id: "synthetic:future-artifact",
+        ownership: { generated: true },
+      }),
+      DISCERN_PROJECT_PAYLOAD_LICENSE.identifier,
+      "a future registered artifact must inherit the payload license without a second list",
+    );
+  }
+
+  // first-party legal documents never enter the project footprint
+  {
+    const projectPaths = new Set(
+      entries.map((entry) => entry.path),
+    );
+    for (const document of FIRST_PARTY_LEGAL_DOCUMENTS) {
+      assert(
+        !projectPaths.has(document.path),
+        `${document.path} must stay in discern's distribution, outside user projects`,
+      );
+    }
+  }
+
+  // the ownership references match the canonical enumeration
+  {
+    const inventory = renderArtifactInventory(
+      entries,
+    );
+    for (
+      const target of [
+        {
+          root: REPO_AUTHORED_PATHS.map,
+          rootRel: REPO_AUTHORED_PATHS.mapRel,
+          rel: "80-development/install-surface.md",
+        },
+        {
+          root: REPO_AUTHORED_PATHS.manual,
+          rootRel: REPO_AUTHORED_PATHS.manualRel,
+          rel: "30-reference/files-and-ownership.md",
+        },
+      ]
+    ) {
+      const path = `${target.root}/${target.rel}`;
+      const committed = await Deno.readTextFile(path);
+      assertEquals(
+        committed,
+        await canonicalGeneratedMarkdown(
+          path,
+          replaceArtifactInventory(committed, inventory),
+        ),
+        `${target.rootRel}/${target.rel} is stale — run \`deno task codegen\``,
+      );
+    }
+  }
+});
 Deno.test("configured worktree env files enter the project-artifact registry", () => {
   const config = parseConfigOrThrow(`
 [worktree]
@@ -131,19 +181,6 @@ Deno.test("a future registered artifact auto-enrols in the ownership inventory",
     "a future registry member must join the generated manual table",
   );
 });
-
-Deno.test("first-party legal documents never enter the project footprint", () => {
-  const projectPaths = new Set(
-    projectArtifactPaths(parseConfigOrThrow("")).map((entry) => entry.path),
-  );
-  for (const document of FIRST_PARTY_LEGAL_DOCUMENTS) {
-    assert(
-      !projectPaths.has(document.path),
-      `${document.path} must stay in discern's distribution, outside user projects`,
-    );
-  }
-});
-
 // Positive controls: prove the guard rejects both ways an ownership answer can
 // be absent or ambiguous, so a green test cannot mean it inspected no markers.
 
@@ -216,35 +253,4 @@ Deno.test("provenance guard: a comment-capable artifact names its source", () =>
     Error,
     "must name the source",
   );
-});
-
-Deno.test("the ownership references match the canonical enumeration", async () => {
-  const inventory = renderArtifactInventory(
-    projectArtifactPaths(parseConfigOrThrow("")),
-  );
-  for (
-    const target of [
-      {
-        root: REPO_AUTHORED_PATHS.map,
-        rootRel: REPO_AUTHORED_PATHS.mapRel,
-        rel: "80-development/install-surface.md",
-      },
-      {
-        root: REPO_AUTHORED_PATHS.manual,
-        rootRel: REPO_AUTHORED_PATHS.manualRel,
-        rel: "30-reference/files-and-ownership.md",
-      },
-    ]
-  ) {
-    const path = `${target.root}/${target.rel}`;
-    const committed = await Deno.readTextFile(path);
-    assertEquals(
-      committed,
-      await canonicalGeneratedMarkdown(
-        path,
-        replaceArtifactInventory(committed, inventory),
-      ),
-      `${target.rootRel}/${target.rel} is stale — run \`deno task codegen\``,
-    );
-  }
 });

@@ -1,3 +1,4 @@
+import { assertCasesAsync } from "./assert_cases.ts";
 import { publicSchemaAjv } from "../scripts/public_schema_compatibility.ts";
 import {
   assert,
@@ -132,25 +133,439 @@ function assertDurableProofBoundary(schema: Record<string, unknown>): void {
   );
 }
 
-Deno.test("schema/discern-results.schema.json matches the generator (run `deno task codegen`)", async () => {
-  const committed = await Deno.readTextFile(
-    new URL("../schema/discern-results.schema.json", import.meta.url),
-  );
-  assertEquals(
-    committed,
-    renderResultJsonSchema(),
-    "schema/discern-results.schema.json is stale — run `deno task codegen`",
-  );
-});
+Deno.test("generated result publications match their sources and preserve every contract", async () => {
+  const generated = {
+    result: buildResultJsonSchema(),
+    proof: buildProofNoteJsonSchema(),
+    resultJson: renderResultJsonSchema(),
+    proofJson: renderProofNoteJsonSchema(),
+    declarations: renderResultTypesDts(),
+  };
+  const observations = {
+    "schema/discern-results.schema.json matches the generator (run `deno task codegen`)":
+      async (): Promise<void> => {
+        const committed = await Deno.readTextFile(
+          new URL("../schema/discern-results.schema.json", import.meta.url),
+        );
+        assertEquals(
+          committed,
+          generated.resultJson,
+          "schema/discern-results.schema.json is stale — run `deno task codegen`",
+        );
+      },
+    "schema/discern-proof-note.schema.json matches the generator (run `deno task codegen`)":
+      async (): Promise<void> => {
+        const committed = await Deno.readTextFile(
+          new URL("../schema/discern-proof-note.schema.json", import.meta.url),
+        );
+        assertEquals(
+          committed,
+          generated.proofJson,
+          "schema/discern-proof-note.schema.json is stale — run `deno task codegen`",
+        );
+      },
+    "the proof-note schema publishes one DSSE payload boundary": (): void => {
+      const schema = generated.proof;
+      assertEquals(schema.$id, PROOF_NOTE_SCHEMA_ID);
+      assertEquals(schema["x-discern-payload-type"], PROOF_NOTE_PAYLOAD_TYPE);
+      assertEquals(schema["x-discern-dsse-envelope"], PROOF_NOTE_DSSE_ENVELOPE);
+      assertEquals(schema["x-discern-dsse-protocol"], PROOF_NOTE_DSSE_PROTOCOL);
+      assert(
+        typeof schema.description === "string" &&
+          !/(?:legacy|pre-correction|bare claim)/i.test(schema.description),
+        "the current Proof-note publication must not advertise private formats",
+      );
+      assert(
+        isRecord(schema.properties),
+        "proof envelope should declare fields",
+      );
+      const payloadType = schema.properties.payloadType;
+      assert(
+        isRecord(payloadType),
+        "proof envelope should declare payloadType",
+      );
+      assertEquals(payloadType.const, PROOF_NOTE_PAYLOAD_TYPE);
+      const payload = schema.properties.payload;
+      assert(isRecord(payload), "proof envelope should declare its payload");
+      assertEquals(payload.contentEncoding, "base64");
+      assertEquals(payload.contentMediaType, "application/json");
+      assertEquals(payload.contentSchema, {
+        $ref: `#/$defs/${PROOF_NOTE_PAYLOAD_DEFINITION}`,
+      });
+      const signatures = schema.properties.signatures;
+      assert(isRecord(signatures), "proof envelope should declare signatures");
+      assertEquals(signatures.type, "array");
+      assert(
+        isRecord(signatures.items),
+        "signature entries should have a schema",
+      );
+      assertEquals(signatures.items.required, ["sig"]);
+      assert(isRecord(schema.$defs), "proof schema should publish definitions");
+      const claim = schema.$defs[PROOF_NOTE_PAYLOAD_DEFINITION];
+      assert(
+        isRecord(claim),
+        "proof schema should publish its decoded payload",
+      );
+      assertDurableProofBoundary(schema);
+    },
+    "the generated result schema carries its public identity and policy":
+      (): void => {
+        const schema = generated.result;
+        assertEquals(schema.$id, RESULT_SCHEMA_ID);
+        assertEquals(
+          schema[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY],
+          RESULT_SCHEMA_COMPATIBILITY_POLICY,
+        );
+      },
+    "generated result and proof-note schemas compile in strict mode":
+      (): void => {
+        strictPublicSchemaValidator().compile(generated.result);
+        strictPublicSchemaValidator().compile(generated.proof);
+      },
+    "the published result schema rejects contradictory envelopes": (): void => {
+      const validate = strictPublicSchemaValidator().compile(
+        generated.result,
+      );
+      const plan = { title: "Future plan", details: [], steps: [] };
+      const steps: unknown[] = [];
 
-Deno.test("schema/discern-proof-note.schema.json matches the generator (run `deno task codegen`)", async () => {
-  const committed = await Deno.readTextFile(
-    new URL("../schema/discern-proof-note.schema.json", import.meta.url),
-  );
-  assertEquals(
-    committed,
-    renderProofNoteJsonSchema(),
-    "schema/discern-proof-note.schema.json is stale — run `deno task codegen`",
+      for (
+        const contradictory of [
+          { ok: true, verb: "tidy", error: "future_error" },
+          { ok: false, verb: "tidy", plan, steps },
+          { ok: false, verb: "tidy", dry_run: true, steps },
+        ]
+      ) {
+        assert(
+          !validate(contradictory),
+          `published schema accepted ${JSON.stringify(contradictory)}`,
+        );
+      }
+    },
+    "result contract metadata uses only the canonical schema-reference fields":
+      (): void => {
+        const contracts = generated.result["x-discern-contracts"];
+        assert(Array.isArray(contracts));
+        for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+          const generated = contracts.find((value) =>
+            isRecord(value) && value.id === contract.id
+          );
+          assert(isRecord(generated), `${contract.id} should publish metadata`);
+          const policy = RESULT_COMPLETION_POLICIES[contract.verb];
+          assert(policy !== undefined);
+          assertEquals(generated.completion_policy, {
+            required_postconditions: [...policy.requiredPostconditions],
+            optional_advisories: [...policy.optionalAdvisories],
+            refusal: policy.refusal,
+            cancellation: policy.cancellation,
+            partial_effect: policy.partialEffect,
+            no_op: policy.noOp,
+            recovery_owner: policy.recoveryOwner,
+          });
+          const referenceFields = Object.entries(generated)
+            .filter(([, value]) =>
+              typeof value === "string" && value.startsWith("#/$defs/")
+            )
+            .map(([field]) => field)
+            .sort();
+          assertEquals(
+            referenceFields,
+            [
+              RESULT_CONTRACT_REFERENCE_FIELDS.cli,
+              ...(contract.mcpTool === undefined
+                ? []
+                : [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]),
+            ].sort(),
+            `${contract.id} should publish only its semantic CLI/MCP references`,
+          );
+        }
+      },
+    "every contract's stability tier is projected into each artifact that lists it, and into no help text":
+      (): void => {
+        // The registry field is the single source: the result schema's contract
+        // records and definitions, the CLI grammar manifest, the MCP tools manifest,
+        // and the declarations all carry exactly the tier the contract declares.
+        // Parity runs over EVERY contract, so a stable one acquiring a tier from a
+        // stray generator list fails as surely as an evolving one losing it.
+        const schema = generated.result;
+        const records = schema["x-discern-contracts"];
+        assert(Array.isArray(records) && isRecord(schema.$defs));
+        const defs = schema.$defs;
+        const cli = buildCliManifest();
+        const mcp = buildMcpToolsManifest();
+        const tools = mcp.tools;
+        assert(Array.isArray(tools));
+        const declarations = generated.declarations;
+        const evolving: string[] = [];
+        for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+          const tier = contract.stability;
+          if (tier !== undefined) evolving.push(contract.id);
+          const record = records.find((value) =>
+            isRecord(value) && value.id === contract.id
+          );
+          assert(
+            isRecord(record),
+            `${contract.id} publishes a contract record`,
+          );
+          assertEquals(record[MANIFEST_STABILITY_FIELD], tier, contract.id);
+          const typeName = `Discern${pascalCase(contract.id)}Result`;
+          const definition = defs[typeName];
+          assert(isRecord(definition), `${typeName} is defined`);
+          assertEquals(definition[PUBLIC_SCHEMA_STABILITY_KEY], tier, typeName);
+          const declared = declarations.includes(
+            `may change in any release. */\nexport type ${typeName} =`,
+          );
+          assertEquals(declared, tier !== undefined, `${typeName} declaration`);
+          if (contract.mcpTool !== undefined) {
+            const mcpTypeName = `Discern${
+              pascalCase(contract.id)
+            }McpToolResult`;
+            const wrapper = defs[mcpTypeName];
+            assert(isRecord(wrapper), `${mcpTypeName} is defined`);
+            assertEquals(
+              wrapper[PUBLIC_SCHEMA_STABILITY_KEY],
+              tier,
+              mcpTypeName,
+            );
+            const tool = tools.find((value) =>
+              isRecord(value) && value.name === contract.mcpTool
+            );
+            assert(isRecord(tool), `${contract.mcpTool} is a manifest tool`);
+            assertEquals(
+              tool[MANIFEST_STABILITY_FIELD],
+              tier,
+              contract.mcpTool,
+            );
+          }
+          for (const command of contract.commands) {
+            const path = command === "discern" ? [] : command.split(" ");
+            const entry = cli.commands.find((value) =>
+              JSON.stringify(value.path) === JSON.stringify(path)
+            );
+            assert(entry !== undefined, `${command} is a manifest command`);
+            assertEquals(entry.stability, tier, command);
+          }
+        }
+        assert(
+          evolving.length > 0,
+          "the projection needs an evolving contract",
+        );
+
+        // The tier lives in the artifacts, never in the text agents re-read.
+        const marker = new RegExp(STABILITY_TIER_EVOLVING, "i");
+        for (const entry of cli.commands) {
+          const prose = [
+            entry.description,
+            entry.usage,
+            ...entry.flags.map((flag) => flag.description),
+          ].join("\n");
+          assert(
+            !marker.test(prose),
+            `${entry.path.join(" ")} help text is unmarked`,
+          );
+        }
+        for (const tool of tools) {
+          assert(isRecord(tool));
+          const prose = [tool.title, tool.description].join("\n");
+          assert(
+            !marker.test(prose),
+            `${String(tool.name)} description is unmarked`,
+          );
+        }
+      },
+    "types/discern-json.d.ts matches the generator (run `deno task codegen`)":
+      async (): Promise<void> => {
+        const committed = await Deno.readTextFile(
+          new URL("../types/discern-json.d.ts", import.meta.url),
+        );
+        assertEquals(
+          committed,
+          generated.declarations,
+          "types/discern-json.d.ts is stale — run `deno task codegen`",
+        );
+      },
+    "the triangle publication keeps its established contract names":
+      (): void => {
+        const schema = generated.result;
+        assert(isRecord(schema.$defs), "result schema should carry $defs");
+        const triangle = schema.$defs.DiscernTriangleResult;
+        assert(
+          isRecord(triangle),
+          "triangle should publish DiscernTriangleResult",
+        );
+        assert(
+          isRecord(triangle.properties),
+          "triangle should declare properties",
+        );
+        assertEquals(triangle.properties.verb, {
+          type: "string",
+          const: "triangle",
+        });
+        const data = triangle.properties.data;
+        assert(isRecord(data) && Array.isArray(data.anyOf));
+        const successData = data.anyOf.find((candidate) =>
+          isRecord(candidate) && Array.isArray(candidate.required) &&
+          candidate.required.includes("mark")
+        );
+        assert(isRecord(successData));
+        assertEquals(successData.required, ["mark", "art"]);
+        assert(isRecord(successData.properties));
+        assertEquals(Object.keys(successData.properties), ["mark", "art"]);
+
+        const declarations = generated.declarations;
+        assert(declarations.includes("export type DiscernTriangleResult ="));
+        assert(declarations.includes('verb: "triangle";'));
+      },
+    "generated result declarations are stable under deno fmt":
+      async (): Promise<void> => {
+        const path = await Deno.makeTempFile({ suffix: ".d.ts" });
+        try {
+          await Deno.writeTextFile(path, generated.declarations);
+          const output = await new Deno.Command(Deno.execPath(), {
+            args: ["fmt", "--check", path],
+            stdout: "piped",
+            stderr: "piped",
+          }).output();
+          assert(
+            output.success,
+            new TextDecoder().decode(output.stdout) +
+              new TextDecoder().decode(output.stderr),
+          );
+        } finally {
+          await Deno.remove(path);
+        }
+      },
+    "public result schemas carry literal verb discriminators": (): void => {
+      const schema = generated.result;
+      assert(isRecord(schema.$defs), "result schema should carry $defs");
+      for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+        const typeName = `Discern${pascalCase(contract.id)}Result`;
+        const def = schema.$defs[typeName];
+        assert(isRecord(def), `${typeName} should be present in $defs`);
+        const props = def.properties;
+        assert(isRecord(props), `${typeName} should declare properties`);
+        const verb = props.verb;
+        assert(isRecord(verb), `${typeName}.verb should be a schema`);
+        assertEquals(
+          verb.const,
+          contract.verb,
+          `${typeName}.verb should be the contract's literal discriminator`,
+        );
+      }
+    },
+    "public JSON schema is additive-compatible for output objects":
+      (): void => {
+        const offenders: string[] = [];
+        collectClosedOutputMarkers(generated.result, "$", offenders);
+        collectClosedOutputMarkers(
+          generated.proof,
+          "$proofNote",
+          offenders,
+        );
+        assertEquals(
+          offenders,
+          [],
+          "public output schema should not publish additionalProperties:false; keep strictness in runtime Zod/MCP schemas instead",
+        );
+      },
+    "public result contracts publish known error slugs without closing the field":
+      (): void => {
+        const schema = generated.result;
+        assertEquals(schema["x-discern-error-slugs"], [...ERROR_SLUGS]);
+        assert(isRecord(schema.$defs), "result schema should carry $defs");
+        for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+          const typeName = `Discern${pascalCase(contract.id)}Result`;
+          const def = schema.$defs[typeName];
+          assert(isRecord(def), `${typeName} should be present in $defs`);
+          assert(
+            isRecord(def.properties),
+            `${typeName} should declare properties`,
+          );
+          const error = def.properties.error;
+          assert(isRecord(error), `${typeName}.error should be a schema`);
+          assertEquals(
+            error,
+            {
+              type: "string",
+              [RESULT_VOCABULARY_KEYWORD]: "x-discern-error-slugs",
+            },
+            `${typeName}.error must accept future slugs in the public schema`,
+          );
+        }
+        assert(
+          !generated.declarations.includes("error?:\n    |"),
+          "generated envelope error fields should remain forward-compatible strings",
+        );
+      },
+    "the declarations export one known-members union per published open vocabulary":
+      (): void => {
+        const schema = generated.result;
+        const types = generated.declarations;
+        for (
+          const [key, vocabulary] of Object.entries(RESULT_OPEN_VOCABULARIES)
+        ) {
+          const published = schema[key];
+          const alias = types.match(
+            new RegExp(
+              `export type DiscernKnown${vocabulary.name} =\\n?([\\s\\S]*?);\\n\\n`,
+            ),
+          );
+          if (!Array.isArray(published)) {
+            assertEquals(
+              alias,
+              null,
+              `${vocabulary.name} is not published here`,
+            );
+            continue;
+          }
+          assert(
+            alias !== null,
+            `${vocabulary.name} needs a known-members union`,
+          );
+          const members = [...(alias[0].matchAll(/"([^"]+)"/g))]
+            .map((match) => String(match[1]));
+          assertEquals(members, published.map(String), vocabulary.name);
+        }
+      },
+    "public JSON schema exposes reachable CLI and MCP union entrypoints":
+      (): void => {
+        const schema = generated.result;
+        assert(isRecord(schema.$defs), "result schema should carry $defs");
+        assertEquals(schema.oneOf, [
+          { $ref: "#/$defs/DiscernCliJsonResult" },
+          { $ref: "#/$defs/DiscernMcpJsonResult" },
+        ]);
+
+        const cli = schema.$defs.DiscernCliJsonResult;
+        assert(isRecord(cli), "DiscernCliJsonResult should be a schema");
+        assertEquals(
+          sorted(refsFromOneOf(cli)),
+          sorted(
+            CLI_JSON_RESULT_CONTRACTS.map((contract) =>
+              `#/$defs/Discern${pascalCase(contract.id)}Result`
+            ),
+          ),
+        );
+
+        const mcp = schema.$defs.DiscernMcpJsonResult;
+        assert(isRecord(mcp), "DiscernMcpJsonResult should be a schema");
+        assertEquals(
+          sorted(refsFromOneOf(mcp)),
+          sorted(
+            MCP_RESULT_CONTRACTS.map((contract) =>
+              `#/$defs/Discern${pascalCase(contract.id)}McpToolResult`
+            ),
+          ),
+        );
+      },
+  };
+  await assertCasesAsync(
+    Object.entries(observations),
+    ([label]) => label,
+    async ([, observe]) => {
+      await observe();
+      return undefined;
+    },
   );
 });
 
@@ -212,39 +627,6 @@ Deno.test("no registered publication hoists an auto-named definition", async () 
   }
 });
 
-Deno.test("the proof-note schema publishes one DSSE payload boundary", () => {
-  const schema = buildProofNoteJsonSchema();
-  assertEquals(schema.$id, PROOF_NOTE_SCHEMA_ID);
-  assertEquals(schema["x-discern-payload-type"], PROOF_NOTE_PAYLOAD_TYPE);
-  assertEquals(schema["x-discern-dsse-envelope"], PROOF_NOTE_DSSE_ENVELOPE);
-  assertEquals(schema["x-discern-dsse-protocol"], PROOF_NOTE_DSSE_PROTOCOL);
-  assert(
-    typeof schema.description === "string" &&
-      !/(?:legacy|pre-correction|bare claim)/i.test(schema.description),
-    "the current Proof-note publication must not advertise private formats",
-  );
-  assert(isRecord(schema.properties), "proof envelope should declare fields");
-  const payloadType = schema.properties.payloadType;
-  assert(isRecord(payloadType), "proof envelope should declare payloadType");
-  assertEquals(payloadType.const, PROOF_NOTE_PAYLOAD_TYPE);
-  const payload = schema.properties.payload;
-  assert(isRecord(payload), "proof envelope should declare its payload");
-  assertEquals(payload.contentEncoding, "base64");
-  assertEquals(payload.contentMediaType, "application/json");
-  assertEquals(payload.contentSchema, {
-    $ref: `#/$defs/${PROOF_NOTE_PAYLOAD_DEFINITION}`,
-  });
-  const signatures = schema.properties.signatures;
-  assert(isRecord(signatures), "proof envelope should declare signatures");
-  assertEquals(signatures.type, "array");
-  assert(isRecord(signatures.items), "signature entries should have a schema");
-  assertEquals(signatures.items.required, ["sig"]);
-  assert(isRecord(schema.$defs), "proof schema should publish definitions");
-  const claim = schema.$defs[PROOF_NOTE_PAYLOAD_DEFINITION];
-  assert(isRecord(claim), "proof schema should publish its decoded payload");
-  assertDurableProofBoundary(schema);
-});
-
 Deno.test("the durable-proof boundary rejects an unrelated future field", () => {
   const schema = {
     $defs: {
@@ -281,41 +663,6 @@ Deno.test("the durable-proof boundary rejects an unrelated future field", () => 
     Error,
     "orbit_delay",
   );
-});
-
-Deno.test("the generated result schema carries its public identity and policy", () => {
-  const schema = buildResultJsonSchema();
-  assertEquals(schema.$id, RESULT_SCHEMA_ID);
-  assertEquals(
-    schema[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY],
-    RESULT_SCHEMA_COMPATIBILITY_POLICY,
-  );
-});
-
-Deno.test("generated result and proof-note schemas compile in strict mode", () => {
-  strictPublicSchemaValidator().compile(buildResultJsonSchema());
-  strictPublicSchemaValidator().compile(buildProofNoteJsonSchema());
-});
-
-Deno.test("the published result schema rejects contradictory envelopes", () => {
-  const validate = strictPublicSchemaValidator().compile(
-    buildResultJsonSchema(),
-  );
-  const plan = { title: "Future plan", details: [], steps: [] };
-  const steps: unknown[] = [];
-
-  for (
-    const contradictory of [
-      { ok: true, verb: "tidy", error: "future_error" },
-      { ok: false, verb: "tidy", plan, steps },
-      { ok: false, verb: "tidy", dry_run: true, steps },
-    ]
-  ) {
-    assert(
-      !validate(contradictory),
-      `published schema accepted ${JSON.stringify(contradictory)}`,
-    );
-  }
 });
 
 Deno.test("generated result declarations preserve envelope narrowing", () => {
@@ -357,155 +704,6 @@ Deno.test("generated result declarations preserve envelope narrowing", () => {
   void previewWithSteps;
 });
 
-Deno.test("result contract metadata uses only the canonical schema-reference fields", () => {
-  const contracts = buildResultJsonSchema()["x-discern-contracts"];
-  assert(Array.isArray(contracts));
-  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
-    const generated = contracts.find((value) =>
-      isRecord(value) && value.id === contract.id
-    );
-    assert(isRecord(generated), `${contract.id} should publish metadata`);
-    const policy = RESULT_COMPLETION_POLICIES[contract.verb];
-    assert(policy !== undefined);
-    assertEquals(generated.completion_policy, {
-      required_postconditions: [...policy.requiredPostconditions],
-      optional_advisories: [...policy.optionalAdvisories],
-      refusal: policy.refusal,
-      cancellation: policy.cancellation,
-      partial_effect: policy.partialEffect,
-      no_op: policy.noOp,
-      recovery_owner: policy.recoveryOwner,
-    });
-    const referenceFields = Object.entries(generated)
-      .filter(([, value]) =>
-        typeof value === "string" && value.startsWith("#/$defs/")
-      )
-      .map(([field]) => field)
-      .sort();
-    assertEquals(
-      referenceFields,
-      [
-        RESULT_CONTRACT_REFERENCE_FIELDS.cli,
-        ...(contract.mcpTool === undefined
-          ? []
-          : [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]),
-      ].sort(),
-      `${contract.id} should publish only its semantic CLI/MCP references`,
-    );
-  }
-});
-
-Deno.test("every contract's stability tier is projected into each artifact that lists it, and into no help text", () => {
-  // The registry field is the single source: the result schema's contract
-  // records and definitions, the CLI grammar manifest, the MCP tools manifest,
-  // and the declarations all carry exactly the tier the contract declares.
-  // Parity runs over EVERY contract, so a stable one acquiring a tier from a
-  // stray generator list fails as surely as an evolving one losing it.
-  const schema = buildResultJsonSchema();
-  const records = schema["x-discern-contracts"];
-  assert(Array.isArray(records) && isRecord(schema.$defs));
-  const defs = schema.$defs;
-  const cli = buildCliManifest();
-  const mcp = buildMcpToolsManifest();
-  const tools = mcp.tools;
-  assert(Array.isArray(tools));
-  const declarations = renderResultTypesDts();
-  const evolving: string[] = [];
-  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
-    const tier = contract.stability;
-    if (tier !== undefined) evolving.push(contract.id);
-    const record = records.find((value) =>
-      isRecord(value) && value.id === contract.id
-    );
-    assert(isRecord(record), `${contract.id} publishes a contract record`);
-    assertEquals(record[MANIFEST_STABILITY_FIELD], tier, contract.id);
-    const typeName = `Discern${pascalCase(contract.id)}Result`;
-    const definition = defs[typeName];
-    assert(isRecord(definition), `${typeName} is defined`);
-    assertEquals(definition[PUBLIC_SCHEMA_STABILITY_KEY], tier, typeName);
-    const declared = declarations.includes(
-      `may change in any release. */\nexport type ${typeName} =`,
-    );
-    assertEquals(declared, tier !== undefined, `${typeName} declaration`);
-    if (contract.mcpTool !== undefined) {
-      const mcpTypeName = `Discern${pascalCase(contract.id)}McpToolResult`;
-      const wrapper = defs[mcpTypeName];
-      assert(isRecord(wrapper), `${mcpTypeName} is defined`);
-      assertEquals(wrapper[PUBLIC_SCHEMA_STABILITY_KEY], tier, mcpTypeName);
-      const tool = tools.find((value) =>
-        isRecord(value) && value.name === contract.mcpTool
-      );
-      assert(isRecord(tool), `${contract.mcpTool} is a manifest tool`);
-      assertEquals(tool[MANIFEST_STABILITY_FIELD], tier, contract.mcpTool);
-    }
-    for (const command of contract.commands) {
-      const path = command === "discern" ? [] : command.split(" ");
-      const entry = cli.commands.find((value) =>
-        JSON.stringify(value.path) === JSON.stringify(path)
-      );
-      assert(entry !== undefined, `${command} is a manifest command`);
-      assertEquals(entry.stability, tier, command);
-    }
-  }
-  assert(evolving.length > 0, "the projection needs an evolving contract");
-
-  // The tier lives in the artifacts, never in the text agents re-read.
-  const marker = new RegExp(STABILITY_TIER_EVOLVING, "i");
-  for (const entry of cli.commands) {
-    const prose = [
-      entry.description,
-      entry.usage,
-      ...entry.flags.map((flag) => flag.description),
-    ].join("\n");
-    assert(
-      !marker.test(prose),
-      `${entry.path.join(" ")} help text is unmarked`,
-    );
-  }
-  for (const tool of tools) {
-    assert(isRecord(tool));
-    const prose = [tool.title, tool.description].join("\n");
-    assert(!marker.test(prose), `${String(tool.name)} description is unmarked`);
-  }
-});
-
-Deno.test("types/discern-json.d.ts matches the generator (run `deno task codegen`)", async () => {
-  const committed = await Deno.readTextFile(
-    new URL("../types/discern-json.d.ts", import.meta.url),
-  );
-  assertEquals(
-    committed,
-    renderResultTypesDts(),
-    "types/discern-json.d.ts is stale — run `deno task codegen`",
-  );
-});
-
-Deno.test("the triangle publication keeps its established contract names", () => {
-  const schema = buildResultJsonSchema();
-  assert(isRecord(schema.$defs), "result schema should carry $defs");
-  const triangle = schema.$defs.DiscernTriangleResult;
-  assert(isRecord(triangle), "triangle should publish DiscernTriangleResult");
-  assert(isRecord(triangle.properties), "triangle should declare properties");
-  assertEquals(triangle.properties.verb, {
-    type: "string",
-    const: "triangle",
-  });
-  const data = triangle.properties.data;
-  assert(isRecord(data) && Array.isArray(data.anyOf));
-  const successData = data.anyOf.find((candidate) =>
-    isRecord(candidate) && Array.isArray(candidate.required) &&
-    candidate.required.includes("mark")
-  );
-  assert(isRecord(successData));
-  assertEquals(successData.required, ["mark", "art"]);
-  assert(isRecord(successData.properties));
-  assertEquals(Object.keys(successData.properties), ["mark", "art"]);
-
-  const declarations = renderResultTypesDts();
-  assert(declarations.includes("export type DiscernTriangleResult ="));
-  assert(declarations.includes('verb: "triangle";'));
-});
-
 Deno.test("the manual routes generated declarations through release archives", async () => {
   const manual = await Deno.readTextFile(
     new URL(
@@ -527,44 +725,6 @@ Deno.test("the manual routes generated declarations through release archives", a
   );
 });
 
-Deno.test("generated result declarations are stable under deno fmt", async () => {
-  const path = await Deno.makeTempFile({ suffix: ".d.ts" });
-  try {
-    await Deno.writeTextFile(path, renderResultTypesDts());
-    const output = await new Deno.Command(Deno.execPath(), {
-      args: ["fmt", "--check", path],
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-    assert(
-      output.success,
-      new TextDecoder().decode(output.stdout) +
-        new TextDecoder().decode(output.stderr),
-    );
-  } finally {
-    await Deno.remove(path);
-  }
-});
-
-Deno.test("public result schemas carry literal verb discriminators", () => {
-  const schema = buildResultJsonSchema();
-  assert(isRecord(schema.$defs), "result schema should carry $defs");
-  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
-    const typeName = `Discern${pascalCase(contract.id)}Result`;
-    const def = schema.$defs[typeName];
-    assert(isRecord(def), `${typeName} should be present in $defs`);
-    const props = def.properties;
-    assert(isRecord(props), `${typeName} should declare properties`);
-    const verb = props.verb;
-    assert(isRecord(verb), `${typeName}.verb should be a schema`);
-    assertEquals(
-      verb.const,
-      contract.verb,
-      `${typeName}.verb should be the contract's literal discriminator`,
-    );
-  }
-});
-
 Deno.test("public result verbs use CLI-style space delimiters, never colons", () => {
   for (const contract of CLI_JSON_RESULT_CONTRACTS) {
     assert(
@@ -572,99 +732,6 @@ Deno.test("public result verbs use CLI-style space delimiters, never colons", ()
       `${contract.id} uses colon-delimited verb ${contract.verb}`,
     );
   }
-});
-
-Deno.test("public JSON schema is additive-compatible for output objects", () => {
-  const offenders: string[] = [];
-  collectClosedOutputMarkers(buildResultJsonSchema(), "$", offenders);
-  collectClosedOutputMarkers(
-    buildProofNoteJsonSchema(),
-    "$proofNote",
-    offenders,
-  );
-  assertEquals(
-    offenders,
-    [],
-    "public output schema should not publish additionalProperties:false; keep strictness in runtime Zod/MCP schemas instead",
-  );
-});
-
-Deno.test("public result contracts publish known error slugs without closing the field", () => {
-  const schema = buildResultJsonSchema();
-  assertEquals(schema["x-discern-error-slugs"], [...ERROR_SLUGS]);
-  assert(isRecord(schema.$defs), "result schema should carry $defs");
-  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
-    const typeName = `Discern${pascalCase(contract.id)}Result`;
-    const def = schema.$defs[typeName];
-    assert(isRecord(def), `${typeName} should be present in $defs`);
-    assert(isRecord(def.properties), `${typeName} should declare properties`);
-    const error = def.properties.error;
-    assert(isRecord(error), `${typeName}.error should be a schema`);
-    assertEquals(
-      error,
-      {
-        type: "string",
-        [RESULT_VOCABULARY_KEYWORD]: "x-discern-error-slugs",
-      },
-      `${typeName}.error must accept future slugs in the public schema`,
-    );
-  }
-  assert(
-    !renderResultTypesDts().includes("error?:\n    |"),
-    "generated envelope error fields should remain forward-compatible strings",
-  );
-});
-
-Deno.test("the declarations export one known-members union per published open vocabulary", () => {
-  const schema = buildResultJsonSchema();
-  const types = renderResultTypesDts();
-  for (const [key, vocabulary] of Object.entries(RESULT_OPEN_VOCABULARIES)) {
-    const published = schema[key];
-    const alias = types.match(
-      new RegExp(
-        `export type DiscernKnown${vocabulary.name} =\\n?([\\s\\S]*?);\\n\\n`,
-      ),
-    );
-    if (!Array.isArray(published)) {
-      assertEquals(alias, null, `${vocabulary.name} is not published here`);
-      continue;
-    }
-    assert(alias !== null, `${vocabulary.name} needs a known-members union`);
-    const members = [...(alias[0].matchAll(/"([^"]+)"/g))]
-      .map((match) => String(match[1]));
-    assertEquals(members, published.map(String), vocabulary.name);
-  }
-});
-
-Deno.test("public JSON schema exposes reachable CLI and MCP union entrypoints", () => {
-  const schema = buildResultJsonSchema();
-  assert(isRecord(schema.$defs), "result schema should carry $defs");
-  assertEquals(schema.oneOf, [
-    { $ref: "#/$defs/DiscernCliJsonResult" },
-    { $ref: "#/$defs/DiscernMcpJsonResult" },
-  ]);
-
-  const cli = schema.$defs.DiscernCliJsonResult;
-  assert(isRecord(cli), "DiscernCliJsonResult should be a schema");
-  assertEquals(
-    sorted(refsFromOneOf(cli)),
-    sorted(
-      CLI_JSON_RESULT_CONTRACTS.map((contract) =>
-        `#/$defs/Discern${pascalCase(contract.id)}Result`
-      ),
-    ),
-  );
-
-  const mcp = schema.$defs.DiscernMcpJsonResult;
-  assert(isRecord(mcp), "DiscernMcpJsonResult should be a schema");
-  assertEquals(
-    sorted(refsFromOneOf(mcp)),
-    sorted(
-      MCP_RESULT_CONTRACTS.map((contract) =>
-        `#/$defs/Discern${pascalCase(contract.id)}McpToolResult`
-      ),
-    ),
-  );
 });
 
 Deno.test("every registered CLI command is classified as JSON-contracted or intentionally excluded", () => {

@@ -270,6 +270,12 @@ Deno.test("engine refresh: a skills-dir failure is isolated — agent files and 
 Deno.test("engine refresh: compiles agent files and materializes bundled skills", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    // A fresh scaffold has no `instructions.md` source at all: job 1 compiles only
+    // the built-in instructions, but job 2 (skills) must still run.
+    assert(
+      !(await targetExists(join(dir, "instructions.md"))),
+      "precondition: no source",
+    );
 
     const r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
@@ -287,6 +293,15 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
       `expected instructions at the top, no banner\n${claude.slice(0, 80)}`,
     );
 
+    const mode = (await Deno.stat(join(dir, "CLAUDE.md"))).mode ?? 0;
+    assertEquals(
+      mode & 0o044,
+      0o044,
+      `CLAUDE.md must be group/other-readable; got mode ${
+        (mode & 0o777).toString(8)
+      }`,
+    );
+
     // Job 2: a bundled built-in is COPIED into .claude/skills/ (a real SKILL.md,
     // not a dangling link) — exactly what the agent reads to discover a skill.
     assert(
@@ -299,38 +314,6 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
       r.stdout,
       "skills materialized into .claude/skills/",
     );
-  });
-});
-
-Deno.test("engine refresh: backfills the discern MCP server for an install that lacks it (idempotent)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    // A plan-scaffolded install has no .mcp.json yet (it is wired by the refresh
-    // core, not seeded) — exactly the pre-feature / not-yet-wired state a real
-    // `discern upgrade`/`refresh` must heal without a force-init.
-    assert(
-      !(await targetExists(join(dir, ".mcp.json"))),
-      "precondition: no .mcp.json",
-    );
-
-    // First refresh backfills it and reports it under --json.
-    const r = await runAgent(dir, ["refresh", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const refreshed = decodeCliResult(r.stdout, "refresh");
-    assertResultDataKey(refreshed, "mcp_wired");
-    const data = refreshed.data;
-    assert(data.mcp_wired.includes(".mcp.json"), r.stdout);
-    const mcp = decodeWith(
-      McpConfigSchema,
-      await Deno.readTextFile(join(dir, ".mcp.json")),
-    );
-    assertEquals(mcp.mcpServers.discern.command, "discern");
-
-    // Second refresh is a clean no-op for MCP (already present).
-    const r2 = await runAgent(dir, ["refresh", "--json"]);
-    const unchanged = decodeCliResult(r2.stdout, "refresh");
-    assertResultDataKey(unchanged, "mcp_wired");
-    assertEquals(unchanged.data.mcp_wired, []);
   });
 });
 
@@ -357,43 +340,40 @@ Deno.test("engine refresh refuses malformed co-owned MCP JSON without clobbering
   });
 });
 
-Deno.test("engine refresh: the FIRST MCP install surfaces a restart hint; a re-apply does not", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-
-    const first = await runAgent(dir, ["refresh", "--json"]);
-    assertEquals(first.code, 0, first.output);
-    assertHasHint(
-      decodeCliResult(first.stdout, "refresh"),
-      HINTS["refresh-mcp-first-install"],
-    );
-
-    // Re-applying over the existing install must NOT repeat the restart hint.
-    const second = await runAgent(dir, ["refresh", "--json"]);
-    assertLacksHint(
-      decodeCliResult(second.stdout, "refresh"),
-      HINTS["refresh-mcp-first-install"],
-    );
-  });
-});
-
 Deno.test("engine refresh: changed tracked artifacts advise committing the refreshed copies", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    // A plan-scaffolded install has no .mcp.json yet (it is wired by the refresh
+    // core, not seeded) — exactly the pre-feature / not-yet-wired state a real
+    // `discern upgrade`/`refresh` must heal without a force-init.
+    assert(
+      !(await targetExists(join(dir, ".mcp.json"))),
+      "precondition: no .mcp.json",
+    );
 
     const first = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(first.code, 0, first.output);
-    assertHasHint(
-      decodeCliResult(first.stdout, "refresh"),
-      HINTS["refresh-commit-tracked-artifacts"],
+    const firstEnvelope = decodeCliResult(first.stdout, "refresh");
+    assertResultDataKey(firstEnvelope, "mcp_wired");
+    assert(firstEnvelope.data.mcp_wired.includes(".mcp.json"), first.stdout);
+    const mcp = decodeWith(
+      McpConfigSchema,
+      await Deno.readTextFile(join(dir, ".mcp.json")),
     );
+    assertEquals(mcp.mcpServers.discern.command, "discern");
+    assertHasHint(firstEnvelope, HINTS["refresh-mcp-first-install"]);
+    assertHasHint(firstEnvelope, HINTS["refresh-commit-tracked-artifacts"]);
 
     // A byte-identical re-apply still reports the Agent file as written in data,
     // but it changed no tracked artifact and must not repeat the commit advice.
     const unchanged = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(unchanged.code, 0, unchanged.output);
+    const unchangedEnvelope = decodeCliResult(unchanged.stdout, "refresh");
+    assertResultDataKey(unchangedEnvelope, "mcp_wired");
+    assertEquals(unchangedEnvelope.data.mcp_wired, []);
+    assertLacksHint(unchangedEnvelope, HINTS["refresh-mcp-first-install"]);
     assertLacksHint(
-      decodeCliResult(unchanged.stdout, "refresh"),
+      unchangedEnvelope,
       HINTS["refresh-commit-tracked-artifacts"],
     );
 
@@ -409,45 +389,6 @@ Deno.test("engine refresh: changed tracked artifacts advise committing the refre
     const envelope = decodeCliResult(changed.stdout, "refresh");
     assertHasHint(envelope, HINTS["refresh-commit-tracked-artifacts"]);
     assertLacksHint(envelope, HINTS["refresh-mcp-first-install"]);
-  });
-});
-
-Deno.test("engine refresh: materializes skills even with no instruction sources (jobs are independent)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    // A fresh scaffold has no `instructions.md` source at all: job 1 compiles only
-    // the built-in instructions, but job 2 (skills) must still run.
-    assert(
-      !(await targetExists(join(dir, "instructions.md"))),
-      "precondition: no source",
-    );
-
-    const r = await runAgent(dir, ["refresh"]);
-    assertEquals(r.code, 0, r.output);
-    assert(
-      await targetExists(
-        join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
-      ),
-      `skills must materialize independently of instruction compilation\n${r.output}`,
-    );
-  });
-});
-
-Deno.test("engine refresh: agent files are world-readable (0644)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-
-    const r = await runAgent(dir, ["refresh"]);
-    assertEquals(r.code, 0, r.output);
-
-    const mode = (await Deno.stat(join(dir, "CLAUDE.md"))).mode ?? 0;
-    assertEquals(
-      mode & 0o044,
-      0o044,
-      `CLAUDE.md must be group/other-readable; got mode ${
-        (mode & 0o777).toString(8)
-      }`,
-    );
   });
 });
 

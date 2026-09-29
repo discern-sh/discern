@@ -1019,79 +1019,12 @@ Deno.test("discern setup begin lays a marked instructions.md stub that setup don
     );
     assertStringIncludes(instructions, "setup fills this");
 
-    // setup done refuses while the instruction stub is unfilled — the existing marker
-    // check now enforces instructions.md, with no second code path.
-    const blocked = await runAgent(dir, ["setup", "done"]);
-    assertEquals(blocked.code, 1, blocked.output);
-    assertStringIncludes(blocked.stderr, "instructions.md");
-  });
-});
-
-Deno.test("discern setup preserves the project name's casing in the scaffolded files (ADR 0065)", async () => {
-  await withTempDir(async (parent) => {
-    // A directory whose name carries deliberate camelCase the lowercase slug loses.
-    const dir = join(parent, "ListOfListsOfLists");
-    await Deno.mkdir(dir);
-    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
-    await gitInit(dir);
-
-    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
-    assertEquals(r.code, 0, r.output);
-
-    // TODO.md carries the original casing, not the slug-reconstructed
-    // "Listoflistsoflists".
-    const todo = await Deno.readTextFile(join(dir, "discern/TODO.md"));
-    assertStringIncludes(todo, "ListOfListsOfLists");
-    assert(!todo.includes("Listoflistsoflists"), todo);
-  });
-});
-
-Deno.test("the laid TODO.md starts empty instead of seeding generic documentation work", async () => {
-  await withTempDir(async (dir) => {
-    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
-    await gitInit(dir);
-    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
-    assertEquals(r.code, 0, r.output);
-
     const todo = await Deno.readTextFile(join(dir, "discern/TODO.md"));
     assert(
       !/^- \[ \]/m.test(todo),
       `a fresh ledger must not invent unresolved work:\n${todo}`,
     );
     assertStringIncludes(todo, "concrete unresolved decisions or defects");
-  });
-});
-
-Deno.test("setup's _adr skeleton is byte-identical to the discern-write-adr skill's (single source)", async () => {
-  for (const f of ["README.md", "0000-template.md"]) {
-    const setupCopy = await Deno.readTextFile(
-      join(REAL_TEMPLATES, "setup", "skeleton", "map", "_adr", f),
-    );
-    const skillCopy = await Deno.readTextFile(
-      join(
-        REAL_TEMPLATES,
-        "skills",
-        "discern-write-adr",
-        "skeleton",
-        "map",
-        "_adr",
-        f,
-      ),
-    );
-    assertEquals(
-      setupCopy,
-      skillCopy,
-      `templates/setup/skeleton/map/_adr/${f} must stay identical to the discern-write-adr skill's copy`,
-    );
-  }
-});
-
-Deno.test("scaffolded docs contain no dead relative links — setup ships what it references (ADR 0065)", async () => {
-  await withTempDir(async (dir) => {
-    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
-    await gitInit(dir);
-    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
-    assertEquals(r.code, 0, r.output);
 
     const linkRe = /\[[^\]]*\]\(([^)]+)\)/g;
     const dead: string[] = [];
@@ -1126,7 +1059,56 @@ Deno.test("scaffolded docs contain no dead relative links — setup ships what i
       [],
       `dead links in scaffolded docs:\n${dead.join("\n")}`,
     );
+
+    // setup done refuses while the instruction stub is unfilled — the existing marker
+    // check now enforces instructions.md, with no second code path.
+    const blocked = await runAgent(dir, ["setup", "done"]);
+    assertEquals(blocked.code, 1, blocked.output);
+    assertStringIncludes(blocked.stderr, "instructions.md");
   });
+});
+
+Deno.test("discern setup preserves the project name's casing in the scaffolded files (ADR 0065)", async () => {
+  await withTempDir(async (parent) => {
+    // A directory whose name carries deliberate camelCase the lowercase slug loses.
+    const dir = join(parent, "ListOfListsOfLists");
+    await Deno.mkdir(dir);
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
+    assertEquals(r.code, 0, r.output);
+
+    // TODO.md carries the original casing, not the slug-reconstructed
+    // "Listoflistsoflists".
+    const todo = await Deno.readTextFile(join(dir, "discern/TODO.md"));
+    assertStringIncludes(todo, "ListOfListsOfLists");
+    assert(!todo.includes("Listoflistsoflists"), todo);
+  });
+});
+
+Deno.test("setup's _adr skeleton is byte-identical to the discern-write-adr skill's (single source)", async () => {
+  for (const f of ["README.md", "0000-template.md"]) {
+    const setupCopy = await Deno.readTextFile(
+      join(REAL_TEMPLATES, "setup", "skeleton", "map", "_adr", f),
+    );
+    const skillCopy = await Deno.readTextFile(
+      join(
+        REAL_TEMPLATES,
+        "skills",
+        "discern-write-adr",
+        "skeleton",
+        "map",
+        "_adr",
+        f,
+      ),
+    );
+    assertEquals(
+      setupCopy,
+      skillCopy,
+      `templates/setup/skeleton/map/_adr/${f} must stay identical to the discern-write-adr skill's copy`,
+    );
+  }
 });
 
 Deno.test("discern setup isolates a fresh install on the discern-setup branch (ADR 0065)", async () => {
@@ -1712,7 +1694,7 @@ Deno.test("discern setup begin --json emits the DiscernResult envelope", async (
   });
 });
 
-Deno.test("the brief teaches bounded authoring with explicit authority and no mid-setup activation", async () => {
+Deno.test("the setup brief preserves its authoring, consent, gate, and assurance contracts", async () => {
   // Read the printed brief directly — `templates/` is excluded from `deno fmt`,
   // so these anchors stay on one line and won't be reflowed out from under us.
   const brief = await Deno.readTextFile(
@@ -1756,12 +1738,6 @@ Deno.test("the brief teaches bounded authoring with explicit authority and no mi
   assertStringIncludes(brief, "Do not restart");
   assertStringIncludes(brief, "Do not run `discern improvement` during setup");
   assertStringIncludes(brief, "You are not done until all of these are true");
-});
-
-Deno.test("the brief keeps model selection neutral and bounds Map scope by durable boundaries", async () => {
-  const brief = await Deno.readTextFile(
-    join(REAL_TEMPLATES, "setup", "instructions.md"),
-  );
 
   assertStringIncludes(brief, "exact provider/model identifier");
   assertStringIncludes(brief, "literal advisory value `unreported`");
@@ -1799,12 +1775,6 @@ Deno.test("the brief keeps model selection neutral and bounds Map scope by durab
 
   assertStringIncludes(brief, "concrete unresolved decisions or defects");
   assertStringIncludes(brief, "never generic aspirations");
-});
-
-Deno.test("the brief wires the gate before any authoring, with a refresh before the first gate run (ADR 0077)", async () => {
-  const brief = await Deno.readTextFile(
-    join(REAL_TEMPLATES, "setup", "instructions.md"),
-  );
 
   // The gate step precedes every authoring step, so a setup session that dies
   // mid-authoring still leaves the project protected — and the format job's
@@ -1829,11 +1799,14 @@ Deno.test("the brief wires the gate before any authoring, with a refresh before 
   // first gate run is a guaranteed failure.
   assertStringIncludes(brief, "run `discern refresh`");
   assertStringIncludes(brief, "discern prepare --json");
-});
 
-Deno.test("the brief keeps jobs, reporters, and worktree resources honest", async () => {
-  const brief = await Deno.readTextFile(
-    join(REAL_TEMPLATES, "setup", "instructions.md"),
+  assertStringIncludes(
+    brief,
+    "leave a missing but expected protection applicable and absent",
+  );
+  assertStringIncludes(
+    brief,
+    "Do not mark a missing expected protection inapplicable",
   );
 
   assertStringIncludes(brief, "original exit status");
@@ -1845,7 +1818,9 @@ Deno.test("the brief keeps jobs, reporters, and worktree resources honest", asyn
   );
   assertStringIncludes(brief, "tracked binary databases");
   assertStringIncludes(brief, "Cost, durable data, shared credentials");
+});
 
+Deno.test("the config template keeps the smoke example explicit and self-contained", async () => {
   // The config template's smoke example is a placeholder that fails loudly if
   // copied verbatim — the old `node -e 'require(\"./\")'` silently failed on
   // ESM-first projects.
@@ -1861,19 +1836,5 @@ Deno.test("the brief keeps jobs, reporters, and worktree resources honest", asyn
   assert(
     !tmpl.includes("node -e"),
     "the copy-paste-wrong smoke example must not return",
-  );
-});
-
-Deno.test("the brief never marks an expected missing protection inapplicable to improve assurance", async () => {
-  const brief = await Deno.readTextFile(
-    join(REAL_TEMPLATES, "setup", "instructions.md"),
-  );
-  assertStringIncludes(
-    brief,
-    "leave a missing but expected protection applicable and absent",
-  );
-  assertStringIncludes(
-    brief,
-    "Do not mark a missing expected protection inapplicable",
   );
 });

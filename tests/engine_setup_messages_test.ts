@@ -153,6 +153,37 @@ Deno.test("consentMessage carries the verbatim-protected confirmations, relay fa
   assertStringIncludes(msg, WT);
   assertStringIncludes(msg, "--confirmed");
   assert(!msg.includes("--map"), "the consent surface never mentions --map");
+  assert(!msg.includes("already has `docs/`"));
+  // The set is named to the human as a confirmation, not wired silently.
+  assertStringIncludes(
+    msg,
+    "I found Claude Code, Cursor installed on this machine",
+  );
+  assertStringIncludes(
+    msg,
+    "I recommend committing that detected set for this repository",
+  );
+  assertStringIncludes(msg, "not which tool or model is running");
+  assertStringIncludes(msg, "Keep it, or name a different set");
+  // The mechanics ride OUTSIDE the fence, agent-facing, with the REAL effective
+  // set as the example — copied verbatim it wires exactly what would have been
+  // wired anyway, so the example can't mislead.
+  assertStringIncludes(msg, "--agents claude_code,cursor");
+  const fenced = msg.split("end of message")[0] ?? "";
+  assert(
+    !fenced.includes("--agents"),
+    "the --agents mechanics are agent-facing — never inside the relayed message",
+  );
+
+  assert(!msg.includes("git init"), "a git repo needs no git-init step");
+  assertStringIncludes(
+    msg,
+    "Before landing, the main shared version is unchanged",
+  );
+  assertStringIncludes(msg, SETUP_REVERSIBILITY.beforeLanding);
+  assertStringIncludes(msg, SETUP_REVERSIBILITY.uninstall);
+  const words = relayWordCount(msg);
+  assert(words > 0 && words <= 600, `base message body was ${words} words`);
 });
 
 Deno.test("consentMessage reassures about existing docs and never offers to adopt them (ADR 0131)", () => {
@@ -176,46 +207,11 @@ Deno.test("consentMessage reassures about existing docs and never offers to adop
   );
   assert(!withDocs.includes("point discern at your existing docs"));
 
-  const noDocs = consentMessage({
-    worktreePath: WT,
-    ...WORKTREE_ENV,
-    docsExists: false,
-    gitRepo: true,
-    agents: AGENTS,
-  });
-  assert(!noDocs.includes("already has `docs/`"));
-  assert(!noDocs.includes("--map"));
+  const words = relayWordCount(withDocs);
+  assert(words <= 650, `docs message body was ${words} words`);
 });
 
-Deno.test("consentMessage makes the agent set a consent point, with --agents as the mechanism", () => {
-  const detected = consentMessage({
-    worktreePath: WT,
-    ...WORKTREE_ENV,
-    docsExists: false,
-    gitRepo: true,
-    agents: AGENTS,
-  });
-  // The set is named to the human as a confirmation, not wired silently.
-  assertStringIncludes(
-    detected,
-    "I found Claude Code, Cursor installed on this machine",
-  );
-  assertStringIncludes(
-    detected,
-    "I recommend committing that detected set for this repository",
-  );
-  assertStringIncludes(detected, "not which tool or model is running");
-  assertStringIncludes(detected, "Keep it, or name a different set");
-  // The mechanics ride OUTSIDE the fence, agent-facing, with the REAL effective
-  // set as the example — copied verbatim it wires exactly what would have been
-  // wired anyway, so the example can't mislead.
-  assertStringIncludes(detected, "--agents claude_code,cursor");
-  const fenced = detected.split("end of message")[0] ?? "";
-  assert(
-    !fenced.includes("--agents"),
-    "the --agents mechanics are agent-facing — never inside the relayed message",
-  );
-
+Deno.test("consentMessage offers the undetected agent defaults as a consent point", () => {
   // Nothing detected → the defaults are still a consent point, phrased honestly.
   const defaulted = consentMessage({
     worktreePath: WT,
@@ -262,42 +258,14 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
     nonGit,
     "initialize git, re-run `discern setup verify`",
   );
-
-  const withGit = consentMessage({
-    worktreePath: WT,
-    ...WORKTREE_ENV,
-    docsExists: false,
-    gitRepo: true,
-    agents: AGENTS,
-  });
-  assert(!withGit.includes("git init"), "a git repo needs no git-init step");
-  assertStringIncludes(
-    withGit,
-    "Before landing, the main shared version is unchanged",
-  );
 });
 
-Deno.test("consentMessage keeps the itemized message body within its bounded relay budget", () => {
-  // The message the human reads sits between the two fences; the framing line and the
-  // command ride outside it. Keep it short enough to survive a single read — the base
-  // case at the ~430-word target (the relay facts, the honest footprint story with
-  // the provider files acknowledged, the named undo, and the agent-set consent
-  // point), the docs case adding only its one extra reassurance bullet.
-  const wordsOf = (docsExists: boolean): number => {
-    const body = consentMessage({
-      worktreePath: WT,
-      ...WORKTREE_ENV,
-      docsExists,
-      gitRepo: true,
-      agents: AGENTS,
-    })
-      .split("message to your human")[1]?.split("end of message")[0] ?? "";
-    return body.trim().split(/\s+/).filter(Boolean).length;
-  };
-  const base = wordsOf(false);
-  assert(base > 0 && base <= 600, `base message body was ${base} words`);
-  assert(wordsOf(true) <= 650, `docs message body was ${wordsOf(true)} words`);
-});
+/** Count the human relay body, excluding its agent-facing framing and command. */
+function relayWordCount(message: string): number {
+  const body = message.split("message to your human")[1]
+    ?.split("end of message")[0] ?? "";
+  return body.trim().split(/\s+/).filter(Boolean).length;
+}
 
 // ── confirmedBeginCommand ────────────────────────────────────────────────────
 
@@ -394,32 +362,10 @@ function completionContext(
   };
 }
 
-Deno.test("welcome, consent, and completion derive one reversibility authority", () => {
+Deno.test("welcome derives its reversibility wording from the shared authority", () => {
   const welcome = renderFreshWelcome({ tty: false }).join("\n");
-  const consent = consentMessage({
-    worktreePath: WT,
-    ...WORKTREE_ENV,
-    docsExists: false,
-    gitRepo: true,
-    agents: AGENTS,
-  });
-  const completion = completionMessage(completionContext({
-    inRepo: false,
-    branch: "",
-    target: "main",
-    onTarget: false,
-    onSetupBranch: false,
-  }));
   assertStringIncludes(welcome, SETUP_REVERSIBILITY.welcome);
   assertStringIncludes(welcome, SETUP_REVERSIBILITY.uninstall);
-  assertStringIncludes(consent, SETUP_REVERSIBILITY.beforeLanding);
-  assertStringIncludes(consent, SETUP_REVERSIBILITY.uninstall);
-  assertStringIncludes(completion, SETUP_REVERSIBILITY.uninstall);
-  assertStringIncludes(
-    completion,
-    `${PROOF_LINE}\n\n─── end of message`,
-  );
-  assert(!completion.includes(`• ${PROOF_LINE}`));
 });
 
 Deno.test("completionMessage renders honest coverage for each verdict", () => {
@@ -448,6 +394,23 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
   assertStringIncludes(full, "`discern/` folder");
   assertStringIncludes(full, "discern uninstall");
 
+  assertStringIncludes(full, SETUP_REVERSIBILITY.uninstall);
+  assertStringIncludes(
+    full,
+    `${PROOF_LINE}\n\n─── end of message`,
+  );
+  assert(!full.includes(`• ${PROOF_LINE}`));
+  assertStringIncludes(full, "For Claude Code");
+  assertStringIncludes(full, "registered tool inventory");
+  assertStringIncludes(full, "`mcp__discern__discern_status`");
+  assertStringIncludes(full, "`discern doctor`");
+  assertStringIncludes(
+    full,
+    "Only after every applicable activation check succeeds",
+  );
+  assertStringIncludes(full, "project-guide areas (2 total)");
+  assertStringIncludes(full, "Still open (1)");
+
   const partial = completionMessage(completionContext(landing, "partial"));
   assertStringIncludes(partial, "2 of 6 applicable protections");
   assertStringIncludes(
@@ -457,6 +420,7 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
 
   const minimal = completionMessage(completionContext(landing, "minimal"));
   assertStringIncludes(minimal, "No quality checks are wired yet");
+  assertStringIncludes(minimal, "isn't a git repository");
 });
 
 Deno.test("completionMessage adapts the landing recommendation to where the work lives", () => {
@@ -470,16 +434,6 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
     },
   ) => completionMessage(completionContext(landing, "minimal"));
 
-  assertStringIncludes(
-    ctx({
-      inRepo: false,
-      branch: "",
-      target: "main",
-      onTarget: false,
-      onSetupBranch: false,
-    }),
-    "isn't a git repository",
-  );
   assertStringIncludes(
     ctx({
       inRepo: true,
@@ -532,7 +486,7 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
   );
 });
 
-Deno.test("completionMessage withholds restart and improvement until landing, then gives exact activation checks", () => {
+Deno.test("completionMessage withholds activation for missing agents or unlanded setup", () => {
   const landing = {
     inRepo: false,
     branch: "",
@@ -540,17 +494,6 @@ Deno.test("completionMessage withholds restart and improvement until landing, th
     onTarget: false,
     onSetupBranch: false,
   };
-  const withAgents = completionMessage(completionContext(landing));
-  assertStringIncludes(withAgents, "For Claude Code");
-  assertStringIncludes(withAgents, "registered tool inventory");
-  assertStringIncludes(withAgents, "`mcp__discern__discern_status`");
-  assertStringIncludes(withAgents, "`discern doctor`");
-  assertStringIncludes(
-    withAgents,
-    "Only after every applicable activation check succeeds",
-  );
-  assertStringIncludes(withAgents, "project-guide areas (2 total)");
-  assertStringIncludes(withAgents, "Still open (1)");
 
   const noAgents = completionMessage({
     assurance: assurance("full"),

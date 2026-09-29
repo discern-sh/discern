@@ -1,3 +1,4 @@
+import { assertCasesAsync } from "./assert_cases.ts";
 /**
  * Same-major public schema compatibility.
  *
@@ -1920,96 +1921,390 @@ function unannotatedMentions(
   return found;
 }
 
-Deno.test("every publication that names an evolving member annotates it", () => {
-  // Names come from the two authorities: the contract registry's `stability`
-  // field and the config schema's registered metadata. No publication may list
-  // one of these members by name, in any form, without the tier beside it, so
-  // a consumer reading any artifact sees which members are not yet promised.
-  const names = new Set<string>();
-  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
-    if (contract.stability === undefined) continue;
-    names.add(contract.id);
-    names.add(contract.verb);
-    for (const command of contract.commands) names.add(command);
-    if (contract.mcpTool !== undefined) names.add(contract.mcpTool);
-  }
-  for (const [section, schema] of Object.entries(configSchema.shape)) {
-    if (
-      z.globalRegistry.get(schema)?.[PUBLIC_SCHEMA_STABILITY_KEY] ===
-        STABILITY_TIER_EVOLVING
-    ) {
-      names.add(section);
-    }
-  }
-  assert(names.size > 0, "the guard needs at least one evolving member");
-  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
-    const artifact = buildCurrentPublicSchema(publication);
-    assertEquals(
-      unannotatedMentions(artifact, names),
-      [],
-      `${publication.artifactPath} names an evolving member without its tier`,
-    );
-  }
-
-  // The detector sees every form a listing takes: a record's name, a command's
-  // joined path, a property key, and a bare string leaf.
-  const probe = new Set(["voyage_sonar", "worktree sound", "sonar"]);
-  assertEquals(
-    unannotatedMentions({
-      tools: [{ name: "voyage_sonar", [MANIFEST_STABILITY_FIELD]: "evolving" }],
-      commands: [{ path: ["worktree", "sound"], stability: "evolving" }],
-      properties: { sonar: { [PUBLIC_SCHEMA_STABILITY_KEY]: "evolving" } },
-      "x-discern-contracts": [{ verb: "sonar", stability: "evolving" }],
-    }, probe),
-    [],
+Deno.test("every generated public schema preserves its publication and compatibility contracts", async () => {
+  const generated = new Map<string, JsonObject>(
+    PUBLIC_SCHEMA_PUBLICATIONS.map((publication) => [
+      publication.artifactPath,
+      buildCurrentPublicSchema(publication),
+    ]),
   );
-  assertEquals(
-    unannotatedMentions({
-      tools: [{ name: "voyage_sonar" }],
-      commands: [{ path: ["worktree", "sound"] }],
-      properties: { sonar: {} },
-      members: { sonar: true },
-      verbs: ["sonar"],
-    }, probe),
-    [
-      "$.tools[0].name = voyage_sonar",
-      '$.commands[0].path = ["worktree","sound"]',
-      "$.properties.sonar (key)",
-      "$.members.sonar (key)",
-      "$.verbs[0] = sonar",
-    ],
-  );
-});
-
-Deno.test("every live publication still compiles once its evolving members are pruned", () => {
-  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
-    const complete = buildCurrentPublicSchema(publication);
-    const pruned = withoutEvolvingMembers(complete);
-    if (
-      publication.compatibility === CONFIG_SCHEMA_COMPATIBILITY_POLICY ||
-      publication.compatibility === RESULT_SCHEMA_COMPATIBILITY_POLICY
-    ) {
-      assertEquals(
-        compileErrorOrUndefined(pruned),
-        undefined,
-        `${publication.artifactPath} must compile without its evolving members`,
-      );
-    } else {
-      assertEquals(
-        publicManifestValidityIssues(
-          pruned,
-          publication.compatibility,
-          publication.artifactPath,
-        ),
-        [],
-      );
-    }
-    assertEquals(
-      JSON.stringify(pruned).includes(STABILITY_TIER_EVOLVING),
-      false,
-      `${publication.artifactPath} keeps no evolving member after pruning`,
+  const currentSchema = (publication: PublicSchemaPublication): JsonObject => {
+    const schema = generated.get(publication.artifactPath);
+    assert(
+      schema !== undefined,
+      `${publication.artifactPath} must be generated`,
     );
-  }
+    return schema;
+  };
+  const observations = {
+    "every publication that names an evolving member annotates it":
+      (): void => {
+        // Names come from the two authorities: the contract registry's `stability`
+        // field and the config schema's registered metadata. No publication may list
+        // one of these members by name, in any form, without the tier beside it, so
+        // a consumer reading any artifact sees which members are not yet promised.
+        const names = new Set<string>();
+        for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+          if (contract.stability === undefined) continue;
+          names.add(contract.id);
+          names.add(contract.verb);
+          for (const command of contract.commands) names.add(command);
+          if (contract.mcpTool !== undefined) names.add(contract.mcpTool);
+        }
+        for (const [section, schema] of Object.entries(configSchema.shape)) {
+          if (
+            z.globalRegistry.get(schema)?.[PUBLIC_SCHEMA_STABILITY_KEY] ===
+              STABILITY_TIER_EVOLVING
+          ) {
+            names.add(section);
+          }
+        }
+        assert(names.size > 0, "the guard needs at least one evolving member");
+        for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+          const artifact = currentSchema(publication);
+          assertEquals(
+            unannotatedMentions(artifact, names),
+            [],
+            `${publication.artifactPath} names an evolving member without its tier`,
+          );
+        }
+
+        // The detector sees every form a listing takes: a record's name, a command's
+        // joined path, a property key, and a bare string leaf.
+        const probe = new Set(["voyage_sonar", "worktree sound", "sonar"]);
+        assertEquals(
+          unannotatedMentions({
+            tools: [{
+              name: "voyage_sonar",
+              [MANIFEST_STABILITY_FIELD]: "evolving",
+            }],
+            commands: [{ path: ["worktree", "sound"], stability: "evolving" }],
+            properties: {
+              sonar: { [PUBLIC_SCHEMA_STABILITY_KEY]: "evolving" },
+            },
+            "x-discern-contracts": [{ verb: "sonar", stability: "evolving" }],
+          }, probe),
+          [],
+        );
+        assertEquals(
+          unannotatedMentions({
+            tools: [{ name: "voyage_sonar" }],
+            commands: [{ path: ["worktree", "sound"] }],
+            properties: { sonar: {} },
+            members: { sonar: true },
+            verbs: ["sonar"],
+          }, probe),
+          [
+            "$.tools[0].name = voyage_sonar",
+            '$.commands[0].path = ["worktree","sound"]',
+            "$.properties.sonar (key)",
+            "$.members.sonar (key)",
+            "$.verbs[0] = sonar",
+          ],
+        );
+      },
+    "every live publication still compiles once its evolving members are pruned":
+      (): void => {
+        for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+          const complete = currentSchema(publication);
+          const pruned = withoutEvolvingMembers(complete);
+          if (
+            publication.compatibility === CONFIG_SCHEMA_COMPATIBILITY_POLICY ||
+            publication.compatibility === RESULT_SCHEMA_COMPATIBILITY_POLICY
+          ) {
+            assertEquals(
+              compileErrorOrUndefined(pruned),
+              undefined,
+              `${publication.artifactPath} must compile without its evolving members`,
+            );
+          } else {
+            assertEquals(
+              publicManifestValidityIssues(
+                pruned,
+                publication.compatibility,
+                publication.artifactPath,
+              ),
+              [],
+            );
+          }
+          assertEquals(
+            JSON.stringify(pruned).includes(STABILITY_TIER_EVOLVING),
+            false,
+            `${publication.artifactPath} keeps no evolving member after pruning`,
+          );
+        }
+      },
+    "public property and contract-metadata names use the frozen snake_case vocabulary":
+      (): void => {
+        const allowedExternalProperties = {
+          isError: "MCP SDK CallToolResult field",
+          payloadType: "DSSE protocol field",
+          structuredContent: "MCP SDK CallToolResult field",
+        } as const;
+        const observedExternalProperties = new Set<string>();
+        const offenders: string[] = [];
+        for (
+          const publication of PUBLIC_SCHEMA_PUBLICATIONS.filter((entry) =>
+            entry.compatibility === RESULT_SCHEMA_COMPATIBILITY_POLICY
+          )
+        ) {
+          const schema = currentSchema(publication);
+          for (const node of jsonObjects(schema)) {
+            const properties = node.value.properties;
+            if (!isRecord(properties)) continue;
+            for (const property of Object.keys(properties)) {
+              if (/^[a-z][a-z0-9_]*$/.test(property)) {
+                if (property.endsWith("_seconds")) {
+                  offenders.push(
+                    `${publication.artifactPath}:${node.path}.properties.${property} uses _seconds instead of _s`,
+                  );
+                }
+                continue;
+              }
+              if (Object.hasOwn(allowedExternalProperties, property)) {
+                observedExternalProperties.add(property);
+                continue;
+              }
+              offenders.push(
+                `${publication.artifactPath}:${node.path}.properties.${property} is not snake_case`,
+              );
+            }
+          }
+        }
+        assertEquals(offenders, [], offenders.join("\n"));
+        assertEquals(
+          [...observedExternalProperties].sort(),
+          Object.keys(allowedExternalProperties).sort(),
+          "each protocol-owned casing exception must remain live",
+        );
+
+        const resultPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+          entry.artifactPath === "schema/discern-results.schema.json"
+        );
+        assert(resultPublication !== undefined);
+        const contracts = currentSchema(resultPublication)[
+          "x-discern-contracts"
+        ];
+        assert(Array.isArray(contracts));
+        const metadataOffenders = contracts.flatMap((contract, index) =>
+          jsonObjects(contract, `$[${index}]`).flatMap(({ path, value }) =>
+            Object.keys(value)
+              .filter((key) => !/^[a-z][a-z0-9_]*$/.test(key))
+              .map((key) => `${path}.${key}`)
+          )
+        );
+        assertEquals(
+          metadataOffenders,
+          [],
+          `x-discern-contracts metadata must be snake_case:\n${
+            metadataOffenders.join("\n")
+          }`,
+        );
+      },
+    "public definition names never repeat an adjacent semantic segment":
+      (): void => {
+        const offenders: string[] = [];
+        for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+          const schema = currentSchema(publication);
+          const definitions = schema.$defs;
+          if (!isRecord(definitions)) continue;
+          for (const name of Object.keys(definitions)) {
+            const segments = definitionSegments(name);
+            if (
+              segments.some((segment, index) => segment === segments[index - 1])
+            ) {
+              offenders.push(`${publication.artifactPath}:$defs.${name}`);
+            }
+          }
+        }
+        assertEquals(
+          offenders,
+          [],
+          `generated definition names repeat a word segment:\n${
+            offenders.join("\n")
+          }`,
+        );
+      },
+    "private storage registries stay outside the frozen conventions contract":
+      (): void => {
+        const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+          entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
+        );
+        assert(publication !== undefined);
+        const manifest = currentSchema(publication);
+        assert(Object.keys(GIT_ADMIN_STATE).length > 0);
+        assert(Object.keys(ON_DISK_FORMATS).length > 0);
+        assertEquals(Object.hasOwn(manifest, "git_admin_state"), false);
+        assertEquals(Object.hasOwn(manifest, "local_formats"), false);
+      },
+    "verb visibility stays in the CLI manifest and out of conventions":
+      (): void => {
+        const conventionsPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((
+          entry,
+        ) => entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY);
+        const cliPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+          entry.compatibility === CLI_COMPATIBILITY_POLICY
+        );
+        assert(conventionsPublication !== undefined);
+        assert(cliPublication !== undefined);
+        const conventions = currentSchema(conventionsPublication);
+        const cli = currentSchema(cliPublication);
+        assertEquals(Object.hasOwn(conventions, "hidden_verbs"), false);
+        assertEquals(Object.hasOwn(conventions, "shell_only_verbs"), false);
+        assert(Array.isArray(cli.commands));
+        for (const [name, entry] of Object.entries(HIDDEN_VERBS)) {
+          const command = cli.commands.find((candidate) =>
+            isRecord(candidate) && Array.isArray(candidate.path) &&
+            candidate.path.length === 1 && candidate.path[0] === name
+          );
+          assert(isRecord(command), `${name}: missing from CLI manifest`);
+          assertEquals(Object.hasOwn(command, "hidden"), true, name);
+          assertEquals(command.hidden_when, entry.when, name);
+        }
+      },
+    "the conventions manifest omits absent provider capabilities": (): void => {
+      const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+        entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
+      );
+      assert(publication !== undefined);
+      const manifest = currentSchema(publication);
+      assertEquals(nullLeafPaths(manifest), []);
+    },
+    "the conventions manifest publishes Git coordinates without behavior descriptions":
+      (): void => {
+        const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+          entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
+        );
+        assert(publication !== undefined);
+        const manifest = currentSchema(publication);
+        assert(isRecord(manifest.git));
+        assertEquals(
+          Object.keys(manifest.git),
+          Object.keys(GIT_CONVENTIONS).filter((key) =>
+            key !== "bounds" && key !== "no_attribution_effects"
+          ),
+        );
+        assertEquals(Object.hasOwn(manifest.git, "bounds"), false);
+        assertEquals(
+          Object.hasOwn(manifest.git, "no_attribution_effects"),
+          false,
+        );
+        assert(Object.hasOwn(GIT_CONVENTIONS, "bounds"));
+        assert(Object.hasOwn(GIT_CONVENTIONS, "no_attribution_effects"));
+      },
+    "generated public schemas carry their identities and remain compatible with the last tagged publication":
+      async (): Promise<void> => {
+        const baselineTag = await publicSchemaBaselineTag(REPO_ROOT);
+        if (baselineTag === undefined) {
+          assertEquals(
+            initialPublicationIssues(undefined, PUBLIC_SCHEMA_PUBLICATIONS),
+            [],
+          );
+          for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+            const current = currentSchema(publication);
+            assertEquals(
+              publicSchemaPublicationIdentityIssues(current, publication),
+              [],
+              `${publication.artifactPath} must carry its registered public identity`,
+            );
+          }
+          return;
+        }
+        const listed = await runGit(
+          [
+            "ls-tree",
+            "-r",
+            "--name-only",
+            baselineTag,
+            "--",
+            "schema",
+            "src/shared/public_schemas.ts",
+          ],
+          { cwd: REPO_ROOT },
+        );
+        assert(
+          listed.success,
+          `cannot list public schemas from ${baselineTag}: ${listed.stderr}`,
+        );
+        const trunkPaths = new Set(
+          listed.stdout.split("\n").filter((path) => path.length > 0),
+        );
+        const baselineArmed = trunkPaths.has(
+          "src/shared/public_schemas.ts",
+        );
+        assertEquals(
+          initialPublicationIssues(
+            baselineArmed ? baselineTag : undefined,
+            PUBLIC_SCHEMA_PUBLICATIONS,
+          ),
+          [],
+        );
+        const trunkSchemaArtifactPaths = [...trunkPaths].filter((path) =>
+          path.startsWith("schema/") && path.endsWith(".json")
+        );
+        if (baselineArmed) {
+          assertEquals(
+            publicSchemaArtifactEnrollmentIssues(
+              trunkSchemaArtifactPaths,
+              PUBLIC_SCHEMA_PUBLICATIONS,
+            ),
+            [],
+            `${baselineTag} has a public schema artifact that is no longer enrolled`,
+          );
+        }
+
+        for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+          const current = currentSchema(publication);
+          if (
+            publication.compatibility === CONFIG_SCHEMA_COMPATIBILITY_POLICY ||
+            publication.compatibility === RESULT_SCHEMA_COMPATIBILITY_POLICY
+          ) {
+            assertEquals(
+              compileErrorOrUndefined(current),
+              undefined,
+              `${publication.artifactPath} must be valid JSON Schema draft 2020-12`,
+            );
+          }
+          assertEquals(
+            publicSchemaPublicationIdentityIssues(current, publication),
+            [],
+            `${publication.artifactPath} must carry its registered public identity`,
+          );
+          if (
+            !baselineArmed ||
+            !trunkPaths.has(publication.artifactPath)
+          ) {
+            continue;
+          }
+          const previousResult = await runGit(
+            ["show", `${baselineTag}:${publication.artifactPath}`],
+            { cwd: REPO_ROOT },
+          );
+          assert(
+            previousResult.success,
+            `cannot read ${publication.artifactPath} from ${baselineTag}: ${previousResult.stderr}`,
+          );
+          const previous = decodeWith(JsonObjectSchema, previousResult.stdout);
+          assertEquals(
+            publicSchemaPublicationCompatibilityIssues(
+              previous,
+              current,
+              publication,
+            ),
+            [],
+            `${publication.artifactPath} breaks or evades its registered public contract from ${baselineTag}`,
+          );
+        }
+      },
+  };
+  await assertCasesAsync(
+    Object.entries(observations),
+    ([label]) => label,
+    async ([, observe]) => {
+      await observe();
+      return undefined;
+    },
+  );
 });
 
 Deno.test("input enums are append-only while closed output enums are frozen in both directions", () => {
@@ -2918,95 +3213,6 @@ Deno.test("schema publication paths keep every trunk artifact enrolled while all
   );
 });
 
-Deno.test("public property and contract-metadata names use the frozen snake_case vocabulary", () => {
-  const allowedExternalProperties = {
-    isError: "MCP SDK CallToolResult field",
-    payloadType: "DSSE protocol field",
-    structuredContent: "MCP SDK CallToolResult field",
-  } as const;
-  const observedExternalProperties = new Set<string>();
-  const offenders: string[] = [];
-  for (
-    const publication of PUBLIC_SCHEMA_PUBLICATIONS.filter((entry) =>
-      entry.compatibility === RESULT_SCHEMA_COMPATIBILITY_POLICY
-    )
-  ) {
-    const schema = buildCurrentPublicSchema(publication);
-    for (const node of jsonObjects(schema)) {
-      const properties = node.value.properties;
-      if (!isRecord(properties)) continue;
-      for (const property of Object.keys(properties)) {
-        if (/^[a-z][a-z0-9_]*$/.test(property)) {
-          if (property.endsWith("_seconds")) {
-            offenders.push(
-              `${publication.artifactPath}:${node.path}.properties.${property} uses _seconds instead of _s`,
-            );
-          }
-          continue;
-        }
-        if (Object.hasOwn(allowedExternalProperties, property)) {
-          observedExternalProperties.add(property);
-          continue;
-        }
-        offenders.push(
-          `${publication.artifactPath}:${node.path}.properties.${property} is not snake_case`,
-        );
-      }
-    }
-  }
-  assertEquals(offenders, [], offenders.join("\n"));
-  assertEquals(
-    [...observedExternalProperties].sort(),
-    Object.keys(allowedExternalProperties).sort(),
-    "each protocol-owned casing exception must remain live",
-  );
-
-  const resultPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
-    entry.artifactPath === "schema/discern-results.schema.json"
-  );
-  assert(resultPublication !== undefined);
-  const contracts = buildCurrentPublicSchema(resultPublication)[
-    "x-discern-contracts"
-  ];
-  assert(Array.isArray(contracts));
-  const metadataOffenders = contracts.flatMap((contract, index) =>
-    jsonObjects(contract, `$[${index}]`).flatMap(({ path, value }) =>
-      Object.keys(value)
-        .filter((key) => !/^[a-z][a-z0-9_]*$/.test(key))
-        .map((key) => `${path}.${key}`)
-    )
-  );
-  assertEquals(
-    metadataOffenders,
-    [],
-    `x-discern-contracts metadata must be snake_case:\n${
-      metadataOffenders.join("\n")
-    }`,
-  );
-});
-
-Deno.test("public definition names never repeat an adjacent semantic segment", () => {
-  const offenders: string[] = [];
-  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
-    const schema = buildCurrentPublicSchema(publication);
-    const definitions = schema.$defs;
-    if (!isRecord(definitions)) continue;
-    for (const name of Object.keys(definitions)) {
-      const segments = definitionSegments(name);
-      if (segments.some((segment, index) => segment === segments[index - 1])) {
-        offenders.push(`${publication.artifactPath}:$defs.${name}`);
-      }
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    `generated definition names repeat a word segment:\n${
-      offenders.join("\n")
-    }`,
-  );
-});
-
 Deno.test("the MCP manifest permits only append-only tools and optional request inputs", () => {
   const previous: JsonObject = {
     format: 1,
@@ -3389,71 +3595,6 @@ Deno.test("MCP documentation changes traverse schema children without relaxing t
   }
 });
 
-Deno.test("private storage registries stay outside the frozen conventions contract", () => {
-  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
-    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
-  );
-  assert(publication !== undefined);
-  const manifest = buildCurrentPublicSchema(publication);
-  assert(Object.keys(GIT_ADMIN_STATE).length > 0);
-  assert(Object.keys(ON_DISK_FORMATS).length > 0);
-  assertEquals(Object.hasOwn(manifest, "git_admin_state"), false);
-  assertEquals(Object.hasOwn(manifest, "local_formats"), false);
-});
-
-Deno.test("verb visibility stays in the CLI manifest and out of conventions", () => {
-  const conventionsPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
-    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
-  );
-  const cliPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
-    entry.compatibility === CLI_COMPATIBILITY_POLICY
-  );
-  assert(conventionsPublication !== undefined);
-  assert(cliPublication !== undefined);
-  const conventions = buildCurrentPublicSchema(conventionsPublication);
-  const cli = buildCurrentPublicSchema(cliPublication);
-  assertEquals(Object.hasOwn(conventions, "hidden_verbs"), false);
-  assertEquals(Object.hasOwn(conventions, "shell_only_verbs"), false);
-  assert(Array.isArray(cli.commands));
-  for (const [name, entry] of Object.entries(HIDDEN_VERBS)) {
-    const command = cli.commands.find((candidate) =>
-      isRecord(candidate) && Array.isArray(candidate.path) &&
-      candidate.path.length === 1 && candidate.path[0] === name
-    );
-    assert(isRecord(command), `${name}: missing from CLI manifest`);
-    assertEquals(Object.hasOwn(command, "hidden"), true, name);
-    assertEquals(command.hidden_when, entry.when, name);
-  }
-});
-
-Deno.test("the conventions manifest omits absent provider capabilities", () => {
-  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
-    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
-  );
-  assert(publication !== undefined);
-  const manifest = buildCurrentPublicSchema(publication);
-  assertEquals(nullLeafPaths(manifest), []);
-});
-
-Deno.test("the conventions manifest publishes Git coordinates without behavior descriptions", () => {
-  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
-    entry.compatibility === CONVENTIONS_COMPATIBILITY_POLICY
-  );
-  assert(publication !== undefined);
-  const manifest = buildCurrentPublicSchema(publication);
-  assert(isRecord(manifest.git));
-  assertEquals(
-    Object.keys(manifest.git),
-    Object.keys(GIT_CONVENTIONS).filter((key) =>
-      key !== "bounds" && key !== "no_attribution_effects"
-    ),
-  );
-  assertEquals(Object.hasOwn(manifest.git, "bounds"), false);
-  assertEquals(Object.hasOwn(manifest.git, "no_attribution_effects"), false);
-  assert(Object.hasOwn(GIT_CONVENTIONS, "bounds"));
-  assert(Object.hasOwn(GIT_CONVENTIONS, "no_attribution_effects"));
-});
-
 Deno.test("the schema baseline is the highest predecessor version tag, never a release candidate at HEAD", async () => {
   await withTempDir(async (repo) => {
     await Deno.writeTextFile(`${repo}/README.md`, "schema tag fixture\n");
@@ -3608,108 +3749,4 @@ Deno.test("every publication starts at major one before and at its first release
       }
     }
   });
-});
-
-Deno.test("generated public schemas carry their identities and remain compatible with the last tagged publication", async () => {
-  const baselineTag = await publicSchemaBaselineTag(REPO_ROOT);
-  if (baselineTag === undefined) {
-    assertEquals(
-      initialPublicationIssues(undefined, PUBLIC_SCHEMA_PUBLICATIONS),
-      [],
-    );
-    for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
-      const current = buildCurrentPublicSchema(publication);
-      assertEquals(
-        publicSchemaPublicationIdentityIssues(current, publication),
-        [],
-        `${publication.artifactPath} must carry its registered public identity`,
-      );
-    }
-    return;
-  }
-  const listed = await runGit(
-    [
-      "ls-tree",
-      "-r",
-      "--name-only",
-      baselineTag,
-      "--",
-      "schema",
-      "src/shared/public_schemas.ts",
-    ],
-    { cwd: REPO_ROOT },
-  );
-  assert(
-    listed.success,
-    `cannot list public schemas from ${baselineTag}: ${listed.stderr}`,
-  );
-  const trunkPaths = new Set(
-    listed.stdout.split("\n").filter((path) => path.length > 0),
-  );
-  const baselineArmed = trunkPaths.has(
-    "src/shared/public_schemas.ts",
-  );
-  assertEquals(
-    initialPublicationIssues(
-      baselineArmed ? baselineTag : undefined,
-      PUBLIC_SCHEMA_PUBLICATIONS,
-    ),
-    [],
-  );
-  const trunkSchemaArtifactPaths = [...trunkPaths].filter((path) =>
-    path.startsWith("schema/") && path.endsWith(".json")
-  );
-  if (baselineArmed) {
-    assertEquals(
-      publicSchemaArtifactEnrollmentIssues(
-        trunkSchemaArtifactPaths,
-        PUBLIC_SCHEMA_PUBLICATIONS,
-      ),
-      [],
-      `${baselineTag} has a public schema artifact that is no longer enrolled`,
-    );
-  }
-
-  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
-    const current = buildCurrentPublicSchema(publication);
-    if (
-      publication.compatibility === CONFIG_SCHEMA_COMPATIBILITY_POLICY ||
-      publication.compatibility === RESULT_SCHEMA_COMPATIBILITY_POLICY
-    ) {
-      assertEquals(
-        compileErrorOrUndefined(current),
-        undefined,
-        `${publication.artifactPath} must be valid JSON Schema draft 2020-12`,
-      );
-    }
-    assertEquals(
-      publicSchemaPublicationIdentityIssues(current, publication),
-      [],
-      `${publication.artifactPath} must carry its registered public identity`,
-    );
-    if (
-      !baselineArmed ||
-      !trunkPaths.has(publication.artifactPath)
-    ) {
-      continue;
-    }
-    const previousResult = await runGit(
-      ["show", `${baselineTag}:${publication.artifactPath}`],
-      { cwd: REPO_ROOT },
-    );
-    assert(
-      previousResult.success,
-      `cannot read ${publication.artifactPath} from ${baselineTag}: ${previousResult.stderr}`,
-    );
-    const previous = decodeWith(JsonObjectSchema, previousResult.stdout);
-    assertEquals(
-      publicSchemaPublicationCompatibilityIssues(
-        previous,
-        current,
-        publication,
-      ),
-      [],
-      `${publication.artifactPath} breaks or evades its registered public contract from ${baselineTag}`,
-    );
-  }
 });

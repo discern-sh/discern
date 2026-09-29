@@ -1,3 +1,4 @@
+import { assertCasesAsync } from "./assert_cases.ts";
 /**
  * The committed config artifacts stay in lockstep with their generators: the
  * JSON Schemas and the generated reference pages must equal the codegen output
@@ -122,333 +123,459 @@ function assertSchemaAccepts(
 // Zod schema (ADR 0026): a schema change that isn't regenerated (`deno task
 // codegen`) fails here, in the gate's test stage — the drift guard.
 
-Deno.test("schema/discern-config.schema.json matches the generator (run `deno task codegen`)", async () => {
-  const committed = await Deno.readTextFile(
-    new URL("../schema/discern-config.schema.json", import.meta.url),
-  );
-  assertEquals(
-    committed,
-    renderConfigSchemaJson(),
-    "schema/discern-config.schema.json is stale — run `deno task codegen`",
-  );
-});
-
-Deno.test("schema/discern-setup-config.schema.json matches the generator (run `deno task codegen`)", async () => {
-  const committed = await Deno.readTextFile(
-    new URL("../schema/discern-setup-config.schema.json", import.meta.url),
-  );
-  assertEquals(
-    committed,
-    renderConfigDocSchemaJson(),
-    "schema/discern-setup-config.schema.json is stale — run `deno task codegen`",
-  );
-});
-
-Deno.test("generated configuration schemas compile in strict mode", () => {
-  const ajv = new Ajv2020({
-    allErrors: true,
-    strict: true,
-    validateSchema: true,
-  });
-  for (const keyword of PUBLIC_SCHEMA_EXTENSION_KEYWORDS) {
-    ajv.addKeyword(keyword);
-  }
-  ajv.compile(decodeWith(JsonObjectSchema, renderConfigSchemaJson()));
-  ajv.compile(decodeWith(JsonObjectSchema, renderConfigDocSchemaJson()));
-});
-
-Deno.test("section stability in the published config schema comes from the schema's registered metadata", () => {
-  // The Zod schema is the one authority for which sections are evolving: the
-  // generated node carries exactly the tier its section registered, and no
-  // section acquires a tier from anywhere else. A hand-kept key list in the
-  // generator would let the two disagree; parity over every section forbids it.
-  const published = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
-  const properties = published.properties;
-  assert(isJsonObject(properties), "the config schema publishes sections");
-  const evolving: string[] = [];
-  for (const [section, schema] of Object.entries(configSchema.shape)) {
-    const registered = z.globalRegistry.get(schema)?.[
-      PUBLIC_SCHEMA_STABILITY_KEY
-    ];
-    const node = properties[section];
-    assert(isJsonObject(node), `[${section}] is a published section`);
-    assertEquals(
-      node[PUBLIC_SCHEMA_STABILITY_KEY],
-      registered,
-      `[${section}] publishes the tier its schema registered`,
-    );
-    if (registered === STABILITY_TIER_EVOLVING) evolving.push(section);
-  }
-  assert(
-    evolving.length > 0,
-    "at least one section must be evolving for the projection to be exercised",
-  );
-  assert(
-    PUBLIC_SCHEMA_EXTENSION_KEYWORDS.includes(PUBLIC_SCHEMA_STABILITY_KEY),
-    "the stability keyword must be accepted by strict public-schema compilers",
-  );
-});
-
-Deno.test("the generated config schemas fix the two historical staleness bugs", () => {
-  const artifacts = [
-    {
-      name: "live config",
-      json: renderConfigSchemaJson(),
-      id: CONFIG_SCHEMA_ID,
+Deno.test("generated configuration publications match their sources and preserve every contract", async () => {
+  const generated = {
+    liveJson: renderConfigSchemaJson(),
+    setupJson: renderConfigDocSchemaJson(),
+    reference: renderManualConfigReferenceDoc(),
+  };
+  const observations = {
+    "schema/discern-config.schema.json matches the generator (run `deno task codegen`)":
+      async (): Promise<void> => {
+        const committed = await Deno.readTextFile(
+          new URL("../schema/discern-config.schema.json", import.meta.url),
+        );
+        assertEquals(
+          committed,
+          generated.liveJson,
+          "schema/discern-config.schema.json is stale — run `deno task codegen`",
+        );
+      },
+    "schema/discern-setup-config.schema.json matches the generator (run `deno task codegen`)":
+      async (): Promise<void> => {
+        const committed = await Deno.readTextFile(
+          new URL(
+            "../schema/discern-setup-config.schema.json",
+            import.meta.url,
+          ),
+        );
+        assertEquals(
+          committed,
+          generated.setupJson,
+          "schema/discern-setup-config.schema.json is stale — run `deno task codegen`",
+        );
+      },
+    "generated configuration schemas compile in strict mode": (): void => {
+      const ajv = new Ajv2020({
+        allErrors: true,
+        strict: true,
+        validateSchema: true,
+      });
+      for (const keyword of PUBLIC_SCHEMA_EXTENSION_KEYWORDS) {
+        ajv.addKeyword(keyword);
+      }
+      ajv.compile(decodeWith(JsonObjectSchema, generated.liveJson));
+      ajv.compile(decodeWith(JsonObjectSchema, generated.setupJson));
     },
-    {
-      name: "setup config document",
-      json: renderConfigDocSchemaJson(),
-      id: SETUP_CONFIG_SCHEMA_ID,
-    },
-  ];
-  for (const { name, json, id } of artifacts) {
-    const schema = decodeWith(JsonObjectSchema, json);
-    // Bug 2: no reference to the abolished `.discern/config.toml` path anywhere.
-    assert(
-      !json.includes(".discern"),
-      `${name}: must not reference any .discern/ path`,
-    );
-    assertEquals(schema.$id, id, name);
-    assertEquals(
-      schema[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY],
-      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
-      name,
-    );
-    // Both schemas are strict (an editor flags a typo'd key).
-    assertEquals(schema.additionalProperties, false, name);
-  }
-  // Bug 1: the document's agents enum must include gemini (KNOWN_AGENTS, not
-  // just two). The live schema's [project].agents enums the same catalogue, so
-  // the two schemas share one provider-name authority.
-  assert(
-    renderConfigDocSchemaJson().includes('"gemini"'),
-    "the setup document's agents enum must include gemini",
-  );
-});
+    "section stability in the published config schema comes from the schema's registered metadata":
+      (): void => {
+        // The Zod schema is the one authority for which sections are evolving: the
+        // generated node carries exactly the tier its section registered, and no
+        // section acquires a tier from anywhere else. A hand-kept key list in the
+        // generator would let the two disagree; parity over every section forbids it.
+        const published = decodeWith(JsonObjectSchema, generated.liveJson);
+        const properties = published.properties;
+        assert(
+          isJsonObject(properties),
+          "the config schema publishes sections",
+        );
+        const evolving: string[] = [];
+        for (const [section, schema] of Object.entries(configSchema.shape)) {
+          const registered = z.globalRegistry.get(schema)?.[
+            PUBLIC_SCHEMA_STABILITY_KEY
+          ];
+          const node = properties[section];
+          assert(isJsonObject(node), `[${section}] is a published section`);
+          assertEquals(
+            node[PUBLIC_SCHEMA_STABILITY_KEY],
+            registered,
+            `[${section}] publishes the tier its schema registered`,
+          );
+          if (registered === STABILITY_TIER_EVOLVING) evolving.push(section);
+        }
+        assert(
+          evolving.length > 0,
+          "at least one section must be evolving for the projection to be exercised",
+        );
+        assert(
+          PUBLIC_SCHEMA_EXTENSION_KEYWORDS.includes(
+            PUBLIC_SCHEMA_STABILITY_KEY,
+          ),
+          "the stability keyword must be accepted by strict public-schema compilers",
+        );
+      },
+    "the generated config schemas fix the two historical staleness bugs":
+      (): void => {
+        const artifacts = [
+          {
+            name: "live config",
+            json: generated.liveJson,
+            id: CONFIG_SCHEMA_ID,
+          },
+          {
+            name: "setup config document",
+            json: generated.setupJson,
+            id: SETUP_CONFIG_SCHEMA_ID,
+          },
+        ];
+        for (const { name, json, id } of artifacts) {
+          const schema = decodeWith(JsonObjectSchema, json);
+          // Bug 2: no reference to the abolished `.discern/config.toml` path anywhere.
+          assert(
+            !json.includes(".discern"),
+            `${name}: must not reference any .discern/ path`,
+          );
+          assertEquals(schema.$id, id, name);
+          assertEquals(
+            schema[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY],
+            CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+            name,
+          );
+          // Both schemas are strict (an editor flags a typo'd key).
+          assertEquals(schema.additionalProperties, false, name);
+        }
+        // Bug 1: the document's agents enum must include gemini (KNOWN_AGENTS, not
+        // just two). The live schema's [project].agents enums the same catalogue, so
+        // the two schemas share one provider-name authority.
+        assert(
+          generated.setupJson.includes('"gemini"'),
+          "the setup document's agents enum must include gemini",
+        );
+      },
+    "the generated config schema publishes path and uniqueness rules":
+      (): void => {
+        const live = decodeWith(JsonObjectSchema, generated.liveJson);
+        for (const source of Object.values(SOURCE_PATHS)) {
+          if (source.key === null) continue;
+          const node = schemaNodeAt(live, source.key);
+          const pathNode = source.key === "instructions.sources"
+            ? node.items
+            : node;
+          assert(isJsonObject(pathNode), `${source.key} has no item schema`);
+          assert(
+            typeof pathNode.pattern === "string" && pathNode.pattern !== "",
+            `${source.key} must publish its path pattern`,
+          );
+        }
 
-Deno.test("the generated config schema publishes path and uniqueness rules", () => {
-  const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
-  for (const source of Object.values(SOURCE_PATHS)) {
-    if (source.key === null) continue;
-    const node = schemaNodeAt(live, source.key);
-    const pathNode = source.key === "instructions.sources" ? node.items : node;
-    assert(isJsonObject(pathNode), `${source.key} has no item schema`);
-    assert(
-      typeof pathNode.pattern === "string" && pathNode.pattern !== "",
-      `${source.key} must publish its path pattern`,
-    );
-  }
+        const envFiles = schemaNodeAt(live, "worktree.env_files");
+        assertEquals(envFiles.uniqueItems, true);
+        assert(isJsonObject(envFiles.items));
+        assert(
+          typeof envFiles.items.pattern === "string" &&
+            envFiles.items.pattern !== "",
+          "worktree.env_files items must publish their path pattern",
+        );
 
-  const envFiles = schemaNodeAt(live, "worktree.env_files");
-  assertEquals(envFiles.uniqueItems, true);
-  assert(isJsonObject(envFiles.items));
-  assert(
-    typeof envFiles.items.pattern === "string" &&
-      envFiles.items.pattern !== "",
-    "worktree.env_files items must publish their path pattern",
-  );
+        const setup = decodeWith(JsonObjectSchema, generated.setupJson);
+        const setupMapDir = schemaNodeAt(setup, "map.dir");
+        assert(
+          typeof setupMapDir.pattern === "string" && setupMapDir.pattern !== "",
+          "the setup document must publish map.dir's path pattern",
+        );
 
-  const setup = decodeWith(JsonObjectSchema, renderConfigDocSchemaJson());
-  const setupMapDir = schemaNodeAt(setup, "map.dir");
-  assert(
-    typeof setupMapDir.pattern === "string" && setupMapDir.pattern !== "",
-    "the setup document must publish map.dir's path pattern",
-  );
+        const validate = new Ajv2020({
+          allErrors: true,
+          strict: false,
+          validateSchema: true,
+        }).compile(live);
+        assertSchemaAccepts(validate, {
+          meta: { schema_version: SCHEMA_VERSION },
+          project: { todo: "././TODO.md" },
+          instructions: { sources: ["././instructions.md", "./docs/**/*.md"] },
+          skills: { dir: "././playbooks/" },
+          map: { dir: "././docs/map" },
+          scripts: { dir: "tools/" },
+          worktree: { env_files: ["././runtime", "config/secrets"] },
+        });
+        assertEquals(
+          validate({
+            meta: { schema_version: SCHEMA_VERSION },
+            project: { todo: "../TODO.md" },
+          }),
+          false,
+        );
+        assertEquals(
+          validate({
+            meta: { schema_version: SCHEMA_VERSION },
+            project: { todo: "nested/.git/TODO.md" },
+          }),
+          false,
+        );
+        assertEquals(
+          validate({
+            meta: { schema_version: SCHEMA_VERSION },
+            worktree: { env_files: ["runtime", "runtime"] },
+          }),
+          false,
+        );
+      },
+    "the generated jobs object exposes known names and the custom table arm":
+      (): void => {
+        const schema = decodeWith(JsonObjectSchema, generated.setupJson);
+        const jobs = schemaNodeAt(schema, "jobs");
+        assert(Array.isArray(jobs.allOf), "jobs must publish allOf arms");
+        const named = jobs.allOf.find((arm) => isJsonObject(arm.properties));
+        assert(named !== undefined);
+        const properties = named.properties as Record<string, unknown>;
+        // The fixed properties enumerate EXACTLY the known-name vocabulary, while
+        // additionalProperties carries the stage-bearing custom table.
+        assertEquals(
+          Object.keys(properties).sort(),
+          Object.keys(KNOWN_JOBS).sort(),
+        );
+        assertEquals(named.required, undefined);
+        const custom = named.additionalProperties;
+        assert(isJsonObject(custom));
+        assertEquals(custom.required, ["stage", "run"]);
+        const patterned = jobs.allOf.find((arm) =>
+          isJsonObject(arm.propertyNames)
+        );
+        assert(
+          patterned !== undefined,
+          "job names must carry the shared key pattern",
+        );
+      },
+    "the generated applicability list enrolls exactly the canonical known jobs":
+      (): void => {
+        const live = decodeWith(JsonObjectSchema, generated.liveJson);
+        const notApplicable = schemaNodeAt(live, "setup.not_applicable");
+        assertEquals(notApplicable.uniqueItems, true);
+        assert(isJsonObject(notApplicable.items));
+        assertEquals(
+          (() => {
+            const values = notApplicable.items.enum;
+            assert(
+              Array.isArray(values) &&
+                values.every((value) => typeof value === "string"),
+              "setup.not_applicable items must publish a string enum",
+            );
+            return [...values].sort();
+          })(),
+          Object.keys(KNOWN_JOBS).sort(),
+        );
+      },
+    "published config metadata has one discern-written ownership authority":
+      async (): Promise<void> => {
+        const live = decodeWith(JsonObjectSchema, generated.liveJson);
+        assert(
+          Array.isArray(live.required) && live.required.includes("meta"),
+          "the public config contract must require [meta]",
+        );
+        const meta = schemaNodeAt(live, "meta");
+        assert(
+          Array.isArray(meta.required) &&
+            meta.required.includes("schema_version"),
+          "the public config contract must require [meta].schema_version",
+        );
+        assert(isJsonObject(meta.properties));
+        assertEquals(
+          Object.keys(meta.properties),
+          DISCERN_WRITTEN_META_KEYS,
+          "every public [meta] key must be classified exactly once",
+        );
+        const reference = generated.reference;
+        for (const key of DISCERN_WRITTEN_META_KEYS) {
+          const node = meta.properties[key];
+          assert(isJsonObject(node), `meta.${key} has no public schema node`);
+          assertEquals(node.readOnly, true, key);
+          const row = reference.split("\n").find((line) =>
+            line.startsWith(`| \`${key}\``)
+          );
+          assert(row?.includes("Written by discern."), `meta.${key}: ${row}`);
+        }
 
-  const validate = new Ajv2020({
-    allErrors: true,
-    strict: false,
-    validateSchema: true,
-  }).compile(live);
-  assertSchemaAccepts(validate, {
-    meta: { schema_version: SCHEMA_VERSION },
-    project: { todo: "././TODO.md" },
-    instructions: { sources: ["././instructions.md", "./docs/**/*.md"] },
-    skills: { dir: "././playbooks/" },
-    map: { dir: "././docs/map" },
-    scripts: { dir: "tools/" },
-    worktree: { env_files: ["././runtime", "config/secrets"] },
-  });
-  assertEquals(
-    validate({
-      meta: { schema_version: SCHEMA_VERSION },
-      project: { todo: "../TODO.md" },
-    }),
-    false,
-  );
-  assertEquals(
-    validate({
-      meta: { schema_version: SCHEMA_VERSION },
-      project: { todo: "nested/.git/TODO.md" },
-    }),
-    false,
-  );
-  assertEquals(
-    validate({
-      meta: { schema_version: SCHEMA_VERSION },
-      worktree: { env_files: ["runtime", "runtime"] },
-    }),
-    false,
-  );
-});
-
-Deno.test("the generated jobs object exposes known names and the custom table arm", () => {
-  const schema = decodeWith(JsonObjectSchema, renderConfigDocSchemaJson());
-  const jobs = schemaNodeAt(schema, "jobs");
-  assert(Array.isArray(jobs.allOf), "jobs must publish allOf arms");
-  const named = jobs.allOf.find((arm) => isJsonObject(arm.properties));
-  assert(named !== undefined);
-  const properties = named.properties as Record<string, unknown>;
-  // The fixed properties enumerate EXACTLY the known-name vocabulary, while
-  // additionalProperties carries the stage-bearing custom table.
-  assertEquals(
-    Object.keys(properties).sort(),
-    Object.keys(KNOWN_JOBS).sort(),
-  );
-  assertEquals(named.required, undefined);
-  const custom = named.additionalProperties;
-  assert(isJsonObject(custom));
-  assertEquals(custom.required, ["stage", "run"]);
-  const patterned = jobs.allOf.find((arm) => isJsonObject(arm.propertyNames));
-  assert(
-    patterned !== undefined,
-    "job names must carry the shared key pattern",
-  );
-});
-
-Deno.test("the generated applicability list enrolls exactly the canonical known jobs", () => {
-  const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
-  const notApplicable = schemaNodeAt(live, "setup.not_applicable");
-  assertEquals(notApplicable.uniqueItems, true);
-  assert(isJsonObject(notApplicable.items));
-  assertEquals(
-    (() => {
-      const values = notApplicable.items.enum;
+        const rendered = parseToml(await renderedTemplate());
+        assert(isJsonObject(rendered.meta));
+        for (const [key, policy] of Object.entries(DISCERN_WRITTEN_META)) {
+          assertEquals(
+            Object.hasOwn(rendered.meta, key),
+            policy.template === "render",
+            `meta.${key} template projection`,
+          );
+        }
+        assertEquals(
+          TEMPLATE_OMITTED_META_KEYS,
+          DISCERN_WRITTEN_META_KEYS.filter((key) =>
+            DISCERN_WRITTEN_META[key].template === "omit"
+          ),
+        );
+      },
+    "every public numeric config leaf publishes a lower bound": (): void => {
+      const live = decodeWith(JsonObjectSchema, generated.liveJson);
+      const unbounded: string[] = [];
+      let numericLeaves = 0;
+      const walk = (value: unknown, path: string): void => {
+        if (Array.isArray(value)) {
+          value.forEach((item, index) => walk(item, `${path}[${index}]`));
+          return;
+        }
+        if (!isJsonObject(value)) return;
+        if (value.type === "number" || value.type === "integer") {
+          numericLeaves += 1;
+          if (
+            typeof value.minimum !== "number" &&
+            typeof value.exclusiveMinimum !== "number"
+          ) {
+            unbounded.push(path);
+          }
+        }
+        for (const [key, child] of Object.entries(value)) {
+          walk(child, path === "" ? key : `${path}.${key}`);
+        }
+      };
+      walk(live, "");
       assert(
-        Array.isArray(values) &&
-          values.every((value) => typeof value === "string"),
-        "setup.not_applicable items must publish a string enum",
+        numericLeaves > 10,
+        "the structural walk found numeric config keys",
       );
-      return [...values].sort();
-    })(),
-    Object.keys(KNOWN_JOBS).sort(),
-  );
-});
+      assertEquals(unbounded, []);
+    },
+    "named config tables use only the canonical <name> placeholder":
+      (): void => {
+        const schemas = [
+          decodeWith(JsonObjectSchema, generated.liveJson),
+          decodeWith(JsonObjectSchema, generated.setupJson),
+        ];
+        const wrong: string[] = [];
+        let placeholders = 0;
+        const walk = (value: unknown, path: string): void => {
+          if (Array.isArray(value)) {
+            value.forEach((item, index) => walk(item, `${path}[${index}]`));
+            return;
+          }
+          if (!isJsonObject(value)) return;
+          if (typeof value.description === "string") {
+            for (
+              const match of value.description.matchAll(
+                /\[[^\]\n]*\.<([^>]+)>\]/g,
+              )
+            ) {
+              placeholders += 1;
+              if (match[1] !== "name") wrong.push(`${path}: <${match[1]}>`);
+            }
+          }
+          for (const [key, child] of Object.entries(value)) {
+            walk(child, path === "" ? key : `${path}.${key}`);
+          }
+        };
+        schemas.forEach((schema, index) => walk(schema, `schema[${index}]`));
+        assert(
+          placeholders >= 5,
+          "the walk found the named-table descriptions",
+        );
+        assertEquals(wrong, []);
+      },
+    "Proof-note modes publish their exact local-recording semantics":
+      (): void => {
+        const live = decodeWith(JsonObjectSchema, generated.liveJson);
+        const proofNotes = schemaNodeAt(live, "repository.proof_notes_mode");
+        assertEquals(proofNotes.enum, ["local", "fetch"]);
+        const description = String(proofNotes.description ?? "");
+        for (
+          const fact of ["Both modes record", '"fetch"', "Publishing", "no off"]
+        ) {
+          assertStringIncludes(description, fact);
+        }
+      },
+    "the public manual's config reference matches the live schema projection":
+      async (): Promise<void> => {
+        const tree = await discoverDocs({
+          cwd: REPO_ROOT,
+          dir: REPO_AUTHORED_PATHS.manual,
+        });
+        assert(tree !== undefined);
+        const manual = await buildManualProjection(tree.entries);
+        const path =
+          `${REPO_AUTHORED_PATHS.manual}/30-reference/config-reference.md`;
+        const rendered = renderGeneratedManualDocument(
+          generated.reference,
+          "70-reference/config-reference.md",
+          "30-reference/config-reference.md",
+          { id: "reference-config", order: 30 },
+          manual,
+        );
+        assertEquals(
+          await Deno.readTextFile(path),
+          await canonicalGeneratedMarkdown(path, rendered),
+          `${REPO_AUTHORED_PATHS.manualRel}/30-reference/config-reference.md is stale — run \`deno task codegen\``,
+        );
+      },
+    "the generated config reference carries the section's full frontmatter":
+      (): void => {
+        const doc = generated.reference;
+        assertStringIncludes(doc, "title: Config reference");
+        assertStringIncludes(doc, "publish: true");
+        assertStringIncludes(doc, "  - discern.toml");
+        assertStringIncludes(doc, "  - worktree.resources.<name>.create");
+      },
+    "the docs reference documents every section, with its describe() prose":
+      (): void => {
+        const doc = generated.reference;
+        for (const section of configSectionNames()) {
+          assert(
+            doc.includes(`\`[${section}`),
+            `config-reference should document the [${section}] section`,
+          );
+        }
+        // section prose renders verbatim from the registry the schema reads
+        assertStringIncludes(doc, CONFIG_PROSE.standards.what);
+        assertStringIncludes(doc, CONFIG_PROSE.worktree.what);
+        assertStringIncludes(
+          doc,
+          "Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger.",
+        );
+        assertStringIncludes(
+          doc,
+          "`discern upgrade` leaves existing named scopes as they are.",
+        );
+        assertStringIncludes(
+          doc,
+          "(`added` \\| `modified` \\| `deleted`)[]",
+        );
+      },
+    "the reference's [project].agents row matches what the resolver actually does (no misleading [] default)":
+      (): void => {
+        // B43's docs half: the reference once printed `[]` as the default, which read as
+        // "no agents by default" when the resolver actually emits the default pair —
+        // and made the true "no agents" choice inexpressible. The key is now optional, so
+        // the row must NOT advertise `[]` as its default, and its prose must document
+        // both readings the resolver implements (omit → default pair, explicit [] → none).
+        const doc = generated.reference;
+        const row = doc.split("\n").find((l) =>
+          l.startsWith("| `agents`") && l.includes("claude_code")
+        );
+        assert(row !== undefined, "the [project].agents row should be present");
+        // The default cell is `—` (no default), never a literal empty array.
+        assert(
+          !/\|\s*`\[\]`\s*\|/.test(row),
+          `the agents row must not document a [] default: ${row}`,
+        );
+        // Prose documents the two distinct readings the resolver honors.
+        assert(row.includes("Leave it out"), row);
+        assert(row.includes("empty list"), row);
 
-Deno.test("published config metadata has one discern-written ownership authority", async () => {
-  const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
-  assert(
-    Array.isArray(live.required) && live.required.includes("meta"),
-    "the public config contract must require [meta]",
-  );
-  const meta = schemaNodeAt(live, "meta");
-  assert(
-    Array.isArray(meta.required) && meta.required.includes("schema_version"),
-    "the public config contract must require [meta].schema_version",
-  );
-  assert(isJsonObject(meta.properties));
-  assertEquals(
-    Object.keys(meta.properties),
-    DISCERN_WRITTEN_META_KEYS,
-    "every public [meta] key must be classified exactly once",
-  );
-  const reference = renderManualConfigReferenceDoc();
-  for (const key of DISCERN_WRITTEN_META_KEYS) {
-    const node = meta.properties[key];
-    assert(isJsonObject(node), `meta.${key} has no public schema node`);
-    assertEquals(node.readOnly, true, key);
-    const row = reference.split("\n").find((line) =>
-      line.startsWith(`| \`${key}\``)
-    );
-    assert(row?.includes("Written by discern."), `meta.${key}: ${row}`);
-  }
-
-  const rendered = parseToml(await renderedTemplate());
-  assert(isJsonObject(rendered.meta));
-  for (const [key, policy] of Object.entries(DISCERN_WRITTEN_META)) {
-    assertEquals(
-      Object.hasOwn(rendered.meta, key),
-      policy.template === "render",
-      `meta.${key} template projection`,
-    );
-  }
-  assertEquals(
-    TEMPLATE_OMITTED_META_KEYS,
-    DISCERN_WRITTEN_META_KEYS.filter((key) =>
-      DISCERN_WRITTEN_META[key].template === "omit"
-    ),
-  );
-});
-
-Deno.test("every public numeric config leaf publishes a lower bound", () => {
-  const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
-  const unbounded: string[] = [];
-  let numericLeaves = 0;
-  const walk = (value: unknown, path: string): void => {
-    if (Array.isArray(value)) {
-      value.forEach((item, index) => walk(item, `${path}[${index}]`));
-      return;
-    }
-    if (!isJsonObject(value)) return;
-    if (value.type === "number" || value.type === "integer") {
-      numericLeaves += 1;
-      if (
-        typeof value.minimum !== "number" &&
-        typeof value.exclusiveMinimum !== "number"
-      ) {
-        unbounded.push(path);
-      }
-    }
-    for (const [key, child] of Object.entries(value)) {
-      walk(child, path === "" ? key : `${path}.${key}`);
-    }
+        // And it is faithful: the resolver really does treat unset as the default pair
+        // and explicit [] as no agents (the same behaviour the prose promises).
+        assertEquals(resolveConfiguredAgents(parseConfigOrThrow("")), [
+          ...DEFAULT_AGENTS,
+        ]);
+        assertEquals(
+          resolveConfiguredAgents(
+            parseConfigOrThrow("[project]\nagents = []\n"),
+          ),
+          [],
+        );
+      },
   };
-  walk(live, "");
-  assert(numericLeaves > 10, "the structural walk found numeric config keys");
-  assertEquals(unbounded, []);
-});
-
-Deno.test("named config tables use only the canonical <name> placeholder", () => {
-  const schemas = [
-    decodeWith(JsonObjectSchema, renderConfigSchemaJson()),
-    decodeWith(JsonObjectSchema, renderConfigDocSchemaJson()),
-  ];
-  const wrong: string[] = [];
-  let placeholders = 0;
-  const walk = (value: unknown, path: string): void => {
-    if (Array.isArray(value)) {
-      value.forEach((item, index) => walk(item, `${path}[${index}]`));
-      return;
-    }
-    if (!isJsonObject(value)) return;
-    if (typeof value.description === "string") {
-      for (
-        const match of value.description.matchAll(
-          /\[[^\]\n]*\.<([^>]+)>\]/g,
-        )
-      ) {
-        placeholders += 1;
-        if (match[1] !== "name") wrong.push(`${path}: <${match[1]}>`);
-      }
-    }
-    for (const [key, child] of Object.entries(value)) {
-      walk(child, path === "" ? key : `${path}.${key}`);
-    }
-  };
-  schemas.forEach((schema, index) => walk(schema, `schema[${index}]`));
-  assert(placeholders >= 5, "the walk found the named-table descriptions");
-  assertEquals(wrong, []);
-});
-
-Deno.test("Proof-note modes publish their exact local-recording semantics", () => {
-  const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
-  const proofNotes = schemaNodeAt(live, "repository.proof_notes_mode");
-  assertEquals(proofNotes.enum, ["local", "fetch"]);
-  const description = String(proofNotes.description ?? "");
-  for (const fact of ["Both modes record", '"fetch"', "Publishing", "no off"]) {
-    assertStringIncludes(description, fact);
-  }
+  await assertCasesAsync(
+    Object.entries(observations),
+    ([label]) => label,
+    async ([, observe]) => {
+      await observe();
+      return undefined;
+    },
+  );
 });
 
 Deno.test("skills prose says built-in skills are copied and yours are linked", () => {
@@ -506,36 +633,6 @@ Deno.test("current configuration surfaces contain no retired assurance section",
 
 // ── docs config-reference ────────────────────────────────────────────────────
 
-Deno.test("the public manual's config reference matches the live schema projection", async () => {
-  const tree = await discoverDocs({
-    cwd: REPO_ROOT,
-    dir: REPO_AUTHORED_PATHS.manual,
-  });
-  assert(tree !== undefined);
-  const manual = await buildManualProjection(tree.entries);
-  const path = `${REPO_AUTHORED_PATHS.manual}/30-reference/config-reference.md`;
-  const rendered = renderGeneratedManualDocument(
-    renderManualConfigReferenceDoc(),
-    "70-reference/config-reference.md",
-    "30-reference/config-reference.md",
-    { id: "reference-config", order: 30 },
-    manual,
-  );
-  assertEquals(
-    await Deno.readTextFile(path),
-    await canonicalGeneratedMarkdown(path, rendered),
-    `${REPO_AUTHORED_PATHS.manualRel}/30-reference/config-reference.md is stale — run \`deno task codegen\``,
-  );
-});
-
-Deno.test("the generated config reference carries the section's full frontmatter", () => {
-  const doc = renderManualConfigReferenceDoc();
-  assertStringIncludes(doc, "title: Config reference");
-  assertStringIncludes(doc, "publish: true");
-  assertStringIncludes(doc, "  - discern.toml");
-  assertStringIncludes(doc, "  - worktree.resources.<name>.create");
-});
-
 Deno.test("a future schema section and key auto-enrol in manual lookup and aliases", () => {
   const futureSchema = configSchema.extend({
     future_contract: z.object({
@@ -550,62 +647,6 @@ Deno.test("a future schema section and key auto-enrol in manual lookup and alias
   assertStringIncludes(document, "`7`");
   const frontmatter = document.split("\n---\n")[0] ?? "";
   assertStringIncludes(frontmatter, "  - future_contract.exact_limit");
-});
-
-Deno.test("the docs reference documents every section, with its describe() prose", () => {
-  const doc = renderManualConfigReferenceDoc();
-  for (const section of configSectionNames()) {
-    assert(
-      doc.includes(`\`[${section}`),
-      `config-reference should document the [${section}] section`,
-    );
-  }
-  // section prose renders verbatim from the registry the schema reads
-  assertStringIncludes(doc, CONFIG_PROSE.standards.what);
-  assertStringIncludes(doc, CONFIG_PROSE.worktree.what);
-  assertStringIncludes(
-    doc,
-    "Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger.",
-  );
-  assertStringIncludes(
-    doc,
-    "`discern upgrade` leaves existing named scopes as they are.",
-  );
-  assertStringIncludes(
-    doc,
-    "(`added` \\| `modified` \\| `deleted`)[]",
-  );
-});
-
-Deno.test("the reference's [project].agents row matches what the resolver actually does (no misleading [] default)", () => {
-  // B43's docs half: the reference once printed `[]` as the default, which read as
-  // "no agents by default" when the resolver actually emits the default pair —
-  // and made the true "no agents" choice inexpressible. The key is now optional, so
-  // the row must NOT advertise `[]` as its default, and its prose must document
-  // both readings the resolver implements (omit → default pair, explicit [] → none).
-  const doc = renderManualConfigReferenceDoc();
-  const row = doc.split("\n").find((l) =>
-    l.startsWith("| `agents`") && l.includes("claude_code")
-  );
-  assert(row !== undefined, "the [project].agents row should be present");
-  // The default cell is `—` (no default), never a literal empty array.
-  assert(
-    !/\|\s*`\[\]`\s*\|/.test(row),
-    `the agents row must not document a [] default: ${row}`,
-  );
-  // Prose documents the two distinct readings the resolver honors.
-  assert(row.includes("Leave it out"), row);
-  assert(row.includes("empty list"), row);
-
-  // And it is faithful: the resolver really does treat unset as the default pair
-  // and explicit [] as no agents (the same behaviour the prose promises).
-  assertEquals(resolveConfiguredAgents(parseConfigOrThrow("")), [
-    ...DEFAULT_AGENTS,
-  ]);
-  assertEquals(
-    resolveConfiguredAgents(parseConfigOrThrow("[project]\nagents = []\n")),
-    [],
-  );
 });
 
 // ── template ↔ schema guards (the template is generated from the schema and
@@ -745,20 +786,6 @@ Deno.test("discern.toml.tmpl's [meta].schema_version tracks the live SCHEMA_VERS
     SCHEMA_VERSION,
     "templates/discern.toml.tmpl [meta].schema_version is stale — bump it to match SCHEMA_VERSION in src/lib/version.ts",
   );
-});
-
-Deno.test("every schema section appears in discern.toml.tmpl (no silent section drift)", async () => {
-  const t = await Deno.readTextFile(
-    new URL("../templates/discern.toml.tmpl", import.meta.url),
-  );
-  for (const section of configSectionNames()) {
-    // A section appears as a `[section]` header or a `[section.<name>]` table —
-    // active or in a commented example/doc block.
-    assert(
-      t.includes(`[${section}]`) || t.includes(`[${section}.`),
-      `discern.toml.tmpl should document the [${section}] section`,
-    );
-  }
 });
 
 // ── root discern.toml ↔ template parity ───────────────────────────────────────

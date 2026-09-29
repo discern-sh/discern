@@ -45,16 +45,26 @@ interface GithubYaml {
   mappings: LocatedObject[];
 }
 
-/** Parse every workflow or local action under `.github`; new YAML auto-enrols. */
-async function githubYaml(files: readonly string[]): Promise<GithubYaml[]> {
-  const documents: GithubYaml[] = [];
+interface ObservedGithubYaml extends GithubYaml {
+  source: string;
+  parsed: unknown;
+}
+
+/** Read and parse each observed workflow or action once for its policy assertions. */
+async function githubYaml(
+  files: readonly string[],
+): Promise<ObservedGithubYaml[]> {
+  const documents: ObservedGithubYaml[] = [];
   for (const rel of files) {
     const source = await Deno.readTextFile(
       new URL(`../${rel}`, import.meta.url),
     );
+    const parsed = parseYaml(source);
     documents.push({
       path: rel,
-      mappings: jsonObjects(parseYaml(source)),
+      source,
+      parsed,
+      mappings: jsonObjects(parsed),
     });
   }
   return documents;
@@ -146,125 +156,264 @@ Deno.test("new commits cancel superseded gate runs on the same ref", () => {
   assertStringIncludes(gateSource, "cancel-in-progress: true");
 });
 
-Deno.test("every hosted Deno setup consumes the one exact .dvmrc version", async () => {
-  assert(
-    /^\d+\.\d+\.\d+\n$/u.test(dvmrcSource),
-    ".dvmrc contains one exact stable Deno version and a final newline",
-  );
+Deno.test("hosted workflow and action documents satisfy their toolchain and gate policies", async () => {
   const files = await structuralGuardScope({
-    guard: "tests/workflow_platform_test.ts#hosted-deno-version",
+    guard: "tests/workflow_platform_test.ts#hosted-automation-policies",
     universe: "authored-text",
     narrow: {
-      reason: "This toolchain rule governs GitHub workflow and action YAML.",
+      reason:
+        "These hosted toolchain and gate policies govern GitHub workflow and action YAML.",
       include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
     },
   });
-  assertEquals(coverageReporter({ get: () => undefined }), "junit");
-  assertEquals(coverageReporter({ get: () => "pretty" }), "pretty");
-  const documents = await githubYaml(files);
-  const setupSteps = documents.flatMap((document) =>
-    document.mappings.filter(({ value }) =>
-      typeof value.uses === "string" &&
-      value.uses.startsWith("denoland/setup-deno@")
-    ).map(({ path, value }) => ({ document: document.path, path, value }))
+  const visibilityFiles = await structuralGuardScope({
+    guard: "tests/workflow_platform_test.ts#visibility-expressions",
+    universe: {
+      kind: "specialized",
+      name: "github-workflow-yaml",
+      reason: "GitHub workflow and composite-action syntax lives only in YAML",
+      extensions: [".yml", ".yaml"],
+    },
+    narrow: {
+      reason: "every hosted lane is declared beneath .github",
+      include: (rel) => rel.startsWith(".github/"),
+    },
+  });
+  const observed = await githubYaml([
+    ...new Set([...files, ...visibilityFiles]),
+  ]);
+  const documents = observed.filter((document) =>
+    files.includes(document.path)
   );
-  assert(setupSteps.length > 0, "hosted automation installs Deno");
-  const offenders: string[] = [];
-  for (const step of setupSteps) {
-    const withValues = step.value.with;
-    if (
-      withValues === null || typeof withValues !== "object" ||
-      Array.isArray(withValues) ||
-      (withValues as Record<string, unknown>)["deno-version-file"] !==
-        ".dvmrc" ||
-      Object.hasOwn(withValues as Record<string, unknown>, "deno-version")
+  // every hosted Deno setup consumes the one exact .dvmrc version.
+  {
+    assert(
+      /^\d+\.\d+\.\d+\n$/u.test(dvmrcSource),
+      ".dvmrc contains one exact stable Deno version and a final newline",
+    );
+    assertEquals(coverageReporter({ get: () => undefined }), "junit");
+    assertEquals(coverageReporter({ get: () => "pretty" }), "pretty");
+    const setupSteps = documents.flatMap((document) =>
+      document.mappings.filter(({ value }) =>
+        typeof value.uses === "string" &&
+        value.uses.startsWith("denoland/setup-deno@")
+      ).map(({ path, value }) => ({ document: document.path, path, value }))
+    );
+    assert(setupSteps.length > 0, "hosted automation installs Deno");
+    const offenders: string[] = [];
+    for (const step of setupSteps) {
+      const withValues = step.value.with;
+      if (
+        withValues === null || typeof withValues !== "object" ||
+        Array.isArray(withValues) ||
+        (withValues as Record<string, unknown>)["deno-version-file"] !==
+          ".dvmrc" ||
+        Object.hasOwn(withValues as Record<string, unknown>, "deno-version")
+      ) {
+        offenders.push(`${step.document}:${step.path}`);
+      }
+    }
+    assertEquals(
+      offenders,
+      [],
+      `setup-deno steps must use deno-version-file: .dvmrc:\n${
+        offenders.join("\n")
+      }`,
+    );
+    assertStringIncludes(wslGateActionSource, "cat /home/gate/discern/.dvmrc");
+    assertStringIncludes(wslGateActionSource, '"v${deno_version#v}"');
+  }
+
+  // hosted runner labels are pinned rather than floating on latest.
+  {
+    const offenders: string[] = [];
+    // Runner-image labels are a workflow-only policy; action YAML stays outside it.
+    for (
+      const document of documents.filter((doc) =>
+        doc.path.startsWith(".github/workflows/")
+      )
     ) {
-      offenders.push(`${step.document}:${step.path}`);
+      for (const { path, value } of document.mappings) {
+        const runner = value["runs-on"];
+        if (typeof runner === "string" && /-latest$/u.test(runner)) {
+          offenders.push(`${document.path}:${path}.runs-on=${runner}`);
+        }
+      }
     }
+    assertEquals(
+      offenders,
+      [],
+      `hosted runner labels must name an audited image:\n${
+        offenders.join("\n")
+      }`,
+    );
   }
-  assertEquals(
-    offenders,
-    [],
-    `setup-deno steps must use deno-version-file: .dvmrc:\n${
-      offenders.join("\n")
-    }`,
-  );
-  assertStringIncludes(wslGateActionSource, "cat /home/gate/discern/.dvmrc");
-  assertStringIncludes(wslGateActionSource, '"v${deno_version#v}"');
-});
 
-Deno.test("hosted runner labels are pinned rather than floating on latest", async () => {
-  const files = await structuralGuardScope({
-    guard: "tests/workflow_platform_test.ts#hosted-runner-labels",
-    universe: "authored-text",
-    narrow: {
-      reason: "This runner-image rule governs GitHub workflow YAML.",
-      include: (rel) =>
-        rel.startsWith(".github/workflows/") &&
-        /\.ya?ml$/.test(rel),
-    },
-  });
-  const offenders: string[] = [];
-  for (const document of await githubYaml(files)) {
-    for (const { path, value } of document.mappings) {
-      const runner = value["runs-on"];
-      if (typeof runner === "string" && /-latest$/u.test(runner)) {
-        offenders.push(`${document.path}:${path}.runs-on=${runner}`);
+  // hosted automation never exports a trunk override into project tests.
+  {
+    const offenders: string[] = [];
+    for (const document of documents) {
+      for (const { path, value } of document.mappings) {
+        if (Object.hasOwn(value, "DISCERN_TRUNK")) {
+          offenders.push(`${document.path}:${path}.DISCERN_TRUNK`);
+        }
+      }
+    }
+    assertEquals(
+      offenders,
+      [],
+      `hosted trunk overrides leak into descendant project commands:\n${
+        offenders.join("\n")
+      }`,
+    );
+  }
+
+  // every authoritative checkout fetches release tags for compatibility baselines.
+  {
+    const offenders = documents.flatMap(missingReleaseTags);
+    assertEquals(
+      offenders,
+      [],
+      `every actions/checkout step must set fetch-tags: true:\n${
+        offenders.join("\n")
+      }`,
+    );
+  }
+
+  // local and hosted full gates select isolated JUnit output.
+  {
+    const config = parseConfigOrThrow(await Deno.readTextFile(DISCERN_TOML));
+    assertEquals(
+      toCommand(config.jobs.test),
+      "deno task coverage",
+    );
+
+    const gateCommands = documents.flatMap(({ mappings }) =>
+      mappings.filter(({ value }) => isFullGateCommand(value.run))
+    );
+    assert(
+      gateCommands.length > 0,
+      "hosted automation runs at least one full gate",
+    );
+    assertEquals(
+      documents.flatMap(missingJunitReporter),
+      [],
+      "every hosted full-gate command must select the JUnit test reporter",
+    );
+  }
+
+  // hosted full gates converge locked Deno dependencies before parallel jobs.
+  {
+    assertEquals(
+      documents.flatMap(missingFrozenInstall),
+      [],
+      "every hosted full Gate must run deno install --frozen before its parallel jobs",
+    );
+  }
+
+  // no workflow or composite action conditions anything on repository visibility.
+  {
+    assert(visibilityFiles.length > 0, "the guard scans the hosted workflows");
+    const refusalInput =
+      /^\s+REPOSITORY_PRIVATE: \$\{\{ github\.event\.repository\.private \}\}$/u;
+    for (
+      const document of observed.filter((doc) =>
+        visibilityFiles.includes(doc.path)
+      )
+    ) {
+      const rel = document.path;
+      for (const line of document.source.split("\n")) {
+        if (!line.includes("repository.private")) continue;
+        assert(
+          refusalInput.test(line),
+          `${rel}: repository visibility may only feed the release plan's refusal, never a condition: ${line.trim()}`,
+        );
       }
     }
   }
-  assertEquals(
-    offenders,
-    [],
-    `hosted runner labels must name an audited image:\n${offenders.join("\n")}`,
-  );
-});
 
-Deno.test("hosted automation never exports a trunk override into project tests", async () => {
-  const offenders: string[] = [];
-  const files = await structuralGuardScope({
-    guard: "tests/workflow_platform_test.ts#hosted-trunk-overrides",
-    universe: "authored-text",
-    narrow: {
-      reason:
-        "This environment boundary governs GitHub workflow and action YAML.",
-      include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
-    },
-  });
-  for (const document of await githubYaml(files)) {
-    for (const { path, value } of document.mappings) {
-      if (Object.hasOwn(value, "DISCERN_TRUNK")) {
-        offenders.push(`${document.path}:${path}.DISCERN_TRUNK`);
+  // every composite action step uses only keys the runner accepts.
+  {
+    // Composite-step syntax belongs only to local action manifests.
+    const actions = documents.filter((doc) =>
+      doc.path.startsWith(".github/actions/") &&
+      /\/action\.ya?ml$/.test(doc.path)
+    );
+    assert(actions.length > 0, "the guard scans the composite actions");
+    for (const document of actions) {
+      const rel = document.path;
+      const manifest = document.parsed as {
+        runs?: { using?: unknown; steps?: unknown };
+      };
+      assertEquals(manifest.runs?.using, "composite", rel);
+      const steps = manifest.runs?.steps;
+      assert(
+        Array.isArray(steps) && steps.length > 0,
+        `${rel}: declares steps`,
+      );
+      steps.forEach((step, index) => {
+        const keys = Object.keys(step as Record<string, unknown>);
+        const rejected = keys.filter((key) => !COMPOSITE_STEP_KEYS.has(key));
+        assertEquals(
+          rejected,
+          [],
+          `${rel}: step ${
+            index + 1
+          } carries keys the runner rejects in a composite action`,
+        );
+      });
+    }
+  }
+
+  // every hosted full gate declares its report scope and fetched policy base.
+  {
+    for (const document of documents) {
+      for (
+        const { path, value } of document.mappings.filter(({ value }) =>
+          isFullGateCommand(value.run)
+        )
+      ) {
+        const run = String(value.run);
+        for (
+          const flag of [
+            "--ci",
+            "--standalone",
+            "--policy-base refs/discern/ci-policy-base",
+          ]
+        ) assertStringIncludes(run, flag, `${document.path}:${path}`);
+      }
+      if (!document.path.startsWith(".github/workflows/")) continue;
+      for (const { path, value } of document.mappings) {
+        if (!Array.isArray(value.steps)) continue;
+        let fetched = false;
+        for (const step of value.steps as Record<string, unknown>[]) {
+          if (step.uses === "./.github/actions/policy-base") {
+            const input = step.with as Record<string, unknown>;
+            if (path === "$.jobs.policy") {
+              assertStringIncludes(
+                String(input.base),
+                "github.event.pull_request.base.sha || github.event.before || inputs.policy_base",
+              );
+            } else {
+              assertEquals(input.base, "${{ needs.policy.outputs.sha }}");
+              assertEquals(value.needs, "policy");
+            }
+            fetched = true;
+          }
+          if (
+            isFullGateCommand(step.run) ||
+            ["./.github/actions/macos-gate", "./.github/actions/wsl-gate"]
+              .includes(String(step.uses))
+          ) {
+            assert(
+              fetched,
+              `${document.path}:${path} fetches policy before validation`,
+            );
+          }
+        }
       }
     }
   }
-  assertEquals(
-    offenders,
-    [],
-    `hosted trunk overrides leak into descendant project commands:\n${
-      offenders.join("\n")
-    }`,
-  );
-});
-
-Deno.test("every authoritative checkout fetches release tags for compatibility baselines", async () => {
-  const files = await structuralGuardScope({
-    guard: "tests/workflow_platform_test.ts#release-tag-checkouts",
-    universe: "authored-text",
-    narrow: {
-      reason:
-        "This release-baseline rule governs GitHub workflow and action YAML.",
-      include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
-    },
-  });
-  const offenders = (await githubYaml(files)).flatMap(missingReleaseTags);
-  assertEquals(
-    offenders,
-    [],
-    `every actions/checkout step must set fetch-tags: true:\n${
-      offenders.join("\n")
-    }`,
-  );
 });
 
 Deno.test("the release-tag guard catches a future shallow checkout", () => {
@@ -298,37 +447,6 @@ jobs:
   assertEquals(paths, [
     "$.jobs.unrelated_lane.steps[0].env.DISCERN_TRUNK",
   ]);
-});
-
-Deno.test("local and hosted full gates select isolated JUnit output", async () => {
-  const config = parseConfigOrThrow(await Deno.readTextFile(DISCERN_TOML));
-  assertEquals(
-    toCommand(config.jobs.test),
-    "deno task coverage",
-  );
-
-  const documents = await githubYaml(
-    await structuralGuardScope({
-      guard: "tests/workflow_platform_test.ts#hosted-gate-reporters",
-      universe: "authored-text",
-      narrow: {
-        reason: "This reporter rule governs GitHub workflow and action YAML.",
-        include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
-      },
-    }),
-  );
-  const gateCommands = documents.flatMap(({ mappings }) =>
-    mappings.filter(({ value }) => isFullGateCommand(value.run))
-  );
-  assert(
-    gateCommands.length > 0,
-    "hosted automation runs at least one full gate",
-  );
-  assertEquals(
-    documents.flatMap(missingJunitReporter),
-    [],
-    "every hosted full-gate command must select the JUnit test reporter",
-  );
 });
 
 Deno.test("the reporter guard catches a future full-gate container", () => {
@@ -399,25 +517,6 @@ Deno.test("the hosted reporter keeps test names and fixture output outside metri
   });
 });
 
-Deno.test("hosted full gates converge locked Deno dependencies before parallel jobs", async () => {
-  const documents = await githubYaml(
-    await structuralGuardScope({
-      guard: "tests/workflow_platform_test.ts#hosted-gate-dependencies",
-      universe: "authored-text",
-      narrow: {
-        reason:
-          "This dependency-convergence rule governs GitHub workflow and action YAML.",
-        include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
-      },
-    }),
-  );
-  assertEquals(
-    documents.flatMap(missingFrozenInstall),
-    [],
-    "every hosted full Gate must run deno install --frozen before its parallel jobs",
-  );
-});
-
 Deno.test("the dependency guard catches a future cold full-gate container", () => {
   const fixture: GithubYaml = {
     path: "future-action.yml",
@@ -462,35 +561,6 @@ Deno.test("the native macOS and WSL 2 gate lanes run unconditionally on exact ru
     );
     assertStringIncludes(block, `runs-on: ${lane.runner}`);
     assertStringIncludes(block, `uses: ${lane.action}`);
-  }
-});
-
-Deno.test("no workflow or composite action conditions anything on repository visibility", async () => {
-  const files = await structuralGuardScope({
-    guard: "tests/workflow_platform_test.ts#visibility-expressions",
-    universe: {
-      kind: "specialized",
-      name: "github-workflow-yaml",
-      reason: "GitHub workflow and composite-action syntax lives only in YAML",
-      extensions: [".yml", ".yaml"],
-    },
-    narrow: {
-      reason: "every hosted lane is declared beneath .github",
-      include: (rel) => rel.startsWith(".github/"),
-    },
-  });
-  assert(files.length > 0, "the guard scans the hosted workflows");
-  const refusalInput =
-    /^\s+REPOSITORY_PRIVATE: \$\{\{ github\.event\.repository\.private \}\}$/u;
-  for (const rel of files) {
-    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
-    for (const line of text.split("\n")) {
-      if (!line.includes("repository.private")) continue;
-      assert(
-        refusalInput.test(line),
-        `${rel}: repository visibility may only feed the release plan's refusal, never a condition: ${line.trim()}`,
-      );
-    }
   }
 });
 
@@ -585,98 +655,6 @@ const COMPOSITE_STEP_KEYS = new Set([
   "continue-on-error",
 ]);
 
-Deno.test("every composite action step uses only keys the runner accepts", async () => {
-  const actions = await structuralGuardScope({
-    guard: "tests/workflow_platform_test.ts#composite-step-keys",
-    universe: "authored-text",
-    narrow: {
-      reason: "composite actions live only beneath .github/actions",
-      include: (rel) =>
-        rel.startsWith(".github/actions/") && /\/action\.ya?ml$/.test(rel),
-    },
-  });
-  assert(actions.length > 0, "the guard scans the composite actions");
-  for (const rel of actions) {
-    const manifest = parseYaml(
-      await Deno.readTextFile(join(REPO_ROOT, rel)),
-    ) as { runs?: { using?: unknown; steps?: unknown } };
-    assertEquals(manifest.runs?.using, "composite", rel);
-    const steps = manifest.runs?.steps;
-    assert(Array.isArray(steps) && steps.length > 0, `${rel}: declares steps`);
-    steps.forEach((step, index) => {
-      const keys = Object.keys(step as Record<string, unknown>);
-      const rejected = keys.filter((key) => !COMPOSITE_STEP_KEYS.has(key));
-      assertEquals(
-        rejected,
-        [],
-        `${rel}: step ${
-          index + 1
-        } carries keys the runner rejects in a composite action`,
-      );
-    });
-  }
-});
-
-Deno.test("every hosted full gate declares its report scope and fetched policy base", async () => {
-  const documents = await githubYaml(
-    await structuralGuardScope({
-      guard: "tests/workflow_platform_test.ts#complete-hosted-gates",
-      universe: "authored-text",
-      narrow: {
-        reason:
-          "This gate invocation rule governs GitHub workflow and action YAML.",
-        include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
-      },
-    }),
-  );
-  for (const document of documents) {
-    for (
-      const { path, value } of document.mappings.filter(({ value }) =>
-        isFullGateCommand(value.run)
-      )
-    ) {
-      const run = String(value.run);
-      for (
-        const flag of [
-          "--ci",
-          "--standalone",
-          "--policy-base refs/discern/ci-policy-base",
-        ]
-      ) assertStringIncludes(run, flag, `${document.path}:${path}`);
-    }
-    if (!document.path.startsWith(".github/workflows/")) continue;
-    for (const { path, value } of document.mappings) {
-      if (!Array.isArray(value.steps)) continue;
-      let fetched = false;
-      for (const step of value.steps as Record<string, unknown>[]) {
-        if (step.uses === "./.github/actions/policy-base") {
-          const input = step.with as Record<string, unknown>;
-          if (path === "$.jobs.policy") {
-            assertStringIncludes(
-              String(input.base),
-              "github.event.pull_request.base.sha || github.event.before || inputs.policy_base",
-            );
-          } else {
-            assertEquals(input.base, "${{ needs.policy.outputs.sha }}");
-            assertEquals(value.needs, "policy");
-          }
-          fetched = true;
-        }
-        if (
-          isFullGateCommand(step.run) ||
-          ["./.github/actions/macos-gate", "./.github/actions/wsl-gate"]
-            .includes(String(step.uses))
-        ) {
-          assert(
-            fetched,
-            `${document.path}:${path} fetches policy before validation`,
-          );
-        }
-      }
-    }
-  }
-});
-
 Deno.test("instrumented producer and nested hosted gates fit their containing budgets", () => {
   const config = parseConfigOrThrow(Deno.readTextFileSync(DISCERN_TOML));
   assert(
@@ -728,44 +706,142 @@ function wslGateSteps(): Record<string, unknown>[] {
 /** The directory the WSL 2 lane's steps write and its artifact upload reads. */
 const WSL_VM_SAMPLES = "wsl-vm-samples";
 
-Deno.test("the WSL 2 lane samples its VM beside the gate and keeps the samples on every outcome", () => {
+Deno.test("the WSL 2 action provisions its runtime, forwards hosted markers, and preserves VM evidence", async () => {
   const steps = wslGateSteps();
-  const gate = steps.find((step) => isFullGateCommand(step.run));
-  assert(gate !== undefined, "the action runs the full gate");
-  const run = String(gate.run);
-  // The sampler brackets the gate, and the gate's own status survives the
-  // sampler's stop and summary: a failed gate must still fail the step.
-  const order = [
-    "vm-samples.sh",
-    `start "$samples" 20 "$PWD/${WSL_VM_SAMPLES}"`,
-    "set +e",
-    "deno task dev done",
-    "gate_status=$?",
-    'stop "$samples"',
-    `${WSL_VM_SAMPLES}/`,
-    'exit "$gate_status"',
-  ];
-  let cursor = -1;
-  for (const marker of order) {
-    const index = run.indexOf(marker, cursor + 1);
-    assert(index > cursor, `the gate step reaches ${marker} in order`);
-    cursor = index;
+  // the WSL 2 lane samples its VM beside the gate and keeps the samples on every outcome.
+  {
+    const gate = steps.find((step) => isFullGateCommand(step.run));
+    assert(gate !== undefined, "the action runs the full gate");
+    const run = String(gate.run);
+    // The sampler brackets the gate, and the gate's own status survives the
+    // sampler's stop and summary: a failed gate must still fail the step.
+    const order = [
+      "vm-samples.sh",
+      `start "$samples" 20 "$PWD/${WSL_VM_SAMPLES}"`,
+      "set +e",
+      "deno task dev done",
+      "gate_status=$?",
+      'stop "$samples"',
+      `${WSL_VM_SAMPLES}/`,
+      'exit "$gate_status"',
+    ];
+    let cursor = -1;
+    for (const marker of order) {
+      const index = run.indexOf(marker, cursor + 1);
+      assert(index > cursor, `the gate step reaches ${marker} in order`);
+      cursor = index;
+    }
+    const upload = steps.find((step) =>
+      String(step.uses).startsWith("actions/upload-artifact@")
+    );
+    assert(upload !== undefined, "the action keeps the samples as an artifact");
+    assertStringIncludes(String(upload.if), "always()");
+    const input = upload.with as Record<string, unknown>;
+    assertEquals(input.name, WSL_VM_SAMPLES);
+    assertEquals(input.path, WSL_VM_SAMPLES);
+    assert(
+      steps.some((step) =>
+        step.shell === "pwsh" &&
+        String(step.run).includes(`${WSL_VM_SAMPLES}/host.txt`)
+      ),
+      "a host-side step records the WSL configuration beside the samples",
+    );
   }
-  const upload = steps.find((step) =>
-    String(step.uses).startsWith("actions/upload-artifact@")
-  );
-  assert(upload !== undefined, "the action keeps the samples as an artifact");
-  assertStringIncludes(String(upload.if), "always()");
-  const input = upload.with as Record<string, unknown>;
-  assertEquals(input.name, WSL_VM_SAMPLES);
-  assertEquals(input.path, WSL_VM_SAMPLES);
-  assert(
-    steps.some((step) =>
-      step.shell === "pwsh" &&
-      String(step.run).includes(`${WSL_VM_SAMPLES}/host.txt`)
-    ),
-    "a host-side step records the WSL configuration beside the samples",
-  );
+
+  // the WSL 2 lane runs the gate under the hosted-runner markers the native lanes inherit.
+  {
+    const gate = steps.find((step) => isFullGateCommand(step.run));
+    assert(gate !== undefined, "the action runs the full gate");
+    const env = gate.env as Record<string, unknown>;
+    const shared = String(env.WSLENV).split(":");
+    const run = String(gate.run);
+    const invocation = run.indexOf("deno task dev done");
+    for (const marker of HOSTED_RUNNER_MARKERS) {
+      assert(shared.includes(marker), `WSLENV carries ${marker} into the VM`);
+      const forwarded = run.indexOf(`${marker}="\${${marker}}"`);
+      assert(
+        forwarded >= 0 && forwarded < invocation,
+        `the gate user's environment receives ${marker} before the gate runs`,
+      );
+    }
+    // Every GitHub-provided variable authored code reads must be in that list,
+    // so a new read forces the VM lane to forward it too.
+    const files = await structuralGuardScope({
+      guard: "tests/workflow_platform_test.ts#wsl-lane-forwards-hosted-markers",
+      universe: "authored-ts",
+    });
+    const unforwarded = new Set<string>();
+    for (const rel of files) {
+      const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+      for (const line of source.split("\n")) {
+        // A line that is itself a string literal is a guard's fixture, not a read.
+        if (/^\s*["'`]/u.test(line)) continue;
+        for (
+          const match of line.matchAll(
+            /\benv\.get\(\s*["'](CI|GITHUB_[A-Z_]+)["']\s*\)/gu,
+          )
+        ) {
+          const name = match[1] ?? "";
+          if (!HOSTED_RUNNER_MARKERS.includes(name)) {
+            unforwarded.add(`${rel}: ${name}`);
+          }
+        }
+      }
+    }
+    assertEquals([...unforwarded], []);
+  }
+
+  // the WSL 2 lane sizes its VM above WSL's default before provisioning boots it.
+  {
+    const sizing = steps.findIndex((step) =>
+      String(step.run).includes(".wslconfig") &&
+      /memory=\d+GB/u.test(String(step.run))
+    );
+    const provisioning = steps.findIndex((step) =>
+      String(step.uses).startsWith("Vampire/setup-wsl@")
+    );
+    assert(sizing >= 0, "the action writes a .wslconfig");
+    assert(
+      provisioning > sizing,
+      "the VM is sized before the provisioning step boots it",
+    );
+    const run = String(steps[sizing]?.run);
+    const memory = Number(/memory=(\d+)GB/u.exec(run)?.[1]);
+    const swap = Number(/swap=(\d+)GB/u.exec(run)?.[1]);
+    assert(
+      memory > WSL_RUNNER_MEMORY_GB / 2,
+      "the VM gets more than WSL's default half of the runner",
+    );
+    assert(
+      memory <= WSL_RUNNER_MEMORY_GB - WSL_HOST_RESERVE_GB,
+      "the VM leaves Windows what it holds before WSL starts",
+    );
+    assert(swap >= memory / 4, "swap is at least WSL's default quarter");
+  }
+
+  // the WSL 2 lane provisions the locale and the pinned Chromium the suite expects.
+  {
+    const provisioning = steps.findIndex((step) =>
+      String(step.run).includes("locale-gen en_US.UTF-8")
+    );
+    const gate = steps.findIndex((step) => isFullGateCommand(step.run));
+    assert(provisioning >= 0, "the action generates the captures' locale");
+    assert(provisioning < gate, "provisioning precedes the gate");
+    const run = String(steps[provisioning]?.run);
+    assertStringIncludes(run, "install-deps chromium");
+    assertStringIncludes(run, "install chromium");
+    // The browser package pin has one home, deno.json; the action reads it.
+    assertStringIncludes(run, "imports['playwright-core']");
+    assert(
+      !/playwright-core@\d/u.test(run),
+      "the action never hard-codes the browser package version",
+    );
+    const packages = String(
+      (steps.find((step) => String(step.uses).startsWith("Vampire/setup-wsl@"))
+        ?.with as Record<string, unknown>)["additional-packages"],
+    );
+    assertStringIncludes(packages, "locales");
+  }
 });
 
 Deno.test("release publication downloads only the binary artifacts", () => {
@@ -811,97 +887,3 @@ const WSL_HOST_RESERVE_GB = 5;
 
 /** GitHub-provided variables the gate and its tests key on; the VM lane must forward each by name. */
 const HOSTED_RUNNER_MARKERS = ["CI", "GITHUB_ACTIONS"];
-
-Deno.test("the WSL 2 lane runs the gate under the hosted-runner markers the native lanes inherit", async () => {
-  const gate = wslGateSteps().find((step) => isFullGateCommand(step.run));
-  assert(gate !== undefined, "the action runs the full gate");
-  const env = gate.env as Record<string, unknown>;
-  const shared = String(env.WSLENV).split(":");
-  const run = String(gate.run);
-  const invocation = run.indexOf("deno task dev done");
-  for (const marker of HOSTED_RUNNER_MARKERS) {
-    assert(shared.includes(marker), `WSLENV carries ${marker} into the VM`);
-    const forwarded = run.indexOf(`${marker}="\${${marker}}"`);
-    assert(
-      forwarded >= 0 && forwarded < invocation,
-      `the gate user's environment receives ${marker} before the gate runs`,
-    );
-  }
-  // Every GitHub-provided variable authored code reads must be in that list,
-  // so a new read forces the VM lane to forward it too.
-  const files = await structuralGuardScope({
-    guard: "tests/workflow_platform_test.ts#wsl-lane-forwards-hosted-markers",
-    universe: "authored-ts",
-  });
-  const unforwarded = new Set<string>();
-  for (const rel of files) {
-    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
-    for (const line of source.split("\n")) {
-      // A line that is itself a string literal is a guard's fixture, not a read.
-      if (/^\s*["'`]/u.test(line)) continue;
-      for (
-        const match of line.matchAll(
-          /\benv\.get\(\s*["'](CI|GITHUB_[A-Z_]+)["']\s*\)/gu,
-        )
-      ) {
-        const name = match[1] ?? "";
-        if (!HOSTED_RUNNER_MARKERS.includes(name)) {
-          unforwarded.add(`${rel}: ${name}`);
-        }
-      }
-    }
-  }
-  assertEquals([...unforwarded], []);
-});
-
-Deno.test("the WSL 2 lane sizes its VM above WSL's default before provisioning boots it", () => {
-  const steps = wslGateSteps();
-  const sizing = steps.findIndex((step) =>
-    String(step.run).includes(".wslconfig") &&
-    /memory=\d+GB/u.test(String(step.run))
-  );
-  const provisioning = steps.findIndex((step) =>
-    String(step.uses).startsWith("Vampire/setup-wsl@")
-  );
-  assert(sizing >= 0, "the action writes a .wslconfig");
-  assert(
-    provisioning > sizing,
-    "the VM is sized before the provisioning step boots it",
-  );
-  const run = String(steps[sizing]?.run);
-  const memory = Number(/memory=(\d+)GB/u.exec(run)?.[1]);
-  const swap = Number(/swap=(\d+)GB/u.exec(run)?.[1]);
-  assert(
-    memory > WSL_RUNNER_MEMORY_GB / 2,
-    "the VM gets more than WSL's default half of the runner",
-  );
-  assert(
-    memory <= WSL_RUNNER_MEMORY_GB - WSL_HOST_RESERVE_GB,
-    "the VM leaves Windows what it holds before WSL starts",
-  );
-  assert(swap >= memory / 4, "swap is at least WSL's default quarter");
-});
-
-Deno.test("the WSL 2 lane provisions the locale and the pinned Chromium the suite expects", () => {
-  const steps = wslGateSteps();
-  const provisioning = steps.findIndex((step) =>
-    String(step.run).includes("locale-gen en_US.UTF-8")
-  );
-  const gate = steps.findIndex((step) => isFullGateCommand(step.run));
-  assert(provisioning >= 0, "the action generates the captures' locale");
-  assert(provisioning < gate, "provisioning precedes the gate");
-  const run = String(steps[provisioning]?.run);
-  assertStringIncludes(run, "install-deps chromium");
-  assertStringIncludes(run, "install chromium");
-  // The browser package pin has one home, deno.json; the action reads it.
-  assertStringIncludes(run, "imports['playwright-core']");
-  assert(
-    !/playwright-core@\d/u.test(run),
-    "the action never hard-codes the browser package version",
-  );
-  const packages = String(
-    (steps.find((step) => String(step.uses).startsWith("Vampire/setup-wsl@"))
-      ?.with as Record<string, unknown>)["additional-packages"],
-  );
-  assertStringIncludes(packages, "locales");
-});

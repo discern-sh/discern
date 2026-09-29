@@ -2730,6 +2730,33 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
     });
     const init = await main.recv();
     const mainInstructions = init.result.instructions as string;
+    assert(
+      typeof mainInstructions === "string" && mainInstructions.length > 0,
+      "the server should advertise instructions in its initialize result",
+    );
+    // It names the operating model's core tools (orient, gate) — the "when to use
+    // which tool" block.
+    assert(mainInstructions.includes("discern_status"), mainInstructions);
+    assert(mainInstructions.includes("discern_done"), mainInstructions);
+    // Worktrees are on → the whole lifecycle is named linearly, from any root (ADR
+    // 0062 retired the location-branched instructions): start, update, accept.
+    assert(mainInstructions.includes("discern_start"), mainInstructions);
+    assert(mainInstructions.includes("discern_update"), mainInstructions);
+    assert(mainInstructions.includes("discern_accept"), mainInstructions);
+    // Clients may load schemas only on demand, so the instructions must also
+    // advertise fleet waiting; the discern_await schema carries its mechanics.
+    assert(mainInstructions.includes("discern_await"), mainInstructions);
+    assert(
+      /explicit[^.]{0,80}consent/i.test(mainInstructions),
+      mainInstructions,
+    );
+    assert(
+      /green gate[^.]{0,40}not permission/i.test(mainInstructions),
+      mainInstructions,
+    );
+    // Diagnostics and standards are always present (every subsystem is core).
+    assert(mainInstructions.includes("discern_doctor"), mainInstructions);
+    assert(mainInstructions.includes("discern_standards"), mainInstructions);
     for (const verb of LIFECYCLE) {
       assert(
         mainInstructions.includes(verb),
@@ -2739,6 +2766,70 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
     await main.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const list = await main.recv();
     const names = list.result.tools.map((t: { name: string }) => t.name);
+    assertEquals(
+      names,
+      [
+        "discern_status",
+        "discern_start",
+        "discern_prepare",
+        "discern_done",
+        "discern_update",
+        "discern_await",
+        "discern_accept",
+        "discern_map",
+        "discern_progress",
+        "discern_test",
+        "discern_standards",
+        "discern_impact",
+        "discern_coupling",
+        "discern_patterns",
+        "discern_checkpoints",
+        "discern_refresh",
+        "discern_docs",
+        "discern_doctor",
+        "discern_improvement",
+      ],
+      "MCP tools should be listed in deliberate workflow priority order for clients that truncate tools/list",
+    );
+
+    const status = (list.result.tools as ListedTool[])
+      .find((t) => t.name === "discern_status");
+    assert(status !== undefined, "discern_status should be listed");
+    assertEquals(status.title, "Orient in the project");
+    assert(
+      status.description.startsWith(
+        "Start here: call discern_status",
+      ),
+      `discern_status description should lead with its exact orientation role; got:\n${status.description}`,
+    );
+    assert(
+      status.description.includes("discern_refresh"),
+      `discern_status description should name the MCP repair tool; got:\n${status.description}`,
+    );
+    assert(
+      new TextEncoder().encode(status.description).length < 1_500,
+      `discern_status description exceeded its 1.5KB context budget:\n${status.description}`,
+    );
+
+    // What the agent SEES (the tool description) must name every actionable
+    // structured state status emits. Pin the set so a new advisory field cannot
+    // drift into the payload undocumented.
+    for (
+      const field of [
+        "project",
+        "gate_proof",
+        "pending_tracked_refresh",
+        "tracked_refresh_plan_errors",
+        "setup_unfinished",
+        "incoming_overlap",
+        "reappeared_worktree_paths",
+      ]
+    ) {
+      assert(
+        status.description.includes(field),
+        `discern_status description must document data.${field}; got:\n${status.description}`,
+      );
+    }
     for (const verb of LIFECYCLE) {
       assert(names.includes(verb), JSON.stringify(names));
     }
@@ -2778,6 +2869,7 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
     }
     await wtMcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const wtList = await wtMcp.recv();
+    assertAdvertisedToolMetadata(wtList.result.tools as ListedTool[]);
     const wtNames = wtList.result.tools.map((t: { name: string }) => t.name);
     for (const verb of LIFECYCLE) {
       assert(wtNames.includes(verb), JSON.stringify(wtNames));
@@ -3664,213 +3756,147 @@ Deno.test("generic worktree instructions stays within agent-observable state", (
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
-Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest annotations", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    // Every tool lists from either location now (ADR 0062 retired the location-based
-    // hiding), so one worktree-rooted server advertises them all — verify each
-    // lifecycle tool's self-describing surface and honest annotations here.
-    const wt = await addWorktree(dir, "adv");
-    await using mcp = await spawnMcp(wt);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
+/** Check the complete metadata surface on the advertised tools. */
+function assertAdvertisedToolMetadata(tools: ListedTool[]): void {
+  const byName = new Map(
+    tools.map((t) => [t.name, t] as const),
+  );
 
-    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const list = await mcp.recv();
-    const byName = new Map(
-      (list.result.tools as ListedTool[]).map((t) => [t.name, t] as const),
+  assertEquals(
+    sorted(byName.keys()),
+    sorted(TOOLS.map((t) => t.name)),
+    "tools/list must advertise exactly the TOOLS table when every feature is on",
+  );
+
+  // Every source entry and advertised tool carries the self-describing surface.
+  for (const tool of TOOLS) {
+    const name = tool.name;
+    assert(
+      typeof tool.title === "string" && tool.title.length > 0,
+      `${name} has no source title`,
     );
+    assert(tool.outputSchema !== undefined, `${name} has no outputSchema`);
+    assert(tool.annotations !== undefined, `${name} has no annotations`);
 
+    const t = byName.get(name);
+    assert(t !== undefined, `missing tool ${name}`);
+    assert(
+      typeof t.title === "string" && t.title.length > 0,
+      `${name} has no title`,
+    );
+    assertEquals(t.outputSchema?.type, "object", `${name} outputSchema`);
+    assert(t.annotations !== undefined, `${name} has no annotations`);
+  }
+
+  const READ_ONLY_TOOLS = new Set([
+    "discern_doctor",
+    "discern_impact",
+    "discern_coupling",
+    "discern_await",
+    "discern_progress",
+    "discern_patterns",
+    "discern_status",
+    "discern_improvement",
+    "discern_checkpoints",
+    "discern_map",
+    "discern_docs",
+  ]);
+  const MUTATING_TOOLS = new Set([
+    "discern_refresh",
+    "discern_done",
+    "discern_prepare",
+    "discern_test",
+    "discern_standards",
+    "discern_start",
+    "discern_update",
+  ]);
+  const DESTRUCTIVE_TOOLS = new Set(["discern_accept"]);
+  const IDEMPOTENT_MUTATING_TOOLS = new Set([
+    "discern_refresh",
+    "discern_update",
+  ]);
+  assertEquals(
+    sorted([
+      ...READ_ONLY_TOOLS,
+      ...MUTATING_TOOLS,
+      ...DESTRUCTIVE_TOOLS,
+    ]),
+    sorted(TOOLS.map((t) => t.name)),
+    "every MCP tool must be classified as read-only, mutating, or destructive",
+  );
+
+  // Honest annotations: the pure-observation verbs are read-only; the gate/lifecycle
+  // verbs mutate; accept is destructive; update is the lifecycle's mutating
+  // idempotent operation (a no-op once already current).
+  for (const tool of TOOLS) {
+    const annotations = byName.get(tool.name)?.annotations;
+    assert(annotations !== undefined, `${tool.name} has no annotations`);
     assertEquals(
-      sorted(byName.keys()),
-      sorted(TOOLS.map((t) => t.name)),
-      "tools/list must advertise exactly the TOOLS table when every feature is on",
+      annotations.readOnlyHint,
+      READ_ONLY_TOOLS.has(tool.name),
+      `${tool.name} readOnlyHint`,
     );
-
-    // Every source entry and advertised tool carries the self-describing surface.
-    for (const tool of TOOLS) {
-      const name = tool.name;
-      assert(
-        typeof tool.title === "string" && tool.title.length > 0,
-        `${name} has no source title`,
-      );
-      assert(tool.outputSchema !== undefined, `${name} has no outputSchema`);
-      assert(tool.annotations !== undefined, `${name} has no annotations`);
-
-      const t = byName.get(name);
-      assert(t !== undefined, `missing tool ${name}`);
-      assert(
-        typeof t.title === "string" && t.title.length > 0,
-        `${name} has no title`,
-      );
-      assertEquals(t.outputSchema?.type, "object", `${name} outputSchema`);
-      assert(t.annotations !== undefined, `${name} has no annotations`);
-    }
-
-    const READ_ONLY_TOOLS = new Set([
-      "discern_doctor",
-      "discern_impact",
-      "discern_coupling",
-      "discern_await",
-      "discern_progress",
-      "discern_patterns",
-      "discern_status",
-      "discern_improvement",
-      "discern_checkpoints",
-      "discern_map",
-      "discern_docs",
-    ]);
-    const MUTATING_TOOLS = new Set([
+    assertEquals(
+      annotations.destructiveHint ?? false,
+      DESTRUCTIVE_TOOLS.has(tool.name),
+      `${tool.name} destructiveHint`,
+    );
+    assertEquals(
+      annotations.idempotentHint ?? false,
+      READ_ONLY_TOOLS.has(tool.name) ||
+        IDEMPOTENT_MUTATING_TOOLS.has(tool.name),
+      `${tool.name} idempotentHint`,
+    );
+    const closedWorldTools = new Set([
+      ...READ_ONLY_TOOLS,
       "discern_refresh",
-      "discern_done",
-      "discern_prepare",
-      "discern_test",
-      "discern_standards",
-      "discern_start",
-      "discern_update",
     ]);
-    const DESTRUCTIVE_TOOLS = new Set(["discern_accept"]);
-    const IDEMPOTENT_MUTATING_TOOLS = new Set([
+    assertEquals(
+      annotations.openWorldHint,
+      closedWorldTools.has(tool.name) ? false : undefined,
+      `${tool.name} openWorldHint`,
+    );
+  }
+  assertEquals(
+    sorted(IDEMPOTENT_MUTATING_TOOLS),
+    [
       "discern_refresh",
       "discern_update",
-    ]);
-    assertEquals(
-      sorted([
-        ...READ_ONLY_TOOLS,
-        ...MUTATING_TOOLS,
-        ...DESTRUCTIVE_TOOLS,
-      ]),
-      sorted(TOOLS.map((t) => t.name)),
-      "every MCP tool must be classified as read-only, mutating, or destructive",
-    );
+    ],
+    "record any additional mutating idempotent tool explicitly",
+  );
 
-    // Honest annotations: the pure-observation verbs are read-only; the gate/lifecycle
-    // verbs mutate; accept is destructive; update is the lifecycle's mutating
-    // idempotent operation (a no-op once already current).
-    for (const tool of TOOLS) {
-      const annotations = byName.get(tool.name)?.annotations;
-      assert(annotations !== undefined, `${tool.name} has no annotations`);
-      assertEquals(
-        annotations.readOnlyHint,
-        READ_ONLY_TOOLS.has(tool.name),
-        `${tool.name} readOnlyHint`,
-      );
-      assertEquals(
-        annotations.destructiveHint ?? false,
-        DESTRUCTIVE_TOOLS.has(tool.name),
-        `${tool.name} destructiveHint`,
-      );
-      assertEquals(
-        annotations.idempotentHint ?? false,
-        READ_ONLY_TOOLS.has(tool.name) ||
-          IDEMPOTENT_MUTATING_TOOLS.has(tool.name),
-        `${tool.name} idempotentHint`,
-      );
-      const closedWorldTools = new Set([
-        ...READ_ONLY_TOOLS,
-        "discern_refresh",
-      ]);
-      assertEquals(
-        annotations.openWorldHint,
-        closedWorldTools.has(tool.name) ? false : undefined,
-        `${tool.name} openWorldHint`,
-      );
-    }
-    assertEquals(
-      sorted(IDEMPOTENT_MUTATING_TOOLS),
-      [
-        "discern_refresh",
-        "discern_update",
-      ],
-      "record any additional mutating idempotent tool explicitly",
-    );
+  // openWorldHint honesty: the pure observers claim a closed world; the
+  // command-running tools leave it unset (it defaults open), since their
+  // configured commands are arbitrary and may reach the network.
+  assertEquals(
+    byName.get("discern_status")?.annotations?.openWorldHint,
+    false,
+  );
+  assertEquals(
+    byName.get("discern_done")?.annotations?.openWorldHint,
+    undefined,
+  );
+  assertEquals(
+    byName.get("discern_refresh")?.annotations?.openWorldHint,
+    false,
+  );
+  assertEquals(
+    byName.get("discern_standards")?.annotations?.openWorldHint,
+    undefined,
+  );
+  assertEquals(
+    byName.get("discern_accept")?.annotations?.openWorldHint,
+    undefined,
+  );
 
-    // openWorldHint honesty: the pure observers claim a closed world; the
-    // command-running tools leave it unset (it defaults open), since their
-    // configured commands are arbitrary and may reach the network.
-    assertEquals(
-      byName.get("discern_status")?.annotations?.openWorldHint,
-      false,
-    );
-    assertEquals(
-      byName.get("discern_done")?.annotations?.openWorldHint,
-      undefined,
-    );
-    assertEquals(
-      byName.get("discern_refresh")?.annotations?.openWorldHint,
-      false,
-    );
-    assertEquals(
-      byName.get("discern_standards")?.annotations?.openWorldHint,
-      undefined,
-    );
-    assertEquals(
-      byName.get("discern_accept")?.annotations?.openWorldHint,
-      undefined,
-    );
-
-    // The advertised outputSchema names the envelope fields it validates, and
-    // finish's narrows `data` to the gate payload.
-    const finishProps = byName.get("discern_done")?.outputSchema?.properties;
-    assert(finishProps?.ok !== undefined, "finish outputSchema has ok");
-    assert(finishProps?.verb !== undefined, "finish outputSchema has verb");
-    assert(finishProps?.data !== undefined, "finish outputSchema narrows data");
-
-    assertEquals(await mcp.close(), 0);
-  });
-});
-
-Deno.test("discern mcp: tools/list advertises tools in workflow priority order", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
-
-    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const list = await mcp.recv();
-    const tools = list.result.tools as ListedTool[];
-    assertEquals(
-      tools.map((t) => t.name),
-      [
-        "discern_status",
-        "discern_start",
-        "discern_prepare",
-        "discern_done",
-        "discern_update",
-        "discern_await",
-        "discern_accept",
-        "discern_map",
-        "discern_progress",
-        "discern_test",
-        "discern_standards",
-        "discern_impact",
-        "discern_coupling",
-        "discern_patterns",
-        "discern_checkpoints",
-        "discern_refresh",
-        "discern_docs",
-        "discern_doctor",
-        "discern_improvement",
-      ],
-      "MCP tools should be listed in deliberate workflow priority order for clients that truncate tools/list",
-    );
-
-    assertEquals(await mcp.close(), 0);
-  });
-});
+  // The advertised outputSchema names the envelope fields it validates, and
+  // finish's narrows `data` to the gate payload.
+  const finishProps = byName.get("discern_done")?.outputSchema?.properties;
+  assert(finishProps?.ok !== undefined, "finish outputSchema has ok");
+  assert(finishProps?.verb !== undefined, "finish outputSchema has verb");
+  assert(finishProps?.data !== undefined, "finish outputSchema narrows data");
+}
 
 Deno.test("discern mcp: await bounds follow the server's configured transport profile", async () => {
   await withTempDir(async (dir) => {
@@ -3975,39 +4001,6 @@ Deno.test("discern mcp: discern_refresh repairs stale generated artifacts", asyn
   });
 });
 
-Deno.test("discern mcp: discern_status metadata is search-shaped for orientation", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
-
-    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const list = await mcp.recv();
-    const status = (list.result.tools as ListedTool[])
-      .find((t) => t.name === "discern_status");
-    assert(status !== undefined, "discern_status should be listed");
-    assertEquals(status.title, "Orient in the project");
-    assert(
-      status.description.startsWith(
-        "Start here: call discern_status",
-      ),
-      `discern_status description should lead with its exact orientation role; got:\n${status.description}`,
-    );
-    assert(
-      status.description.includes("discern_refresh"),
-      `discern_status description should name the MCP repair tool; got:\n${status.description}`,
-    );
-    assertEquals(await mcp.close(), 0);
-  });
-});
-
 /** Report startup-instruction violations for schema-deferred MCP clients. */
 function instructionContractFailures(instructions: string): string[] {
   const failures: string[] = [];
@@ -4084,54 +4077,6 @@ Deno.test("discern mcp: accept requires the verbatim landing proof line", () => 
     accept.description,
     "full review page remains available through `discern status --verbose`",
   );
-});
-
-Deno.test("discern mcp: discern_status documents its actionable data fields", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
-
-    await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const list = await mcp.recv();
-    const status =
-      (list.result.tools as { name: string; description: string }[])
-        .find((t) => t.name === "discern_status");
-    assert(status !== undefined, "discern_status should be listed");
-    assert(
-      new TextEncoder().encode(status.description).length < 1_500,
-      `discern_status description exceeded its 1.5KB context budget:\n${status.description}`,
-    );
-
-    // What the agent SEES (the tool description) must name every actionable
-    // structured state status emits. Pin the set so a new advisory field cannot
-    // drift into the payload undocumented.
-    for (
-      const field of [
-        "project",
-        "gate_proof",
-        "pending_tracked_refresh",
-        "tracked_refresh_plan_errors",
-        "setup_unfinished",
-        "incoming_overlap",
-        "reappeared_worktree_paths",
-      ]
-    ) {
-      assert(
-        status.description.includes(field),
-        `discern_status description must document data.${field}; got:\n${status.description}`,
-      );
-    }
-
-    assertEquals(await mcp.close(), 0);
-  });
 });
 
 Deno.test("discern mcp: status carries project identity and compact fleet proof checks", async () => {
@@ -4444,47 +4389,6 @@ Deno.test("mcp: discern_standards returns and measures exactly the requested ord
       await targetExists(join(dir, ".git", "unselected-runs")),
       false,
     );
-  });
-});
-
-Deno.test("discern mcp: the server advertises a non-empty, MCP-first instructions block", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    const init = await mcp.recv();
-    const instructions = init.result.instructions;
-    assert(
-      typeof instructions === "string" && instructions.length > 0,
-      "the server should advertise instructions in its initialize result",
-    );
-    // It names the operating model's core tools (orient, gate) — the "when to use
-    // which tool" block.
-    assert(instructions.includes("discern_status"), instructions);
-    assert(instructions.includes("discern_done"), instructions);
-    // Worktrees are on → the whole lifecycle is named linearly, from any root (ADR
-    // 0062 retired the location-branched instructions): start, update, accept.
-    assert(instructions.includes("discern_start"), instructions);
-    assert(instructions.includes("discern_update"), instructions);
-    assert(instructions.includes("discern_accept"), instructions);
-    // Clients may load schemas only on demand, so the instructions must also
-    // advertise fleet waiting; the discern_await schema carries its mechanics.
-    assert(instructions.includes("discern_await"), instructions);
-    assert(/explicit[^.]{0,80}consent/i.test(instructions), instructions);
-    assert(
-      /green gate[^.]{0,40}not permission/i.test(instructions),
-      instructions,
-    );
-    // Diagnostics and standards are always present (every subsystem is core).
-    assert(instructions.includes("discern_doctor"), instructions);
-    assert(instructions.includes("discern_standards"), instructions);
-    assertEquals(await mcp.close(), 0);
   });
 });
 

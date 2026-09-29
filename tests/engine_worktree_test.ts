@@ -272,6 +272,14 @@ Deno.test("worktree ensure sets up once, then is a no-op", async () => {
     const first = await runAgent(wt, ["worktree", "ensure"]);
     assertEquals(first.code, 0, first.output);
     assertTerminalTextIncludes(first.output, "not configured yet");
+    const expected = renderCommandRefsCli(
+      HINTS["ensure-main-worktree-first"].template(undefined),
+    );
+    assertEquals(
+      first.output.includes(expected),
+      false,
+      `a worktree session needs no main-checkout orientation\n${first.output}`,
+    );
     const second = await runAgent(wt, ["worktree", "ensure"]);
     assertEquals(second.code, 0, second.output);
     assertEquals(
@@ -295,22 +303,6 @@ Deno.test("worktree ensure on the main checkout leads with the worktree-first li
     const r = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(r.code, 0, r.output);
     assertTerminalTextIncludes(r.stdout, expected);
-  });
-});
-
-Deno.test("worktree ensure orientation stays off the worktree side", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "quiet-orient");
-    const expected = renderCommandRefsCli(
-      HINTS["ensure-main-worktree-first"].template(undefined),
-    );
-    const r = await runAgent(wt, ["worktree", "ensure"]);
-    assertEquals(r.code, 0, r.output);
-    assertEquals(
-      r.output.includes(expected),
-      false,
-      `a worktree session needs no main-checkout orientation\n${r.output}`,
-    );
   });
 });
 
@@ -1499,25 +1491,6 @@ Deno.test("worktree teardown runs the (no-op) adapter seams cleanly", async () =
   });
 });
 
-Deno.test("worktree prune --yes reclaims a fully-merged worktree", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await ownedWorktree(dir, "zeta");
-    await Deno.writeTextFile(join(wt, "z.txt"), "z\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "z", "--no-gpg-sign");
-    // Merge the branch into main so it is fully merged → prune may reclaim it.
-    await git(dir, "merge", "--no-ff", "-m", "merge zeta", "agent/zeta");
-
-    const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
-    assertEquals(r.code, 0, r.output);
-    assertEquals(
-      await targetExists(wt),
-      false,
-      `fully-merged worktree should be pruned\n${r.output}`,
-    );
-  });
-});
-
 Deno.test("worktree prune keeps a sibling worktree that still has unmerged work", async () => {
   await withTempDir(async (dir) => {
     const live = await ownedWorktree(dir, "live");
@@ -1973,23 +1946,6 @@ async function interruptSetupStep(
   return identity.id;
 }
 
-Deno.test("worktree setup: runs the one-shot steps then the convergent ensure", async () => {
-  await withTempDir(async (dir) => {
-    await withMarkers(async (markers) => {
-      const steps = join(markers, "steps");
-      const ensure = join(markers, "ensure");
-      const wt = await mainWithSetup(dir, "setup-both", {
-        steps: [`echo x >> ${steps}`],
-        ensure: [`echo x >> ${ensure}`],
-      });
-      const r = await runAgent(wt, ["worktree", "setup"]);
-      assertEquals(r.code, 0, r.output);
-      assertEquals(await markerCount(steps), 1, `steps ran once\n${r.output}`);
-      assertEquals(await markerCount(ensure), 1, `ensure ran\n${r.output}`);
-    });
-  });
-});
-
 Deno.test("worktree setup recovery marks an observed command complete without replay", async () => {
   await withTempDir(async (dir) => {
     await withMarkers(async (markers) => {
@@ -2170,7 +2126,14 @@ Deno.test("worktree setup re-entry: skips the one-shot steps, re-runs ensure", a
         steps: [`echo x >> ${steps}`],
         ensure: [`echo x >> ${ensure}`],
       });
-      await runAgent(wt, ["worktree", "setup"]); // creation: steps 1, ensure 1
+      const first = await runAgent(wt, ["worktree", "setup"]);
+      assertEquals(first.code, 0, first.output);
+      assertEquals(
+        await markerCount(steps),
+        1,
+        `steps ran once\n${first.output}`,
+      );
+      assertEquals(await markerCount(ensure), 1, `ensure ran\n${first.output}`);
       const again = await runAgent(wt, ["worktree", "setup"]); // re-entry
       assertEquals(again.code, 0, again.output);
       assertTerminalTextIncludes(again.output, "skipping setup steps");

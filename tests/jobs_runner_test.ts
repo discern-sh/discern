@@ -312,51 +312,6 @@ Deno.test("spawnJob stamps the recording invocation into DISCERN_SPAWNED_BY", as
   }, { prefix: "discern-job-spawned-" });
 });
 
-Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () => {
-  const s = makeSink();
-  let cancellationStarted: number | undefined;
-  const jobs: Job[] = [
-    { label: "fail", command: "exit 3" },
-    { label: "slow", command: "tail -f /dev/null" },
-  ];
-  const r = await runParallel(jobs, {
-    cwd: CWD,
-    stream: false,
-    failFast: true,
-    color: false,
-    write: s.write,
-    observer: {
-      started: (): void => {},
-      settled: (job): void => {
-        if (job.label === "fail") {
-          cancellationStarted = SYSTEM_CLOCK.monotonicNow();
-        }
-      },
-    },
-  });
-  assert(cancellationStarted !== undefined);
-  const elapsed = SYSTEM_CLOCK.monotonicNow() - cancellationStarted;
-  assertEquals(r.ok, false);
-  assertEquals(r.results.find((x) => x.label === "fail")?.code, 3);
-  assert(elapsed < 10_000, `expected interaction cancel, took ${elapsed}ms`);
-});
-
-Deno.test("runParallel: without fail-fast every job runs to completion", async () => {
-  const s = makeSink();
-  const r = await runParallel([
-    { label: "fail", command: "exit 1" },
-    { label: "ok", command: "true" },
-  ], {
-    cwd: CWD,
-    stream: false,
-    failFast: false,
-    color: false,
-    write: s.write,
-  });
-  assertEquals(r.ok, false);
-  assertEquals(r.results.find((x) => x.label === "ok")?.code, 0);
-});
-
 Deno.test("runSerial: stops at the first failure; later jobs never run", async () => {
   const s = makeSink();
   const jobs: Job[] = [
@@ -374,26 +329,6 @@ Deno.test("runSerial: stops at the first failure; later jobs never run", async (
   assertEquals(r.ok, false);
   // 'never' is absent → finish marks it "skipped".
   assertEquals(r.results.map((x) => x.label), ["first", "boom"]);
-});
-
-Deno.test("buffered mode captures combined stdout+stderr after the banner", async () => {
-  const s = makeSink();
-  const r = await runParallel([
-    {
-      label: "noisy",
-      command: "echo hello-stdout; echo oops-stderr >&2; exit 1",
-    },
-  ], {
-    cwd: CWD,
-    stream: false,
-    failFast: true,
-    color: false,
-    write: s.write,
-  });
-  assertEquals(r.ok, false);
-  assert(s.text().includes("── noisy ─ FAILED (exit 1)"), s.text());
-  assert(s.text().includes("hello-stdout"), s.text());
-  assert(s.text().includes("oops-stderr"), s.text());
 });
 
 Deno.test("job labels are inert while buffered child-output bytes stay raw", async () => {
@@ -423,10 +358,13 @@ Deno.test("job labels are inert while buffered child-output bytes stay raw", asy
   assertStringIncludes(s.text(), child);
 });
 
-Deno.test("a genuinely failed job carries diagnostic output; a passing one carries only an artifact", async () => {
+Deno.test("buffered jobs finish without fail-fast and expose failure diagnostics or passing artifacts", async () => {
   const s = makeSink();
   const r = await runParallel([
-    { label: "fail", command: "echo why-it-failed >&2; exit 1" },
+    {
+      label: "fail",
+      command: "echo hello-stdout; echo why-it-failed >&2; exit 1",
+    },
     { label: "pass", command: "echo all-good; true" },
   ], {
     cwd: CWD,
@@ -437,11 +375,16 @@ Deno.test("a genuinely failed job carries diagnostic output; a passing one carri
   });
   const fail = r.results.find((x) => x.label === "fail");
   const pass = r.results.find((x) => x.label === "pass");
+  assertEquals(r.ok, false);
+  assertEquals(pass?.code, 0);
+  assertStringIncludes(s.text(), "── fail ─ FAILED (exit 1)");
+  assertStringIncludes(s.text(), "hello-stdout");
+  assertStringIncludes(s.text(), "why-it-failed");
   // The failure's result carries the captured output (the Tier-0 diagnostic payload).
   assert(fail?.output !== undefined, "expected the failed job to carry output");
   assertStringIncludes(fail.output, "why-it-failed");
   assertEquals(fail.cancelled, undefined);
-  assertEquals(fail.outputLines, 1);
+  assertEquals(fail.outputLines, 2);
   assertEquals(fail.errorLikeLines, 0);
   assert(
     fail.outputPath !== undefined,
@@ -494,10 +437,11 @@ Deno.test("stream-mode failed jobs retain a capped head and tail for diagnostics
   );
 });
 
-Deno.test("a fail-fast-cancelled sibling is flagged cancelled and carries no output", async () => {
+Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () => {
   const s = makeSink();
+  let cancellationStarted: number | undefined;
   const r = await runParallel([
-    { label: "boom", command: "exit 1" },
+    { label: "boom", command: "exit 3" },
     { label: "victim", command: "echo partial; tail -f /dev/null" },
   ], {
     cwd: CWD,
@@ -505,7 +449,20 @@ Deno.test("a fail-fast-cancelled sibling is flagged cancelled and carries no out
     failFast: true,
     color: false,
     write: s.write,
+    observer: {
+      started: (): void => {},
+      settled: (job): void => {
+        if (job.label === "boom") {
+          cancellationStarted = SYSTEM_CLOCK.monotonicNow();
+        }
+      },
+    },
   });
+  assert(cancellationStarted !== undefined);
+  const elapsed = SYSTEM_CLOCK.monotonicNow() - cancellationStarted;
+  assertEquals(r.ok, false);
+  assertEquals(r.results.find((x) => x.label === "boom")?.code, 3);
+  assert(elapsed < 10_000, `expected interaction cancel, took ${elapsed}ms`);
   const victim = r.results.find((x) => x.label === "victim");
   // The killed sibling is not a real failure: flagged cancelled, no diagnostic output.
   assertEquals(victim?.cancelled, true);
@@ -798,26 +755,13 @@ async function waitForExit(pid: number): Promise<void> {
   );
 }
 
-Deno.test("stream mode prefixes each output line", async () => {
-  const s = makeSink();
-  await runParallel([{ label: "j", command: "printf 'one\\ntwo\\n'" }], {
-    cwd: CWD,
-    stream: true,
-    failFast: true,
-    color: false,
-    write: s.write,
-  });
-  assert(s.text().includes("── j │ one"), s.text());
-  assert(s.text().includes("── j │ two"), s.text());
-});
-
 Deno.test("stream mode makes configured labels inert without rewriting child bytes", async () => {
   const s = makeSink();
   const label = "stream\x1b[31m\nspoof\u009b";
   const child = "\x1b[35mchild\x1b[0m";
   await runParallel([{
     label,
-    command: "printf '\\033[35mchild\\033[0m\\n'",
+    command: "printf '\\033[35mchild\\033[0m\\ntwo\\n'",
   }], {
     cwd: CWD,
     stream: true,
@@ -829,6 +773,7 @@ Deno.test("stream mode makes configured labels inert without rewriting child byt
     s.text(),
     `── stream␛[31m␊spoof<U+009B> │ ${child}`,
   );
+  assertStringIncludes(s.text(), "── stream␛[31m␊spoof<U+009B> │ two");
   assertEquals(s.text().includes("\x1b[31m"), false);
 });
 

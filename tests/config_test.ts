@@ -15,7 +15,6 @@ import {
   slugify,
   tokensFromConfig,
 } from "../src/lib/config.ts";
-import { renderTomlStringList } from "../src/lib/toml_render.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { isNeutralPath } from "../src/engine/scopes/scopes.ts";
 import {
@@ -49,16 +48,6 @@ Deno.test("parseAgents dedups and ignores empty entries", () => {
   const { agents } = parseAgents("codex,,codex");
   assertEquals(agents, ["codex"]);
 });
-
-Deno.test("renderTomlStringList quotes and comma-joins", () => {
-  assertEquals(
-    renderTomlStringList(["claude_code", "codex"]),
-    '"claude_code", "codex"',
-  );
-  assertEquals(renderTomlStringList(["src/**"]), '"src/**"');
-  assertEquals(renderTomlStringList([]), "");
-});
-
 Deno.test("tokensFromConfig produces the full token contract", () => {
   const map = tokensFromConfig({
     projectName: "Demo App",

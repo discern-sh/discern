@@ -311,29 +311,6 @@ Deno.test("hook WorktreeCreate: warns when the caller-named worktree's port coll
   });
 });
 
-Deno.test("hook WorktreeCreate: creates the worktree, runs setup, prints its path", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const r = await runHook(dir, await hookCommand(dir, "WorktreeCreate"), {
-      name: "hooked",
-      cwd: dir,
-    });
-    assertEquals(r.code, 0, r.stderr);
-
-    const wt = worktreePath(dir, "hooked");
-    // The hook prints ONLY the new worktree's path on stdout (no trailing
-    // newline) — Claude Code reads it as the worktree location.
-    assertEquals(r.stdout, wt);
-    // It is a real linked worktree, with `discern worktree setup` having run.
-    assert(await targetExists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
-    assert(
-      await targetExists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
-      `setup did not run inside the worktree\n${r.stderr}`,
-    );
-  });
-});
-
 Deno.test("hook-created worktree stays git-clean after setup and session-start ensure", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { agents: [...AGENT_NAMES] });
@@ -453,6 +430,19 @@ Deno.test("hook WorktreeCreate: re-firing on an existing worktree is idempotent"
     const payload = { name: "again", cwd: dir };
     const first = await runHook(dir, create, payload);
     assertEquals(first.code, 0, first.stderr);
+    const wt = worktreePath(dir, "again");
+    // The hook prints ONLY the new worktree's path on stdout (no trailing
+    // newline) — Claude Code reads it as the worktree location.
+    assertEquals(first.stdout, wt);
+    // It is a real linked worktree, with `discern worktree setup` having run.
+    assert(
+      await targetExists(join(wt, ".git")),
+      `not a worktree\n${first.stderr}`,
+    );
+    assert(
+      await targetExists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
+      `setup did not run inside the worktree\n${first.stderr}`,
+    );
     // A second create for the same name must not error on the already-added
     // worktree — it re-runs setup and re-prints the same path.
     const second = await runHook(dir, create, payload);

@@ -187,9 +187,10 @@ Deno.test("the published docs site covers exactly the manual registry", async ()
   }
 });
 
-Deno.test("the manual cover shows task guidance before its complete browse tree", async () => {
+Deno.test("the manual front door preserves browse guidance, raw contracts, and shell styles", async () => {
   const site = await loadDocsSite();
   const res = await get("/docs", BROWSER);
+  assertEquals(res.status, 200);
   const html = await res.text();
   const dom = new JSDOM(html);
   const nav = dom.window.document.querySelector("#docs-nav");
@@ -245,128 +246,52 @@ Deno.test("the manual cover shows task guidance before its complete browse tree"
   assertEquals(nav?.querySelectorAll("[hidden]").length, 0);
   const guides = site.sections.find((section) => section.dir === "20-guides");
   assertEquals(guides?.pages[1]?.entry.slug, "finish-and-land-a-change");
-  dom.window.close();
-});
 
-Deno.test("every guide keeps the complete canonical nav and marks only itself", async () => {
-  const site = await loadDocsSite();
-  const canonicalRoutes = site.pages.map((page) => page.route);
-  for (const current of site.pages) {
-    const html = await (await get(current.route, BROWSER)).text();
-    const dom = new JSDOM(html);
-    const nav = dom.window.document.querySelector("#docs-nav");
-    assertEquals(
-      [...nav?.querySelectorAll("li > a") ?? []].map((link) =>
-        link.getAttribute("href")
-      ),
-      canonicalRoutes,
-      current.route,
-    );
-    assertEquals(
-      [...nav?.querySelectorAll('[aria-current="page"]') ?? []].map((link) =>
-        link.getAttribute("href")
-      ),
-      [current.route],
-      current.route,
-    );
-    assertEquals(
-      nav?.querySelector(
-        "[data-nav-disclosure], [data-nav-context], .docs-nav-relation, .docs-nav-scope",
-      ),
-      null,
-      current.route,
-    );
-    assertEquals(
-      nav?.querySelectorAll(".docs-nav-kind").length,
-      0,
-      `${current.route}: page kinds do not duplicate every destination`,
-    );
-    dom.window.close();
-  }
-});
-
-Deno.test("docs navigation foot keeps the three durable reference links visible", async () => {
-  const site = await loadDocsSite();
-  const expected = [
-    ["Glossary", "/docs/reference/glossary"],
-    ["Commands", "/docs/reference/cli-reference"],
-    ["Configuration", "/docs/reference/config-reference"],
-  ];
-  const decision = site.decisions.pages[0];
-  for (
-    const route of [
-      "/docs",
-      site.decisions.route,
-      ...(decision === undefined ? [] : [decision.route]),
-    ]
-  ) {
-    const response = await get(route, BROWSER);
-    assertEquals(response.status, 200, route);
-    const dom = new JSDOM(await response.text());
-    assertEquals(
-      [...dom.window.document.querySelectorAll(".docs-nav-foot a")].map(
-        (link) => [link.textContent?.trim(), link.getAttribute("href")],
-      ),
-      expected,
-      route,
-    );
-    assertEquals(
-      dom.window.document.querySelectorAll(
-        "#docs-nav [aria-current='page']",
-      ).length,
-      0,
-      route,
-    );
-    dom.window.close();
-  }
-});
-
-Deno.test("previous and next follow the reading order and declare their relation", async () => {
-  const site = await loadDocsSite();
-  const page = site.pages[1];
-  assert(page !== undefined, "the pager fixture needs a second page");
-  const { previous, next } = adjacentPages(site, page);
-  assert(previous !== undefined && next !== undefined);
-  const dom = new JSDOM(await (await get(page.route, BROWSER)).text());
-  const links = [...dom.window.document.querySelectorAll(".docs-pager a")]
-    .map((link) => [link.getAttribute("rel"), link.getAttribute("href")]);
-  dom.window.close();
-  assertEquals(links, [
-    ["prev", previous.route],
-    ["next", next.route],
-  ]);
-});
-
-Deno.test("the manual cover renders its authored root and raw-reader colophon", async () => {
-  const site = await loadDocsSite();
-  const guide = site.pages.find((page) => !page.isIndex);
-  if (guide === undefined) throw new Error("docs fixture has no guide page");
-
-  const indexDom = new JSDOM(await (await get("/docs", BROWSER)).text());
+  // Authored cover and raw-reader contracts.
   assertEquals(
-    indexDom.window.document.querySelector(".docs-manual-index h1")
+    dom.window.document.querySelector(".docs-manual-index h1")
       ?.textContent,
     site.landing.entry.title,
   );
   assertEquals(
-    indexDom.window.document.querySelector(".docs-cover"),
-    indexDom.window.document.querySelector(".docs-manual-index"),
+    dom.window.document.querySelector(".docs-cover"),
+    dom.window.document.querySelector(".docs-manual-index"),
     "the authored manual introduction is the visual cover",
   );
   assertEquals(
-    [...indexDom.window.document.querySelectorAll(
+    [...dom.window.document.querySelectorAll(
       ".docs-front-doors .docs-chapter-leaves a",
     )].map((link) => link.getAttribute("href")),
     site.frontDoors.map((page) => page.route),
   );
-  const rawIndex = await (await get("/docs.md", BROWSER)).text();
+  const asText = await get("/docs", CURL);
+  assertEquals(asText.status, 200);
+  const md = await asText.text();
+  const rootSource = await Deno.readTextFile(
+    new URL("../project/manual/README.md", import.meta.url),
+  );
+  assertEquals(md, rootSource, "the manual front door keeps the raw contract");
+  for (const section of site.sections) {
+    assertStringIncludes(html, `href="${section.index.route}"`, section.dir);
+    assertStringIncludes(md, `${section.dir}/`, section.dir);
+  }
+  const asSuffix = await get("/docs.md", BROWSER);
+  assertEquals(asSuffix.status, 200);
+  const rawIndex = await asSuffix.text();
+  assertEquals(rawIndex, md);
   assertStringIncludes(rawIndex, "## Find your next task");
   assertStringIncludes(rawIndex, "<!-- BEGIN MANUAL FRONT DOORS -->");
-  indexDom.window.close();
 
-  for (const route of ["/docs", guide.route]) {
-    const dom = new JSDOM(await (await get(route, BROWSER)).text());
-    const colophon = dom.window.document.querySelector(".docs-colophon");
+  const guide = site.pages.find((page) => !page.isIndex);
+  if (guide === undefined) throw new Error("docs fixture has no guide page");
+  const guideDom = new JSDOM(await (await get(guide.route, BROWSER)).text());
+  for (
+    const [route, document] of [
+      ["/docs", dom.window.document],
+      [guide.route, guideDom.window.document],
+    ] as const
+  ) {
+    const colophon = document.querySelector(".docs-colophon");
     assertStringIncludes(
       colophon?.textContent?.replace(/\s+/g, " ").trim() ?? "",
       "Plain text for agents:",
@@ -384,97 +309,441 @@ Deno.test("the manual cover renders its authored root and raw-reader colophon", 
       "/llms.txt",
       route,
     );
-    dom.window.close();
   }
+  guideDom.window.close();
+
+  // Top bar and code scale share the same linked stylesheet observation.
+  const classes = topBarClasses(html);
+  assert(classes.has("docs-top"), "the served shell should carry the top bar");
+  const sheets = await docsServedStylesheets(html);
+  assert(sheets.length > 0, "docs pages should link repo-authored stylesheets");
+  const failures = sheets.flatMap(([href, css]) =>
+    verticalNudges(css, classes).map((nudge) => `${href} → ${nudge}`)
+  );
+  assertEquals(failures, []);
+  const sizes = sheets
+    .flatMap(([href, css]) => codeFontSizes(css).map((s) => `${href} ${s}`))
+    .sort();
+  // The complete code-sizing canon: inline code rides just under the running
+  // text; code sheets keep their own fixed scale. Any other code sizing — the
+  // undersized legacy 0.8125em included — must join this set deliberately.
+  assertEquals(sizes, [
+    "/assets/docs.css .doc-body pre > code → font: 400 0.8125rem/1.7 var(--discern-font-mono)",
+    "/assets/docs.css .docs-layout :not(pre) > code → font-size: 0.9em",
+  ]);
+  const sidebar = dom.window.document.getElementById("docs-nav")?.innerHTML ??
+    "";
+  assert(sidebar.length > 0);
+  assert(!sidebar.includes(`href="${site.decisions.route}"`));
+  assertStringIncludes(
+    html,
+    `<a href="${site.decisions.route}">Project decisions</a>`,
+  );
+  dom.window.close();
 });
 
-Deno.test("contents numbering follows authored procedures and otherwise derives from headings", async () => {
+Deno.test("served documentation and decision pages preserve navigation, structure, and history", async () => {
   const site = await loadDocsSite();
+  const routes = [
+    "/docs",
+    ...site.pages.map((page) => page.route),
+    site.publicMap.landing.route,
+    site.decisions.route,
+    ...site.decisions.pages.map((page) => page.route),
+  ];
+  const manualPages = new Map(site.pages.map((page) => [page.route, page]));
+  const decisionPages = new Map(
+    site.decisions.pages.map((page) => [page.route, page]),
+  );
+  const canonicalRoutes = site.pages.map((page) => page.route);
+  const navFootLinks = [
+    ["Glossary", "/docs/reference/glossary"],
+    ["Commands", "/docs/reference/cli-reference"],
+    ["Configuration", "/docs/reference/config-reference"],
+  ];
+  const firstDecision = site.decisions.pages[0];
+  const navFootRoutes = new Set([
+    "/docs",
+    site.decisions.route,
+    ...(firstDecision === undefined ? [] : [firstDecision.route]),
+  ]);
+  const pagerPage = site.pages[1];
+  assert(pagerPage !== undefined, "the pager fixture needs a second page");
+  const { previous, next } = adjacentPages(site, pagerPage);
+  assert(previous !== undefined && next !== undefined);
+  const worktrees = site.pages.find((page) =>
+    page.entry.slug === "worktrees-and-trunk"
+  );
+  assert(worktrees !== undefined);
+  let tables = 0;
+  let anchoredHeadings = 0;
   let pagesWithNestedHeadings = 0;
   let pagesWithAuthoredNumbers = 0;
+  let ordinaryCitationCount = 0;
+  let shell: string | undefined;
 
-  for (const page of site.pages) {
-    const dom = new JSDOM(await (await get(page.route, BROWSER)).text());
+  for (const route of routes) {
+    const response = await get(route, BROWSER);
+    assertEquals(response.status, 200, route);
+    const html = await response.text();
+    if (route === "/docs") shell = html;
+    const dom = new JSDOM(html);
     const document = dom.window.document;
-    const article = document.querySelector<HTMLElement>("article.doc-body");
-    assert(article !== null, `${page.route}: missing docs article`);
-    const items = [
-      ...document.querySelectorAll<HTMLLIElement>(".docs-toc li"),
-    ];
-    const topLevel = items.filter((item) =>
-      !item.classList.contains("discern-table-of-contents__item--nested")
-    );
-    const nested = items.filter((item) =>
-      item.classList.contains("discern-table-of-contents__item--nested")
-    );
-    const authoredHeadings = [
-      ...article.querySelectorAll<HTMLElement>("h2[id], h3[id]"),
-    ].filter((heading) => heading.closest(".docs-section-index") === null);
-    const topLevelHeadings = authoredHeadings.filter((heading) =>
-      heading.tagName === "H2"
-    );
-    const nestedHeadings = authoredHeadings.filter((heading) =>
-      heading.tagName === "H3"
-    );
-    if (nestedHeadings.length > 0) pagesWithNestedHeadings++;
-    const authoredNumbers = topLevelHeadings.map((heading) =>
-      /^(\d+)[.)]\s+(.+)$/.exec(heading.textContent?.trim() ?? "")
-    );
-    const usesAuthoredNumbers = authoredNumbers.some((match) => match !== null);
-    if (usesAuthoredNumbers) pagesWithAuthoredNumbers++;
-    assertEquals(
-      article.classList.contains("docs-authored-heading-numbers"),
-      usesAuthoredNumbers,
-      page.route,
-    );
+    for (const table of document.querySelectorAll("article.doc-body table")) {
+      tables++;
+      const viewport = table.parentElement;
+      assert(viewport?.classList.contains("docs-table"), route);
+      assert(viewport?.classList.contains("discern-table"), route);
+      assertEquals(viewport?.getAttribute("role"), "group", route);
+      assertEquals(viewport?.getAttribute("tabindex"), "0", route);
+    }
+    for (
+      const heading of document.querySelectorAll(
+        "article.doc-body :is(h2, h3, h4)[id]",
+      )
+    ) {
+      anchoredHeadings++;
+      assert(
+        heading.parentElement?.classList.contains("discern-anchor-heading"),
+        route,
+      );
+      assert(
+        heading.nextElementSibling?.classList.contains(
+          "discern-anchor-heading__anchor",
+        ),
+        route,
+      );
+    }
 
-    assertEquals(
-      topLevel.map((item) =>
-        item.querySelector(":scope > a")?.getAttribute("href")
-      ),
-      topLevelHeadings.map((heading) => `#${heading.id}`),
-      page.route,
-    );
-    assertEquals(
-      topLevel.map((item) =>
-        item.querySelector(":scope > a > span")?.textContent
-      ),
-      topLevel.map((_, index) => {
-        const authored = authoredNumbers[index];
-        if (usesAuthoredNumbers) {
-          return authored?.[1]?.padStart(2, "0") ?? "";
+    const page = manualPages.get(route);
+    if (page !== undefined) {
+      // Canonical navigation.
+      {
+        const nav = document.querySelector("#docs-nav");
+        assertEquals(
+          [...nav?.querySelectorAll("li > a") ?? []].map((link) =>
+            link.getAttribute("href")
+          ),
+          canonicalRoutes,
+          page.route,
+        );
+        assertEquals(
+          [...nav?.querySelectorAll('[aria-current="page"]') ?? []].map((
+            link,
+          ) => link.getAttribute("href")),
+          [page.route],
+          page.route,
+        );
+        assertEquals(
+          nav?.querySelector(
+            "[data-nav-disclosure], [data-nav-context], .docs-nav-relation, .docs-nav-scope",
+          ),
+          null,
+          page.route,
+        );
+        assertEquals(
+          nav?.querySelectorAll(".docs-nav-kind").length,
+          0,
+          `${page.route}: page kinds do not duplicate every destination`,
+        );
+      }
+      // Browser shell.
+      {
+        assertStringIncludes(
+          response.headers.get("content-type") ?? "",
+          "text/html",
+          `route ${page.route}`,
+        );
+        assertStringIncludes(html, "<title>", `route ${page.route}`);
+        assertStringIncludes(
+          html,
+          '<article class="doc-body',
+          `route ${page.route}`,
+        );
+        assertStringIncludes(
+          html,
+          `class="discern-logo discern-logo--md discern-logo--plain discern-logo--natural discern-brand__mark" aria-hidden="true">${DISCERN_MARK}</span>`,
+          `design-system brand on route ${page.route}`,
+        );
+        assertStringIncludes(
+          html,
+          `href="${DISCERN_FAVICON_PATH}"`,
+          `favicon on route ${page.route}`,
+        );
+      }
+      // Authored table of contents.
+      {
+        const article = document.querySelector<HTMLElement>("article.doc-body");
+        assert(article !== null, `${page.route}: missing docs article`);
+        const items = [
+          ...document.querySelectorAll<HTMLLIElement>(".docs-toc li"),
+        ];
+        const topLevel = items.filter((item) =>
+          !item.classList.contains("discern-table-of-contents__item--nested")
+        );
+        const nested = items.filter((item) =>
+          item.classList.contains("discern-table-of-contents__item--nested")
+        );
+        const authoredHeadings = [
+          ...article.querySelectorAll<HTMLElement>("h2[id], h3[id]"),
+        ].filter((heading) => heading.closest(".docs-section-index") === null);
+        const topLevelHeadings = authoredHeadings.filter((heading) =>
+          heading.tagName === "H2"
+        );
+        const nestedHeadings = authoredHeadings.filter((heading) =>
+          heading.tagName === "H3"
+        );
+        if (nestedHeadings.length > 0) pagesWithNestedHeadings++;
+        const authoredNumbers = topLevelHeadings.map((heading) =>
+          /^(\d+)[.)]\s+(.+)$/.exec(heading.textContent?.trim() ?? "")
+        );
+        const usesAuthoredNumbers = authoredNumbers.some((match) =>
+          match !== null
+        );
+        if (usesAuthoredNumbers) pagesWithAuthoredNumbers++;
+        assertEquals(
+          article.classList.contains("docs-authored-heading-numbers"),
+          usesAuthoredNumbers,
+          page.route,
+        );
+
+        assertEquals(
+          topLevel.map((item) =>
+            item.querySelector(":scope > a")?.getAttribute("href")
+          ),
+          topLevelHeadings.map((heading) => `#${heading.id}`),
+          page.route,
+        );
+        assertEquals(
+          topLevel.map((item) =>
+            item.querySelector(":scope > a > span")?.textContent
+          ),
+          topLevel.map((_, index) => {
+            const authored = authoredNumbers[index];
+            if (usesAuthoredNumbers) {
+              return authored?.[1]?.padStart(2, "0") ?? "";
+            }
+            return String(index + 1).padStart(2, "0");
+          }),
+          page.route,
+        );
+        assertEquals(
+          topLevel.map((item) => {
+            const anchor = item.querySelector(":scope > a");
+            const number =
+              anchor?.querySelector(":scope > span")?.textContent ??
+                "";
+            return (anchor?.textContent ?? "").slice(number.length);
+          }),
+          topLevelHeadings.map((heading, index) =>
+            usesAuthoredNumbers
+              ? authoredNumbers[index]?.[2] ?? heading.textContent?.trim() ?? ""
+              : heading.textContent?.trim() ?? ""
+          ),
+          page.route,
+        );
+        assertEquals(
+          nested.map((item) =>
+            item.querySelector(":scope > a")?.getAttribute("href")
+          ),
+          nestedHeadings.map((heading) => `#${heading.id}`),
+          page.route,
+        );
+        assertEquals(
+          nested.every((item) =>
+            item.querySelector(":scope > a > span") === null
+          ),
+          true,
+          page.route,
+        );
+      }
+      // Related decision citations.
+      {
+        const links = [...document.querySelectorAll<HTMLAnchorElement>(
+          ".docs-related-decision",
+        )];
+        const glossary = page.sourcePath === "30-reference/glossary.md";
+        const expectedCitations = relatedDecisionCitations(page);
+        if (!glossary) ordinaryCitationCount += expectedCitations.length;
+        assertEquals(links.length, expectedCitations.length, page.entry.path);
+        assertEquals(
+          links.map((link) => link.getAttribute("href")),
+          expectedCitations.map((citation) => {
+            const decision = site.decisions.byNumber.get(citation.number);
+            assert(decision !== undefined, citation.number);
+            return decision.route;
+          }),
+          page.entry.path,
+        );
+        for (const [index, citation] of expectedCitations.entries()) {
+          const link = links[index];
+          const decision = site.decisions.byNumber.get(citation.number);
+          assert(link !== undefined && decision !== undefined);
+          assertEquals(link.textContent, `ADR ${citation.number}`);
+          assertEquals(link.closest("li")?.textContent, decision.entry.title);
         }
-        return String(index + 1).padStart(2, "0");
-      }),
-      page.route,
+        if (glossary) {
+          assert(
+            page.entry.citedAdrs.length > 0,
+            "the glossary fixture carries decisions so its exception is exercised",
+          );
+          assertEquals(
+            document.querySelector(".docs-related-decisions"),
+            null,
+          );
+        }
+      }
+    }
+
+    if (navFootRoutes.has(route)) {
+      assertEquals(
+        [...document.querySelectorAll(".docs-nav-foot a")].map(
+          (link) => [link.textContent?.trim(), link.getAttribute("href")],
+        ),
+        navFootLinks,
+        route,
+      );
+      assertEquals(
+        document.querySelectorAll(
+          "#docs-nav [aria-current='page']",
+        ).length,
+        0,
+        route,
+      );
+    }
+
+    if (route === pagerPage.route) {
+      const links = [...document.querySelectorAll(".docs-pager a")]
+        .map((link) => [link.getAttribute("rel"), link.getAttribute("href")]);
+      assertEquals(links, [
+        ["prev", previous.route],
+        ["next", next.route],
+      ]);
+    }
+
+    const section = site.sections.find((section) =>
+      section.index.route === route
     );
-    assertEquals(
-      topLevel.map((item) => {
-        const anchor = item.querySelector(":scope > a");
-        const number = anchor?.querySelector(":scope > span")?.textContent ??
-          "";
-        return (anchor?.textContent ?? "").slice(number.length);
-      }),
-      topLevelHeadings.map((heading, index) =>
-        usesAuthoredNumbers
-          ? authoredNumbers[index]?.[2] ?? heading.textContent?.trim() ?? ""
-          : heading.textContent?.trim() ?? ""
-      ),
-      page.route,
-    );
-    assertEquals(
-      nested.map((item) =>
-        item.querySelector(":scope > a")?.getAttribute("href")
-      ),
-      nestedHeadings.map((heading) => `#${heading.id}`),
-      page.route,
-    );
-    assertEquals(
-      nested.every((item) => item.querySelector(":scope > a > span") === null),
-      true,
-      page.route,
-    );
+    if (section !== undefined) {
+      const generated = document.querySelector(
+        ".docs-section-index",
+      );
+      const leaves = section.pages.filter((page) => !page.isIndex);
+      assert(generated !== null, section.dir);
+      assertEquals(
+        [...generated.querySelectorAll("li")].map((item) => ({
+          route: item.querySelector("a")?.getAttribute("href"),
+          title: item.querySelector("a")?.textContent,
+          description: item.querySelector(".docs-leaf-desc")?.textContent,
+        })),
+        leaves.map((page) => ({
+          route: page.route,
+          title: page.entry.title,
+          description: page.entry.description,
+        })),
+        section.dir,
+      );
+      if (section.dir === "20-guides") {
+        assert(!html.includes('href="#in-this-section"'));
+      }
+    }
+
+    if (route === worktrees.route) {
+      assertStringIncludes(html, "discern-glossary-term");
+      assertStringIncludes(html, "discern-hover-card__panel");
+      assertStringIncludes(html, "discern-dotted-underline");
+      assertStringIncludes(html, "aria-details=");
+    }
+
+    if (route === site.decisions.route) {
+      assertStringIncludes(html, "Project history");
+      assertStringIncludes(html, "not current product documentation");
+      const indexSource = await Deno.readTextFile(
+        new URL("../project/map/_adr/README.md", import.meta.url),
+      );
+      const indexMarkdown = await get(`${site.decisions.route}.md`, BROWSER);
+      assertEquals(
+        await indexMarkdown.text(),
+        indexSource,
+        "the decisions front door keeps the raw contract",
+      );
+
+      const superseded = site.decisions.pages.filter((page) => page.superseded);
+      assert(
+        superseded.length > 0,
+        "the history fixture includes retired records",
+      );
+      assertEquals(
+        [...html.matchAll(/docs-decision-status">Superseded/g)].length,
+        superseded.length,
+      );
+
+      for (const decision of site.decisions.pages) {
+        assertStringIncludes(
+          html,
+          `href="${decision.route}"`,
+          decision.entry.path,
+        );
+      }
+    }
+
+    const decision = decisionPages.get(route);
+    if (decision !== undefined) {
+      assertStringIncludes(html, "Project history", decision.route);
+      assertStringIncludes(html, "docs-decision-record", decision.route);
+      assertEquals(
+        html.includes("Superseded record."),
+        decision.superseded,
+        decision.route,
+      );
+
+      const raw = await Deno.readTextFile(decision.entry.absPath);
+      const textRes = await get(`${decision.route}.md`, BROWSER);
+      assertEquals(await textRes.text(), raw, `${decision.route}.md`);
+    }
     dom.window.close();
+  }
+
+  assert(tables > 0, "the structural guard needs a published table");
+  assert(
+    anchoredHeadings > 0,
+    "the structural guard needs a published anchored heading",
+  );
+
+  const client = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.js", import.meta.url),
+  );
+  assertEquals(
+    client.includes("docs-heading-row"),
+    false,
+    "heading structure must not be created after paint",
+  );
+  assertEquals(
+    client.includes("docs-table"),
+    false,
+    "table structure must not be created after paint",
+  );
+
+  assert(
+    shell !== undefined,
+    "the route census observes the manual front door",
+  );
+  const firstStylesheet = shell.indexOf('<link rel="stylesheet"');
+  for (
+    const [marker, statement] of [
+      ["the docs enhancement class", 'classList.add("docs-js")'],
+      [
+        "the package drawer's first-paint marker",
+        'setAttribute("data-discern-docs-drawer-enhanced","")',
+      ],
+    ] as const
+  ) {
+    const bootstrap = shell.indexOf(statement);
+    assert(bootstrap >= 0, `${marker} is missing`);
+    assert(
+      bootstrap < firstStylesheet,
+      `${marker} must resolve before the first stylesheet`,
+    );
   }
 
   assert(
@@ -484,6 +753,10 @@ Deno.test("contents numbering follows authored procedures and otherwise derives 
   assert(
     pagesWithAuthoredNumbers > 0,
     "the authored-number guard needs at least one published procedure",
+  );
+  assert(
+    ordinaryCitationCount > 0,
+    "the policy must preserve citations on ordinary documentation pages",
   );
 });
 
@@ -520,91 +793,6 @@ Deno.test("Markdown headings carry the package Anchor heading anatomy byte for b
   );
 });
 
-Deno.test("document structure arrives before enhancement scripts can paint", async () => {
-  const site = await loadDocsSite();
-  const routes = [
-    "/docs",
-    ...site.pages.map((page) => page.route),
-    site.publicMap.landing.route,
-    site.decisions.route,
-    ...site.decisions.pages.map((page) => page.route),
-  ];
-  let tables = 0;
-  let anchoredHeadings = 0;
-
-  for (const route of routes) {
-    const response = await get(route, BROWSER);
-    assertEquals(response.status, 200, route);
-    const dom = new JSDOM(await response.text());
-    const document = dom.window.document;
-    for (const table of document.querySelectorAll("article.doc-body table")) {
-      tables++;
-      const viewport = table.parentElement;
-      assert(viewport?.classList.contains("docs-table"), route);
-      assert(viewport?.classList.contains("discern-table"), route);
-      assertEquals(viewport?.getAttribute("role"), "group", route);
-      assertEquals(viewport?.getAttribute("tabindex"), "0", route);
-    }
-    for (
-      const heading of document.querySelectorAll(
-        "article.doc-body :is(h2, h3, h4)[id]",
-      )
-    ) {
-      anchoredHeadings++;
-      assert(
-        heading.parentElement?.classList.contains("discern-anchor-heading"),
-        route,
-      );
-      assert(
-        heading.nextElementSibling?.classList.contains(
-          "discern-anchor-heading__anchor",
-        ),
-        route,
-      );
-    }
-    dom.window.close();
-  }
-
-  assert(tables > 0, "the structural guard needs a published table");
-  assert(
-    anchoredHeadings > 0,
-    "the structural guard needs a published anchored heading",
-  );
-
-  const client = await Deno.readTextFile(
-    new URL("../site/pages/assets/docs.js", import.meta.url),
-  );
-  assertEquals(
-    client.includes("docs-heading-row"),
-    false,
-    "heading structure must not be created after paint",
-  );
-  assertEquals(
-    client.includes("docs-table"),
-    false,
-    "table structure must not be created after paint",
-  );
-
-  const shell = await (await get("/docs", BROWSER)).text();
-  const firstStylesheet = shell.indexOf('<link rel="stylesheet"');
-  for (
-    const [marker, statement] of [
-      ["the docs enhancement class", 'classList.add("docs-js")'],
-      [
-        "the package drawer's first-paint marker",
-        'setAttribute("data-discern-docs-drawer-enhanced","")',
-      ],
-    ] as const
-  ) {
-    const bootstrap = shell.indexOf(statement);
-    assert(bootstrap >= 0, `${marker} is missing`);
-    assert(
-      bootstrap < firstStylesheet,
-      `${marker} must resolve before the first stylesheet`,
-    );
-  }
-});
-
 Deno.test("the setup tutorial has a literal title without changing its durable route", async () => {
   const site = await loadDocsSite();
   const page = site.byRoute.get("/docs/start/installation-and-setup");
@@ -638,67 +826,6 @@ Deno.test("the site projection retains every registered manual kind", async () =
       .sort(),
     MANUAL_KIND_REGISTRY.map((entry) => entry.kind).sort(),
   );
-});
-
-Deno.test("section landings derive their leaf index from model metadata", async () => {
-  const site = await loadDocsSite();
-  for (const section of site.sections) {
-    const res = await get(section.index.route, BROWSER);
-    const html = await res.text();
-    const dom = new JSDOM(html);
-    const generated = dom.window.document.querySelector(
-      ".docs-section-index",
-    );
-    const leaves = section.pages.filter((page) => !page.isIndex);
-    assert(generated !== null, section.dir);
-    assertEquals(
-      [...generated.querySelectorAll("li")].map((item) => ({
-        route: item.querySelector("a")?.getAttribute("href"),
-        title: item.querySelector("a")?.textContent,
-        description: item.querySelector(".docs-leaf-desc")?.textContent,
-      })),
-      leaves.map((page) => ({
-        route: page.route,
-        title: page.entry.title,
-        description: page.entry.description,
-      })),
-      section.dir,
-    );
-    if (section.dir === "20-guides") {
-      assert(!html.includes('href="#in-this-section"'));
-    }
-    dom.window.close();
-  }
-});
-
-Deno.test("every published page renders for a browser, with title and shell", async () => {
-  const site = await loadDocsSite();
-  for (const page of site.pages) {
-    const res = await get(page.route, BROWSER);
-    assertEquals(res.status, 200, `route ${page.route}`);
-    assertStringIncludes(
-      res.headers.get("content-type") ?? "",
-      "text/html",
-      `route ${page.route}`,
-    );
-    const html = await res.text();
-    assertStringIncludes(html, "<title>", `route ${page.route}`);
-    assertStringIncludes(
-      html,
-      '<article class="doc-body',
-      `route ${page.route}`,
-    );
-    assertStringIncludes(
-      html,
-      `class="discern-logo discern-logo--md discern-logo--plain discern-logo--natural discern-brand__mark" aria-hidden="true">${DISCERN_MARK}</span>`,
-      `design-system brand on route ${page.route}`,
-    );
-    assertStringIncludes(
-      html,
-      `href="${DISCERN_FAVICON_PATH}"`,
-      `favicon on route ${page.route}`,
-    );
-  }
 });
 
 Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are explicit", () => {
@@ -1041,20 +1168,6 @@ Deno.test("first eligible glossary mentions render summaries and longest matches
   dom.window.close();
 });
 
-Deno.test("published Markdown pages wire glossary cards into the docs shell", async () => {
-  const site = await loadDocsSite();
-  const worktrees = site.pages.find((page) =>
-    page.entry.slug === "worktrees-and-trunk"
-  );
-  assert(worktrees !== undefined);
-  const response = await get(worktrees.route, BROWSER);
-  const html = await response.text();
-  assertStringIncludes(html, "discern-glossary-term");
-  assertStringIncludes(html, "discern-hover-card__panel");
-  assertStringIncludes(html, "discern-dotted-underline");
-  assertStringIncludes(html, "aria-details=");
-});
-
 Deno.test("manual prose links Fleet without linking bare update", async () => {
   // Test-owned prose, so rewriting a manual page can't remove the terms.
   const site = await loadDocsSite();
@@ -1150,18 +1263,6 @@ Deno.test("table words remain physically readable", async () => {
   );
 });
 
-Deno.test("the docs top bar aligns its children without vertical nudges", async () => {
-  const html = await (await get("/docs", BROWSER)).text();
-  const classes = topBarClasses(html);
-  assert(classes.has("docs-top"), "the served shell should carry the top bar");
-  const sheets = await docsServedStylesheets(html);
-  assert(sheets.length > 0, "docs pages should link repo-authored stylesheets");
-  const failures = sheets.flatMap(([href, css]) =>
-    verticalNudges(css, classes).map((nudge) => `${href} → ${nudge}`)
-  );
-  assertEquals(failures, []);
-});
-
 /** Every size a stylesheet pins on a `code` element: explicit `font-size`
  * declarations plus `font` shorthands (whose second slot carries a size). */
 function codeFontSizes(css: string): string[] {
@@ -1193,21 +1294,6 @@ Deno.test("the code-scale guard catches a fresh-name code size", () => {
   assertEquals(codeFontSizes(".docs-copy { font-size: 2em; }"), []);
 });
 
-Deno.test("inline code shares one readable optical scale across docs content", async () => {
-  const html = await (await get("/docs", BROWSER)).text();
-  const sheets = await docsServedStylesheets(html);
-  const sizes = sheets
-    .flatMap(([href, css]) => codeFontSizes(css).map((s) => `${href} ${s}`))
-    .sort();
-  // The complete code-sizing canon: inline code rides just under the running
-  // text; code sheets keep their own fixed scale. Any other code sizing — the
-  // undersized legacy 0.8125em included — must join this set deliberately.
-  assertEquals(sizes, [
-    "/assets/docs.css .doc-body pre > code → font: 400 0.8125rem/1.7 var(--discern-font-mono)",
-    "/assets/docs.css .docs-layout :not(pre) > code → font-size: 0.9em",
-  ]);
-});
-
 Deno.test("every published page serves its pristine Markdown to text clients and via .md", async () => {
   const site = await loadDocsSite();
   for (const page of site.pages) {
@@ -1226,90 +1312,6 @@ Deno.test("every published page serves its pristine Markdown to text clients and
     assertEquals(asSuffix.status, 200, `route ${page.route}.md`);
     assertEquals(await asSuffix.text(), raw, `suffix ${page.route}.md`);
   }
-});
-
-Deno.test("the /docs index lists every section for both readers", async () => {
-  const site = await loadDocsSite();
-
-  const asHtml = await get("/docs", BROWSER);
-  assertEquals(asHtml.status, 200);
-  const html = await asHtml.text();
-  const asText = await get("/docs", CURL);
-  assertEquals(asText.status, 200);
-  const md = await asText.text();
-  const rootSource = await Deno.readTextFile(
-    new URL("../project/manual/README.md", import.meta.url),
-  );
-  assertEquals(md, rootSource, "the manual front door keeps the raw contract");
-
-  for (const section of site.sections) {
-    assertStringIncludes(html, `href="${section.index.route}"`, section.dir);
-    assertStringIncludes(md, `${section.dir}/`, section.dir);
-  }
-
-  // The index honours the .md suffix like every leaf does.
-  const asSuffix = await get("/docs.md", BROWSER);
-  assertEquals(asSuffix.status, 200);
-  assertEquals(await asSuffix.text(), md);
-});
-
-Deno.test("the decisions family renders every record as labeled project history", async () => {
-  const site = await loadDocsSite();
-  const indexRes = await get(site.decisions.route, BROWSER);
-  assertEquals(indexRes.status, 200);
-  const indexHtml = await indexRes.text();
-  assertStringIncludes(indexHtml, "Project history");
-  assertStringIncludes(indexHtml, "not current product documentation");
-  const indexSource = await Deno.readTextFile(
-    new URL("../project/map/_adr/README.md", import.meta.url),
-  );
-  const indexMarkdown = await get(`${site.decisions.route}.md`, BROWSER);
-  assertEquals(
-    await indexMarkdown.text(),
-    indexSource,
-    "the decisions front door keeps the raw contract",
-  );
-
-  const superseded = site.decisions.pages.filter((page) => page.superseded);
-  assert(superseded.length > 0, "the history fixture includes retired records");
-  assertEquals(
-    [...indexHtml.matchAll(/docs-decision-status">Superseded/g)].length,
-    superseded.length,
-  );
-
-  for (const page of site.decisions.pages) {
-    assertStringIncludes(indexHtml, `href="${page.route}"`, page.entry.path);
-    const res = await get(page.route, BROWSER);
-    assertEquals(res.status, 200, page.route);
-    const html = await res.text();
-    assertStringIncludes(html, "Project history", page.route);
-    assertStringIncludes(html, "docs-decision-record", page.route);
-    assertEquals(
-      html.includes("Superseded record."),
-      page.superseded,
-      page.route,
-    );
-
-    const raw = await Deno.readTextFile(page.entry.absPath);
-    const textRes = await get(`${page.route}.md`, BROWSER);
-    assertEquals(await textRes.text(), raw, `${page.route}.md`);
-  }
-});
-
-Deno.test("decisions stay outside the sidebar and enter through the colophon", async () => {
-  const site = await loadDocsSite();
-  const res = await get("/docs", BROWSER);
-  const html = await res.text();
-  const dom = new JSDOM(html);
-  const sidebar = dom.window.document.getElementById("docs-nav")?.innerHTML ??
-    "";
-  dom.window.close();
-  assert(sidebar.length > 0);
-  assert(!sidebar.includes(`href="${site.decisions.route}"`));
-  assertStringIncludes(
-    html,
-    `<a href="${site.decisions.route}">Project decisions</a>`,
-  );
 });
 
 Deno.test("ADR links rewrite to decision routes", async () => {
@@ -1339,54 +1341,6 @@ Deno.test("ADR links rewrite to decision routes", async () => {
       site,
     ),
     `[record](${superseded.route})`,
-  );
-});
-
-Deno.test("related decisions render exactly the collected citation set", async () => {
-  const site = await loadDocsSite();
-  let ordinaryCitationCount = 0;
-  for (const page of site.pages) {
-    const res = await get(page.route, BROWSER);
-    const html = await res.text();
-    const dom = new JSDOM(html);
-    const links = [...dom.window.document.querySelectorAll<HTMLAnchorElement>(
-      ".docs-related-decision",
-    )];
-    const glossary = page.sourcePath === "30-reference/glossary.md";
-    const expectedCitations = relatedDecisionCitations(page);
-    if (!glossary) ordinaryCitationCount += expectedCitations.length;
-    assertEquals(links.length, expectedCitations.length, page.entry.path);
-    assertEquals(
-      links.map((link) => link.getAttribute("href")),
-      expectedCitations.map((citation) => {
-        const decision = site.decisions.byNumber.get(citation.number);
-        assert(decision !== undefined, citation.number);
-        return decision.route;
-      }),
-      page.entry.path,
-    );
-    for (const [index, citation] of expectedCitations.entries()) {
-      const link = links[index];
-      const decision = site.decisions.byNumber.get(citation.number);
-      assert(link !== undefined && decision !== undefined);
-      assertEquals(link.textContent, `ADR ${citation.number}`);
-      assertEquals(link.closest("li")?.textContent, decision.entry.title);
-    }
-    if (glossary) {
-      assert(
-        page.entry.citedAdrs.length > 0,
-        "the glossary fixture carries decisions so its exception is exercised",
-      );
-      assertEquals(
-        dom.window.document.querySelector(".docs-related-decisions"),
-        null,
-      );
-    }
-    dom.window.close();
-  }
-  assert(
-    ordinaryCitationCount > 0,
-    "the policy must preserve citations on ordinary documentation pages",
   );
 });
 

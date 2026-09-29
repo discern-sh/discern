@@ -12,13 +12,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { parse as parseToml } from "@std/toml";
-import {
-  tomlBool,
-  TomlEditor,
-  tomlNumber,
-  tomlString,
-  tomlStringArray,
-} from "../src/lib/toml_edit.ts";
+import { TomlEditor, tomlNumber, tomlString } from "../src/lib/toml_edit.ts";
 import { scanManagedBanners } from "../src/lib/config_template.ts";
 import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import * as tomlEditModule from "../src/lib/toml_edit.ts";
@@ -472,95 +466,91 @@ Deno.test("editor preserves the trailing-newline convention", () => {
   );
 });
 
-Deno.test("value renderers escape and validate", () => {
-  assertEquals(tomlString('a "b" \\c'), '"a \\"b\\" \\\\c"');
-  assertEquals(tomlNumber("0.0"), "0.0");
-  assertEquals(tomlNumber(500000), "500000");
-  assertEquals(tomlBool(true), "true");
-  assertEquals(tomlStringArray(["a", "b"]), '["a", "b"]');
-});
-
 Deno.test("every value renderer emits a literal @std/toml parses back as its type", () => {
   // The corrupt-literal class guard: whatever a `toml*` renderer RETURNS must be
   // a literal the same parser that later reads discern.toml accepts, and it must
-  // parse back as the renderer's intended type — the only other legal outcome is
-  // a throw. (JS `Number()` accepts forms the TOML grammar forbids — ".5", "5.",
+  // parse back as the renderer's intended type. Inputs with pinned literals
+  // must return that exact form; unpinned inputs may be rejected. (JS `Number()`
+  // accepts forms the TOML grammar forbids — ".5", "5.",
   // "007", "1.e3" — and one such literal written into discern.toml bricks every
   // subsequent command, doctor included.) Renderers enrol from the module's
   // exports, so a new `toml*` renderer fails here until it gets a corpus.
   const expectations: Record<
     string,
-    { inputs: unknown[]; isExpected: (v: unknown) => boolean }
+    {
+      inputs: { input: unknown; literal?: string; rejects?: true }[];
+      isExpected: (v: unknown) => boolean;
+    }
   > = {
     tomlString: {
       inputs: [
-        "plain",
-        'a "b" \\c',
-        "hash # not a comment",
-        "single 'quotes'",
-        "emoji ✨",
-        "",
-        "tab\there",
-        "new\nline",
-        "carriage\rreturn",
+        { input: "plain" },
+        { input: 'a "b" \\c', literal: '"a \\"b\\" \\\\c"' },
+        { input: "hash # not a comment" },
+        { input: "single 'quotes'" },
+        { input: "emoji ✨" },
+        { input: "" },
+        { input: "tab\there" },
+        { input: "new\nline" },
+        { input: "carriage\rreturn" },
       ],
       isExpected: (v) => typeof v === "string",
     },
     tomlNumber: {
       inputs: [
-        // JS-numeric forms the TOML grammar forbids — must be normalized or
-        // rejected, never emitted verbatim.
-        ".5",
-        "5.",
-        "007",
-        "1.e3",
-        "+.5",
-        "-.5",
-        "01.5",
+        // JS-numeric forms the TOML grammar forbids must be normalized or
+        // rejected, never emitted verbatim. Pinned literals must normalize.
+        { input: ".5", literal: "0.5" },
+        { input: "5.", literal: "5" },
+        { input: "007", literal: "7" },
+        { input: "1.e3", literal: "1000" },
+        { input: "+.5", literal: "0.5" },
+        { input: "-.5", literal: "-0.5" },
+        { input: "01.5" },
         // Valid TOML written forms.
-        "0.0",
-        "500000",
-        "1e5",
-        "0x1F",
-        "1_000",
-        "+1",
-        "-0.5",
-        " 42 ",
+        { input: "0.0", literal: "0.0" },
+        { input: "500000", literal: "500000" },
+        { input: "1e5", literal: "1e5" },
+        { input: "0x1F", literal: "0x1F" },
+        { input: "1_000", literal: "1_000" },
+        { input: "+1" },
+        { input: "-0.5" },
+        { input: " 42 " },
         // Non-numbers and TOML-structural payloads.
-        "",
-        " ",
-        "lots",
-        "1 # comment",
-        "5\nq = 1",
-        "1979-05-27",
-        "true",
-        "[1]",
-        "'5'",
-        "inf",
-        "nan",
-        "Infinity",
-        "NaN",
+        { input: "" },
+        { input: " " },
+        { input: "lots" },
+        { input: "1 # comment" },
+        { input: "5\nq = 1" },
+        { input: "1979-05-27" },
+        { input: "true" },
+        { input: "[1]" },
+        { input: "'5'" },
+        { input: "inf" },
+        { input: "nan" },
+        { input: "Infinity" },
+        { input: "NaN" },
         // Plain JS numbers.
-        0.5,
-        500000,
-        1e21,
-        5e-324,
-        -0,
-        Number.NaN,
-        Number.POSITIVE_INFINITY,
+        { input: 0.5 },
+        { input: 500000, literal: "500000" },
+        { input: 1e21 },
+        { input: 5e-324 },
+        { input: -0 },
+        { input: Number.NaN, rejects: true },
+        { input: Number.POSITIVE_INFINITY, rejects: true },
       ],
       isExpected: (v) => typeof v === "number" && Number.isFinite(v),
     },
     tomlBool: {
-      inputs: [true, false],
+      inputs: [{ input: true, literal: "true" }, { input: false }],
       isExpected: (v) => typeof v === "boolean",
     },
     tomlStringArray: {
       inputs: [
-        [],
-        ["a", "b"],
-        ['say "hi"', "back\\slash"],
-        ["line\nbreak"],
+        { input: [] },
+        { input: ["a", "b"], literal: '["a", "b"]' },
+        { input: ['say "hi"', "back\\slash"] },
+        { input: ["line\nbreak"] },
       ],
       isExpected: (v) =>
         Array.isArray(v) && v.every((item) => typeof item === "string"),
@@ -580,12 +570,21 @@ Deno.test("every value renderer emits a literal @std/toml parses back as its typ
     const render = tomlEditModule[
       name as keyof typeof tomlEditModule
     ] as (input: unknown) => string;
-    for (const input of inputs) {
+    for (const { input, literal: expectedLiteral, rejects } of inputs) {
+      const renderedInput = typeof input === "number" && !Number.isFinite(input)
+        ? String(input)
+        : JSON.stringify(input);
+      const label = `${name}(${renderedInput})`;
       let literal: string;
       try {
         literal = render(input);
-      } catch {
-        continue; // rejecting an input is always legal
+      } catch (error) {
+        if (expectedLiteral !== undefined) throw error;
+        continue;
+      }
+      assert(!rejects, `${label} must reject non-finite input`);
+      if (expectedLiteral !== undefined) {
+        assertEquals(literal, expectedLiteral, label);
       }
       let parsed: { v?: unknown };
       try {
@@ -607,23 +606,6 @@ Deno.test("every value renderer emits a literal @std/toml parses back as its typ
       );
     }
   }
-});
-
-Deno.test("tomlNumber normalizes JS-numeric forms the TOML grammar forbids", () => {
-  assertEquals(tomlNumber(".5"), "0.5");
-  assertEquals(tomlNumber("5."), "5");
-  assertEquals(tomlNumber("007"), "7");
-  assertEquals(tomlNumber("1.e3"), "1000");
-  assertEquals(tomlNumber("+.5"), "0.5");
-  assertEquals(tomlNumber("-.5"), "-0.5");
-});
-
-Deno.test("tomlNumber preserves written forms that are already valid TOML", () => {
-  assertEquals(tomlNumber("0.0"), "0.0");
-  assertEquals(tomlNumber("500000"), "500000");
-  assertEquals(tomlNumber("1e5"), "1e5");
-  assertEquals(tomlNumber("1_000"), "1_000");
-  assertEquals(tomlNumber("0x1F"), "0x1F");
 });
 
 Deno.test("value renderers reject bad input", () => {
@@ -695,24 +677,6 @@ Deno.test("setRootLiteral rejects a dotted key", () => {
     threw = true;
   }
   assert(threw, "a dotted key is not a root key");
-});
-
-Deno.test("tomlNumber rejects a non-finite number", () => {
-  let threw = false;
-  try {
-    tomlNumber(NaN);
-  } catch {
-    threw = true;
-  }
-  assert(threw, "tomlNumber should reject NaN");
-
-  threw = false;
-  try {
-    tomlNumber(Infinity);
-  } catch {
-    threw = true;
-  }
-  assert(threw, "tomlNumber should reject Infinity");
 });
 
 Deno.test("deleteKey removes a key line, leaving the header and comments intact", () => {

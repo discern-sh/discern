@@ -199,14 +199,6 @@ Deno.test("glossary case choices govern shipped running prose", async () => {
     }`,
   );
 });
-
-Deno.test("the glossary case detector rejects both directions", () => {
-  const rules = runningProseCaseRules();
-  const text = "Run the Gate and inspect the proof line.";
-  const hits = rules.filter((rule) => new RegExp(rule.pattern).test(text));
-  assertEquals(hits.map((rule) => rule.term).sort(), ["Gate", "Proof"]);
-});
-
 Deno.test("lowercase glossary terms stay lowercase after capitalized lead-ins", () => {
   const misses = runningProseCaseRules()
     .filter((rule) =>

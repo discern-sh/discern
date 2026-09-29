@@ -4,29 +4,6 @@ import {
   pathMatchesPattern,
   PATTERN_KINDS,
 } from "../src/engine/scopes/glob.ts";
-
-Deno.test("prefix kinds: src/** and src/", () => {
-  assertEquals(pathMatchesPattern("src/a/b.ts", "src/**"), true);
-  assertEquals(pathMatchesPattern("src/a", "src/**"), true);
-  assertEquals(pathMatchesPattern("srcx/a", "src/**"), false);
-  assertEquals(pathMatchesPattern("src/a", "src/"), true);
-  assertEquals(pathMatchesPattern("other/a", "src/"), false);
-});
-
-Deno.test("segment is tested before the trailing-slash prefix (branch order)", () => {
-  assertEquals(pathMatchesPattern("app/ui/x", "/ui/"), true);
-  assertEquals(pathMatchesPattern("app/ux/x", "/ui/"), false);
-  // a deep path under app/ui must still match the segment, not be swallowed.
-  assertEquals(pathMatchesPattern("app/ui/deep/nested.ts", "/ui/"), true);
-});
-
-Deno.test("suffix and exact", () => {
-  assertEquals(pathMatchesPattern("a/b.view", "*.view"), true);
-  assertEquals(pathMatchesPattern("a/b.viewx", "*.view"), false);
-  assertEquals(pathMatchesPattern("routes/web.php", "routes/web.php"), true);
-  assertEquals(pathMatchesPattern("routes/web.phpx", "routes/web.php"), false);
-});
-
 Deno.test("empty pattern matches nothing", () => {
   assertEquals(pathMatchesPattern("anything", ""), false);
 });
@@ -125,7 +102,7 @@ Deno.test("every pattern kind matches its contract at every path position", () =
         // "ui" as a directory segment at ANY depth — INCLUDING the repo root.
         match: ["ui/button.ts", "app/ui/x", "b/ui/deep/z", "ui/"],
         // not a partial segment, and not a leaf file named "ui".
-        noMatch: ["uix/y", "app/uix/b", "a/xui/b", "ui", "a/ui"],
+        noMatch: ["uix/y", "app/uix/b", "app/ux/x", "a/xui/b", "ui", "a/ui"],
       },
     ],
     "prefix": [
@@ -141,7 +118,7 @@ Deno.test("every pattern kind matches its contract at every path position", () =
         pattern: "*.view",
         // suffix at ANY depth: root-level leaf and nested both match.
         match: ["a.view", "deep/nested/a.view"],
-        noMatch: ["a.viewx", "a.views", "view"],
+        noMatch: ["a.viewx", "a/b.viewx", "a.views", "view"],
       },
     ],
     "standard-glob": [

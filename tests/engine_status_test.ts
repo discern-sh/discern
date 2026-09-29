@@ -565,6 +565,7 @@ Deno.test("status fleet: under --all from a worktree, that worktree's row is is_
     const obj = parseStatus(
       (await runAgent(wt, ["status", "--all", "--json"])).stdout,
     );
+    assertHasHint(obj, HINTS["fleet-ownership"]);
     const fleet = obj.data.fleet as Array<
       { is_main: boolean; is_current: boolean; branch: string }
     >;
@@ -594,17 +595,6 @@ Deno.test("status fleet: under --all from a worktree, that worktree's row is is_
   });
 });
 
-Deno.test("status fleet: the ownership rule rides in hints[] for an agent (main checkout)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await addWorktree(dir, "alpha");
-
-    const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
-    assertHasHint(obj, HINTS["fleet-ownership"]);
-  });
-});
-
 Deno.test("status: a main-rooted follow-up leads with its existing effort before a new start", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -627,32 +617,6 @@ Deno.test("status: a main-rooted follow-up leads with its existing effort before
       hints.indexOf(continuity) < hints.indexOf(ownership),
       `continuity must precede fleet ownership: ${JSON.stringify(hints)}`,
     );
-  });
-});
-
-Deno.test("status fleet: the ownership rule rides in hints[] under --all from a worktree", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const wt = await addWorktree(dir, "alpha");
-    await addWorktree(dir, "beta"); // a sibling → a line of work other than this one
-
-    const obj = parseStatus(
-      (await runAgent(wt, ["status", "--all", "--json"])).stdout,
-    );
-    assertHasHint(obj, HINTS["fleet-ownership"]);
-  });
-});
-
-Deno.test("status: on the trunk, the discern start guardrail rides in hints[] for an agent", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-
-    // No worktrees yet — the agent is on the trunk with nowhere isolated to work.
-    const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
-    assertEquals(obj.data.location, "main");
-    assertHasHint(obj, HINTS["status-start-on-trunk"]);
   });
 });
 
@@ -692,24 +656,11 @@ Deno.test("status: the discern start guardrail is agent-only — the human CLI i
     const machine = parseStatus(
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
+    assertEquals(machine.data.location, "main");
     const expected = assertHasHint(machine, HINTS["status-start-on-trunk"]);
     const r = await runAgent(dir, ["status"]); // human mode (no --json)
     assertEquals(r.code, 0, r.output);
     assert(!r.output.includes(expected), r.output);
-  });
-});
-
-Deno.test("status: the discern start guardrail does NOT fire from a worktree (it's main-only)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const wt = await addWorktree(dir, "alpha");
-
-    const obj = parseStatus(
-      (await runAgent(wt, ["status", "--json"])).stdout,
-    );
-    assertEquals(obj.data.location, "worktree");
-    assertLacksHint(obj, HINTS["status-start-on-trunk"]);
   });
 });
 
@@ -971,6 +922,7 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
     assertEquals(obj.data.location, "worktree");
+    assertLacksHint(obj, HINTS["status-start-on-trunk"]);
     assertEquals(obj.data.fleet, undefined);
     // The local view carries the worktree identity + the heavy blocks.
     assert(obj.data.worktree, `expected a worktree block: ${r.stdout}`);

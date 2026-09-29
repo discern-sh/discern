@@ -47,13 +47,9 @@ function incoming(): unknown {
   };
 }
 
-Deno.test("merge into an empty/absent settings yields the kit's settings", () => {
-  const result = mergeSettings({}, incoming());
-  assertEquals(result, incoming());
-});
-
 Deno.test("merge is idempotent: re-merging adds no duplicate hook group", () => {
   const once = mergeSettings({}, incoming());
+  assertEquals(once, incoming());
   const twice = mergeSettings(once, incoming());
   // The SessionStart command already exists, so the group is not appended again.
   assertEquals(

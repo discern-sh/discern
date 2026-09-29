@@ -515,6 +515,11 @@ Deno.test("map --json emits the index", async () => {
     assertExists(res.data.count);
     assertExists(res.data.docs);
     assertEquals(res.data.count, 4);
+    assertMapDataKey(res, "docs");
+    assert(
+      res.data.docs.every((d: { path: string }) => !d.path.includes("_adr")),
+      "the index must not contain internal docs",
+    );
     assertEquals(res.data.regions.length, 1);
     const region = res.data.regions[0];
     assertExists(region);
@@ -974,15 +979,6 @@ Deno.test("map <slug> --json returns the single doc with its content", async () 
   });
 });
 
-Deno.test("map <slug> --raw prints the pristine source", async () => {
-  await withTempDir(async (dir) => {
-    await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["map", "alpha", "--raw"], dir);
-    assertEquals(code, 0);
-    assertEquals(stdout, "# Alpha\n\nThe alpha body.\n");
-  });
-});
-
 /** A frontmattered, citing leaf for the projection tests. */
 const RICH_DOC = "---\n" +
   "title: Short label\n" +
@@ -1020,6 +1016,7 @@ Deno.test("map projections: frontmatter never reaches content, agents keep every
 
     // --raw: the pristine bytes, frontmatter included.
     const raw = await runCli(["map", "rich", "--raw"], dir);
+    assertEquals(raw.code, 0);
     assertEquals(raw.stdout, RICH_DOC);
 
     // Terminal render (piped target view): no frontmatter shows.
@@ -1434,6 +1431,7 @@ Deno.test("map --list prints a grouped table of contents", async () => {
     assertStringIncludes(stdout, "discern map");
     assertStringIncludes(stdout, "00-intro/");
     assertStringIncludes(stdout, "Alpha");
+    assert(!stdout.includes("_adr"), "the TOC must not list internal docs");
   });
 });
 
@@ -1489,24 +1487,6 @@ Deno.test("map --json reports no_map when there is no map tree", async () => {
     const res = decodeCliResult(stdout, "map");
     assertEquals(res.ok, false);
     assertEquals(res.error, "no_map");
-  });
-});
-
-Deno.test("map excludes _-prefixed internal directories from every view", async () => {
-  await withTempDir(async (dir) => {
-    await makeDocsProject(dir);
-    const index = await runCli(["map", "--json"], dir);
-    const res = decodeCliResult(index.stdout, "map");
-    assertMapDataKey(res, "docs");
-    assert(
-      res.data.docs.every((d: { path: string }) => !d.path.includes("_adr")),
-      "the index must not contain internal docs",
-    );
-    const list = await runCli(["map", "--list"], dir);
-    assert(
-      !list.stdout.includes("_adr"),
-      "the TOC must not list internal docs",
-    );
   });
 });
 
