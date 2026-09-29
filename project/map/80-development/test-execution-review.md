@@ -33,6 +33,8 @@ Use [named case tables](../../../tests/assert_cases.ts) for related inputs to on
 
 Keep each top-level test's repository ownership independent. Sharing state belongs within a named journey, whose steps retain meaningful failure diagnostics. Avoid stretching journeys so far that a failure becomes hard to isolate.
 
+[Counted integration fixtures](../../../tests/engine_integration_fixture.ts) keep their producer counter outside every repository copy. The named journey owns that path until all steps finish. Each step awaits its producers and removes the counter in `finally`; the next step checks that it is absent. This permits a seed to name a journey-owned path without inheriting another case's observations. The [counter guard](../../../tests/engine_surface_fixture_test.ts) checks reset and final cleanup alongside the pristine-copy isolation guard.
+
 Place shared helpers in modules without test registrations. Importing another native test module registers its cases in the importing worker as well as its own worker. The [registration guard](../../../tests/test_registration_guard_test.ts) scans the authored Deno source universe for runtime imports and re-exports of native test filenames, including literal dynamic imports. Type-only uses remain inert. Its shared [import parser](../../../tests/import_specifiers.ts) also serves the existing architectural graph guards.
 
 ## Preserve detection strength

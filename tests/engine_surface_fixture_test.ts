@@ -1,9 +1,10 @@
 /** Isolation and teardown boundaries for reusable install fixtures. */
 
 import { assertEquals, assertExists } from "@std/assert";
-import { basename, join, relative, resolve } from "@std/path";
+import { basename, dirname, join, relative, resolve } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { withPristineInstalls } from "./engine_surface_fixture.ts";
+import { withCountedPristineInstalls } from "./engine_integration_fixture.ts";
 
 Deno.test("pristine installs isolate copies and complete each case's teardown before the next", async (t) => {
   let scaffolds = 0;
@@ -62,4 +63,56 @@ Deno.test("pristine installs isolate copies and complete each case's teardown be
     assertEquals(await targetExists(dir), false);
     assertEquals(await targetExists(`${dir}.worktrees`), false);
   }
+});
+
+Deno.test("counted pristine installs reset observations between copies and remove the journey's counter", async (t) => {
+  let scaffolds = 0;
+  let counterPath: string | undefined;
+  let first: string | undefined;
+  let seed: string | undefined;
+  await withCountedPristineInstalls(t, async (dir, counter) => {
+    scaffolds++;
+    seed = dir;
+    counterPath = counter;
+    await Deno.writeTextFile(join(dir, "counter-path.txt"), counter);
+  }, [
+    ["a producer writes outside its repository copy", async (dir, counter) => {
+      first = dir;
+      assertEquals(await targetExists(counter), false);
+      assertEquals(
+        await Deno.readTextFile(join(dir, "counter-path.txt")),
+        counter,
+      );
+      await Deno.writeTextFile(counter, "xxx");
+      await Deno.writeTextFile(
+        join(dir, "counter-path.txt"),
+        "case-local edit",
+      );
+    }],
+    [
+      "the next copy starts with no observations and its original counter path",
+      async (dir, counter) => {
+        assertExists(first);
+        assertEquals(await targetExists(first), false);
+        assertEquals(await targetExists(counter), false);
+        assertEquals(
+          await Deno.readTextFile(join(dir, "counter-path.txt")),
+          counter,
+        );
+        await Deno.writeTextFile(counter, "x");
+      },
+    ],
+    [
+      "a case without producers leaves no counter to remove",
+      async (_dir, counter) => {
+        assertEquals(await targetExists(counter), false);
+      },
+    ],
+  ]);
+  assertEquals(scaffolds, 1);
+  assertExists(counterPath);
+  assertExists(seed);
+  assertEquals(await targetExists(seed), false);
+  assertEquals(await targetExists(counterPath), false);
+  assertEquals(await targetExists(dirname(counterPath)), false);
 });
