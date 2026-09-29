@@ -16,6 +16,8 @@ import {
 } from "../src/engine/completion/operation_journal.ts";
 import { z } from "@zod/zod";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { isAtomicReplaceTempName } from "../src/shared/atomic_write.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
@@ -234,19 +236,36 @@ Deno.test("handles validate, refuse damage, and expired records leave the store"
       await readOperationJournal(root, damaged),
       { kind: "invalid-handle" },
     );
+    // The store retains a fresh interrupted write, and reaps it only after
+    // the same retention window that governs journal records.
+    const directory = await gitAdminStatePath(root, "operations");
+    assert(directory !== undefined);
+    const names = {
+      fresh: ".discern-atomic-write-00000000-0000-4000-8000-000000000001.tmp",
+      stale: ".discern-atomic-write-00000000-0000-4000-8000-000000000002.tmp",
+    };
+    for (const name of Object.values(names)) {
+      assert(isAtomicReplaceTempName(name));
+      await Deno.writeTextFile(join(directory, name), "interrupted write\n");
+    }
+    const future = SYSTEM_CLOCK.wallNow() + 2 * OPERATION_JOURNAL_TTL_MS;
+    const fresh = join(directory, names.fresh);
+    await Deno.utime(fresh, new Date(future), new Date(future));
+
     // Expiry: a later create prunes a record older than the retention window.
     const expired = await openOperationJournal(root, {
       verb: "done",
       path: root,
-    }, {
-      clock: {
-        wallNow: () => SYSTEM_CLOCK.wallNow() + 2 * OPERATION_JOURNAL_TTL_MS,
-      },
-    });
+    }, { clock: { wallNow: () => future } });
     assert(expired !== undefined);
     assertEquals(
       await readOperationJournal(root, journal.handle),
       { kind: "missing" },
+    );
+    assertEquals(await Deno.readTextFile(fresh), "interrupted write\n");
+    await assertRejects(
+      () => Deno.stat(join(directory, names.stale)),
+      Deno.errors.NotFound,
     );
   });
 });

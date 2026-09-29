@@ -5,6 +5,7 @@ import {
   atomicReplaceJson,
   atomicReplaceText,
   isAtomicReplaceTempName,
+  removeIfExists,
 } from "../src/shared/atomic_write.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -68,7 +69,7 @@ Deno.test("atomic replacement can preserve an exact executable mode", async () =
   });
 });
 
-Deno.test("atomic replacement cleans a sibling when rename fails", async () => {
+Deno.test("atomic replacement and removal preserve standing state on failure", async () => {
   await withTempDir(async (dir) => {
     const target = join(dir, "standing-state");
     await Deno.mkdir(target);
@@ -79,5 +80,13 @@ Deno.test("atomic replacement cleans a sibling when rename fails", async () => {
       })
     );
     assertEquals(await tempSiblings(dir), []);
+
+    const standing = join(target, "record.txt");
+    await Deno.writeTextFile(standing, "standing state\n");
+    await assertRejects(() => removeIfExists(target));
+    assertEquals(await Deno.readTextFile(standing), "standing state\n");
+    assertEquals(await removeIfExists(standing), true);
+    assertEquals(await removeIfExists(standing), false);
+    assertEquals(await removeIfExists(target), true);
   });
 });
