@@ -54,3 +54,23 @@ export async function assertCasesAsync<T>(
   }
   finishCases(count, failures);
 }
+
+/** Check named synchronous callbacks without repeating the entry adapter. */
+export function assertNamedCases(
+  cases: Record<string, () => undefined>,
+): void {
+  assertCases(Object.entries(cases), ([name]) => name, ([, check]) => check());
+}
+
+/** Await named observations in order, including synchronous observations. */
+export async function assertNamedCasesAsync(
+  cases: Record<string, () => undefined | Promise<void>>,
+): Promise<void> {
+  await assertCasesAsync(
+    Object.entries(cases),
+    ([name]) => name,
+    async ([, check]) => {
+      await check();
+    },
+  );
+}
