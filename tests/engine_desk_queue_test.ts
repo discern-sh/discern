@@ -39,9 +39,7 @@ async function action(
   action: DeskAction,
   review?: (request: DeskReading) => Promise<boolean>,
 ): Promise<void> {
-  const initial = await statusResult(root, { all: true });
-  assert(initial.data !== undefined);
-  let data: StatusData = initial.data;
+  let data: StatusData | undefined;
   const choices = [path, action, "\x00back", "\x00quit"];
   const select = (): string => choices.shift() ?? "\x00quit";
   const code = await runDesk({ cliModel: TEST_CLI_MODEL }, {
@@ -54,7 +52,13 @@ async function action(
       return result;
     },
     application: (options) =>
-      scriptedDeskEffects(options, select, () => data, () => {}),
+      scriptedDeskEffects(options, select, () => {
+        assert(
+          data !== undefined,
+          "Desk must survey before displaying actions",
+        );
+        return data;
+      }, () => {}),
     select,
     screen: async (request) => {
       const apply = request.confirmation !== undefined &&
